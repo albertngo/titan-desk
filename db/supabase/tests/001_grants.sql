@@ -57,9 +57,9 @@ select is((select provolatile::text from pg_proc where oid = 'api.today()'::regp
 
 -- behaviour under the role, not just the catalog
 set local role anon;
-select throws_ok($$select cost from api.catalogue_public$$, '42703', 'anon: cost is not a column of catalogue_public');
-select throws_ok($$select * from api.catalogue_staff$$, '42501', 'anon: catalogue_staff is permission denied');
-select throws_ok($$select * from mirror.catalogue$$, '42501', 'anon: mirror.catalogue is permission denied');
+select throws_ok($$select cost from api.catalogue_public$$, '42703', null, 'anon: cost is not a column of catalogue_public');
+select throws_ok($$select * from api.catalogue_staff$$, '42501', null, 'anon: catalogue_staff is permission denied');
+select throws_ok($$select * from mirror.catalogue$$, '42501', null, 'anon: mirror.catalogue is permission denied');
 reset role;
 
 select * from finish();

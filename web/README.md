@@ -10,6 +10,10 @@ npm run dev
 npm run lint && npm run typecheck && npm test
 ```
 
+`package-lock.json` is not committed yet (the build container had no registry access). Run
+`npm install` once on a machine that does, commit the lockfile, and switch `ci.yml` back to
+`npm ci` with `cache: npm`.
+
 ## Structure
 
 | Path | What |
