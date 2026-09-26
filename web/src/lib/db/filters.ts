@@ -36,7 +36,10 @@ export function filtersFromSearchParams(params: URLSearchParams): Filters {
     raw[k] = v === null || v === "" || Number.isNaN(Number(v)) ? null : Number(v);
   }
   const parsed = FilterSchema.safeParse(raw);
-  return parsed.success ? parsed.data : EMPTY_FILTERS;
+  if (parsed.success) return parsed.data;
+  // an out-of-range value drops only its own field (back to the default); the rest of the URL survives
+  for (const issue of parsed.error.issues) delete raw[String(issue.path[0])];
+  return FilterSchema.parse(raw);
 }
 
 export function filtersToSearchParams(f: Filters): URLSearchParams {

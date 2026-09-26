@@ -30,7 +30,7 @@ describe("filters ⇄ URL", () => {
     const f = filtersFromSearchParams(p);
     expect(f.q).toBe("oak");
     expect(f.min).toBeNull();
-    expect(f.tone_max).toBeNull(); // out of range → whole parse falls back to defaults
+    expect(f.tone_max).toBeNull(); // out of range → that field alone falls back to its default
   });
 
   it("maps to RPC args with nulls for empty lists and page offsets", () => {
