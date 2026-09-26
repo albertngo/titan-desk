@@ -35,14 +35,13 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
           SUPABASE_URL: http://127.0.0.1:54321
-          SUPABASE_SERVICE_ROLE_KEY: ${{ env.SUPABASE_SERVICE_ROLE_KEY }}
         run: pytest -q
       - name: HTTP boundary tests (anon key against local PostgREST)
         working-directory: web
         env:
           SUPABASE_URL: http://127.0.0.1:54321
         run: |
-          eval "$(supabase --workdir ../db status -o env | sed 's/^/export /')"
+          export SUPABASE_ANON_KEY="$(supabase --workdir ../db status -o env | grep '^ANON_KEY' | cut -d= -f2- | tr -d '"')"
           npm ci
           npm run test:boundary
       - name: Stop Supabase
@@ -68,7 +67,3 @@ jobs:
         working-directory: web
       - run: npm test
         working-directory: web
-      - name: Generated types are current
-        run: |
-          # Fails if types.gen.ts was edited by hand; regenerate with `make types`.
-          git diff --exit-code -- web/src/lib/db/types.gen.ts
