@@ -32,6 +32,7 @@ include = ["titan_sync*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+filterwarnings = ["ignore:Image.Image.getdata is deprecated:DeprecationWarning"]
 markers = [
   "db: needs DATABASE_URL pointing at a database with migration 001 applied",
 ]

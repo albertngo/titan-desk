@@ -300,7 +300,18 @@ create unlogged table mirror.catalogue_stage (like mirror.catalogue excluding al
 alter table mirror.catalogue_stage
   drop column variant_group,
   drop column search_public,
-  drop column search_staff;
+  drop column search_staff,
+  drop column synced_at;
+-- The stage accepts anything the worker fetched; validation (blank/duplicate SKU) happens
+-- in SQL after COPY and writes sync_issues, so no NOT NULL constraints here.
+do $do$
+declare c record;
+begin
+  for c in select column_name from information_schema.columns
+            where table_schema = 'mirror' and table_name = 'catalogue_stage' and is_nullable = 'NO' loop
+    execute format('alter table mirror.catalogue_stage alter column %I drop not null', c.column_name);
+  end loop;
+end $do$;
 
 -- --------------------------------------------------------------------------
 -- 4. Images index: mirror.catalogue_images
@@ -336,6 +347,20 @@ create table mirror.catalogue_images (
 );
 create index catalogue_images_live_idx on mirror.catalogue_images (airtable_record_id) where deleted_at is null;
 create index catalogue_images_hash_idx on mirror.catalogue_images (source_hash);
+
+-- Attachments that were skipped (PDF, video, undecodable): remembered per attachment id so
+-- they are downloaded once, not on every run. Replacing the file in Airtable gives it a new id.
+create table mirror.catalogue_image_skips (
+  airtable_record_id     text not null,
+  kind                   text not null,
+  airtable_attachment_id text not null,
+  sku                    text,
+  filename               text,
+  reason                 text not null,
+  first_seen             timestamptz not null default now(),
+  last_seen              timestamptz not null default now(),
+  primary key (airtable_record_id, kind, airtable_attachment_id)
+);
 
 -- Storage buckets. Public: WebP variants behind the CDN. Private: untouched originals.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -399,7 +424,7 @@ create index sync_issues_run_idx on mirror.sync_issues (run_id);
 -- --------------------------------------------------------------------------
 -- 6. Grants on mirror.* for the worker; RLS with a single sync_worker policy
 -- --------------------------------------------------------------------------
-grant select, insert, update, delete on mirror.catalogue, mirror.catalogue_images,
+grant select, insert, update, delete on mirror.catalogue, mirror.catalogue_images, mirror.catalogue_image_skips,
   mirror.sync_state, mirror.sync_runs, mirror.sync_issues, mirror.settings to sync_worker;
 grant select, insert, update, delete, truncate on mirror.catalogue_stage to sync_worker;
 grant usage on all sequences in schema mirror to sync_worker;
@@ -408,7 +433,9 @@ alter default privileges for role postgres in schema mirror grant usage on seque
 do $do$
 declare t text;
 begin
-  foreach t in array array['catalogue', 'catalogue_stage', 'catalogue_images', 'sync_state', 'sync_runs', 'sync_issues', 'settings'] loop
+  -- catalogue_stage is left without RLS: Postgres rejects COPY FROM under row-level security,
+  -- and the stage is unlogged, private to schema mirror and granted to sync_worker only.
+  foreach t in array array['catalogue', 'catalogue_images', 'catalogue_image_skips', 'sync_state', 'sync_runs', 'sync_issues', 'settings'] loop
     execute format('alter table mirror.%I enable row level security', t);
     execute format('create policy sync_all on mirror.%I for all to sync_worker using (true) with check (true)', t);
   end loop;
