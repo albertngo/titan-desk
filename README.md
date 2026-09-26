@@ -41,6 +41,17 @@ make web-install && make web-dev                  # app (needs npm access)
 Environment variable names are in `.env.example`. Values live in GitHub Actions secrets and
 Vercel env, never in the repo.
 
+## Hosting
+
+- **Supabase Free** to start (`ca-central-1`; only the `api` schema exposed). The mirror is
+  tens of MB and rebuildable from Airtable, the 30-minute sync keeps the project from being
+  paused for inactivity, and backups are unnecessary for a mirror.
+- **Upgrade to Pro when image storage grows.** Originals are kept forever in the private
+  `catalogue-originals` bucket, so the Free plan's 1 GB storage cap is the trigger (roughly
+  300–500 photos with originals). The "storage footprint" query in `db/README.md` is the
+  number to watch; upgrade when it approaches 1 GB.
+- **Vercel** project rooted at `web/`, function region `yul1` (Montréal).
+
 ## Runbook
 
 See `db/README.md` (grants, accepted advisor warnings, dashboard queries) and

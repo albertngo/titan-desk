@@ -110,7 +110,7 @@ select sku, product_name from api.catalogue_staff where active and hero is null;
 -- orphaned originals by size (kept on purpose; review occasionally)
 select count(*), pg_size_pretty(sum(original_bytes)) from mirror.catalogue_images where orphaned_at is not null;
 
--- storage footprint
+-- storage footprint (the "when to upgrade" number: Supabase Free caps Storage at 1 GB)
 select count(*) images, pg_size_pretty(sum(original_bytes)) originals from mirror.catalogue_images where deleted_at is null;
 
 -- search latency p95 (client-measured)
@@ -130,3 +130,8 @@ select percentile_cont(0.95) within group (order by took_ms) from api.search_log
 - **Sign-up domain list**: `update mirror.settings set value = 'titanflooring.ca' where key = 'allowed_email_domains'` (empty = not enforced here; the Azure tenant pin still applies).
 - **Airtable link constants**: `mirror.settings` keys `airtable_base_id`, `airtable_table_id` feed `airtable_url`.
 - **Re-encode images**: bump `ENCODER_VERSION` in `sync/titan_sync/images.py`; URLs change (`?v=`) so caches roll.
+- **When to upgrade the Supabase plan**: the project starts on Free (decision 2026-09-26). The
+  database stays tens of MB; Storage is what grows, because originals are retained forever.
+  Run the "storage footprint" query above (originals + roughly 15% for the WebP variants)
+  and move to Pro when the total approaches the Free plan's 1 GB Storage cap, or earlier if
+  the sync stops for a week and the project is paused for inactivity.
