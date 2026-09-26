@@ -1,12 +1,13 @@
 /**
- * Types for the `api` schema (views + RPC). Hand-maintained to match migration 001; regenerate
+ * Types for the `api` schema (views + RPC). Hand-maintained to match migration 001 (type aliases,
+ * not interfaces: supabase-js needs the implicit index signature); regenerate
  * with `make types` (supabase gen types --schema api) once a Supabase project is available,
  * then keep the NOT NULL overrides below: generated view types are all-nullable.
  */
 
 export type ImageKind = "swatch" | "room" | "detail";
 
-export interface ImageVariant {
+export type ImageVariant = {
   kind: ImageKind;
   sort: number;
   w: number | null;
@@ -16,9 +17,9 @@ export interface ImageVariant {
   card: string | null;
   full: string | null;
   low_res?: boolean; // staff view only
-}
+};
 
-export interface Hero {
+export type Hero = {
   kind: ImageKind;
   w: number | null;
   h: number | null;
@@ -27,24 +28,24 @@ export interface Hero {
   card: string | null;
   full: string | null;
   low_res?: boolean;
-}
+};
 
-export interface PairRef {
+export type PairRef = {
   sku: string;
   product_name: string | null;
   active?: boolean;
-}
+};
 
-export interface VariantRef {
+export type VariantRef = {
   sku: string;
   product_name: string | null;
   grade: string | null;
   variant_label: string | null;
   active?: boolean;
-}
+};
 
 /** Columns shared by api.catalogue_public and api.catalogue_staff. */
-export interface CataloguePublicRow {
+export type CataloguePublicRow = {
   sku: string;
   product_name: string | null;
   brand: string | null;
@@ -98,10 +99,10 @@ export interface CataloguePublicRow {
   variants: VariantRef[] | null;
   images: ImageVariant[] | null;
   hero: Hero | null;
-}
+};
 
 /** api.catalogue_staff = public columns + the staff tier. */
-export interface CatalogueStaffRow extends CataloguePublicRow {
+export type CatalogueStaffRow = CataloguePublicRow & {
   supplier: string | null;
   supplier_sku: string | null;
   cost: number | null;
@@ -128,9 +129,9 @@ export interface CatalogueStaffRow extends CataloguePublicRow {
   style_tags_status: string | null;
   style_tags_evidence: string | null;
   airtable_url: string;
-}
+};
 
-export interface ParsedQuery {
+export type ParsedQuery = {
   free_text: string;
   width_in: number | null;
   thickness_mm: number | null;
@@ -143,10 +144,10 @@ export interface ParsedQuery {
   category_in: string[] | null;
   price_min: number | null;
   price_max: number | null;
-}
+};
 
 /** One row of api.search_staff(). */
-export interface SearchHit {
+export type SearchHit = {
   sku: string;
   product_name: string | null;
   brand: string | null;
@@ -162,9 +163,9 @@ export interface SearchHit {
   total_count: number;
   rank: number;
   parsed: ParsedQuery;
-}
+};
 
-export interface SearchArgs {
+export type SearchArgs = {
   q?: string;
   f_supplier?: string[] | null;
   f_category?: string[] | null;
@@ -182,28 +183,28 @@ export interface SearchArgs {
   f_busyness?: string[] | null;
   lim?: number;
   off?: number;
-}
+};
 
-export interface FacetRow {
+export type FacetRow = {
   facet: "supplier" | "category" | "undertone" | "texture" | "busyness" | "style";
   value: string;
   n: number;
-}
+};
 
-export interface SyncStatusRow {
+export type SyncStatusRow = {
   last_success_at: string | null;
   last_started_at: string | null;
   last_status: string | null;
   last_mode: string | null;
   rows: number;
-}
+};
 
-export interface SearchLogInsert {
+export type SearchLogInsert = {
   query: string;
   filters?: Record<string, unknown> | null;
   result_count?: number | null;
   took_ms?: number | null;
-}
+};
 
 /** supabase-js Database shape for `createClient<Database, "api">`. */
 export interface Database {
