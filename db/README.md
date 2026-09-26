@@ -23,8 +23,8 @@ that built-in default, so migration 001 revokes it per function (§12) and **any
 
 | Role | Gets |
 |---|---|
-| `anon` (public, website agent) | SELECT `api.catalogue_public`; EXECUTE `api.search_public`, `api.parse_query`, `api.today`; `statement_timeout = 3s` |
-| `authenticated` (staff, M365) | the above + SELECT `catalogue_staff`, `catalogue_facets`, `sync_status`; EXECUTE `search_staff`; INSERT `search_log` (own uid only; no SELECT) |
+| `anon` (public, website agent) | SELECT `api.catalogue_public`; EXECUTE `api.search_public`, `api.parse_query`, `api.today`; USAGE on `mirror` + EXECUTE on its pure helpers (`price_unit`, `variant_label`, `image_url`, `is_public`) because the views call them as the caller; no privilege on any `mirror` table; `statement_timeout = 3s` |
+| `authenticated` (staff, M365) | the above (incl. the `mirror` helper access) + SELECT `catalogue_staff`, `catalogue_facets`, `sync_status`; EXECUTE `search_staff`; INSERT `search_log` (own uid only; no SELECT) |
 | `sync_worker` (Python worker) | USAGE on `mirror`; SELECT/INSERT/UPDATE/DELETE on its tables; TRUNCATE on the stage. Created NOLOGIN; Albert runs `alter role sync_worker login password '…'` once in the SQL editor |
 | `supabase_auth_admin` | EXECUTE `mirror.hook_restrict_signup` (Before User Created hook) |
 

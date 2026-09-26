@@ -1,12 +1,13 @@
 -- 001: the tier boundary as privileges. Every object in api/mirror is enumerated.
 begin;
-select plan(32);
+select plan(34);
 
 -- schema usage
 select ok(has_schema_privilege('anon', 'api', 'USAGE'),            'anon has USAGE on api');
 select ok(has_schema_privilege('authenticated', 'api', 'USAGE'),   'authenticated has USAGE on api');
-select ok(not has_schema_privilege('anon', 'mirror', 'USAGE'),     'anon has no USAGE on mirror');
-select ok(not has_schema_privilege('authenticated', 'mirror', 'USAGE'), 'authenticated has no USAGE on mirror');
+-- USAGE on mirror is name resolution only (the views' helper functions run as the caller); tables stay denied below
+select ok(has_schema_privilege('anon', 'mirror', 'USAGE'),         'anon has USAGE on mirror (helper functions only)');
+select ok(has_schema_privilege('authenticated', 'mirror', 'USAGE'), 'authenticated has USAGE on mirror (helper functions only)');
 select ok(has_schema_privilege('sync_worker', 'mirror', 'USAGE'),  'sync_worker has USAGE on mirror');
 select ok(not has_schema_privilege('sync_worker', 'api', 'USAGE'), 'sync_worker has no USAGE on api');
 
@@ -57,9 +58,13 @@ select is((select provolatile::text from pg_proc where oid = 'api.today()'::regp
 
 -- behaviour under the role, not just the catalog
 set local role anon;
+select lives_ok($$select * from api.catalogue_public limit 5$$, 'anon: every column of catalogue_public is readable (helper functions resolve)');
 select throws_ok($$select cost from api.catalogue_public$$, '42703', null, 'anon: cost is not a column of catalogue_public');
 select throws_ok($$select * from api.catalogue_staff$$, '42501', null, 'anon: catalogue_staff is permission denied');
 select throws_ok($$select * from mirror.catalogue$$, '42501', null, 'anon: mirror.catalogue is permission denied');
+reset role;
+set local role authenticated;
+select lives_ok($$select * from api.catalogue_staff limit 5$$, 'authenticated: every column of catalogue_staff is readable');
 reset role;
 
 select * from finish();

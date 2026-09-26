@@ -26,6 +26,10 @@ create schema if not exists mirror;
 create schema if not exists api;
 
 revoke all on schema mirror from public, anon, authenticated;
+-- USAGE (name resolution) only: the views call mirror.price_unit/variant_label/image_url/is_public as the
+-- invoking API role, and Postgres checks schema USAGE on the caller for that. No table privileges are
+-- granted, RLS is on every mirror table, and PostgREST does not expose the schema (test 001, boundary test).
+grant usage on schema mirror to anon, authenticated;
 grant usage on schema api to anon, authenticated, service_role;
 
 -- Postgres grants EXECUTE on every new function to PUBLIC by default, and a per-schema
