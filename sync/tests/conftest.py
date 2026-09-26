@@ -50,7 +50,7 @@ def db() -> Iterator[Db]:
         pytest.skip("no database")
     d = Db(DB_URL)
     with d.conn.cursor() as cur:
-        for t in ("catalogue_images", "sync_issues", "sync_runs", "sync_state", "catalogue"):
+        for t in ("catalogue_images", "catalogue_image_skips", "sync_issues", "sync_runs", "sync_state", "catalogue"):
             cur.execute(f"delete from mirror.{t}")
     d.commit()
     yield d
