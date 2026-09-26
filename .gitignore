@@ -1,0 +1,32 @@
+# secrets and local env
+.env
+.env.*
+!.env.example
+
+# python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+sync/.coverage
+sync/dist/
+*.egg-info/
+
+# node / next
+web/node_modules/
+web/.next/
+web/out/
+web/.vercel/
+web/public/sw.js
+web/public/sw.js.map
+web/public/swe-worker-*.js
+web/tsconfig.tsbuildinfo
+
+# supabase local
+db/supabase/.branches/
+db/supabase/.temp/
+db/supabase/.env
+
+# local harness
+db/.localpg/
+sync/tests/.tmp/

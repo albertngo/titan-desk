@@ -1,0 +1,41 @@
+name: Sync (images)
+
+on:
+  workflow_run:
+    workflows: ["Sync (incremental)", "Sync (full)"]
+    types: [completed]
+  workflow_dispatch:
+
+concurrency:
+  group: sync
+  cancel-in-progress: false
+
+jobs:
+  images:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: sync/pyproject.toml
+      - run: pip install -e sync
+      - name: Drain image backlog (300 per run)
+        working-directory: sync
+        env:
+          AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SYNC_IMAGE_BATCH: "300"
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: python -m titan_sync.run --mode images
+      - name: Skipped-file report
+        if: always()
+        working-directory: sync
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python -m titan_sync.run --mode report --since-run >> "$GITHUB_STEP_SUMMARY"

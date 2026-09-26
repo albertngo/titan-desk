@@ -1,0 +1,28 @@
+name: DB migrate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "db/supabase/migrations/**"
+      - ".github/workflows/db-migrate.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: db-migrate
+  cancel-in-progress: false
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: supabase --workdir db link --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
+      - run: supabase --workdir db db push

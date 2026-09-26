@@ -1,0 +1,44 @@
+name: Sync (full)
+
+on:
+  schedule:
+    # 03:15 Toronto time, every night. Native IANA support: no DST drift.
+    - cron: "15 3 * * *"
+      timezone: "America/Toronto"
+  workflow_dispatch:
+
+concurrency:
+  group: sync
+  cancel-in-progress: false
+
+jobs:
+  full:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      GITHUB_RUN_ID: ${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: sync/pyproject.toml
+      - run: pip install -e sync
+      - name: Full resync (with deletion guard)
+        working-directory: sync
+        run: python -m titan_sync.run --mode full
+      - name: Images
+        working-directory: sync
+        run: python -m titan_sync.run --mode images
+      - name: Purge variants of long-deleted images (originals are never purged)
+        working-directory: sync
+        run: python -m titan_sync.run --mode purge
+      - name: Run report
+        if: always()
+        working-directory: sync
+        run: python -m titan_sync.run --mode report --since-run >> "$GITHUB_STEP_SUMMARY"

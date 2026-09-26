@@ -1,0 +1,72 @@
+# Supabase project configuration for titan-desk.
+# Run the CLI from the repo root with `supabase --workdir db <command>`.
+project_id = "titan-desk"
+
+[api]
+enabled = true
+port = 54321
+# Only the `api` schema is exposed. `public` is intentionally NOT exposed:
+# the mirror lives in `mirror` (private) and consumers read `api.*` views/functions.
+schemas = ["api"]
+extra_search_path = ["public", "extensions"]
+max_rows = 200
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[db.pooler]
+enabled = false
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[studio]
+enabled = true
+port = 54323
+
+[inbucket]
+enabled = false
+
+[storage]
+enabled = true
+file_size_limit = "25MiB"
+
+[storage.buckets.catalogue-images]
+public = true
+file_size_limit = "25MiB"
+allowed_mime_types = ["image/webp"]
+objects_path = ""
+
+[storage.buckets.catalogue-originals]
+public = false
+file_size_limit = "25MiB"
+allowed_mime_types = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "image/tiff"]
+objects_path = ""
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000/auth/callback"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+enable_signup = true
+
+[auth.email]
+enable_signup = false
+
+[auth.external.azure]
+enabled = true
+client_id = "env(SUPABASE_AUTH_AZURE_CLIENT_ID)"
+secret = "env(SUPABASE_AUTH_AZURE_SECRET)"
+# Tenant-pinned authority, e.g. https://login.microsoftonline.com/<tenant-id>
+url = "env(SUPABASE_AUTH_AZURE_TENANT_URL)"
+
+[auth.hook.before_user_created]
+enabled = true
+uri = "pg-functions://postgres/mirror/hook_restrict_signup"
+
+[analytics]
+enabled = false

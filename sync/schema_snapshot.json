@@ -1,0 +1,373 @@
+{
+  "base_id": "appWHOVZ0QCS0xQ3M",
+  "table_id": "tblfLXD3zkSdNQGbS",
+  "table_name": "Master Flooring Catalogue",
+  "captured_at": "2026-09-26",
+  "fields": [
+    {
+      "id": "fldx3byCOht5HbKmH",
+      "name": "SKU",
+      "type": "singleLineText"
+    },
+    {
+      "id": "fld67650y8QClqoMc",
+      "name": "Effective Date",
+      "type": "date"
+    },
+    {
+      "id": "fldPSbURaP3wp0Tce",
+      "name": "Product name",
+      "type": "singleLineText"
+    },
+    {
+      "id": "fldUnNZptVhSQYp4h",
+      "name": "Brand",
+      "type": "singleLineText"
+    },
+    {
+      "id": "fldRZJ5JW4G6Yig8x",
+      "name": "Supplier",
+      "type": "singleSelect"
+    },
+    {
+      "id": "fldLOrMqh4aBftjtu",
+      "name": "Supplier SKU",
+      "type": "singleLineText"
+    },
+    {
+      "id": "fldQhbI35Ng2ZxNKL",
+      "name": "Lightspeed ID",
+      "type": "singleLineText"
+    },
+    {
+      "id": "fldPV7HD44LsBZbTa",
+      "name": "LS Handle / Parent ID",
+      "type": "singleLineText"
+    },
+    {
+      "id": "fldL8miCdB55TWmfJ",
+      "name": "Collection",
+      "type": "singleLineText"
+    },
+    {
+      "id": "fld1rKmaRWtUxJYdi",
+      "name": "Product type",
+      "type": "singleSelect"
+    },
+    {
+      "id": "fldPPKZFhN91SDDbI",
+      "name": "Category",
+      "type": "singleSelect"
+    },
+    {
+      "id": "fldIM2DCPpSon7A3J",
+      "name": "Material type",
+      "type": "singleSelect"
+    },
+    {
+      "id": "fldvWLfeSvsMnd1vL",
+      "name": "Species",
+      "type": "singleSelect"
+    },
+    {
+      "id": "fldNTc3qponIjsNLV",
+      "name": "Colour / tone",
+      "type": "singleSelect"
+    },
+    {
+      "id": "fld42aGNM67nKH2hp",
+      "name": "Grade",
+      "type": "singleSelect"
+    },
+    {
+      "id": "fldbUK6gN4FrNXVXc",
+      "name": "Layout pattern",
+      "type": "singleSelect"
+    },
+    {
+      "id": "fldb9VH0GrYL2y8OK",
+      "name": "Width (in)",
+      "type": "number"
+    },
+    {
+      "id": "fldnx613WYktJTVpT",
+      "name": "Length",
+      "type": "singleLineText"
+    },
+    {
+      "id": "fldEevOqBS3QngAGu",
+      "name": "Thickness (mm)",
+      "type": "number"
+    },
+    {
+      "id": "fldM0h6glmExHSWwH",
+      "name": "Wear layer (mil)",
+      "type": "number"
+    },
+    {
+      "id": "fldT6pX7eAeneU6Ez",
+      "name": "Veneer / top layer (mm)",
+      "type": "number"
+    },
+    {
+      "id": "fldyOeJ5T7ZQWpplR",
+      "name": "Veneer cut type",
+      "type": "singleSelect"
+    },
+    {
+      "id": "fld6d4PhPa1yZBKoZ",
+      "name": "AC rating",
+      "type": "singleSelect"
+    },
+    {
+      "id": "fldo6Em81uoydl9Jj",
+      "name": "Finish type",
+      "type": "singleSelect"
+    },
+    {
+      "id": "fldAxs1u4wam2TuNe",
+      "name": "Install profile",
+      "type": "singleSelect"
+    },
+    {
+      "id": "fldRbQwtrXcKNYZo4",
+      "name": "Install method",
+      "type": "singleSelect"
+    },
+    {
+      "id": "fldbcp5sjjcrniWaw",
+      "name": "Locking system",
+      "type": "singleLineText"
+    },
+    {
+      "id": "fldVhtPuaLy2v6nXS",
+      "name": "Underpad included",
+      "type": "checkbox"
+    },
+    {
+      "id": "fld66Qq8UteH8kNeh",
+      "name": "Underpad type",
+      "type": "singleSelect"
+    },
+    {
+      "id": "fld14cOYVWMtOS1Wv",
+      "name": "IIC rating",
+      "type": "number"
+    },
+    {
+      "id": "fldEAl2eJfz2Lr4zY",
+      "name": "STC rating",
+      "type": "number"
+    },
+    {
+      "id": "fldex3pTEVhot4rsN",
+      "name": "Tile format",
+      "type": "singleSelect"
+    },
+    {
+      "id": "fld5BEjv1bqRdtNtw",
+      "name": "Weight per piece (kg)",
+      "type": "number"
+    },
+    {
+      "id": "fld3eJsjlV9ZEdHLg",
+      "name": "Certifications",
+      "type": "multipleSelects"
+    },
+    {
+      "id": "flduJqOhE4YuX3Bmq",
+      "name": "Cost/unit",
+      "type": "currency"
+    },
+    {
+      "id": "fldpH6d7GlytLLh7Q",
+      "name": "Retail price/unit",
+      "type": "currency"
+    },
+    {
+      "id": "fldBXJ01HkGU9j0jc",
+      "name": "MAP price ($/sf)",
+      "type": "currency"
+    },
+    {
+      "id": "fldbYjaqpOY2XQWhY",
+      "name": "Pallet price ($/sf)",
+      "type": "currency"
+    },
+    {
+      "id": "fldB21dDwkG60NEAS",
+      "name": "Promo cost ($/sf)",
+      "type": "currency"
+    },
+    {
+      "id": "fldluA0eeTCwfton7",
+      "name": "Promo end date",
+      "type": "date"
+    },
+    {
+      "id": "fldL7kf3jwS67tBdc",
+      "name": "Volume pricing notes",
+      "type": "multilineText"
+    },
+    {
+      "id": "fldow6H8DTr7jg5nb",
+      "name": "Price last changed by",
+      "type": "singleSelect"
+    },
+    {
+      "id": "fldFXyeHxIVYjWM4R",
+      "name": "Box size (sf)",
+      "type": "number"
+    },
+    {
+      "id": "fldjznD2AfUlFXqan",
+      "name": "Pieces per box",
+      "type": "number"
+    },
+    {
+      "id": "fldxOeq7wkcuDZBgG",
+      "name": "Boxes per skid",
+      "type": "number"
+    },
+    {
+      "id": "fldTjl8DwIP7DAnBE",
+      "name": "Pieces per pallet",
+      "type": "number"
+    },
+    {
+      "id": "fld0sft4ZRTMHt5Hi",
+      "name": "Stock status",
+      "type": "singleSelect"
+    },
+    {
+      "id": "fldPsKISM495IjaWU",
+      "name": "Active",
+      "type": "checkbox"
+    },
+    {
+      "id": "fldzCXqsqj6kwSiOk",
+      "name": "Waterproof",
+      "type": "checkbox"
+    },
+    {
+      "id": "fldtm2O7rcdJ52sBy",
+      "name": "Pet friendly",
+      "type": "checkbox"
+    },
+    {
+      "id": "fld9QVoh2IdPqTGlh",
+      "name": "Radiant heat compatible",
+      "type": "checkbox"
+    },
+    {
+      "id": "fldoFFxH1f9vXTqxw",
+      "name": "Traffic rating",
+      "type": "singleSelect"
+    },
+    {
+      "id": "fldL3n3AxbsUiWhEz",
+      "name": "Suitable rooms",
+      "type": "multipleSelects"
+    },
+    {
+      "id": "fldpDLLqVkhMrU9QN",
+      "name": "Residential warranty (yrs)",
+      "type": "number"
+    },
+    {
+      "id": "fldkMjKlwCoGWNPbF",
+      "name": "Commercial warranty (yrs)",
+      "type": "number"
+    },
+    {
+      "id": "fldm06jdSIM9o3PXI",
+      "name": "Salesperson notes",
+      "type": "multilineText"
+    },
+    {
+      "id": "fldhzmVj2usNnBNWM",
+      "name": "Pairs well with",
+      "type": "singleLineText"
+    },
+    {
+      "id": "fldvl6KE266usFJAt",
+      "name": "Price History Log",
+      "type": "singleLineText"
+    },
+    {
+      "id": "fldEmZtBFeNQcVa0I",
+      "name": "Price List URL",
+      "type": "url"
+    },
+    {
+      "id": "fldK1CPhmJ8YDf5ci",
+      "name": "Internal notes",
+      "type": "multilineText"
+    },
+    {
+      "id": "fldddnDXunopu1B1v",
+      "name": "Attachments",
+      "type": "multipleAttachments"
+    },
+    {
+      "id": "fldgAL4jzZVDmn4qY",
+      "name": "Attachment Summary",
+      "type": "aiText"
+    },
+    {
+      "id": "fldkQY4YQHpwTQUnX",
+      "name": "Price History Log v2",
+      "type": "multipleRecordLinks"
+    },
+    {
+      "id": "fldbRlqkxa7hp7quH",
+      "name": "Swatch images",
+      "type": "multipleAttachments"
+    },
+    {
+      "id": "fldrOvSEzOoxyNSpC",
+      "name": "Undertone",
+      "type": "singleSelect"
+    },
+    {
+      "id": "fldjlGQSOwPGJfEcA",
+      "name": "Tone depth",
+      "type": "rating"
+    },
+    {
+      "id": "fldCH08dVkm48BoiD",
+      "name": "Texture",
+      "type": "singleSelect"
+    },
+    {
+      "id": "fldMN7qErzn39NFcY",
+      "name": "Style",
+      "type": "multipleSelects"
+    },
+    {
+      "id": "fldRMUIPEXOxvp7Xk",
+      "name": "Busyness",
+      "type": "singleSelect"
+    },
+    {
+      "id": "fldFEZIuna04JLFCr",
+      "name": "Style tags status",
+      "type": "singleSelect"
+    },
+    {
+      "id": "flduKhIN0PBEmnOMJ",
+      "name": "Style tags evidence",
+      "type": "multilineText"
+    },
+    {
+      "id": "fldcB1MQVqcPf6lKY",
+      "name": "Room scene images",
+      "type": "multipleAttachments"
+    },
+    {
+      "id": "fldRH7GrND9w10KWH",
+      "name": "Detail images",
+      "type": "multipleAttachments"
+    }
+  ]
+}
