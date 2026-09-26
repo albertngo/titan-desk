@@ -1,8 +1,10 @@
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 
-export default [
+const config = [
   ...nextVitals,
   ...nextTs,
   { ignores: ["public/sw.js", ".next/**", "node_modules/**"] },
 ];
+
+export default config;

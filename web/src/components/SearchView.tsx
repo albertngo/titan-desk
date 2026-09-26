@@ -23,6 +23,11 @@ export function SearchView() {
   const [filters, setFilters] = useState<Filters>(initial);
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [page, setPage] = useState(0);
+  // any filter change starts again from the first page (the debounced effect below runs the query)
+  const applyFilters = useCallback((f: Filters) => {
+    setPage(0);
+    setFilters(f);
+  }, []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [facets, setFacets] = useState<Facets | null>(null);
@@ -79,7 +84,6 @@ export function SearchView() {
 
   // debounce: run the settled query, not every keystroke
   useEffect(() => {
-    setPage(0);
     const id = setTimeout(() => void run(filters, 0, false), DEBOUNCE_MS);
     return () => clearTimeout(id);
   }, [filters, run]);
@@ -99,7 +103,7 @@ export function SearchView() {
             enterKeyHint="search"
             placeholder="Search products, SKUs, “6in click on promo”…"
             value={filters.q}
-            onChange={(e) => setFilters({ ...filters, q: e.target.value })}
+            onChange={(e) => applyFilters({ ...filters, q: e.target.value })}
             className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-base shadow-sm outline-none focus:border-zinc-500"
           />
           <button
@@ -147,7 +151,7 @@ export function SearchView() {
         <FilterSheet
           filters={filters}
           facets={facets}
-          onChange={setFilters}
+          onChange={applyFilters}
           onClose={() => setSheetOpen(false)}
         />
       )}

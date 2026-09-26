@@ -22,9 +22,12 @@ export function SyncStatus() {
 
   const stale = hoursSince(status?.last_success_at ?? null) > STALE_HOURS;
   const running = status?.last_status === "running";
-  const recentlyStarted = status?.last_started_at ? Date.now() - new Date(status.last_started_at).getTime() < COOLDOWN_MS : false;
 
   async function syncNow() {
+    if (status?.last_started_at && Date.now() - new Date(status.last_started_at).getTime() < COOLDOWN_MS) {
+      setMsg("A sync started less than 5 minutes ago");
+      return;
+    }
     setBusy(true);
     setMsg(null);
     try {
@@ -47,7 +50,7 @@ export function SyncStatus() {
       <button
         type="button"
         onClick={syncNow}
-        disabled={busy || recentlyStarted}
+        disabled={busy}
         className="rounded border border-zinc-300 bg-white px-2 py-0.5 disabled:opacity-50"
       >
         Sync now
