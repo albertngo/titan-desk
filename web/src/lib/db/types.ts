@@ -120,6 +120,11 @@ export interface CatalogueStaffRow extends CataloguePublicRow {
   salesperson_notes: string | null;
   internal_notes: string | null;
   price_list_url: string | null;
+  promo_list_url: string | null;
+  rep_cost: number | null;
+  rep_cost_end_date: string | null;
+  rep_cost_note: string | null;
+  rep_cost_active: boolean;
   style_tags_status: string | null;
   style_tags_evidence: string | null;
   airtable_url: string;

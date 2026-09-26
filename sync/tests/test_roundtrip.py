@@ -23,6 +23,8 @@ def _seed(source, n=6):
     for i in range(n):
         source.add(f"rec{i}", modified=base + timedelta(hours=i), sku=f"T-SKU-{i:03d}", product_name=f"Product {i}",
                    supplier="VIDAR", category="LVP", cost=1 + i, retail_price=2 + i, active=True, waterproof=(i % 2 == 0),
+                   rep_cost=0.5 + i, rep_cost_end_date=("2099-01-01" if i == 0 else None), rep_cost_note=f"rep {i}",
+                   promo_list_url=f"https://sharepoint.example/promo/{i}",
                    swatch_images=[{"id": f"att{i}", "url": f"http://img/{i}", "filename": f"{i}.jpg", "type": "image/jpeg", "size": 1}])
 
 
@@ -34,6 +36,10 @@ def test_full_then_incremental_then_delete(db, reader, source, settings):
     assert len(rows) == 6
     assert rows[0][0] == "T-SKU-000" and rows[0][2] == Decimal("1.00") and rows[0][3] is True
     assert rows[0][4][0]["id"] == "att0"
+    extra = _q(db, "select rep_cost, rep_cost_end_date, rep_cost_note, promo_list_url from mirror.catalogue where sku = 'T-SKU-001'")[0]
+    assert extra == (Decimal("1.50"), None, "rep 1", "https://sharepoint.example/promo/1")
+    staff = reader.execute("select rep_cost_active, promo_list_url from api.catalogue_staff where sku in ('T-SKU-000','T-SKU-001') order by sku").fetchall()
+    assert staff == [(True, "https://sharepoint.example/promo/0"), (True, "https://sharepoint.example/promo/1")]
     assert reader.execute("select count(*) from api.catalogue_public").fetchone()[0] == 6
     assert db.get_watermark() is not None
     run = _q(db, "select mode, status, fetched, inserted from mirror.sync_runs order by id desc limit 1")[0]

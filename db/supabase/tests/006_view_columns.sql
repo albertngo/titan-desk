@@ -36,7 +36,9 @@ select is(
     'supplier','supplier_sku','cost','map_price','pallet_price','promo_cost','promo_end_date',
     'volume_pricing_notes','last_price_update','price_last_changed_by','price_stale','promo_open_ended',
     'boxes_per_skid','pieces_per_pallet','active',
-    'salesperson_notes','internal_notes','price_list_url','style_tags_status','style_tags_evidence','airtable_url',
+    'salesperson_notes','internal_notes','price_list_url',
+    'promo_list_url','rep_cost','rep_cost_end_date','rep_cost_note','rep_cost_active',
+    'style_tags_status','style_tags_evidence','airtable_url',
     'pairs_well_with','variants','images','hero','search_staff'
   ]::text[],
   'api.catalogue_staff columns are exactly public + staff tiers');

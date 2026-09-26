@@ -34,7 +34,7 @@ that built-in default, so migration 001 revokes it per function (§12) and **any
 `sku, product_name, brand, collection, product_type, category, material_type, species, colour_tone, grade, layout_pattern, width_in, length, thickness_mm, wear_layer_mil, veneer_mm, veneer_cut_type, ac_rating, finish_type, install_profile, install_method, locking_system, underpad_included, underpad_type, iic_rating, stc_rating, tile_format, weight_per_piece_kg, certifications, retail_price, price_on_request, price_unit, promo_active, box_size_sf, pieces_per_box, stock_status, coming_soon, waterproof, pet_friendly, radiant_heat_compatible, traffic_rating, suitable_rooms, residential_warranty_yrs, commercial_warranty_yrs, undertone, tone_depth, texture, style, busyness, pairs_well_with, variants, images, hero, search_public`
 
 **Staff only** (added in `api.catalogue_staff`):
-`supplier, supplier_sku, cost, map_price, pallet_price, promo_cost, promo_end_date, volume_pricing_notes, last_price_update, price_last_changed_by, price_stale, promo_open_ended, boxes_per_skid, pieces_per_pallet, active, salesperson_notes, internal_notes, price_list_url, style_tags_status, style_tags_evidence, airtable_url, search_staff` (+ `low_res` inside `images`/`hero`)
+`supplier, supplier_sku, cost, map_price, pallet_price, promo_cost, promo_end_date, volume_pricing_notes, last_price_update, price_last_changed_by, price_stale, promo_open_ended, boxes_per_skid, pieces_per_pallet, active, salesperson_notes, internal_notes, price_list_url, promo_list_url, rep_cost, rep_cost_end_date, rep_cost_note, rep_cost_active, style_tags_status, style_tags_evidence, airtable_url, search_staff` (+ `low_res` inside `images`/`hero`)
 
 **System only** (base table, in neither view):
 `airtable_record_id, airtable_created_at, airtable_modified_at, synced_at, lightspeed_id, ls_handle, variant_group, image_attachments`
@@ -55,6 +55,7 @@ supplier code, brand often equals supplier). The tier protects pricing, not who 
 | `price_on_request` | retail NULL or 0 (STONE pieces by rule, oak treads awaiting markup) |
 | `price_unit` | `piece` when `category = 'STONE'` or `product_type <> 'Flooring'`, else `sf` (heuristic; edit `mirror.price_unit`) |
 | `promo_active` | strict: `promo_cost IS NOT NULL AND promo_end_date >= today` (Toronto); NULL end date → false; staff see `promo_open_ended` |
+| `rep_cost_active` | staff only: `rep_cost IS NOT NULL AND (rep_cost_end_date IS NULL OR rep_cost_end_date >= today)`; NULL end date = ongoing (the opposite of promos, per the Airtable field description) |
 | `price_stale` | `last_price_update IS NULL OR < today − 90` |
 | `coming_soon` | `salesperson_notes` starts with "COMING SOON" (boolean only; notes stay staff-only) |
 | `variants` | rows sharing `upper(ls_handle)`, self excluded; public view only shows public siblings; `variant_label` = grade, else size, else finish, else name |

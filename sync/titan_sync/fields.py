@@ -87,6 +87,11 @@ _SPECS: list[tuple[Any, ...]] = [
     ("pairs_well_with", "pairs_well_with", "text", TIER_PUBLIC, "Pairs well with"),
     ("price_list_url", "price_list_url", "url", TIER_STAFF, "Price List URL"),
     ("internal_notes", "internal_notes", "text", TIER_STAFF, "Internal notes"),
+    # pricing extras added 2026-09-26 (rep rates and promo-list provenance): staff tier
+    ("promo_list_url", "promo_list_url", "url", TIER_STAFF, "Promo List URL"),
+    ("rep_cost", "rep_cost", "currency", TIER_STAFF, "Rep cost ($/sf)"),
+    ("rep_cost_end_date", "rep_cost_end_date", "date", TIER_STAFF, "Rep cost end date"),
+    ("rep_cost_note", "rep_cost_note", "text", TIER_STAFF, "Rep cost note"),
     # images: three attachment fields → mirror.catalogue.image_attachments (system) → --mode images
     ("swatch_images", "images:swatch", "attachments", TIER_SYSTEM, "Swatch images"),
     ("room_scene_images", "images:room", "attachments", TIER_SYSTEM, "Room scene images"),

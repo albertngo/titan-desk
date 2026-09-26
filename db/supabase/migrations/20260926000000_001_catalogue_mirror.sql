@@ -254,6 +254,12 @@ create table mirror.catalogue (
   internal_notes       text,
   price_list_url       text,
 
+  -- pricing extras (Airtable, 2026-09-26): rep rates and the promo sheet that set the promo fields. Staff tier.
+  promo_list_url       text,
+  rep_cost             numeric(10,2),
+  rep_cost_end_date    date,                 -- NULL = ongoing (unlike promos)
+  rep_cost_note        text,
+
   -- design / style (Airtable fields 58–64)
   undertone            text,
   tone_depth           smallint check (tone_depth between 1 and 5),
@@ -536,6 +542,8 @@ select
   (c.promo_cost is not null and c.promo_end_date is null)          as promo_open_ended,
   c.boxes_per_skid, c.pieces_per_pallet, c.active,
   c.salesperson_notes, c.internal_notes, c.price_list_url,
+  c.promo_list_url, c.rep_cost, c.rep_cost_end_date, c.rep_cost_note,
+  coalesce(c.rep_cost is not null and (c.rep_cost_end_date is null or c.rep_cost_end_date >= api.today()), false) as rep_cost_active,
   c.style_tags_status, c.style_tags_evidence,
   'https://airtable.com/' || (select value from mirror.settings where key = 'airtable_base_id')
      || '/' || (select value from mirror.settings where key = 'airtable_table_id')

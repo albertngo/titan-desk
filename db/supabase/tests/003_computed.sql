@@ -3,7 +3,7 @@ begin;
 -- start from an empty catalogue: seed rows must not influence these assertions
 delete from mirror.catalogue_images;
 delete from mirror.catalogue;
-select plan(30);
+select plan(34);
 
 -- fixtures ---------------------------------------------------------------
 insert into mirror.catalogue (airtable_record_id, airtable_modified_at, sku, product_name, product_type, category, grade, width_in, length, finish_type,
@@ -42,6 +42,15 @@ select ok((select not promo_active from api.catalogue_public where sku = 'T-PROM
 select ok((select promo_active is not null from api.catalogue_public where sku = 'T-ACT'), 'promo_active is never null');
 select ok((select promo_open_ended from api.catalogue_staff where sku = 'T-PROMO-OPEN'),   'staff sees promo_open_ended');
 select ok((select not promo_open_ended from api.catalogue_staff where sku = 'T-PROMO-ON'), 'dated promo is not open-ended');
+
+-- rep cost (NULL end date = ongoing, the opposite of the promo rule) --------------
+update mirror.catalogue set rep_cost = 2.10, rep_cost_end_date = null           where sku = 'T-ACT';
+update mirror.catalogue set rep_cost = 2.10, rep_cost_end_date = api.today()    where sku = 'T-PROMO-ON';
+update mirror.catalogue set rep_cost = 2.10, rep_cost_end_date = api.today() - 1 where sku = 'T-PROMO-OFF';
+select ok((select rep_cost_active from api.catalogue_staff where sku = 'T-ACT'),           'rep cost with no end date is ongoing');
+select ok((select rep_cost_active from api.catalogue_staff where sku = 'T-PROMO-ON'),      'rep cost ending today is active');
+select ok((select not rep_cost_active from api.catalogue_staff where sku = 'T-PROMO-OFF'), 'rep cost ended yesterday is inactive');
+select ok((select not rep_cost_active from api.catalogue_staff where sku = 'T-INACT'),     'no rep cost → false, never null');
 
 -- stale -----------------------------------------------------------------------
 select ok((select price_stale from api.catalogue_staff where sku = 'T-INACT'),       'null last_price_update is stale');

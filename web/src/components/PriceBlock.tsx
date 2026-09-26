@@ -1,7 +1,7 @@
 import type { CatalogueStaffRow } from "@/lib/db/types";
 import { dateShort, money, priceLabel } from "@/lib/format";
 
-/** Staff pricing: retail up front, cost/MAP/pallet/promo beneath. MAP is informational only. */
+/** Staff pricing: retail up front, cost/MAP/pallet/promo/rep rate beneath. MAP is informational only. */
 export function PriceBlock({ product: p }: { product: CatalogueStaffRow }) {
   return (
     <div className="mt-4 rounded-xl border border-zinc-200 bg-white p-3">
@@ -19,10 +19,17 @@ export function PriceBlock({ product: p }: { product: CatalogueStaffRow }) {
         <dt className="text-zinc-500">Pallet</dt><dd>{money(p.pallet_price)}</dd>
         <dt className="text-zinc-500">Promo cost</dt>
         <dd>{p.promo_cost !== null ? `${money(p.promo_cost)}${p.promo_end_date ? ` until ${dateShort(p.promo_end_date)}` : " (no end date)"}` : "—"}</dd>
+        <dt className="text-zinc-500">Rep cost</dt>
+        <dd title={p.rep_cost_note ?? undefined}>
+          {p.rep_cost !== null
+            ? `${money(p.rep_cost)}${p.rep_cost_end_date ? ` until ${dateShort(p.rep_cost_end_date)}` : " (ongoing)"}${p.rep_cost_active ? "" : " · ended"}`
+            : "—"}
+        </dd>
         <dt className="text-zinc-500">Last price update</dt>
         <dd>{dateShort(p.last_price_update)}{p.price_last_changed_by ? ` · ${p.price_last_changed_by}` : ""}</dd>
       </dl>
       {p.volume_pricing_notes && <p className="mt-2 whitespace-pre-wrap text-xs text-zinc-600">{p.volume_pricing_notes}</p>}
+      {p.rep_cost_note && <p className="mt-1 whitespace-pre-wrap text-xs text-zinc-600">Rep rate: {p.rep_cost_note}</p>}
     </div>
   );
 }

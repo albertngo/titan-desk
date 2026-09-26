@@ -161,6 +161,11 @@ export function ProductDetail({ product: p }: { product: CatalogueStaffRow }) {
               Supplier price list
             </a>
           )}
+          {p.promo_list_url && (
+            <a href={p.promo_list_url} target="_blank" rel="noreferrer" className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5">
+              Promo list
+            </a>
+          )}
         </div>
       </Section>
     </article>
