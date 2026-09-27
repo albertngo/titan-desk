@@ -136,3 +136,45 @@ select percentile_cont(0.95) within group (order by took_ms) from api.search_log
   Run the "storage footprint" query above (originals + roughly 15% for the WebP variants)
   and move to Pro when the total approaches the Free plan's 1 GB Storage cap, or earlier if
   the sync stops for a week and the project is paused for inactivity.
+
+## 30-minute sync clock (Supabase Cron → app → GitHub)
+
+GitHub's `schedule` trigger is best-effort and on this repo fires every 2–3 hours, not every 30
+minutes. A Supabase Cron job is the reliable clock: every 30 minutes it POSTs to the app's
+`/api/sync/trigger` with the `x-sync-secret` header; the app (which holds `GITHUB_DISPATCH_TOKEN`
+in Vercel) fires the `repository_dispatch` that runs `sync-incremental.yml`. The database only
+holds `SYNC_TRIGGER_SECRET`, which can start a sync and nothing else; the GitHub token never
+leaves Vercel. The GitHub schedule stays as a fallback (the `sync` concurrency group and the
+idempotent merge make an extra run harmless). When the Vercel project moves to Pro, replace this
+job with a Vercel Cron and `select cron.unschedule('titan-desk-sync');`.
+
+One-time setup (not a migration: the plain-Postgres test harness has no pg_cron/pg_net):
+
+1. Vercel → Settings → Environment Variables: `SYNC_TRIGGER_SECRET` = a long random
+   letters-and-digits string; redeploy.
+2. Supabase → Database → Extensions: enable `pg_cron` and `pg_net`.
+3. SQL editor (same secret value as step 1; replace the app URL if it changes):
+
+```sql
+select vault.create_secret('<SYNC_TRIGGER_SECRET value>', 'sync_trigger_secret');
+
+select cron.schedule(
+  'titan-desk-sync',
+  '*/30 * * * *',
+  $job$
+  select net.http_post(
+    url     := 'https://titan-desk-vc.vercel.app/api/sync/trigger',
+    headers := jsonb_build_object(
+      'Content-Type',  'application/json',
+      'x-sync-secret', (select decrypted_secret from vault.decrypted_secrets where name = 'sync_trigger_secret')
+    ),
+    body    := '{}'::jsonb
+  );
+  $job$
+);
+```
+
+Check it: `select status, return_message, start_time from cron.job_run_details order by start_time desc limit 5;`
+and `select status_code, content from net._http_response order by created desc limit 5;` (202 = queued).
+Rotate the secret: `select vault.update_secret((select id from vault.secrets where name = 'sync_trigger_secret'), '<new>');`
+and update the Vercel variable to match.
