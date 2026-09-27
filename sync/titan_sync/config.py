@@ -15,10 +15,27 @@ class ConfigError(RuntimeError):
     pass
 
 
+def _clean(value: str | None) -> str | None:
+    """Secrets pasted into a web form often carry a trailing newline or surrounding quotes."""
+    if value is None:
+        return None
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        value = value[1:-1].strip()
+    return value or None
+
+
 def _env(name: str, default: str | None = None, *, required: bool = False) -> str | None:
-    value = os.environ.get(name, default)
+    value = _clean(os.environ.get(name, default))
     if required and not value:
         raise ConfigError(f"{name} is required")
+    return value
+
+
+def _database_url(value: str | None) -> str | None:
+    # never echo the value: it contains the password
+    if value and not value.startswith(("postgresql://", "postgres://")):
+        raise ConfigError("DATABASE_URL must start with postgresql:// — check the secret for a stray prefix or pasted label")
     return value
 
 
@@ -66,7 +83,7 @@ class Settings:
         settings_path = Path(_env("PLATFORM_SETTINGS_PATH", str(DEFAULT_PLATFORM_SETTINGS)))
         return cls(
             airtable_token=_env("AIRTABLE_TOKEN"),
-            database_url=_env("DATABASE_URL"),
+            database_url=_database_url(_env("DATABASE_URL")),
             supabase_url=_env("SUPABASE_URL"),
             service_role_key=_env("SUPABASE_SERVICE_ROLE_KEY"),
             image_batch=int(_env("SYNC_IMAGE_BATCH", "300") or 300),
