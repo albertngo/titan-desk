@@ -10,7 +10,7 @@ roles/schemas and `scripts/pgtap_shim.sql` for the pgTAP subset the tests use).
 | Schema | Exposed by the Data API | Holds |
 |---|---|---|
 | `mirror` | **no** | `catalogue` (every Airtable field), `catalogue_images`, `catalogue_image_skips`, `catalogue_stage`, `sync_runs`, `sync_issues`, `sync_state`, `settings`, helper functions |
-| `api` | **yes, the only one** | `catalogue_public`, `catalogue_staff`, `catalogue_facets`, `sync_status`, `search_public()`, `search_staff()`, `parse_query()`, `today()`, `search_log` |
+| `api` | **yes, the only one** | `catalogue_public`, `catalogue_staff`, `catalogue_facets`, `sync_status`, `design_dictionary`, `design_rules`, `search_public()`, `search_staff()`, `parse_query()`, `today()`, `search_log` |
 
 `public` is removed from the exposed schemas (dashboard → API settings; `config.toml` locally).
 Why a separate `api` schema: grants are explicit and enumerable (test 001 lists every EXECUTE),
@@ -24,7 +24,7 @@ that built-in default, so migration 001 revokes it per function (§12) and **any
 | Role | Gets |
 |---|---|
 | `anon` (public, website agent) | SELECT `api.catalogue_public`; EXECUTE `api.search_public`, `api.parse_query`, `api.today`; USAGE on `mirror` + EXECUTE on its pure helpers (`price_unit`, `variant_label`, `image_url`, `is_public`) because the views call them as the caller; no privilege on any `mirror` table; `statement_timeout = 3s` |
-| `authenticated` (staff, M365) | the above (incl. the `mirror` helper access) + SELECT `catalogue_staff`, `catalogue_facets`, `sync_status`; EXECUTE `search_staff`; INSERT `search_log` (own uid only; no SELECT) |
+| `authenticated` (staff, M365) | the above (incl. the `mirror` helper access) + SELECT `catalogue_staff`, `catalogue_facets`, `sync_status`, `design_dictionary`, `design_rules`; EXECUTE `search_staff`; INSERT `search_log` (own uid only; no SELECT) |
 | `sync_worker` (Python worker) | USAGE on `mirror`; SELECT/INSERT/UPDATE/DELETE on its tables; TRUNCATE on the stage. Created NOLOGIN; Albert runs `alter role sync_worker login password '…'` once in the SQL editor |
 | `supabase_auth_admin` | EXECUTE `mirror.hook_restrict_signup` (Before User Created hook) |
 
@@ -117,6 +117,21 @@ select count(*) images, pg_size_pretty(sum(original_bytes)) originals from mirro
 -- search latency p95 (client-measured)
 select percentile_cont(0.95) within group (order by took_ms) from api.search_log where created_at > now() - interval '7 days';
 ```
+
+## Design Dictionary + Design Rules (migration 002)
+
+Two small Airtable tables Albert edits by hand, mirrored whole on every sync run
+(`sync/titan_sync/design.py`; a fetch that returns nothing never wipes the copy). Staff-only
+for now — the public website agent gets its own view when it is built.
+
+| View | Rows | Columns withheld |
+|---|---|---|
+| `api.design_dictionary` | active phrases only | `notes` (internal) |
+| `api.design_rules` | active Design rules **plus every Safety rule, whatever its Active box says** | `notes`, `active` |
+
+Safety rules are enforced in code (`web/src/lib/design/safety.ts`, same keys as the table) and
+never relaxed. An unticked Waterproof / Radiant box or a blank IIC counts as *not confirmed*:
+the floor is held out of the picks and the page says how many were held back. Test: 009.
 
 ## Adding a column
 

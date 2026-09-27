@@ -3,7 +3,8 @@
   "tables": {
     "master_flooring_catalogue": "tblfLXD3zkSdNQGbS",
     "price_history_log_v2": "tbly2em2cMuQs9eqK",
-    "design_rules": "tblKJNVM4T9LfKwIs"
+    "design_rules": "tblymUIiDJiay30YL",
+    "design_dictionary": "tblKJNVM4T9LfKwIs"
   },
   "fields": {
     "sku": "fldx3byCOht5HbKmH",
@@ -87,12 +88,38 @@
   },
   "_notes": {
     "last_modified": "Computed lastModifiedTime field created 2026-09-26 (tracks every editable field). If it is ever missing the worker stamps sync time.",
-    "design_rules_fields": {
-      "intent_phrase": "fldDOXFHoSuBTI4ej",
-      "prefer": "fld4r9gL5ZEd3H6q6",
-      "avoid": "fldBXMwm4LQ1IkRpU",
-      "notes": "fldgipPtbCRNeXPQj",
-      "active": "fldPo0PlW5bWh5XAR"
-    }
+    "design_tables": "2026-09-27: the old empty 'Design Rules' table (tblKJNVM4T9LfKwIs) was reshaped into 'Design Dictionary'; a new 'Design Rules' table (tblymUIiDJiay30YL) holds the designer rules. Both are small and copied in full on every sync run (sync/titan_sync/design.py)."
+  },
+  "design_dictionary_fields": {
+    "phrase": "fldDOXFHoSuBTI4ej",
+    "matches": "fldpbZG1cHuHRDc7B",
+    "kind": "fldWJlNtV4z3p9xrz",
+    "undertone": "fldDfNqAIHZrfdjn2",
+    "tone_depth_min": "flduoGMhsf4hRmPQO",
+    "tone_depth_max": "fldsqthROncPCYYh4",
+    "busyness": "fldl9sVJXJ986CWuf",
+    "texture": "fldlXfFGem3KeA9WD",
+    "style": "fldljwenV1FfUPoXf",
+    "width_min_in": "fld0T42HdNpzYEvRR",
+    "width_max_in": "fldcwHENQZeX6P8O3",
+    "weight": "fldGsNHZ9EjaiTNOu",
+    "also_look_for": "fld4r9gL5ZEd3H6q6",
+    "also_avoid": "fldBXMwm4LQ1IkRpU",
+    "say_to_client": "fldtTeFCnnPjfABSO",
+    "notes": "fldgipPtbCRNeXPQj",
+    "active": "fldPo0PlW5bWh5XAR"
+  },
+  "design_rules_fields": {
+    "rule": "fldljpZ9dvugrImh7",
+    "key": "fldHfqNRE0qaFjkec",
+    "kind": "fldepNHLXoMfAtMJ3",
+    "rule_when": "fldpMjjojBQbB0Vvx",
+    "effect": "fldlsTVp2SdEOJCeS",
+    "field": "fldK9lvlMYuERatg3",
+    "rule_values": "fldXmS5t4WO9DkwUK",
+    "weight": "fldql4hHeTnu54jnz",
+    "say_to_client": "fldlXVrS3aAjUu39S",
+    "active": "fldgnh1RSnlgA5YfW",
+    "notes": "fldzJVPfbThinH6kq"
   }
 }

@@ -11,7 +11,8 @@ Airtable, and nothing here imports code from `titan-agents`.
    code paths that call Airtable create/update/delete endpoints.
 2. **The web app reads views only.** `web/src/lib/db/queries.ts` is the only place that
    talks to the database, and it knows exactly these objects in schema `api`:
-   `catalogue_staff`, `search_staff`, `catalogue_facets`, `sync_status`, and an INSERT
+   `catalogue_staff`, `search_staff`, `catalogue_facets`, `sync_status`, `design_dictionary`,
+   `design_rules`, and an INSERT
    into `search_log`. Never query schema `mirror` from the app.
 3. **The public/staff boundary lives in the database.** Adding a column to a view is a
    security decision: update the tier table in `db/README.md`, the view, and tests
@@ -32,7 +33,8 @@ Airtable, and nothing here imports code from `titan-agents`.
   `db/scripts/local-pg.sh` runs the same migration and tests on a plain Postgres 16 with
   role/extension shims when the Supabase CLI is unavailable.
 - `sync/` — Python worker (`python -m titan_sync.run --mode incremental|full|images|purge`).
-- `web/` — Next.js 16 App Router PWA.
+- `web/` — Next.js 16 App Router PWA. `web/src/lib/design/` is the Help me choose logic (pure,
+  tested in `web/tests/design.test.ts`); safety rules there are fixed in code and never relaxed.
 - `platform-settings/` — Airtable base/table/field IDs.
 - `.github/workflows/` — CI, scheduled syncs, migrations, schema-drift check.
 

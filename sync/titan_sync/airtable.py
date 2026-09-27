@@ -26,6 +26,7 @@ class Source(Protocol):
 
     def iter_pages(self, since: datetime | None) -> Iterator[list[Record]]: ...
     def get_record(self, record_id: str) -> Record | None: ...
+    def table_records(self, table_id: str) -> list[Record]: ...
     def table_schema(self) -> list[dict[str, str]]: ...
 
 
@@ -63,6 +64,14 @@ class AirtableSource:
         for page in self.table.iterate(**kwargs):
             self.api_calls += 1
             yield page
+
+    def table_records(self, table_id: str) -> list[Record]:
+        """Every record of a small side table (Design Dictionary / Design Rules), all fields."""
+        out: list[Record] = []
+        for page in self._api.table(self.ids.base_id, table_id).iterate(page_size=self.page_size):
+            self.api_calls += 1
+            out.extend(page)
+        return out
 
     def get_record(self, record_id: str) -> Record | None:
         self.api_calls += 1

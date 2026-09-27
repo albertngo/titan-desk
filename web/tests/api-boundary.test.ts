@@ -31,8 +31,8 @@ run("anonymous key against PostgREST", () => {
     for (const row of rows) for (const k of STAFF_OR_SYSTEM) expect(row).not.toHaveProperty(k);
   });
 
-  it("cannot read catalogue_staff, facets or sync_status", async () => {
-    for (const v of ["catalogue_staff", "catalogue_facets", "sync_status"]) {
+  it("cannot read catalogue_staff, facets, sync_status or the design tables", async () => {
+    for (const v of ["catalogue_staff", "catalogue_facets", "sync_status", "design_dictionary", "design_rules"]) {
       const r = await anon(`/rest/v1/${v}?select=*&limit=1`);
       expect(r.status, v).not.toBe(200);
     }

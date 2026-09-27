@@ -5,6 +5,8 @@
  * then keep the NOT NULL overrides below: generated view types are all-nullable.
  */
 
+import type { DesignRule, DictionaryRow } from "@/lib/design/types";
+
 export type ImageKind = "swatch" | "room" | "detail";
 
 export type ImageVariant = {
@@ -222,6 +224,8 @@ export interface Database {
       catalogue_staff: { Row: CatalogueStaffRow; Relationships: [] };
       catalogue_facets: { Row: FacetRow; Relationships: [] };
       sync_status: { Row: SyncStatusRow; Relationships: [] };
+      design_dictionary: { Row: DictionaryRow; Relationships: [] };
+      design_rules: { Row: DesignRule; Relationships: [] };
     };
     Functions: {
       search_staff: { Args: SearchArgs; Returns: SearchHit[] };

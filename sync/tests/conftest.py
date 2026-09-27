@@ -50,7 +50,8 @@ def db() -> Iterator[Db]:
         pytest.skip("no database")
     d = Db(DB_URL)
     with d.conn.cursor() as cur:
-        for t in ("catalogue_images", "catalogue_image_skips", "sync_issues", "sync_runs", "sync_state", "catalogue"):
+        for t in ("catalogue_images", "catalogue_image_skips", "sync_issues", "sync_runs", "sync_state", "catalogue",
+                  "design_dictionary", "design_rules"):
             cur.execute(f"delete from mirror.{t}")
     d.commit()
     yield d
@@ -86,6 +87,7 @@ class FakeSource:
         self.records: list[dict[str, Any]] = records or []
         self.api_calls = 0
         self.page_size = 3
+        self.side_tables: dict[str, list[dict[str, Any]]] = {}  # table id -> records (design tables)
 
     def make(self, rec_id: str, *, modified: datetime | None = None, created: str = "2026-01-01T00:00:00.000Z",
              **by_key: Any) -> dict[str, Any]:
@@ -102,6 +104,10 @@ class FakeSource:
         rec = self.make(rec_id, **kw)
         self.records = [r for r in self.records if r["id"] != rec_id] + [rec]
         return rec
+
+    def table_records(self, table_id: str) -> list[dict[str, Any]]:
+        self.api_calls += 1
+        return list(self.side_tables.get(table_id, []))
 
     def iter_pages(self, since: datetime | None):
         recs = [r for r in self.records if since is None or r["_modified"] > since]

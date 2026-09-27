@@ -1,10 +1,12 @@
 /**
- * The ONLY module that talks to the database. It knows exactly five objects in schema `api`:
- * catalogue_staff, search_staff, catalogue_facets, sync_status, and an INSERT into search_log.
+ * The ONLY module that talks to the database. It knows exactly these objects in schema `api`:
+ * catalogue_staff, search_staff, catalogue_facets, sync_status, design_dictionary, design_rules,
+ * and an INSERT into search_log.
  * Never read schema `mirror`; never chain .select() on the search_log insert (no SELECT grant).
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { CANDIDATE_COLUMNS, FLOOR_CATEGORIES, type Candidate, type DesignRule, type DictionaryRow } from "@/lib/design/types";
 import type { Database, FacetRow, SearchArgs, SearchHit, SyncStatusRow, CatalogueStaffRow } from "./types";
 
 export type Client = SupabaseClient<Database, "api">;
@@ -43,4 +45,43 @@ export async function getSyncStatus(client: Client): Promise<SyncStatusRow | nul
 export async function logSearch(client: Client, row: { query: string; filters: Record<string, unknown>; result_count: number; took_ms: number }): Promise<void> {
   const { error } = await client.from("search_log").insert(row);
   if (error) console.warn("search_log insert failed", error.message);
+}
+
+// ---- design layer (Help me choose) -----------------------------------------------------------
+
+/** Active Design Dictionary phrases (api.design_dictionary; inactive rows never leave the db). */
+export async function getDesignDictionary(client: Client): Promise<DictionaryRow[]> {
+  const { data, error } = await client.from("design_dictionary").select("*").order("phrase");
+  if (error) throw error;
+  return (data ?? []) as DictionaryRow[];
+}
+
+/** Active Design rules plus every Safety rule (api.design_rules). */
+export async function getDesignRules(client: Client): Promise<DesignRule[]> {
+  const { data, error } = await client.from("design_rules").select("*").order("key");
+  if (error) throw error;
+  return (data ?? []) as DesignRule[];
+}
+
+/** How many floors the Help me choose page loads at once; style-tagged floors come first. */
+export const DESIGN_CANDIDATE_LIMIT = 1000;
+
+/**
+ * Active flooring the recommender scores, style-tagged first (so taste can be judged on as many
+ * floors as possible), then by SKU. Safety and job filters run in lib/design, not here, so the
+ * page can re-rank instantly as answers change and say exactly what a filter removed.
+ */
+export async function getDesignCandidates(client: Client): Promise<Candidate[]> {
+  const { data, error } = await client
+    .from("catalogue_staff")
+    .select(CANDIDATE_COLUMNS.join(","))
+    .eq("product_type", "Flooring")
+    .eq("active", true)
+    .in("category", [...FLOOR_CATEGORIES])
+    .or("stock_status.is.null,stock_status.neq.Discontinued")
+    .order("style_tags_status", { ascending: true, nullsFirst: false })
+    .order("sku")
+    .limit(DESIGN_CANDIDATE_LIMIT);
+  if (error) throw error;
+  return ((data ?? []) as unknown as Candidate[]).map((c) => ({ ...c, style: c.style ?? [] }));
 }
