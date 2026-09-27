@@ -96,6 +96,24 @@ begin
   return 'not ok ' || n || ' - ' || d || E'\n#   no exception thrown';
 end $$;
 
+-- throws_ok(sql, sqlstate, ermsg, description): pgTAP's full form. ermsg NULL = not compared (same as pgTAP).
+create or replace function public.throws_ok(sql text, errcode text, ermsg text, descr text) returns text language plpgsql as $$
+declare n int := tap.__next(); d text := coalesce(descr, 'threw ' || coalesce(errcode, 'an exception'));
+begin
+  begin
+    execute sql;
+  exception when others then
+    if (errcode is null or errcode = '' or sqlstate = errcode) and (ermsg is null or sqlerrm = ermsg) then
+      return 'ok ' || n || ' - ' || d;
+    else
+      perform tap.__fail();
+      return 'not ok ' || n || ' - ' || d || E'\n#   caught: ' || sqlstate || ' ' || sqlerrm || E'\n#   wanted: ' || coalesce(errcode, '') || ' ' || coalesce(ermsg, '');
+    end if;
+  end;
+  perform tap.__fail();
+  return 'not ok ' || n || ' - ' || d || E'\n#   no exception thrown';
+end $$;
+
 create or replace function public.lives_ok(sql text, descr text default '') returns text language plpgsql as $$
 declare n int := tap.__next();
 begin

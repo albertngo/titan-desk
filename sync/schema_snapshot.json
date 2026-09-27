@@ -368,6 +368,31 @@
       "id": "fldRH7GrND9w10KWH",
       "name": "Detail images",
       "type": "multipleAttachments"
+    },
+    {
+      "id": "fldwRz00XnZgsv0GU",
+      "name": "Promo List URL",
+      "type": "url"
+    },
+    {
+      "id": "fld8Ra8sQb3SgVD7R",
+      "name": "Rep cost ($/sf)",
+      "type": "currency"
+    },
+    {
+      "id": "fldr4NgCQg3vOeNt1",
+      "name": "Rep cost end date",
+      "type": "date"
+    },
+    {
+      "id": "fldIPGoEUYVZv0Jhy",
+      "name": "Rep cost note",
+      "type": "multilineText"
+    },
+    {
+      "id": "fldA4h8fgn8Bj9AML",
+      "name": "Last modified",
+      "type": "lastModifiedTime"
     }
   ]
 }

@@ -15,8 +15,8 @@ select ok(not mirror.email_domain_allowed('x@gmail.com'), 'other domain rejected
 select is(mirror.hook_restrict_signup('{"user":{"email":"x@gmail.com"}}'::jsonb) -> 'error' ->> 'http_code', '403', 'hook returns a 403 error object');
 
 -- trigger fallback on auth.users
-select lives_ok($$insert into auth.users (email) values ('ok@titanflooring.ca')$$, 'allowed domain can be created');
-select throws_ok($$insert into auth.users (email) values ('nope@gmail.com')$$, 'P0001', 'other domain is rejected by the trigger');
+select lives_ok($$insert into auth.users (id, email) values (gen_random_uuid(), 'ok@titanflooring.ca')$$, 'allowed domain can be created');
+select throws_ok($$insert into auth.users (id, email) values (gen_random_uuid(), 'nope@gmail.com')$$, 'P0001', null, 'other domain is rejected by the trigger');
 
 select * from finish();
 rollback;

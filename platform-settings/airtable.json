@@ -79,10 +79,14 @@
     "busyness": "fldRMUIPEXOxvp7Xk",
     "style_tags_status": "fldFEZIuna04JLFCr",
     "style_tags_evidence": "flduKhIN0PBEmnOMJ",
-    "last_modified": null
+    "promo_list_url": "fldwRz00XnZgsv0GU",
+    "rep_cost": "fld8Ra8sQb3SgVD7R",
+    "rep_cost_end_date": "fldr4NgCQg3vOeNt1",
+    "rep_cost_note": "fldIPGoEUYVZv0Jhy",
+    "last_modified": "fldA4h8fgn8Bj9AML"
   },
   "_notes": {
-    "last_modified": "Set once the computed 'Last modified' (lastModifiedTime) field is created in Airtable; until then the worker stamps sync time.",
+    "last_modified": "Computed lastModifiedTime field created 2026-09-26 (tracks every editable field). If it is ever missing the worker stamps sync time.",
     "design_rules_fields": {
       "intent_phrase": "fldDOXFHoSuBTI4ej",
       "prefer": "fld4r9gL5ZEd3H6q6",

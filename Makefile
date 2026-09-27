@@ -25,7 +25,7 @@ db-test: ## run pgTAP tests
 db-stop: ## stop the local database
 	@if command -v supabase >/dev/null 2>&1; then $(SUPABASE) stop; else db/scripts/local-pg.sh stop; fi
 
-types: ## regenerate web/src/lib/db/types.gen.ts (needs the Supabase CLI)
+types: ## regenerate web/src/lib/db/types.gen.ts (needs the Supabase CLI); merge into types.ts by hand
 	$(SUPABASE) gen types typescript --local --schema api > web/src/lib/db/types.gen.ts
 
 # ---------- sync worker ----------

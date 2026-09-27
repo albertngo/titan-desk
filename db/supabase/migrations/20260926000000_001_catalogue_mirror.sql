@@ -26,6 +26,10 @@ create schema if not exists mirror;
 create schema if not exists api;
 
 revoke all on schema mirror from public, anon, authenticated;
+-- USAGE (name resolution) only: the views call mirror.price_unit/variant_label/image_url/is_public as the
+-- invoking API role, and Postgres checks schema USAGE on the caller for that. No table privileges are
+-- granted, RLS is on every mirror table, and PostgREST does not expose the schema (test 001, boundary test).
+grant usage on schema mirror to anon, authenticated;
 grant usage on schema api to anon, authenticated, service_role;
 
 -- Postgres grants EXECUTE on every new function to PUBLIC by default, and a per-schema
@@ -254,6 +258,12 @@ create table mirror.catalogue (
   internal_notes       text,
   price_list_url       text,
 
+  -- pricing extras (Airtable, 2026-09-26): rep rates and the promo sheet that set the promo fields. Staff tier.
+  promo_list_url       text,
+  rep_cost             numeric(10,2),
+  rep_cost_end_date    date,                 -- NULL = ongoing (unlike promos)
+  rep_cost_note        text,
+
   -- design / style (Airtable fields 58–64)
   undertone            text,
   tone_depth           smallint check (tone_depth between 1 and 5),
@@ -300,7 +310,18 @@ create unlogged table mirror.catalogue_stage (like mirror.catalogue excluding al
 alter table mirror.catalogue_stage
   drop column variant_group,
   drop column search_public,
-  drop column search_staff;
+  drop column search_staff,
+  drop column synced_at;
+-- The stage accepts anything the worker fetched; validation (blank/duplicate SKU) happens
+-- in SQL after COPY and writes sync_issues, so no NOT NULL constraints here.
+do $do$
+declare c record;
+begin
+  for c in select column_name from information_schema.columns
+            where table_schema = 'mirror' and table_name = 'catalogue_stage' and is_nullable = 'NO' loop
+    execute format('alter table mirror.catalogue_stage alter column %I drop not null', c.column_name);
+  end loop;
+end $do$;
 
 -- --------------------------------------------------------------------------
 -- 4. Images index: mirror.catalogue_images
@@ -336,6 +357,20 @@ create table mirror.catalogue_images (
 );
 create index catalogue_images_live_idx on mirror.catalogue_images (airtable_record_id) where deleted_at is null;
 create index catalogue_images_hash_idx on mirror.catalogue_images (source_hash);
+
+-- Attachments that were skipped (PDF, video, undecodable): remembered per attachment id so
+-- they are downloaded once, not on every run. Replacing the file in Airtable gives it a new id.
+create table mirror.catalogue_image_skips (
+  airtable_record_id     text not null,
+  kind                   text not null,
+  airtable_attachment_id text not null,
+  sku                    text,
+  filename               text,
+  reason                 text not null,
+  first_seen             timestamptz not null default now(),
+  last_seen              timestamptz not null default now(),
+  primary key (airtable_record_id, kind, airtable_attachment_id)
+);
 
 -- Storage buckets. Public: WebP variants behind the CDN. Private: untouched originals.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -399,7 +434,7 @@ create index sync_issues_run_idx on mirror.sync_issues (run_id);
 -- --------------------------------------------------------------------------
 -- 6. Grants on mirror.* for the worker; RLS with a single sync_worker policy
 -- --------------------------------------------------------------------------
-grant select, insert, update, delete on mirror.catalogue, mirror.catalogue_images,
+grant select, insert, update, delete on mirror.catalogue, mirror.catalogue_images, mirror.catalogue_image_skips,
   mirror.sync_state, mirror.sync_runs, mirror.sync_issues, mirror.settings to sync_worker;
 grant select, insert, update, delete, truncate on mirror.catalogue_stage to sync_worker;
 grant usage on all sequences in schema mirror to sync_worker;
@@ -408,7 +443,9 @@ alter default privileges for role postgres in schema mirror grant usage on seque
 do $do$
 declare t text;
 begin
-  foreach t in array array['catalogue', 'catalogue_stage', 'catalogue_images', 'sync_state', 'sync_runs', 'sync_issues', 'settings'] loop
+  -- catalogue_stage is left without RLS: Postgres rejects COPY FROM under row-level security,
+  -- and the stage is unlogged, private to schema mirror and granted to sync_worker only.
+  foreach t in array array['catalogue', 'catalogue_images', 'catalogue_image_skips', 'sync_state', 'sync_runs', 'sync_issues', 'settings'] loop
     execute format('alter table mirror.%I enable row level security', t);
     execute format('create policy sync_all on mirror.%I for all to sync_worker using (true) with check (true)', t);
   end loop;
@@ -509,6 +546,8 @@ select
   (c.promo_cost is not null and c.promo_end_date is null)          as promo_open_ended,
   c.boxes_per_skid, c.pieces_per_pallet, c.active,
   c.salesperson_notes, c.internal_notes, c.price_list_url,
+  c.promo_list_url, c.rep_cost, c.rep_cost_end_date, c.rep_cost_note,
+  coalesce(c.rep_cost is not null and (c.rep_cost_end_date is null or c.rep_cost_end_date >= api.today()), false) as rep_cost_active,
   c.style_tags_status, c.style_tags_evidence,
   'https://airtable.com/' || (select value from mirror.settings where key = 'airtable_base_id')
      || '/' || (select value from mirror.settings where key = 'airtable_table_id')
