@@ -1,4 +1,6 @@
 -- 003: row filter and computed columns (promo, stale, coming soon, variants, pairs, images).
+-- Dates use api.today() (Toronto), the same clock the views use; current_date is the session's UTC date
+-- and is a day ahead every evening, which made the 90-day boundary test fail after 8 pm Toronto.
 begin;
 -- start from an empty catalogue: seed rows must not influence these assertions
 delete from mirror.catalogue_images;
@@ -8,13 +10,13 @@ select plan(34);
 -- fixtures ---------------------------------------------------------------
 insert into mirror.catalogue (airtable_record_id, airtable_modified_at, sku, product_name, product_type, category, grade, width_in, length, finish_type,
                               ls_handle, retail_price, promo_cost, promo_end_date, last_price_update, stock_status, active, salesperson_notes, pairs_well_with) values
-  ('t_active',    now(), 'T-ACT',   'active plain',            'Flooring', 'LVP', null, 6, '48"', null, null, 3.00, null, null, current_date - 10, null, true, null, 'T-PAIR-OK, T-PAIR-DISC; T-PAIR-MISSING'),
+  ('t_active',    now(), 'T-ACT',   'active plain',            'Flooring', 'LVP', null, 6, '48"', null, null, 3.00, null, null, api.today() - 10, null, true, null, 'T-PAIR-OK, T-PAIR-DISC; T-PAIR-MISSING'),
   ('t_inactive',  now(), 'T-INACT', 'inactive',                'Flooring', 'LVP', null, 6, null, null, null, 3.00, null, null, null, null, false, null, null),
   ('t_disc',      now(), 'T-DISC',  'discontinued',            'Flooring', 'LVP', null, 6, null, null, null, 3.00, null, null, null, 'Discontinued', true, null, null),
   ('t_clear',     now(), 'T-CLEAR', 'clearance stays public',  'Flooring', 'LVP', null, 6, null, null, null, 3.00, null, null, null, 'Clearance', true, null, null),
-  ('t_promo_on',  now(), 'T-PROMO-ON',  'promo active',        'Flooring', 'LVP', null, 6, null, null, null, 3.00, 2.50, api.today(), current_date, null, true, null, null),
-  ('t_promo_off', now(), 'T-PROMO-OFF', 'promo expired',       'Flooring', 'LVP', null, 6, null, null, null, 3.00, 2.50, api.today() - 1, current_date, null, true, null, null),
-  ('t_promo_open',now(), 'T-PROMO-OPEN','promo no end date',   'Flooring', 'LVP', null, 6, null, null, null, 3.00, 2.50, null, current_date - 91, null, true, null, null),
+  ('t_promo_on',  now(), 'T-PROMO-ON',  'promo active',        'Flooring', 'LVP', null, 6, null, null, null, 3.00, 2.50, api.today(), api.today(), null, true, null, null),
+  ('t_promo_off', now(), 'T-PROMO-OFF', 'promo expired',       'Flooring', 'LVP', null, 6, null, null, null, 3.00, 2.50, api.today() - 1, api.today(), null, true, null, null),
+  ('t_promo_open',now(), 'T-PROMO-OPEN','promo no end date',   'Flooring', 'LVP', null, 6, null, null, null, 3.00, 2.50, null, api.today() - 91, null, true, null, null),
   ('t_coming',    now(), 'T-COMING', 'coming soon item',       'Flooring', 'LVP', null, 6, null, null, null, 3.00, null, null, null, null, true, '  COMING SOON — not yet in stock.', null),
   ('t_notes',     now(), 'T-NOTES',  'notes but not coming',   'Flooring', 'LVP', null, 6, null, null, null, 3.00, null, null, null, null, true, 'Best seller. Coming soon: nothing.', null),
   ('t_pair_ok',   now(), 'T-PAIR-OK',   'pair ok',             'Accessory', 'LVP', null, null, null, null, null, 10, null, null, null, null, true, null, null),
