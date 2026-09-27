@@ -66,3 +66,10 @@ jobs:
         working-directory: web
       - run: npm test
         working-directory: web
+      - name: Production build (what Vercel runs)
+        run: npm run build
+        working-directory: web
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+          NEXT_PUBLIC_STORAGE_HOST: 127.0.0.1
