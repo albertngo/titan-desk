@@ -46,6 +46,8 @@ describe("card helpers", () => {
     expect(specChips({ width_in: 7.72, thickness_mm: 14.3, wear_layer_mil: null, install_profile: "Click", waterproof: true }))
       .toEqual(['7.72"', "14.3mm", "Click", "Waterproof"]);
     expect(specChips({ width_in: null, thickness_mm: null, wear_layer_mil: null, install_profile: null, waterproof: false })).toEqual([]);
+    // a search served before migration 004 has none of these keys
+    expect(specChips({} as Parameters<typeof specChips>[0])).toEqual([]);
   });
 
   it("prices a box only for per-sf products with a box size", () => {

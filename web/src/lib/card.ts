@@ -63,10 +63,11 @@ export type SpecInput = {
 
 /** The few facts staff compare at a glance, from their own fields rather than the name. */
 export function specChips(s: SpecInput): string[] {
+  // `!= null` on purpose: a search served before migration 004 omits these keys entirely.
   return [
-    s.width_in !== null ? `${num(s.width_in)}"` : null,
-    s.thickness_mm !== null ? `${num(s.thickness_mm)}mm` : null,
-    s.wear_layer_mil !== null ? `${num(s.wear_layer_mil)} mil` : null,
+    s.width_in != null ? `${num(s.width_in)}"` : null,
+    s.thickness_mm != null ? `${num(s.thickness_mm)}mm` : null,
+    s.wear_layer_mil != null ? `${num(s.wear_layer_mil)} mil` : null,
     s.install_profile,
     s.waterproof ? "Waterproof" : null,
   ].filter((x): x is string => Boolean(x));
@@ -74,6 +75,6 @@ export function specChips(s: SpecInput): string[] {
 
 /** Price of one box for a per-sf product: what a customer actually pays per unit carried out. */
 export function boxPrice(retail: number | null, unit: "sf" | "piece", onRequest: boolean, boxSf: number | null): number | null {
-  if (onRequest || unit !== "sf" || retail === null || !boxSf || boxSf <= 0) return null;
+  if (onRequest || unit !== "sf" || retail == null || !boxSf || boxSf <= 0) return null;
   return Math.round(retail * boxSf * 100) / 100;
 }
