@@ -3,7 +3,7 @@ begin;
 -- start from an empty catalogue: seed rows must not influence these assertions
 delete from mirror.catalogue_images;
 delete from mirror.catalogue;
-select plan(42);
+select plan(47);
 
 -- parse_query --------------------------------------------------------------
 select is((select width_in from api.parse_query('what is 6in click on promo')), 6::numeric, '6in → width 6');
@@ -63,6 +63,17 @@ select ok(not exists (select 1 from information_schema.routines r
                        join information_schema.parameters p on p.specific_name = r.specific_name
                       where r.routine_schema = 'api' and r.routine_name = 'search_public' and p.parameter_name = 'box_size_sf'),
           'public search is unchanged: no card-facts columns');
+
+-- grouped search (migration 005): one row per product line, colours inside --------------
+select is((select array_agg(product_count) from api.search_staff_grouped('macaroon')), array[2],
+          'both Macaroon grades fold into one group');
+select is((select line from api.search_staff_grouped('macaroon')), 'Vidar 7.5" AWO', 'the group is named for its line');
+select is((select (select array_agg(e ->> 'sku' order by e ->> 'sku') from jsonb_array_elements(members) e) from api.search_staff_grouped('macaroon')),
+          array['ENG-VIDR-0042', 'ENG-VIDR-0100R'], 'members carry every product in the line');
+select is((select total_groups::text || '/' || total_products::text from api.search_staff_grouped('', f_supplier => array['VIDAR'], lim => 1) limit 1),
+          '2/3', 'totals count all groups and products regardless of lim');
+select is((select width_in::text || ' ' || price_min::text || '-' || price_max::text from api.search_staff_grouped('macaroon')),
+          '7.50 4.99-5.79', 'shared width and the price range are summarised on the group');
 
 -- indexability: with seq scans disabled the OR-ed predicates use the GIN indexes
 create function pg_temp.explain_search(q text) returns setof text language plpgsql as $t$

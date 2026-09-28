@@ -44,8 +44,8 @@ select is(
   (select array_agg(p.proname::text order by p.proname)
      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'api' and has_function_privilege('authenticated', p.oid, 'EXECUTE')),
-  array['parse_query', 'search_public', 'search_staff', 'today'],
-  'authenticated can EXECUTE exactly parse_query, search_public, search_staff, today in api');
+  array['parse_query', 'search_public', 'search_staff', 'search_staff_grouped', 'today'],
+  'authenticated can EXECUTE exactly parse_query, search_public, search_staff, search_staff_grouped, today in api');
 select ok(not has_function_privilege('anon', 'mirror.hook_restrict_signup(jsonb)', 'EXECUTE'), 'anon cannot EXECUTE the auth hook');
 select ok(has_function_privilege('supabase_auth_admin', 'mirror.hook_restrict_signup(jsonb)', 'EXECUTE'), 'supabase_auth_admin can EXECUTE the auth hook');
 

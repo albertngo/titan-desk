@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { boxPrice, specChips, splitName, supplierIfDifferent } from "@/lib/card";
+import { boxPrice, groupTitle, priceRange, specChips, splitName, supplierIfDifferent } from "@/lib/card";
 
 // Real names from the catalogue, one per naming pattern.
 describe("splitName", () => {
@@ -48,6 +48,19 @@ describe("card helpers", () => {
     expect(specChips({ width_in: null, thickness_mm: null, wear_layer_mil: null, install_profile: null, waterproof: false })).toEqual([]);
     // a search served before migration 004 has none of these keys
     expect(specChips({} as Parameters<typeof specChips>[0])).toEqual([]);
+  });
+
+  it("titles a collection by its line, with the brand only when missing", () => {
+    expect(groupTitle("Purelux Betten Laminate", "Purelux", "x")).toBe("Purelux Betten Laminate");
+    expect(groupTitle("Brick", "Olympia", "x")).toBe("Olympia Brick");
+    expect(groupTitle(null, "Olympia", "SKU-1")).toBe("SKU-1");
+  });
+
+  it("shows one price or a range", () => {
+    expect(priceRange(2.99, 2.99, "sf")).toBe("$2.99 /sf");
+    expect(priceRange(4.99, 5.79, "sf")).toBe("$4.99–$5.79 /sf");
+    expect(priceRange(12, 12, "piece")).toBe("$12.00 /pc");
+    expect(priceRange(null, null, "sf")).toBe("Price on request");
   });
 
   it("prices a box only for per-sf products with a box size", () => {

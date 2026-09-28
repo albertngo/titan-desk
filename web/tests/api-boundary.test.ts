@@ -53,6 +53,8 @@ run("anonymous key against PostgREST", () => {
     for (const row of rows) expect(row).not.toHaveProperty("supplier");
     const no = await anon("/rest/v1/rpc/search_staff", { method: "POST", body: JSON.stringify({ q: "oak" }) });
     expect(no.status).not.toBe(200);
+    const noGrouped = await anon("/rest/v1/rpc/search_staff_grouped", { method: "POST", body: JSON.stringify({ q: "oak" }) });
+    expect(noGrouped.status).not.toBe(200);
   });
 
   it("cannot insert into search_log", async () => {

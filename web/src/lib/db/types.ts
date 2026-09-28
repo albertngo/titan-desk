@@ -168,6 +168,33 @@ export type SearchHit = {
   parsed: ParsedQuery;
 } & SearchCardFacts;
 
+/** A product inside a grouped result: a SearchHit without the per-query columns. */
+export type GroupMember = Omit<SearchHit, "total_count" | "rank" | "parsed">;
+
+/** One row of search_staff_grouped (migration 005): a product line with its colours inside. */
+export type SearchGroup = {
+  group_key: string;
+  line: string | null;
+  brand: string | null;
+  supplier: string | null;
+  category: string | null;
+  product_count: number;
+  price_min: number | null;
+  price_max: number | null;
+  price_unit: "sf" | "piece";
+  any_promo: boolean;
+  width_in: number | null;
+  thickness_mm: number | null;
+  wear_layer_mil: number | null;
+  install_profile: string | null;
+  waterproof: boolean;
+  members: GroupMember[];
+  total_groups: number;
+  total_products: number;
+  rank: number;
+  parsed: ParsedQuery;
+};
+
 /** Returned by search_staff only (migration 004); search_public keeps its original columns. */
 export type SearchCardFacts = {
   collection: string | null;
@@ -241,6 +268,7 @@ export interface Database {
     };
     Functions: {
       search_staff: { Args: SearchArgs; Returns: SearchHit[] };
+      search_staff_grouped: { Args: SearchArgs; Returns: SearchGroup[] };
       search_public: { Args: Omit<SearchArgs, "f_supplier">; Returns: Omit<SearchHit, "supplier" | keyof SearchCardFacts>[] };
       parse_query: { Args: { q: string }; Returns: ParsedQuery };
       today: { Args: Record<string, never>; Returns: string };
