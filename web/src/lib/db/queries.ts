@@ -1,13 +1,13 @@
 /**
  * The ONLY module that talks to the database. It knows exactly these objects in schema `api`:
- * catalogue_staff, search_staff, catalogue_facets, sync_status, design_dictionary, design_rules,
- * and an INSERT into search_log.
+ * catalogue_staff, search_staff, search_staff_grouped, catalogue_facets, sync_status,
+ * design_dictionary, design_rules, and an INSERT into search_log.
  * Never read schema `mirror`; never chain .select() on the search_log insert (no SELECT grant).
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { CANDIDATE_COLUMNS, FLOOR_CATEGORIES, type Candidate, type DesignRule, type DictionaryRow } from "@/lib/design/types";
-import type { Database, FacetRow, SearchArgs, SearchHit, SyncStatusRow, CatalogueStaffRow } from "./types";
+import type { Database, FacetRow, SearchArgs, SearchGroup, SearchHit, SyncStatusRow, CatalogueStaffRow } from "./types";
 
 export type Client = SupabaseClient<Database, "api">;
 
@@ -17,6 +17,15 @@ export async function searchStaff(client: Client, args: SearchArgs, signal?: Abo
   const { data, error } = await q;
   if (error) throw error;
   return (data ?? []) as SearchHit[];
+}
+
+/** Same match as searchStaff, one row per product line (colours inside), paged by line. */
+export async function searchStaffGrouped(client: Client, args: SearchArgs, signal?: AbortSignal): Promise<SearchGroup[]> {
+  let q = client.rpc("search_staff_grouped", args);
+  if (signal) q = q.abortSignal(signal);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data ?? []) as SearchGroup[];
 }
 
 export async function getProduct(client: Client, sku: string): Promise<CatalogueStaffRow | null> {

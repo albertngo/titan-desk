@@ -6,7 +6,7 @@
  * the middle. We lift it out as the title and push the rest into smaller lines. A name that
  * doesn't follow the rule is shown whole.
  */
-import { num } from "./format";
+import { money, num } from "./format";
 
 export type CardName = {
   line: string | null;   // "Purelux Betten Laminate": the product line, shown small above
@@ -71,6 +71,19 @@ export function specChips(s: SpecInput): string[] {
     s.install_profile,
     s.waterproof ? "Waterproof" : null,
   ].filter((x): x is string => Boolean(x));
+}
+
+/** A collection card's heading: its line, with the brand in front when the line lacks it. */
+export function groupTitle(line: string | null, brand: string | null, fallback: string): string {
+  if (!line) return fallback;
+  return brand && !line.toLowerCase().includes(brand.toLowerCase()) ? `${brand} ${line}` : line;
+}
+
+/** "$2.99 /sf" when every colour costs the same, "$2.99–$3.49 /sf" when they differ. */
+export function priceRange(min: number | null, max: number | null, unit: "sf" | "piece"): string {
+  if (min == null || max == null) return "Price on request";
+  const u = unit === "sf" ? "sf" : "pc";
+  return min === max ? `${money(min)} /${u}` : `${money(min)}–${money(max)} /${u}`;
 }
 
 /** Price of one box for a per-sf product: what a customer actually pays per unit carried out. */

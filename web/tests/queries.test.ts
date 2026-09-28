@@ -42,6 +42,15 @@ describe("filters ⇄ URL", () => {
     expect(activeFilterCount(EMPTY_FILTERS)).toBe(0);
     expect(activeFilterCount({ ...EMPTY_FILTERS, supplier: ["A", "B"], hide: true, min: 1 })).toBe(4);
   });
+
+  it("keeps the all-products view in the URL but out of the filters and the RPC", () => {
+    const f = { ...EMPTY_FILTERS, q: "purelux", all: true };
+    const params = filtersToSearchParams(f);
+    expect(params.get("all")).toBe("1");
+    expect(filtersFromSearchParams(params)).toEqual(f);
+    expect(activeFilterCount(f)).toBe(0);
+    expect(filtersToArgs(f)).not.toHaveProperty("all");
+  });
 });
 
 describe("image loader", () => {
