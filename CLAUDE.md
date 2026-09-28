@@ -14,6 +14,11 @@ Airtable, and nothing here imports code from `titan-agents`.
    `catalogue_staff`, `search_staff`, `search_staff_grouped`, `catalogue_facets`, `sync_status`, `design_dictionary`,
    `design_rules`, and an INSERT
    into `search_log`. Never query schema `mirror` from the app.
+   The askBert assistant (`web/agents/askbert`) has one read-only tool that calls
+   `api.askbert_search` / `api.askbert_relax` through PostgREST with the signed-in staff
+   member's own session (never a service key, never a separate login). Staff see all data,
+   cost included, by decision (2026-09-28); never expose these functions to anon, never add a
+   write tool, and never build SQL text from model input.
 3. **The public/staff boundary lives in the database.** Adding a column to a view is a
    security decision: update the tier table in `db/README.md`, the view, and tests
    `006_view_columns.sql` + `007_tier_allowlist.sql` together.

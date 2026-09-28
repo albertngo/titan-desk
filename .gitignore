@@ -30,3 +30,6 @@ db/supabase/.env
 # local harness
 db/.localpg/
 sync/tests/.tmp/
+
+# eve local state and traces
+.eve/
