@@ -47,25 +47,33 @@ jobs:
       - name: Start local Supabase (migrations + seed)
         if: steps.key.outputs.ok == 'true'
         run: supabase --workdir db start -x studio,inbucket,realtime,edge-runtime,logflare,vector,imgproxy
-      - name: Sign in a local-only test staff user
-        # askBert reads as the signed-in staff member; locally that is a throwaway user on the
-        # throwaway database. Its token is masked and dies with the job.
+      - name: Token for a local-only test staff user
+        # askBert reads as the signed-in staff member. Locally there is no Microsoft sign-in (and
+        # email login is off), so mint a short-lived "authenticated" token with the throwaway
+        # local stack's own JWT secret. It only works against this job's database.
         if: steps.key.outputs.ok == 'true'
         run: |
-          eval "$(supabase --workdir db status -o env | sed 's/^/export /')"
-          curl -sf -X POST "$API_URL/auth/v1/admin/users" \
-            -H "apikey: $SERVICE_ROLE_KEY" -H "Authorization: Bearer $SERVICE_ROLE_KEY" -H "content-type: application/json" \
-            -d '{"email":"evals@askbert.local","password":"askbert-evals-local","email_confirm":true}' > /dev/null
-          TOKEN="$(curl -sf -X POST "$API_URL/auth/v1/token?grant_type=password" \
-            -H "apikey: $ANON_KEY" -H "content-type: application/json" \
-            -d '{"email":"evals@askbert.local","password":"askbert-evals-local"}' | jq -r .access_token)"
-          test -n "$TOKEN" && test "$TOKEN" != "null"
+          set -euo pipefail
+          eval "$(supabase --workdir db status -o env 2>/dev/null | grep -E '^(API_URL|ANON_KEY|JWT_SECRET)=' | sed 's/^/export /')"
+          TOKEN="$(node .github/scripts/mint-local-token.mjs)"
+          if [ -z "$TOKEN" ] || [ -z "${ANON_KEY:-}" ] || [ -z "${API_URL:-}" ]; then
+            echo "::error::Could not build the local test token (API_URL/ANON_KEY/JWT_SECRET missing from supabase status)."
+            exit 1
+          fi
           echo "::add-mask::$TOKEN"
           {
             echo "ASKBERT_DEV_ACCESS_TOKEN=$TOKEN"
             echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
             echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
           } >> "$GITHUB_ENV"
+      - name: Check the token reaches the catalogue as staff
+        if: steps.key.outputs.ok == 'true'
+        run: |
+          set -euo pipefail
+          curl -sf -X POST "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/askbert_search" \
+            -H "apikey: $NEXT_PUBLIC_SUPABASE_ANON_KEY" -H "Authorization: Bearer $ASKBERT_DEV_ACCESS_TOKEN" \
+            -H "Content-Profile: api" -H "Accept-Profile: api" -H "content-type: application/json" \
+            -d '{"p_kw":"macaroon"}' | jq -e 'length > 0' > /dev/null
       - run: npm install --no-audit --no-fund
         if: steps.key.outputs.ok == 'true'
         working-directory: web
