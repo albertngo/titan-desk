@@ -14,9 +14,14 @@ Airtable, and nothing here imports code from `titan-agents`.
    `catalogue_staff`, `search_staff`, `search_staff_grouped`, `catalogue_facets`, `sync_status`, `design_dictionary`,
    `design_rules`, and an INSERT
    into `search_log`. Never query schema `mirror` from the app.
+   The one other database path is the askBert assistant's tool: `web/agents/askbert/agent/lib/db.ts`
+   connects as role `askbert_reader` (`ASKBERT_DATABASE_URL`) and reads only the view
+   `askbert.catalogue`, which has no cost, margin or internal pricing. Never give that role
+   another grant, never add a write tool, and never build SQL text from model input.
 3. **The public/staff boundary lives in the database.** Adding a column to a view is a
    security decision: update the tier table in `db/README.md`, the view, and tests
-   `006_view_columns.sql` + `007_tier_allowlist.sql` together.
+   `006_view_columns.sql` + `007_tier_allowlist.sql` together (for `askbert.catalogue`,
+   the askBert tier in `db/README.md` and `010_askbert.sql`).
 4. **No secrets in the repo.** `.env.example` lists variable names only.
    `platform-settings/airtable.json` holds Airtable IDs (not secrets) and is the single
    source for field IDs used by `sync/titan_sync/fields.py`.

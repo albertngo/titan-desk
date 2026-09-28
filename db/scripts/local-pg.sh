@@ -55,6 +55,7 @@ reset() {
   done
   # Local only: the worker's roundtrip tests connect as the restricted role over TCP.
   psql_admin -d "$DBNAME" -q -c "alter role sync_worker with login password 'sync_worker'"
+  psql_admin -d "$DBNAME" -q -c "alter role askbert_reader with login password 'askbert_reader'"
   psql_admin -d "$DBNAME" -q -c "do \$\$ begin if not exists (select 1 from pg_roles where rolname = 'titan_test_reader') then create role titan_test_reader login password 'reader' in role authenticated; end if; end \$\$"
   if [[ -f "$DB_DIR/supabase/seed.sql" ]]; then
     echo "seeding"
