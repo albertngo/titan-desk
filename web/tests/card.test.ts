@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { boxPrice, groupTitle, priceRange, specChips, splitName, supplierIfDifferent } from "@/lib/card";
+import { boxPrice, collectionLine, collectionMembers, collectionPattern, groupTitle, priceRange, specChips, splitName, supplierIfDifferent, type CollectionMember } from "@/lib/card";
 
 // Real names from the catalogue, one per naming pattern.
 describe("splitName", () => {
@@ -69,5 +69,33 @@ describe("card helpers", () => {
     expect(boxPrice(null, "sf", false, 19.52)).toBeNull();
     expect(boxPrice(2.99, "sf", true, 19.52)).toBeNull();
     expect(boxPrice(2.99, "sf", false, null)).toBeNull();
+  });
+});
+
+describe("collection on the product page", () => {
+  const m = (sku: string, product_name: string | null): CollectionMember => ({
+    sku, product_name, brand: "Vidar", retail_price: 4.99, price_unit: "sf", price_on_request: false,
+    promo_active: false, stock_status: null, coming_soon: false, images: null,
+  });
+
+  it("keys the line the way the grouped search does", () => {
+    expect(collectionLine('Vidar 7.5" AWO — Macaroon (ABCD)')).toBe('Vidar 7.5" AWO');
+    expect(collectionLine("Brick — WHITE (Gloss) — 7.87 x 11.81")).toBe("Brick");
+    expect(collectionLine("Canadian Standard - Sundry | Underpad")).toBeNull();
+    expect(collectionLine(null)).toBeNull();
+  });
+
+  it("escapes LIKE wildcards in the line", () => {
+    expect(collectionPattern('Vidar 7.5" AWO')).toBe('Vidar 7.5" AWO — %');
+    expect(collectionPattern("50%_off\\x")).toBe("50\\%\\_off\\\\x — %");
+  });
+
+  it("lists the collection in name order with the current product in it, once", () => {
+    const cur = m("B", 'Vidar 7.5" AWO — Macaroon');
+    const rows = [m("C", 'Vidar 7.5" AWO — Walnut'), m("B", 'Vidar 7.5" AWO — Macaroon'), m("A", 'Vidar 7.5" AWO — Hazel'),
+      m("X", 'Vidar 7.5" AWO Plus — Hazel')]; // a different line, dropped even if the query returned it
+    expect(collectionMembers(cur, rows).map((r) => r.sku)).toEqual(["A", "B", "C"]);
+    expect(collectionMembers(cur, []).map((r) => r.sku)).toEqual(["B"]);
+    expect(collectionMembers(m("Z", "No dash here"), rows)).toEqual([]);
   });
 });

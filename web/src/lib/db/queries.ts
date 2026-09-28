@@ -6,6 +6,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { collectionLine, collectionPattern, type CollectionMember } from "@/lib/card";
 import { CANDIDATE_COLUMNS, FLOOR_CATEGORIES, type Candidate, type DesignRule, type DictionaryRow } from "@/lib/design/types";
 import type { Database, FacetRow, SearchArgs, SearchGroup, SearchHit, SyncStatusRow, CatalogueStaffRow } from "./types";
 
@@ -32,6 +33,32 @@ export async function getProduct(client: Client, sku: string): Promise<Catalogue
   const { data, error } = await client.from("catalogue_staff").select("*").eq("sku", sku).maybeSingle();
   if (error) throw error;
   return (data as CatalogueStaffRow | null) ?? null;
+}
+
+/** Most colours a product page shows from its collection; the rest are one tap away in search. */
+export const COLLECTION_LIMIT = 60;
+const COLLECTION_COLUMNS = "sku,product_name,brand,retail_price,price_unit,price_on_request,promo_active,stock_status,coming_soon,images";
+
+/**
+ * The active products in the same collection as `p`: same supplier, same line before " — ",
+ * the grouped search's key. `total` counts them all, `rows` holds the first COLLECTION_LIMIT.
+ */
+export async function getCollection(
+  client: Client,
+  p: Pick<CatalogueStaffRow, "supplier" | "product_name">,
+): Promise<{ rows: CollectionMember[]; total: number }> {
+  const line = collectionLine(p.product_name);
+  if (!line || !p.supplier) return { rows: [], total: 0 };
+  const { data, error, count } = await client
+    .from("catalogue_staff")
+    .select(COLLECTION_COLUMNS, { count: "exact" })
+    .eq("supplier", p.supplier)
+    .eq("active", true)
+    .like("product_name", collectionPattern(line))
+    .order("product_name")
+    .limit(COLLECTION_LIMIT);
+  if (error) throw error;
+  return { rows: (data ?? []) as unknown as CollectionMember[], total: count ?? 0 };
 }
 
 export type Facets = Record<FacetRow["facet"], { value: string; n: number }[]>;

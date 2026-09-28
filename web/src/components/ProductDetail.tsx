@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { CollectionTiles } from "@/components/CollectionTiles";
 import { ImageGallery } from "@/components/ImageGallery";
 import { PriceBlock } from "@/components/PriceBlock";
 import { StockBadge } from "@/components/ResultCard";
+import { collectionMembers, type CollectionMember } from "@/lib/card";
 import type { CatalogueStaffRow } from "@/lib/db/types";
 import { dateShort, num, yesNo } from "@/lib/format";
 
@@ -49,7 +51,11 @@ function PriceListCheck({ product: p }: { product: CatalogueStaffRow }) {
   );
 }
 
-export function ProductDetail({ product: p }: { product: CatalogueStaffRow }) {
+export function ProductDetail({ product: p, collection }: {
+  product: CatalogueStaffRow;
+  collection?: { rows: CollectionMember[]; total: number } | null;
+}) {
+  const colours = collection ? collectionMembers(p, collection.rows) : [];
   const dims = [p.width_in !== null ? `${num(p.width_in)}"` : null, p.length, p.thickness_mm !== null ? `${num(p.thickness_mm)} mm` : null]
     .filter(Boolean)
     .join(" × ");
@@ -93,6 +99,8 @@ export function ProductDetail({ product: p }: { product: CatalogueStaffRow }) {
           </div>
         </Section>
       ) : null}
+
+      <CollectionTiles members={colours} total={collection?.total ?? 0} current={p.sku} supplier={p.supplier} />
 
       <Section title="Specs">
         <dl>
