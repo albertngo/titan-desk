@@ -80,9 +80,18 @@ export function SearchView() {
       setError(null);
       const t0 = performance.now();
       try {
-        const next: Results = grouped
-          ? { kind: "grouped", groups: await searchStaffGrouped(supabase, args, ac.signal) }
-          : { kind: "flat", hits: await searchStaff(supabase, args, ac.signal) };
+        let next: Results;
+        try {
+          next = grouped
+            ? { kind: "grouped", groups: await searchStaffGrouped(supabase, args, ac.signal) }
+            : { kind: "flat", hits: await searchStaff(supabase, args, ac.signal) };
+        } catch (e) {
+          // The page can deploy a moment before migration 005 reaches the database (and a
+          // preview always runs against production's): PostgREST answers PGRST202 for an
+          // unknown function. Show the flat list rather than an error.
+          if (!grouped || (e as { code?: string }).code !== "PGRST202") throw e;
+          next = { kind: "flat", hits: await searchStaff(supabase, filtersToArgs(f, p, PAGE), ac.signal) };
+        }
         if (ac.signal.aborted) return;
         cache.current.set(key, next);
         if (cache.current.size > CACHE_MAX) cache.current.delete(cache.current.keys().next().value!);
