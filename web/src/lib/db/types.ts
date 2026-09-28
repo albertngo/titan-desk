@@ -166,6 +166,17 @@ export type SearchHit = {
   total_count: number;
   rank: number;
   parsed: ParsedQuery;
+} & SearchCardFacts;
+
+/** Returned by search_staff only (migration 004); search_public keeps its original columns. */
+export type SearchCardFacts = {
+  collection: string | null;
+  width_in: number | null;
+  thickness_mm: number | null;
+  wear_layer_mil: number | null;
+  install_profile: string | null;
+  waterproof: boolean;
+  box_size_sf: number | null;
 };
 
 export type SearchArgs = {
@@ -230,7 +241,7 @@ export interface Database {
     };
     Functions: {
       search_staff: { Args: SearchArgs; Returns: SearchHit[] };
-      search_public: { Args: Omit<SearchArgs, "f_supplier">; Returns: Omit<SearchHit, "supplier">[] };
+      search_public: { Args: Omit<SearchArgs, "f_supplier">; Returns: Omit<SearchHit, "supplier" | keyof SearchCardFacts>[] };
       parse_query: { Args: { q: string }; Returns: ParsedQuery };
       today: { Args: Record<string, never>; Returns: string };
     };
