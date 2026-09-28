@@ -123,6 +123,7 @@ export type CatalogueStaffRow = CataloguePublicRow & {
   salesperson_notes: string | null;
   internal_notes: string | null;
   price_list_url: string | null;
+  price_list_date: string | null;
   promo_list_url: string | null;
   rep_cost: number | null;
   rep_cost_end_date: string | null;

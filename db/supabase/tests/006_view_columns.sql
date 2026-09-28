@@ -39,7 +39,7 @@ select is(
     'salesperson_notes','internal_notes','price_list_url',
     'promo_list_url','rep_cost','rep_cost_end_date','rep_cost_note','rep_cost_active',
     'style_tags_status','style_tags_evidence','airtable_url',
-    'pairs_well_with','variants','images','hero','search_staff'
+    'pairs_well_with','variants','images','hero','search_staff','price_list_date'
   ]::text[],
   'api.catalogue_staff columns are exactly public + staff tiers');
 

@@ -22,7 +22,10 @@ export function yesNo(v: boolean): string {
 
 export function dateShort(iso: string | null): string {
   if (!iso) return "—";
-  return new Intl.DateTimeFormat("en-CA", { dateStyle: "medium", timeZone: "America/Toronto" }).format(new Date(iso));
+  // A bare date ("2026-09-19") parses as UTC midnight, which is the evening before in Toronto;
+  // format it in UTC so the calendar day stays the one Airtable stores.
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(iso);
+  return new Intl.DateTimeFormat("en-CA", { dateStyle: "medium", timeZone: dateOnly ? "UTC" : "America/Toronto" }).format(new Date(iso));
 }
 
 export function timeShort(iso: string | null): string {

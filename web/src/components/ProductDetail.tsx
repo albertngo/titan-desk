@@ -3,7 +3,7 @@ import { ImageGallery } from "@/components/ImageGallery";
 import { PriceBlock } from "@/components/PriceBlock";
 import { StockBadge } from "@/components/ResultCard";
 import type { CatalogueStaffRow } from "@/lib/db/types";
-import { num, yesNo } from "@/lib/format";
+import { dateShort, num, yesNo } from "@/lib/format";
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   if (value === null || value === undefined || value === "" || value === "—") return null;
@@ -21,6 +21,31 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">{title}</h2>
       {children}
     </section>
+  );
+}
+
+/**
+ * The supplier's own list, one tap from the price, for re-verifying what the mirror says.
+ * When the linked list's date differs from the price's Effective Date, the price came from a
+ * different list than the one linked — say so, since that is the thing to check.
+ */
+function PriceListCheck({ product: p }: { product: CatalogueStaffRow }) {
+  if (!p.price_list_url) {
+    return <p className="mt-2 text-xs text-zinc-500">No supplier price list linked yet.</p>;
+  }
+  const differs = p.price_list_date !== null && p.last_price_update !== null && p.price_list_date !== p.last_price_update;
+  return (
+    <div className="mt-2 space-y-1">
+      <a href={p.price_list_url} target="_blank" rel="noreferrer"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm active:bg-zinc-50">
+        Supplier price list{p.price_list_date ? ` · ${dateShort(p.price_list_date)}` : ""} ↗
+      </a>
+      {differs && (
+        <p className="text-xs text-amber-800">
+          Price dated {dateShort(p.last_price_update)}; this list is dated {dateShort(p.price_list_date)}. Check the price against it.
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -50,6 +75,8 @@ export function ProductDetail({ product: p }: { product: CatalogueStaffRow }) {
       </div>
 
       <PriceBlock product={p} />
+
+      <PriceListCheck product={p} />
 
       {p.variants?.length ? (
         <Section title="Also in">
@@ -156,11 +183,6 @@ export function ProductDetail({ product: p }: { product: CatalogueStaffRow }) {
           <a href={p.airtable_url} target="_blank" rel="noreferrer" className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5">
             Report an issue (opens Airtable)
           </a>
-          {p.price_list_url && (
-            <a href={p.price_list_url} target="_blank" rel="noreferrer" className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5">
-              Supplier price list
-            </a>
-          )}
           {p.promo_list_url && (
             <a href={p.promo_list_url} target="_blank" rel="noreferrer" className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5">
               Promo list
