@@ -3,7 +3,7 @@ import { defineTool } from "eve/tools";
 import { ACCESS_TOKEN_ATTR } from "../lib/auth";
 import { relaxationCounts, searchCatalogue } from "../lib/db";
 import { activeFilters, bindArgs, toProduct, toRelaxations } from "../lib/query";
-import { queryInput, queryOutput, type QueryOutput } from "../lib/schema";
+import { queryInput, type QueryOutput } from "../lib/schema";
 
 /** Postgres "query_canceled" (statement timeout). */
 const TIMEOUT = "57014";
@@ -27,7 +27,8 @@ export default defineTool({
     + "suitability questions. Suitability fields are \"yes\" only when the catalogue confirms them; \"not confirmed\" means "
     + "unknown, not no. When nothing matches, `relaxations` says how many products each dropped filter would let through.",
   inputSchema: queryInput,
-  outputSchema: queryOutput,
+  // No outputSchema: eve requires a JSON-Schema-capable (Zod 4) schema there, and the app is on
+  // Zod 3. The return type below is the contract; tests check it against lib/schema.ts.
   label: {
     start: (input) => (input.keyword ? `Searching the catalogue for “${input.keyword}”` : "Searching the catalogue"),
   },
