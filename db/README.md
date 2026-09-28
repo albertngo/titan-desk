@@ -24,10 +24,9 @@ that built-in default, so migration 001 revokes it per function (§12) and **any
 | Role | Gets |
 |---|---|
 | `anon` (public, website agent) | SELECT `api.catalogue_public`; EXECUTE `api.search_public`, `api.parse_query`, `api.today`; USAGE on `mirror` + EXECUTE on its pure helpers (`price_unit`, `variant_label`, `image_url`, `is_public`) because the views call them as the caller; no privilege on any `mirror` table; `statement_timeout = 3s` |
-| `authenticated` (staff, M365) | the above (incl. the `mirror` helper access) + SELECT `catalogue_staff`, `catalogue_facets`, `sync_status`, `design_dictionary`, `design_rules`; EXECUTE `search_staff`; INSERT `search_log` (own uid only; no SELECT) |
+| `authenticated` (staff, M365) | the above (incl. the `mirror` helper access) + SELECT `catalogue_staff`, `catalogue_facets`, `sync_status`, `design_dictionary`, `design_rules`; EXECUTE `search_staff`, `search_staff_grouped`, `askbert_search`, `askbert_relax`; INSERT `search_log` (own uid only; no SELECT) |
 | `sync_worker` (Python worker) | USAGE on `mirror`; SELECT/INSERT/UPDATE/DELETE on its tables; TRUNCATE on the stage. Created NOLOGIN; Albert runs `alter role sync_worker login password '…'` once in the SQL editor |
 | `supabase_auth_admin` | EXECUTE `mirror.hook_restrict_signup` (Before User Created hook) |
-| `askbert_reader` (askBert assistant) | USAGE on schema `askbert` + SELECT `askbert.catalogue`, nothing else (no `api`, no `mirror`, no functions). Read-only transactions, `statement_timeout = 2s`, connection limit 10. Created NOLOGIN; Albert runs `alter role askbert_reader login password '…'` once, and the web app reads it from `ASKBERT_DATABASE_URL` (transaction pooler, server-only). Schema `askbert` is not exposed through PostgREST |
 
 ## Tier table — the source of truth for the views and tests 006/007
 
@@ -40,9 +39,7 @@ that built-in default, so migration 001 revokes it per function (§12) and **any
 **System only** (base table, in neither view):
 `airtable_record_id, airtable_created_at, airtable_modified_at, synced_at, lightspeed_id, ls_handle, variant_group, image_attachments`
 
-**askBert tier** (`askbert.catalogue`, test `010_askbert.sql`; every product, archived ones flagged):
-`sku, product_name, brand, supplier, collection, product_type, category, material_type, species, colour_tone, grade, layout_pattern, width_in, length, thickness_mm, wear_layer_mil, veneer_mm, ac_rating, finish_type, install_profile, install_method, locking_system, underpad_included, underpad_type, iic_rating, stc_rating, tile_format, box_size_sf, pieces_per_box, retail_price, price_on_request, price_unit, promo_active, promo_ends (= promo_end_date), price_as_of (= last_price_update), price_list_date, stock_status, archived (= not active), coming_soon, waterproof_confirmed, pet_friendly_confirmed, radiant_heat_confirmed, traffic_rating, suitable_rooms, residential_warranty_yrs, commercial_warranty_yrs, undertone, tone_depth, texture, style, busyness, thumb_url, search_public` (filter only).
-Never in it: `cost, map_price, pallet_price, promo_cost, volume_pricing_notes, rep_cost, rep_cost_end_date, rep_cost_note, rep_cost_active, price_last_changed_by, price_stale, promo_open_ended, price_list_url, promo_list_url, supplier_sku, internal_notes, salesperson_notes, boxes_per_skid, pieces_per_pallet, style_tags_*`, `search_staff` and every system column. The three checkboxes are renamed `*_confirmed` because the sync stores a blank Airtable checkbox as `false`: false means "not confirmed", not "no".
+**askBert** (the staff assistant) has no view or role of its own. It calls `api.askbert_search` / `api.askbert_relax` (migration 006, test `010_askbert.sql`) through PostgREST with the signed-in staff member's own session. They are SECURITY INVOKER over `api.catalogue_staff`, EXECUTE is granted to `authenticated` only, and anon is denied. So askBert sees exactly what staff see, cost included (Albert, 2026-09-28). A public assistant will need its own cost-free path.
 
 **Not mirrored:** Airtable `Attachments`, `Attachment Summary`, `Price History Log` (legacy), `Price History Log v2`.
 
