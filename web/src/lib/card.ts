@@ -6,6 +6,7 @@
  * the middle. We lift it out as the title and push the rest into smaller lines. A name that
  * doesn't follow the rule is shown whole.
  */
+import type { CatalogueStaffRow } from "./db/types";
 import { money, num } from "./format";
 
 export type CardName = {
@@ -90,4 +91,38 @@ export function priceRange(min: number | null, max: number | null, unit: "sf" | 
 export function boxPrice(retail: number | null, unit: "sf" | "piece", onRequest: boolean, boxSf: number | null): number | null {
   if (onRequest || unit !== "sf" || retail == null || !boxSf || boxSf <= 0) return null;
   return Math.round(retail * boxSf * 100) / 100;
+}
+
+/**
+ * The product line a name belongs to, exactly as the grouped search keys it
+ * (`split_part(product_name, ' — ', 1)`), so a product page shows the same collection as search.
+ */
+export function collectionLine(name: string | null): string | null {
+  if (!name || !name.includes(DASH)) return null;
+  const line = name.split(DASH)[0];
+  return line.trim() ? line : null;
+}
+
+/** A LIKE pattern for "<line> — anything", with LIKE's own wildcards in the line escaped. */
+export function collectionPattern(line: string): string {
+  return line.replace(/[\\%_]/g, (c) => `\\${c}`) + DASH + "%";
+}
+
+export type CollectionMember = Pick<
+  CatalogueStaffRow,
+  "sku" | "product_name" | "brand" | "retail_price" | "price_unit" | "price_on_request" | "promo_active" | "stock_status" | "coming_soon" | "images"
+>;
+
+/**
+ * The colours of the current product's collection, in name order, always including the product
+ * itself (even when archived). Rows whose line only matched loosely are dropped, so the list is
+ * exactly the grouped search's collection.
+ */
+export function collectionMembers(current: CollectionMember, rows: CollectionMember[]): CollectionMember[] {
+  const line = collectionLine(current.product_name);
+  if (!line) return [];
+  const byName = (a: CollectionMember, b: CollectionMember) =>
+    (a.product_name ?? "").localeCompare(b.product_name ?? "") || a.sku.localeCompare(b.sku);
+  const same = rows.filter((r) => r.sku !== current.sku && collectionLine(r.product_name) === line);
+  return [current, ...same].sort(byName);
 }
