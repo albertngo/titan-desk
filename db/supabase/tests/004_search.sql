@@ -3,7 +3,7 @@ begin;
 -- start from an empty catalogue: seed rows must not influence these assertions
 delete from mirror.catalogue_images;
 delete from mirror.catalogue;
-select plan(40);
+select plan(42);
 
 -- parse_query --------------------------------------------------------------
 select is((select width_in from api.parse_query('what is 6in click on promo')), 6::numeric, '6in → width 6');
@@ -58,6 +58,11 @@ select ok('ENG-VIDR-0100R' = any (select sku from api.search_staff('macaroon')),
 select is((select count(*) from api.search_staff('', f_hide_unavailable => true)), 4::bigint, 'hide_unavailable drops special order, discontinued and coming soon');
 select is((select total_count from api.search_staff('', f_supplier => array['VIDAR'], lim => 1) limit 1), 3::bigint, 'total_count counts all matches regardless of lim');
 select is((select (parsed ->> 'width_in')::numeric from api.search_staff('6in click on promo') limit 1), 6::numeric, 'parsed tokens are returned for chips');
+select is((select width_in::text || ' ' || install_profile from api.search_staff('6in click on promo') limit 1), '6.00 Click', 'staff search returns the card facts (width, install profile)');
+select ok(not exists (select 1 from information_schema.routines r
+                       join information_schema.parameters p on p.specific_name = r.specific_name
+                      where r.routine_schema = 'api' and r.routine_name = 'search_public' and p.parameter_name = 'box_size_sf'),
+          'public search is unchanged: no card-facts columns');
 
 -- indexability: with seq scans disabled the OR-ed predicates use the GIN indexes
 create function pg_temp.explain_search(q text) returns setof text language plpgsql as $t$
