@@ -61,14 +61,17 @@ from mirror.catalogue c;                                             -- every pr
 comment on view askbert.catalogue is
   'askBert assistant view. No cost/margin/internal pricing. Read only by role askbert_reader. See db/README.md.';
 
--- Roles are cluster-wide; create once, then (re)assert every attribute.
+-- Roles are cluster-wide; create once, then (re)assert the attributes this migration may set.
+-- A new role is already NOSUPERUSER NOCREATEDB NOCREATEROLE NOBYPASSRLS NOREPLICATION; a migration
+-- role without those powers (hosted Supabase) may not even name them, so they keep the defaults
+-- and test 010 checks them.
 do $do$
 begin
   if not exists (select 1 from pg_roles where rolname = 'askbert_reader') then
     create role askbert_reader nologin;
   end if;
 end $do$;
-alter role askbert_reader noinherit nosuperuser nocreatedb nocreaterole nobypassrls noreplication connection limit 10;
+alter role askbert_reader noinherit connection limit 10;
 grant usage on schema askbert to askbert_reader;
 grant select on askbert.catalogue to askbert_reader;
 
