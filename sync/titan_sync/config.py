@@ -45,6 +45,9 @@ class AirtableIds:
     catalogue_table_id: str
     design_rules_table_id: str | None
     fields: dict[str, str | None]
+    design_dictionary_table_id: str | None = None
+    design_dictionary_fields: dict[str, str] | None = None
+    design_rules_fields: dict[str, str] | None = None
 
     @classmethod
     def load(cls, path: Path = DEFAULT_PLATFORM_SETTINGS) -> "AirtableIds":
@@ -54,6 +57,9 @@ class AirtableIds:
             catalogue_table_id=data["tables"]["master_flooring_catalogue"],
             design_rules_table_id=data["tables"].get("design_rules"),
             fields=dict(data["fields"]),
+            design_dictionary_table_id=data["tables"].get("design_dictionary"),
+            design_dictionary_fields=data.get("design_dictionary_fields"),
+            design_rules_fields=data.get("design_rules_fields"),
         )
 
 

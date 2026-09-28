@@ -300,6 +300,11 @@
       "type": "url"
     },
     {
+      "id": "fldaNa7RkFvhYKqnZ",
+      "name": "Price List Date",
+      "type": "date"
+    },
+    {
       "id": "fldK1CPhmJ8YDf5ci",
       "name": "Internal notes",
       "type": "multilineText"

@@ -13,6 +13,7 @@ import structlog
 from .airtable import AirtableSource, Source
 from .config import Settings
 from .db import Db, MergeResult
+from .design import sync_design_tables
 from .fields import field_map, skipped_field_ids
 from .images import ImageSync
 from .storage import SupabaseStorage
@@ -73,7 +74,17 @@ def sync_catalogue(db: Db, source: Source, settings: Settings, *, mode: str) -> 
         db.commit()
         counts = dict(fetched=fetched, inserted=res.inserted, updated=res.updated, deleted=deleted,
                       issues=issues + res.excluded, api_calls=source.api_calls, watermark_after=started)
-        db.finish_run(run_id, "success", **counts)
+        # The two small design tables ride along on every catalogue run. A failure there is
+        # logged and reported, never allowed to fail (or roll back) the catalogue sync.
+        try:
+            design = sync_design_tables(db, source, settings.ids, run_id)
+            counts["design"] = design
+        except Exception as e:
+            db.rollback()
+            db.add_issue(run_id, "design_tables_failed", f"{type(e).__name__}: {e}"[:2000])
+            db.commit()
+            log.error("design.failed", run_id=run_id, error=str(e))
+        db.finish_run(run_id, "success", **{k: v for k, v in counts.items() if k != "design"})
         log.info("run.done", run_id=run_id, **{k: (v.isoformat() if isinstance(v, datetime) else v) for k, v in counts.items()})
         return counts
     except GuardTripped:

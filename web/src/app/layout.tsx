@@ -2,11 +2,11 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "Titan Desk", template: "%s · Titan Desk" },
+  title: { default: "askBert", template: "%s · askBert" },
   description: "Titan Flooring staff catalogue lookup",
-  applicationName: "Titan Desk",
+  applicationName: "askBert",
   manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, statusBarStyle: "default", title: "Titan Desk" },
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "askBert" },
   icons: { icon: "/icons/icon-192.png", apple: "/icons/apple-touch-icon.png" },
   formatDetection: { telephone: false },
 };

@@ -12,7 +12,7 @@ const run = URL_ && ANON ? describe : describe.skip;
 const STAFF_OR_SYSTEM = [
   "supplier", "supplier_sku", "cost", "map_price", "pallet_price", "promo_cost", "promo_end_date", "volume_pricing_notes",
   "last_price_update", "price_last_changed_by", "price_stale", "promo_open_ended", "boxes_per_skid", "pieces_per_pallet",
-  "active", "salesperson_notes", "internal_notes", "price_list_url", "style_tags_status", "style_tags_evidence", "airtable_url",
+  "active", "salesperson_notes", "internal_notes", "price_list_url", "price_list_date", "style_tags_status", "style_tags_evidence", "airtable_url",
   "search_staff", "airtable_record_id", "airtable_modified_at", "synced_at", "lightspeed_id", "ls_handle", "variant_group", "image_attachments",
 ];
 
@@ -31,8 +31,8 @@ run("anonymous key against PostgREST", () => {
     for (const row of rows) for (const k of STAFF_OR_SYSTEM) expect(row).not.toHaveProperty(k);
   });
 
-  it("cannot read catalogue_staff, facets or sync_status", async () => {
-    for (const v of ["catalogue_staff", "catalogue_facets", "sync_status"]) {
+  it("cannot read catalogue_staff, facets, sync_status or the design tables", async () => {
+    for (const v of ["catalogue_staff", "catalogue_facets", "sync_status", "design_dictionary", "design_rules"]) {
       const r = await anon(`/rest/v1/${v}?select=*&limit=1`);
       expect(r.status, v).not.toBe(200);
     }

@@ -3,8 +3,8 @@ import type { MetadataRoute } from "next";
 // Served at /manifest.webmanifest without cookies: the proxy matcher must keep excluding it.
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Titan Desk",
-    short_name: "Titan Desk",
+    name: "askBert",
+    short_name: "askBert",
     description: "Titan Flooring staff catalogue lookup",
     start_url: "/",
     scope: "/",
