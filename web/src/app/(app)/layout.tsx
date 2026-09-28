@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SyncStatus } from "@/components/SyncStatus";
+import { AskBert } from "@/components/askbert/AskBert";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -14,6 +15,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       </header>
       <main className="mx-auto max-w-3xl px-4 pb-24 pt-3">{children}</main>
+      <AskBert />
     </div>
   );
 }
