@@ -11,7 +11,7 @@ Airtable, and nothing here imports code from `titan-agents`.
    code paths that call Airtable create/update/delete endpoints.
 2. **The web app reads views only.** `web/src/lib/db/queries.ts` is the only place that
    talks to the database, and it knows exactly these objects in schema `api`:
-   `catalogue_staff`, `search_staff`, `search_staff_grouped`, `catalogue_facets`, `sync_status`, `design_dictionary`,
+   `catalogue_staff`, `search_staff`, `search_staff_grouped`, `catalogue_facets`, `catalogue_browse`, `sync_status`, `design_dictionary`,
    `design_rules`, and an INSERT
    into `search_log`. Never query schema `mirror` from the app.
    The askBert assistant (`web/agents/askbert`) has one read-only tool that calls

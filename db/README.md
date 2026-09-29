@@ -10,7 +10,7 @@ roles/schemas and `scripts/pgtap_shim.sql` for the pgTAP subset the tests use).
 | Schema | Exposed by the Data API | Holds |
 |---|---|---|
 | `mirror` | **no** | `catalogue` (every Airtable field), `catalogue_images`, `catalogue_image_skips`, `catalogue_stage`, `sync_runs`, `sync_issues`, `sync_state`, `settings`, helper functions |
-| `api` | **yes, the only one** | `catalogue_public`, `catalogue_staff`, `catalogue_facets`, `sync_status`, `design_dictionary`, `design_rules`, `search_public()`, `search_staff()`, `parse_query()`, `today()`, `search_log` |
+| `api` | **yes, the only one** | `catalogue_public`, `catalogue_staff`, `catalogue_facets`, `catalogue_browse`, `sync_status`, `design_dictionary`, `design_rules`, `search_public()`, `search_staff()`, `parse_query()`, `today()`, `search_log` |
 
 `public` is removed from the exposed schemas (dashboard → API settings; `config.toml` locally).
 Why a separate `api` schema: grants are explicit and enumerable (test 001 lists every EXECUTE),
@@ -24,7 +24,7 @@ that built-in default, so migration 001 revokes it per function (§12) and **any
 | Role | Gets |
 |---|---|
 | `anon` (public, website agent) | SELECT `api.catalogue_public`; EXECUTE `api.search_public`, `api.parse_query`, `api.today`; USAGE on `mirror` + EXECUTE on its pure helpers (`price_unit`, `variant_label`, `image_url`, `is_public`) because the views call them as the caller; no privilege on any `mirror` table; `statement_timeout = 3s` |
-| `authenticated` (staff, M365) | the above (incl. the `mirror` helper access) + SELECT `catalogue_staff`, `catalogue_facets`, `sync_status`, `design_dictionary`, `design_rules`; EXECUTE `search_staff`, `search_staff_grouped`, `askbert_search`, `askbert_relax`; INSERT `search_log` (own uid only; no SELECT) |
+| `authenticated` (staff, M365) | the above (incl. the `mirror` helper access) + SELECT `catalogue_staff`, `catalogue_facets`, `catalogue_browse`, `sync_status`, `design_dictionary`, `design_rules`; EXECUTE `search_staff`, `search_staff_grouped`, `askbert_search`, `askbert_relax`; INSERT `search_log` (own uid only; no SELECT) |
 | `sync_worker` (Python worker) | USAGE on `mirror`; SELECT/INSERT/UPDATE/DELETE on its tables; TRUNCATE on the stage. Created NOLOGIN; Albert runs `alter role sync_worker login password '…'` once in the SQL editor |
 | `supabase_auth_admin` | EXECUTE `mirror.hook_restrict_signup` (Before User Created hook) |
 
@@ -119,6 +119,14 @@ select count(*) images, pg_size_pretty(sum(original_bytes)) originals from mirro
 -- search latency p95 (client-measured)
 select percentile_cont(0.95) within group (order by took_ms) from api.search_log where created_at > now() - interval '7 days';
 ```
+
+## Browse counts (migration 007)
+
+`api.catalogue_browse` (staff only, because `supplier` is staff-tier): one row per
+(supplier, category) with `products` and `collections`, counted over the same rows and with the
+same collection key as `search_staff_grouped`, so a tile's numbers equal the list it opens
+(test 011). The home page groups categories into product types in `web/src/lib/browse.ts`
+(Vinyl = LVP + LVT, Tile & stone = Tile / Stone + STONE).
 
 ## Design Dictionary + Design Rules (migration 002)
 

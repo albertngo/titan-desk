@@ -1,6 +1,6 @@
 /**
  * The ONLY module that talks to the database. It knows exactly these objects in schema `api`:
- * catalogue_staff, search_staff, search_staff_grouped, catalogue_facets, sync_status,
+ * catalogue_staff, search_staff, search_staff_grouped, catalogue_facets, catalogue_browse, sync_status,
  * design_dictionary, design_rules, and an INSERT into search_log.
  * Never read schema `mirror`; never chain .select() on the search_log insert (no SELECT grant).
  */
@@ -8,7 +8,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { collectionLine, collectionPattern, type CollectionMember } from "@/lib/card";
 import { CANDIDATE_COLUMNS, FLOOR_CATEGORIES, type Candidate, type DesignRule, type DictionaryRow } from "@/lib/design/types";
-import type { Database, FacetRow, SearchArgs, SearchGroup, SearchHit, SyncStatusRow, CatalogueStaffRow } from "./types";
+import type { BrowseRow, Database, FacetRow, SearchArgs, SearchGroup, SearchHit, SyncStatusRow, CatalogueStaffRow } from "./types";
 
 export type Client = SupabaseClient<Database, "api">;
 
@@ -69,6 +69,13 @@ export async function getFacets(client: Client): Promise<Facets> {
   const out: Facets = { supplier: [], category: [], undertone: [], texture: [], busyness: [], style: [] };
   for (const row of (data ?? []) as FacetRow[]) out[row.facet]?.push({ value: row.value, n: row.n });
   return out;
+}
+
+/** Counts behind the home page's Suppliers / Product types browse screen. */
+export async function getBrowse(client: Client): Promise<BrowseRow[]> {
+  const { data, error } = await client.from("catalogue_browse").select("supplier,category,products,collections");
+  if (error) throw error;
+  return (data ?? []) as BrowseRow[];
 }
 
 export async function getSyncStatus(client: Client): Promise<SyncStatusRow | null> {

@@ -32,7 +32,7 @@ run("anonymous key against PostgREST", () => {
   });
 
   it("cannot read catalogue_staff, facets, sync_status or the design tables", async () => {
-    for (const v of ["catalogue_staff", "catalogue_facets", "sync_status", "design_dictionary", "design_rules"]) {
+    for (const v of ["catalogue_staff", "catalogue_facets", "catalogue_browse", "sync_status", "design_dictionary", "design_rules"]) {
       const r = await anon(`/rest/v1/${v}?select=*&limit=1`);
       expect(r.status, v).not.toBe(200);
     }

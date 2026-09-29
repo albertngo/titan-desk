@@ -20,6 +20,8 @@ export const FilterSchema = z.object({
   busyness: z.array(z.string()).default([]),
   // view, not a filter: show every product instead of one card per collection
   all: z.boolean().default(false),
+  // view, not a filter: which list the browse screen starts from (lib/browse.ts)
+  by: z.enum(["supplier", "type"]).default("supplier"),
 });
 export type Filters = z.infer<typeof FilterSchema>;
 
@@ -34,6 +36,7 @@ export function filtersFromSearchParams(params: URLSearchParams): Filters {
   for (const k of LIST_KEYS) raw[k] = params.getAll(k).filter(Boolean);
   for (const k of BOOL_KEYS) raw[k] = params.get(k) === "1";
   raw.all = params.get("all") === "1";
+  if (params.get("by") === "type") raw.by = "type";
   for (const k of NUM_KEYS) {
     const v = params.get(k);
     raw[k] = v === null || v === "" || Number.isNaN(Number(v)) ? null : Number(v);
@@ -51,6 +54,7 @@ export function filtersToSearchParams(f: Filters): URLSearchParams {
   for (const k of LIST_KEYS) for (const v of f[k]) p.append(k, v);
   for (const k of BOOL_KEYS) if (f[k]) p.set(k, "1");
   if (f.all) p.set("all", "1");
+  if (f.by === "type") p.set("by", "type");
   for (const k of NUM_KEYS) if (f[k] !== null) p.set(k, String(f[k]));
   return p;
 }
