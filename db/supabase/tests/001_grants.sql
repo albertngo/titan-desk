@@ -1,6 +1,6 @@
 -- 001: the tier boundary as privileges. Every object in api/mirror is enumerated.
 begin;
-select plan(34);
+select plan(36);
 
 -- schema usage
 select ok(has_schema_privilege('anon', 'api', 'USAGE'),            'anon has USAGE on api');
@@ -16,9 +16,11 @@ select ok(has_table_privilege('anon', 'api.catalogue_public', 'SELECT'),        
 select ok(not has_table_privilege('anon', 'api.catalogue_staff', 'SELECT'),            'anon cannot SELECT catalogue_staff');
 select ok(not has_table_privilege('anon', 'api.catalogue_facets', 'SELECT'),           'anon cannot SELECT catalogue_facets');
 select ok(not has_table_privilege('anon', 'api.sync_status', 'SELECT'),                'anon cannot SELECT sync_status');
+select ok(not has_table_privilege('anon', 'api.catalogue_browse', 'SELECT'),           'anon cannot SELECT catalogue_browse');
 select ok(has_table_privilege('authenticated', 'api.catalogue_staff', 'SELECT'),       'authenticated can SELECT catalogue_staff');
 select ok(has_table_privilege('authenticated', 'api.catalogue_facets', 'SELECT'),      'authenticated can SELECT catalogue_facets');
 select ok(has_table_privilege('authenticated', 'api.sync_status', 'SELECT'),           'authenticated can SELECT sync_status');
+select ok(has_table_privilege('authenticated', 'api.catalogue_browse', 'SELECT'),      'authenticated can SELECT catalogue_browse');
 
 -- no API role touches the base tables, even by direct name
 select ok(not has_table_privilege('anon', 'mirror.catalogue', 'SELECT'),               'anon cannot SELECT mirror.catalogue');

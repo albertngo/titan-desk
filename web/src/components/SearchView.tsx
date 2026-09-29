@@ -2,13 +2,15 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Browse, Crumbs } from "@/components/Browse";
 import { FilterSheet } from "@/components/FilterSheet";
 import { GroupCard } from "@/components/GroupCard";
 import { ParsedChips } from "@/components/ParsedChips";
 import { ResultCard } from "@/components/ResultCard";
+import { browseLevel, crumbs } from "@/lib/browse";
 import { activeFilterCount, filtersFromSearchParams, filtersToArgs, filtersToSearchParams, type Filters } from "@/lib/db/filters";
-import { getFacets, logSearch, searchStaff, searchStaffGrouped, type Facets } from "@/lib/db/queries";
-import type { SearchGroup, SearchHit } from "@/lib/db/types";
+import { getBrowse, getFacets, logSearch, searchStaff, searchStaffGrouped, type Facets } from "@/lib/db/queries";
+import type { BrowseRow, SearchGroup, SearchHit } from "@/lib/db/types";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
 const PAGE = 30;        // products per page in the all-products view
@@ -48,6 +50,8 @@ export function SearchView() {
   const [error, setError] = useState<string | null>(null);
   const [facets, setFacets] = useState<Facets | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  // browse counts: undefined while loading, null if unavailable (then the page lists collections as before)
+  const [browse, setBrowse] = useState<BrowseRow[] | null | undefined>(undefined);
 
   const cache = useRef(new Map<string, Results>());
   const abort = useRef<AbortController | null>(null);
@@ -55,6 +59,7 @@ export function SearchView() {
 
   useEffect(() => {
     getFacets(supabase).then(setFacets).catch(() => setFacets(null));
+    getBrowse(supabase).then(setBrowse).catch(() => setBrowse(null));
   }, [supabase]);
 
   // keep the URL in sync so results are shareable and survive a PWA relaunch
@@ -111,11 +116,17 @@ export function SearchView() {
     [supabase],
   );
 
-  // debounce: run the settled query, not every keystroke
+  // search box empty and at most a supplier / product type chosen: show the browse tiles instead
+  const level = browse === null ? null : browseLevel(filters);
+  const trail = crumbs(filters, browse ?? []);
+  const browsing = level !== null;
+
+  // debounce: run the settled query, not every keystroke (nothing to run while browsing)
   useEffect(() => {
+    if (browsing) return;
     const id = setTimeout(() => void run(filters, 0, false), DEBOUNCE_MS);
     return () => clearTimeout(id);
-  }, [filters, run]);
+  }, [filters, run, browsing]);
 
   const products = results.kind === "grouped" ? (results.groups[0]?.total_products ?? 0) : (results.hits[0]?.total_count ?? 0);
   const collections = results.kind === "grouped" ? (results.groups[0]?.total_groups ?? 0) : 0;
@@ -150,52 +161,60 @@ export function SearchView() {
         {parsed && <ParsedChips parsed={parsed} />}
       </div>
 
-      {error && <p className="mt-3 rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>}
+      <Crumbs trail={trail} onGo={applyFilters} />
 
-      <div className="mt-2 flex items-center justify-between gap-2 text-xs text-zinc-500">
-        <p aria-live="polite">
-          {loading
-            ? "Searching…"
-            : results.kind === "grouped"
-              ? `${products} product${products === 1 ? "" : "s"} in ${collections} collection${collections === 1 ? "" : "s"}`
-              : `${products} result${products === 1 ? "" : "s"}`}
-        </p>
-        <button
-          type="button"
-          onClick={() => applyFilters({ ...filters, all: !filters.all })}
-          className="rounded-full border border-zinc-300 bg-white px-2.5 py-1 text-xs text-zinc-700"
-        >
-          {filters.all ? "Group by collection" : "Show every product"}
-        </button>
-      </div>
+      {browsing ? (
+        <Browse level={level} rows={browse ?? undefined} filters={filters} onGo={applyFilters} />
+      ) : (
+        <>
+          {error && <p className="mt-3 rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 
-      <ul className="mt-2 space-y-2">
-        {results.kind === "grouped"
-          ? results.groups.map((g) => (
-              <li key={g.group_key}>
-                <GroupCard group={g} />
-              </li>
-            ))
-          : results.hits.map((h) => (
-              <li key={h.sku}>
-                <ResultCard hit={h} />
-              </li>
-            ))}
-      </ul>
+          <div className="mt-2 flex items-center justify-between gap-2 text-xs text-zinc-500">
+            <p aria-live="polite">
+              {loading
+                ? "Searching…"
+                : results.kind === "grouped"
+                  ? `${products} product${products === 1 ? "" : "s"} in ${collections} collection${collections === 1 ? "" : "s"}`
+                  : `${products} result${products === 1 ? "" : "s"}`}
+            </p>
+            <button
+              type="button"
+              onClick={() => applyFilters({ ...filters, all: !filters.all })}
+              className="rounded-full border border-zinc-300 bg-white px-2.5 py-1 text-xs text-zinc-700"
+            >
+              {filters.all ? "Group by collection" : "Show every product"}
+            </button>
+          </div>
 
-      {shown < total && (
-        <button
-          type="button"
-          disabled={loading}
-          onClick={() => {
-            const next = page + 1;
-            setPage(next);
-            void run(filters, next, true);
-          }}
-          className="mt-4 w-full rounded-lg border border-zinc-300 bg-white py-2 text-sm"
-        >
-          Show more ({total - shown} {results.kind === "grouped" ? "collections" : "products"} left)
-        </button>
+          <ul className="mt-2 space-y-2">
+            {results.kind === "grouped"
+              ? results.groups.map((g) => (
+                  <li key={g.group_key}>
+                    <GroupCard group={g} />
+                  </li>
+                ))
+              : results.hits.map((h) => (
+                  <li key={h.sku}>
+                    <ResultCard hit={h} />
+                  </li>
+                ))}
+          </ul>
+
+          {shown < total && (
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => {
+                const next = page + 1;
+                setPage(next);
+                void run(filters, next, true);
+              }}
+              className="mt-4 w-full rounded-lg border border-zinc-300 bg-white py-2 text-sm"
+            >
+              Show more ({total - shown} {results.kind === "grouped" ? "collections" : "products"} left)
+            </button>
+          )}
+        </>
       )}
 
       {sheetOpen && (

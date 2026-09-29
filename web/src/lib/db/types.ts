@@ -232,6 +232,14 @@ export type FacetRow = {
   n: number;
 };
 
+/** api.catalogue_browse: one row per (supplier, category), counted like the grouped search. */
+export type BrowseRow = {
+  supplier: string;
+  category: string;
+  products: number;
+  collections: number;
+};
+
 export type SyncStatusRow = {
   last_success_at: string | null;
   last_started_at: string | null;
@@ -262,6 +270,7 @@ export interface Database {
       catalogue_public: { Row: CataloguePublicRow; Relationships: [] };
       catalogue_staff: { Row: CatalogueStaffRow; Relationships: [] };
       catalogue_facets: { Row: FacetRow; Relationships: [] };
+      catalogue_browse: { Row: BrowseRow; Relationships: [] };
       sync_status: { Row: SyncStatusRow; Relationships: [] };
       design_dictionary: { Row: DictionaryRow; Relationships: [] };
       design_rules: { Row: DesignRule; Relationships: [] };
