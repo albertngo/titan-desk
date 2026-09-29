@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import withSerwistInit from "@serwist/next";
+import { withEve } from "eve/next";
 
 const storageHost = process.env.NEXT_PUBLIC_STORAGE_HOST ?? "127.0.0.1";
 
@@ -25,4 +26,7 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withSerwist(nextConfig);
+// withEve mounts the askBert agent (web/agents/askbert, discovered as a workspace member) at
+// /eve/askbert/v1/*: proxied to a local eve dev server under `next dev`, and deployed on Vercel
+// as a separate service routed before the Next.js app.
+export default withEve(withSerwist(nextConfig));

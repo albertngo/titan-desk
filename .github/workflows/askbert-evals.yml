@@ -1,0 +1,92 @@
+name: askBert evals
+
+# Runs askBert's test questions (web/agents/askbert/evals) against the local seed catalogue.
+# They call the real model through the AI Gateway, so they only run when askBert's code or its
+# database functions change, or on demand, and only once the AI_GATEWAY_API_KEY secret exists
+# (without it the job skips with a notice instead of failing).
+on:
+  pull_request:
+    paths:
+      - "web/agents/askbert/**"
+      - "db/supabase/migrations/*askbert*"
+      - "db/supabase/seed.sql"
+      - ".github/workflows/askbert-evals.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: askbert-evals-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  evals:
+    name: askBert evals
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+    steps:
+      - name: Check for the AI Gateway key
+        id: key
+        run: |
+          if [ -z "$AI_GATEWAY_API_KEY" ]; then
+            echo "::notice::askBert evals skipped: add the AI_GATEWAY_API_KEY repository secret to run them."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.key.outputs.ok == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.key.outputs.ok == 'true'
+        with:
+          node-version: 24
+      - uses: supabase/setup-cli@v1
+        if: steps.key.outputs.ok == 'true'
+        with:
+          version: latest
+      - name: Start local Supabase (migrations + seed)
+        if: steps.key.outputs.ok == 'true'
+        run: supabase --workdir db start -x studio,inbucket,realtime,edge-runtime,logflare,vector,imgproxy
+      - name: Token for a local-only test staff user
+        # askBert reads as the signed-in staff member. Locally there is no Microsoft sign-in (and
+        # email login is off), so mint a short-lived "authenticated" token with the throwaway
+        # local stack's own JWT secret. It only works against this job's database.
+        if: steps.key.outputs.ok == 'true'
+        run: |
+          set -euo pipefail
+          eval "$(supabase --workdir db status -o env 2>/dev/null | grep -E '^(API_URL|ANON_KEY|JWT_SECRET)=' | sed 's/^/export /')"
+          TOKEN="$(node .github/scripts/mint-local-token.mjs)"
+          if [ -z "$TOKEN" ] || [ -z "${ANON_KEY:-}" ] || [ -z "${API_URL:-}" ]; then
+            echo "::error::Could not build the local test token (API_URL/ANON_KEY/JWT_SECRET missing from supabase status)."
+            exit 1
+          fi
+          echo "::add-mask::$TOKEN"
+          {
+            echo "ASKBERT_DEV_ACCESS_TOKEN=$TOKEN"
+            echo "NEXT_PUBLIC_SUPABASE_URL=$API_URL"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY"
+          } >> "$GITHUB_ENV"
+      - name: Check the token reaches the catalogue as staff
+        if: steps.key.outputs.ok == 'true'
+        run: |
+          set -euo pipefail
+          curl -sf -X POST "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/askbert_search" \
+            -H "apikey: $NEXT_PUBLIC_SUPABASE_ANON_KEY" -H "Authorization: Bearer $ASKBERT_DEV_ACCESS_TOKEN" \
+            -H "Content-Profile: api" -H "Accept-Profile: api" -H "content-type: application/json" \
+            -d '{"p_kw":"macaroon"}' | jq -e 'length > 0' > /dev/null
+      - run: npm install --no-audit --no-fund
+        if: steps.key.outputs.ok == 'true'
+        working-directory: web
+      - name: Run evals
+        if: steps.key.outputs.ok == 'true'
+        working-directory: web
+        run: npx eve eval --agent askbert --strict --junit .eve/junit.xml
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.key.outputs.ok == 'true'
+        with:
+          name: askbert-evals
+          path: web/.eve/junit.xml
+          if-no-files-found: ignore
+      - name: Stop Supabase
+        if: always() && steps.key.outputs.ok == 'true'
+        run: supabase --workdir db stop --no-backup

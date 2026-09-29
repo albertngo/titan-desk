@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* askBert assistant accent (bg-askbert, text-askbert, …) */
+@theme {
+  --color-askbert: #1e6fff;
+  --color-askbert-dark: #1557d6;
+}
+
 :root {
   color-scheme: light;
 }

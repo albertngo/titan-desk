@@ -25,7 +25,9 @@ const serwist = new Serwist({
     },
     {
       // Prices and sessions are never served stale.
-      matcher: ({ url }) => url.pathname.startsWith("/rest/v1/") || url.pathname.startsWith("/auth/v1/"),
+      // askBert (/eve/*) streams answers: never cache or intercept them.
+      matcher: ({ url }) =>
+        url.pathname.startsWith("/rest/v1/") || url.pathname.startsWith("/auth/v1/") || url.pathname.startsWith("/eve/"),
       handler: new NetworkOnly(),
     },
     ...defaultCache,
