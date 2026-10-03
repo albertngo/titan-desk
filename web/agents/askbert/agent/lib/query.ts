@@ -96,7 +96,7 @@ export type CatalogueRow = {
   supplier_sku: string | null; category: string | null; material_type: string | null;
   colour_tone: string | null; grade: string | null;
   retail_price: number | null; price_unit: "sf" | "piece"; price_on_request: boolean; promo_active: boolean;
-  promo_ends: string | null; price_as_of: string | null; price_list_date: string | null; price_list_url: string | null;
+  promo_ends: string | null; price_as_of: string | null; price_list_url: string | null;
   cost: number | null; map_price: number | null; pallet_price: number | null; promo_cost: number | null;
   rep_cost_active: boolean; rep_cost: number | null; rep_cost_end_date: string | null; rep_cost_note: string | null;
   volume_pricing_notes: string | null; salesperson_notes: string | null; internal_notes: string | null;
@@ -130,7 +130,6 @@ export function toProduct(r: CatalogueRow): ProductOut {
     promo: r.promo_active,
     promo_ends: r.promo_active ? r.promo_ends : null,
     price_as_of: r.price_as_of,
-    price_list_date: r.price_list_date,
     price_list_url: r.price_list_url,
     cost: r.cost,
     map_price: r.map_price,

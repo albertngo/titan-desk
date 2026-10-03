@@ -27,26 +27,19 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 /**
- * The supplier's own list, one tap from the price, for re-verifying what the mirror says.
- * When the linked list's date differs from the price's Effective Date, the price came from a
- * different list than the one linked — say so, since that is the thing to check.
+ * The supplier's own list, one tap from the price, for re-verifying what the mirror says. It is
+ * the list the price came from, so it carries the price's own date (Airtable's Effective Date).
  */
 function PriceListCheck({ product: p }: { product: CatalogueStaffRow }) {
   if (!p.price_list_url) {
     return <p className="mt-2 text-xs text-zinc-500">No supplier price list linked yet.</p>;
   }
-  const differs = p.price_list_date !== null && p.last_price_update !== null && p.price_list_date !== p.last_price_update;
   return (
-    <div className="mt-2 space-y-1">
+    <div className="mt-2">
       <a href={p.price_list_url} target="_blank" rel="noreferrer"
         className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-sm active:bg-zinc-50">
-        Supplier price list{p.price_list_date ? ` · ${dateShort(p.price_list_date)}` : ""} ↗
+        Supplier price list{p.last_price_update ? ` · ${dateShort(p.last_price_update)}` : ""} ↗
       </a>
-      {differs && (
-        <p className="text-xs text-amber-800">
-          Price dated {dateShort(p.last_price_update)}; this list is dated {dateShort(p.price_list_date)}. Check the price against it.
-        </p>
-      )}
     </div>
   );
 }
