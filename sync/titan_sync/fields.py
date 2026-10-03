@@ -115,7 +115,6 @@ SKIP: dict[str, str] = {
     "attachments": "spec sheets; not mirrored in v1",
     "attachment_summary": "AI summary of Attachments; not mirrored",
     "price_history_log_v2": "linked records; the price_history mirror is Phase 5",
-    "price_list_date": "not used: Effective Date dates the linked price list (Albert, 2026-10-03)",
 }
 
 SPECS: list[FieldSpec] = [
