@@ -44,6 +44,28 @@ function PriceListCheck({ product: p }: { product: CatalogueStaffRow }) {
   );
 }
 
+/**
+ * The web page the product's photos came from (Airtable's Supplier product page): the supplier's
+ * own site, else a retailer's listing. Staff use it to check a photo or read the supplier's specs.
+ */
+function SupplierPageLink({ url }: { url: string | null }) {
+  if (!url) return null;
+  let host = url;
+  try {
+    host = new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    // keep the raw value; the link still works if the browser can resolve it
+  }
+  return (
+    <p className="mt-1.5 text-xs text-zinc-500">
+      Photos from{" "}
+      <a href={url} target="_blank" rel="noreferrer" className="underline underline-offset-2">
+        {host} ↗
+      </a>
+    </p>
+  );
+}
+
 export function ProductDetail({ product: p, collection }: {
   product: CatalogueStaffRow;
   collection?: { rows: CollectionMember[]; total: number } | null;
@@ -71,6 +93,7 @@ export function ProductDetail({ product: p, collection }: {
 
       <div className="mt-3">
         <ImageGallery images={p.images ?? []} alt={p.product_name ?? p.sku} />
+        <SupplierPageLink url={p.supplier_product_page} />
       </div>
 
       <PriceBlock product={p} />

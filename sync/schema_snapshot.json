@@ -2,7 +2,7 @@
   "base_id": "appWHOVZ0QCS0xQ3M",
   "table_id": "tblfLXD3zkSdNQGbS",
   "table_name": "Master Flooring Catalogue",
-  "captured_at": "2026-09-26",
+  "captured_at": "2026-10-03",
   "fields": [
     {
       "id": "fldx3byCOht5HbKmH",
@@ -393,6 +393,46 @@
       "id": "fldA4h8fgn8Bj9AML",
       "name": "Last modified",
       "type": "lastModifiedTime"
+    },
+    {
+      "id": "fldByhlIE5gHZnpfZ",
+      "name": "Style notes",
+      "type": "multilineText"
+    },
+    {
+      "id": "fldjSMDupKbxCaU5O",
+      "name": "Style questions",
+      "type": "multilineText"
+    },
+    {
+      "id": "fldJdEG2rDaF9bHCv",
+      "name": "Style notes read",
+      "type": "dateTime"
+    },
+    {
+      "id": "fldocCz0w91UHnOhk",
+      "name": "Style notes updated",
+      "type": "lastModifiedTime"
+    },
+    {
+      "id": "fldaxg4i9abc75a00",
+      "name": "Style review",
+      "type": "formula"
+    },
+    {
+      "id": "flduFw93z4YwnOA3I",
+      "name": "Supplier product page",
+      "type": "url"
+    },
+    {
+      "id": "fldRCvabZnE62hMA2",
+      "name": "Rate Card",
+      "type": "multipleRecordLinks"
+    },
+    {
+      "id": "fldsOFffnVOMTYdLh",
+      "name": "Quote Lines",
+      "type": "multipleRecordLinks"
     }
   ]
 }

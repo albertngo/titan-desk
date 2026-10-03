@@ -84,7 +84,15 @@
     "rep_cost": "fld8Ra8sQb3SgVD7R",
     "rep_cost_end_date": "fldr4NgCQg3vOeNt1",
     "rep_cost_note": "fldIPGoEUYVZv0Jhy",
-    "last_modified": "fldA4h8fgn8Bj9AML"
+    "last_modified": "fldA4h8fgn8Bj9AML",
+    "supplier_product_page": "flduFw93z4YwnOA3I",
+    "style_notes": "fldByhlIE5gHZnpfZ",
+    "style_questions": "fldjSMDupKbxCaU5O",
+    "style_notes_read": "fldJdEG2rDaF9bHCv",
+    "style_notes_updated": "fldocCz0w91UHnOhk",
+    "style_review": "fldaxg4i9abc75a00",
+    "rate_card": "fldRCvabZnE62hMA2",
+    "quote_lines": "fldsOFffnVOMTYdLh"
   },
   "_notes": {
     "last_modified": "Computed lastModifiedTime field created 2026-09-26 (tracks every editable field). If it is ever missing the worker stamps sync time.",

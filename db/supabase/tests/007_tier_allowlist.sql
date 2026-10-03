@@ -11,7 +11,7 @@ insert into tier values
   ('staff','price_last_changed_by'),('staff','price_stale'),('staff','promo_open_ended'),('staff','boxes_per_skid'),
   ('staff','pieces_per_pallet'),('staff','active'),('staff','salesperson_notes'),('staff','internal_notes'),
   ('staff','price_list_url'),('staff','promo_list_url'),('staff','rep_cost'),('staff','rep_cost_end_date'),('staff','rep_cost_note'),('staff','rep_cost_active'),
-  ('staff','style_tags_status'),('staff','style_tags_evidence'),('staff','airtable_url'),('staff','search_staff'),
+  ('staff','style_tags_status'),('staff','style_tags_evidence'),('staff','airtable_url'),('staff','search_staff'),('staff','supplier_product_page'),
   -- system-only (base table)
   ('system','airtable_record_id'),('system','airtable_created_at'),('system','airtable_modified_at'),('system','synced_at'),
   ('system','lightspeed_id'),('system','ls_handle'),('system','variant_group'),('system','image_attachments'),

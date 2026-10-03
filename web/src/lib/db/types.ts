@@ -131,6 +131,8 @@ export type CatalogueStaffRow = CataloguePublicRow & {
   style_tags_status: string | null;
   style_tags_evidence: string | null;
   airtable_url: string;
+  /** Where the product's images came from (Airtable "Supplier product page", filled by /image-fill). */
+  supplier_product_page: string | null;
 };
 
 export type ParsedQuery = {
