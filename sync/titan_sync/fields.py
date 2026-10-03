@@ -87,7 +87,6 @@ _SPECS: list[tuple[Any, ...]] = [
     ("pairs_well_with", "pairs_well_with", "text", TIER_PUBLIC, "Pairs well with"),
     ("price_list_url", "price_list_url", "url", TIER_STAFF, "Price List URL"),
     # the date of the list Price List URL links to (added 2026-09-28): staff tier
-    ("price_list_date", "price_list_date", "date", TIER_STAFF, "Price List Date"),
     ("internal_notes", "internal_notes", "text", TIER_STAFF, "Internal notes"),
     # pricing extras added 2026-09-26 (rep rates and promo-list provenance): staff tier
     ("promo_list_url", "promo_list_url", "url", TIER_STAFF, "Promo List URL"),
@@ -116,6 +115,7 @@ SKIP: dict[str, str] = {
     "attachments": "spec sheets; not mirrored in v1",
     "attachment_summary": "AI summary of Attachments; not mirrored",
     "price_history_log_v2": "linked records; the price_history mirror is Phase 5",
+    "price_list_date": "not used: Effective Date dates the linked price list (Albert, 2026-10-03)",
 }
 
 SPECS: list[FieldSpec] = [

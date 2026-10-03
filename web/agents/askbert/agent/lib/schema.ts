@@ -63,7 +63,6 @@ export const productOut = z.object({
   promo: z.boolean(),
   promo_ends: z.string().nullable(),
   price_as_of: z.string().nullable(),
-  price_list_date: z.string().nullable(),
   price_list_url: z.string().nullable(),
   cost: z.number().nullable(),
   map_price: z.number().nullable(),
