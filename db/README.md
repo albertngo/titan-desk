@@ -34,14 +34,14 @@ that built-in default, so migration 001 revokes it per function (§12) and **any
 `sku, product_name, brand, collection, product_type, category, material_type, species, colour_tone, grade, layout_pattern, width_in, length, thickness_mm, wear_layer_mil, veneer_mm, veneer_cut_type, ac_rating, finish_type, install_profile, install_method, locking_system, underpad_included, underpad_type, iic_rating, stc_rating, tile_format, weight_per_piece_kg, certifications, retail_price, price_on_request, price_unit, promo_active, box_size_sf, pieces_per_box, stock_status, coming_soon, waterproof, pet_friendly, radiant_heat_compatible, traffic_rating, suitable_rooms, residential_warranty_yrs, commercial_warranty_yrs, undertone, tone_depth, texture, style, busyness, pairs_well_with, variants, images, hero, search_public`
 
 **Staff only** (added in `api.catalogue_staff`):
-`supplier, supplier_sku, cost, map_price, pallet_price, promo_cost, promo_end_date, volume_pricing_notes, last_price_update, price_last_changed_by, price_stale, promo_open_ended, boxes_per_skid, pieces_per_pallet, active, salesperson_notes, internal_notes, price_list_url, promo_list_url, rep_cost, rep_cost_end_date, rep_cost_note, rep_cost_active, style_tags_status, style_tags_evidence, airtable_url, search_staff` (+ `low_res` inside `images`/`hero`)
+`supplier, supplier_sku, cost, map_price, pallet_price, promo_cost, promo_end_date, volume_pricing_notes, last_price_update, price_last_changed_by, price_stale, promo_open_ended, boxes_per_skid, pieces_per_pallet, active, salesperson_notes, internal_notes, price_list_url, promo_list_url, rep_cost, rep_cost_end_date, rep_cost_note, rep_cost_active, style_tags_status, style_tags_evidence, airtable_url, search_staff, supplier_product_page` (+ `low_res` inside `images`/`hero`)
 
 **System only** (base table, in neither view):
 `airtable_record_id, airtable_created_at, airtable_modified_at, synced_at, lightspeed_id, ls_handle, variant_group, image_attachments`
 
 **askBert** (the staff assistant) has no view or role of its own. It calls `api.askbert_search` / `api.askbert_relax` (migration 006, test `010_askbert.sql`) through PostgREST with the signed-in staff member's own session. They are SECURITY INVOKER over `api.catalogue_staff`, EXECUTE is granted to `authenticated` only, and anon is denied. So askBert sees exactly what staff see, cost included (Albert, 2026-09-28). A public assistant will need its own cost-free path.
 
-**Not mirrored:** Airtable `Attachments`, `Attachment Summary`, `Price History Log` (legacy), `Price History Log v2`.
+**Not mirrored:** Airtable `Attachments`, `Attachment Summary`, `Price History Log` (legacy), `Price History Log v2`, the `/style-tag` review fields (`Style notes`, `Style questions`, `Style notes read`, `Style notes updated`, `Style review`) and the quoting links (`Rate Card`, `Quote Lines`).
 
 What the boundary does and does not protect: cost, MAP, pallet/promo pricing, notes, supplier
 SKUs and Lightspeed ids never leave the staff tier. **Supplier identity is derivable from

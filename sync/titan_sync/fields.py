@@ -93,6 +93,9 @@ _SPECS: list[tuple[Any, ...]] = [
     ("rep_cost", "rep_cost", "currency", TIER_STAFF, "Rep cost ($/sf)"),
     ("rep_cost_end_date", "rep_cost_end_date", "date", TIER_STAFF, "Rep cost end date"),
     ("rep_cost_note", "rep_cost_note", "text", TIER_STAFF, "Rep cost note"),
+    # where the product's images came from (titan-agents /image-fill, 2026-09-29); can name a
+    # retailer, so staff tier (Albert, 2026-10-03)
+    ("supplier_product_page", "supplier_product_page", "url", TIER_STAFF, "Supplier product page"),
     # images: three attachment fields → mirror.catalogue.image_attachments (system) → --mode images
     ("swatch_images", "images:swatch", "attachments", TIER_SYSTEM, "Swatch images"),
     ("room_scene_images", "images:room", "attachments", TIER_SYSTEM, "Room scene images"),
@@ -115,6 +118,16 @@ SKIP: dict[str, str] = {
     "attachments": "spec sheets; not mirrored in v1",
     "attachment_summary": "AI summary of Attachments; not mirrored",
     "price_history_log_v2": "linked records; the price_history mirror is Phase 5",
+    # /style-tag's review loop (2026-09-27): working fields between Albert and the agent; the
+    # mirror carries the resulting style tags and their status, not the conversation
+    "style_notes": "/style-tag review input; not mirrored",
+    "style_questions": "/style-tag review checklist; not mirrored",
+    "style_notes_read": "/style-tag bookkeeping; not mirrored",
+    "style_notes_updated": "/style-tag bookkeeping; not mirrored",
+    "style_review": "formula over the style fields; not mirrored",
+    # quoting tables link back to the catalogue; the links are not catalogue data
+    "rate_card": "linked records from the quoting Rate Card; not mirrored",
+    "quote_lines": "linked records from Quote Lines; not mirrored",
 }
 
 SPECS: list[FieldSpec] = [
