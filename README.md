@@ -27,6 +27,7 @@ Airtable (source of truth)  ──sync every 30 min / nightly full──▶  Sup
 | `db/` | Supabase project: migration 001, seed, pgTAP tests, local-Postgres harness |
 | `sync/` | Python worker: `--mode incremental \| full \| images \| purge \| report` |
 | `web/` | Next.js 16 App Router PWA |
+| `quote/` | Quoting app (Next.js 16), its own Vercel project; see `quote/README.md` |
 | `platform-settings/airtable.json` | Airtable base/table/field IDs (not secrets) |
 | `.github/workflows/` | CI, scheduled syncs, migrations, schema drift |
 
