@@ -1,14 +1,28 @@
 # titan-desk — rules for agents and humans
 
 titan-desk is a **read-only mirror** of the Bert Airtable base for Titan Flooring staff.
-Data flows one way: Airtable → Postgres (Supabase) → this app. Nothing here ever writes to
-Airtable, and nothing here imports code from `titan-agents`.
+Data flows one way: Airtable → Postgres (Supabase) → this app. Nothing here imports code
+from `titan-agents`.
+
+**Apps in this repo** — one repo, one deployment per audience (Albert, 2026-10-11):
+
+| Folder | App | Who | Writes to Airtable |
+|---|---|---|---|
+| `web/` | the desk: catalogue search, staff askBert | staff (Microsoft sign-in) | never |
+| `quote/` | quoting | named quoters only (`QUOTE_ALLOWED_EMAILS`) | quote tables only, from one file — see `quote/CLAUDE.md` |
+| (later) | public askBert on the website | anyone | never; its own deployment holding no write secret |
+
+Each app is its own Vercel project with its own secrets. A public app never shares a
+deployment with a write token.
 
 ## Hard rules
 
-1. **Never write to Airtable.** The sync worker's PAT is created read-only
-   (`data.records:read` + `schema.bases:read`). Do not add write scopes, and do not add
-   code paths that call Airtable create/update/delete endpoints.
+1. **Never write to Airtable — outside `quote/`.** The sync worker's PAT is created
+   read-only (`data.records:read` + `schema.bases:read`). Do not add write scopes, and do
+   not add code paths that call Airtable create/update/delete endpoints in `web/`, `sync/`
+   or `db/`. The single exception (Albert, 2026-10-11) is `quote/src/lib/airtable/client.ts`,
+   which may write to the four quote tables only, with its own token, under `quote/CLAUDE.md`
+   and its boundary test. It is read-only until milestone 3.
 2. **The web app reads views only.** `web/src/lib/db/queries.ts` is the only place that
    talks to the database, and it knows exactly these objects in schema `api`:
    `catalogue_staff`, `search_staff`, `search_staff_grouped`, `catalogue_facets`, `catalogue_browse`, `sync_status`, `design_dictionary`,
@@ -40,6 +54,7 @@ Airtable, and nothing here imports code from `titan-agents`.
 - `sync/` — Python worker (`python -m titan_sync.run --mode incremental|full|images|purge`).
 - `web/` — Next.js 16 App Router PWA. `web/src/lib/design/` is the Help me choose logic (pure,
   tested in `web/tests/design.test.ts`); safety rules there are fixed in code and never relaxed.
+- `quote/` — the quoting app (Next.js 16), its own Vercel project. Rules: `quote/CLAUDE.md`.
 - `platform-settings/` — Airtable base/table/field IDs.
 - `.github/workflows/` — CI, scheduled syncs, migrations, schema-drift check.
 

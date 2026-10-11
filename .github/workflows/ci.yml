@@ -76,3 +76,29 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
           NEXT_PUBLIC_STORAGE_HOST: 127.0.0.1
+
+  quote:
+    name: Quoting app
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      # No package-lock.json yet, same as web/; switch to `npm ci` + cache once one is committed.
+      - run: npm install --no-audit --no-fund
+        working-directory: quote
+      - run: npm run lint
+        working-directory: quote
+      - run: npm run typecheck
+        working-directory: quote
+      - name: Unit + boundary tests (maths to the cent; one read-only Airtable file)
+        run: npm test
+        working-directory: quote
+      - name: Production build (what Vercel runs)
+        run: npm run build
+        working-directory: quote
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder

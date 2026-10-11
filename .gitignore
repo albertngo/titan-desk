@@ -33,3 +33,9 @@ sync/tests/.tmp/
 
 # eve local state and traces
 .eve/
+
+# quoting app (quote/)
+quote/node_modules/
+quote/.next/
+quote/.vercel/
+quote/tsconfig.tsbuildinfo
