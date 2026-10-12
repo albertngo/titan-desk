@@ -1,9 +1,9 @@
 import "server-only";
 import { requireQuoter } from "@/lib/auth";
 import { AirtableError, getRecord, listByIds, listRecords, type AirtableRecord } from "@/lib/airtable/client";
-import { FAMILY, LINE, OPTION, QUOTE, T } from "@/lib/airtable/fields";
+import { FAMILY, LINE, OPTION, QUOTE, RATE, RATE_TABLE, STAIR, STAIR_TABLE, T } from "@/lib/airtable/fields";
 import { bool, ids, num, str } from "./values";
-import type { Quote, QuoteLine, QuoteOption, QuoteSummary } from "./types";
+import type { Quote, QuoteLine, QuoteOption, QuoteSummary, RateCard, RateRow, StairRow } from "./types";
 
 /** Read-side loaders. Each one checks the caller is a quoter before touching Airtable. */
 
@@ -34,6 +34,16 @@ export async function listQuotes(): Promise<QuoteSummary[]> {
     .sort((a, b) => b.createdTime.localeCompare(a.createdTime));
 }
 
+function source(f: Record<string, unknown>): Pick<QuoteLine, "sourceKind" | "sourceId"> {
+  const rate = ids(f[LINE.rateItem])[0];
+  if (rate) return { sourceKind: "rate", sourceId: rate };
+  const stair = ids(f[LINE.stairItem])[0];
+  if (stair) return { sourceKind: "stair", sourceId: stair };
+  const product = ids(f[LINE.product])[0];
+  if (product) return { sourceKind: "product", sourceId: product };
+  return { sourceKind: "manual", sourceId: null };
+}
+
 function toLine(r: AirtableRecord): QuoteLine {
   const f = r.fields;
   return {
@@ -50,6 +60,9 @@ function toLine(r: AirtableRecord): QuoteLine {
     manualCost: num(f[LINE.manualCost]),
     minChargeSnap: num(f[LINE.minChargeSnap]),
     hasSource: [LINE.rateItem, LINE.stairItem, LINE.product].some((k) => ids(f[k]).length > 0),
+    ...source(f),
+    labourType: str(f[LINE.rateLaborType]),
+    spec: str(f[LINE.rateSpec]),
     description: str(f[LINE.description]),
     area: str(f[LINE.area]),
     uom: str(f[LINE.uom]),
@@ -139,4 +152,45 @@ export async function getQuote(id: string): Promise<Quote | null> {
     options,
     legacyLineCount,
   };
+}
+
+/** Active Rate Card rows and Stair Items, for the editor's line picker. Costs included: quoters only. */
+export async function getRateCard(): Promise<RateCard> {
+  await requireQuoter();
+  const [rateRecs, stairRecs] = await Promise.all([
+    listRecords(RATE_TABLE, { fields: Object.values(RATE) }),
+    listRecords(STAIR_TABLE, { fields: Object.values(STAIR) }),
+  ]);
+  const rates = rateRecs
+    .filter((r) => bool(r.fields[RATE.active]))
+    .flatMap((r): RateRow[] => {
+      const f = r.fields;
+      const labourType = str(f[RATE.laborType]);
+      const spec = str(f[RATE.spec]);
+      const rate = num(f[RATE.rate]);
+      if (!labourType || !spec || rate === null) return [];
+      return [
+        {
+          id: r.id,
+          labourType,
+          spec,
+          contractor: str(f[RATE.contractor]) ?? "Unassigned",
+          uom: str(f[RATE.uom]),
+          rate,
+          cost: num(f[RATE.totalCost]) ?? 0,
+          minCharge: num(f[RATE.minCharge]),
+          defaultWaste: num(f[RATE.defaultWaste]),
+        },
+      ];
+    });
+  const stairs = stairRecs
+    .filter((r) => bool(r.fields[STAIR.active]))
+    .flatMap((r): StairRow[] => {
+      const f = r.fields;
+      const name = str(f[STAIR.name]);
+      const rate = num(f[STAIR.rate]);
+      if (!name || rate === null) return [];
+      return [{ id: r.id, name, category: str(f[STAIR.category]), size: str(f[STAIR.size]), rate, cost: num(f[STAIR.cost]) }];
+    });
+  return { rates, stairs };
 }

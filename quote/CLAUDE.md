@@ -14,6 +14,9 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
 - **`src/lib/calc.ts` is the only place money is computed**, and it mirrors the Airtable
   formulas field for field. Change one, change both, in the same piece of work. Every quote
   page shows a parity check against Airtable's own rollups; a red banner is a bug.
+- **The editor keeps drafts on the device** (localStorage, per quote) until saving to Airtable
+  exists. Every change is a pure function in `src/lib/editor/model.ts`; the screen only calls
+  them. Test new behaviour there, not through the UI.
 
 ## Hard rules
 

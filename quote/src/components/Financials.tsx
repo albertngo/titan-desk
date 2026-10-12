@@ -1,14 +1,27 @@
-import { lineFlags, parityDiffs, type OptionTotals } from "@/lib/calc";
+import { lineFlags, type LineInput, type OptionTotals } from "@/lib/calc";
 import { money, pct } from "@/lib/format";
-import type { QuoteOption } from "@/lib/quotes/types";
 import { Ring } from "./Ring";
 
-/** Right-hand sidebar for one option: the money, the payment schedule, and the checks. */
-export function Financials({ option, t, discountRate, showHst }: { option: QuoteOption; t: OptionTotals; discountRate: number; showHst: boolean }) {
+/**
+ * Right-hand sidebar for one option: the money, the payment schedule, and the checks.
+ * `agrees` is the Airtable parity result; null in the editor, where nothing is saved yet.
+ */
+export function Financials({
+  lines,
+  t,
+  discountRate,
+  showHst,
+  agrees,
+}: {
+  lines: LineInput[];
+  t: OptionTotals;
+  discountRate: number;
+  showHst: boolean;
+  agrees: boolean | null;
+}) {
   const costShare = t.subtotal > 0 ? (t.cost / t.subtotal) * 100 : null;
-  const flags = option.lines.flatMap(lineFlags);
+  const flags = lines.flatMap(lineFlags);
   const count = (f: string) => flags.filter((x) => x === f).length;
-  const agrees = parityDiffs(t, option.airtable).length === 0;
 
   return (
     <aside className="stack">
@@ -56,7 +69,9 @@ export function Financials({ option, t, discountRate, showHst }: { option: Quote
 
       <section className="card">
         <div className="card-h">Checks</div>
-        <div className="check"><span className={`dot ${agrees ? "good" : "bad"}`} />{agrees ? "Airtable agrees to the cent" : "Airtable disagrees — see the red bar"}</div>
+        {agrees !== null && (
+          <div className="check"><span className={`dot ${agrees ? "good" : "bad"}`} />{agrees ? "Airtable agrees to the cent" : "Airtable disagrees — see the red bar"}</div>
+        )}
         <div className="check"><span className={`dot ${count("OVR") ? "warn" : "good"}`} />{count("OVR")} priced off the card</div>
         <div className="check"><span className={`dot ${count("NOSRC") ? "warn" : "good"}`} />{count("NOSRC")} with no rate source</div>
         <div className="check"><span className={`dot ${count("UNIT") ? "bad" : "good"}`} />{count("UNIT")} costing more than they charge</div>

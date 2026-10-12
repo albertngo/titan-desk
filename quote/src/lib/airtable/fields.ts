@@ -71,6 +71,8 @@ export const LINE = {
   clientNote: "flduFJN9sMhFgvim7",
   include: "fldODrvxNHlLz5UoQ",
   rateItem: "fldpl8V8mmqZI4PfG",
+  rateLaborType: "fldi7WLWqNYcqWZuN",
+  rateSpec: "fld23EpiOraWWexlL",
   stairItem: "fldHLNdWOwGBCyl0b",
   product: "fld3mukkZxpqaMXcN",
   description: "fldQXq4uPhVV1oO1O",
@@ -83,3 +85,26 @@ export const LINE = {
 
 export const airtableRecordUrl = (table: string, record: string) =>
   `https://airtable.com/${BASE_ID}/${table}/${record}`;
+
+export const RATE_TABLE = "tblGBGezZfBWhEgmu";
+export const RATE = {
+  laborType: "fldawNJcW3bbKnCp8",
+  spec: "fldVYJ1psh6cfrNhG",
+  contractor: "fldm8lMxWDE4rF44O",
+  uom: "fldJvK2PyDAdTkIn9",
+  rate: "fldVKBNdPycTVFUgH",
+  totalCost: "fldD18VKUPrcLtRTP",
+  minCharge: "fldheQ38Y9S1myfWo",
+  defaultWaste: "fldO2w5Frt7Q2QeTj",
+  active: "fld2ZHDbhu8PYIJFe",
+} as const;
+
+export const STAIR_TABLE = "tbltRm9tL6r5brZn2";
+export const STAIR = {
+  name: "fld8SLwwaodFia9PL",
+  category: "fldOxeVyLo8XHV9zV",
+  size: "fldrU1r8MKJzzLL1P",
+  rate: "fldPFjFyKzHu0nxYx",
+  cost: "fldX96S7DulWrGjUC",
+  active: "fldZwEDirc4fNjRIm",
+} as const;

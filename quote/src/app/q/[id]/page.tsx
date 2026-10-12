@@ -7,7 +7,7 @@ import { OptionSheet } from "@/components/OptionSheet";
 import { TopBar } from "@/components/TopBar";
 import { airtableRecordUrl, T } from "@/lib/airtable/fields";
 import { requireQuoter } from "@/lib/auth";
-import { optionTotals } from "@/lib/calc";
+import { optionTotals, parityDiffs } from "@/lib/calc";
 import { money } from "@/lib/format";
 import { getQuote } from "@/lib/quotes/load";
 
@@ -43,7 +43,8 @@ export default async function QuotePage({
             <p>
               {quote.quoteId ?? "No quote ID"}
               {quote.version !== null && ` · v${quote.version}`}
-              {" · read-only view"}
+              {" · "}
+              <Link href={`/q/${quote.id}/edit`}>Edit this quote</Link>
             </p>
           </div>
           {quote.status && <span className={`status ${quote.status}`}>{quote.status}</span>}
@@ -89,6 +90,7 @@ export default async function QuotePage({
                 showHst={quote.showHst}
                 quoteNotes={quote.notes}
                 airtableUrl={airtableUrl}
+                editHref={`/q/${quote.id}/edit`}
               />
             ) : (
               <section className="card">
@@ -98,7 +100,13 @@ export default async function QuotePage({
           </div>
 
           {option && totals && (
-            <Financials option={option} t={totals} discountRate={quote.discountRate} showHst={quote.showHst} />
+            <Financials
+              lines={option.lines}
+              t={totals}
+              discountRate={quote.discountRate}
+              showHst={quote.showHst}
+              agrees={parityDiffs(totals, option.airtable).length === 0}
+            />
           )}
         </div>
       </div>
