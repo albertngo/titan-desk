@@ -36,7 +36,7 @@ repo with Root Directory `quote`. Rules for changing it: `CLAUDE.md` in this fol
 | `QUOTE_AIRTABLE_TOKEN` | its own Airtable token: Bert base only; `data.records:read` for milestone 1 |
 | `QUOTE_ALLOWED_EMAILS` | comma-separated Microsoft emails allowed to quote |
 
-Function region `yul1` (Montréal), same as the desk.
+Function region `yul1` (Montréal), same as the desk — set in `vercel.json`, not the dashboard.
 
 ## Supabase Auth
 
