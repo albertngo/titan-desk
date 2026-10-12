@@ -56,6 +56,11 @@ deployment with a write token.
   tested in `web/tests/design.test.ts`); safety rules there are fixed in code and never relaxed.
 - `quote/` — the quoting app (Next.js 16), its own Vercel project. Rules: `quote/CLAUDE.md`.
 - `platform-settings/` — Airtable base/table/field IDs.
+- `.claude/skills/` — vendored design skills for UI work (taste-skill plus 74 DESIGN.md
+  references). For any screen or component work in `web/` or `quote/`, load
+  `design-taste-frontend` (new) or `redesign-existing-projects` (existing) and pick one to
+  three references from `design-md-references`. Borrow structure, never another brand.
+  Index and update notes: `.claude/skills/README.md`.
 - `.github/workflows/` — CI, scheduled syncs, migrations, schema-drift check.
 
 ## Local commands
