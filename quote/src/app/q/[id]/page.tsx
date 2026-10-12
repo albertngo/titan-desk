@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Analysis } from "@/components/Analysis";
+import { CustomerCard } from "@/components/CustomerCard";
+import { Financials } from "@/components/Financials";
 import { OptionSheet } from "@/components/OptionSheet";
 import { TopBar } from "@/components/TopBar";
 import { airtableRecordUrl, T } from "@/lib/airtable/fields";
 import { requireQuoter } from "@/lib/auth";
 import { optionTotals } from "@/lib/calc";
-import { money, pct } from "@/lib/format";
+import { money } from "@/lib/format";
 import { getQuote } from "@/lib/quotes/load";
 
 export const dynamic = "force-dynamic";
@@ -27,69 +29,79 @@ export default async function QuotePage({
 
   const showAnalysis = opt === "analysis";
   const option = showAnalysis ? null : (quote.options.find((o) => o.id === opt) ?? quote.options[0] ?? null);
+  const totals = option ? optionTotals(option.lines, quote.discountRate, quote.showHst) : null;
+  const airtableUrl = airtableRecordUrl(T.quotes, quote.id);
 
   return (
-    <div className="wrap">
+    <>
       <TopBar email={email} />
-      <div className="app">
-        <div className="apphead">
-          <div className="who">
-            <h2>{quote.customerName ?? "No customer"}</h2>
-            <div className="sub">
-              {[quote.siteAddress, quote.siteCity].filter(Boolean).join(", ") || "No site address"}
-              {" · "}
+      <div className="page">
+        <div className="pagehead">
+          <div className="titles">
+            <Link href="/" className="crumb">← All quotes</Link>
+            <h1>{quote.customerName ?? "No customer"}</h1>
+            <p>
               {quote.quoteId ?? "No quote ID"}
-              {quote.version !== null && ` v${quote.version}`}
-            </div>
+              {quote.version !== null && ` · v${quote.version}`}
+              {" · read-only view"}
+            </p>
           </div>
-          {quote.status && <span className="pill">{quote.status}</span>}
-          {quote.basis && <span className="pill">{quote.basis}</span>}
-          <span className="pill">Discount {pct(quote.discountRate * 100, 0)}</span>
-          <span className="pill">HST {quote.showHst ? "on" : "off"}</span>
-          <span className="pill ro">Read-only</span>
+          {quote.status && <span className={`status ${quote.status}`}>{quote.status}</span>}
         </div>
 
-        {quote.options.length > 0 && (
-          <nav className="tabs" aria-label="Options">
-            {quote.options.map((o) => (
-              <Link
-                key={o.id}
-                className="tab"
-                href={`/q/${quote.id}?opt=${o.id}`}
-                aria-current={option?.id === o.id ? "page" : undefined}
-              >
-                {o.name}
-                <span className="t-amt">{money(optionTotals(o.lines, quote.discountRate, quote.showHst).total)}</span>
-              </Link>
-            ))}
-            <Link className="tab anal" href={`/q/${quote.id}?opt=analysis`} aria-current={showAnalysis ? "page" : undefined}>
-              Analysis
-            </Link>
-          </nav>
-        )}
+        <div className={`layout${option && totals ? "" : " full"}`}>
+          <div className="stack">
+            <CustomerCard quote={quote} />
 
-        {quote.legacyLineCount > 0 && (
-          <p className="banner warn">
-            {quote.legacyLineCount} line{quote.legacyLineCount === 1 ? " is" : "s are"} in the old A/B/C format and
-            belong to no option, so they are not shown. Open the quote in Airtable to see them.
-          </p>
-        )}
+            {quote.legacyLineCount > 0 && (
+              <p className="card banner warn">
+                {quote.legacyLineCount} line{quote.legacyLineCount === 1 ? " is" : "s are"} in the old A/B/C format and
+                belong to no option, so they are not shown. <a href={airtableUrl} target="_blank" rel="noreferrer">Open in Airtable</a> to see them.
+              </p>
+            )}
 
-        {showAnalysis ? (
-          <Analysis quote={quote} />
-        ) : option ? (
-          <OptionSheet option={option} discountRate={quote.discountRate} showHst={quote.showHst} />
-        ) : (
-          <p className="empty">This quote has no options yet.</p>
-        )}
+            {quote.options.length > 0 && (
+              <nav className="tabs" aria-label="Options">
+                {quote.options.map((o) => (
+                  <Link
+                    key={o.id}
+                    className="tab"
+                    href={`/q/${quote.id}?opt=${o.id}`}
+                    aria-current={option?.id === o.id ? "page" : undefined}
+                  >
+                    {o.name}
+                    <span className="t-amt">{money(optionTotals(o.lines, quote.discountRate, quote.showHst).total)}</span>
+                  </Link>
+                ))}
+                <Link className="tab anal" href={`/q/${quote.id}?opt=analysis`} aria-current={showAnalysis ? "page" : undefined}>
+                  Analysis
+                </Link>
+              </nav>
+            )}
 
-        <div className="foot">
-          <a href={airtableRecordUrl(T.quotes, quote.id)} target="_blank" rel="noreferrer">Open in Airtable</a>
-          {quote.validUntil && <span>Valid until {quote.validUntil}</span>}
-          {quote.sentAt && <span>Sent {quote.sentAt}</span>}
-          {quote.notes && <span className="note">{quote.notes}</span>}
+            {showAnalysis ? (
+              <Analysis quote={quote} />
+            ) : option && totals ? (
+              <OptionSheet
+                option={option}
+                t={totals}
+                discountRate={quote.discountRate}
+                showHst={quote.showHst}
+                quoteNotes={quote.notes}
+                airtableUrl={airtableUrl}
+              />
+            ) : (
+              <section className="card">
+                <p className="empty">This quote has no options yet.</p>
+              </section>
+            )}
+          </div>
+
+          {option && totals && (
+            <Financials option={option} t={totals} discountRate={quote.discountRate} showHst={quote.showHst} />
+          )}
         </div>
       </div>
-    </div>
+    </>
   );
 }
