@@ -1,4 +1,5 @@
-/* Titan Quotes — light dashboard: white cards on a soft grey page, RiderBlue accent. */
+/* Titan Quotes — light dashboard: white cards on a soft grey page, RiderBlue accent.
+   One light look on every device, whatever the OS theme (Albert, 2026-10-12). */
 :root {
   --bg: #f3f5f8; --card: #fff; --card-2: #f8f9fb; --head: #eef1f5;
   --fg: #26303c; --fg-dim: #66717f; --fg-faint: #9aa3ae;
@@ -8,17 +9,7 @@
   --radius: 6px; --shadow: 0 1px 2px rgba(20, 30, 45, .05), 0 1px 1px rgba(20, 30, 45, .03);
   --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #15181c; --card: #1d2126; --card-2: #22272d; --head: #262b32;
-    --fg: #e6e9ed; --fg-dim: #a3acb7; --fg-faint: #7a838e;
-    --line: #2f353d; --line-strong: #3b424b;
-    --accent: #5b95ff; --accent-soft: #1b2a45; --accent-ink: #fff;
-    --good: #4cc48e; --good-soft: #14281f; --warn: #e0b354; --warn-soft: #30270f; --bad: #f07a6e; --bad-soft: #36191a;
-    --shadow: none;
-    color-scheme: dark;
-  }
+  color-scheme: light;
 }
 * { box-sizing: border-box; }
 body { background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 14px; margin: 0; -webkit-text-size-adjust: 100%; }
@@ -106,6 +97,7 @@ h1, h2, h3, p { margin: 0; }
 table.items { border-collapse: collapse; width: 100%; min-width: 860px; font-size: 13px; }
 table.items th { text-align: left; font-size: 11px; font-weight: 600; color: var(--fg-faint); padding: 10px 12px; border-bottom: 1px solid var(--line-strong); white-space: nowrap; background: var(--card); }
 table.items td { padding: 11px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+table.items th + th, table.items td + td { border-left: 1px solid var(--line); }
 table.items tbody tr:nth-child(even) td { background: var(--card-2); }
 table.items .r { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 table.items .idx { color: var(--fg-faint); width: 36px; }
@@ -160,6 +152,7 @@ table.cmp { border-collapse: collapse; width: 100%; min-width: 520px; font-size:
 table.cmp th { text-align: right; font-size: 11px; font-weight: 600; color: var(--fg-faint); padding: 10px 12px; border-bottom: 1px solid var(--line-strong); }
 table.cmp th:first-child { text-align: left; }
 table.cmp td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: right; font-variant-numeric: tabular-nums; }
+table.cmp th + th, table.cmp td + td { border-left: 1px solid var(--line); }
 table.cmp td:first-child { text-align: left; color: var(--fg-dim); }
 .best { color: var(--good); font-weight: 600; }
 .same { color: var(--fg-faint); }
@@ -169,6 +162,7 @@ table.cmp td:first-child { text-align: left; color: var(--fg-dim); }
 table.list { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 13px; }
 table.list th { text-align: left; font-size: 11px; font-weight: 600; color: var(--fg-faint); padding: 10px 16px; border-bottom: 1px solid var(--line-strong); }
 table.list td { padding: 12px 16px; border-bottom: 1px solid var(--line); }
+table.list th + th, table.list td + td { border-left: 1px solid var(--line); }
 table.list tbody tr:hover td { background: var(--card-2); }
 table.list .cust { font-weight: 600; color: var(--fg); }
 table.list .cust:hover { color: var(--accent); }
