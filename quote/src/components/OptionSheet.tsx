@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   SECTIONS,
   costUsed,
@@ -125,6 +126,7 @@ export function OptionSheet({
   showHst,
   quoteNotes,
   airtableUrl,
+  editHref,
 }: {
   option: QuoteOption;
   t: OptionTotals;
@@ -132,6 +134,7 @@ export function OptionSheet({
   showHst: boolean;
   quoteNotes: string | null;
   airtableUrl: string;
+  editHref: string;
 }) {
   const order = sectionOrder(option.lines);
   const exclusions = option.lines.filter((l) => l.section === "Exclusions" && l.description);
@@ -216,7 +219,7 @@ export function OptionSheet({
 
       <div className="actions">
         <a className="btn" href={airtableUrl} target="_blank" rel="noreferrer">Open in Airtable</a>
-        <span className="btn" aria-disabled="true" title="Comes with the editor">Edit</span>
+        <Link className="btn" href={editHref}>Edit</Link>
         <span className="btn primary" aria-disabled="true" title="Comes with Send">Send to customer</span>
       </div>
     </>

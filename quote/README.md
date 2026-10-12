@@ -7,8 +7,8 @@ repo with Root Directory `quote`. Rules for changing it: `CLAUDE.md` in this fol
 
 | Milestone | What | State |
 |---|---|---|
-| 1 | Sign-in, allowlist, quote list, read-only quote view with Airtable parity check, Analysis tab | **this build** |
-| 2 | The editor: pick description → contractor → card rate, overrides with revert, keyboard grid | next |
+| 1 | Sign-in, allowlist, quote list, read-only quote view with Airtable parity check, Analysis tab | done |
+| 2 | The editor (`/new`, `/q/<id>/edit`): options, work-type sections, rate-card picker, contractor switch, overrides with revert, exclusions; draft kept on the device | **this build** |
 | 3 | Save to Airtable (writes limited to the four quote tables) | after 2 |
 | 4 | Send: PDF → OneDrive → GHL, summary to Notion | after 3 |
 
@@ -25,6 +25,8 @@ repo with Root Directory `quote`. Rules for changing it: `CLAUDE.md` in this fol
 | `src/lib/calc.ts` | all quote maths, mirroring the Airtable formulas |
 | `src/components/OptionSheet.tsx` | one option: sections, lines, flags, totals, parity banner |
 | `src/components/Analysis.tsx` | options side by side and where they differ |
+| `src/lib/editor/model.ts` | every editor change as a pure function (tested in `tests/editor.test.ts`) |
+| `src/components/editor/` | the editor screen (browser-only), the add-a-line picker |
 | `tests/` | maths to the cent (invented numbers), allowlist, structural boundary |
 
 ## Environment (Vercel project for this app only)

@@ -15,8 +15,9 @@ export default async function QuoteList() {
         <div className="pagehead">
           <div className="titles">
             <h1>Quotes</h1>
-            <p>Every quote in Airtable, newest first. Read-only for now.</p>
+            <p>Every quote in Airtable, newest first.</p>
           </div>
+          <Link className="btn primary" href="/new">+ New quote</Link>
         </div>
         <section className="card">
           <div className="card-h">

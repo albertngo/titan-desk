@@ -14,6 +14,12 @@ export type QuoteSummary = {
 
 export type QuoteLine = LineInput & {
   id: string;
+  /** Where the price came from: a Rate Card row, a Stair Item, a catalogue product, or typed in. */
+  sourceKind: "rate" | "stair" | "product" | "manual";
+  sourceId: string | null;
+  /** Rate Card labour type and specification, for lines priced from the card. */
+  labourType: string | null;
+  spec: string | null;
   description: string | null;
   area: string | null;
   uom: string | null;
@@ -55,3 +61,27 @@ export type Quote = {
   /** Lines on the quote that belong to no option: the old A/B/C format. */
   legacyLineCount: number;
 };
+
+/** One Rate Card row: one contractor's price for one labour type + specification. */
+export type RateRow = {
+  id: string;
+  labourType: string;
+  spec: string;
+  contractor: string;
+  uom: string | null;
+  rate: number;
+  cost: number;
+  minCharge: number | null;
+  defaultWaste: number | null;
+};
+
+export type StairRow = {
+  id: string;
+  name: string;
+  category: string | null;
+  size: string | null;
+  rate: number;
+  cost: number | null;
+};
+
+export type RateCard = { rates: RateRow[]; stairs: StairRow[] };
