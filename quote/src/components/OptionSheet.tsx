@@ -5,7 +5,6 @@ import {
   lineCost,
   lineFlags,
   lineTotal,
-  optionTotals,
   parityDiffs,
   priceUsed,
   type OptionTotals,
@@ -27,26 +26,19 @@ const LABEL: Record<keyof OptionTotals, string> = {
   paymentFinal: "Final payment",
 };
 
+const sectionOf = (l: QuoteLine) => l.section ?? "Unsorted";
+
+/** Priced sections in work order; exclusions are not a table section, they go to the notes card. */
 function sectionOrder(lines: QuoteLine[]): string[] {
-  const present = new Set(lines.map((l) => l.section ?? "Unsorted"));
-  const known: string[] = SECTIONS.filter((s) => present.has(s) && s !== "Exclusions");
+  const present = new Set(lines.filter((l) => isPriced(l) || l.lineType === "Note" || l.lineType === "Section").map(sectionOf));
+  present.delete("Exclusions");
+  const known: string[] = SECTIONS.filter((s) => present.has(s));
   if (present.has("Unsorted")) known.push("Unsorted");
-  if (present.has("Exclusions")) known.push("Exclusions");
   return known;
 }
 
-/** Item numbers for priced, included lines only — exclusions and optional lines stay unnumbered. */
-function numbering(lines: QuoteLine[], order: string[]): Map<string, number> {
-  const n = new Map<string, number>();
-  let i = 0;
-  for (const s of order)
-    for (const l of lines)
-      if ((l.section ?? "Unsorted") === s && isPriced(l) && l.include) n.set(l.id, ++i);
-  return n;
-}
-
-function Parity({ option, app }: { option: QuoteOption; app: OptionTotals }) {
-  const diffs = parityDiffs(app, option.airtable);
+function Parity({ option, t }: { option: QuoteOption; t: OptionTotals }) {
+  const diffs = parityDiffs(t, option.airtable);
   const lineDiffs = option.lines.filter(
     (l) =>
       isPriced(l) &&
@@ -84,10 +76,10 @@ function Row({ l, n }: { l: QuoteLine; n: number | undefined }) {
   if (!isPriced(l)) {
     return (
       <tr>
-        <td className="gut" />
-        <td colSpan={10}>
+        <td className="idx" />
+        <td colSpan={8}>
           {l.description}
-          {l.clientNote && <span className="note"> — {l.clientNote}</span>}
+          {l.clientNote && <span className="sub">{l.clientNote}</span>}
         </td>
       </tr>
     );
@@ -100,104 +92,132 @@ function Row({ l, n }: { l: QuoteLine; n: number | undefined }) {
   const margin = total && total > 0 && cost !== null ? ((total - cost) / total) * 100 : null;
   return (
     <tr className={l.include ? undefined : "off"}>
-      <td className="gut">{n ?? ""}</td>
+      <td className="idx">{n ?? ""}</td>
       <td>
         {l.description ?? <span className="note">No description</span>}
-        {l.clientNote && <span className="note"> — {l.clientNote}</span>}
+        {(l.area || l.clientNote) && <span className="sub">{[l.area, l.clientNote].filter(Boolean).join(" · ")}</span>}
+        {flags.length > 0 && <div>{flags.map((f) => <span key={f} className={`flag ${f}`}>{f}</span>)}</div>}
       </td>
-      <td className="dim">{l.contractor}</td>
-      <td className="dim">{l.area}</td>
-      <td className="n">{rate(l.qty)}{l.waste ? <span className="card">+{Math.round(l.waste * 100)}% waste</span> : null}</td>
-      <td className="dim">{l.uom}</td>
-      <td className={`n${rateOvr ? " chgd" : ""}`}>
-        {rate(priceUsed(l))}
-        {rateOvr && <span className="card">card {rate(l.unitPriceSnap)}</span>}
+      <td className="muted">{l.contractor ?? "—"}</td>
+      <td className="r">
+        {rate(l.qty)} <span className="faint">{l.uom ?? ""}</span>
+        {l.waste ? <span className="sub">+{Math.round(l.waste * 100)}% waste</span> : null}
       </td>
-      <td className="n amt">{l.include ? money(total) : <span className="note">optional</span>}</td>
-      <td className={`n dim${costOvr || l.manualCost ? " chgd" : ""}`}>
-        {money(cost)}
-        {costOvr && <span className="card">card {rate(l.unitCostSnap)}/unit, now {rate(costUsed(l))}</span>}
-        {!!l.manualCost && <span className="card">manual line cost</span>}
+      <td className="r">
+        <span className={rateOvr ? "chgd" : undefined}>{money(priceUsed(l))}</span>
+        {rateOvr && <span className="sub">card {money(l.unitPriceSnap)}</span>}
       </td>
-      <td className="n dim">{pct(margin, 0)}</td>
-      <td>{flags.map((f) => <span key={f} className="fl">{f}</span>)}</td>
+      <td className="r">
+        <span className={costOvr || l.manualCost ? "chgd" : "muted"}>{money(cost)}</span>
+        {costOvr && <span className="sub">card {money(l.unitCostSnap)}/unit, now {money(costUsed(l))}</span>}
+        {!!l.manualCost && <span className="sub">manual line cost</span>}
+      </td>
+      <td className="r muted">{pct(margin, 0)}</td>
+      <td className="r amt">{l.include ? money(total) : <span className="note">optional</span>}</td>
     </tr>
   );
 }
 
-export function OptionSheet({ option, discountRate, showHst }: { option: QuoteOption; discountRate: number; showHst: boolean }) {
-  const t = optionTotals(option.lines, discountRate, showHst);
+export function OptionSheet({
+  option,
+  t,
+  discountRate,
+  showHst,
+  quoteNotes,
+  airtableUrl,
+}: {
+  option: QuoteOption;
+  t: OptionTotals;
+  discountRate: number;
+  showHst: boolean;
+  quoteNotes: string | null;
+  airtableUrl: string;
+}) {
   const order = sectionOrder(option.lines);
-  const nums = numbering(option.lines, order);
-  const flagCount = option.lines.reduce((s, l) => s + lineFlags(l).length, 0);
+  const exclusions = option.lines.filter((l) => l.section === "Exclusions" && l.description);
+  const nums = new Map<string, number>();
+  let i = 0;
+  for (const s of order) for (const l of option.lines) if (sectionOf(l) === s && isPriced(l) && l.include) nums.set(l.id, ++i);
 
   return (
     <>
-      <div className="ohead">
-        <div className="oname">
-          {option.name}
-          {option.recommended && <span className="pill ok">Recommended</span>}
-          {flagCount > 0 && <span className="pill">{flagCount} flag{flagCount === 1 ? "" : "s"}</span>}
+      <section className="card">
+        <div className="ohead">
+          <div className="oname">
+            {option.name}
+            {option.recommended && <span className="chip good">Recommended</span>}
+          </div>
+          {option.description ? <p className="odesc">{option.description}</p> : <p className="odesc note">No description yet.</p>}
         </div>
-        {option.description ? <p className="odesc">{option.description}</p> : <p className="odesc note">No description yet.</p>}
-      </div>
-      <Parity option={option} app={t} />
+        <Parity option={option} t={t} />
+        {order.length === 0 ? (
+          <p className="empty">This option has no lines yet.</p>
+        ) : (
+          <div className="tbl-wrap">
+            <table className="items">
+              <thead>
+                <tr>
+                  <th className="idx">#</th>
+                  <th>Item</th>
+                  <th>Contractor</th>
+                  <th className="r">Quantity</th>
+                  <th className="r">Unit price</th>
+                  <th className="r">Cost</th>
+                  <th className="r">Margin</th>
+                  <th className="r">Line total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {order.flatMap((s) => {
+                  const lines = option.lines.filter((l) => sectionOf(l) === s);
+                  const sum = lines.reduce((a, l) => a + (lineTotal(l) ?? 0), 0);
+                  return [
+                    <tr className="sect" key={`s-${s}`}>
+                      <td colSpan={7}>{s}</td>
+                      <td className="r">{money(sum)}</td>
+                    </tr>,
+                    ...lines.map((l) => <Row key={l.id} l={l} n={nums.get(l.id)} />),
+                  ];
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
-      {order.length === 0 && <p className="empty">This option has no lines yet.</p>}
-      {order.map((s) => {
-        const lines = option.lines.filter((l) => (l.section ?? "Unsorted") === s);
-        const sum = lines.reduce((a, l) => a + (lineTotal(l) ?? 0), 0);
-        return (
-          <section className="sec" key={s}>
-            <div className="sechd">
-              <span className="secname">{s}</span>
-              <span className="seccount">{lines.length} line{lines.length === 1 ? "" : "s"}</span>
-              {s !== "Exclusions" && <span className="secsum">{money(sum)}</span>}
+      <div className="duo">
+        <section className="card">
+          <div className="card-h">Notes</div>
+          <div className="card-b notes">
+            <div>
+              <h3>Exclusions</h3>
+              {exclusions.length ? (
+                <ul>{exclusions.map((l) => <li key={l.id}>{l.description}</li>)}</ul>
+              ) : (
+                <p className="faint">None listed.</p>
+              )}
             </div>
-            <div className="gwrap">
-              <table className="g">
-                {s !== "Exclusions" && (
-                  <thead>
-                    <tr>
-                      <th className="gut">#</th>
-                      <th>Description</th>
-                      <th>Contractor</th>
-                      <th>Area</th>
-                      <th className="r">Qty</th>
-                      <th>UoM</th>
-                      <th className="r">Rate</th>
-                      <th className="r">Total</th>
-                      <th className="r">Cost</th>
-                      <th className="r">Margin</th>
-                      <th>Flags</th>
-                    </tr>
-                  </thead>
-                )}
-                <tbody>
-                  {lines.map((l) => (
-                    <Row key={l.id} l={l} n={nums.get(l.id)} />
-                  ))}
-                </tbody>
-              </table>
+            <div>
+              <h3>Quote notes</h3>
+              <p className={quoteNotes ? undefined : "faint"}>{quoteNotes ?? "None."}</p>
             </div>
-          </section>
-        );
-      })}
+          </div>
+        </section>
 
-      <div className="tot">
-        <div className="tcell"><div className="k">Pre-discount</div><div className="v">{money(t.preDiscount)}</div></div>
-        <div className="tcell"><div className="k">Discount {pct(discountRate * 100, 0)}</div><div className="v">{money(t.discount)}</div></div>
-        <div className="tcell"><div className="k">Subtotal</div><div className="v">{money(t.subtotal)}</div></div>
-        <div className="tcell"><div className="k">Cost</div><div className="v">{money(t.cost)}</div></div>
-        <div className="tcell"><div className="k">Profit</div><div className="v">{money(t.profit)}</div></div>
-        <div className="tcell"><div className="k">Margin</div><div className="v">{pct(t.marginPct)}</div></div>
-        <div className="tcell"><div className="k">HST{showHst ? "" : " (off)"}</div><div className="v">{money(t.hst)}</div></div>
-        <div className="tcell big"><div className="k">Total</div><div className="v">{money(t.total)}</div></div>
+        <section className="card">
+          <div className="card-h">Quote overview</div>
+          <div className="ov-row bullet"><span className="k">Pre-discount</span><span className="v">{money(t.preDiscount)}</span></div>
+          <div className="ov-row bullet"><span className="k">Discount ({pct(discountRate * 100, 0)})</span><span className="v">{money(t.discount)}</span></div>
+          <div className="ov-row bullet"><span className="k">Subtotal</span><span className="v">{money(t.subtotal)}</span></div>
+          <div className="ov-row bullet"><span className="k">HST{showHst ? " (13%)" : " (off)"}</span><span className="v">{money(t.hst)}</span></div>
+          <div className="ov-total"><span>Total</span><span className="v">{money(t.total)}</span></div>
+        </section>
       </div>
-      <div className="tot">
-        <div className="tcell"><div className="k">Payment 1 · 35%</div><div className="v">{money(t.payment1)}</div></div>
-        <div className="tcell"><div className="k">Payment 2 · 35%</div><div className="v">{money(t.payment2)}</div></div>
-        <div className="tcell"><div className="k">Final payment</div><div className="v">{money(t.paymentFinal)}</div></div>
+
+      <div className="actions">
+        <a className="btn" href={airtableUrl} target="_blank" rel="noreferrer">Open in Airtable</a>
+        <span className="btn" aria-disabled="true" title="Comes with the editor">Edit</span>
+        <span className="btn primary" aria-disabled="true" title="Comes with Send">Send to customer</span>
       </div>
     </>
   );

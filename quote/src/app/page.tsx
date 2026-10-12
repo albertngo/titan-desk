@@ -9,52 +9,56 @@ export default async function QuoteList() {
   const email = await requireQuoter();
   const quotes = await listQuotes();
   return (
-    <div className="wrap">
+    <>
       <TopBar email={email} />
-      <div className="app">
-        <div className="apphead">
-          <div className="who">
-            <h2>Quotes</h2>
-            <div className="sub">Newest first · read from Airtable</div>
+      <div className="page">
+        <div className="pagehead">
+          <div className="titles">
+            <h1>Quotes</h1>
+            <p>Every quote in Airtable, newest first. Read-only for now.</p>
           </div>
-          <span className="pill ro">Read-only</span>
         </div>
-        {quotes.length === 0 ? (
-          <p className="empty">No quotes in Airtable yet.</p>
-        ) : (
-          <div className="gwrap">
-            <table className="list">
-              <thead>
-                <tr>
-                  <th>Customer</th>
-                  <th>City</th>
-                  <th>Quote</th>
-                  <th>Status</th>
-                  <th>Basis</th>
-                  <th>Options</th>
-                </tr>
-              </thead>
-              <tbody>
-                {quotes.map((q) => (
-                  <tr key={q.id}>
-                    <td>
-                      <Link href={`/q/${q.id}`}>{q.customerName ?? "No customer"}</Link>
-                    </td>
-                    <td>{q.siteCity}</td>
-                    <td className="num">
-                      {q.quoteId ?? "No quote ID"}
-                      {q.version !== null && ` · v${q.version}`}
-                    </td>
-                    <td>{q.status}</td>
-                    <td>{q.basis}</td>
-                    <td>{q.optionCount > 0 ? q.optionCount : <span className="note">old A/B/C format</span>}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <section className="card">
+          <div className="card-h">
+            All quotes <span className="right">{quotes.length}</span>
           </div>
-        )}
+          {quotes.length === 0 ? (
+            <p className="empty">No quotes in Airtable yet.</p>
+          ) : (
+            <div className="tbl-wrap">
+              <table className="list">
+                <thead>
+                  <tr>
+                    <th>Customer</th>
+                    <th>City</th>
+                    <th>Quote</th>
+                    <th>Basis</th>
+                    <th>Options</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {quotes.map((q) => (
+                    <tr key={q.id}>
+                      <td>
+                        <Link className="cust" href={`/q/${q.id}`}>{q.customerName ?? "No customer"}</Link>
+                      </td>
+                      <td className="muted">{q.siteCity}</td>
+                      <td className="num">
+                        {q.quoteId ?? <span className="faint">No quote ID</span>}
+                        {q.version !== null && <span className="faint"> · v{q.version}</span>}
+                      </td>
+                      <td>{q.basis && <span className={`chip ${q.basis === "Measured" ? "good" : "warn"}`}>{q.basis}</span>}</td>
+                      <td>{q.optionCount > 0 ? q.optionCount : <span className="note">old A/B/C format</span>}</td>
+                      <td>{q.status && <span className={`status ${q.status}`}>{q.status}</span>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       </div>
-    </div>
+    </>
   );
 }

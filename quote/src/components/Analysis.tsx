@@ -19,7 +19,11 @@ export function Analysis({ quote }: { quote: Quote }) {
     flags: o.lines.reduce((n, l) => n + lineFlags(l).length, 0),
   }));
   if (opts.length < 2)
-    return <p className="empty">Analysis compares options. Add a second option to this quote to see it.</p>;
+    return (
+      <section className="card">
+        <p className="empty">Analysis compares options. Add a second option to this quote to see it.</p>
+      </section>
+    );
 
   const sections = [...SECTIONS.filter((s) => s !== "Exclusions"), "Unsorted"].filter((s) =>
     opts.some((x) => (x.s.get(s) ?? 0) !== 0),
@@ -27,14 +31,15 @@ export function Analysis({ quote }: { quote: Quote }) {
 
   return (
     <div className="an">
-      <h3>Options side by side</h3>
-      <div className="anwrap">
-        <table>
+      <section className="card">
+      <div className="card-h">Options side by side</div>
+      <div className="tbl-wrap">
+        <table className="cmp">
           <thead>
             <tr>
               <th />
               {opts.map(({ o }) => (
-                <th key={o.id} className="r">{o.name}</th>
+                <th key={o.id}>{o.name}</th>
               ))}
             </tr>
           </thead>
@@ -46,7 +51,7 @@ export function Analysis({ quote }: { quote: Quote }) {
                 <tr key={m.key}>
                   <td>{m.label}</td>
                   {vals.map((v, i) => (
-                    <td key={opts[i].o.id} className={`r${top !== null && v === top ? " best" : ""}`}>
+                    <td key={opts[i].o.id} className={top !== null && v === top ? "best" : undefined}>
                       {m.key === "marginPct" ? pct(v) : money(v)}
                     </td>
                   ))}
@@ -56,21 +61,23 @@ export function Analysis({ quote }: { quote: Quote }) {
             <tr>
               <td>Flags</td>
               {opts.map((x) => (
-                <td key={x.o.id} className="r">{x.flags || ""}</td>
+                <td key={x.o.id}>{x.flags || ""}</td>
               ))}
             </tr>
           </tbody>
         </table>
       </div>
+      </section>
 
-      <h3>Where the options differ</h3>
-      <div className="anwrap">
-        <table>
+      <section className="card">
+      <div className="card-h">Where the options differ</div>
+      <div className="tbl-wrap">
+        <table className="cmp">
           <thead>
             <tr>
               <th>Work</th>
               {opts.map(({ o }) => (
-                <th key={o.id} className="r">{o.name}</th>
+                <th key={o.id}>{o.name}</th>
               ))}
               <th />
             </tr>
@@ -83,7 +90,7 @@ export function Analysis({ quote }: { quote: Quote }) {
                 <tr key={s}>
                   <td>{s}</td>
                   {vals.map((v, i) => (
-                    <td key={opts[i].o.id} className={`r ${differs ? "diff" : "same"}`}>{money(v)}</td>
+                    <td key={opts[i].o.id} className={differs ? "diff" : "same"}>{money(v)}</td>
                   ))}
                   <td className={differs ? "diff" : "same"}>{differs ? "differs" : "same"}</td>
                 </tr>
@@ -92,6 +99,7 @@ export function Analysis({ quote }: { quote: Quote }) {
           </tbody>
         </table>
       </div>
+      </section>
     </div>
   );
 }
