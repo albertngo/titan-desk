@@ -19,17 +19,23 @@
 export const HST_RATE = 0.13;
 export const PAYMENT_SPLIT = 0.35;
 
+/**
+ * Work-type sections, in the order they appear everywhere: the quote view, the editor, the
+ * "Add work" buttons and the Analysis tab. Order set by Albert (2026-10-12): Install,
+ * Removal, Disposal, Prep, Materials, Delivery; the sections he did not place sit before
+ * Other; Exclusions are always last.
+ */
 export const SECTIONS = [
+  "Install",
   "Removal",
+  "Disposal",
   "Prep",
   "Materials",
-  "Install",
+  "Delivery",
   "Stairs",
   "Refinish",
   "Paint",
   "Sand",
-  "Disposal",
-  "Delivery",
   "Other",
   "Exclusions",
 ] as const;

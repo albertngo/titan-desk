@@ -6,6 +6,7 @@ import {
   optionTotals,
   parityDiffs,
   round,
+  SECTIONS,
   sectionTotals,
   type LineInput,
 } from "../src/lib/calc";
@@ -35,6 +36,13 @@ const optional = L({ section: "Other", include: false, qty: 100, unitPriceSnap: 
 const note = L({ lineType: "Note", section: "Install" });
 const exclusion = L({ lineType: "Other", section: "Exclusions", qty: 1, unitPrice: 999 });
 const job = [removal, install, stairs, delivery, optional, note, exclusion];
+
+describe("section order", () => {
+  it("follows Albert's order, with Other and Exclusions last", () => {
+    expect(SECTIONS.slice(0, 6)).toEqual(["Install", "Removal", "Disposal", "Prep", "Materials", "Delivery"]);
+    expect(SECTIONS.slice(-2)).toEqual(["Other", "Exclusions"]);
+  });
+});
 
 describe("round (Airtable ROUND)", () => {
   it("rounds half away from zero and absorbs binary noise", () => {
