@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Financials } from "@/components/Financials";
-import { SECTIONS, isPriced, lineCost, lineFlags, lineTotal, optionTotals } from "@/lib/calc";
+import { SECTIONS, isPriced, lineCost, lineFlags, lineTotal, optionTotals, sectionOf } from "@/lib/calc";
 import {
   UOMS,
   addLine,
@@ -98,7 +98,8 @@ export default function Editor({ initial, card, backHref }: { initial: EditorQuo
   const [picking, setPicking] = useState<string | null>(null);
   const [newExclusion, setNewExclusion] = useState("");
 
-  const catalogue = useMemo(() => buildCatalogue(card.rates, card.stairs), [card]);
+  // Stairs are not quoted on this page (Albert, 2026-10-12): the picker searches the rate card only.
+  const catalogue = useMemo(() => buildCatalogue(card.rates, []), [card]);
   const changed = useMemo(() => JSON.stringify(quote) !== JSON.stringify(initial), [quote, initial]);
 
   // Keep a draft on this device: closing the tab or losing signal never loses work.
@@ -132,13 +133,13 @@ export default function Editor({ initial, card, backHref }: { initial: EditorQuo
     setActiveId(initial.options[0]?.id ?? null);
   };
 
-  const sectionsShown: string[] = option ? WORK_SECTIONS.filter((s) => option.lines.some((l) => l.section === s)) : [];
-  if (option?.lines.some((l) => !l.section)) sectionsShown.push("Unsorted");
+  const sectionsShown: string[] = option ? WORK_SECTIONS.filter((s) => option.lines.some((l) => sectionOf(l) === s)) : [];
+  if (option?.lines.some((l) => sectionOf(l) === "Unsorted")) sectionsShown.push("Unsorted");
   const exclusions = option ? option.lines.filter((l) => l.section === "Exclusions") : [];
 
   let n = 0;
   const numberOf = new Map<string, number>();
-  if (option) for (const s of sectionsShown) for (const l of option.lines) if ((l.section ?? "Unsorted") === s && isPriced(l) && l.include) numberOf.set(l.id, ++n);
+  if (option) for (const s of sectionsShown) for (const l of option.lines) if (sectionOf(l) === s && isPriced(l) && l.include) numberOf.set(l.id, ++n);
 
   const row = (l: EditorLine) => {
     if (!option) return null;
@@ -206,12 +207,12 @@ export default function Editor({ initial, card, backHref }: { initial: EditorQuo
           </div>
         </td>
         <td className="r">
-          <NumCell value={l.unitPrice} label="Unit price" placeholder={l.unitPriceSnap !== null ? rate(l.unitPriceSnap) : "price"} onCommit={(v) => upd({ unitPrice: v })} />
-          {l.unitPriceSnap !== null && <span className="sub">card {money(l.unitPriceSnap)}</span>}
-        </td>
-        <td className="r">
           <NumCell value={l.costOverride} label="Unit cost" placeholder={l.unitCostSnap !== null ? rate(l.unitCostSnap) : "cost"} onCommit={(v) => upd({ costOverride: v })} />
           {l.unitCostSnap !== null && <span className="sub">card {money(l.unitCostSnap)}</span>}
+        </td>
+        <td className="r">
+          <NumCell value={l.unitPrice} label="Unit price" placeholder={l.unitPriceSnap !== null ? rate(l.unitPriceSnap) : "price"} onCommit={(v) => upd({ unitPrice: v })} />
+          {l.unitPriceSnap !== null && <span className="sub">card {money(l.unitPriceSnap)}</span>}
         </td>
         <td className="r muted">{pct(margin, 0)}</td>
         <td className="r amt">
@@ -340,8 +341,8 @@ export default function Editor({ initial, card, backHref }: { initial: EditorQuo
                         <th>Item</th>
                         <th>Contractor</th>
                         <th className="r">Quantity</th>
-                        <th className="r">Unit price</th>
                         <th className="r">Unit cost</th>
+                        <th className="r">Unit price</th>
                         <th className="r">Margin</th>
                         <th className="r">Line total</th>
                       </tr>
@@ -353,7 +354,7 @@ export default function Editor({ initial, card, backHref }: { initial: EditorQuo
                         </tr>
                       )}
                       {sectionsShown.flatMap((s) => {
-                        const lines = option.lines.filter((l) => (l.section ?? "Unsorted") === s);
+                        const lines = option.lines.filter((l) => sectionOf(l) === s);
                         const sum = lines.reduce((a, l) => a + (lineTotal(l) ?? 0), 0);
                         return [
                           <tr className="sect" key={`s-${s}`}>

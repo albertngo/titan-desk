@@ -50,29 +50,23 @@ export type CardEntry =
 
 /** Which Rate Card labour types belong under each section, best match first. */
 export const SECTION_LABOUR: Record<string, string[]> = {
+  Install: ["Install", "Refinish", "Sand", "Paint"],
   Removal: ["Remove"],
-  Prep: ["Install"],
-  Install: ["Install"],
-  Refinish: ["Refinish", "Sand"],
-  Sand: ["Sand", "Refinish"],
-  Paint: ["Paint"],
   Disposal: ["Disposal"],
+  Prep: ["Install"],
 };
 
 /** Quote Lines.Line Type for a section (Airtable's own select values). */
 export const LINE_TYPE: Record<string, string> = {
+  Install: "Install",
   Removal: "Removal",
+  Disposal: "Disposal",
   Prep: "Other",
   Materials: "Material",
-  Install: "Install",
-  Stairs: "Stairs",
-  Refinish: "Other",
-  Paint: "Other",
-  Sand: "Other",
-  Disposal: "Disposal",
   Delivery: "Delivery",
   Other: "Other",
   Exclusions: "Note",
+  Stairs: "Stairs",
 };
 
 export const UOMS = ["sqft", "linear ft", "each", "piece", "hour", "roll", "flat"] as const;
