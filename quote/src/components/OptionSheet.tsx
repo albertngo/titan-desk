@@ -105,13 +105,13 @@ function Row({ l, n }: { l: QuoteLine; n: number | undefined }) {
         {l.waste ? <span className="sub">+{Math.round(l.waste * 100)}% waste</span> : null}
       </td>
       <td className="r">
-        <span className={rateOvr ? "chgd" : undefined}>{money(priceUsed(l))}</span>
-        {rateOvr && <span className="sub">card {money(l.unitPriceSnap)}</span>}
-      </td>
-      <td className="r">
         <span className={costOvr || l.manualCost ? "chgd" : "muted"}>{money(cost)}</span>
         {costOvr && <span className="sub">card {money(l.unitCostSnap)}/unit, now {money(costUsed(l))}</span>}
         {!!l.manualCost && <span className="sub">manual line cost</span>}
+      </td>
+      <td className="r">
+        <span className={rateOvr ? "chgd" : undefined}>{money(priceUsed(l))}</span>
+        {rateOvr && <span className="sub">card {money(l.unitPriceSnap)}</span>}
       </td>
       <td className="r muted">{pct(margin, 0)}</td>
       <td className="r amt">{l.include ? money(total) : <span className="note">optional</span>}</td>
@@ -164,8 +164,8 @@ export function OptionSheet({
                   <th>Item</th>
                   <th>Contractor</th>
                   <th className="r">Quantity</th>
-                  <th className="r">Unit price</th>
                   <th className="r">Cost</th>
+                  <th className="r">Unit price</th>
                   <th className="r">Margin</th>
                   <th className="r">Line total</th>
                 </tr>

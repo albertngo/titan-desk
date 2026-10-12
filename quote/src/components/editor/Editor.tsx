@@ -206,12 +206,12 @@ export default function Editor({ initial, card, backHref }: { initial: EditorQuo
           </div>
         </td>
         <td className="r">
-          <NumCell value={l.unitPrice} label="Unit price" placeholder={l.unitPriceSnap !== null ? rate(l.unitPriceSnap) : "price"} onCommit={(v) => upd({ unitPrice: v })} />
-          {l.unitPriceSnap !== null && <span className="sub">card {money(l.unitPriceSnap)}</span>}
-        </td>
-        <td className="r">
           <NumCell value={l.costOverride} label="Unit cost" placeholder={l.unitCostSnap !== null ? rate(l.unitCostSnap) : "cost"} onCommit={(v) => upd({ costOverride: v })} />
           {l.unitCostSnap !== null && <span className="sub">card {money(l.unitCostSnap)}</span>}
+        </td>
+        <td className="r">
+          <NumCell value={l.unitPrice} label="Unit price" placeholder={l.unitPriceSnap !== null ? rate(l.unitPriceSnap) : "price"} onCommit={(v) => upd({ unitPrice: v })} />
+          {l.unitPriceSnap !== null && <span className="sub">card {money(l.unitPriceSnap)}</span>}
         </td>
         <td className="r muted">{pct(margin, 0)}</td>
         <td className="r amt">
@@ -340,8 +340,8 @@ export default function Editor({ initial, card, backHref }: { initial: EditorQuo
                         <th>Item</th>
                         <th>Contractor</th>
                         <th className="r">Quantity</th>
-                        <th className="r">Unit price</th>
                         <th className="r">Unit cost</th>
+                        <th className="r">Unit price</th>
                         <th className="r">Margin</th>
                         <th className="r">Line total</th>
                       </tr>
