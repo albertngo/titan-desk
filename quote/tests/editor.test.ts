@@ -39,6 +39,7 @@ const rates: RateRow[] = [
   R({ id: "recRateB000000001", contractor: "Crew B", cost: 1.0 }),
   R({ id: "recRateC000000001", labourType: "Remove", spec: "OLD CARPET", contractor: "Crew A", rate: 0.5, cost: 0.2 }),
   R({ id: "recRateD000000001", labourType: "Disposal", spec: "SMALL BIN", contractor: "Crew C", uom: "flat", rate: 300, cost: 250, minCharge: 300 }),
+  R({ id: "recRateE000000001", labourType: "Refinish", spec: "SAND AND COAT", contractor: "Crew D", rate: 3, cost: 1.5 }),
 ];
 const stairs: StairRow[] = [{ id: "recStair000000001", name: "Stair tread", category: "Treads", size: "36in", rate: 90, cost: 40 }];
 const cat = buildCatalogue(rates, stairs);
@@ -48,12 +49,13 @@ describe("catalogue", () => {
   it("groups contractors under one entry, cheapest first", () => {
     expect(click.contractors.map((c) => c.name)).toEqual(["Crew B", "Crew A"]);
     expect(bestContractor(click).name).toBe("Crew B");
-    expect(cat.filter((e) => e.kind === "rate")).toHaveLength(3);
+    expect(cat.filter((e) => e.kind === "rate")).toHaveLength(4);
   });
 
   it("ranks the section's own work first and needs every word", () => {
     expect(searchCatalogue(cat, "", "Removal")[0].key).toBe("Remove|OLD CARPET");
-    expect(searchCatalogue(cat, "", "Stairs")[0].kind).toBe("stair");
+    // Install is the main work: install and refinish entries both rank ahead of removal and disposal.
+    expect(searchCatalogue(cat, "", "Install").slice(0, 2).map((e) => e.key).sort()).toEqual(["Install|CLICK PLANK", "Refinish|SAND AND COAT"]);
     expect(searchCatalogue(cat, "click plank", "Removal").map((e) => e.key)).toEqual(["Install|CLICK PLANK"]);
     expect(searchCatalogue(cat, "click carpet", "Install")).toEqual([]);
   });

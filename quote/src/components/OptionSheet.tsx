@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   SECTIONS,
+  sectionOf,
   costUsed,
   isPriced,
   lineCost,
@@ -27,7 +28,6 @@ const LABEL: Record<keyof OptionTotals, string> = {
   paymentFinal: "Final payment",
 };
 
-const sectionOf = (l: QuoteLine) => l.section ?? "Unsorted";
 
 /** Priced sections in work order; exclusions are not a table section, they go to the notes card. */
 function sectionOrder(lines: QuoteLine[]): string[] {

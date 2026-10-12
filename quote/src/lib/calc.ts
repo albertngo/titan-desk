@@ -21,24 +21,19 @@ export const PAYMENT_SPLIT = 0.35;
 
 /**
  * Work-type sections, in the order they appear everywhere: the quote view, the editor, the
- * "Add work" buttons and the Analysis tab. Order set by Albert (2026-10-12): Install,
- * Removal, Disposal, Prep, Materials, Delivery; the sections he did not place sit before
- * Other; Exclusions are always last.
+ * "Add work" buttons and the Analysis tab (Albert, 2026-10-12). Install is the main work and
+ * takes in refinishing, painting and sanding; stairs are not quoted on this page.
  */
-export const SECTIONS = [
-  "Install",
-  "Removal",
-  "Disposal",
-  "Prep",
-  "Materials",
-  "Delivery",
-  "Stairs",
-  "Refinish",
-  "Paint",
-  "Sand",
-  "Other",
-  "Exclusions",
-] as const;
+export const SECTIONS = ["Install", "Removal", "Disposal", "Prep", "Materials", "Delivery", "Other", "Exclusions"] as const;
+
+/** Older sections folded into Install, so lines saved under them still show (Albert, 2026-10-12). */
+export const SECTION_ALIASES: Record<string, string> = { Refinish: "Install", Paint: "Install", Sand: "Install", Stairs: "Install" };
+
+/** The section a line shows under: aliases folded in, no section at all = "Unsorted". */
+export function sectionOf(l: Pick<LineInput, "section">): string {
+  if (!l.section) return "Unsorted";
+  return SECTION_ALIASES[l.section] ?? l.section;
+}
 
 export type LineInput = {
   lineType: string | null;
@@ -167,7 +162,7 @@ export function optionTotals(lines: LineInput[], discountRate: number, hstOn: bo
 export function sectionTotals(lines: LineInput[]): Map<string, number> {
   const out = new Map<string, number>();
   for (const l of lines) {
-    const key = l.section ?? "Unsorted";
+    const key = sectionOf(l);
     out.set(key, round2((out.get(key) ?? 0) + (lineTotal(l) ?? 0)));
   }
   return out;

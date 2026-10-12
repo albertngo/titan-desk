@@ -7,6 +7,7 @@ import {
   parityDiffs,
   round,
   SECTIONS,
+  sectionOf,
   sectionTotals,
   type LineInput,
 } from "../src/lib/calc";
@@ -37,10 +38,18 @@ const note = L({ lineType: "Note", section: "Install" });
 const exclusion = L({ lineType: "Other", section: "Exclusions", qty: 1, unitPrice: 999 });
 const job = [removal, install, stairs, delivery, optional, note, exclusion];
 
-describe("section order", () => {
-  it("follows Albert's order, with Other and Exclusions last", () => {
-    expect(SECTIONS.slice(0, 6)).toEqual(["Install", "Removal", "Disposal", "Prep", "Materials", "Delivery"]);
-    expect(SECTIONS.slice(-2)).toEqual(["Other", "Exclusions"]);
+describe("sections", () => {
+  it("follows Albert's order, with Other and Exclusions last and no Stairs", () => {
+    expect([...SECTIONS]).toEqual(["Install", "Removal", "Disposal", "Prep", "Materials", "Delivery", "Other", "Exclusions"]);
+  });
+
+  it("folds refinish, paint, sand and stairs lines into Install so nothing disappears", () => {
+    for (const old of ["Refinish", "Paint", "Sand", "Stairs"]) expect(sectionOf({ section: old })).toBe("Install");
+    expect(sectionOf({ section: "Removal" })).toBe("Removal");
+    expect(sectionOf({ section: null })).toBe("Unsorted");
+    const s = sectionTotals([L({ section: "Refinish", qty: 10, unitPriceSnap: 3 }), L({ section: "Install", qty: 10, unitPriceSnap: 2 })]);
+    expect(s.get("Install")).toBe(50);
+    expect(s.has("Refinish")).toBe(false);
   });
 });
 
@@ -127,8 +136,8 @@ describe("option totals", () => {
 
   it("subtotals by section", () => {
     const s = sectionTotals(job);
-    expect(s.get("Install")).toBe(1540);
-    expect(s.get("Stairs")).toBe(60);
+    expect(s.get("Install")).toBe(1600); // 1540 install + 60 stairs, folded into Install
+    expect(s.has("Stairs")).toBe(false);
     expect(s.get("Exclusions")).toBe(0);
   });
 });
