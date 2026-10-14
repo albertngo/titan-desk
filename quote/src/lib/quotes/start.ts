@@ -1,11 +1,13 @@
 import "server-only";
 import { requireQuoter } from "@/lib/auth";
-import { AirtableError, createRecord, listRecords } from "@/lib/airtable/client";
+import { AirtableError, createRecord, listRecords, updateRecord } from "@/lib/airtable/client";
 import { QUOTE, T, VERSION } from "@/lib/airtable/fields";
 import { getContact, GhlError, GhlNotConfigured, opportunitiesForContact, pipelines, searchContacts } from "@/lib/ghl/client";
 import { displayPhone, quoteNumber, versionLabel } from "@/lib/link/identity";
 import { addressStatus } from "@/lib/link/lead";
-import { parseNewQuote } from "@/lib/link/newQuote";
+import { buildGhlRequest } from "@/lib/link/ghlRequest";
+import { parseNewQuote, type NewQuoteRequest } from "@/lib/link/newQuote";
+import { makeConfigured, sendToGhl } from "@/lib/make/client";
 import type { CustomerSearch, StartResult } from "./types";
 import { ids, num, str } from "./values";
 
@@ -33,6 +35,12 @@ async function quotesByOpportunity(): Promise<Map<string, ExistingQuote>> {
     if (opp) out.set(opp, { quoteId: r.id, quoteNumber: str(r.fields[QUOTE.quoteNumber]), versionId: ids(r.fields[QUOTE.versions]).at(-1) ?? null });
   }
   return out;
+}
+
+/** What the New quote screen needs to know about this deployment. */
+export async function newQuoteSettings() {
+  await requireQuoter();
+  return { ghlWrites: makeConfigured() };
 }
 
 export async function findCustomers(query: string): Promise<CustomerSearch> {
@@ -102,13 +110,15 @@ export async function startQuote(raw: unknown): Promise<StartResult> {
       }
     }
 
+    let linkedOpp: { id: string; pipelineId: string | null } | null = null;
     let who: { first: string | null; last: string | null; phone: string | null; email: string | null; address: string | null; city: string | null };
     if (req.contactId) {
       const contact = await getContact(req.contactId);
       if (!contact) return { ok: false, message: "That contact isn't in GHL any more. Search again." };
       if (req.opportunityId) {
-        const theirs = await opportunitiesForContact(req.contactId);
-        if (!theirs.some((o) => o.id === req.opportunityId)) return { ok: false, message: "That opportunity belongs to a different contact. Search again." };
+        const theirs = (await opportunitiesForContact(req.contactId)).find((o) => o.id === req.opportunityId);
+        if (!theirs) return { ok: false, message: "That opportunity belongs to a different contact. Search again." };
+        linkedOpp = { id: theirs.id, pipelineId: theirs.pipelineId };
       }
       who = { first: contact.firstName, last: contact.lastName, phone: displayPhone(contact.phone), email: contact.email, address: contact.address, city: contact.city };
     } else {
@@ -139,7 +149,9 @@ export async function startQuote(raw: unknown): Promise<StartResult> {
       [QUOTE.notes]: note,
     });
     const quoteNo = str(quote.fields[QUOTE.quoteNumber]) ?? quoteNumber(num(quote.fields[QUOTE.seq]) ?? 0);
-    return { ok: true, versionId: await firstVersion(quote.id, quoteNo), reused: false };
+    const versionId = await firstVersion(quote.id, quoteNo);
+    await pushToGhl(quote.id, quoteNo, str(quote.fields[QUOTE.displayName]) ?? quoteNo, req, who, linkedOpp, today);
+    return { ok: true, versionId, reused: false };
   } catch (e) {
     console.error("startQuote", e);
     if (e instanceof AirtableError && (e.status === 401 || e.status === 403)) {
@@ -148,5 +160,51 @@ export async function startQuote(raw: unknown): Promise<StartResult> {
     if (e instanceof GhlNotConfigured) return { ok: false, message: e.message };
     if (e instanceof GhlError) return { ok: false, message: "GHL didn't answer. Try again in a moment." };
     return { ok: false, message: "The quote couldn't be created. Try again; if it keeps failing, tell Albert." };
+  }
+}
+
+/**
+ * Tell GHL about the new quote through Make: create the contact and opportunity if they don't
+ * exist, put the quote number on the opportunity, record the timing answer, set the lead stage.
+ * Never fails the quote: if Make is off or doesn't confirm, the quote stays as it is (Needs
+ * linking when it has no opportunity) and the note says what didn't happen.
+ */
+async function pushToGhl(
+  quoteId: string,
+  quoteNo: string,
+  name: string,
+  req: NewQuoteRequest,
+  who: { first: string | null; last: string | null; phone: string | null; email: string | null; address: string | null; city: string | null },
+  linkedOpp: { id: string; pipelineId: string | null } | null,
+  today: string,
+): Promise<void> {
+  if (!makeConfigured()) return;
+  try {
+    const sent = await sendToGhl(
+      buildGhlRequest({
+        quoteNumber: quoteNo,
+        opportunityName: name,
+        timing: req.timing,
+        contactId: req.contactId,
+        opportunity: linkedOpp,
+        newContact: req.contactId ? null : { firstName: who.first, lastName: who.last, phone: who.phone, email: who.email, address: who.address, city: who.city },
+        site: { address: who.address, city: who.city },
+      }),
+    );
+    if (!linkedOpp) {
+      await updateRecord(T.quotes, quoteId, {
+        [QUOTE.ghlContactId]: sent.contactId,
+        [QUOTE.ghlOpportunityId]: sent.opportunityId,
+        [QUOTE.linkStatus]: "Linked",
+        [QUOTE.notes]: `${today}: GHL ${req.contactId ? "opportunity" : "contact and opportunity"} created by the quote app.`,
+      });
+    }
+  } catch (e) {
+    console.error("pushToGhl", e);
+    await updateRecord(T.quotes, quoteId, {
+      [QUOTE.notes]: `${today}: the quote app couldn't update GHL (${e instanceof Error ? e.message.slice(0, 160) : "unknown error"}). ${
+        linkedOpp ? "Add the quote number to the opportunity by hand." : "Create the opportunity in GHL and link it."
+      }`,
+    }).catch(() => undefined);
   }
 }

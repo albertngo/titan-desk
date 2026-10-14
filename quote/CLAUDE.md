@@ -16,7 +16,9 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   (Quote Families → Quotes, Quotes → Quote Versions); IDs did not change.
 - **GHL owns the customer.** Name, phone, email and address are display copies on the quote;
   staff edit them in GHL. The app reads GHL to find a customer and their opportunities and
-  never writes to it; creating contacts and opportunities is Make's job. Matching rules
+  never writes to it with a token of its own. GHL changes go through one Make scenario,
+  "Quote app → GHL" (4975508): the app builds the exact request bodies in
+  `src/lib/link/ghlRequest.ts` (tested) and Make forwards them with its GHL connection. Matching rules
   (opportunity, then contact, then phone, then email; never a name; fill blanks only) live in
   `src/lib/link/` and are tested in `tests/link.test.ts`.
 - **Supabase is used for sign-in only** (the desk's project and Microsoft login).
@@ -39,6 +41,10 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
    catalogue, Rate Card or Stair Items from this app.
 2a. **One file talks to GHL, and only reads:** `src/lib/ghl/client.ts`, `server-only`, GET
    only, the only reader of `QUOTE_GHL_TOKEN` (contacts.readonly + opportunities.readonly).
+2b. **One file sends to Make:** `src/lib/make/client.ts`, `server-only`, the only reader of
+   `QUOTE_MAKE_GHL_HOOK` / `QUOTE_MAKE_GHL_KEY`, called only from `src/lib/quotes/start.ts`.
+   Set those two variables only after the scenario is switched on: a request to a scenario
+   that is off waits in Make's queue and would run later.
 3. **Staff is not enough.** Only emails on `QUOTE_ALLOWED_EMAILS` get in. The proxy checks
    it and every loader in `src/lib/quotes/load.ts` and `src/lib/quotes/start.ts` checks again
    (`requireQuoter()`). An empty list lets nobody in.
