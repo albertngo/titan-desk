@@ -126,6 +126,9 @@ table.items tr.off td { color: var(--fg-faint); }
 .ov-total .v { font-size: 18px; font-variant-numeric: tabular-nums; }
 
 .actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.actions .saveas { display: inline-flex; gap: 6px; align-items: center; }
+.actions .saveas .in { width: auto; padding: 6px 8px; }
+.save-error { margin-top: 8px; border: 1px solid var(--line); }
 .btn { font: inherit; font-size: 13px; font-weight: 600; padding: 8px 14px; border-radius: var(--radius); border: 1px solid var(--line-strong); background: var(--card); color: var(--fg); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
 .btn:hover { border-color: var(--accent); color: var(--accent); }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }

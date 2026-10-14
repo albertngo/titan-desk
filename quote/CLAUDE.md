@@ -25,9 +25,16 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
 - **`src/lib/calc.ts` is the only place money is computed**, and it mirrors the Airtable
   formulas field for field. Change one, change both, in the same piece of work. Every quote
   page shows a parity check against Airtable's own rollups; a red banner is a bug.
-- **The editor keeps drafts on the device** (localStorage, per quote) until saving to Airtable
-  exists. Every change is a pure function in `src/lib/editor/model.ts`; the screen only calls
+- **The editor keeps drafts on the device** (localStorage, per quote) until they are saved.
+  Every change is a pure function in `src/lib/editor/model.ts`; the screen only calls
   them. Test new behaviour there, not through the UI.
+- **Saving (milestone 3, 2026-10-14).** What to write is decided in `src/lib/quotes/savePlan.ts`
+  (pure, tested in `tests/save.test.ts`); `src/lib/quotes/save.ts` carries it out. Only a Draft
+  version is overwritten, and only if Airtable still matches what the editor opened (a
+  fingerprint check), so newer work is never overwritten. Sent and later versions change only
+  by **Save as new version**. Only records already on the version are updated; anything else
+  the browser sends is created new. Removed lines and options are detached, never deleted.
+  Select values off Airtable's own lists are saved blank, because typecast would invent them.
 
 ## Hard rules
 

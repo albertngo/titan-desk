@@ -4,6 +4,7 @@ import { TopBar } from "@/components/TopBar";
 import { requireQuoter } from "@/lib/auth";
 import { fromQuote } from "@/lib/editor/model";
 import { getQuote, getRateCard } from "@/lib/quotes/load";
+import { fingerprint } from "@/lib/quotes/savePlan";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Edit quote" };
@@ -13,10 +14,12 @@ export default async function EditQuotePage({ params }: { params: Promise<{ id: 
   const { id } = await params;
   const [quote, card] = await Promise.all([getQuote(id), getRateCard()]);
   if (!quote) notFound();
+  const initial = fromQuote(quote);
+  const version = { id: quote.id, label: quote.quoteId, version: quote.version, status: quote.status, basis: quote.basis, base: fingerprint(initial) };
   return (
     <>
       <TopBar email={email} />
-      <EditorClient initial={fromQuote(quote)} card={card} backHref={`/q/${quote.id}`} />
+      <EditorClient initial={initial} card={card} backHref={`/q/${quote.id}`} version={version} />
     </>
   );
 }

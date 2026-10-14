@@ -71,6 +71,34 @@ export async function updateRecord(table: string, id: string, fields: Record<str
   return (await write("PATCH", table, `${table}/${id}`, { fields, typecast: true, returnFieldsByFieldId: true })) as AirtableRecord;
 }
 
+const BATCH = 10; // Airtable's limit per create/update request.
+
+/**
+ * Create many records in one quote table, ten per request, in order. Returns them in the same
+ * order. `done` hears how many were written after each request, so a caller stopped part way
+ * knows whether anything landed.
+ */
+export async function createRecords(table: string, rows: Record<string, unknown>[], done?: (n: number) => void): Promise<AirtableRecord[]> {
+  const out: AirtableRecord[] = [];
+  for (let i = 0; i < rows.length; i += BATCH) {
+    const records = rows.slice(i, i + BATCH).map((fields) => ({ fields }));
+    const page = (await write("POST", table, table, { records, typecast: true, returnFieldsByFieldId: true })) as { records: AirtableRecord[] };
+    out.push(...page.records);
+    done?.(page.records.length);
+  }
+  return out;
+}
+
+/** Change the given fields of many records in one quote table, ten per request. */
+export async function updateRecords(table: string, rows: { id: string; fields: Record<string, unknown> }[], done?: (n: number) => void): Promise<void> {
+  if (rows.some((r) => !/^rec[A-Za-z0-9]{14}$/.test(r.id))) throw new AirtableError("Not a record id", 404);
+  for (let i = 0; i < rows.length; i += BATCH) {
+    const batch = rows.slice(i, i + BATCH);
+    await write("PATCH", table, table, { records: batch, typecast: true });
+    done?.(batch.length);
+  }
+}
+
 export async function getRecord(table: string, id: string): Promise<AirtableRecord> {
   if (!/^rec[A-Za-z0-9]{14}$/.test(id)) throw new AirtableError("Not a record id", 404);
   return (await get(`${table}/${id}`, new URLSearchParams())) as AirtableRecord;

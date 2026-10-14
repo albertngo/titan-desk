@@ -9,8 +9,8 @@ repo with Root Directory `quote`. Rules for changing it: `CLAUDE.md` in this fol
 |---|---|---|
 | 1 | Sign-in, allowlist, quote list, read-only quote view with Airtable parity check, Analysis tab | done |
 | 2 | The editor (`/q/<id>/edit`): options, work-type sections, rate-card picker, contractor switch, overrides with revert, exclusions; draft kept on the device | done |
-| 2b | New quote (`/new`): find the customer in GHL, link or start an opportunity, timing question; creates the quote (Q-1234) and version 1 | **this build** |
-| 3 | Save the editor's lines to Airtable (writes limited to the four quote tables) | next |
+| 2b | New quote (`/new`): find the customer in GHL, link or start an opportunity, timing question; creates the quote (Q-1234) and version 1 | done |
+| 3 | Save the editor to Airtable: **Save** overwrites a Draft version; **Save as new version** makes v2, v3… (Preliminary or Measured) and marks a replaced draft Superseded. Writes limited to the four quote tables; nothing deleted | **this build** |
 | 4 | Send: PDF → OneDrive → GHL, summary to Notion | after 3 |
 
 ## How it is put together
@@ -24,6 +24,8 @@ repo with Root Directory `quote`. Rules for changing it: `CLAUDE.md` in this fol
 | `src/lib/ghl/client.ts` | the only GHL caller; read-only |
 | `src/lib/link/` | matching a quote to GHL, names, phone and email rules, lead stage (pure, tested) |
 | `src/lib/quotes/start.ts` | find customers, create a quote and its version 1, tell GHL through Make |
+| `src/lib/quotes/savePlan.ts` | editor → the smallest set of Airtable writes (pure, tested in `tests/save.test.ts`) |
+| `src/lib/quotes/save.ts` | Save and Save as new version: checks, then carries out the plan |
 | `src/lib/make/client.ts` | the only caller of Make (one request per new quote) |
 | `src/lib/airtable/fields.ts` | table and field IDs (not secrets) |
 | `src/lib/quotes/load.ts` | Airtable records → quotes, options, lines |

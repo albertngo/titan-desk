@@ -61,6 +61,8 @@ export const VERSION = {
   lines: "fldCmBh6M92eJoVTW",
   options: "fldGHuPGdZ1zbUmeF",
   discountRate: "fldiQXF2LNtK5Auix",
+  /** The version this one replaced (Save as new version). */
+  supersedes: "fldPJSJz7AWEBdyRD",
 } as const;
 
 export const OPTION = {
@@ -69,6 +71,8 @@ export const OPTION = {
   sortOrder: "fldqiHTiJqZhNpGlk",
   recommended: "fldslboCP3IZCEhJj",
   lines: "fldYmOczi2hNUldJU",
+  /** The version this option belongs to; emptied, never deleted, when the option is removed. */
+  version: "flduprOIp2Z5Z6JcG",
   // Airtable's own rollups/formulas — read only to show the parity check.
   preDiscount: "fldBTYJKRLPbCkuWw",
   cost: "fldOfXmrlI9Kkh5RF",
@@ -84,6 +88,8 @@ export const OPTION = {
 } as const;
 
 export const LINE = {
+  /** Primary field: a short name for the row in Airtable's own grid. */
+  label: "fld5HNeCqalHUg5RD",
   lineType: "fldO97Rvu3klZxv6z",
   section: "fldwnlPh9z5Tt3w79",
   sortOrder: "flds1Vp3RhbjWhU7R",
@@ -107,6 +113,10 @@ export const LINE = {
   description: "fldQXq4uPhVV1oO1O",
   contractor: "fldN5I9ZqWDH1IYGj",
   option: "fldfvQS0ZV3Xls8DN",
+  /** The version this line belongs to (Quote Versions.Lines reads it). */
+  version: "fldToFEW9FfhPXrfg",
+  /** Typed wording; when blank, `description` (a formula) falls back to the Rate Card / Stair Item name. */
+  descriptionOverride: "fldAdkBeY59oOSPNh",
   // Airtable's own per-line results — read only for the parity check.
   lineTotal: "fldtr6qmdjmWc1YFM",
   lineCost: "fld64HUgwqcRso3Br",

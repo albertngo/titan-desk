@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { saveAsNewVersionAction, saveVersionAction } from "@/app/q/[id]/edit/actions";
 import { Financials } from "@/components/Financials";
 import { SECTIONS, isPriced, lineCost, lineFlags, lineTotal, optionTotals, sectionOf } from "@/lib/calc";
 import {
@@ -31,7 +32,13 @@ import { Picker } from "./Picker";
 
 const WORK_SECTIONS = SECTIONS.filter((s) => s !== "Exclusions");
 
-type Draft = { savedAt: string; quote: EditorQuote };
+/** `base` is the fingerprint of what Airtable held when the draft was started; saving checks it still does. */
+type Draft = { savedAt: string; quote: EditorQuote; base?: string };
+
+/** The version being edited, as the edit page read it from Airtable. */
+export type EditorVersion = { id: string; label: string | null; version: number | null; status: string | null; basis: string | null; base: string };
+
+const BASES = ["Preliminary", "Measured"] as const;
 
 function draftKey(q: EditorQuote) {
   return `titan-quote-draft:${q.quoteRecordId ?? "new"}`;
@@ -90,9 +97,17 @@ function TextCell({ value, placeholder, label, onCommit, className = "cell-in" }
   );
 }
 
-export default function Editor({ initial, card, backHref }: { initial: EditorQuote; card: RateCard; backHref: string }) {
+export default function Editor({ initial, card, backHref, version }: { initial: EditorQuote; card: RateCard; backHref: string; version: EditorVersion }) {
   const key = draftKey(initial);
   const [boot] = useState(() => loadDraft(key));
+  // A restored draft keeps the base it was started from, so a save can tell if Airtable moved on since.
+  const base = boot ? (boot.base ?? "unknown") : version.base;
+  const isDraft = version.status === "Draft";
+  // A new version is usually the measured one, after the site visit.
+  const [basis, setBasis] = useState<string>("Measured");
+  const [saving, startSave] = useTransition();
+  const [saveError, setSaveError] = useState<{ message: string; conflict: boolean } | null>(null);
+  const leaving = useRef(false);
   const [quote, setQuote] = useState<EditorQuote>(boot ? withCustomerFrom(boot.quote, initial) : initial);
   const [restoredAt, setRestoredAt] = useState<string | null>(boot?.savedAt ?? null);
   const [savedAt, setSavedAt] = useState<string | null>(boot?.savedAt ?? null);
@@ -106,13 +121,14 @@ export default function Editor({ initial, card, backHref }: { initial: EditorQuo
 
   // Keep a draft on this device: closing the tab or losing signal never loses work.
   useEffect(() => {
+    if (leaving.current) return;
     try {
-      if (changed) window.localStorage.setItem(key, JSON.stringify({ savedAt: new Date().toISOString(), quote } satisfies Draft));
+      if (changed) window.localStorage.setItem(key, JSON.stringify({ savedAt: new Date().toISOString(), quote, base } satisfies Draft));
       else window.localStorage.removeItem(key);
     } catch {
       // Private browsing or storage full: editing still works, it just is not kept.
     }
-  }, [quote, changed, key]);
+  }, [quote, changed, key, base]);
 
   const apply = (next: EditorQuote) => {
     setQuote(next);
@@ -121,6 +137,35 @@ export default function Editor({ initial, card, backHref }: { initial: EditorQuo
 
   const option = quote.options.find((o) => o.id === activeId) ?? quote.options[0] ?? null;
   const t = option ? optionTotals(option.lines, quote.discountRate, quote.showHst) : null;
+
+  /** After a save, the device copy is done with: Airtable has it. Open the saved version so its parity check shows. */
+  const done = (versionId: string) => {
+    leaving.current = true;
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      // Storage unavailable: nothing was kept.
+    }
+    window.location.assign(`/q/${versionId}`);
+  };
+
+  const save = () => {
+    setSaveError(null);
+    startSave(async () => {
+      const r = await saveVersionAction(version.id, quote, base);
+      if (r.ok) done(r.versionId);
+      else setSaveError({ message: r.message, conflict: Boolean(r.conflict) });
+    });
+  };
+
+  const saveAsNew = () => {
+    setSaveError(null);
+    startSave(async () => {
+      const r = await saveAsNewVersionAction(version.id, quote, basis);
+      if (r.ok) done(r.versionId);
+      else setSaveError({ message: r.message, conflict: false });
+    });
+  };
 
   const discard = () => {
     if (!window.confirm("Discard every change on this device and go back to what is in Airtable?")) return;
@@ -233,7 +278,12 @@ export default function Editor({ initial, card, backHref }: { initial: EditorQuo
         <div className="titles">
           <Link href={backHref} className="crumb">← Back</Link>
           <h1>{quote.quoteRecordId ? `Edit · ${quote.customerName || "No customer"}` : "New quote"}</h1>
-          <p>Changes are kept on this device. Saving to Airtable comes in the next step.</p>
+          <p>
+            {version.label ?? (version.version !== null ? `v${version.version}` : "Quote")}
+            {version.basis && ` · ${version.basis}`}
+            {" · "}
+            {isDraft ? "Changes are kept on this device until you save." : `This version is ${version.status ?? "locked"}: changes save as a new version.`}
+          </p>
         </div>
         <span className={`status ${changed ? "Sent" : "Draft"}`}>
           {changed ? `Unsaved changes${savedAt ? ` · kept ${new Date(savedAt).toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit" })}` : ""}` : "No changes"}
@@ -436,8 +486,27 @@ export default function Editor({ initial, card, backHref }: { initial: EditorQuo
 
           <div className="actions">
             <button className="btn" onClick={discard} disabled={!changed && !restoredAt}>Discard changes</button>
-            <span className="btn primary" aria-disabled="true" title="Comes in the next step">Save to Airtable</span>
+            <span className="saveas">
+              <select className="in" value={basis} onChange={(e) => setBasis(e.target.value)} aria-label="Basis of the new version" disabled={saving}>
+                {BASES.map((b) => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </select>
+              <button className={`btn${isDraft ? "" : " primary"}`} onClick={saveAsNew} disabled={saving}>
+                {saving ? "Saving…" : "Save as new version"}
+              </button>
+            </span>
+            {isDraft && (
+              <button className="btn primary" onClick={save} disabled={saving || !changed}>
+                {saving ? "Saving…" : "Save"}
+              </button>
+            )}
           </div>
+          {saveError && (
+            <p className="card banner bad save-error" role="alert">
+              {saveError.message}
+            </p>
+          )}
         </div>
 
         {option && t && <Financials lines={option.lines} t={t} discountRate={quote.discountRate} showHst={quote.showHst} agrees={null} />}
