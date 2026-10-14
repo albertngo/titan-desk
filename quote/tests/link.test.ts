@@ -28,13 +28,14 @@ describe("identity", () => {
     expect(versionLabel("Q-1234", 2)).toBe("Q-1234 v2");
   });
 
-  it("builds the shared name: surname first, numbers last, PP only once won", () => {
-    expect(displayName({ first: "Jane", last: "Doe", city: "Oakville", quoteNumber: "Q-1234" })).toBe("Doe, Jane - Oakville - Q-1234");
+  it("builds the shared name: first name first, numbers last, PP only once won", () => {
+    expect(displayName({ first: "Jane", last: "Doe", city: "Oakville", quoteNumber: "Q-1234" })).toBe("Jane Doe - Oakville - Q-1234");
     expect(displayName({ first: "Jane", last: "Doe", city: "Oakville", quoteNumber: "Q-1234", projectNumber: "PP-412" })).toBe(
-      "Doe, Jane - Oakville - Q-1234 - PP-412",
+      "Jane Doe - Oakville - Q-1234 - PP-412",
     );
     expect(displayName({ phone: "416-555-0199", quoteNumber: "Q-1234" })).toBe("416-555-0199 - Q-1234");
     expect(displayName({ last: "Doe", quoteNumber: "Q-1234" })).toBe("Doe - Q-1234");
+    expect(displayName({ first: "Jane", quoteNumber: "Q-1234" })).toBe("Jane - Q-1234");
   });
 });
 

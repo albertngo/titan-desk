@@ -21,6 +21,14 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   `src/lib/link/ghlRequest.ts` (tested) and Make forwards them with its GHL connection. Matching rules
   (opportunity, then contact, then phone, then email; never a name; fill blanks only) live in
   `src/lib/link/` and are tested in `tests/link.test.ts`.
+- **The copy follows GHL (2026-10-14).** Each time a quote opens, `src/lib/quotes/refresh.ts`
+  reads GHL and updates the copy: name, phone and email from the contact; an *unconfirmed*
+  address from the contact; a *confirmed* address from the opportunity's Project Address; and
+  no address change once won (Notion owns it). Nothing is blanked. Rules: `src/lib/link/refresh.ts`,
+  tested in `tests/refresh.test.ts`. GHL being down never stops a quote opening.
+- **One shared name:** `First Surname - City - Q-1234`, then ` - PP-412` once won (Albert,
+  2026-10-14). `displayName()` in `src/lib/link/identity.ts` and the Quotes table's Display Name
+  formula must match; change both together.
 - **Supabase is used for sign-in only** (the desk's project and Microsoft login).
 - **`src/lib/calc.ts` is the only place money is computed**, and it mirrors the Airtable
   formulas field for field. Change one, change both, in the same piece of work. Every quote

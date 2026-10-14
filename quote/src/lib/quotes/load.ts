@@ -37,13 +37,11 @@ export async function listQuotes(): Promise<QuoteSummary[]> {
     .sort((a, b) => b.createdTime.localeCompare(a.createdTime));
 }
 
-/** "Doe, Jane" when GHL gave us the parts, else whatever single name the quote carries. */
+/** "Jane Doe" when GHL gave us the parts (first name first, Albert 2026-10-14), else whatever single name the quote carries. */
 function customerOf(f: Record<string, unknown> | undefined): string | null {
   if (!f) return null;
-  const last = str(f[QUOTE.lastName]);
-  const first = str(f[QUOTE.firstName]);
-  if (last) return first ? `${last}, ${first}` : last;
-  return str(f[QUOTE.customerName]);
+  const name = [str(f[QUOTE.firstName]), str(f[QUOTE.lastName])].filter(Boolean).join(" ");
+  return name || str(f[QUOTE.customerName]);
 }
 
 function source(f: Record<string, unknown>): Pick<QuoteLine, "sourceKind" | "sourceId"> {
@@ -118,6 +116,8 @@ function linkOf(r: AirtableRecord): QuoteLink {
     quoteRecordId: r.id,
     quoteNumber: str(f[QUOTE.quoteNumber]),
     displayName: str(f[QUOTE.displayName]),
+    firstName: str(f[QUOTE.firstName]),
+    lastName: str(f[QUOTE.lastName]),
     phone: str(f[QUOTE.phone]),
     email: str(f[QUOTE.email]),
     addressStatus: str(f[QUOTE.addressStatus]),

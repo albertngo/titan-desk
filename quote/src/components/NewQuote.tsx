@@ -117,7 +117,7 @@ export function NewQuote({ ghlWrites }: { ghlWrites: boolean }) {
             <ul className="nq-list" aria-label="Matching contacts">
               {customers.map(({ contact, opportunities }) => {
                 const on = picked?.contact.id === contact.id;
-                const name = [contact.lastName, contact.firstName].filter(Boolean).join(", ") || contact.name || "No name";
+                const name = [contact.firstName, contact.lastName].filter(Boolean).join(" ") || contact.name || "No name";
                 return (
                   <li key={contact.id} className={`nq-contact${on ? " on" : ""}`}>
                     <button type="button" className="nq-who" aria-pressed={on} onClick={() => { choose({ contactId: contact.id, opportunityId: null }); setConfirmed(false); }}>
