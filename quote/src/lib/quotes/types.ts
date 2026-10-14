@@ -1,4 +1,5 @@
 import type { LineInput, OptionTotals } from "@/lib/calc";
+import type { GhlContact } from "@/lib/ghl/types";
 
 export type QuoteSummary = {
   id: string;
@@ -8,6 +9,9 @@ export type QuoteSummary = {
   basis: string | null;
   customerName: string | null;
   siteCity: string | null;
+  quoteNumber: string | null;
+  linkStatus: string | null;
+  addressStatus: string | null;
   optionCount: number;
   createdTime: string;
 };
@@ -42,6 +46,28 @@ export type QuoteOption = {
   airtable: Partial<OptionTotals>;
 };
 
+/** The quote a version belongs to (Quotes table): its number and its links to GHL and the job files. */
+export type QuoteLink = {
+  quoteRecordId: string;
+  quoteNumber: string | null;
+  displayName: string | null;
+  phone: string | null;
+  email: string | null;
+  addressStatus: string | null;
+  linkStatus: string | null;
+  projectTiming: string | null;
+  ghlContactId: string | null;
+  ghlOpportunityId: string | null;
+  folderUrl: string | null;
+  companyCamUrl: string | null;
+  projectNumber: string | null;
+  notionProjectUrl: string | null;
+};
+
+/**
+ * One VERSION of a quote, as its page shows it (the id is the Quote Versions record). The quote
+ * it belongs to, with its number and links, is `link`.
+ */
 export type Quote = {
   id: string;
   quoteId: string | null;
@@ -57,6 +83,7 @@ export type Quote = {
   customerName: string | null;
   siteAddress: string | null;
   siteCity: string | null;
+  link: QuoteLink | null;
   options: QuoteOption[];
   /** Lines on the quote that belong to no option: the old A/B/C format. */
   legacyLineCount: number;
@@ -85,3 +112,24 @@ export type StairRow = {
 };
 
 export type RateCard = { rates: RateRow[]; stairs: StairRow[] };
+
+/* ---------- starting a quote (src/lib/quotes/start.ts) ---------- */
+
+export type FoundOpportunity = {
+  id: string;
+  name: string | null;
+  status: string | null;
+  pipeline: string | null;
+  stage: string | null;
+  updatedAt: string | null;
+  /** The quote already made for this opportunity, if any: one opportunity, one quote. */
+  existing: { quoteNumber: string | null; versionId: string | null } | null;
+};
+
+export type FoundCustomer = { contact: GhlContact; opportunities: FoundOpportunity[] };
+
+export type CustomerSearch =
+  | { ok: true; customers: FoundCustomer[] }
+  | { ok: false; reason: "not-configured" | "error"; message: string };
+
+export type StartResult = { ok: true; versionId: string; reused: boolean } | { ok: false; message: string };

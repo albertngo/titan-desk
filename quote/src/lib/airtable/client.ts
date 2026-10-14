@@ -1,14 +1,14 @@
 import "server-only";
-import { BASE_ID } from "./fields";
+import { BASE_ID, WRITABLE_TABLES } from "./fields";
 
 /**
  * The ONLY file in quote/ that talks to Airtable, and the only one that reads
  * QUOTE_AIRTABLE_TOKEN. Server-only: the token never reaches a browser.
  *
- * Milestone 1 is read-only: this file issues GET requests and nothing else, and
- * tests/boundary.test.ts fails the build if a write verb appears here. Saving quotes
- * (milestone 3) adds writes HERE, restricted to the quote tables, with that test updated
- * in the same change.
+ * Reads are GET. Writes (from milestone 3, 2026-10-14) are POST to create and PATCH to update,
+ * and only ever to the four quote tables in WRITABLE_TABLES: `write()` refuses any other table
+ * before a request leaves the server. There is no delete and no PUT. tests/boundary.test.ts
+ * enforces all of this, so a catalogue, Rate Card or Stair Items write can never ship.
  */
 
 const API = "https://api.airtable.com/v0";
@@ -43,6 +43,32 @@ async function get(path: string, params: URLSearchParams): Promise<unknown> {
     throw new AirtableError(`Airtable ${res.status} on ${path}: ${body.slice(0, 200)}`, res.status);
   }
   return res.json();
+}
+
+async function write(method: "POST" | "PATCH", table: string, path: string, body: unknown): Promise<unknown> {
+  if (!WRITABLE_TABLES.includes(table)) throw new AirtableError(`Refused: the quote app never writes to ${table}`, 403);
+  const res = await fetch(`${API}/${BASE_ID}/${path}`, {
+    method,
+    headers: { Authorization: `Bearer ${token()}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new AirtableError(`Airtable ${res.status} on ${method} ${table}: ${text.slice(0, 200)}`, res.status);
+  }
+  return res.json();
+}
+
+/** Create one record in a quote table. Select options are matched by name (typecast). Returns it with computed fields. */
+export async function createRecord(table: string, fields: Record<string, unknown>): Promise<AirtableRecord> {
+  return (await write("POST", table, table, { fields, typecast: true, returnFieldsByFieldId: true })) as AirtableRecord;
+}
+
+/** Change the given fields of one record in a quote table; every other field is left alone. */
+export async function updateRecord(table: string, id: string, fields: Record<string, unknown>): Promise<AirtableRecord> {
+  if (!/^rec[A-Za-z0-9]{14}$/.test(id)) throw new AirtableError("Not a record id", 404);
+  return (await write("PATCH", table, `${table}/${id}`, { fields, typecast: true, returnFieldsByFieldId: true })) as AirtableRecord;
 }
 
 export async function getRecord(table: string, id: string): Promise<AirtableRecord> {

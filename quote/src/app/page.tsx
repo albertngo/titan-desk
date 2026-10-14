@@ -15,7 +15,7 @@ export default async function QuoteList() {
         <div className="pagehead">
           <div className="titles">
             <h1>Quotes</h1>
-            <p>Every quote in Airtable, newest first.</p>
+            <p>Every quote version in Airtable, newest first.</p>
           </div>
           <Link className="btn primary" href="/new">+ New quote</Link>
         </div>
@@ -33,6 +33,7 @@ export default async function QuoteList() {
                     <th>Customer</th>
                     <th>City</th>
                     <th>Quote</th>
+                    <th>Links</th>
                     <th>Basis</th>
                     <th>Options</th>
                     <th>Status</th>
@@ -46,8 +47,13 @@ export default async function QuoteList() {
                       </td>
                       <td className="muted">{q.siteCity}</td>
                       <td className="num">
-                        {q.quoteId ?? <span className="faint">No quote ID</span>}
+                        {q.quoteNumber ?? q.quoteId ?? <span className="faint">No number</span>}
                         {q.version !== null && <span className="faint"> · v{q.version}</span>}
+                      </td>
+                      <td>
+                        {q.linkStatus === "Needs linking" && <span className="chip bad">Needs linking</span>}{" "}
+                        {q.addressStatus === "Unconfirmed" && <span className="chip warn">Address unconfirmed</span>}
+                        {q.addressStatus === "No address" && <span className="chip warn">No address yet</span>}
                       </td>
                       <td>{q.basis && <span className={`chip ${q.basis === "Measured" ? "good" : "warn"}`}>{q.basis}</span>}</td>
                       <td>{q.optionCount > 0 ? q.optionCount : <span className="note">old A/B/C format</span>}</td>

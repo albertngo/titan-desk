@@ -1,37 +1,49 @@
 import "server-only";
 import { requireQuoter } from "@/lib/auth";
 import { AirtableError, getRecord, listByIds, listRecords, type AirtableRecord } from "@/lib/airtable/client";
-import { FAMILY, LINE, OPTION, QUOTE, RATE, RATE_TABLE, STAIR, STAIR_TABLE, T } from "@/lib/airtable/fields";
+import { LINE, OPTION, QUOTE, RATE, RATE_TABLE, STAIR, STAIR_TABLE, T, VERSION } from "@/lib/airtable/fields";
 import { bool, ids, num, str } from "./values";
-import type { Quote, QuoteLine, QuoteOption, QuoteSummary, RateCard, RateRow, StairRow } from "./types";
+import type { Quote, QuoteLine, QuoteLink, QuoteOption, QuoteSummary, RateCard, RateRow, StairRow } from "./types";
 
 /** Read-side loaders. Each one checks the caller is a quoter before touching Airtable. */
 
 export async function listQuotes(): Promise<QuoteSummary[]> {
   await requireQuoter();
   const [quotes, families] = await Promise.all([
-    listRecords(T.quotes, {
-      fields: [QUOTE.quoteId, QUOTE.version, QUOTE.status, QUOTE.basis, QUOTE.family, QUOTE.options],
+    listRecords(T.versions, {
+      fields: [VERSION.label, VERSION.version, VERSION.status, VERSION.basis, VERSION.quote, VERSION.options],
     }),
-    listRecords(T.families, { fields: [FAMILY.customerName, FAMILY.siteCity] }),
+    listRecords(T.quotes, { fields: [QUOTE.customerName, QUOTE.lastName, QUOTE.firstName, QUOTE.siteCity, QUOTE.quoteNumber, QUOTE.linkStatus, QUOTE.addressStatus] }),
   ]);
   const fam = new Map(families.map((f) => [f.id, f.fields]));
   return quotes
     .map((r): QuoteSummary => {
-      const f = fam.get(ids(r.fields[QUOTE.family])[0] ?? "");
+      const f = fam.get(ids(r.fields[VERSION.quote])[0] ?? "");
       return {
         id: r.id,
-        quoteId: str(r.fields[QUOTE.quoteId]),
-        version: num(r.fields[QUOTE.version]),
-        status: str(r.fields[QUOTE.status]),
-        basis: str(r.fields[QUOTE.basis]),
-        customerName: str(f?.[FAMILY.customerName]),
-        siteCity: str(f?.[FAMILY.siteCity]),
-        optionCount: ids(r.fields[QUOTE.options]).length,
+        quoteId: str(r.fields[VERSION.label]),
+        version: num(r.fields[VERSION.version]),
+        status: str(r.fields[VERSION.status]),
+        basis: str(r.fields[VERSION.basis]),
+        customerName: customerOf(f),
+        siteCity: str(f?.[QUOTE.siteCity]),
+        quoteNumber: str(f?.[QUOTE.quoteNumber]),
+        linkStatus: str(f?.[QUOTE.linkStatus]),
+        addressStatus: str(f?.[QUOTE.addressStatus]),
+        optionCount: ids(r.fields[VERSION.options]).length,
         createdTime: r.createdTime,
       };
     })
     .sort((a, b) => b.createdTime.localeCompare(a.createdTime));
+}
+
+/** "Doe, Jane" when GHL gave us the parts, else whatever single name the quote carries. */
+function customerOf(f: Record<string, unknown> | undefined): string | null {
+  if (!f) return null;
+  const last = str(f[QUOTE.lastName]);
+  const first = str(f[QUOTE.firstName]);
+  if (last) return first ? `${last}, ${first}` : last;
+  return str(f[QUOTE.customerName]);
 }
 
 function source(f: Record<string, unknown>): Pick<QuoteLine, "sourceKind" | "sourceId"> {
@@ -100,6 +112,26 @@ function toOption(r: AirtableRecord, lines: QuoteLine[]): QuoteOption {
   };
 }
 
+function linkOf(r: AirtableRecord): QuoteLink {
+  const f = r.fields;
+  return {
+    quoteRecordId: r.id,
+    quoteNumber: str(f[QUOTE.quoteNumber]),
+    displayName: str(f[QUOTE.displayName]),
+    phone: str(f[QUOTE.phone]),
+    email: str(f[QUOTE.email]),
+    addressStatus: str(f[QUOTE.addressStatus]),
+    linkStatus: str(f[QUOTE.linkStatus]),
+    projectTiming: str(f[QUOTE.projectTiming]),
+    ghlContactId: str(f[QUOTE.ghlContactId]),
+    ghlOpportunityId: str(f[QUOTE.ghlOpportunityId]),
+    folderUrl: str(f[QUOTE.folderUrl]),
+    companyCamUrl: str(f[QUOTE.companyCamUrl]),
+    projectNumber: str(f[QUOTE.projectNumber]),
+    notionProjectUrl: str(f[QUOTE.notionProjectUrl]),
+  };
+}
+
 const bySort = <X extends { sortOrder: number | null }>(a: X, b: X) =>
   (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER);
 
@@ -107,17 +139,17 @@ export async function getQuote(id: string): Promise<Quote | null> {
   await requireQuoter();
   let q: AirtableRecord;
   try {
-    q = await getRecord(T.quotes, id);
+    q = await getRecord(T.versions, id);
   } catch (e) {
     if (e instanceof AirtableError && (e.status === 404 || e.status === 403)) return null;
     throw e;
   }
   const f = q.fields;
-  const familyId = ids(f[QUOTE.family])[0];
+  const familyId = ids(f[VERSION.quote])[0];
   const [family, optionRecs, lineRecs] = await Promise.all([
-    familyId ? getRecord(T.families, familyId) : Promise.resolve(null),
-    listByIds(T.options, ids(f[QUOTE.options])),
-    listByIds(T.lines, ids(f[QUOTE.lines])),
+    familyId ? getRecord(T.quotes, familyId) : Promise.resolve(null),
+    listByIds(T.options, ids(f[VERSION.options])),
+    listByIds(T.lines, ids(f[VERSION.lines])),
   ]);
 
   const byOption = new Map<string, QuoteLine[]>();
@@ -137,18 +169,19 @@ export async function getQuote(id: string): Promise<Quote | null> {
 
   return {
     id: q.id,
-    quoteId: str(f[QUOTE.quoteId]),
-    version: num(f[QUOTE.version]),
-    status: str(f[QUOTE.status]),
-    basis: str(f[QUOTE.basis]),
-    showHst: bool(f[QUOTE.showHst]),
-    discountRate: num(f[QUOTE.discountRate]) ?? 0,
-    validUntil: str(f[QUOTE.validUntil]),
-    sentAt: str(f[QUOTE.sentAt]),
-    notes: str(f[QUOTE.notes]),
-    customerName: str(family?.fields[FAMILY.customerName]),
-    siteAddress: str(family?.fields[FAMILY.siteAddress]),
-    siteCity: str(family?.fields[FAMILY.siteCity]),
+    quoteId: str(f[VERSION.label]),
+    version: num(f[VERSION.version]),
+    status: str(f[VERSION.status]),
+    basis: str(f[VERSION.basis]),
+    showHst: bool(f[VERSION.showHst]),
+    discountRate: num(f[VERSION.discountRate]) ?? 0,
+    validUntil: str(f[VERSION.validUntil]),
+    sentAt: str(f[VERSION.sentAt]),
+    notes: str(f[VERSION.notes]),
+    customerName: customerOf(family?.fields),
+    siteAddress: str(family?.fields[QUOTE.siteAddress]),
+    siteCity: str(family?.fields[QUOTE.siteCity]),
+    link: family ? linkOf(family) : null,
     options,
     legacyLineCount,
   };
