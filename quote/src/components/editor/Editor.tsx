@@ -18,11 +18,13 @@ import {
   revertLine,
   setContractor,
   setTerms,
+  withCustomerFrom,
   updateLine,
   updateOption,
   type EditorLine,
   type EditorQuote,
 } from "@/lib/editor/model";
+import { ghlContactUrl } from "@/lib/ghl/ids";
 import { money, pct, rate } from "@/lib/format";
 import type { RateCard } from "@/lib/quotes/types";
 import { Picker } from "./Picker";
@@ -91,7 +93,7 @@ function TextCell({ value, placeholder, label, onCommit, className = "cell-in" }
 export default function Editor({ initial, card, backHref }: { initial: EditorQuote; card: RateCard; backHref: string }) {
   const key = draftKey(initial);
   const [boot] = useState(() => loadDraft(key));
-  const [quote, setQuote] = useState<EditorQuote>(boot?.quote ?? initial);
+  const [quote, setQuote] = useState<EditorQuote>(boot ? withCustomerFrom(boot.quote, initial) : initial);
   const [restoredAt, setRestoredAt] = useState<string | null>(boot?.savedAt ?? null);
   const [savedAt, setSavedAt] = useState<string | null>(boot?.savedAt ?? null);
   const [activeId, setActiveId] = useState<string | null>(quote.options[0]?.id ?? null);
@@ -250,9 +252,21 @@ export default function Editor({ initial, card, backHref }: { initial: EditorQuo
           <section className="card">
             <div className="card-h">Customer and terms</div>
             <div className="card-b form">
-              <label>Customer<TextCell className="in" value={quote.customerName} label="Customer" onCommit={(v) => apply(setTerms(quote, { customerName: v }))} /></label>
-              <label>Site address<TextCell className="in" value={quote.siteAddress} label="Site address" onCommit={(v) => apply(setTerms(quote, { siteAddress: v }))} /></label>
-              <label>City<TextCell className="in" value={quote.siteCity} label="City" onCommit={(v) => apply(setTerms(quote, { siteCity: v }))} /></label>
+              <div className="ro-strip">
+                <span className="who">{quote.customerName || <span className="faint">No customer</span>}</span>
+                <span className="where">
+                  {[quote.siteAddress, quote.siteCity].filter(Boolean).join(", ") || <span className="faint">No address yet</span>}
+                </span>
+                {quote.addressStatus === "Unconfirmed" && <span className="chip warn">Address unconfirmed</span>}
+                <span className="note">
+                  Change these on the GHL contact (after Won, in the Notion project), not here.{" "}
+                  {quote.ghlContactId && (
+                    <a href={ghlContactUrl(quote.ghlContactId)} target="_blank" rel="noreferrer">
+                      Open in GHL ↗
+                    </a>
+                  )}
+                </span>
+              </div>
               <label>
                 Discount %
                 <NumCell

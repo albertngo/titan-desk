@@ -17,6 +17,7 @@ import {
   setContractor,
   updateLine,
   updateOption,
+  withCustomerFrom,
   type CardEntry,
 } from "../src/lib/editor/model";
 import type { RateRow, StairRow } from "../src/lib/quotes/types";
@@ -145,5 +146,17 @@ describe("parseNum", () => {
     expect(parseNum("$1,250.50")).toBe(1250.5);
     expect(parseNum("abc")).toBeNull();
     expect(parseNum("0")).toBe(0);
+  });
+});
+
+describe("customer and site", () => {
+  it("a restored draft keeps its work but shows today's customer and address", () => {
+    let draft = blankQuote();
+    draft = { ...draft, customerName: "Doe, Jane", siteAddress: "1 Old Rd", siteCity: "Oldtown", discountRate: 0.05 };
+    draft = addLine(draft, draft.options[0].id, { ...lineFromEntry(click, "Install"), qty: 10 });
+    const now = { ...blankQuote(), customerName: "Doe, Jane", siteAddress: "12 Example St", siteCity: "Oakville", ghlContactId: "conAAA111111", addressStatus: "Confirmed" };
+    const merged = withCustomerFrom(draft, now);
+    expect([merged.siteAddress, merged.siteCity, merged.ghlContactId, merged.addressStatus]).toEqual(["12 Example St", "Oakville", "conAAA111111", "Confirmed"]);
+    expect([merged.discountRate, merged.options[0].lines.length]).toEqual([0.05, 1]);
   });
 });
