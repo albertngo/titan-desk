@@ -92,9 +92,9 @@ describe("lead stage and address status", () => {
   });
 
   it("only moves a new opportunity or one still in Leads", () => {
-    expect(stageToSet("Within 1 month", { isNew: true, pipeline: null })).toBe("Hot");
-    expect(stageToSet("3+ months", { isNew: false, pipeline: "Leads" })).toBe("Cold");
-    expect(stageToSet("Within 1 month", { isNew: false, pipeline: "Projects" })).toBeNull();
+    expect(stageToSet("Within 1 month", { isNew: true, pipelineId: null }, "pipeLEADS")).toBe("Hot");
+    expect(stageToSet("3+ months", { isNew: false, pipelineId: "pipeLEADS" }, "pipeLEADS")).toBe("Cold");
+    expect(stageToSet("Within 1 month", { isNew: false, pipelineId: "pipeSALES" }, "pipeLEADS")).toBeNull();
   });
 
   it("calls an address copied from the contact unconfirmed", () => {

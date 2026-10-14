@@ -17,15 +17,21 @@ export function stageFor(timing: Timing): LeadStage {
   return "Cold";
 }
 
-export const LEADS_PIPELINE = "Leads";
+/** The answer as GHL's contact field spells it (its dropdown predates the app). */
+export const TIMING_IN_GHL: Record<Timing, string> = {
+  "Within 1 month": "< 1 month",
+  "1 to 3 months": "1-3 months",
+  "3+ months": "3+ months",
+  "Not sure": "Not Sure",
+};
 
 /**
  * The stage to put an opportunity in, or null to leave it alone. Only a new opportunity, or
- * one still in the Leads pipeline, is moved: an opportunity that has been booked or sent a
- * quote is never pulled back into Leads by a timing answer.
+ * one still in the lead pipeline, is moved: an opportunity that has been booked or sent a
+ * quote is never pulled back by a timing answer.
  */
-export function stageToSet(timing: Timing, opp: { isNew: boolean; pipeline: string | null }): LeadStage | null {
-  if (opp.isNew || opp.pipeline === LEADS_PIPELINE) return stageFor(timing);
+export function stageToSet(timing: Timing, opp: { isNew: boolean; pipelineId: string | null }, leadsPipelineId: string): LeadStage | null {
+  if (opp.isNew || opp.pipelineId === leadsPipelineId) return stageFor(timing);
   return null;
 }
 

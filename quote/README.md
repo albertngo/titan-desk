@@ -23,7 +23,8 @@ repo with Root Directory `quote`. Rules for changing it: `CLAUDE.md` in this fol
 | `src/lib/airtable/client.ts` | the only Airtable caller; writes only to the four quote tables |
 | `src/lib/ghl/client.ts` | the only GHL caller; read-only |
 | `src/lib/link/` | matching a quote to GHL, names, phone and email rules, lead stage (pure, tested) |
-| `src/lib/quotes/start.ts` | find customers, create a quote and its version 1 |
+| `src/lib/quotes/start.ts` | find customers, create a quote and its version 1, tell GHL through Make |
+| `src/lib/make/client.ts` | the only caller of Make (one request per new quote) |
 | `src/lib/airtable/fields.ts` | table and field IDs (not secrets) |
 | `src/lib/quotes/load.ts` | Airtable records → quotes, options, lines |
 | `src/lib/calc.ts` | all quote maths, mirroring the Airtable formulas |
@@ -40,6 +41,8 @@ repo with Root Directory `quote`. Rules for changing it: `CLAUDE.md` in this fol
 | `NEXT_PUBLIC_SUPABASE_URL` | same as the desk |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | same as the desk |
 | `QUOTE_AIRTABLE_TOKEN` | its own Airtable token: Bert base only; `data.records:read` and `data.records:write` |
+| `QUOTE_MAKE_GHL_HOOK` | the "Quote app → GHL" Make webhook address. Set only once that scenario is on |
+| `QUOTE_MAKE_GHL_KEY` | the shared key that scenario's filters check. Kept in Make and Vercel only |
 | `QUOTE_GHL_TOKEN` | its own GHL private integration token, read-only: `contacts.readonly`, `opportunities.readonly`. Without it, New quote can only add new customers |
 | `QUOTE_ALLOWED_EMAILS` | comma-separated Microsoft emails allowed to quote |
 

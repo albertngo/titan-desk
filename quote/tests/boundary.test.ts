@@ -67,13 +67,13 @@ describe("Airtable boundary", () => {
   it("never imports Airtable code into a browser component", () => {
     const leaks = all
       .filter((f) => /^["']use client["'];?/m.test(f.text))
-      .filter((f) => /^import (?!type )[^;]*from ["']@\/lib\/(airtable|quotes\/load|quotes\/start|ghl\/client|auth)/m.test(f.text))
+      .filter((f) => /^import (?!type )[^;]*from ["']@\/lib\/(airtable|quotes\/load|quotes\/start|ghl\/client|make\/client|auth)/m.test(f.text))
       .map((f) => f.rel);
     expect(leaks).toEqual([]);
   });
 
   it("never exposes an Airtable setting to the browser", () => {
-    expect(all.filter((f) => /NEXT_PUBLIC_[A-Z_]*(AIRTABLE|GHL)/.test(f.text)).map((f) => f.rel)).toEqual([]);
+    expect(all.filter((f) => /NEXT_PUBLIC_[A-Z_]*(AIRTABLE|GHL|MAKE)/.test(f.text)).map((f) => f.rel)).toEqual([]);
   });
 
   it("checks the quoter allowlist in both the proxy and every loader", () => {
@@ -97,5 +97,18 @@ describe("GHL boundary", () => {
   it("only reads: no write verb in the GHL client", () => {
     const client = code(all.find((f) => f.rel === GHL)!.text);
     for (const verb of ["POST", "PATCH", "PUT", "DELETE"]) expect(client).not.toMatch(new RegExp(`["'\`]${verb}["'\`]`));
+  });
+});
+
+describe("Make boundary", () => {
+  it("has exactly one file that sends to Make, and it alone reads the hook and key", () => {
+    expect(all.filter((f) => /QUOTE_MAKE_GHL_(HOOK|KEY)/.test(code(f.text))).map((f) => f.rel)).toEqual(["lib/make/client.ts"]);
+    expect(all.filter((f) => /hook\.[a-z0-9]+\.make\.com|make\.com\//.test(code(f.text))).map((f) => f.rel)).toEqual([]);
+  });
+
+  it("is server-only and only reached from starting a quote", () => {
+    expect(all.find((f) => f.rel === "lib/make/client.ts")!.text).toMatch(/^import "server-only";/m);
+    const callers = all.filter((f) => f.rel !== "lib/make/client.ts" && /from ["']@\/lib\/make\/client["']/.test(f.text)).map((f) => f.rel);
+    expect(callers).toEqual(["lib/quotes/start.ts"]);
   });
 });

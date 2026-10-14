@@ -15,7 +15,7 @@ const blankCustomer = { firstName: "", lastName: "", phone: "", email: "", addre
  * Start a quote: find the customer in GHL, pick the opportunity (or a new one), answer the
  * timing question. Customer details are never typed here unless the customer is brand new.
  */
-export function NewQuote() {
+export function NewQuote({ ghlWrites }: { ghlWrites: boolean }) {
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<CustomerSearch | null>(null);
   const [searching, startSearch] = useTransition();
@@ -206,8 +206,12 @@ export function NewQuote() {
         {(picked || isNew) && (
           <p className="note">
             {linked
-              ? "This quote is tied to the opportunity you picked."
-              : "GHL will need a new opportunity for this. Until that's automatic, the quote is saved as Needs linking; create the opportunity in GHL and link it."}
+              ? ghlWrites
+                ? "This quote is tied to the opportunity you picked. Its quote number and timing go to GHL."
+                : "This quote is tied to the opportunity you picked."
+              : ghlWrites
+                ? `GHL gets ${isNew ? "a new contact and " : ""}a new opportunity in Lead Qualification${timing ? `, at ${stageFor(timing)}` : ""}.`
+                : "GHL will need a new opportunity for this. Until that's automatic, the quote is saved as Needs linking; create the opportunity in GHL and link it."}
           </p>
         )}
         {error && <div className="banner bad" role="alert">{error}</div>}
