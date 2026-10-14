@@ -2,13 +2,13 @@ import "server-only";
 import { requireQuoter } from "@/lib/auth";
 import { AirtableError, createRecord, listRecords, updateRecord } from "@/lib/airtable/client";
 import { QUOTE, T, VERSION } from "@/lib/airtable/fields";
-import { getContact, GhlError, GhlNotConfigured, opportunitiesForContact, pipelines, searchContacts } from "@/lib/ghl/client";
-import { displayPhone, quoteNumber, versionLabel } from "@/lib/link/identity";
+import { getContact, ghlConfigured, GhlError, GhlNotConfigured, opportunitiesForContact, pipelines, searchContacts, type GhlContact } from "@/lib/ghl/client";
+import { displayPhone, normalizePhone, quoteNumber, sameCustomer, versionLabel } from "@/lib/link/identity";
 import { addressStatus } from "@/lib/link/lead";
 import { buildGhlRequest } from "@/lib/link/ghlRequest";
 import { parseNewQuote, type NewQuoteRequest } from "@/lib/link/newQuote";
 import { makeConfigured, sendToGhl } from "@/lib/make/client";
-import type { CustomerSearch, StartResult } from "./types";
+import type { CustomerSearch, FoundCustomer, StartResult } from "./types";
 import { ids, num, str } from "./values";
 
 export type { CustomerSearch, StartResult };
@@ -43,37 +43,38 @@ export async function newQuoteSettings() {
   return { ghlWrites: makeConfigured() };
 }
 
+/** Each contact with their opportunities, labelled, and any quote already made for each. */
+async function withOpportunities(contacts: GhlContact[]): Promise<FoundCustomer[]> {
+  const [opps, pipes, existing] = await Promise.all([
+    Promise.all(contacts.map((c) => opportunitiesForContact(c.id))),
+    pipelines().catch(() => []),
+    quotesByOpportunity(),
+  ]);
+  const stageName = new Map(pipes.flatMap((p) => p.stages.map((s) => [s.id, s.name] as const)));
+  const pipeName = new Map(pipes.map((p) => [p.id, p.name] as const));
+  return contacts.map((contact, i) => ({
+    contact,
+    opportunities: opps[i]
+      .map((o) => ({
+        id: o.id,
+        name: o.name,
+        status: o.status,
+        pipeline: o.pipelineId ? (pipeName.get(o.pipelineId) ?? null) : null,
+        stage: o.stageId ? (stageName.get(o.stageId) ?? null) : null,
+        updatedAt: o.updatedAt,
+        existing: existing.has(o.id) ? { quoteNumber: existing.get(o.id)!.quoteNumber, versionId: existing.get(o.id)!.versionId } : null,
+      }))
+      // Open work first, then most recently touched.
+      .sort((a, b) => Number(b.status === "open") - Number(a.status === "open") || (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "")),
+  }));
+}
+
 export async function findCustomers(query: string): Promise<CustomerSearch> {
   await requireQuoter();
   const q = query.trim().slice(0, 80);
   if (q.length < 2) return { ok: true, customers: [] };
   try {
-    const contacts = await searchContacts(q);
-    const [opps, pipes, existing] = await Promise.all([
-      Promise.all(contacts.map((c) => opportunitiesForContact(c.id))),
-      pipelines().catch(() => []),
-      quotesByOpportunity(),
-    ]);
-    const stageName = new Map(pipes.flatMap((p) => p.stages.map((s) => [s.id, s.name] as const)));
-    const pipeName = new Map(pipes.map((p) => [p.id, p.name] as const));
-    return {
-      ok: true,
-      customers: contacts.map((contact, i) => ({
-        contact,
-        opportunities: opps[i]
-          .map((o) => ({
-            id: o.id,
-            name: o.name,
-            status: o.status,
-            pipeline: o.pipelineId ? (pipeName.get(o.pipelineId) ?? null) : null,
-            stage: o.stageId ? (stageName.get(o.stageId) ?? null) : null,
-            updatedAt: o.updatedAt,
-            existing: existing.has(o.id) ? { quoteNumber: existing.get(o.id)!.quoteNumber, versionId: existing.get(o.id)!.versionId } : null,
-          }))
-          // Open work first, then most recently touched.
-          .sort((a, b) => Number(b.status === "open") - Number(a.status === "open") || (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "")),
-      })),
-    };
+    return { ok: true, customers: await withOpportunities(await searchContacts(q)) };
   } catch (e) {
     if (e instanceof GhlNotConfigured) return { ok: false, reason: "not-configured", message: e.message };
     console.error("findCustomers", e);
@@ -81,6 +82,13 @@ export async function findCustomers(query: string): Promise<CustomerSearch> {
   }
 }
 
+/** GHL contacts with the same phone or email as a customer about to be added as new. */
+async function alreadyInGhl(typed: { phone: string | null; email: string | null }): Promise<GhlContact[]> {
+  const queries = [typed.email, normalizePhone(typed.phone)?.slice(-10)].filter((q): q is string => Boolean(q));
+  const found = (await Promise.all(queries.map((q) => searchContacts(q, 10)))).flat();
+  const unique = new Map(found.filter((c) => sameCustomer(c, typed)).map((c) => [c.id, c]));
+  return [...unique.values()];
+}
 
 async function firstVersion(quoteId: string, quoteNo: string): Promise<string> {
   const v = await createRecord(T.versions, {
@@ -123,6 +131,19 @@ export async function startQuote(raw: unknown): Promise<StartResult> {
       who = { first: contact.firstName, last: contact.lastName, phone: displayPhone(contact.phone), email: contact.email, address: contact.address, city: contact.city };
     } else {
       const n = req.newCustomer!;
+      // "New" customers are checked against GHL first, so nobody is added twice by accident.
+      if (!req.forceNew && ghlConfigured()) {
+        const matches = await alreadyInGhl({ phone: n.phone, email: n.email });
+        if (matches.length > 0) {
+          return {
+            ok: false,
+            message: `${matches.length === 1 ? "This customer is" : "These customers are"} already in GHL with that ${
+              matches.some((m) => sameCustomer(m, { phone: n.phone, email: null })) ? "phone number" : "email"
+            }. Pick them below, or confirm it's a different person.`,
+            duplicates: await withOpportunities(matches),
+          };
+        }
+      }
       who = { first: n.firstName, last: n.lastName, phone: n.phone, email: n.email, address: n.address, city: n.city };
     }
 

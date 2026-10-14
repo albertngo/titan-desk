@@ -8,7 +8,9 @@ import { stageToSet, TIMING_IN_GHL, type Timing } from "./lead";
  * exact GHL request bodies here (tested), and Make only forwards them with its GHL connection.
  *
  * Three cases:
- * - "new-contact":     upsert the contact, then create the opportunity for it.
+ * - "new-contact":     create the contact (never upsert: an upsert would silently merge into
+ *                      and overwrite an existing contact), then the opportunity for it. The app
+ *                      checks GHL for the same phone or email first.
  * - "new-opportunity": the contact exists; record the timing on it and create the opportunity.
  * - "link":            both exist; record the timing on the contact, put the quote number on
  *                      the opportunity, and move its stage only if it is still in the lead pipeline.
@@ -25,7 +27,7 @@ export type GhlRequest = {
   mode: GhlMode;
   contactId: string | null;
   opportunityId: string | null;
-  /** JSON for POST /contacts/upsert (new-contact) or PUT /contacts/{id} (otherwise). */
+  /** JSON for POST /contacts/ (new-contact) or PUT /contacts/{id} (otherwise). */
   contactBody: string;
   /** JSON for POST /opportunities/ (new) or PUT /opportunities/{id} (link). */
   oppBody: string;

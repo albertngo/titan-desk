@@ -260,3 +260,4 @@ table.items.edit .desc { font-weight: 500; }
 .nq-foot { max-width: 880px; display: grid; gap: 10px; justify-items: start; }
 .chip.faint { color: var(--fg-faint); background: var(--card-2); }
 a.chip.accent:hover { text-decoration: underline; }
+.nq-dupe { display: grid; gap: 8px; justify-items: start; }

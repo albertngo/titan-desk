@@ -132,4 +132,7 @@ export type CustomerSearch =
   | { ok: true; customers: FoundCustomer[] }
   | { ok: false; reason: "not-configured" | "error"; message: string };
 
-export type StartResult = { ok: true; versionId: string; reused: boolean } | { ok: false; message: string };
+export type StartResult =
+  | { ok: true; versionId: string; reused: boolean }
+  /** `duplicates`: GHL already has someone with the phone or email typed for a "new" customer. */
+  | { ok: false; message: string; duplicates?: FoundCustomer[] };
