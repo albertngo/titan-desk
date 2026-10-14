@@ -1,15 +1,30 @@
+import { ghlContactUrl } from "@/lib/ghl/ids";
 import { pct } from "@/lib/format";
 import type { Quote } from "@/lib/quotes/types";
 
-/** The quote's customer and terms, laid out as label / value pairs. */
+const ADDRESS_CHIP: Record<string, string> = { Confirmed: "good", Unconfirmed: "warn", "No address": "warn" };
+
+/** The quote's customer, its links to GHL and the job files, and its terms. */
 export function CustomerCard({ quote }: { quote: Quote }) {
+  const l = quote.link;
+  const quoteLabel = [l?.quoteNumber ?? quote.quoteId, quote.version !== null ? `v${quote.version}` : null].filter(Boolean).join(" · ") || null;
   const rows: [string, string | null][] = [
     ["Customer", quote.customerName],
     ["Site address", quote.siteAddress],
     ["City", quote.siteCity],
-    ["Quote", [quote.quoteId, quote.version !== null ? `v${quote.version}` : null].filter(Boolean).join(" · ") || null],
+    ["Phone", l?.phone ?? null],
+    ["Email", l?.email ?? null],
+    ["Quote", quoteLabel],
+    ["Project", l?.projectNumber ?? null],
+    ["Timing", l?.projectTiming ?? null],
     ["Valid until", quote.validUntil],
     ["Sent", quote.sentAt],
+  ];
+  const links: [string, string | null][] = [
+    ["GHL contact", l?.ghlContactId ? ghlContactUrl(l.ghlContactId) : null],
+    ["Folder", l?.folderUrl ?? null],
+    ["CompanyCam", l?.companyCamUrl ?? null],
+    ["Notion project", l?.notionProjectUrl ?? null],
   ];
   return (
     <section className="card">
@@ -23,6 +38,24 @@ export function CustomerCard({ quote }: { quote: Quote }) {
             </div>
           ))}
         </div>
+        {l && (
+          <div className="chips">
+            <span className="lbl">Links</span>
+            {l.linkStatus && <span className={`chip ${l.linkStatus === "Linked" ? "good" : "bad"}`}>{l.linkStatus}</span>}
+            {l.addressStatus && <span className={`chip ${ADDRESS_CHIP[l.addressStatus] ?? ""}`}>{l.addressStatus === "No address" ? "No address yet" : `Address ${l.addressStatus.toLowerCase()}`}</span>}
+            {links.map(([k, href]) =>
+              href ? (
+                <a key={k} className="chip accent" href={href} target="_blank" rel="noreferrer">
+                  {k} ↗
+                </a>
+              ) : (
+                <span key={k} className="chip faint" title={`No ${k} yet`}>
+                  {k}
+                </span>
+              ),
+            )}
+          </div>
+        )}
         <div className="chips">
           <span className="lbl">Terms</span>
           {quote.basis && <span className={`chip ${quote.basis === "Measured" ? "good" : "warn"}`}>{quote.basis}</span>}

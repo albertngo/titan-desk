@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { RATE_TABLE, STAIR_TABLE, T, WRITABLE_TABLES } from "../src/lib/airtable/fields";
 
 /**
  * Structural rules for the quoting app, checked on the source text so a mistake fails CI
@@ -9,6 +10,10 @@ import { describe, expect, it } from "vitest";
 
 const SRC = path.resolve(__dirname, "../src");
 const CLIENT = "lib/airtable/client.ts";
+const GHL = "lib/ghl/client.ts";
+/** The only files allowed to create or update Airtable records. Adding one is a reviewed decision. */
+const WRITERS = ["lib/quotes/start.ts"];
+const CATALOGUE = "tblfLXD3zkSdNQGbS";
 
 function files(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
@@ -31,13 +36,30 @@ describe("Airtable boundary", () => {
     expect(readers).toEqual([CLIENT]);
   });
 
-  it("is read-only in milestone 1: no write verb in the Airtable client", () => {
+  it("never deletes or replaces: the Airtable client knows GET, POST and PATCH only", () => {
     const client = code(all.find((f) => f.rel === CLIENT)!.text);
-    for (const verb of ["POST", "PATCH", "PUT", "DELETE"]) expect(client).not.toMatch(new RegExp(`["'\`]${verb}["'\`]`));
+    for (const verb of ["PUT", "DELETE"]) expect(client).not.toMatch(new RegExp(`["'\`]${verb}["'\`]`));
+    // Every write goes through write(), which refuses any table outside WRITABLE_TABLES.
+    expect(client).toMatch(/if \(!WRITABLE_TABLES\.includes\(table\)\) throw/);
+    // Two requests in the whole file: get() and write(). A third fetch would bypass the table check.
+    expect(client.match(/\bfetch\(/g)?.length).toBe(2);
+  });
+
+  it("writes to the four quote tables only, never the catalogue, Rate Card or Stair Items", () => {
+    expect([...WRITABLE_TABLES].sort()).toEqual([T.quotes, T.versions, T.options, T.lines].sort());
+    for (const t of [RATE_TABLE, STAIR_TABLE, CATALOGUE]) expect(WRITABLE_TABLES).not.toContain(t);
+  });
+
+  it("creates and updates records from the allowed files only", () => {
+    const writers = all
+      .filter((f) => f.rel !== CLIENT && /\b(createRecord|updateRecord)\(/.test(code(f.text)))
+      .map((f) => f.rel)
+      .sort();
+    expect(writers.every((w) => WRITERS.includes(w))).toBe(true);
   });
 
   it("keeps the client, the loaders and the auth check server-only", () => {
-    for (const rel of [CLIENT, "lib/quotes/load.ts", "lib/auth.ts"]) {
+    for (const rel of [CLIENT, GHL, "lib/quotes/load.ts", "lib/quotes/start.ts", "lib/auth.ts"]) {
       expect(all.find((f) => f.rel === rel)!.text).toMatch(/^import "server-only";/m);
     }
   });
@@ -45,21 +67,35 @@ describe("Airtable boundary", () => {
   it("never imports Airtable code into a browser component", () => {
     const leaks = all
       .filter((f) => /^["']use client["'];?/m.test(f.text))
-      .filter((f) => /from ["']@\/lib\/(airtable|quotes\/load|auth)/.test(f.text))
+      .filter((f) => /^import (?!type )[^;]*from ["']@\/lib\/(airtable|quotes\/load|quotes\/start|ghl\/client|auth)/m.test(f.text))
       .map((f) => f.rel);
     expect(leaks).toEqual([]);
   });
 
   it("never exposes an Airtable setting to the browser", () => {
-    expect(all.filter((f) => /NEXT_PUBLIC_[A-Z_]*AIRTABLE/.test(f.text)).map((f) => f.rel)).toEqual([]);
+    expect(all.filter((f) => /NEXT_PUBLIC_[A-Z_]*(AIRTABLE|GHL)/.test(f.text)).map((f) => f.rel)).toEqual([]);
   });
 
   it("checks the quoter allowlist in both the proxy and every loader", () => {
     expect(all.find((f) => f.rel === "proxy.ts")!.text).toContain("isQuoter(");
-    const load = all.find((f) => f.rel === "lib/quotes/load.ts")!.text;
-    const exported = load.match(/export async function \w+/g) ?? [];
-    const guarded = load.match(/export async function \w+[^{]*\{\s*await requireQuoter\(\);/g) ?? [];
-    expect(exported.length).toBeGreaterThan(0);
-    expect(guarded.length).toBe(exported.length);
+    for (const rel of ["lib/quotes/load.ts", "lib/quotes/start.ts"]) {
+      const text = all.find((f) => f.rel === rel)!.text;
+      const exported = text.match(/export async function \w+/g) ?? [];
+      const guarded = text.match(/export async function \w+[^{]*\{\s*(const \w+ = )?await requireQuoter\(\);/g) ?? [];
+      expect(exported.length).toBeGreaterThan(0);
+      expect(guarded.length).toBe(exported.length);
+    }
+  });
+});
+
+describe("GHL boundary", () => {
+  it("has exactly one file that talks to GHL, and it alone reads the token", () => {
+    expect(all.filter((f) => code(f.text).includes("leadconnectorhq.com")).map((f) => f.rel)).toEqual([GHL]);
+    expect(all.filter((f) => code(f.text).includes("QUOTE_GHL_TOKEN")).map((f) => f.rel)).toEqual([GHL]);
+  });
+
+  it("only reads: no write verb in the GHL client", () => {
+    const client = code(all.find((f) => f.rel === GHL)!.text);
+    for (const verb of ["POST", "PATCH", "PUT", "DELETE"]) expect(client).not.toMatch(new RegExp(`["'\`]${verb}["'\`]`));
   });
 });

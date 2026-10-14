@@ -22,7 +22,7 @@ deployment with a write token.
    not add code paths that call Airtable create/update/delete endpoints in `web/`, `sync/`
    or `db/`. The single exception (Albert, 2026-10-11) is `quote/src/lib/airtable/client.ts`,
    which may write to the four quote tables only, with its own token, under `quote/CLAUDE.md`
-   and its boundary test. It is read-only until milestone 3.
+   and its boundary test. Its first writes (creating a quote and its version 1) shipped 2026-10-14.
 2. **The web app reads views only.** `web/src/lib/db/queries.ts` is the only place that
    talks to the database, and it knows exactly these objects in schema `api`:
    `catalogue_staff`, `search_staff`, `search_staff_grouped`, `catalogue_facets`, `catalogue_browse`, `sync_status`, `design_dictionary`,

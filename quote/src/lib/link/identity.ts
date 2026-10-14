@@ -1,0 +1,59 @@
+/**
+ * Customer identity: how a phone, an email and a name are compared and shown. Pure, no I/O.
+ *
+ * Matching never uses a name (two Jane Smiths are two customers); it uses the GHL ids, then a
+ * normalised phone, then a normalised email. Names are only ever displayed.
+ */
+
+/** North American numbers become +1XXXXXXXXXX; other numbers written with a leading + keep it. Anything else is not a phone. */
+export function normalizePhone(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const digits = raw.replace(/\D/g, "");
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  if (raw.trim().startsWith("+") && digits.length >= 8 && digits.length <= 15) return `+${digits}`;
+  return null;
+}
+
+/** 416-555-0123 for North American numbers, the normalised form otherwise. */
+export function displayPhone(raw: string | null | undefined): string | null {
+  const p = normalizePhone(raw);
+  if (!p) return raw?.trim() || null;
+  return p.startsWith("+1") ? `${p.slice(2, 5)}-${p.slice(5, 8)}-${p.slice(8)}` : p;
+}
+
+export function normalizeEmail(raw: string | null | undefined): string | null {
+  const e = raw?.trim().toLowerCase();
+  return e && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e) ? e : null;
+}
+
+/** Quote numbers come from the Airtable autonumber: Seq 1 is Q-1001. Mirrors the Quote Number formula. */
+export const QUOTE_NUMBER_OFFSET = 1000;
+export const quoteNumber = (seq: number) => `Q-${QUOTE_NUMBER_OFFSET + seq}`;
+export const versionLabel = (quoteNo: string, version: number) => `${quoteNo} v${version}`;
+
+export type NameParts = {
+  first?: string | null;
+  last?: string | null;
+  customerName?: string | null;
+  phone?: string | null;
+  city?: string | null;
+  quoteNumber: string;
+  projectNumber?: string | null;
+};
+
+const clean = (s: string | null | undefined) => s?.trim() || null;
+
+/**
+ * The one name every folder, CompanyCam project and GHL opportunity carries:
+ * "Smith, Jane - Oakville - Q-1234", with " - PP-412" once won. Phone stands in for an
+ * unknown name. Mirrors the Display Name formula on the Quotes table; change both together.
+ */
+export function displayName(p: NameParts): string {
+  const last = clean(p.last);
+  const first = clean(p.first);
+  const who = last ? (first ? `${last}, ${first}` : last) : (clean(p.customerName) ?? clean(p.phone) ?? "");
+  const city = clean(p.city);
+  const pp = clean(p.projectNumber);
+  return `${who}${city ? ` - ${city}` : ""} - ${p.quoteNumber}${pp ? ` - ${pp}` : ""}`;
+}

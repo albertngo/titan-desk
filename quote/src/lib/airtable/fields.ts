@@ -5,22 +5,51 @@
  */
 export const BASE_ID = "appWHOVZ0QCS0xQ3M";
 
+/**
+ * The four quote tables. Renamed in Airtable on 2026-10-14 (Albert): what was "Quote Families"
+ * is now Quotes (one per opportunity, Q-1234) and what was "Quotes" is now Quote Versions
+ * (v1 preliminary, v2 measured, …). IDs did not change.
+ */
 export const T = {
-  families: "tbl3UuhjUPzbwRPiN",
-  quotes: "tblyOBAe7Y2W4Tv2q",
+  quotes: "tbl3UuhjUPzbwRPiN",
+  versions: "tblyOBAe7Y2W4Tv2q",
   options: "tbldbVTeelE9fU54o",
   lines: "tblGkT8y8JycWkX5b",
 } as const;
 
-export const FAMILY = {
-  familyId: "fldzAQG3cQOleJ52Y",
+/** The four tables this app may ever write to (milestone 3). Nothing else, ever. */
+export const WRITABLE_TABLES: readonly string[] = [T.quotes, T.versions, T.options, T.lines];
+
+/** Quotes table: one row per quote. Customer fields are display copies; GHL owns them. */
+export const QUOTE = {
+  legacyId: "fldzAQG3cQOleJ52Y",
+  seq: "fldSkqqvTbmpA9oTI",
+  quoteNumber: "fld2auo5sktzZwEnc",
+  displayName: "fldkmRhIuwTFW4IWz",
   customerName: "fldOShjcS3OIcfuRF",
+  firstName: "fldf449CmKjCVgMZM",
+  lastName: "fldON7GXfCQwgUZrW",
+  phone: "fldWFjH5f48TxQ8c9",
+  email: "fldobrsMHsKqAO9xa",
   siteAddress: "fldML5ejPLilqKWIH",
   siteCity: "fldqXqA7N7ufioIQR",
+  addressStatus: "fld7OiVXGKP85WSQ2",
+  linkStatus: "fldQOCEJX7XJYvw3t",
+  projectTiming: "fldTjBuJ9KezNmNOb",
+  ghlContactId: "fldeMn6beJXCZLZza",
+  ghlOpportunityId: "fld3nW15aOW71NFwi",
+  companyCamUrl: "fldbVLfEofje1VUu5",
+  folderUrl: "fldjMRYkmz70JbuJq",
+  projectNumber: "fld3RVbHUDHJR7SBp",
+  notionProjectUrl: "fldKIMbQCupiXuLvA",
+  pipeline: "fldeupuDWQZ0dbXEg",
+  notes: "fldnVyjuta6kQjOOf",
+  versions: "fldasgos7nsSuqkJh",
 } as const;
 
-export const QUOTE = {
-  quoteId: "fld0Ahq1ydIdBTyHb",
+/** Quote Versions table: one row per version of a quote. */
+export const VERSION = {
+  label: "fld0Ahq1ydIdBTyHb",
   version: "fldvZo1lss1aYrzxu",
   status: "fldkPrMJXkkJyKPIE",
   basis: "fldRpkmNhPmwKXK1y",
@@ -28,7 +57,7 @@ export const QUOTE = {
   validUntil: "fldHv3BsyS5XfOjqT",
   sentAt: "fldVMuWtrCG1RSeS5",
   notes: "fldgjbZ6qzH4SiQ1E",
-  family: "fldvNuCszkwy0gB8o",
+  quote: "fldvNuCszkwy0gB8o",
   lines: "fldCmBh6M92eJoVTW",
   options: "fldGHuPGdZ1zbUmeF",
   discountRate: "fldiQXF2LNtK5Auix",

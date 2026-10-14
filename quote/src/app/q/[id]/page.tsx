@@ -30,7 +30,7 @@ export default async function QuotePage({
   const showAnalysis = opt === "analysis";
   const option = showAnalysis ? null : (quote.options.find((o) => o.id === opt) ?? quote.options[0] ?? null);
   const totals = option ? optionTotals(option.lines, quote.discountRate, quote.showHst) : null;
-  const airtableUrl = airtableRecordUrl(T.quotes, quote.id);
+  const airtableUrl = airtableRecordUrl(T.versions, quote.id);
 
   return (
     <>

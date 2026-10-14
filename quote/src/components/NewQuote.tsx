@@ -1,0 +1,220 @@
+"use client";
+
+import Link from "next/link";
+import { useState, useTransition } from "react";
+import { searchCustomersAction, startQuoteAction } from "@/app/new/actions";
+import { displayPhone } from "@/lib/link/identity";
+import { stageFor, TIMINGS, type Timing } from "@/lib/link/lead";
+import type { CustomerSearch, FoundCustomer } from "@/lib/quotes/types";
+
+type Choice = { contactId: string; opportunityId: string | null } | { newCustomer: true } | null;
+
+const blankCustomer = { firstName: "", lastName: "", phone: "", email: "", address: "", city: "" };
+
+/**
+ * Start a quote: find the customer in GHL, pick the opportunity (or a new one), answer the
+ * timing question. Customer details are never typed here unless the customer is brand new.
+ */
+export function NewQuote() {
+  const [query, setQuery] = useState("");
+  const [result, setResult] = useState<CustomerSearch | null>(null);
+  const [searching, startSearch] = useTransition();
+  const [choice, setChoice] = useState<Choice>(null);
+  const [nc, setNc] = useState(blankCustomer);
+  const [timing, setTiming] = useState<Timing | null>(null);
+  const [confirmed, setConfirmed] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [creating, startCreate] = useTransition();
+
+  function choose(next: Choice) {
+    setChoice(next);
+    setError(null);
+  }
+
+  const customers = result?.ok ? result.customers : [];
+  const picked: FoundCustomer | null = choice && "contactId" in choice ? (customers.find((c) => c.contact.id === choice.contactId) ?? null) : null;
+  const isNew = choice !== null && "newCustomer" in choice;
+
+  function search(e?: React.FormEvent) {
+    e?.preventDefault();
+    const q = query.trim();
+    if (q.length < 2) return;
+    setError(null);
+    startSearch(async () => {
+      setResult(await searchCustomersAction(q));
+      setChoice(null);
+    });
+  }
+
+  function create() {
+    setError(null);
+    const input = picked
+      ? { contactId: picked.contact.id, opportunityId: (choice as { opportunityId: string | null }).opportunityId, timing, addressConfirmed: confirmed }
+      : { timing, newCustomer: nc };
+    startCreate(async () => {
+      const r = await startQuoteAction(input);
+      if (r && !r.ok) setError(r.message);
+    });
+  }
+
+  const linked = picked !== null && (choice as { opportunityId: string | null }).opportunityId !== null;
+  const ready = timing !== null && (picked !== null || (isNew && (nc.firstName.trim() || nc.lastName.trim()) && (nc.phone.trim() || nc.email.trim())));
+
+  return (
+    <div className="page newq">
+      <div className="pagehead">
+        <div className="titles">
+          <Link className="crumb" href="/">← Quotes</Link>
+          <h1>New quote</h1>
+          <p>Find the customer in GHL, pick their opportunity, and ask when they plan to do the project.</p>
+        </div>
+      </div>
+
+      <section className="card">
+        <div className="card-h">1 · Customer</div>
+        <div className="card-b nq-body">
+          <form className="nq-search" onSubmit={search} role="search">
+            <input
+              id="nq-query"
+              className="in"
+              autoFocus
+              placeholder="Name, phone or email"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              aria-label="Search GHL contacts"
+            />
+            <button className="btn primary" type="submit" disabled={searching || query.trim().length < 2}>
+              {searching ? "Searching…" : "Search GHL"}
+            </button>
+          </form>
+
+          {result && !result.ok && (
+            <div className={`banner ${result.reason === "not-configured" ? "warn" : "bad"}`}>
+              {result.message} You can still add them as a new customer below.
+            </div>
+          )}
+          {result?.ok && customers.length === 0 && <p className="empty">Nobody in GHL matches “{query.trim()}”.</p>}
+
+          {customers.length > 0 && (
+            <ul className="nq-list" aria-label="Matching contacts">
+              {customers.map(({ contact, opportunities }) => {
+                const on = picked?.contact.id === contact.id;
+                const name = [contact.lastName, contact.firstName].filter(Boolean).join(", ") || contact.name || "No name";
+                return (
+                  <li key={contact.id} className={`nq-contact${on ? " on" : ""}`}>
+                    <button type="button" className="nq-who" aria-pressed={on} onClick={() => { choose({ contactId: contact.id, opportunityId: null }); setConfirmed(false); }}>
+                      <span className="nm">{name}</span>
+                      <span className="mt">{[displayPhone(contact.phone), contact.email, [contact.address, contact.city].filter(Boolean).join(", ")].filter(Boolean).join(" · ") || "No details on the contact"}</span>
+                    </button>
+                    {on && (
+                      <fieldset className="nq-opps">
+                        <legend>Which work is this quote for?</legend>
+                        {opportunities.map((o) =>
+                          o.existing ? (
+                            <div key={o.id} className="nq-opp taken">
+                              <span className="nm">{o.name ?? "Opportunity"}</span>
+                              <span className="mt">{[o.pipeline, o.stage, o.status].filter(Boolean).join(" · ")}</span>
+                              <span className="mt">
+                                Already quoted as <b>{o.existing.quoteNumber ?? "a quote"}</b>
+                                {o.existing.versionId && <> · <Link href={`/q/${o.existing.versionId}`}>Open it</Link></>}
+                              </span>
+                            </div>
+                          ) : (
+                            <label key={o.id} className="nq-opp">
+                              <input type="radio" name="nq-opp" checked={(choice as { opportunityId: string | null }).opportunityId === o.id} onChange={() => choose({ contactId: contact.id, opportunityId: o.id })} />
+                              <span className="nm">{o.name ?? "Opportunity"}</span>
+                              <span className="mt">{[o.pipeline, o.stage, o.status].filter(Boolean).join(" · ")}</span>
+                            </label>
+                          ),
+                        )}
+                        <label className="nq-opp">
+                          <input type="radio" name="nq-opp" checked={(choice as { opportunityId: string | null }).opportunityId === null} onChange={() => choose({ contactId: contact.id, opportunityId: null })} />
+                          <span className="nm">New opportunity for this customer</span>
+                          <span className="mt">Different work from anything listed above</span>
+                        </label>
+                      </fieldset>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          <button type="button" className={`linkbtn nq-newtoggle${isNew ? " on" : ""}`} onClick={() => choose(isNew ? null : { newCustomer: true })} aria-expanded={isNew}>
+            {isNew ? "Cancel new customer" : "Not in GHL? Add a new customer"}
+          </button>
+          {isNew && (
+            <div className="form nq-form">
+              {(
+                [
+                  ["firstName", "First name", "given-name"],
+                  ["lastName", "Last name", "family-name"],
+                  ["phone", "Phone", "tel"],
+                  ["email", "Email", "email"],
+                  ["address", "Site address (if they gave it)", "street-address"],
+                  ["city", "City", "address-level2"],
+                ] as const
+              ).map(([k, label, ac]) => (
+                <label key={k}>
+                  {label}
+                  <input id={`nq-${k}`} className="in" autoComplete={ac} value={nc[k]} onChange={(e) => setNc({ ...nc, [k]: e.target.value })} />
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {picked && (
+        <section className="card">
+          <div className="card-h">2 · Site address</div>
+          <div className="card-b nq-body">
+            {picked.contact.address ? (
+              <>
+                <p>
+                  The contact&apos;s address is <b>{[picked.contact.address, picked.contact.city].filter(Boolean).join(", ")}</b>.
+                </p>
+                <label className="check-in">
+                  <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
+                  This is the site for this quote
+                </label>
+                {!confirmed && <p className="note">Left unticked, the quote shows it as unconfirmed until it&apos;s confirmed at booking.</p>}
+              </>
+            ) : (
+              <p className="muted">No address on the contact. That&apos;s fine for a preliminary: type it on the GHL contact when you get it, or the booking automation will ask them.</p>
+            )}
+          </div>
+        </section>
+      )}
+
+      <section className="card">
+        <div className="card-h">{picked ? "3" : "2"} · When are they planning to do the project?</div>
+        <div className="card-b">
+          <div className="nq-seg" role="radiogroup" aria-label="Project timing">
+            {TIMINGS.map((t) => (
+              <label key={t} className={`nq-seg-b${timing === t ? " on" : ""}`}>
+                <input type="radio" name="nq-timing" checked={timing === t} onChange={() => setTiming(t)} />
+                <span className="nm">{t}</span>
+                <span className={`chip ${stageFor(t) === "Hot" ? "bad" : stageFor(t) === "Warm" ? "warn" : ""}`}>{stageFor(t)}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <div className="nq-foot">
+        {(picked || isNew) && (
+          <p className="note">
+            {linked
+              ? "This quote is tied to the opportunity you picked."
+              : "GHL will need a new opportunity for this. Until that's automatic, the quote is saved as Needs linking; create the opportunity in GHL and link it."}
+          </p>
+        )}
+        {error && <div className="banner bad" role="alert">{error}</div>}
+        <button className="btn primary" type="button" disabled={!ready || creating} onClick={create}>
+          {creating ? "Creating…" : "Create quote"}
+        </button>
+      </div>
+    </div>
+  );
+}
