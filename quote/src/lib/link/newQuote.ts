@@ -27,6 +27,8 @@ export type NewQuoteRequest = {
   /** Staff confirmed the contact's address is the site for this quote. */
   addressConfirmed: boolean;
   newCustomer: NewCustomer | null;
+  /** Staff saw the GHL matches for this phone or email and confirmed it's a different person. */
+  forceNew: boolean;
 };
 
 export type Parsed<T> = { ok: true; value: T } | { ok: false; message: string };
@@ -49,7 +51,7 @@ export function parseNewQuote(raw: unknown): Parsed<NewQuoteRequest> {
   if (opportunityId && !GHL_ID.test(opportunityId)) return { ok: false, message: "That GHL opportunity id isn't valid." };
 
   if (contactId) {
-    return { ok: true, value: { contactId, opportunityId, timing: r.timing, addressConfirmed: r.addressConfirmed === true, newCustomer: null } };
+    return { ok: true, value: { contactId, opportunityId, timing: r.timing, addressConfirmed: r.addressConfirmed === true, newCustomer: null, forceNew: false } };
   }
   if (opportunityId) return { ok: false, message: "Pick the customer before their opportunity." };
 
@@ -73,6 +75,7 @@ export function parseNewQuote(raw: unknown): Parsed<NewQuoteRequest> {
       // Typed for this quote by the person creating it, so it's confirmed when present.
       addressConfirmed: Boolean(address),
       newCustomer: { firstName, lastName, phone: phoneRaw ? displayPhone(phoneRaw) : null, email: normalizeEmail(emailRaw), address, city },
+      forceNew: r.forceNew === true,
     },
   };
 }

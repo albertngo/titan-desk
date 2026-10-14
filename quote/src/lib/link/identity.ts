@@ -57,3 +57,13 @@ export function displayName(p: NameParts): string {
   const pp = clean(p.projectNumber);
   return `${who}${city ? ` - ${city}` : ""} - ${p.quoteNumber}${pp ? ` - ${pp}` : ""}`;
 }
+
+/**
+ * Whether a GHL contact is the person someone is about to add as new: the same phone or the
+ * same email. A name match alone never counts (two Jane Smiths are two customers).
+ */
+export function sameCustomer(contact: { phone: string | null; email: string | null }, typed: { phone: string | null; email: string | null }): boolean {
+  const p = normalizePhone(typed.phone);
+  const e = normalizeEmail(typed.email);
+  return (p !== null && normalizePhone(contact.phone) === p) || (e !== null && normalizeEmail(contact.email) === e);
+}

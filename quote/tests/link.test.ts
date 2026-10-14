@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { displayName, displayPhone, normalizeEmail, normalizePhone, quoteNumber, versionLabel } from "../src/lib/link/identity";
+import { displayName, displayPhone, normalizeEmail, normalizePhone, quoteNumber, sameCustomer, versionLabel } from "../src/lib/link/identity";
 import { fillBlanks, matchQuote, type QuoteKeys } from "../src/lib/link/match";
 import { addressStatus, stageFor, stageToSet, TIMINGS } from "../src/lib/link/lead";
 import { parseNewQuote } from "../src/lib/link/newQuote";
@@ -35,6 +35,23 @@ describe("identity", () => {
     );
     expect(displayName({ phone: "416-555-0199", quoteNumber: "Q-1234" })).toBe("416-555-0199 - Q-1234");
     expect(displayName({ last: "Doe", quoteNumber: "Q-1234" })).toBe("Doe - Q-1234");
+  });
+});
+
+describe("is this \"new\" customer already in GHL?", () => {
+  const ghl = { phone: "+14165550199", email: "jane@example.com" };
+  it("matches on the same phone however it's typed, or the same email in any case", () => {
+    expect(sameCustomer(ghl, { phone: "(416) 555-0199", email: null })).toBe(true);
+    expect(sameCustomer(ghl, { phone: null, email: "JANE@example.com" })).toBe(true);
+  });
+  it("never matches on nothing, or on a different phone and email", () => {
+    expect(sameCustomer(ghl, { phone: null, email: null })).toBe(false);
+    expect(sameCustomer(ghl, { phone: "416-555-0100", email: "other@example.com" })).toBe(false);
+    expect(sameCustomer({ phone: null, email: null }, { phone: null, email: null })).toBe(false);
+  });
+  it("lets staff confirm a different person", () => {
+    const r = parseNewQuote({ timing: "Not sure", forceNew: true, newCustomer: { lastName: "Doe", email: "jane@example.com" } });
+    expect(r.ok && r.value.forceNew).toBe(true);
   });
 });
 
@@ -114,7 +131,7 @@ describe("the New quote form", () => {
     const r = parseNewQuote({ contactId: "abcDEF123456", opportunityId: "oppXYZ987654", timing: "1 to 3 months", addressConfirmed: true });
     expect(r).toEqual({
       ok: true,
-      value: { contactId: "abcDEF123456", opportunityId: "oppXYZ987654", timing: "1 to 3 months", addressConfirmed: true, newCustomer: null },
+      value: { contactId: "abcDEF123456", opportunityId: "oppXYZ987654", timing: "1 to 3 months", addressConfirmed: true, newCustomer: null, forceNew: false },
     });
     const n = parseNewQuote({ contactId: "abcDEF123456", opportunityId: "", timing: "Not sure" });
     expect(n.ok && n.value.opportunityId).toBeNull();
@@ -140,6 +157,7 @@ describe("the New quote form", () => {
         timing: "Within 1 month",
         addressConfirmed: false,
         newCustomer: { firstName: "Jane", lastName: "Doe", phone: "416-555-0199", email: "jane@example.com", address: null, city: null },
+        forceNew: false,
       },
     });
   });

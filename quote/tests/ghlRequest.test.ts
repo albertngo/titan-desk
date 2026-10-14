@@ -15,7 +15,7 @@ const base: GhlRequestInput = {
 const parse = (s: string) => JSON.parse(s) as Record<string, unknown>;
 
 describe("the request the app sends to Make for GHL", () => {
-  it("new customer: upserts the contact with only what was typed, then opens an opportunity in the lead pipeline", () => {
+  it("new customer: creates the contact with only what was typed, then opens an opportunity in the lead pipeline", () => {
     const r = buildGhlRequest({
       ...base,
       newContact: { firstName: "Jane", lastName: "Doe", phone: "416-555-0199", email: null, address: "12 Example St", city: "Oakville" },

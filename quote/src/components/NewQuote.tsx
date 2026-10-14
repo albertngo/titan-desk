@@ -24,11 +24,14 @@ export function NewQuote({ ghlWrites }: { ghlWrites: boolean }) {
   const [timing, setTiming] = useState<Timing | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Set when a "new" customer turned out to be in GHL already; the matches are in `result`. */
+  const [dupeNote, setDupeNote] = useState<string | null>(null);
   const [creating, startCreate] = useTransition();
 
   function choose(next: Choice) {
     setChoice(next);
     setError(null);
+    setDupeNote(null);
   }
 
   const customers = result?.ok ? result.customers : [];
@@ -40,20 +43,27 @@ export function NewQuote({ ghlWrites }: { ghlWrites: boolean }) {
     const q = query.trim();
     if (q.length < 2) return;
     setError(null);
+    setDupeNote(null);
     startSearch(async () => {
       setResult(await searchCustomersAction(q));
       setChoice(null);
     });
   }
 
-  function create() {
+  function create(forceNew = false) {
     setError(null);
     const input = picked
       ? { contactId: picked.contact.id, opportunityId: (choice as { opportunityId: string | null }).opportunityId, timing, addressConfirmed: confirmed }
-      : { timing, newCustomer: nc };
+      : { timing, newCustomer: nc, forceNew };
     startCreate(async () => {
       const r = await startQuoteAction(input);
-      if (r && !r.ok) setError(r.message);
+      if (!r || r.ok) return;
+      if (r.duplicates?.length) {
+        // Show who GHL already has; picking one turns this into an existing-customer quote.
+        setResult({ ok: true, customers: r.duplicates });
+        setChoice(null);
+        setDupeNote(r.message);
+      } else setError(r.message);
     });
   }
 
@@ -88,6 +98,14 @@ export function NewQuote({ ghlWrites }: { ghlWrites: boolean }) {
             </button>
           </form>
 
+          {dupeNote && (
+            <div className="banner warn nq-dupe" role="alert">
+              <p>{dupeNote}</p>
+              <button type="button" className="btn small" disabled={creating || timing === null} onClick={() => create(true)}>
+                It&apos;s a different person, create new
+              </button>
+            </div>
+          )}
           {result && !result.ok && (
             <div className={`banner ${result.reason === "not-configured" ? "warn" : "bad"}`}>
               {result.message} You can still add them as a new customer below.
@@ -215,7 +233,7 @@ export function NewQuote({ ghlWrites }: { ghlWrites: boolean }) {
           </p>
         )}
         {error && <div className="banner bad" role="alert">{error}</div>}
-        <button className="btn primary" type="button" disabled={!ready || creating} onClick={create}>
+        <button className="btn primary" type="button" disabled={!ready || creating} onClick={() => create()}>
           {creating ? "Creating…" : "Create quote"}
         </button>
       </div>
