@@ -261,3 +261,7 @@ table.items.edit .desc { font-weight: 500; }
 .chip.faint { color: var(--fg-faint); background: var(--card-2); }
 a.chip.accent:hover { text-decoration: underline; }
 .nq-dupe { display: grid; gap: 8px; justify-items: start; }
+.form .ro-strip { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.form .ro-strip .who { font-weight: 600; font-size: 14px; color: var(--fg); }
+.form .ro-strip .where { font-size: 13px; color: var(--fg); overflow-wrap: anywhere; }
+.form .ro-strip .note { flex-basis: 100%; margin: 0; }

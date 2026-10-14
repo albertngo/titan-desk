@@ -26,9 +26,15 @@ export type EditorOption = { id: string; name: string; description: string; reco
 export type EditorQuote = {
   /** Airtable record id of the quote being edited; null for a new quote. */
   quoteRecordId: string | null;
+  /**
+   * Customer and site are shown, never edited, here: GHL owns them (Albert, 2026-10-13/14).
+   * They come from the quote each time the editor opens; see `withCustomerFrom`.
+   */
   customerName: string;
   siteAddress: string;
   siteCity: string;
+  ghlContactId: string | null;
+  addressStatus: string | null;
   discountRate: number;
   showHst: boolean;
   options: EditorOption[];
@@ -265,14 +271,26 @@ export function revertLine(q: EditorQuote, optionId: string, lineId: string): Ed
   return updateLine(q, optionId, lineId, { unitPrice: null, costOverride: null });
 }
 
-export function setTerms(q: EditorQuote, patch: Partial<Pick<EditorQuote, "discountRate" | "showHst" | "customerName" | "siteAddress" | "siteCity">>): EditorQuote {
+export function setTerms(q: EditorQuote, patch: Partial<Pick<EditorQuote, "discountRate" | "showHst">>): EditorQuote {
   return { ...q, ...patch };
+}
+
+/**
+ * A restored draft keeps its lines and terms but always shows the customer and site as they
+ * are now, so a draft saved last week can never show (or later save) an old address.
+ */
+export function withCustomerFrom(draft: EditorQuote, current: EditorQuote): EditorQuote {
+  const { customerName, siteAddress, siteCity, ghlContactId, addressStatus } = current;
+  return { ...draft, customerName, siteAddress, siteCity, ghlContactId, addressStatus };
 }
 
 // ---------- starting points ----------
 
 export function blankQuote(): EditorQuote {
-  return addOption({ quoteRecordId: null, customerName: "", siteAddress: "", siteCity: "", discountRate: 0, showHst: true, options: [] }, "Option 1");
+  return addOption(
+    { quoteRecordId: null, customerName: "", siteAddress: "", siteCity: "", ghlContactId: null, addressStatus: null, discountRate: 0, showHst: true, options: [] },
+    "Option 1",
+  );
 }
 
 export function fromQuote(quote: Quote): EditorQuote {
@@ -281,6 +299,8 @@ export function fromQuote(quote: Quote): EditorQuote {
     customerName: quote.customerName ?? "",
     siteAddress: quote.siteAddress ?? "",
     siteCity: quote.siteCity ?? "",
+    ghlContactId: quote.link?.ghlContactId ?? null,
+    addressStatus: quote.link?.addressStatus ?? null,
     discountRate: quote.discountRate,
     showHst: quote.showHst,
     options: quote.options.map((o) => ({
