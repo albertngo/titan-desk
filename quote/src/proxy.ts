@@ -41,6 +41,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Everything except static assets, login, auth callbacks and the denied page.
-  matcher: ["/((?!_next/|login|auth/|denied|favicon\\.ico|robots\\.txt).*)"],
+  // Everything except static assets, login, auth callbacks, the denied page, and the booking
+  // step Make calls (it has no sign-in; src/app/api/booking checks its own key).
+  matcher: ["/((?!_next/|login|auth/|denied|api/booking|favicon\\.ico|robots\\.txt).*)"],
 };

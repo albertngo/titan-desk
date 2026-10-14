@@ -60,6 +60,11 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
    `QUOTE_MAKE_GHL_HOOK` / `QUOTE_MAKE_GHL_KEY`, called only from `src/lib/quotes/start.ts`.
    Set those two variables only after the scenario is switched on: a request to a scenario
    that is off waits in Make's queue and would run later.
+2c. **One path without a sign-in:** `/api/booking`, called by Make 3453735 when an appointment
+   is booked. The proxy lets only that path through; the route and every function in
+   `src/lib/quotes/booking.ts` check `QUOTE_BOOKING_KEY` first (constant-time; unset = off). Make
+   sends only the opportunity and contact ids, and the customer is read from GHL, never taken
+   from the request. It writes the Quotes table (and a version 1) only.
 3. **Staff is not enough.** Only emails on `QUOTE_ALLOWED_EMAILS` get in. The proxy checks
    it and every loader in `src/lib/quotes/load.ts` and `src/lib/quotes/start.ts` checks again
    (`requireQuoter()`). An empty list lets nobody in.
