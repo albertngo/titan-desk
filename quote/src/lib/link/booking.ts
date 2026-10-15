@@ -1,41 +1,70 @@
+import { OPP_FIELDS } from "@/lib/ghl/ids";
 import { matchQuote, type QuoteKeys } from "./match";
 import type { Parsed } from "./newQuote";
 
 /**
- * The booking step (Make 3453735, "Estimate Scheduled"): when an appointment is booked, find the
- * quote for that opportunity or start one, so the OneDrive folder and the CompanyCam project are
- * named after it. Pure, no I/O; src/lib/quotes/booking.ts carries it out.
+ * The booking step (Make 3453735, fired when an appointment is confirmed): find the job the
+ * appointment is for, find or start its quote, confirm the site, and return the name the OneDrive
+ * folder and CompanyCam project take. Pure, no I/O; src/lib/quotes/booking.ts carries it out.
  *
- * - The opportunity's quote is used as it is.
- * - A quote for the same customer that has no opportunity yet (started before GHL had one) is
- *   linked to this opportunity. One on a different opportunity never is (match.ts).
- * - Two such quotes and nobody can tell which: a new quote is started and the note says so,
- *   rather than guessing.
- * - Otherwise a new quote is started.
+ * Rules (Albert, 2026-10-15):
+ * - Which job: the opportunity on the booking if GHL sent one; else the contact's only open
+ *   opportunity; with none, a new one is made in the Sales pipeline; with several, nobody guesses:
+ *   the quote is started unlinked and flagged for staff.
+ * - Which quote: the opportunity's own; else the customer's quote that has no opportunity yet;
+ *   one on a different opportunity never (match.ts). Two candidates: start a new one, say why.
+ * - The site: the contact's address at the moment of booking is the confirmed site. Staff type
+ *   the next appointment's address on the contact, which the booking texts read too.
+ * - The same address already confirmed on the customer's other open job is flagged, not blocked:
+ *   two jobs at one address is normal, a contact left on the last job's address is not.
  */
 
 const GHL_ID = /^[A-Za-z0-9]{6,40}$/;
 const isGhlId = (v: unknown): v is string => typeof v === "string" && GHL_ID.test(v);
 
-export type BookingRequest = { opportunityId: string; contactId: string };
+export type BookingRequest = { opportunityId: string | null; contactId: string };
 
 export function parseBooking(raw: unknown): Parsed<BookingRequest> {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
-  if (!isGhlId(r.opportunityId)) return { ok: false, message: "opportunityId is missing or isn't a GHL id." };
   if (!isGhlId(r.contactId)) return { ok: false, message: "contactId is missing or isn't a GHL id." };
-  return { ok: true, value: { opportunityId: r.opportunityId, contactId: r.contactId } };
+  // GHL sends an empty value when the appointment has no opportunity yet.
+  const opp = typeof r.opportunityId === "string" ? r.opportunityId.trim() : "";
+  if (opp && !isGhlId(opp)) return { ok: false, message: "opportunityId isn't a GHL id." };
+  return { ok: true, value: { opportunityId: opp || null, contactId: r.contactId } };
 }
+
+// ---------- which job ----------
+
+export type JobPick =
+  | { kind: "use"; id: string; how: "booking" | "only-open" }
+  | { kind: "none" }
+  | { kind: "several"; ids: string[] };
+
+/** `open` is the contact's opportunities with status open. */
+export function pickOpportunity(given: string | null, open: { id: string }[]): JobPick {
+  if (given) return { kind: "use", id: given, how: "booking" };
+  if (open.length === 1) return { kind: "use", id: open[0].id, how: "only-open" };
+  if (open.length === 0) return { kind: "none" };
+  return { kind: "several", ids: open.map((o) => o.id) };
+}
+
+// ---------- which quote ----------
 
 export type BookingDecision =
   | { kind: "existing"; id: string }
   | { kind: "link"; id: string }
   | { kind: "create"; note: string | null };
 
+/**
+ * The quote for a known opportunity. With no opportunity (none yet, or several to choose from),
+ * pass `opportunityId: null`: only quotes that have no opportunity either can then match.
+ */
 export function bookingDecision(
   quotes: QuoteKeys[],
-  probe: { opportunityId: string; contactId: string; phone: string | null; email: string | null },
+  probe: { opportunityId: string | null; contactId: string; phone: string | null; email: string | null },
 ): BookingDecision {
-  const m = matchQuote(quotes, probe);
+  const pool = probe.opportunityId ? quotes : quotes.filter((q) => !q.opportunityId);
+  const m = matchQuote(pool, probe);
   if (m.kind === "none") return { kind: "create", note: null };
   if (m.kind === "one") return m.by === "opportunity" ? { kind: "existing", id: m.id } : { kind: "link", id: m.id };
   // Two quotes on one opportunity shouldn't happen; use the first rather than make a third.
@@ -43,7 +72,37 @@ export function bookingDecision(
   return { kind: "create", note: `${m.ids.length} earlier quotes match this customer by ${m.by}; check whether one of them is this job.` };
 }
 
-export type BookingLinks = { quoteRecordId: string; opportunityId: string; folderUrl: string | null; companyCamUrl: string | null };
+// ---------- the site ----------
+
+const norm = (s: string | null | undefined) => (s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+export type SiteQuote = { id: string; quoteNumber: string | null; contactId: string | null; opportunityId: string | null; siteAddress: string | null; addressStatus: string | null; won: boolean };
+
+/** Quote numbers of the customer's OTHER open jobs already confirmed at this address. */
+export function sameSiteAs(quotes: SiteQuote[], me: { quoteId: string; contactId: string }, address: string | null): string[] {
+  const a = norm(address);
+  if (!a) return [];
+  return quotes
+    .filter((q) => q.id !== me.quoteId && q.contactId === me.contactId && !q.won && q.addressStatus === "Confirmed" && norm(q.siteAddress) === a)
+    .map((q) => q.quoteNumber ?? q.id);
+}
+
+/**
+ * The body Make sends to PUT /opportunities/{id} at booking: the quote number, and the confirmed
+ * site when the contact has one. Never a blank: a missing address leaves the opportunity's alone.
+ */
+export function opportunityUpdateBody(quoteNumber: string, site: { address: string | null; city: string | null }): string {
+  const fields = [
+    { id: OPP_FIELDS.quoteNumber, field_value: quoteNumber },
+    site.address ? { id: OPP_FIELDS.projectAddress, field_value: site.address } : null,
+    site.address && site.city ? { id: OPP_FIELDS.projectCity, field_value: site.city } : null,
+  ].filter((f) => f !== null);
+  return JSON.stringify({ customFields: fields });
+}
+
+// ---------- the links Make sends back ----------
+
+export type BookingLinks = { quoteRecordId: string; contactId: string; folderUrl: string | null; companyCamUrl: string | null };
 
 const url = (v: unknown): string | null => {
   if (typeof v !== "string" || v.length > 600) return null;
@@ -58,9 +117,9 @@ const url = (v: unknown): string | null => {
 export function parseBookingLinks(raw: unknown): Parsed<BookingLinks> {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   if (typeof r.quoteRecordId !== "string" || !/^rec[A-Za-z0-9]{14}$/.test(r.quoteRecordId)) return { ok: false, message: "quoteRecordId isn't a record id." };
-  if (!isGhlId(r.opportunityId)) return { ok: false, message: "opportunityId is missing or isn't a GHL id." };
+  if (!isGhlId(r.contactId)) return { ok: false, message: "contactId is missing or isn't a GHL id." };
   const folderUrl = url(r.folderUrl);
   const companyCamUrl = url(r.companyCamUrl);
   if (!folderUrl && !companyCamUrl) return { ok: false, message: "Send folderUrl or companyCamUrl (https)." };
-  return { ok: true, value: { quoteRecordId: r.quoteRecordId, opportunityId: r.opportunityId, folderUrl, companyCamUrl } };
+  return { ok: true, value: { quoteRecordId: r.quoteRecordId, contactId: r.contactId, folderUrl, companyCamUrl } };
 }

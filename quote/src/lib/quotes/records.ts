@@ -2,6 +2,7 @@ import "server-only";
 import { createRecord, listRecords } from "@/lib/airtable/client";
 import { QUOTE, T, VERSION } from "@/lib/airtable/fields";
 import { versionLabel } from "@/lib/link/identity";
+import type { SiteQuote } from "@/lib/link/booking";
 import type { QuoteKeys } from "@/lib/link/match";
 import { ids, str } from "./values";
 
@@ -27,15 +28,23 @@ export async function quotesByOpportunity(): Promise<Map<string, ExistingQuote>>
   return out;
 }
 
-/** Every quote's matching keys (match.ts), for finding a customer's earlier quote. */
-export async function allQuoteKeys(): Promise<QuoteKeys[]> {
-  const rows = await listRecords(T.quotes, { fields: [QUOTE.ghlOpportunityId, QUOTE.ghlContactId, QUOTE.phone, QUOTE.email] });
+/** Every quote with its matching keys and its site, for the booking step. */
+export async function bookingQuotes(): Promise<(QuoteKeys & SiteQuote & { folderUrl: string | null; companyCamUrl: string | null })[]> {
+  const rows = await listRecords(T.quotes, {
+    fields: [QUOTE.ghlOpportunityId, QUOTE.ghlContactId, QUOTE.phone, QUOTE.email, QUOTE.quoteNumber, QUOTE.siteAddress, QUOTE.addressStatus, QUOTE.projectNumber, QUOTE.folderUrl, QUOTE.companyCamUrl],
+  });
   return rows.map((r) => ({
     id: r.id,
     opportunityId: str(r.fields[QUOTE.ghlOpportunityId]),
     contactId: str(r.fields[QUOTE.ghlContactId]),
     phone: str(r.fields[QUOTE.phone]),
     email: str(r.fields[QUOTE.email]),
+    quoteNumber: str(r.fields[QUOTE.quoteNumber]),
+    siteAddress: str(r.fields[QUOTE.siteAddress]),
+    addressStatus: str(r.fields[QUOTE.addressStatus]),
+    won: Boolean(str(r.fields[QUOTE.projectNumber])),
+    folderUrl: str(r.fields[QUOTE.folderUrl]),
+    companyCamUrl: str(r.fields[QUOTE.companyCamUrl]),
   }));
 }
 

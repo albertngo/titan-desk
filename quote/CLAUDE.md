@@ -26,6 +26,14 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   address from the contact; a *confirmed* address from the opportunity's Project Address; and
   no address change once won (Notion owns it). Nothing is blanked. Rules: `src/lib/link/refresh.ts`,
   tested in `tests/refresh.test.ts`. GHL being down never stops a quote opening.
+- **Where the site address comes from (Albert, 2026-10-15).** Staff type it on the GHL contact,
+  nowhere else: the contact's address is where the next appointment is (the booking texts read
+  it too). It reaches the job's opportunity at three moments only: GHL's own workflow fills a
+  blank Project Address when an opportunity is created (unconfirmed); booking (`/api/booking`)
+  copies the contact's address onto that job as the confirmed site; "Address arrived" fills a
+  booked job's site that is still blank. A confirmed site never changes because the contact did;
+  fixing one is done on the opportunity's Project Address. The app writes a site onto an
+  opportunity only when it is confirmed.
 - **One shared name:** `First Surname - MMYY - Q-1234`, then ` - PP-412` once won. First name
   first (Albert, 2026-10-14); MMYY is the month the quote was created, in Toronto time, never the
   city, which customers type loosely (2026-10-15). The name never changes once a folder has it. `displayName()` in `src/lib/link/identity.ts` and the Quotes table's Display Name
@@ -58,14 +66,15 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
 2a. **One file talks to GHL, and only reads:** `src/lib/ghl/client.ts`, `server-only`, GET
    only, the only reader of `QUOTE_GHL_TOKEN` (contacts.readonly + opportunities.readonly).
 2b. **One file sends to Make:** `src/lib/make/client.ts`, `server-only`, the only reader of
-   `QUOTE_MAKE_GHL_HOOK` / `QUOTE_MAKE_GHL_KEY`, called only from `src/lib/quotes/start.ts`.
+   `QUOTE_MAKE_GHL_HOOK` / `QUOTE_MAKE_GHL_KEY`, called only from `src/lib/quotes/start.ts` and `src/lib/quotes/booking.ts`.
    Set those two variables only after the scenario is switched on: a request to a scenario
    that is off waits in Make's queue and would run later.
 2c. **One path without a sign-in:** `/api/booking`, called by Make 3453735 when an appointment
-   is booked. The proxy lets only that path through; the route and every function in
+   is confirmed. The proxy lets only that path through; the route and every function in
    `src/lib/quotes/booking.ts` check `QUOTE_BOOKING_KEY` first (constant-time; unset = off). Make
-   sends only the opportunity and contact ids, and the customer is read from GHL, never taken
-   from the request. It writes the Quotes table (and a version 1) only.
+   sends only the contact id and, when GHL has one, the opportunity id; the customer is read from
+   GHL, never taken from the request. It writes the Quotes table (and a version 1), and creates a
+   GHL opportunity through Make only when the contact had none open.
 3. **Staff is not enough.** Only emails on `QUOTE_ALLOWED_EMAILS` get in. The proxy checks
    it and every loader in `src/lib/quotes/load.ts` and `src/lib/quotes/start.ts` checks again
    (`requireQuoter()`). An empty list lets nobody in.
