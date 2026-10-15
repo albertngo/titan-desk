@@ -225,7 +225,7 @@ export function OptionSheet({
       <div className="actions">
         <a className="btn" href={airtableUrl} target="_blank" rel="noreferrer">Open in Airtable</a>
         <Link className="btn" href={editHref}>Edit</Link>
-        <span className="btn primary" aria-disabled="true" title="Comes with Send">Send to customer</span>
+        {!customer && <a className="btn primary" href="#send">Send to customer</a>}
       </div>
     </>
   );

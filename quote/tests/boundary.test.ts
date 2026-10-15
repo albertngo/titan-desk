@@ -12,7 +12,7 @@ const SRC = path.resolve(__dirname, "../src");
 const CLIENT = "lib/airtable/client.ts";
 const GHL = "lib/ghl/client.ts";
 /** The only files allowed to create or update Airtable records. Adding one is a reviewed decision. */
-const WRITERS = ["lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts"];
+const WRITERS = ["lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts"];
 const CATALOGUE = "tblfLXD3zkSdNQGbS";
 
 function files(dir: string): string[] {
@@ -41,6 +41,8 @@ describe("Airtable boundary", () => {
     for (const verb of ["PUT", "DELETE"]) expect(client).not.toMatch(new RegExp(`["'\`]${verb}["'\`]`));
     // Every write goes through write(), which refuses any table outside WRITABLE_TABLES.
     expect(client).toMatch(/if \(!WRITABLE_TABLES\.includes\(table\)\) throw/);
+    // The customer deployment never writes, whatever its token allows.
+    expect(client).toMatch(/if \(isCustomerDeployment\(\)\) throw/);
     // Two requests in the whole file: get() and write(). A third fetch would bypass the table check.
     expect(client.match(/\bfetch\(/g)?.length).toBe(2);
   });
@@ -60,7 +62,7 @@ describe("Airtable boundary", () => {
   });
 
   it("keeps the client, the loaders and the auth check server-only", () => {
-    for (const rel of [CLIENT, GHL, "lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/auth.ts"]) {
+    for (const rel of [CLIENT, GHL, "lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/customer.ts", "lib/auth.ts"]) {
       expect(all.find((f) => f.rel === rel)!.text).toMatch(/^import "server-only";/m);
     }
   });
@@ -68,7 +70,7 @@ describe("Airtable boundary", () => {
   it("never imports Airtable code into a browser component", () => {
     const leaks = all
       .filter((f) => /^["']use client["'];?/m.test(f.text))
-      .filter((f) => /^import (?!type )[^;]*from ["']@\/lib\/(airtable|quotes\/load|quotes\/start|quotes\/save|quotes\/refresh|quotes\/records|quotes\/booking|quotes\/link|ghl\/client|make\/client|auth)/m.test(f.text))
+      .filter((f) => /^import (?!type )[^;]*from ["']@\/lib\/(airtable|quotes\/load|quotes\/start|quotes\/save|quotes\/refresh|quotes\/records|quotes\/booking|quotes\/link|quotes\/send|quotes\/customer|ghl\/client|make\/client|auth)/m.test(f.text))
       .map((f) => f.rel);
     expect(leaks).toEqual([]);
   });
@@ -79,7 +81,7 @@ describe("Airtable boundary", () => {
 
   it("checks the quoter allowlist in both the proxy and every loader", () => {
     expect(all.find((f) => f.rel === "proxy.ts")!.text).toContain("isQuoter(");
-    for (const rel of ["lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/link.ts"]) {
+    for (const rel of ["lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/link.ts", "lib/quotes/send.ts"]) {
       const text = all.find((f) => f.rel === rel)!.text;
       const exported = text.match(/export async function \w+/g) ?? [];
       const guarded = text.match(/export async function \w+[^{]*\{\s*(const \w+ = )?await requireQuoter\(\);/g) ?? [];
@@ -105,9 +107,10 @@ describe("booking step (Make, no sign-in)", () => {
     expect(text).toMatch(/if \(!want \|\| !given\) return false;/);
   });
 
-  it("is the only path the proxy lets through without a sign-in", () => {
+  it("is the only path the staff app lets through without a sign-in, besides signing in", () => {
     const proxy = all.find((f) => f.rel === "proxy.ts")!.text;
-    expect(proxy).toContain('matcher: ["/((?!_next/|login|auth/|denied|api/booking|favicon\\\\.ico|robots\\\\.txt).*)"]');
+    expect(proxy).toContain('matcher: ["/((?!_next/|favicon\\\\.ico|robots\\\\.txt).*)"]');
+    expect(proxy).toContain("const OPEN_ON_STAFF = /^\\/(login|auth\\/|denied|api\\/booking)/;");
     expect(all.filter((f) => f.rel.startsWith("app/api/")).map((f) => f.rel)).toEqual([ROUTE]);
   });
 
@@ -136,9 +139,41 @@ describe("Make boundary", () => {
     expect(all.filter((f) => /hook\.[a-z0-9]+\.make\.com|make\.com\//.test(code(f.text))).map((f) => f.rel)).toEqual([]);
   });
 
-  it("is server-only and only reached from starting a quote, the booking step and linking a quote", () => {
+  it("is server-only and only reached from starting, booking, linking and sending a quote", () => {
     expect(all.find((f) => f.rel === "lib/make/client.ts")!.text).toMatch(/^import "server-only";/m);
     const callers = all.filter((f) => f.rel !== "lib/make/client.ts" && /from ["']@\/lib\/make\/client["']/.test(f.text)).map((f) => f.rel);
-    expect(callers.sort()).toEqual(["lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/start.ts"]);
+    expect(callers.sort()).toEqual(["lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/start.ts"]);
+  });
+});
+
+describe("customer links (no sign-in, customer deployment only)", () => {
+  const LOADER = "lib/quotes/customer.ts";
+  const text = () => code(all.find((f) => f.rel === LOADER)!.text);
+
+  it("answers only on the customer deployment and only for a well-formed token, before touching Airtable", () => {
+    const exported = text().match(/export async function \w+/g) ?? [];
+    const guarded = text().match(/export async function \w+\(token: string\)[^{]*\{\s*if \(!isCustomerDeployment\(\) \|\| !isToken\(token\)\) return null;/g) ?? [];
+    expect(exported.length).toBe(1);
+    expect(guarded.length).toBe(1);
+  });
+
+  it("reads only: no write, no sign-in code, and it returns the frozen copy, not live lines", () => {
+    expect(text()).not.toMatch(/\b(createRecords?|updateRecords?)\(/);
+    expect(text()).not.toMatch(/requireQuoter|@\/lib\/auth|getQuote|VERSION\.(lines|options|notes)|T\.(lines|options)/);
+    expect(text()).toMatch(/parseCopy\(/);
+  });
+
+  it("is reached from the customer pages only, and they reach nothing else that reads Airtable", () => {
+    const importers = all.filter((f) => /from ["']@\/lib\/quotes\/customer["']/.test(f.text)).map((f) => f.rel).sort();
+    expect(importers).toEqual(["app/c/[token]/[file]/route.ts", "app/c/[token]/page.tsx"]);
+    for (const f of all.filter((x) => x.rel.startsWith("app/c/"))) {
+      const lib = [...f.text.matchAll(/from ["']@\/lib\/([^"']+)["']/g)].map((m) => m[1]);
+      expect(lib.every((l) => ["quotes/customer", "send/copy", "send/pdf"].includes(l))).toBe(true);
+    }
+  });
+
+  it("the proxy serves customer links only on the customer deployment, and 404s them on the staff app", () => {
+    const proxy = code(all.find((f) => f.rel === "proxy.ts")!.text);
+    expect(proxy).toMatch(/export async function proxy\(request: NextRequest\) \{\s*const path = request\.nextUrl\.pathname;\s*if \(isCustomerDeployment\(\)\) return CUSTOMER_PAGES\.test\(path\) \? NextResponse\.next\(\) : notFound\(\);\s*if \(path\.startsWith\("\/c\/"\)\) return notFound\(\);/);
   });
 });

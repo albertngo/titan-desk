@@ -5,6 +5,7 @@ import { CustomerCard } from "@/components/CustomerCard";
 import { Financials } from "@/components/Financials";
 import { LinkJob } from "@/components/LinkJob";
 import { OptionSheet } from "@/components/OptionSheet";
+import { SendQuote } from "@/components/SendQuote";
 import { TopBar } from "@/components/TopBar";
 import { airtableRecordUrl, T } from "@/lib/airtable/fields";
 import { requireQuoter } from "@/lib/auth";
@@ -14,6 +15,11 @@ import { jobChoices } from "@/lib/quotes/link";
 import { getQuote } from "@/lib/quotes/load";
 import { refreshFromGhl } from "@/lib/quotes/refresh";
 import { customerView } from "@/lib/view";
+import { fromQuote } from "@/lib/editor/model";
+import { fingerprint } from "@/lib/quotes/savePlan";
+import { sendingReady, sentLink } from "@/lib/quotes/send";
+import { addDays, torontoToday, VALID_DAYS } from "@/lib/send/copy";
+import { sendProblems } from "@/lib/send/plan";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Quote" };
@@ -39,6 +45,33 @@ export default async function QuotePage({
   // A quote with no GHL opportunity yet (Needs linking): offer the customer's jobs to link it to.
   const unlinked = quote.link && !quote.link.ghlOpportunityId ? quote.link : null;
   const jobs = unlinked ? await jobChoices(unlinked.quoteRecordId) : null;
+
+  // Sending (milestone 4): what would stop it, decided by the same check the send runs.
+  const today = torontoToday(new Date());
+  const base = fingerprint(fromQuote(quote));
+  const defaultUntil = quote.validUntil && quote.validUntil >= today ? quote.validUntil : addDays(today, VALID_DAYS);
+  const draft = quote.status === "Draft";
+  const [ready, link] = await Promise.all([sendingReady(), sentLink(quote.customerToken)]);
+  const problems = draft
+    ? sendProblems(quote, { base, validUntil: defaultUntil, channels: { email: !!quote.link?.email, sms: !!quote.link?.phone } }, { today, fingerprint: base })
+    : [];
+  const send = customer ? null : (
+    <SendQuote
+      versionId={quote.id}
+      label={`${quote.link?.quoteNumber ?? quote.quoteId ?? "this quote"}${quote.version !== null ? ` v${quote.version}` : ""}`}
+      status={quote.status}
+      base={base}
+      today={today}
+      defaultUntil={defaultUntil}
+      maxUntil={addDays(today, 365)}
+      firstName={quote.link?.firstName ?? null}
+      email={quote.link?.email ?? null}
+      phone={quote.link?.phone ?? null}
+      problems={problems}
+      ready={ready}
+      sent={draft ? null : { sentAt: quote.sentAt, sentBy: quote.sentBy, sentTo: quote.sentTo, validUntil: quote.validUntil, link }}
+    />
+  );
 
   return (
     <>
@@ -108,17 +141,21 @@ export default async function QuotePage({
                 <p className="empty">This quote has no options yet.</p>
               </section>
             )}
+            {!(option && totals) && send}
           </div>
 
           {option && totals && (
-            <Financials
-              lines={option.lines}
-              t={totals}
-              discountRate={quote.discountRate}
-              showHst={quote.showHst}
-              agrees={parityDiffs(totals, option.airtable).length === 0}
-              customer={customer}
-            />
+            <div className="stack">
+              {send}
+              <Financials
+                lines={option.lines}
+                t={totals}
+                discountRate={quote.discountRate}
+                showHst={quote.showHst}
+                agrees={parityDiffs(totals, option.airtable).length === 0}
+                customer={customer}
+              />
+            </div>
           )}
         </div>
       </div>

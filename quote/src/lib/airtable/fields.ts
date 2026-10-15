@@ -63,6 +63,13 @@ export const VERSION = {
   discountRate: "fldiQXF2LNtK5Auix",
   /** The version this one replaced (Save as new version). */
   supersedes: "fldPJSJz7AWEBdyRD",
+  /** Airtable's own guard (formula): text when a preliminary must not be sent because a measured version exists. */
+  sendBlock: "fld0Rr4cYWdLIPhgI",
+  /** Sending (2026-10-15): the customer link's secret, the frozen customer copy, and who sent it how. */
+  customerToken: "fld1fHEStYhiWXIp8",
+  customerCopy: "fldolHclfZEvpNfVD",
+  sentBy: "fld9H5ufunLFG5Tak",
+  sentTo: "fldC6n0ROmUBqL7pw",
 } as const;
 
 export const OPTION = {

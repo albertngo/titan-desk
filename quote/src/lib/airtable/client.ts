@@ -1,4 +1,5 @@
 import "server-only";
+import { isCustomerDeployment } from "@/lib/mode";
 import { BASE_ID, WRITABLE_TABLES } from "./fields";
 
 /**
@@ -7,7 +8,8 @@ import { BASE_ID, WRITABLE_TABLES } from "./fields";
  *
  * Reads are GET. Writes (from milestone 3, 2026-10-14) are POST to create and PATCH to update,
  * and only ever to the four quote tables in WRITABLE_TABLES: `write()` refuses any other table
- * before a request leaves the server. There is no delete and no PUT. tests/boundary.test.ts
+ * before a request leaves the server, and refuses everything on the customer deployment, whose
+ * token is read-only anyway (src/lib/mode.ts). There is no delete and no PUT. tests/boundary.test.ts
  * enforces all of this, so a catalogue, Rate Card or Stair Items write can never ship.
  */
 
@@ -47,6 +49,7 @@ async function get(path: string, params: URLSearchParams): Promise<unknown> {
 
 async function write(method: "POST" | "PATCH", table: string, path: string, body: unknown): Promise<unknown> {
   if (!WRITABLE_TABLES.includes(table)) throw new AirtableError(`Refused: the quote app never writes to ${table}`, 403);
+  if (isCustomerDeployment()) throw new AirtableError("Refused: the customer deployment never writes", 403);
   const res = await fetch(`${API}/${BASE_ID}/${path}`, {
     method,
     headers: { Authorization: `Bearer ${token()}`, "Content-Type": "application/json" },

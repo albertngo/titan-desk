@@ -1,0 +1,242 @@
+import { SECTIONS, isPriced, lineTotal, optionTotals, priceUsed, round2, sectionOf } from "@/lib/calc";
+import type { Quote, QuoteLine, QuoteOption } from "@/lib/quotes/types";
+
+/**
+ * The customer copy: exactly what a customer is sent, frozen on the version at send time
+ * (Quote Versions → Customer Copy). The customer page and the PDF are drawn from it and from
+ * nothing else, so what the customer sees can never drift from what was sent, and the public
+ * side of the app never touches a live line.
+ *
+ * It is built from a whitelist. Cost, margin, profit, contractor, card rates, flags and
+ * internal notes are never copied in; tests/send.test.ts checks that none of them can reach it.
+ */
+
+export const COPY_VERSION = 1;
+
+export type CopyItem = {
+  kind: "item";
+  /** Running number across the option; optional add-ons are not numbered. */
+  n: number | null;
+  description: string;
+  /** Room or area, and the note for the customer, joined. */
+  note: string | null;
+  /** Quantity including any waste allowance, so quantity × unit price is the amount. */
+  qty: number | null;
+  uom: string | null;
+  /** Whole percent of waste included in `qty`, when there is any. */
+  wastePct: number | null;
+  /** Null when a minimum charge sets the amount instead. */
+  unitPrice: number | null;
+  minimum: boolean;
+  amount: number;
+  /** An add-on the customer can choose: priced, not in the total. */
+  optional: boolean;
+};
+export type CopyText = { kind: "text"; text: string; note: string | null };
+export type CopySection = { name: string; total: number; lines: (CopyItem | CopyText)[] };
+
+export type CopyTotals = {
+  preDiscount: number;
+  discount: number;
+  subtotal: number;
+  hst: number;
+  total: number;
+  payment1: number;
+  payment2: number;
+  paymentFinal: number;
+};
+
+export type CopyOption = {
+  name: string;
+  description: string | null;
+  recommended: boolean;
+  sections: CopySection[];
+  exclusions: string[];
+  totals: CopyTotals;
+};
+
+export type Letterhead = {
+  name: string;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  hstNumber: string | null;
+};
+
+export type CustomerCopy = {
+  v: typeof COPY_VERSION;
+  quoteNumber: string;
+  version: number | null;
+  basis: string | null;
+  /** YYYY-MM-DD, Toronto. */
+  sentOn: string;
+  validUntil: string;
+  customer: { name: string | null; siteAddress: string | null; siteCity: string | null };
+  /** Fraction, e.g. 0.11. */
+  discountRate: number;
+  showHst: boolean;
+  company: Letterhead;
+  options: CopyOption[];
+};
+
+const clean = (s: string | null | undefined) => (s ?? "").replace(/\s+/g, " ").trim() || null;
+
+/** Priced sections in work order, as the quote page shows them; exclusions are listed separately. */
+function sectionNames(lines: QuoteLine[]): string[] {
+  const present = new Set(lines.filter((l) => isPriced(l) || l.lineType === "Note" || l.lineType === "Section").map(sectionOf));
+  present.delete("Exclusions");
+  const out: string[] = SECTIONS.filter((s) => present.has(s));
+  if (present.has("Unsorted")) out.push("Unsorted");
+  return out;
+}
+
+function copyOption(o: QuoteOption, discountRate: number, showHst: boolean): CopyOption {
+  let n = 0;
+  const sections: CopySection[] = [];
+  for (const name of sectionNames(o.lines)) {
+    const lines: (CopyItem | CopyText)[] = [];
+    let total = 0;
+    for (const l of o.lines.filter((x) => sectionOf(x) === name)) {
+      const note = clean([l.area, l.clientNote].filter(Boolean).join(" · "));
+      if (!isPriced(l)) {
+        const text = clean(l.description);
+        if (text) lines.push({ kind: "text", text, note: clean(l.clientNote) });
+        continue;
+      }
+      // An add-on is shown at the price it would add; it is not counted.
+      const amount = lineTotal({ ...l, include: true }) ?? 0;
+      if (amount === 0 && !l.include) continue;
+      const extent = (l.qty ?? 0) * (1 + (l.waste ?? 0));
+      const price = priceUsed(l);
+      // calc.ts charges the minimum when the line comes in under it; say so rather than show a price that doesn't multiply out.
+      const minimum = (l.minChargeSnap ?? 0) > 0 && extent * price > 0 && extent * price < (l.minChargeSnap ?? 0);
+      const qty = l.qty === null ? null : round2(extent);
+      if (l.include) total += amount;
+      lines.push({
+        kind: "item",
+        n: l.include ? ++n : null,
+        description: clean(l.description) ?? "Item",
+        note,
+        qty,
+        uom: clean(l.uom),
+        wastePct: l.waste ? Math.round(l.waste * 100) : null,
+        unitPrice: minimum ? null : price,
+        minimum,
+        amount,
+        optional: !l.include,
+      });
+    }
+    if (lines.length) sections.push({ name: name === "Unsorted" ? "Other" : name, total: round2(total), lines });
+  }
+  const t = optionTotals(o.lines, discountRate, showHst);
+  return {
+    name: clean(o.name) ?? "Option",
+    description: o.description?.trim() || null,
+    recommended: o.recommended,
+    sections,
+    exclusions: o.lines.filter((l) => l.section === "Exclusions").flatMap((l) => clean(l.description) ?? []),
+    totals: {
+      preDiscount: t.preDiscount,
+      discount: t.discount,
+      subtotal: t.subtotal,
+      hst: t.hst,
+      total: t.total,
+      payment1: t.payment1,
+      payment2: t.payment2,
+      paymentFinal: t.paymentFinal,
+    },
+  };
+}
+
+export function customerCopy(quote: Quote, at: { sentOn: string; validUntil: string; company: Letterhead }): CustomerCopy {
+  const name = clean([quote.link?.firstName, quote.link?.lastName].filter(Boolean).join(" ")) ?? clean(quote.customerName);
+  return {
+    v: COPY_VERSION,
+    quoteNumber: quote.link?.quoteNumber ?? quote.quoteId ?? "Quote",
+    version: quote.version,
+    basis: quote.basis,
+    sentOn: at.sentOn,
+    validUntil: at.validUntil,
+    customer: { name, siteAddress: clean(quote.siteAddress), siteCity: clean(quote.siteCity) },
+    discountRate: quote.discountRate,
+    showHst: quote.showHst,
+    company: at.company,
+    options: quote.options.map((o) => copyOption(o, quote.discountRate, quote.showHst)),
+  };
+}
+
+/** Airtable long text holds 100,000 characters; a copy that won't fit is refused, never cut. */
+export const COPY_MAX_CHARS = 95_000;
+
+export function serializeCopy(copy: CustomerCopy): string {
+  return JSON.stringify(copy);
+}
+
+/** Read a stored copy back. Anything that isn't a copy this code wrote reads as null. */
+export function parseCopy(raw: string | null): CustomerCopy | null {
+  if (!raw) return null;
+  try {
+    const c = JSON.parse(raw) as CustomerCopy;
+    if (c?.v !== COPY_VERSION || typeof c.quoteNumber !== "string" || !Array.isArray(c.options) || !c.company) return null;
+    return c;
+  } catch {
+    return null;
+  }
+}
+
+/* ---------- dates (Toronto) ---------- */
+
+const ISO = /^\d{4}-\d{2}-\d{2}$/;
+export const isIsoDate = (s: unknown): s is string => typeof s === "string" && ISO.test(s) && !Number.isNaN(Date.parse(`${s}T00:00:00Z`));
+
+/** Today in Toronto, YYYY-MM-DD. */
+export function torontoToday(now: Date): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+}
+
+export function addDays(iso: string, days: number): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/** "November 14, 2026". */
+export function longDate(iso: string): string {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-CA", { timeZone: "UTC", month: "long", day: "numeric", year: "numeric" });
+}
+
+/** A quote is good for 30 days unless staff choose otherwise (Albert, 2026-10-15). */
+export const VALID_DAYS = 30;
+
+/* ---------- what the customer link shows ---------- */
+
+/**
+ * What a customer opening the link should see, from the version's status today.
+ * A version that was never sent is not shown at all, even if it has a token: a send that
+ * failed half way must not leave a working link behind.
+ */
+export type CopyState = "open" | "expired" | "accepted" | "closed" | "replaced" | "hidden";
+
+export function copyState(status: string | null, validUntil: string | null, today: string): CopyState {
+  switch (status) {
+    case "Sent":
+      return validUntil && today > validUntil ? "expired" : "open";
+    case "Accepted":
+    case "Won":
+      return "accepted";
+    case "Lost":
+    case "Expired":
+      return "closed";
+    case "Superseded":
+      return "replaced";
+    default:
+      return "hidden";
+  }
+}
+
+/** The PDF's file name, which is also the end of its link: GHL names the email attachment from it. */
+export function pdfName(copy: Pick<CustomerCopy, "quoteNumber" | "version">): string {
+  const q = copy.quoteNumber.replace(/[^A-Za-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") || "Quote";
+  return `Titan-Flooring-Quote-${q}${copy.version !== null ? `-v${copy.version}` : ""}.pdf`;
+}

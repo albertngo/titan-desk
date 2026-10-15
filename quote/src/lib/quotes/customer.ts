@@ -1,0 +1,50 @@
+import "server-only";
+import { listByIds, listRecords } from "@/lib/airtable/client";
+import { QUOTE, T, VERSION } from "@/lib/airtable/fields";
+import { isCustomerDeployment } from "@/lib/mode";
+import { copyState, parseCopy, torontoToday, type CopyState, type CustomerCopy } from "@/lib/send/copy";
+import { isToken } from "@/lib/send/plan";
+import { ids, num, str } from "./values";
+
+/**
+ * The customer's side: a sent quote, found by the secret in its link. The ONE loader without a
+ * sign-in, so it is narrow on purpose:
+ *
+ * - it answers only on the customer deployment (QUOTE_MODE=customer, read-only token), and only
+ *   for a well-formed token, before touching Airtable;
+ * - it returns the frozen customer copy and nothing else: never a live line, cost or note;
+ * - a version that was never really sent, or whose copy is missing, reads as not found.
+ *
+ * tests/boundary.test.ts pins all three, and that only app/c/ imports this file.
+ */
+
+export type CustomerQuote = { copy: CustomerCopy; state: CopyState; today: string; newerToken: string | null };
+
+export async function customerQuote(token: string): Promise<CustomerQuote | null> {
+  if (!isCustomerDeployment() || !isToken(token)) return null;
+  const found = await listRecords(T.versions, {
+    fields: [VERSION.status, VERSION.validUntil, VERSION.customerCopy, VERSION.quote],
+    filterByFormula: `{${VERSION.customerToken}}='${token}'`,
+  });
+  if (found.length !== 1) return null;
+  const f = found[0].fields;
+  const today = torontoToday(new Date());
+  const state = copyState(str(f[VERSION.status]), str(f[VERSION.validUntil]), today);
+  const copy = parseCopy(str(f[VERSION.customerCopy]));
+  if (state === "hidden" || !copy) return null;
+  const newerToken = state === "replaced" ? await newestSent(ids(f[VERSION.quote])[0], found[0].id) : null;
+  return { copy, state, today, newerToken };
+}
+
+/** For a replaced version: the link of the quote's newest version that is out with the customer. */
+async function newestSent(quoteRecordId: string | undefined, self: string): Promise<string | null> {
+  if (!quoteRecordId) return null;
+  const quote = await listByIds(T.quotes, [quoteRecordId], [QUOTE.versions]);
+  const others = ids(quote[0]?.fields[QUOTE.versions]).filter((id) => id !== self);
+  if (others.length === 0) return null;
+  const versions = await listByIds(T.versions, others, [VERSION.status, VERSION.version, VERSION.customerToken]);
+  const live = versions
+    .filter((v) => ["Sent", "Accepted", "Won"].includes(str(v.fields[VERSION.status]) ?? "") && isToken(str(v.fields[VERSION.customerToken])))
+    .sort((a, b) => (num(b.fields[VERSION.version]) ?? 0) - (num(a.fields[VERSION.version]) ?? 0));
+  return live.length ? str(live[0].fields[VERSION.customerToken]) : null;
+}

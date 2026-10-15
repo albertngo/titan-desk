@@ -50,6 +50,23 @@ repo with Root Directory `quote`. Rules for changing it: `CLAUDE.md` in this fol
 | `QUOTE_BOOKING_KEY` | the key the booking scenario (Make 3453735) sends to `/api/booking` in the `x-quote-key` header. Unset = the booking step is off. Kept in Make and Vercel only |
 | `QUOTE_GHL_TOKEN` | its own GHL private integration token, read-only: `contacts.readonly`, `opportunities.readonly`. Without it, New quote can only add new customers |
 | `QUOTE_ALLOWED_EMAILS` | comma-separated Microsoft emails allowed to quote |
+| `QUOTE_CUSTOMER_URL` | the customer deployment's address (below), e.g. `https://titan-desk-quote-view.vercel.app`. Unset = sending is off |
+| `QUOTE_COMPANY_NAME` · `_ADDRESS` · `_PHONE` · `_EMAIL` · `_WEBSITE` · `_HST` | the letterhead on every quote sent (name defaults to Titan Flooring; a blank one is left off). Frozen into each quote when it is sent |
+
+## The customer deployment (sending quotes)
+
+Customer links (`/c/<token>`) and their PDFs are served by a **second Vercel project built from
+this same folder**, because a public page never shares a deployment with a write token (root
+CLAUDE.md). It holds two variables and nothing else:
+
+| Variable | Value |
+|---|---|
+| `QUOTE_MODE` | `customer` |
+| `QUOTE_AIRTABLE_TOKEN` | a **read-only** Airtable token: Bert base only, `data.records:read` |
+
+On that deployment every path except `/c/<token>` answers 404 and the Airtable client refuses
+to write. On the staff app, `/c/` answers 404. Staff check what the customer will get with
+**Preview** on the quote page (`/q/<id>/preview` and `/q/<id>/pdf`, signed in).
 
 Function region `yul1` (Montréal), same as the desk — set in `vercel.json`, not the dashboard.
 
@@ -62,5 +79,6 @@ pointing at the desk.
 
 ## If it is down
 
-Quote in the Excel template. Sent quotes are PDFs in each customer's OneDrive folder, so
-nothing a customer has been sent depends on this app being up.
+Quote in the Excel template. A quote sent from this app is frozen on its version in Airtable
+(Customer Copy) and its PDF went out attached to the email, so what a customer was sent never
+depends on this app being up; only the link needs the customer deployment.
