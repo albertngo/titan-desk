@@ -120,7 +120,7 @@ export type CustomerSearch =
   | { ok: false; reason: "not-configured" | "error"; message: string };
 
 export type StartResult =
-  | { ok: true; versionId: string; reused: boolean }
+  | { ok: true; versionId: string; reused: boolean; /** The quick form's lines went in, so the quote opens for review, not in the editor. */ filled: boolean }
   /** `duplicates`: GHL already has someone with the phone or email typed for a "new" customer. */
   | { ok: false; message: string; duplicates?: FoundCustomer[] };
 
@@ -144,3 +144,5 @@ export type JobChoice = {
 export type JobChoices = { ok: true; canLink: boolean; choices: JobChoice[] } | { ok: false; message: string };
 
 export type LinkJobResult = { ok: true } | { ok: false; message: string };
+
+export type ConfirmAddressResult = { ok: true } | { ok: false; message: string };

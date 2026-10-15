@@ -5,7 +5,9 @@ import { useState, useTransition } from "react";
 import { searchCustomersAction, startQuoteAction } from "@/app/new/actions";
 import { displayPhone } from "@/lib/link/identity";
 import { stageFor, TIMINGS, type Timing } from "@/lib/link/lead";
+import type { QuickChoice } from "@/lib/quick/plan";
 import type { CustomerSearch, FoundCustomer } from "@/lib/quotes/types";
+import { initialWork, QuickWork, workInput, type WorkState } from "./QuickWork";
 
 type Choice = { contactId: string; opportunityId: string | null } | { newCustomer: true } | null;
 
@@ -15,7 +17,8 @@ const blankCustomer = { firstName: "", lastName: "", phone: "", email: "", addre
  * Start a quote: find the customer in GHL, pick the opportunity (or a new one), answer the
  * timing question. Customer details are never typed here unless the customer is brand new.
  */
-export function NewQuote({ ghlWrites }: { ghlWrites: boolean }) {
+export function NewQuote({ ghlWrites, choices }: { ghlWrites: boolean; choices: QuickChoice[] }) {
+  const [work, setWork] = useState<WorkState>(() => initialWork(choices));
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<CustomerSearch | null>(null);
   const [searching, startSearch] = useTransition();
@@ -53,8 +56,8 @@ export function NewQuote({ ghlWrites }: { ghlWrites: boolean }) {
   function create(forceNew = false) {
     setError(null);
     const input = picked
-      ? { contactId: picked.contact.id, opportunityId: (choice as { opportunityId: string | null }).opportunityId, timing, addressConfirmed: confirmed }
-      : { timing, newCustomer: nc, forceNew };
+      ? { contactId: picked.contact.id, opportunityId: (choice as { opportunityId: string | null }).opportunityId, timing, addressConfirmed: confirmed, work: workInput(work) }
+      : { timing, newCustomer: nc, forceNew, work: workInput(work) };
     startCreate(async () => {
       const r = await startQuoteAction(input);
       if (!r || r.ok) return;
@@ -76,7 +79,7 @@ export function NewQuote({ ghlWrites }: { ghlWrites: boolean }) {
         <div className="titles">
           <Link className="crumb" href="/">← Quotes</Link>
           <h1>New quote</h1>
-          <p>Find the customer in GHL, pick their opportunity, and ask when they plan to do the project.</p>
+          <p>Find the customer in GHL, pick their opportunity, ask when they plan to do the project, then pick the work. It becomes the preliminary quote.</p>
         </div>
       </div>
 
@@ -219,6 +222,15 @@ export function NewQuote({ ghlWrites }: { ghlWrites: boolean }) {
           </div>
         </div>
       </section>
+
+      {choices.length > 0 && (
+        <section className="card">
+          <div className="card-h">{picked ? "4" : "3"} · The job <span className="right">Preliminary, not measured</span></div>
+          <div className="card-b">
+            <QuickWork choices={choices} value={work} onChange={setWork} />
+          </div>
+        </section>
+      )}
 
       <div className="nq-foot">
         {(picked || isNew) && (

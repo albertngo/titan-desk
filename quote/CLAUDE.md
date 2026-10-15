@@ -58,6 +58,20 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   confirmed site and the CompanyCam link to the opportunity through Make (never over a CompanyCam
   link it already has), sets a lost or abandoned one back to open, and only then marks the quote
   Linked. Rules: `src/lib/link/linkJob.ts`, tested in `tests/linkJob.test.ts`.
+- **Confirm address (Albert, 2026-10-15).** Linking never confirms an address; booking does, and so
+  does **Confirm address** on the quote page, for a site checked with the customer some other way.
+  It confirms only the address the person saw (refused if it changed since the page opened), never
+  a won job's, and on a linked quote writes it to the opportunity through Make before marking it
+  Confirmed. Rule: `confirmAddressCheck()` in `src/lib/link/linkJob.ts`.
+- **Quick form = the preliminary (Albert, 2026-10-15).** Step 4 of New quote, "The job", replaces
+  the GHL "Preliminary Mobile Quote" form: pick work from short lists, type square footage, see a
+  live estimate, and Create quote makes v1 (Preliminary) with one priced option, opened for review.
+  The choices are rows in the Airtable table **Quick Quote Choices** (`QUICK_TABLE`), each pointing
+  at Rate Card rows, Stair Items or, for materials, a standard catalogue **SKU** (text, not a link,
+  so the catalogue's schema and its drift check are untouched); staff can pick a different SKU.
+  Prices are never stored on a choice and never taken from the browser: the server re-prices from
+  Airtable at create time. A choice whose linked row is inactive or unpriced is left off the form.
+  Rules: `src/lib/quick/plan.ts`, tested in `tests/quick.test.ts`.
 - **Customer view (Albert, 2026-10-15).** A switch in the top bar, kept per device in the
   `quote_view` cookie. While on, the server renders no cost, margin, profit, contractor, card rate,
   flags or checks, on every page including the editor: they are not hidden, they are not sent.

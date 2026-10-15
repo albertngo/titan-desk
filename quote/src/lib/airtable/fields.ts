@@ -147,3 +147,33 @@ export const STAIR = {
   cost: "fldX96S7DulWrGjUC",
   active: "fldZwEDirc4fNjRIm",
 } as const;
+
+/**
+ * Quick Quote Choices (created 2026-10-15): one row per choice on the quick, preliminary form.
+ * Read-only here. Each choice points at Rate Card rows, Stair Items or a catalogue SKU; prices
+ * are always read from those, never stored on the choice.
+ */
+export const QUICK_TABLE = "tbld59a6L9SitP0wa";
+export const QUICK = {
+  choice: "fldFyolLOohvDtYJv",
+  group: "fldvhNhq35uLpfevx",
+  rateCard: "fldBgMA3pI8xyqujw",
+  stairItems: "fldjheShInlh7A8OE",
+  standardSku: "fld1gO7oLmBsxOpc2",
+  times: "fldcjNeNpoUhgzdoX",
+  sort: "fld7L4cwcyMS8pZHG",
+  active: "fldlu05SAWQ2wj7qm",
+  needs: "fldTEn9j8KzrJDeQX",
+} as const;
+
+/** The Master Flooring Catalogue, read-only: material prices for the quick form. Ids from platform-settings/airtable.json. */
+export const CATALOGUE_TABLE = "tblfLXD3zkSdNQGbS";
+export const CAT = {
+  sku: "fldx3byCOht5HbKmH",
+  name: "fldPSbURaP3wp0Tce",
+  brand: "fldUnNZptVhSQYp4h",
+  collection: "fldL8miCdB55TWmfJ",
+  cost: "flduJqOhE4YuX3Bmq",
+  retail: "fldpH6d7GlytLLh7Q",
+  active: "fldPsKISM495IjaWU",
+} as const;

@@ -303,6 +303,12 @@ table.items.edit .desc { font-weight: 500; }
 .addbar .lbl { font-size: 12px; color: var(--fg-faint); margin-right: 4px; }
 .chip-btn { font: inherit; font-size: 12px; padding: 5px 12px; border-radius: 99px; border: 1px dashed var(--line-strong); background: var(--card); color: var(--fg-dim); cursor: pointer; }
 .chip-btn:hover { border-style: solid; border-color: var(--accent); color: var(--accent); }
+.ca { flex-basis: 100%; display: grid; gap: 8px; margin-top: 4px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--warn) 35%, var(--line)); border-radius: 8px; background: var(--warn-soft); font-size: 13px; }
+.ca p { margin: 0; }
+.ca .faint { color: var(--fg-dim); }
+.ca-err { color: var(--bad); }
+.ca-btns { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+@media (pointer: coarse) { .ca-btns .btn { min-height: 40px; } .ca-open { min-height: 32px; } }
 .excl { display: flex; gap: 6px; align-items: center; }
 .restored { padding: 10px 16px; }
 
@@ -363,6 +369,35 @@ table.items.edit .desc { font-weight: 500; }
 .lj-foot .faint { margin-right: auto; }
 @media (max-width: 560px) { .lj-foot .btn { width: 100%; justify-content: center; } .lj-head .chip { display: none; } }
 @media (pointer: coarse) { .lj-opt { padding: 12px; } .lj-foot .btn { min-height: 44px; } }
+/* Quick form (New quote, step 4): one fieldset per group, rows of choice + amount, a live total. */
+.qw { display: grid; gap: 14px; }
+.qw-group { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; min-width: 0; }
+.qw-group legend { font-size: 12px; font-weight: 600; color: var(--fg-dim); text-transform: none; padding: 0; margin-bottom: 6px; float: left; width: 100%; }
+.qw-row { display: grid; grid-template-columns: minmax(0, 1fr) 130px 30px; gap: 8px; align-items: center; }
+.qw-row:not(:has(.qw-x)) { grid-template-columns: minmax(0, 1fr) 130px; }
+.qw-row:not(:has(.qw-amt)) { grid-template-columns: minmax(0, 1fr) 30px; }
+.qw-row:not(:has(.qw-amt)):not(:has(.qw-x)) { grid-template-columns: minmax(0, 1fr); }
+.qw-row select.in { min-height: 40px; }
+.qw-amt { position: relative; display: block; }
+.qw-amt input { min-height: 40px; padding-right: 48px; text-align: right; font-variant-numeric: tabular-nums; }
+.qw-amt span { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--fg-faint); pointer-events: none; }
+.qw-x { width: 30px; height: 30px; }
+.qw-add { justify-self: start; color: var(--accent); font-size: 12.5px; }
+.qw-prod { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 6px 10px; border-radius: 6px; background: var(--card-2); font-size: 12.5px; }
+.qw-prod .mt { color: var(--fg-dim); overflow-wrap: anywhere; }
+.qw-prod .linkbtn { font-size: 12.5px; color: var(--accent); }
+.qw-search { flex-basis: 100%; display: grid; gap: 6px; }
+.qw-search-in { display: flex; gap: 6px; }
+.qw-search .pick-list { border: 1px solid var(--line); border-radius: 6px; max-height: 260px; background: var(--card); }
+.qw-extra { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.qw-extra label, .qw-desc { display: grid; gap: 4px; font-size: 12.5px; color: var(--fg-dim); }
+.qw-total { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; margin: 0 -16px -16px; border-top: 1px solid var(--line); background: var(--accent-soft); border-radius: 0 0 var(--radius) var(--radius); font-size: 13px; }
+.qw-total b { font-size: 18px; color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
+@media (max-width: 560px) {
+  .qw-row { grid-template-columns: minmax(0, 1fr) 110px 30px; }
+  .qw-row:not(:has(.qw-x)) { grid-template-columns: minmax(0, 1fr) 110px; }
+}
+@media (pointer: coarse) { .qw-row select.in, .qw-amt input { min-height: 44px; font-size: 16px; } .qw-x { width: 36px; height: 36px; } }
 .nq-newtoggle { justify-self: start; color: var(--accent); }
 .nq-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 12px; }
 .nq-form label { display: grid; gap: 4px; font-size: 12.5px; color: var(--fg-dim); }
