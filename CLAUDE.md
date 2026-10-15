@@ -10,6 +10,7 @@ from `titan-agents`.
 |---|---|---|---|
 | `web/` | the desk: catalogue search, staff askBert | staff (Microsoft sign-in) | never |
 | `quote/` | quoting | named quoters only (`QUOTE_ALLOWED_EMAILS`) | quote tables only, from one file — see `quote/CLAUDE.md` |
+| `quote/` (`QUOTE_MODE=customer`) | a customer's sent quote, `/c/<token>` | anyone holding the link | never: read-only token, and the client refuses (2026-10-15) |
 | (later) | public askBert on the website | anyone | never; its own deployment holding no write secret |
 
 Each app is its own Vercel project with its own secrets. A public app never shares a

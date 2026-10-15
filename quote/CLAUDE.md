@@ -77,6 +77,19 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   flags or checks, on every page including the editor: they are not hidden, they are not sent.
   Charge rates, line totals, the discount, HST and payments stay. Any new screen that shows an
   internal figure must take `customerView()` and leave it out.
+- **Sending (milestone 4, Albert 2026-10-15).** **Send to customer** on a draft's page sends it
+  through GHL (Make 4975508, route `message`): an email with the link and the PDF attached, and/or a
+  text with the link; good for 30 days unless staff pick another date. What may be sent and the
+  message bodies are in `src/lib/send/plan.ts`; the customer copy, a whitelist with no cost, margin,
+  contractor, card rate or internal note, in `src/lib/send/copy.ts`; tested in `tests/send.test.ts`.
+  The copy is **frozen on the version** (Customer Copy) and the version is marked Sent, so locked,
+  before anything leaves; if neither message goes it returns to Draft. Sending a newer version marks
+  older sent ones Superseded, and their links say so. Online acceptance is not built yet.
+- **The customer deployment (2026-10-15).** Customer links `/c/<token>` and their PDFs are served by
+  a second Vercel project on this folder with `QUOTE_MODE=customer` and a read-only Airtable token,
+  never by the staff app (root rule: a public page never shares a deployment with a write token).
+  It reads one thing, `src/lib/quotes/customer.ts`, which shows only the frozen copy of a version
+  that was really sent. The PDF is drawn by `src/lib/send/pdfDoc.ts` (no dependencies).
 - **All quotes (2026-10-15).** One row per quote, its versions folded under it (newest first),
   and a search over name, quote and project number, city, email and phone digits. Grouping and
   search are pure, in `src/lib/quotes/group.ts`, tested in `tests/group.test.ts`.
@@ -94,11 +107,11 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
 2a. **One file talks to GHL, and only reads:** `src/lib/ghl/client.ts`, `server-only`, GET
    only, the only reader of `QUOTE_GHL_TOKEN` (contacts.readonly + opportunities.readonly).
 2b. **One file sends to Make:** `src/lib/make/client.ts`, `server-only`, the only reader of
-   `QUOTE_MAKE_GHL_HOOK` / `QUOTE_MAKE_GHL_KEY`, called only from `src/lib/quotes/start.ts`, `src/lib/quotes/booking.ts` and `src/lib/quotes/link.ts`.
+   `QUOTE_MAKE_GHL_HOOK` / `QUOTE_MAKE_GHL_KEY`, called only from `src/lib/quotes/start.ts`, `src/lib/quotes/booking.ts`, `src/lib/quotes/link.ts` and `src/lib/quotes/send.ts`.
    Set those two variables only after the scenario is switched on: a request to a scenario
    that is off waits in Make's queue and would run later.
-2c. **One path without a sign-in:** `/api/booking`, called by Make 3453735 when an appointment
-   is confirmed. The proxy lets only that path through; the route and every function in
+2c. **One path without a sign-in on the staff app:** `/api/booking`, called by Make 3453735 when an appointment
+   is confirmed. The proxy lets only that path through (besides signing in); the route and every function in
    `src/lib/quotes/booking.ts` check `QUOTE_BOOKING_KEY` first (constant-time; unset = off). Make
    sends only the contact id and, when GHL has one, the opportunity id; the customer is read from
    GHL, never taken from the request. It writes the Quotes table (and a version 1), and creates a
@@ -107,6 +120,11 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
    opportunity GHL sends that isn't open, or isn't in a project pipeline (a STORE order), is ignored.
    It answers `made: true` when the job's folder and CompanyCam project already exist (links on the
    quote, or a CompanyCam URL on the opportunity), and Make then skips making them.
+2d. **Customer links live on the customer deployment only.** There the proxy serves `/c/<token>`
+   and 404s everything else, and `write()` refuses; on the staff app `/c/` is 404.
+   `src/lib/quotes/customer.ts` answers only there and only for a well-formed token, returns the
+   frozen copy and nothing live, and is imported only by `src/app/c/`. `tests/boundary.test.ts`
+   pins all of this.
 3. **Staff is not enough.** Only emails on `QUOTE_ALLOWED_EMAILS` get in. The proxy checks
    it and every loader in `src/lib/quotes/load.ts` and `src/lib/quotes/start.ts` checks again
    (`requireQuoter()`). An empty list lets nobody in.

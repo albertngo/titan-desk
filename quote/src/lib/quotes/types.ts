@@ -66,6 +66,12 @@ export type Quote = {
   discountRate: number;
   validUntil: string | null;
   sentAt: string | null;
+  /** Sending: Airtable's own reason this version must not be sent (a measured version exists), if any. */
+  sendBlock: string | null;
+  /** The customer link's secret, once the version has been sent (or a send was started). */
+  customerToken: string | null;
+  sentBy: string | null;
+  sentTo: string | null;
   notes: string | null;
   customerName: string | null;
   siteAddress: string | null;
@@ -146,3 +152,9 @@ export type JobChoices = { ok: true; canLink: boolean; choices: JobChoice[] } | 
 export type LinkJobResult = { ok: true } | { ok: false; message: string };
 
 export type ConfirmAddressResult = { ok: true } | { ok: false; message: string };
+
+/* ---------- sending a quote (src/lib/quotes/send.ts) ---------- */
+
+export type SendResult =
+  | { ok: true; link: string; sentTo: string[]; warning: string | null }
+  | { ok: false; message: string; problems?: string[] };

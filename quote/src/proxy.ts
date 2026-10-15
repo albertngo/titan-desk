@@ -1,13 +1,27 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { isQuoter, quoterAllowlist } from "@/lib/access";
+import { isCustomerDeployment } from "@/lib/mode";
+
+/** Pages a staff member reaches before signing in, and the booking step Make calls (it checks its own key). */
+const OPEN_ON_STAFF = /^\/(login|auth\/|denied|api\/booking)/;
+/** The only pages the customer deployment serves: customer links. */
+const CUSTOMER_PAGES = /^\/c\/[A-Za-z0-9]+(\/[^/]+)?$/;
+
+const notFound = () => new NextResponse("Not found", { status: 404, headers: { "Content-Type": "text/plain" } });
 
 /**
- * Next 16 proxy: refresh the Supabase session on every request, send anonymous visitors to
- * /login, and send signed-in people who are not on QUOTE_ALLOWED_EMAILS to /denied.
- * The page loaders check again (src/lib/auth.ts), so this is the first lock, not the only one.
+ * Next 16 proxy. On the customer deployment it serves customer links and nothing else. On the
+ * staff app it refreshes the Supabase session, sends anonymous visitors to /login and signed-in
+ * people who are not on QUOTE_ALLOWED_EMAILS to /denied; customer links 404 there. The page
+ * loaders check again (src/lib/auth.ts), so this is the first lock, not the only one.
  */
 export async function proxy(request: NextRequest) {
+  const path = request.nextUrl.pathname;
+  if (isCustomerDeployment()) return CUSTOMER_PAGES.test(path) ? NextResponse.next() : notFound();
+  if (path.startsWith("/c/")) return notFound();
+  if (OPEN_ON_STAFF.test(path)) return NextResponse.next();
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -41,7 +55,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Everything except static assets, login, auth callbacks, the denied page, and the booking
-  // step Make calls (it has no sign-in; src/app/api/booking checks its own key).
-  matcher: ["/((?!_next/|login|auth/|denied|api/booking|favicon\\.ico|robots\\.txt).*)"],
+  // Everything except static assets. Which paths need no sign-in is decided above, in code,
+  // because it depends on which deployment this is.
+  matcher: ["/((?!_next/|favicon\\.ico|robots\\.txt).*)"],
 };
