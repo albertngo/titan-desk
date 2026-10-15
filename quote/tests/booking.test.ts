@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bookingDecision, opportunityUpdateBody, parseBooking, parseBookingLinks, pickOpportunity, recentlyClosed, sameSiteAs, type SiteQuote } from "../src/lib/link/booking";
+import { bookingDecision, opportunityUpdateBody, parseBooking, parseBookingLinks, pickOpportunity, projectJobs, alreadyMade, recentlyClosed, sameSiteAs, type SiteQuote } from "../src/lib/link/booking";
 import { OPP_FIELDS } from "../src/lib/ghl/ids";
 import type { QuoteKeys } from "../src/lib/link/match";
 
@@ -67,6 +67,26 @@ describe("booking: which job is this appointment for?", () => {
       { id: "oppNODATE001", status: "abandoned", statusChangedAt: null },
     ];
     expect(recentlyClosed(opps, now)).toEqual(["oppSTALE0001", "oppLOST00001"]);
+  });
+
+  it("never takes a STORE order as the job, only the project pipelines", () => {
+    const opps = [
+      { id: "oppSTORE0001", pipelineId: "ySvXh8g1u1TSjUB5A1Zg" },
+      { id: "oppLEAD00001", pipelineId: "z7ZevSnG9HnGMzC9nSHp" },
+      { id: "oppSALES0001", pipelineId: "ZxYBFNifUNNxU7xgQclg" },
+      { id: "oppNOPIPE001", pipelineId: null },
+    ];
+    expect(projectJobs(opps).map((o) => o.id)).toEqual(["oppLEAD00001", "oppSALES0001"]);
+    // GHL sent the store order: it is ignored and the one open project job is used.
+    expect(pickOpportunity("oppSTORE0001", projectJobs(opps).slice(0, 1))).toEqual({ kind: "use", id: "oppLEAD00001", how: "only-open" });
+  });
+
+  it("knows a job's folder exists from the quote's links or, for a job booked before the app, the opportunity's CompanyCam URL", () => {
+    const none = { folderUrl: null, companyCamUrl: null };
+    expect(alreadyMade(undefined, undefined)).toBe(false);
+    expect(alreadyMade(none, { companyCamUrl: null })).toBe(false);
+    expect(alreadyMade({ ...none, folderUrl: "https://example.com/folder" }, undefined)).toBe(true);
+    expect(alreadyMade(undefined, { companyCamUrl: "https://example.com/project" })).toBe(true);
   });
 
   it("makes one when there is none, and never guesses between several", () => {
