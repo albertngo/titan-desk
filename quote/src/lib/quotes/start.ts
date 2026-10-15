@@ -1,15 +1,16 @@
 import "server-only";
 import { requireQuoter } from "@/lib/auth";
-import { AirtableError, createRecord, listRecords, updateRecord } from "@/lib/airtable/client";
-import { QUOTE, T, VERSION } from "@/lib/airtable/fields";
+import { AirtableError, createRecord, updateRecord } from "@/lib/airtable/client";
+import { QUOTE, T } from "@/lib/airtable/fields";
 import { getContact, ghlConfigured, GhlError, GhlNotConfigured, opportunitiesForContact, pipelines, searchContacts, type GhlContact } from "@/lib/ghl/client";
-import { displayPhone, normalizePhone, quoteNumber, sameCustomer, versionLabel } from "@/lib/link/identity";
+import { displayPhone, normalizePhone, quoteNumber, sameCustomer } from "@/lib/link/identity";
 import { addressStatus } from "@/lib/link/lead";
 import { buildGhlRequest } from "@/lib/link/ghlRequest";
 import { parseNewQuote, type NewQuoteRequest } from "@/lib/link/newQuote";
 import { makeConfigured, sendToGhl } from "@/lib/make/client";
 import type { CustomerSearch, FoundCustomer, StartResult } from "./types";
-import { ids, num, str } from "./values";
+import { firstVersion, quotesByOpportunity } from "./records";
+import { num, str } from "./values";
 
 export type { CustomerSearch, StartResult };
 
@@ -20,22 +21,6 @@ export type { CustomerSearch, StartResult };
  * GHL is only read here. A new contact or opportunity is created by Make, never by this app;
  * until that step is switched on, a quote started that way is saved as "Needs linking".
  */
-
-type ExistingQuote = { quoteId: string; quoteNumber: string | null; versionId: string | null };
-
-/** Quotes that already have an opportunity, keyed by it. The newest version id is the last link. */
-async function quotesByOpportunity(): Promise<Map<string, ExistingQuote>> {
-  const rows = await listRecords(T.quotes, {
-    fields: [QUOTE.ghlOpportunityId, QUOTE.quoteNumber, QUOTE.versions],
-    filterByFormula: `{${QUOTE.ghlOpportunityId}}!=''`,
-  });
-  const out = new Map<string, ExistingQuote>();
-  for (const r of rows) {
-    const opp = str(r.fields[QUOTE.ghlOpportunityId]);
-    if (opp) out.set(opp, { quoteId: r.id, quoteNumber: str(r.fields[QUOTE.quoteNumber]), versionId: ids(r.fields[QUOTE.versions]).at(-1) ?? null });
-  }
-  return out;
-}
 
 /** What the New quote screen needs to know about this deployment. */
 export async function newQuoteSettings() {
@@ -90,17 +75,6 @@ async function alreadyInGhl(typed: { phone: string | null; email: string | null 
   return [...unique.values()];
 }
 
-async function firstVersion(quoteId: string, quoteNo: string): Promise<string> {
-  const v = await createRecord(T.versions, {
-    [VERSION.label]: versionLabel(quoteNo, 1),
-    [VERSION.version]: 1,
-    [VERSION.status]: "Draft",
-    [VERSION.basis]: "Preliminary",
-    [VERSION.showHst]: true,
-    [VERSION.quote]: [quoteId],
-  });
-  return v.id;
-}
 
 export async function startQuote(raw: unknown): Promise<StartResult> {
   const email = await requireQuoter();

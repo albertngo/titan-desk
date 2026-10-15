@@ -51,6 +51,8 @@ export type QuoteLink = {
   quoteRecordId: string;
   quoteNumber: string | null;
   displayName: string | null;
+  firstName: string | null;
+  lastName: string | null;
   phone: string | null;
   email: string | null;
   addressStatus: string | null;

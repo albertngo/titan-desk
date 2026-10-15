@@ -35,7 +35,7 @@ export type GhlRequest = {
 
 export type GhlRequestInput = {
   quoteNumber: string;
-  /** The shared name, "Doe, Jane - Oakville - Q-1234": becomes the opportunity's name. */
+  /** The shared name, "Jane Doe - Oakville - Q-1234": becomes the opportunity's name. */
   opportunityName: string;
   timing: Timing;
   contactId: string | null;

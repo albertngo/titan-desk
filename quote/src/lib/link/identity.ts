@@ -46,13 +46,13 @@ const clean = (s: string | null | undefined) => s?.trim() || null;
 
 /**
  * The one name every folder, CompanyCam project and GHL opportunity carries:
- * "Smith, Jane - Oakville - Q-1234", with " - PP-412" once won. Phone stands in for an
- * unknown name. Mirrors the Display Name formula on the Quotes table; change both together.
+ * "Jane Smith - Oakville - Q-1234", with " - PP-412" once won (first name first: Albert,
+ * 2026-10-14). Phone stands in for an unknown name. Mirrors the Display Name formula on the Quotes table; change both together.
  */
 export function displayName(p: NameParts): string {
   const last = clean(p.last);
   const first = clean(p.first);
-  const who = last ? (first ? `${last}, ${first}` : last) : (clean(p.customerName) ?? clean(p.phone) ?? "");
+  const who = [first, last].filter(Boolean).join(" ") || (clean(p.customerName) ?? clean(p.phone) ?? "");
   const city = clean(p.city);
   const pp = clean(p.projectNumber);
   return `${who}${city ? ` - ${city}` : ""} - ${p.quoteNumber}${pp ? ` - ${pp}` : ""}`;

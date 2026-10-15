@@ -10,6 +10,7 @@ import { requireQuoter } from "@/lib/auth";
 import { optionTotals, parityDiffs } from "@/lib/calc";
 import { money } from "@/lib/format";
 import { getQuote } from "@/lib/quotes/load";
+import { refreshFromGhl } from "@/lib/quotes/refresh";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Quote" };
@@ -24,8 +25,9 @@ export default async function QuotePage({
   const email = await requireQuoter();
   const { id } = await params;
   const { opt } = await searchParams;
-  const quote = await getQuote(id);
-  if (!quote) notFound();
+  const loaded = await getQuote(id);
+  if (!loaded) notFound();
+  const quote = await refreshFromGhl(loaded);
 
   const showAnalysis = opt === "analysis";
   const option = showAnalysis ? null : (quote.options.find((o) => o.id === opt) ?? quote.options[0] ?? null);

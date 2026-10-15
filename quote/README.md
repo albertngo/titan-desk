@@ -26,6 +26,8 @@ repo with Root Directory `quote`. Rules for changing it: `CLAUDE.md` in this fol
 | `src/lib/quotes/start.ts` | find customers, create a quote and its version 1, tell GHL through Make |
 | `src/lib/quotes/savePlan.ts` | editor → the smallest set of Airtable writes (pure, tested in `tests/save.test.ts`) |
 | `src/lib/quotes/save.ts` | Save and Save as new version: checks, then carries out the plan |
+| `src/app/api/booking/route.ts`, `src/lib/quotes/booking.ts` | the booking step Make calls: find or start the opportunity's quote, return its name; then record the folder and CompanyCam links (rules in `src/lib/link/booking.ts`) |
+| `src/lib/quotes/refresh.ts` | on every open, brings the quote's customer copy up to date from GHL (rules in `src/lib/link/refresh.ts`) |
 | `src/lib/make/client.ts` | the only caller of Make (one request per new quote) |
 | `src/lib/airtable/fields.ts` | table and field IDs (not secrets) |
 | `src/lib/quotes/load.ts` | Airtable records → quotes, options, lines |
@@ -45,6 +47,7 @@ repo with Root Directory `quote`. Rules for changing it: `CLAUDE.md` in this fol
 | `QUOTE_AIRTABLE_TOKEN` | its own Airtable token: Bert base only; `data.records:read` and `data.records:write` |
 | `QUOTE_MAKE_GHL_HOOK` | the "Quote app → GHL" Make webhook address. Set only once that scenario is on |
 | `QUOTE_MAKE_GHL_KEY` | the shared key that scenario's filters check. Kept in Make and Vercel only |
+| `QUOTE_BOOKING_KEY` | the key the booking scenario (Make 3453735) sends to `/api/booking` in the `x-quote-key` header. Unset = the booking step is off. Kept in Make and Vercel only |
 | `QUOTE_GHL_TOKEN` | its own GHL private integration token, read-only: `contacts.readonly`, `opportunities.readonly`. Without it, New quote can only add new customers |
 | `QUOTE_ALLOWED_EMAILS` | comma-separated Microsoft emails allowed to quote |
 

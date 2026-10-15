@@ -12,7 +12,7 @@ const SRC = path.resolve(__dirname, "../src");
 const CLIENT = "lib/airtable/client.ts";
 const GHL = "lib/ghl/client.ts";
 /** The only files allowed to create or update Airtable records. Adding one is a reviewed decision. */
-const WRITERS = ["lib/quotes/start.ts", "lib/quotes/save.ts"];
+const WRITERS = ["lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts"];
 const CATALOGUE = "tblfLXD3zkSdNQGbS";
 
 function files(dir: string): string[] {
@@ -60,7 +60,7 @@ describe("Airtable boundary", () => {
   });
 
   it("keeps the client, the loaders and the auth check server-only", () => {
-    for (const rel of [CLIENT, GHL, "lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/auth.ts"]) {
+    for (const rel of [CLIENT, GHL, "lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/auth.ts"]) {
       expect(all.find((f) => f.rel === rel)!.text).toMatch(/^import "server-only";/m);
     }
   });
@@ -68,7 +68,7 @@ describe("Airtable boundary", () => {
   it("never imports Airtable code into a browser component", () => {
     const leaks = all
       .filter((f) => /^["']use client["'];?/m.test(f.text))
-      .filter((f) => /^import (?!type )[^;]*from ["']@\/lib\/(airtable|quotes\/load|quotes\/start|quotes\/save|ghl\/client|make\/client|auth)/m.test(f.text))
+      .filter((f) => /^import (?!type )[^;]*from ["']@\/lib\/(airtable|quotes\/load|quotes\/start|quotes\/save|quotes\/refresh|quotes\/records|quotes\/booking|ghl\/client|make\/client|auth)/m.test(f.text))
       .map((f) => f.rel);
     expect(leaks).toEqual([]);
   });
@@ -79,13 +79,42 @@ describe("Airtable boundary", () => {
 
   it("checks the quoter allowlist in both the proxy and every loader", () => {
     expect(all.find((f) => f.rel === "proxy.ts")!.text).toContain("isQuoter(");
-    for (const rel of ["lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts"]) {
+    for (const rel of ["lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts"]) {
       const text = all.find((f) => f.rel === rel)!.text;
       const exported = text.match(/export async function \w+/g) ?? [];
       const guarded = text.match(/export async function \w+[^{]*\{\s*(const \w+ = )?await requireQuoter\(\);/g) ?? [];
       expect(exported.length).toBeGreaterThan(0);
       expect(guarded.length).toBe(exported.length);
     }
+  });
+});
+
+describe("booking step (Make, no sign-in)", () => {
+  const BOOKING = "lib/quotes/booking.ts";
+  const ROUTE = "app/api/booking/route.ts";
+
+  it("checks the shared key before anything else, in the route and in every function it calls", () => {
+    const route = code(all.find((f) => f.rel === ROUTE)!.text);
+    expect(route).toMatch(/export async function POST\(req: Request\) \{\s*const key = req\.headers\.get\("x-quote-key"\);\s*if \(!bookingKeyOk\(key\)\) return/);
+    const text = code(all.find((f) => f.rel === BOOKING)!.text);
+    const exported = text.match(/export async function \w+/g) ?? [];
+    const guarded = text.match(/export async function \w+[^{]*\{\s*if \(!bookingKeyOk\(key\)\) return/g) ?? [];
+    expect(exported.length).toBeGreaterThan(0);
+    expect(guarded.length).toBe(exported.length);
+    // A missing key turns the step off; it never opens it.
+    expect(text).toMatch(/if \(!want \|\| !given\) return false;/);
+  });
+
+  it("is the only path the proxy lets through without a sign-in", () => {
+    const proxy = all.find((f) => f.rel === "proxy.ts")!.text;
+    expect(proxy).toContain('matcher: ["/((?!_next/|login|auth/|denied|api/booking|favicon\\\\.ico|robots\\\\.txt).*)"]');
+    expect(all.filter((f) => f.rel.startsWith("app/api/")).map((f) => f.rel)).toEqual([ROUTE]);
+  });
+
+  it("keeps the shared quote helpers away from pages and actions", () => {
+    const importers = all.filter((f) => /from ["']\.\/records["']|from ["']@\/lib\/quotes\/records["']/.test(f.text)).map((f) => f.rel).sort();
+    expect(importers).toEqual([BOOKING, "lib/quotes/start.ts"]);
+    expect(all.filter((f) => /from ["']@\/lib\/quotes\/booking["']/.test(f.text)).map((f) => f.rel)).toEqual([ROUTE]);
   });
 });
 

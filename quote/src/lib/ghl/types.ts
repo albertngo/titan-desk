@@ -20,4 +20,7 @@ export type GhlOpportunity = {
   updatedAt: string | null;
 };
 
+/** One opportunity's site, from its Project Address / Project City custom fields. */
+export type GhlSite = { address: string | null; city: string | null };
+
 export type GhlPipeline = { id: string; name: string; stages: { id: string; name: string }[] };

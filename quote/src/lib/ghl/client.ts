@@ -1,8 +1,8 @@
 import "server-only";
-import { GHL_LOCATION_ID } from "./ids";
-import type { GhlContact, GhlOpportunity, GhlPipeline } from "./types";
+import { GHL_LOCATION_ID, OPP_FIELDS } from "./ids";
+import type { GhlContact, GhlOpportunity, GhlPipeline, GhlSite } from "./types";
 
-export type { GhlContact, GhlOpportunity, GhlPipeline };
+export type { GhlContact, GhlOpportunity, GhlPipeline, GhlSite };
 
 /**
  * The ONLY file in quote/ that talks to GoHighLevel, and the only one that reads
@@ -97,6 +97,27 @@ export async function opportunitiesForContact(contactId: string): Promise<GhlOpp
       stageId: s(o.pipelineStageId),
       updatedAt: s(o.updatedAt) ?? s(o.lastStatusChangeAt) ?? s(o.createdAt),
     }));
+}
+
+/** A custom field's value; GHL has returned it under each of these names. */
+function customValue(fields: unknown, id: string): string | null {
+  if (!Array.isArray(fields)) return null;
+  const f = (fields as Record<string, unknown>[]).find((x) => x?.id === id);
+  return f ? (s(f.fieldValueString) ?? s(f.fieldValue) ?? s(f.value)) : null;
+}
+
+/** The site on one opportunity (its Project Address / Project City), or null if GHL has no such opportunity. */
+export async function opportunitySite(id: string): Promise<GhlSite | null> {
+  if (!/^[A-Za-z0-9]+$/.test(id)) return null;
+  try {
+    const data = (await get(`/opportunities/${id}`, {})) as { opportunity?: Record<string, unknown> };
+    const o = data.opportunity;
+    if (!o) return null;
+    return { address: customValue(o.customFields, OPP_FIELDS.projectAddress), city: customValue(o.customFields, OPP_FIELDS.projectCity) };
+  } catch (e) {
+    if (e instanceof GhlError && e.status === 404) return null;
+    throw e;
+  }
 }
 
 let pipelineCache: { at: number; value: GhlPipeline[] } | null = null;
