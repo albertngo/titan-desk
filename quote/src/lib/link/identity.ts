@@ -37,25 +37,32 @@ export type NameParts = {
   last?: string | null;
   customerName?: string | null;
   phone?: string | null;
-  city?: string | null;
+  /** When the quote was created: its month is in the name, so the name never changes. */
+  createdAt: string | Date;
   quoteNumber: string;
   projectNumber?: string | null;
 };
 
 const clean = (s: string | null | undefined) => s?.trim() || null;
 
+/** "1026" for October 2026, in Toronto time: the MMYY staff already use on folders. */
+export function monthYear(at: string | Date): string {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", month: "2-digit", year: "2-digit" }).formatToParts(new Date(at));
+  const part = (type: string) => parts.find((x) => x.type === type)?.value ?? "";
+  return `${part("month")}${part("year")}`;
+}
+
 /**
  * The one name every folder, CompanyCam project and GHL opportunity carries:
- * "Jane Smith - Oakville - Q-1234", with " - PP-412" once won (first name first: Albert,
- * 2026-10-14). Phone stands in for an unknown name. Mirrors the Display Name formula on the Quotes table; change both together.
+ * "Jane Smith - 1026 - Q-1234", with " - PP-412" once won. First name first (Albert,
+ * 2026-10-14); the month the quote was created, not the city, which customers type loosely
+ * (Albert, 2026-10-15). Phone stands in for an unknown name. Mirrors the Display Name formula
+ * on the Quotes table; change both together.
  */
 export function displayName(p: NameParts): string {
-  const last = clean(p.last);
-  const first = clean(p.first);
-  const who = [first, last].filter(Boolean).join(" ") || (clean(p.customerName) ?? clean(p.phone) ?? "");
-  const city = clean(p.city);
+  const who = [clean(p.first), clean(p.last)].filter(Boolean).join(" ") || clean(p.customerName) || clean(p.phone);
   const pp = clean(p.projectNumber);
-  return `${who}${city ? ` - ${city}` : ""} - ${p.quoteNumber}${pp ? ` - ${pp}` : ""}`;
+  return `${who ? `${who} - ` : ""}${monthYear(p.createdAt)} - ${p.quoteNumber}${pp ? ` - ${pp}` : ""}`;
 }
 
 /**

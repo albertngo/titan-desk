@@ -5,7 +5,7 @@ import { buildGhlRequest, CONTACT_ID_SLOT, type GhlRequestInput } from "../src/l
 // INVENTED customer and ids only: this repo is public.
 const base: GhlRequestInput = {
   quoteNumber: "Q-1234",
-  opportunityName: "Jane Doe - Oakville - Q-1234",
+  opportunityName: "Jane Doe - 1026 - Q-1234",
   timing: "1 to 3 months",
   contactId: null,
   opportunity: null,
@@ -35,7 +35,7 @@ describe("the request the app sends to Make for GHL", () => {
       locationId: GHL_LOCATION_ID,
       pipelineId: LEADS_PIPELINE_ID,
       pipelineStageId: LEAD_STAGE_IDS.Warm,
-      name: "Jane Doe - Oakville - Q-1234",
+      name: "Jane Doe - 1026 - Q-1234",
       status: "open",
       contactId: CONTACT_ID_SLOT,
       customFields: [

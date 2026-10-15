@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { displayName, displayPhone, normalizeEmail, normalizePhone, quoteNumber, sameCustomer, versionLabel } from "../src/lib/link/identity";
+import { displayName, displayPhone, monthYear, normalizeEmail, normalizePhone, quoteNumber, sameCustomer, versionLabel } from "../src/lib/link/identity";
 import { fillBlanks, matchQuote, type QuoteKeys } from "../src/lib/link/match";
 import { addressStatus, stageFor, stageToSet, TIMINGS } from "../src/lib/link/lead";
 import { parseNewQuote } from "../src/lib/link/newQuote";
@@ -28,14 +28,19 @@ describe("identity", () => {
     expect(versionLabel("Q-1234", 2)).toBe("Q-1234 v2");
   });
 
-  it("builds the shared name: first name first, numbers last, PP only once won", () => {
-    expect(displayName({ first: "Jane", last: "Doe", city: "Oakville", quoteNumber: "Q-1234" })).toBe("Jane Doe - Oakville - Q-1234");
-    expect(displayName({ first: "Jane", last: "Doe", city: "Oakville", quoteNumber: "Q-1234", projectNumber: "PP-412" })).toBe(
-      "Jane Doe - Oakville - Q-1234 - PP-412",
-    );
-    expect(displayName({ phone: "416-555-0199", quoteNumber: "Q-1234" })).toBe("416-555-0199 - Q-1234");
-    expect(displayName({ last: "Doe", quoteNumber: "Q-1234" })).toBe("Doe - Q-1234");
-    expect(displayName({ first: "Jane", quoteNumber: "Q-1234" })).toBe("Jane - Q-1234");
+  it("builds the shared name: first name first, month created, numbers last, PP only once won", () => {
+    const at = "2026-10-14T15:00:00Z";
+    expect(displayName({ first: "Jane", last: "Doe", createdAt: at, quoteNumber: "Q-1234" })).toBe("Jane Doe - 1026 - Q-1234");
+    expect(displayName({ first: "Jane", last: "Doe", createdAt: at, quoteNumber: "Q-1234", projectNumber: "PP-412" })).toBe("Jane Doe - 1026 - Q-1234 - PP-412");
+    expect(displayName({ phone: "416-555-0199", createdAt: at, quoteNumber: "Q-1234" })).toBe("416-555-0199 - 1026 - Q-1234");
+    expect(displayName({ last: "Doe", createdAt: at, quoteNumber: "Q-1234" })).toBe("Doe - 1026 - Q-1234");
+    expect(displayName({ createdAt: at, quoteNumber: "Q-1234" })).toBe("1026 - Q-1234");
+  });
+
+  it("dates the name in Toronto time, not UTC", () => {
+    // 9:30 pm on 31 October in Toronto is already November in UTC.
+    expect(monthYear("2026-11-01T01:30:00Z")).toBe("1026");
+    expect(monthYear("2027-01-01T05:30:00Z")).toBe("0127");
   });
 });
 

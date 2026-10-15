@@ -26,8 +26,9 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   address from the contact; a *confirmed* address from the opportunity's Project Address; and
   no address change once won (Notion owns it). Nothing is blanked. Rules: `src/lib/link/refresh.ts`,
   tested in `tests/refresh.test.ts`. GHL being down never stops a quote opening.
-- **One shared name:** `First Surname - City - Q-1234`, then ` - PP-412` once won (Albert,
-  2026-10-14). `displayName()` in `src/lib/link/identity.ts` and the Quotes table's Display Name
+- **One shared name:** `First Surname - MMYY - Q-1234`, then ` - PP-412` once won. First name
+  first (Albert, 2026-10-14); MMYY is the month the quote was created, in Toronto time, never the
+  city, which customers type loosely (2026-10-15). The name never changes once a folder has it. `displayName()` in `src/lib/link/identity.ts` and the Quotes table's Display Name
   formula must match; change both together.
 - **Supabase is used for sign-in only** (the desk's project and Microsoft login).
 - **`src/lib/calc.ts` is the only place money is computed**, and it mirrors the Airtable
