@@ -136,9 +136,9 @@ describe("Make boundary", () => {
     expect(all.filter((f) => /hook\.[a-z0-9]+\.make\.com|make\.com\//.test(code(f.text))).map((f) => f.rel)).toEqual([]);
   });
 
-  it("is server-only and only reached from starting a quote", () => {
+  it("is server-only and only reached from starting a quote and the booking step", () => {
     expect(all.find((f) => f.rel === "lib/make/client.ts")!.text).toMatch(/^import "server-only";/m);
     const callers = all.filter((f) => f.rel !== "lib/make/client.ts" && /from ["']@\/lib\/make\/client["']/.test(f.text)).map((f) => f.rel);
-    expect(callers).toEqual(["lib/quotes/start.ts"]);
+    expect(callers.sort()).toEqual(["lib/quotes/booking.ts", "lib/quotes/start.ts"]);
   });
 });

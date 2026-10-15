@@ -18,6 +18,14 @@ export const LEAD_STAGE_IDS = {
   Hot: "48535faa-cc06-429c-942f-4248f1698f3d", // 0c. ASAP (Hot)
 } as const;
 
+/**
+ * "(2) PROJECT: Sales Pipeline" and its booked stage, "*Meeting (Scheduled)* CCAM|GHL": where the
+ * booking step puts a job that had no opportunity when its appointment was confirmed.
+ * Read from GHL through Make's connection, 2026-10-15.
+ */
+export const SALES_PIPELINE_ID = "ZxYBFNifUNNxU7xgQclg";
+export const MEETING_SCHEDULED_STAGE_ID = "eb038acb-82cd-494a-864b-4643d7e90a32";
+
 /** Contact custom field "Do You Have A Flooring Project Coming Up? If so, when?" */
 export const CONTACT_TIMING_FIELD = "AqDkCXA2JS0XZ3Hpwy5A";
 

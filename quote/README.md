@@ -26,7 +26,7 @@ repo with Root Directory `quote`. Rules for changing it: `CLAUDE.md` in this fol
 | `src/lib/quotes/start.ts` | find customers, create a quote and its version 1, tell GHL through Make |
 | `src/lib/quotes/savePlan.ts` | editor → the smallest set of Airtable writes (pure, tested in `tests/save.test.ts`) |
 | `src/lib/quotes/save.ts` | Save and Save as new version: checks, then carries out the plan |
-| `src/app/api/booking/route.ts`, `src/lib/quotes/booking.ts` | the booking step Make calls: find or start the opportunity's quote, return its name; then record the folder and CompanyCam links (rules in `src/lib/link/booking.ts`) |
+| `src/app/api/booking/route.ts`, `src/lib/quotes/booking.ts` | the booking step Make calls when an appointment is confirmed: find the job (or make its opportunity), find or start its quote, confirm the contact's address as the site, return the name and the opportunity update; then record the folder and CompanyCam links (rules in `src/lib/link/booking.ts`) |
 | `src/lib/quotes/refresh.ts` | on every open, brings the quote's customer copy up to date from GHL (rules in `src/lib/link/refresh.ts`) |
 | `src/lib/make/client.ts` | the only caller of Make (one request per new quote) |
 | `src/lib/airtable/fields.ts` | table and field IDs (not secrets) |

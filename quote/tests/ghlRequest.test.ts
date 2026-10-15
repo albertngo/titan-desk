@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { CONTACT_TIMING_FIELD, GHL_LOCATION_ID, LEAD_STAGE_IDS, LEADS_PIPELINE_ID, OPP_FIELDS } from "../src/lib/ghl/ids";
-import { buildGhlRequest, CONTACT_ID_SLOT, type GhlRequestInput } from "../src/lib/link/ghlRequest";
+import { CONTACT_TIMING_FIELD, GHL_LOCATION_ID, LEAD_STAGE_IDS, LEADS_PIPELINE_ID, MEETING_SCHEDULED_STAGE_ID, OPP_FIELDS, SALES_PIPELINE_ID } from "../src/lib/ghl/ids";
+import { buildBookingOpportunity, buildGhlRequest, CONTACT_ID_SLOT, type GhlRequestInput } from "../src/lib/link/ghlRequest";
 
 // INVENTED customer and ids only: this repo is public.
 const base: GhlRequestInput = {
   quoteNumber: "Q-1234",
-  opportunityName: "Jane Doe - Oakville - Q-1234",
+  opportunityName: "Jane Doe - 1026 - Q-1234",
   timing: "1 to 3 months",
   contactId: null,
   opportunity: null,
@@ -35,7 +35,7 @@ describe("the request the app sends to Make for GHL", () => {
       locationId: GHL_LOCATION_ID,
       pipelineId: LEADS_PIPELINE_ID,
       pipelineStageId: LEAD_STAGE_IDS.Warm,
-      name: "Jane Doe - Oakville - Q-1234",
+      name: "Jane Doe - 1026 - Q-1234",
       status: "open",
       contactId: CONTACT_ID_SLOT,
       customFields: [
@@ -69,5 +69,26 @@ describe("the request the app sends to Make for GHL", () => {
   it("refuses requests that can't be right", () => {
     expect(() => buildGhlRequest({ ...base, opportunity: { id: "oppAAA111111", pipelineId: null } })).toThrow();
     expect(() => buildGhlRequest(base)).toThrow();
+  });
+});
+
+describe("the opportunity the booking step makes when a booked contact has none", () => {
+  it("opens it in the Sales pipeline at Meeting (Scheduled), with the quote number and site, and leaves the contact alone", () => {
+    const r = buildBookingOpportunity({ contactId: "conJANE00001", quoteNumber: "Q-1234", name: "Jane Doe - 1026 - Q-1234", site: { address: "12 Example St", city: "Oakville" } });
+    expect(r.mode).toBe("new-opportunity");
+    expect(parse(r.contactBody)).toEqual({});
+    expect(parse(r.oppBody)).toEqual({
+      locationId: GHL_LOCATION_ID,
+      pipelineId: SALES_PIPELINE_ID,
+      pipelineStageId: MEETING_SCHEDULED_STAGE_ID,
+      name: "Jane Doe - 1026 - Q-1234",
+      status: "open",
+      contactId: "conJANE00001",
+      customFields: [
+        { id: OPP_FIELDS.quoteNumber, field_value: "Q-1234" },
+        { id: OPP_FIELDS.projectAddress, field_value: "12 Example St" },
+        { id: OPP_FIELDS.projectCity, field_value: "Oakville" },
+      ],
+    });
   });
 });

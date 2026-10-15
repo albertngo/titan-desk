@@ -1,4 +1,4 @@
-import { CONTACT_TIMING_FIELD, GHL_LOCATION_ID, LEAD_STAGE_IDS, LEADS_PIPELINE_ID, OPP_FIELDS } from "@/lib/ghl/ids";
+import { CONTACT_TIMING_FIELD, GHL_LOCATION_ID, LEAD_STAGE_IDS, LEADS_PIPELINE_ID, MEETING_SCHEDULED_STAGE_ID, OPP_FIELDS, SALES_PIPELINE_ID } from "@/lib/ghl/ids";
 import { normalizeEmail, normalizePhone } from "./identity";
 import { stageToSet, TIMING_IN_GHL, type Timing } from "./lead";
 
@@ -35,7 +35,7 @@ export type GhlRequest = {
 
 export type GhlRequestInput = {
   quoteNumber: string;
-  /** The shared name, "Jane Doe - Oakville - Q-1234": becomes the opportunity's name. */
+  /** The shared name, "Jane Doe - 1026 - Q-1234": becomes the opportunity's name. */
   opportunityName: string;
   timing: Timing;
   contactId: string | null;
@@ -100,5 +100,29 @@ export function buildGhlRequest(i: GhlRequestInput): GhlRequest {
       compact({ locationId: GHL_LOCATION_ID, firstName: c.firstName, lastName: c.lastName, phone: normalizePhone(c.phone), email: normalizeEmail(c.email), address1: c.address, city: c.city, customFields: timingField }),
     ),
     oppBody,
+  };
+}
+
+/**
+ * The booking step's one GHL write of its own: a job whose appointment was confirmed with no
+ * opportunity gets one, in the Sales pipeline's Meeting (Scheduled) stage, already carrying the
+ * quote number and the site. Same "new-opportunity" route through Make as a new quote; the
+ * contact is left as it is (an empty update).
+ */
+export function buildBookingOpportunity(i: { contactId: string; quoteNumber: string; name: string; site: { address: string | null; city: string | null } }): GhlRequest {
+  return {
+    mode: "new-opportunity",
+    contactId: i.contactId,
+    opportunityId: null,
+    contactBody: JSON.stringify({}),
+    oppBody: JSON.stringify({
+      locationId: GHL_LOCATION_ID,
+      pipelineId: SALES_PIPELINE_ID,
+      pipelineStageId: MEETING_SCHEDULED_STAGE_ID,
+      name: i.name,
+      status: "open",
+      contactId: i.contactId,
+      customFields: oppFields(i.quoteNumber, i.site),
+    }),
   };
 }

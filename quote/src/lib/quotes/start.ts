@@ -183,7 +183,9 @@ async function pushToGhl(
         contactId: req.contactId,
         opportunity: linkedOpp,
         newContact: req.contactId ? null : { firstName: who.first, lastName: who.last, phone: who.phone, email: who.email, address: who.address, city: who.city },
-        site: { address: who.address, city: who.city },
+        // Only a confirmed site goes on the opportunity; GHL's own workflow fills a blank one from
+        // the contact, and booking confirms it (2026-10-15).
+        site: req.addressConfirmed ? { address: who.address, city: who.city } : { address: null, city: null },
       }),
     );
     if (!linkedOpp) {
