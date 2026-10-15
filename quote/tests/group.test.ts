@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ago, groupVersions, inFilter, matchesSearch, type QuoteHead, type VersionRow } from "../src/lib/quotes/group";
 
 // INVENTED people and numbers only: this repo is public.
-const V = (o: Partial<VersionRow> & { id: string; quoteRecordId: string | null }) => ({ label: null, version: 1, status: "Draft", basis: "Preliminary", optionCount: 1, createdTime: "2026-10-01T00:00:00Z", ...o });
+const V = (o: Partial<VersionRow> & { id: string; quoteRecordId: string | null }): VersionRow & { quoteRecordId: string | null } => ({ label: null, version: 1, status: "Draft", basis: "Preliminary", optionCount: 1, createdTime: "2026-10-01T00:00:00Z", ...o });
 const H = (o: Partial<QuoteHead> & { quoteRecordId: string }): QuoteHead => ({ quoteNumber: null, customerName: null, siteCity: null, phone: null, email: null, projectNumber: null, linkStatus: null, addressStatus: null, ...o });
 
 const heads = new Map([
@@ -50,7 +50,7 @@ describe("All quotes: search", () => {
 
 describe("All quotes: quick filters and dates", () => {
   it("files each quote under the filters its newest version and links say", () => {
-    const g = (o: Partial<QuoteHead>, status: string) => ({ ...H({ quoteRecordId: "recX", ...o }), versions: [V({ id: "x", quoteRecordId: "recX", status })], latestAt: "" });
+    const g = (o: Partial<Omit<QuoteHead, "quoteRecordId">>, status: string) => ({ ...H({ quoteRecordId: "recX", ...o }), versions: [V({ id: "x", quoteRecordId: "recX", status })], latestAt: "" });
     expect(inFilter(g({ linkStatus: "Needs linking" }, "Draft"), "linking")).toBe(true);
     expect(inFilter(g({}, "Draft"), "draft")).toBe(true);
     expect(inFilter(g({}, "Sent"), "draft")).toBe(false);
