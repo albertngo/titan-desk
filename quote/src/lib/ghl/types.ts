@@ -18,6 +18,8 @@ export type GhlOpportunity = {
   pipelineId: string | null;
   stageId: string | null;
   updatedAt: string | null;
+  /** When it was last opened, won, lost or abandoned. */
+  statusChangedAt: string | null;
 };
 
 /** One opportunity's site, from its Project Address / Project City custom fields. */

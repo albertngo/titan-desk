@@ -96,6 +96,7 @@ export async function opportunitiesForContact(contactId: string): Promise<GhlOpp
       pipelineId: s(o.pipelineId),
       stageId: s(o.pipelineStageId),
       updatedAt: s(o.updatedAt) ?? s(o.lastStatusChangeAt) ?? s(o.createdAt),
+      statusChangedAt: s(o.lastStatusChangeAt) ?? s(o.updatedAt) ?? s(o.createdAt),
     }));
 }
 

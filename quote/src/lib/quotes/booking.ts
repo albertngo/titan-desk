@@ -3,7 +3,7 @@ import { timingSafeEqual } from "node:crypto";
 import { createRecord, getRecord, updateRecord } from "@/lib/airtable/client";
 import { QUOTE, T } from "@/lib/airtable/fields";
 import { getContact, ghlConfigured, opportunitiesForContact } from "@/lib/ghl/client";
-import { bookingDecision, opportunityUpdateBody, parseBooking, parseBookingLinks, pickOpportunity, sameSiteAs } from "@/lib/link/booking";
+import { bookingDecision, opportunityUpdateBody, parseBooking, parseBookingLinks, pickOpportunity, recentlyClosed, sameSiteAs } from "@/lib/link/booking";
 import { buildBookingOpportunity } from "@/lib/link/ghlRequest";
 import { displayPhone, normalizeEmail, quoteNumber } from "@/lib/link/identity";
 import { addressStatus } from "@/lib/link/lead";
@@ -68,7 +68,7 @@ export async function bookQuote(key: string | null, raw: unknown): Promise<Booki
   if (parsed.value.opportunityId && !opps.some((o) => o.id === parsed.value.opportunityId)) {
     return { ok: false, status: 409, message: "That opportunity doesn't belong to this contact." };
   }
-  const job = pickOpportunity(parsed.value.opportunityId, opps.filter((o) => o.status === "open"));
+  const job = pickOpportunity(parsed.value.opportunityId, opps.filter((o) => o.status === "open"), recentlyClosed(opps, new Date()));
   const opportunityId = job.kind === "use" ? job.id : null;
 
   // The contact's address now is where this appointment is: the confirmed site (2026-10-15).
@@ -78,6 +78,14 @@ export async function bookQuote(key: string | null, raw: unknown): Promise<Booki
   const notes: string[] = [];
   if (decision.kind === "create" && decision.note) notes.push(decision.note);
   if (job.kind === "several") notes.push(`booked while the contact had ${job.ids.length} open opportunities; link this quote to the right one.`);
+  if (job.kind === "revived") {
+    const o = opps.find((x) => x.id === job.ids[0]);
+    const when = o?.statusChangedAt?.slice(0, 10);
+    notes.push(
+      `booked while the contact had no open opportunity, but "${o?.name ?? job.ids[0]}" (${job.ids[0]}) was ${o?.status ?? "closed"}${when ? ` on ${when}` : ""}. ` +
+        "If this booking is that job coming back, set it to Open in GHL and link this quote to it; if it is new work, create its opportunity and link that.",
+    );
+  }
 
   let record;
   if (decision.kind === "create") {

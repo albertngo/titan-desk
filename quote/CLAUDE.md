@@ -74,7 +74,9 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
    `src/lib/quotes/booking.ts` check `QUOTE_BOOKING_KEY` first (constant-time; unset = off). Make
    sends only the contact id and, when GHL has one, the opportunity id; the customer is read from
    GHL, never taken from the request. It writes the Quotes table (and a version 1), and creates a
-   GHL opportunity through Make only when the contact had none open.
+   GHL opportunity through Make only when the contact had none open and none lost or abandoned in the
+   last 90 days (that may be the job coming back: the quote is flagged for staff instead). An
+   opportunity GHL sends that isn't open is ignored.
 3. **Staff is not enough.** Only emails on `QUOTE_ALLOWED_EMAILS` get in. The proxy checks
    it and every loader in `src/lib/quotes/load.ts` and `src/lib/quotes/start.ts` checks again
    (`requireQuoter()`). An empty list lets nobody in.
