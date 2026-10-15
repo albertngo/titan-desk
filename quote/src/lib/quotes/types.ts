@@ -1,21 +1,6 @@
 import type { LineInput, OptionTotals } from "@/lib/calc";
 import type { GhlContact } from "@/lib/ghl/types";
 
-export type QuoteSummary = {
-  id: string;
-  quoteId: string | null;
-  version: number | null;
-  status: string | null;
-  basis: string | null;
-  customerName: string | null;
-  siteCity: string | null;
-  quoteNumber: string | null;
-  linkStatus: string | null;
-  addressStatus: string | null;
-  optionCount: number;
-  createdTime: string;
-};
-
 export type QuoteLine = LineInput & {
   id: string;
   /** Where the price came from: a Rate Card row, a Stair Item, a catalogue product, or typed in. */
@@ -138,3 +123,24 @@ export type StartResult =
   | { ok: true; versionId: string; reused: boolean }
   /** `duplicates`: GHL already has someone with the phone or email typed for a "new" customer. */
   | { ok: false; message: string; duplicates?: FoundCustomer[] };
+
+/* ---------- linking a quote to a job (src/lib/quotes/link.ts) ---------- */
+
+export type JobChoice = {
+  id: string;
+  name: string | null;
+  status: string | null;
+  pipeline: string | null;
+  stage: string | null;
+  statusChangedAt: string | null;
+  siteAddress: string | null;
+  hasCompanyCam: boolean;
+  /** Lost or abandoned lately: linking sets it back to open. */
+  reopen: boolean;
+  /** Another quote is already on this job. */
+  takenBy: string | null;
+};
+
+export type JobChoices = { ok: true; canLink: boolean; choices: JobChoice[] } | { ok: false; message: string };
+
+export type LinkJobResult = { ok: true } | { ok: false; message: string };

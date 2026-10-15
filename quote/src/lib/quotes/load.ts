@@ -3,38 +3,51 @@ import { requireQuoter } from "@/lib/auth";
 import { AirtableError, getRecord, listByIds, listRecords, type AirtableRecord } from "@/lib/airtable/client";
 import { LINE, OPTION, QUOTE, RATE, RATE_TABLE, STAIR, STAIR_TABLE, T, VERSION } from "@/lib/airtable/fields";
 import { bool, ids, num, str } from "./values";
-import type { Quote, QuoteLine, QuoteLink, QuoteOption, QuoteSummary, RateCard, RateRow, StairRow } from "./types";
+import { groupVersions, type QuoteGroup, type QuoteHead } from "./group";
+import type { Quote, QuoteLine, QuoteLink, QuoteOption, RateCard, RateRow, StairRow } from "./types";
 
 /** Read-side loaders. Each one checks the caller is a quoter before touching Airtable. */
 
-export async function listQuotes(): Promise<QuoteSummary[]> {
+/** Every quote, newest first, with its versions under it (the All quotes page). */
+export async function listQuoteGroups(): Promise<QuoteGroup[]> {
   await requireQuoter();
-  const [quotes, families] = await Promise.all([
+  const [versions, quotes] = await Promise.all([
     listRecords(T.versions, {
       fields: [VERSION.label, VERSION.version, VERSION.status, VERSION.basis, VERSION.quote, VERSION.options],
     }),
-    listRecords(T.quotes, { fields: [QUOTE.customerName, QUOTE.lastName, QUOTE.firstName, QUOTE.siteCity, QUOTE.quoteNumber, QUOTE.linkStatus, QUOTE.addressStatus] }),
+    listRecords(T.quotes, {
+      fields: [QUOTE.customerName, QUOTE.lastName, QUOTE.firstName, QUOTE.siteCity, QUOTE.quoteNumber, QUOTE.linkStatus, QUOTE.addressStatus, QUOTE.phone, QUOTE.email, QUOTE.projectNumber],
+    }),
   ]);
-  const fam = new Map(families.map((f) => [f.id, f.fields]));
-  return quotes
-    .map((r): QuoteSummary => {
-      const f = fam.get(ids(r.fields[VERSION.quote])[0] ?? "");
-      return {
-        id: r.id,
-        quoteId: str(r.fields[VERSION.label]),
-        version: num(r.fields[VERSION.version]),
-        status: str(r.fields[VERSION.status]),
-        basis: str(r.fields[VERSION.basis]),
-        customerName: customerOf(f),
-        siteCity: str(f?.[QUOTE.siteCity]),
-        quoteNumber: str(f?.[QUOTE.quoteNumber]),
-        linkStatus: str(f?.[QUOTE.linkStatus]),
-        addressStatus: str(f?.[QUOTE.addressStatus]),
-        optionCount: ids(r.fields[VERSION.options]).length,
-        createdTime: r.createdTime,
-      };
-    })
-    .sort((a, b) => b.createdTime.localeCompare(a.createdTime));
+  const heads = new Map<string, QuoteHead>(
+    quotes.map((q) => [
+      q.id,
+      {
+        quoteRecordId: q.id,
+        quoteNumber: str(q.fields[QUOTE.quoteNumber]),
+        customerName: customerOf(q.fields),
+        siteCity: str(q.fields[QUOTE.siteCity]),
+        phone: str(q.fields[QUOTE.phone]),
+        email: str(q.fields[QUOTE.email]),
+        projectNumber: str(q.fields[QUOTE.projectNumber]),
+        linkStatus: str(q.fields[QUOTE.linkStatus]),
+        addressStatus: str(q.fields[QUOTE.addressStatus]),
+      },
+    ]),
+  );
+  return groupVersions(
+    versions.map((r) => ({
+      id: r.id,
+      quoteRecordId: ids(r.fields[VERSION.quote])[0] ?? null,
+      label: str(r.fields[VERSION.label]),
+      version: num(r.fields[VERSION.version]),
+      status: str(r.fields[VERSION.status]),
+      basis: str(r.fields[VERSION.basis]),
+      optionCount: ids(r.fields[VERSION.options]).length,
+      createdTime: r.createdTime,
+    })),
+    heads,
+  );
 }
 
 /** "Jane Doe" when GHL gave us the parts (first name first, Albert 2026-10-14), else whatever single name the quote carries. */

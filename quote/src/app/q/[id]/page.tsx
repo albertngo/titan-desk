@@ -3,14 +3,17 @@ import { notFound } from "next/navigation";
 import { Analysis } from "@/components/Analysis";
 import { CustomerCard } from "@/components/CustomerCard";
 import { Financials } from "@/components/Financials";
+import { LinkJob } from "@/components/LinkJob";
 import { OptionSheet } from "@/components/OptionSheet";
 import { TopBar } from "@/components/TopBar";
 import { airtableRecordUrl, T } from "@/lib/airtable/fields";
 import { requireQuoter } from "@/lib/auth";
 import { optionTotals, parityDiffs } from "@/lib/calc";
 import { money } from "@/lib/format";
+import { jobChoices } from "@/lib/quotes/link";
 import { getQuote } from "@/lib/quotes/load";
 import { refreshFromGhl } from "@/lib/quotes/refresh";
+import { customerView } from "@/lib/view";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Quote" };
@@ -27,12 +30,15 @@ export default async function QuotePage({
   const { opt } = await searchParams;
   const loaded = await getQuote(id);
   if (!loaded) notFound();
-  const quote = await refreshFromGhl(loaded);
+  const [quote, customer] = await Promise.all([refreshFromGhl(loaded), customerView()]);
 
   const showAnalysis = opt === "analysis";
   const option = showAnalysis ? null : (quote.options.find((o) => o.id === opt) ?? quote.options[0] ?? null);
   const totals = option ? optionTotals(option.lines, quote.discountRate, quote.showHst) : null;
   const airtableUrl = airtableRecordUrl(T.versions, quote.id);
+  // A quote with no GHL opportunity yet (Needs linking): offer the customer's jobs to link it to.
+  const unlinked = quote.link && !quote.link.ghlOpportunityId ? quote.link : null;
+  const jobs = unlinked ? await jobChoices(unlinked.quoteRecordId) : null;
 
   return (
     <>
@@ -54,6 +60,8 @@ export default async function QuotePage({
 
         <div className={`layout${option && totals ? "" : " full"}`}>
           <div className="stack">
+            {unlinked && jobs && <LinkJob quoteRecordId={unlinked.quoteRecordId} quoteNumber={unlinked.quoteNumber} jobs={jobs} />}
+
             <CustomerCard quote={quote} />
 
             {quote.legacyLineCount > 0 && (
@@ -83,7 +91,7 @@ export default async function QuotePage({
             )}
 
             {showAnalysis ? (
-              <Analysis quote={quote} />
+              <Analysis quote={quote} customer={customer} />
             ) : option && totals ? (
               <OptionSheet
                 option={option}
@@ -93,6 +101,7 @@ export default async function QuotePage({
                 quoteNotes={quote.notes}
                 airtableUrl={airtableUrl}
                 editHref={`/q/${quote.id}/edit`}
+                customer={customer}
               />
             ) : (
               <section className="card">
@@ -108,6 +117,7 @@ export default async function QuotePage({
               discountRate={quote.discountRate}
               showHst={quote.showHst}
               agrees={parityDiffs(totals, option.airtable).length === 0}
+              customer={customer}
             />
           )}
         </div>

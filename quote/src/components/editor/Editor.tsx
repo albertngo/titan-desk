@@ -97,7 +97,20 @@ function TextCell({ value, placeholder, label, onCommit, className = "cell-in" }
   );
 }
 
-export default function Editor({ initial, card, backHref, version }: { initial: EditorQuote; card: RateCard; backHref: string; version: EditorVersion }) {
+export default function Editor({
+  initial,
+  card,
+  backHref,
+  version,
+  customer,
+}: {
+  initial: EditorQuote;
+  card: RateCard;
+  backHref: string;
+  version: EditorVersion;
+  /** Customer view: no cost, margin, contractor, card rate or flags on screen. */
+  customer: boolean;
+}) {
   const key = draftKey(initial);
   const [boot] = useState(() => loadDraft(key));
   // A restored draft keeps the base it was started from, so a save can tell if Airtable moved on since.
@@ -217,26 +230,28 @@ export default function Editor({ initial, card, backHref, version }: { initial: 
               <button className="iconbtn danger" title="Remove line" aria-label="Remove line" onClick={() => apply(removeLine(quote, option.id, l.id))}>✕</button>
             </span>
           </div>
-          {flags.length > 0 && <div>{flags.map((f) => <span key={f} className={`flag ${f}`}>{f}</span>)}</div>}
+          {!customer && flags.length > 0 && <div>{flags.map((f) => <span key={f} className={`flag ${f}`}>{f}</span>)}</div>}
         </td>
-        <td>
-          {contractors.length > 1 ? (
-            <select
-              className="cell-in"
-              aria-label="Contractor"
-              value={l.contractor ?? ""}
-              onChange={(e) => apply(setContractor(quote, option.id, l.id, e.target.value, catalogue))}
-            >
-              {contractors.map((c, i) => (
-                <option key={c.name} value={c.name}>
-                  {c.name} · {money(c.cost)}{i === 0 ? " ★" : ""}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <span className="muted">{l.contractor ?? "—"}</span>
-          )}
-        </td>
+        {!customer && (
+          <td>
+            {contractors.length > 1 ? (
+              <select
+                className="cell-in"
+                aria-label="Contractor"
+                value={l.contractor ?? ""}
+                onChange={(e) => apply(setContractor(quote, option.id, l.id, e.target.value, catalogue))}
+              >
+                {contractors.map((c, i) => (
+                  <option key={c.name} value={c.name}>
+                    {c.name} · {money(c.cost)}{i === 0 ? " ★" : ""}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span className="muted">{l.contractor ?? "—"}</span>
+            )}
+          </td>
+        )}
         <td className="r">
           <div className="qty">
             <NumCell value={l.qty} label="Quantity" placeholder="0" onCommit={(v) => upd({ qty: v })} />
@@ -253,15 +268,17 @@ export default function Editor({ initial, card, backHref, version }: { initial: 
             <NumCell value={l.waste === null ? null : Math.round(l.waste * 1000) / 10} label="Waste percent" placeholder="waste %" onCommit={(v) => upd({ waste: v === null ? null : v / 100 })} />
           </div>
         </td>
-        <td className="r">
-          <NumCell value={l.costOverride} label="Unit cost" placeholder={l.unitCostSnap !== null ? rate(l.unitCostSnap) : "cost"} onCommit={(v) => upd({ costOverride: v })} />
-          {l.unitCostSnap !== null && <span className="sub">card {money(l.unitCostSnap)}</span>}
-        </td>
+        {!customer && (
+          <td className="r">
+            <NumCell value={l.costOverride} label="Unit cost" placeholder={l.unitCostSnap !== null ? rate(l.unitCostSnap) : "cost"} onCommit={(v) => upd({ costOverride: v })} />
+            {l.unitCostSnap !== null && <span className="sub">card {money(l.unitCostSnap)}</span>}
+          </td>
+        )}
         <td className="r">
           <NumCell value={l.unitPrice} label="Unit price" placeholder={l.unitPriceSnap !== null ? rate(l.unitPriceSnap) : "price"} onCommit={(v) => upd({ unitPrice: v })} />
-          {l.unitPriceSnap !== null && <span className="sub">card {money(l.unitPriceSnap)}</span>}
+          {!customer && l.unitPriceSnap !== null && <span className="sub">card {money(l.unitPriceSnap)}</span>}
         </td>
-        <td className="r muted">{pct(margin, 0)}</td>
+        {!customer && <td className="r muted">{pct(margin, 0)}</td>}
         <td className="r amt">
           {l.include ? money(total) : <span className="note">optional</span>}
           <label className="inc" title="Untick to show this line as an optional extra, outside the total.">
@@ -403,18 +420,18 @@ export default function Editor({ initial, card, backHref, version }: { initial: 
                       <tr>
                         <th className="idx">#</th>
                         <th>Item</th>
-                        <th>Contractor</th>
+                        {!customer && <th>Contractor</th>}
                         <th className="r">Quantity</th>
-                        <th className="r">Unit cost</th>
+                        {!customer && <th className="r">Unit cost</th>}
                         <th className="r">Unit price</th>
-                        <th className="r">Margin</th>
+                        {!customer && <th className="r">Margin</th>}
                         <th className="r">Line total</th>
                       </tr>
                     </thead>
                     <tbody>
                       {sectionsShown.length === 0 && (
                         <tr>
-                          <td colSpan={8} className="empty">No lines yet. Pick a type of work below to add the first one.</td>
+                          <td colSpan={customer ? 5 : 8} className="empty">No lines yet. Pick a type of work below to add the first one.</td>
                         </tr>
                       )}
                       {sectionsShown.flatMap((s) => {
@@ -422,7 +439,7 @@ export default function Editor({ initial, card, backHref, version }: { initial: 
                         const sum = lines.reduce((a, l) => a + (lineTotal(l) ?? 0), 0);
                         return [
                           <tr className="sect" key={`s-${s}`}>
-                            <td colSpan={7}>
+                            <td colSpan={customer ? 4 : 7}>
                               {s}{" "}
                               <button className="addinline" onClick={() => setPicking(s)}>+ Add</button>
                             </td>
@@ -509,7 +526,7 @@ export default function Editor({ initial, card, backHref, version }: { initial: 
           )}
         </div>
 
-        {option && t && <Financials lines={option.lines} t={t} discountRate={quote.discountRate} showHst={quote.showHst} agrees={null} />}
+        {option && t && <Financials lines={option.lines} t={t} discountRate={quote.discountRate} showHst={quote.showHst} agrees={null} customer={customer} />}
       </div>
 
       {picking && option && (
@@ -517,6 +534,7 @@ export default function Editor({ initial, card, backHref, version }: { initial: 
           section={picking}
           catalogue={catalogue}
           onClose={() => setPicking(null)}
+          customer={customer}
           onPick={(line) => {
             apply(addLine(quote, option.id, line));
             setPicking(null);

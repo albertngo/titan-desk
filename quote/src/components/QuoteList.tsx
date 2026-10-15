@@ -1,0 +1,185 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { displayPhone } from "@/lib/link/identity";
+import { ago, inFilter, matchesSearch, QUOTE_FILTERS, type QuoteFilter, type QuoteGroup } from "@/lib/quotes/group";
+
+const dateOf = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric", year: "numeric" });
+const initials = (name: string | null) =>
+  (name ?? "?")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase() || "?";
+
+/** A version's status as a quiet dot badge; the colour carries the state, the word stays readable. */
+function Status({ status }: { status: string | null }) {
+  if (!status) return null;
+  return (
+    <span className={`sb ${status}`}>
+      <i aria-hidden />
+      {status}
+    </span>
+  );
+}
+
+function Chevron() {
+  return (
+    <svg className="chev" width="14" height="14" viewBox="0 0 16 16" aria-hidden>
+      <path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** The All quotes list: quick filters, a search, one row per quote, and its versions folded under it. */
+export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<QuoteFilter>("all");
+  const [open, setOpen] = useState<Set<string>>(() => new Set());
+  const search = useRef<HTMLInputElement>(null);
+  const now = useMemo(() => new Date(), []);
+
+  // "/" jumps to the search, as in most list screens; never while typing somewhere else.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (e.key !== "/" || e.metaKey || e.ctrlKey || t?.closest("input, textarea, select, [contenteditable]")) return;
+      e.preventDefault();
+      search.current?.focus();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const searched = useMemo(() => groups.filter((g) => matchesSearch(g, query)), [groups, query]);
+  const counts = useMemo(() => Object.fromEntries(QUOTE_FILTERS.map((f) => [f.key, searched.filter((g) => inFilter(g, f.key)).length])), [searched]);
+  const shown = useMemo(() => searched.filter((g) => inFilter(g, filter)), [searched, filter]);
+  const keyOf = (g: QuoteGroup) => g.quoteRecordId ?? g.versions[0].id;
+  const toggle = (k: string) =>
+    setOpen((s) => {
+      const n = new Set(s);
+      if (n.has(k)) n.delete(k);
+      else n.add(k);
+      return n;
+    });
+  const reset = () => {
+    setQuery("");
+    setFilter("all");
+    search.current?.focus();
+  };
+
+  return (
+    <section className="card ql-card">
+      <div className="ql-tools">
+        <label className="ql-search">
+          <svg className="ql-mag" width="15" height="15" viewBox="0 0 16 16" aria-hidden>
+            <circle cx="7" cy="7" r="4.75" fill="none" stroke="currentColor" strokeWidth="1.6" />
+            <path d="m10.5 10.5 3 3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+          </svg>
+          <input
+            ref={search}
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Name, Q-number, city or phone"
+            aria-label="Search quotes"
+            autoComplete="off"
+            enterKeyHint="search"
+          />
+          {query ? (
+            <button type="button" className="ql-clear" onClick={() => setQuery("")} aria-label="Clear search">
+              ×
+            </button>
+          ) : (
+            <kbd className="ql-kbd" aria-hidden>/</kbd>
+          )}
+        </label>
+        <div className="ql-filters" role="group" aria-label="Show">
+          {QUOTE_FILTERS.map((f) => (
+            <button key={f.key} type="button" className="ql-f" aria-pressed={filter === f.key} onClick={() => setFilter(f.key)}>
+              {f.label}
+              <span className="n">{counts[f.key]}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {groups.length === 0 ? (
+        <div className="ql-empty">
+          <p className="t">No quotes yet</p>
+          <p className="s">Quotes start from a booking in GHL, or from New quote.</p>
+        </div>
+      ) : shown.length === 0 ? (
+        <div className="ql-empty">
+          <p className="t">Nothing matches{query.trim() ? ` “${query.trim()}”` : ""}{filter !== "all" ? ` in ${QUOTE_FILTERS.find((f) => f.key === filter)!.label}` : ""}</p>
+          <button type="button" className="btn small" onClick={reset}>Show all quotes</button>
+        </div>
+      ) : (
+        <ul className="ql">
+          {shown.map((g) => {
+            const k = keyOf(g);
+            const latest = g.versions[0];
+            const expanded = open.has(k);
+            const sub = [displayPhone(g.phone), g.siteCity].filter(Boolean).join(" · ");
+            return (
+              <li key={k} className={`ql-q${expanded ? " open" : ""}`}>
+                <div className="ql-row">
+                  <button
+                    type="button"
+                    className="ql-tog"
+                    aria-expanded={expanded}
+                    aria-controls={`v-${k}`}
+                    aria-label={`${expanded ? "Hide" : "Show"} the versions of ${g.quoteNumber ?? "this quote"}`}
+                    onClick={() => toggle(k)}
+                  >
+                    <Chevron />
+                  </button>
+                  <span className="ql-av" aria-hidden>{initials(g.customerName)}</span>
+                  <div className="ql-who">
+                    <Link className="cust" href={`/q/${latest.id}`}>{g.customerName ?? "No customer"}</Link>
+                    {sub && <span className="mt">{sub}</span>}
+                  </div>
+                  <div className="ql-num">
+                    <span>{g.quoteNumber ?? <span className="faint">No number</span>}</span>
+                    {g.projectNumber && <span className="mt">{g.projectNumber}</span>}
+                  </div>
+                  <div className="ql-latest">
+                    <span className="ql-v-n">v{latest.version ?? "?"}</span>
+                    <Status status={latest.status} />
+                    {latest.basis && <span className={`ql-basis ${latest.basis}`}>{latest.basis}</span>}
+                  </div>
+                  <div className="ql-flags">
+                    {g.linkStatus === "Needs linking" && <span className="chip bad">Needs linking</span>}
+                    {g.addressStatus === "Unconfirmed" && <span className="chip warn">Address unconfirmed</span>}
+                    {g.addressStatus === "No address" && <span className="chip warn">No address yet</span>}
+                  </div>
+                  <span className="ql-when" title={dateOf(g.latestAt)}>{ago(g.latestAt, now)}</span>
+                </div>
+                {expanded && (
+                  <ul className="ql-vs" id={`v-${k}`}>
+                    {g.versions.map((v, i) => (
+                      <li key={v.id}>
+                        <Link href={`/q/${v.id}`} className="ql-v">
+                          <span className="nm">{v.label ?? `v${v.version ?? "?"}`}</span>
+                          {i === 0 && <span className="ql-cur">Current</span>}
+                          <Status status={v.status} />
+                          {v.basis && <span className={`ql-basis ${v.basis}`}>{v.basis}</span>}
+                          <span className="mt">
+                            {v.optionCount > 0 ? `${v.optionCount} option${v.optionCount === 1 ? "" : "s"}` : "old A/B/C format"} · {dateOf(v.createdTime)}
+                          </span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}

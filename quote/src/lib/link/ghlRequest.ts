@@ -104,6 +104,33 @@ export function buildGhlRequest(i: GhlRequestInput): GhlRequest {
 }
 
 /**
+ * Linking a quote that says Needs linking to the job staff picked (2026-10-15). Same "link" route
+ * through Make as starting a quote on an existing opportunity, with the contact left as it is (an
+ * empty update). The job gets the quote number, the site if the quote's is confirmed, and the
+ * CompanyCam link if the job has none; a job that was lost or abandoned is set back to open.
+ */
+export function buildLinkJob(i: {
+  contactId: string;
+  opportunityId: string;
+  reopen: boolean;
+  quoteNumber: string;
+  site: { address: string | null; city: string | null } | null;
+  companyCamUrl: string | null;
+}): GhlRequest {
+  const fields = [
+    ...oppFields(i.quoteNumber, i.site ?? { address: null, city: null }),
+    ...(i.companyCamUrl ? [{ id: OPP_FIELDS.companyCamUrl, field_value: i.companyCamUrl }] : []),
+  ];
+  return {
+    mode: "link",
+    contactId: i.contactId,
+    opportunityId: i.opportunityId,
+    contactBody: JSON.stringify({}),
+    oppBody: JSON.stringify({ ...(i.reopen ? { status: "open" } : {}), customFields: fields }),
+  };
+}
+
+/**
  * The booking step's one GHL write of its own: a job whose appointment was confirmed with no
  * opportunity gets one, in the Sales pipeline's Meeting (Scheduled) stage, already carrying the
  * quote number and the site. Same "new-opportunity" route through Make as a new quote; the
