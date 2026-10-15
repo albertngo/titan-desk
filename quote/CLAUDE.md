@@ -63,6 +63,9 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   flags or checks, on every page including the editor: they are not hidden, they are not sent.
   Charge rates, line totals, the discount, HST and payments stay. Any new screen that shows an
   internal figure must take `customerView()` and leave it out.
+- **All quotes (2026-10-15).** One row per quote, its versions folded under it (newest first),
+  and a search over name, quote and project number, city, email and phone digits. Grouping and
+  search are pure, in `src/lib/quotes/group.ts`, tested in `tests/group.test.ts`.
 
 ## Hard rules
 

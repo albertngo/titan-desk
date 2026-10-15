@@ -1,21 +1,6 @@
 import type { LineInput, OptionTotals } from "@/lib/calc";
 import type { GhlContact } from "@/lib/ghl/types";
 
-export type QuoteSummary = {
-  id: string;
-  quoteId: string | null;
-  version: number | null;
-  status: string | null;
-  basis: string | null;
-  customerName: string | null;
-  siteCity: string | null;
-  quoteNumber: string | null;
-  linkStatus: string | null;
-  addressStatus: string | null;
-  optionCount: number;
-  createdTime: string;
-};
-
 export type QuoteLine = LineInput & {
   id: string;
   /** Where the price came from: a Rate Card row, a Stair Item, a catalogue product, or typed in. */
