@@ -74,3 +74,42 @@ export function matchesSearch(g: QuoteGroup, query: string): boolean {
     return /^[\d\-().+]+$/.test(w) && d.length >= 3 && phone.includes(d);
   });
 }
+
+// ---------- filters ----------
+
+export const QUOTE_FILTERS = [
+  { key: "all", label: "All" },
+  { key: "linking", label: "Needs linking" },
+  { key: "draft", label: "Drafts" },
+  { key: "sent", label: "Sent" },
+  { key: "won", label: "Won" },
+] as const;
+export type QuoteFilter = (typeof QUOTE_FILTERS)[number]["key"];
+
+/** Which quick filter a quote falls under. Drafts and Sent go by its newest version; Won by a project number or an accepted version. */
+export function inFilter(g: QuoteGroup, f: QuoteFilter): boolean {
+  const s = g.versions[0]?.status ?? null;
+  switch (f) {
+    case "all":
+      return true;
+    case "linking":
+      return g.linkStatus === "Needs linking";
+    case "draft":
+      return s === "Draft";
+    case "sent":
+      return s === "Sent";
+    case "won":
+      return Boolean(g.projectNumber) || s === "Accepted" || s === "Won";
+  }
+}
+
+/** "Today", "Yesterday", "3 days ago", then a date: when a quote last had a new version, in Toronto time. */
+export function ago(iso: string, now: Date): string {
+  const day = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
+  const then = new Date(iso);
+  const days = Math.round((Date.parse(day(now)) - Date.parse(day(then))) / 86_400_000);
+  if (days <= 0) return "Today";
+  if (days === 1) return "Yesterday";
+  if (days < 7) return `${days} days ago`;
+  return then.toLocaleDateString("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric", ...(days > 300 ? { year: "numeric" } : {}) });
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupVersions, matchesSearch, type QuoteHead, type VersionRow } from "../src/lib/quotes/group";
+import { ago, groupVersions, inFilter, matchesSearch, type QuoteHead, type VersionRow } from "../src/lib/quotes/group";
 
 // INVENTED people and numbers only: this repo is public.
 const V = (o: Partial<VersionRow> & { id: string; quoteRecordId: string | null }) => ({ label: null, version: 1, status: "Draft", basis: "Preliminary", optionCount: 1, createdTime: "2026-10-01T00:00:00Z", ...o });
@@ -45,5 +45,26 @@ describe("All quotes: search", () => {
 
   it("shows everything when the search is empty", () => {
     expect(groups.filter((g) => matchesSearch(g, "  "))).toHaveLength(groups.length);
+  });
+});
+
+describe("All quotes: quick filters and dates", () => {
+  it("files each quote under the filters its newest version and links say", () => {
+    const g = (o: Partial<QuoteHead>, status: string) => ({ ...H({ quoteRecordId: "recX", ...o }), versions: [V({ id: "x", quoteRecordId: "recX", status })], latestAt: "" });
+    expect(inFilter(g({ linkStatus: "Needs linking" }, "Draft"), "linking")).toBe(true);
+    expect(inFilter(g({}, "Draft"), "draft")).toBe(true);
+    expect(inFilter(g({}, "Sent"), "draft")).toBe(false);
+    expect(inFilter(g({}, "Sent"), "sent")).toBe(true);
+    expect(inFilter(g({ projectNumber: "PP-1" }, "Superseded"), "won")).toBe(true);
+    expect(inFilter(g({}, "Accepted"), "won")).toBe(true);
+    expect(inFilter(g({}, "Lost"), "all")).toBe(true);
+  });
+
+  it("says when, the way staff would", () => {
+    const now = new Date("2026-10-15T16:00:00Z");
+    expect(ago("2026-10-15T13:00:00Z", now)).toBe("Today");
+    expect(ago("2026-10-14T20:00:00Z", now)).toBe("Yesterday");
+    expect(ago("2026-10-12T20:00:00Z", now)).toBe("3 days ago");
+    expect(ago("2026-09-01T16:00:00Z", now)).toBe("Sep 1");
   });
 });

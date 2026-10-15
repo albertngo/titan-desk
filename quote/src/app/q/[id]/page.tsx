@@ -60,9 +60,9 @@ export default async function QuotePage({
 
         <div className={`layout${option && totals ? "" : " full"}`}>
           <div className="stack">
-            <CustomerCard quote={quote} />
-
             {unlinked && jobs && <LinkJob quoteRecordId={unlinked.quoteRecordId} quoteNumber={unlinked.quoteNumber} jobs={jobs} />}
+
+            <CustomerCard quote={quote} />
 
             {quote.legacyLineCount > 0 && (
               <p className="card banner warn">
