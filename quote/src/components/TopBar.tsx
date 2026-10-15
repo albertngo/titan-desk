@@ -1,6 +1,9 @@
 import Link from "next/link";
+import { customerView } from "@/lib/view";
+import { ViewSwitch } from "./ViewSwitch";
 
-export function TopBar({ email }: { email: string }) {
+export async function TopBar({ email }: { email: string }) {
+  const customer = await customerView();
   return (
     <header className="topbar">
       <div className="topbar-in">
@@ -8,6 +11,7 @@ export function TopBar({ email }: { email: string }) {
           <span className="brand-mark">T</span>
           Titan Quotes
         </Link>
+        <ViewSwitch on={customer} />
         <div className="who">
           <span className="email">{email}</span>
           <span className="avatar" aria-hidden>{email.slice(0, 2)}</span>

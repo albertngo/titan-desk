@@ -138,3 +138,24 @@ export type StartResult =
   | { ok: true; versionId: string; reused: boolean }
   /** `duplicates`: GHL already has someone with the phone or email typed for a "new" customer. */
   | { ok: false; message: string; duplicates?: FoundCustomer[] };
+
+/* ---------- linking a quote to a job (src/lib/quotes/link.ts) ---------- */
+
+export type JobChoice = {
+  id: string;
+  name: string | null;
+  status: string | null;
+  pipeline: string | null;
+  stage: string | null;
+  statusChangedAt: string | null;
+  siteAddress: string | null;
+  hasCompanyCam: boolean;
+  /** Lost or abandoned lately: linking sets it back to open. */
+  reopen: boolean;
+  /** Another quote is already on this job. */
+  takenBy: string | null;
+};
+
+export type JobChoices = { ok: true; canLink: boolean; choices: JobChoice[] } | { ok: false; message: string };
+
+export type LinkJobResult = { ok: true } | { ok: false; message: string };

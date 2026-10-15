@@ -73,12 +73,12 @@ function Parity({ option, t }: { option: QuoteOption; t: OptionTotals }) {
   );
 }
 
-function Row({ l, n }: { l: QuoteLine; n: number | undefined }) {
+function Row({ l, n, customer }: { l: QuoteLine; n: number | undefined; customer: boolean }) {
   if (!isPriced(l)) {
     return (
       <tr>
         <td className="idx" />
-        <td colSpan={8}>
+        <td colSpan={customer ? 4 : 7}>
           {l.description}
           {l.clientNote && <span className="sub">{l.clientNote}</span>}
         </td>
@@ -97,23 +97,25 @@ function Row({ l, n }: { l: QuoteLine; n: number | undefined }) {
       <td>
         {l.description ?? <span className="note">No description</span>}
         {(l.area || l.clientNote) && <span className="sub">{[l.area, l.clientNote].filter(Boolean).join(" · ")}</span>}
-        {flags.length > 0 && <div>{flags.map((f) => <span key={f} className={`flag ${f}`}>{f}</span>)}</div>}
+        {!customer && flags.length > 0 && <div>{flags.map((f) => <span key={f} className={`flag ${f}`}>{f}</span>)}</div>}
       </td>
-      <td className="muted">{l.contractor ?? "—"}</td>
+      {!customer && <td className="muted">{l.contractor ?? "—"}</td>}
       <td className="r">
         {rate(l.qty)} <span className="faint">{l.uom ?? ""}</span>
         {l.waste ? <span className="sub">+{Math.round(l.waste * 100)}% waste</span> : null}
       </td>
+      {!customer && (
+        <td className="r">
+          <span className={costOvr || l.manualCost ? "chgd" : "muted"}>{money(cost)}</span>
+          {costOvr && <span className="sub">card {money(l.unitCostSnap)}/unit, now {money(costUsed(l))}</span>}
+          {!!l.manualCost && <span className="sub">manual line cost</span>}
+        </td>
+      )}
       <td className="r">
-        <span className={costOvr || l.manualCost ? "chgd" : "muted"}>{money(cost)}</span>
-        {costOvr && <span className="sub">card {money(l.unitCostSnap)}/unit, now {money(costUsed(l))}</span>}
-        {!!l.manualCost && <span className="sub">manual line cost</span>}
+        <span className={rateOvr && !customer ? "chgd" : undefined}>{money(priceUsed(l))}</span>
+        {rateOvr && !customer && <span className="sub">card {money(l.unitPriceSnap)}</span>}
       </td>
-      <td className="r">
-        <span className={rateOvr ? "chgd" : undefined}>{money(priceUsed(l))}</span>
-        {rateOvr && <span className="sub">card {money(l.unitPriceSnap)}</span>}
-      </td>
-      <td className="r muted">{pct(margin, 0)}</td>
+      {!customer && <td className="r muted">{pct(margin, 0)}</td>}
       <td className="r amt">{l.include ? money(total) : <span className="note">optional</span>}</td>
     </tr>
   );
@@ -127,6 +129,7 @@ export function OptionSheet({
   quoteNotes,
   airtableUrl,
   editHref,
+  customer,
 }: {
   option: QuoteOption;
   t: OptionTotals;
@@ -135,6 +138,8 @@ export function OptionSheet({
   quoteNotes: string | null;
   airtableUrl: string;
   editHref: string;
+  /** Customer view: no cost, margin, contractor, card rate, flags or parity check. */
+  customer: boolean;
 }) {
   const order = sectionOrder(option.lines);
   const exclusions = option.lines.filter((l) => l.section === "Exclusions" && l.description);
@@ -152,7 +157,7 @@ export function OptionSheet({
           </div>
           {option.description ? <p className="odesc">{option.description}</p> : <p className="odesc note">No description yet.</p>}
         </div>
-        <Parity option={option} t={t} />
+        {!customer && <Parity option={option} t={t} />}
         {order.length === 0 ? (
           <p className="empty">This option has no lines yet.</p>
         ) : (
@@ -162,11 +167,11 @@ export function OptionSheet({
                 <tr>
                   <th className="idx">#</th>
                   <th>Item</th>
-                  <th>Contractor</th>
+                  {!customer && <th>Contractor</th>}
                   <th className="r">Quantity</th>
-                  <th className="r">Cost</th>
+                  {!customer && <th className="r">Cost</th>}
                   <th className="r">Unit price</th>
-                  <th className="r">Margin</th>
+                  {!customer && <th className="r">Margin</th>}
                   <th className="r">Line total</th>
                 </tr>
               </thead>
@@ -176,10 +181,10 @@ export function OptionSheet({
                   const sum = lines.reduce((a, l) => a + (lineTotal(l) ?? 0), 0);
                   return [
                     <tr className="sect" key={`s-${s}`}>
-                      <td colSpan={7}>{s}</td>
+                      <td colSpan={customer ? 4 : 7}>{s}</td>
                       <td className="r">{money(sum)}</td>
                     </tr>,
-                    ...lines.map((l) => <Row key={l.id} l={l} n={nums.get(l.id)} />),
+                    ...lines.map((l) => <Row key={l.id} l={l} n={nums.get(l.id)} customer={customer} />),
                   ];
                 })}
               </tbody>

@@ -2,16 +2,16 @@ import { SECTIONS, lineFlags, optionTotals, sectionTotals, type OptionTotals } f
 import { money, pct } from "@/lib/format";
 import type { Quote } from "@/lib/quotes/types";
 
-const METRICS: { key: keyof OptionTotals; label: string; best?: "max" }[] = [
+const METRICS: { key: keyof OptionTotals; label: string; best?: "max"; internal?: true }[] = [
   { key: "subtotal", label: "Subtotal" },
-  { key: "cost", label: "Cost" },
-  { key: "profit", label: "Profit", best: "max" },
-  { key: "marginPct", label: "Margin", best: "max" },
+  { key: "cost", label: "Cost", internal: true },
+  { key: "profit", label: "Profit", best: "max", internal: true },
+  { key: "marginPct", label: "Margin", best: "max", internal: true },
   { key: "total", label: "Total (client pays)" },
 ];
 
-/** Compares every option on the quote. Information only: nothing here changes an option. */
-export function Analysis({ quote }: { quote: Quote }) {
+/** Compares every option on the quote. Information only: nothing here changes an option. Customer view shows prices only. */
+export function Analysis({ quote, customer }: { quote: Quote; customer: boolean }) {
   const opts = quote.options.map((o) => ({
     o,
     t: optionTotals(o.lines, quote.discountRate, quote.showHst),
@@ -44,7 +44,7 @@ export function Analysis({ quote }: { quote: Quote }) {
             </tr>
           </thead>
           <tbody>
-            {METRICS.map((m) => {
+            {METRICS.filter((m) => !customer || !m.internal).map((m) => {
               const vals = opts.map((x) => x.t[m.key]);
               const top = m.best ? Math.max(...vals.map((v) => v ?? -Infinity)) : null;
               return (
@@ -58,12 +58,14 @@ export function Analysis({ quote }: { quote: Quote }) {
                 </tr>
               );
             })}
-            <tr>
-              <td>Flags</td>
-              {opts.map((x) => (
-                <td key={x.o.id}>{x.flags || ""}</td>
-              ))}
-            </tr>
+            {!customer && (
+              <tr>
+                <td>Flags</td>
+                {opts.map((x) => (
+                  <td key={x.o.id}>{x.flags || ""}</td>
+                ))}
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

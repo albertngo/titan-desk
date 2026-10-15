@@ -52,6 +52,17 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   by **Save as new version**. Only records already on the version are updated; anything else
   the browser sends is created new. Removed lines and options are detached, never deleted.
   Select values off Airtable's own lists are saved blank, because typecast would invent them.
+- **Linking (2026-10-15).** A quote that says Needs linking shows **Link to Opportunity** on its
+  page: the customer's open project opportunities, and ones lost or abandoned in the last 90 days
+  (never won, never STORE; one opportunity, one quote). Linking sends the quote number, the
+  confirmed site and the CompanyCam link to the opportunity through Make (never over a CompanyCam
+  link it already has), sets a lost or abandoned one back to open, and only then marks the quote
+  Linked. Rules: `src/lib/link/linkJob.ts`, tested in `tests/linkJob.test.ts`.
+- **Customer view (Albert, 2026-10-15).** A switch in the top bar, kept per device in the
+  `quote_view` cookie. While on, the server renders no cost, margin, profit, contractor, card rate,
+  flags or checks, on every page including the editor: they are not hidden, they are not sent.
+  Charge rates, line totals, the discount, HST and payments stay. Any new screen that shows an
+  internal figure must take `customerView()` and leave it out.
 
 ## Hard rules
 
@@ -66,7 +77,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
 2a. **One file talks to GHL, and only reads:** `src/lib/ghl/client.ts`, `server-only`, GET
    only, the only reader of `QUOTE_GHL_TOKEN` (contacts.readonly + opportunities.readonly).
 2b. **One file sends to Make:** `src/lib/make/client.ts`, `server-only`, the only reader of
-   `QUOTE_MAKE_GHL_HOOK` / `QUOTE_MAKE_GHL_KEY`, called only from `src/lib/quotes/start.ts` and `src/lib/quotes/booking.ts`.
+   `QUOTE_MAKE_GHL_HOOK` / `QUOTE_MAKE_GHL_KEY`, called only from `src/lib/quotes/start.ts`, `src/lib/quotes/booking.ts` and `src/lib/quotes/link.ts`.
    Set those two variables only after the scenario is switched on: a request to a scenario
    that is off waits in Make's queue and would run later.
 2c. **One path without a sign-in:** `/api/booking`, called by Make 3453735 when an appointment

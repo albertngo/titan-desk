@@ -22,6 +22,8 @@ export type GhlOpportunity = {
   statusChangedAt: string | null;
   /** Its CompanyCam URL: set once the job's folder and CompanyCam project were made. */
   companyCamUrl: string | null;
+  /** Its Project Address, to tell two jobs of one customer apart. */
+  siteAddress: string | null;
 };
 
 /** One opportunity's site, from its Project Address / Project City custom fields. */

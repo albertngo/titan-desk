@@ -24,6 +24,15 @@ h1, h2, h3, p { margin: 0; }
 .topbar-in { padding: 10px clamp(16px, 2.5vw, 32px); display: flex; align-items: center; gap: 12px; }
 .brand { font-weight: 700; color: var(--fg); font-size: 15px; margin-right: auto; display: flex; align-items: center; gap: 8px; }
 .brand-mark { width: 26px; height: 26px; border-radius: 6px; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-size: 13px; font-weight: 800; }
+.viewsw { font: inherit; font-size: 12.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; padding: 5px 10px 5px 6px; border-radius: 999px; border: 1px solid var(--line-strong); background: var(--card); color: var(--fg-dim); cursor: pointer; white-space: nowrap; }
+.viewsw:hover { border-color: var(--accent); color: var(--accent); }
+.viewsw .track { width: 28px; height: 16px; border-radius: 999px; background: var(--line-strong); position: relative; transition: background .15s; flex: none; }
+.viewsw .knob { position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .2); transition: transform .15s; }
+.viewsw.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.viewsw.on .track { background: var(--accent); }
+.viewsw.on .knob { transform: translateX(12px); }
+.viewsw:disabled { opacity: .6; cursor: default; }
+.viewsw:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .who { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--fg-dim); }
 .avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-weight: 700; font-size: 12px; text-transform: uppercase; }
 .linkbtn { font: inherit; font-size: 13px; background: none; border: 0; color: var(--fg-dim); cursor: pointer; padding: 0; }
@@ -252,6 +261,13 @@ table.items.edit .desc { font-weight: 500; }
 .nq-opp { display: grid; grid-template-columns: 20px minmax(0, 1fr); column-gap: 8px; row-gap: 1px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card-2); cursor: pointer; }
 .nq-opp input { grid-row: span 3; margin: 2px 0 0; }
 .nq-opp.taken { grid-template-columns: minmax(0, 1fr); cursor: default; background: var(--head); }
+.lj-intro { margin: 0; color: var(--fg-dim); font-size: 12.5px; }
+.lj-opps { border: 0; margin: 0; padding: 0; display: grid; gap: 6px; min-width: 0; }
+.lj-opps legend { font-size: 12px; color: var(--fg-dim); padding: 0; margin-bottom: 4px; float: left; width: 100%; }
+.lj-msg { margin: 0; padding: 8px 10px; border-radius: var(--radius); font-size: 12.5px; }
+.lj-msg.warn { background: var(--warn-soft); color: var(--warn); }
+.lj-msg.bad { background: var(--bad-soft); color: var(--bad); }
+.lj-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .nq-newtoggle { justify-self: start; color: var(--accent); }
 .nq-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 12px; }
 .nq-form label { display: grid; gap: 4px; font-size: 12.5px; color: var(--fg-dim); }

@@ -4,8 +4,20 @@ import { useState } from "react";
 import { bestContractor, entryLabel, lineFromEntry, manualLine, searchCatalogue, type CardEntry, type EditorLine } from "@/lib/editor/model";
 import { money } from "@/lib/format";
 
-/** Add a line: search the rate card and stair items, or type the line in by hand. */
-export function Picker({ section, catalogue, onPick, onClose }: { section: string; catalogue: CardEntry[]; onPick: (l: EditorLine) => void; onClose: () => void }) {
+/** Add a line: search the rate card and stair items, or type the line in by hand. Customer view shows the charge rate only. */
+export function Picker({
+  section,
+  catalogue,
+  onPick,
+  onClose,
+  customer,
+}: {
+  section: string;
+  catalogue: CardEntry[];
+  onPick: (l: EditorLine) => void;
+  onClose: () => void;
+  customer: boolean;
+}) {
   const [q, setQ] = useState("");
   const results = searchCatalogue(catalogue, q, section);
 
@@ -35,8 +47,8 @@ export function Picker({ section, catalogue, onPick, onClose }: { section: strin
                   <span className="nm">{entryLabel(e)}</span>
                   <span className="mt">
                     {e.kind === "rate"
-                      ? `${money(from!.rate)} / ${e.uom ?? "unit"} · ${e.contractors.length} contractor${e.contractors.length === 1 ? "" : "s"}, cheapest ${from!.name}`
-                      : `${money(e.rate)} / piece${e.cost === null ? " · no cost on file" : ""}`}
+                      ? `${money(from!.rate)} / ${e.uom ?? "unit"}${customer ? "" : ` · ${e.contractors.length} contractor${e.contractors.length === 1 ? "" : "s"}, cheapest ${from!.name}`}`
+                      : `${money(e.rate)} / piece${!customer && e.cost === null ? " · no cost on file" : ""}`}
                   </span>
                 </button>
               </li>
@@ -46,7 +58,7 @@ export function Picker({ section, catalogue, onPick, onClose }: { section: strin
           <li>
             <button className="pick manual" onClick={() => onPick(manualLine(section, q.trim()))}>
               <span className="nm">Type it in yourself{q.trim() ? `: “${q.trim()}”` : ""}</span>
-              <span className="mt">A line with your own price and cost, flagged NOSRC</span>
+              <span className="mt">{customer ? "A line with your own price" : "A line with your own price and cost, flagged NOSRC"}</span>
             </button>
           </li>
         </ul>
