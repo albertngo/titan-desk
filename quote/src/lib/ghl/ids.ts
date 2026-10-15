@@ -35,4 +35,6 @@ export const OPP_FIELDS = {
   projectNumber: "HIToSWZ4w07LwzC2J04u",
   projectAddress: "LfzVYiftWBnKGnnsyna9",
   projectCity: "8xlNjiw1kf3MFNsII0jv",
+  /** Per job: set once the job has its CompanyCam project (read through Make's GHL connection, 2026-10-15). */
+  companyCamUrl: "fEZdUNuN9TWKjIOD6fBo",
 } as const;

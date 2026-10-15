@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bookingDecision, opportunityUpdateBody, parseBooking, parseBookingLinks, pickOpportunity, sameSiteAs, type SiteQuote } from "../src/lib/link/booking";
+import { bookingDecision, opportunityUpdateBody, parseBooking, parseBookingLinks, pickOpportunity, recentlyClosed, sameSiteAs, type SiteQuote } from "../src/lib/link/booking";
 import { OPP_FIELDS } from "../src/lib/ghl/ids";
 import type { QuoteKeys } from "../src/lib/link/match";
 
@@ -36,12 +36,37 @@ describe("booking: which quote does this appointment belong to?", () => {
 });
 
 describe("booking: which job is this appointment for?", () => {
-  it("takes the opportunity on the booking when GHL sent one", () => {
-    expect(pickOpportunity("oppBOOKED001", [{ id: "oppOTHER0001" }])).toEqual({ kind: "use", id: "oppBOOKED001", how: "booking" });
+  it("takes the opportunity on the booking when GHL sent one that is still open", () => {
+    expect(pickOpportunity("oppBOOKED001", [{ id: "oppOTHER0001" }, { id: "oppBOOKED001" }])).toEqual({ kind: "use", id: "oppBOOKED001", how: "booking" });
+  });
+
+  it("ignores one GHL sent that is won, lost or abandoned: a returning customer's old job is never reused", () => {
+    expect(pickOpportunity("oppOLDWON001", [])).toEqual({ kind: "none" });
+    expect(pickOpportunity("oppOLDWON001", [{ id: "oppNEW000001" }])).toEqual({ kind: "use", id: "oppNEW000001", how: "only-open" });
   });
 
   it("otherwise the contact's only open opportunity", () => {
     expect(pickOpportunity(null, [{ id: "oppONLY00001" }])).toEqual({ kind: "use", id: "oppONLY00001", how: "only-open" });
+  });
+
+  it("never makes a new one while a lost or abandoned job from the last 90 days might be coming back", () => {
+    expect(pickOpportunity(null, [], ["oppSTALE0001"])).toEqual({ kind: "revived", ids: ["oppSTALE0001"] });
+    expect(pickOpportunity("oppSTALE0001", [], ["oppSTALE0001"])).toEqual({ kind: "revived", ids: ["oppSTALE0001"] });
+    // An open job always wins over a closed one.
+    expect(pickOpportunity(null, [{ id: "oppOPEN00001" }], ["oppSTALE0001"])).toEqual({ kind: "use", id: "oppOPEN00001", how: "only-open" });
+  });
+
+  it("counts only lost or abandoned jobs closed within 90 days, never a won one", () => {
+    const now = new Date("2026-10-15T12:00:00Z");
+    const opps = [
+      { id: "oppWON000001", status: "won", statusChangedAt: "2026-10-01T00:00:00Z" },
+      { id: "oppOLD000001", status: "abandoned", statusChangedAt: "2026-06-01T00:00:00Z" },
+      { id: "oppLOST00001", status: "lost", statusChangedAt: "2026-08-20T00:00:00Z" },
+      { id: "oppSTALE0001", status: "abandoned", statusChangedAt: "2026-09-30T00:00:00Z" },
+      { id: "oppOPEN00001", status: "open", statusChangedAt: "2026-10-10T00:00:00Z" },
+      { id: "oppNODATE001", status: "abandoned", statusChangedAt: null },
+    ];
+    expect(recentlyClosed(opps, now)).toEqual(["oppSTALE0001", "oppLOST00001"]);
   });
 
   it("makes one when there is none, and never guesses between several", () => {

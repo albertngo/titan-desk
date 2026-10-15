@@ -8,9 +8,14 @@ import type { Parsed } from "./newQuote";
  * folder and CompanyCam project take. Pure, no I/O; src/lib/quotes/booking.ts carries it out.
  *
  * Rules (Albert, 2026-10-15):
- * - Which job: the opportunity on the booking if GHL sent one; else the contact's only open
+ * - Which job: the opportunity on the booking if GHL sent one that is still open (a returning
+ *   customer's won or lost job never takes a new booking, 2026-10-15); else the contact's only open
  *   opportunity; with none, a new one is made in the Sales pipeline; with several, nobody guesses:
  *   the quote is started unlinked and flagged for staff.
+ * - Revived, not reopened: with no open opportunity but one lost or abandoned in the last 90 days,
+ *   no new one is made: the booking may be that job coming back (stale workflows abandon a job
+ *   without moving its stage). The quote is started unlinked and flagged, naming that job, and staff
+ *   reopen it or confirm the work is new. A won job never counts: a new booking after a win is new work.
  * - Which quote: the opportunity's own; else the customer's quote that has no opportunity yet;
  *   one on a different opportunity never (match.ts). Two candidates: start a new one, say why.
  * - The site: the contact's address at the moment of booking is the confirmed site. Staff type
@@ -38,14 +43,29 @@ export function parseBooking(raw: unknown): Parsed<BookingRequest> {
 export type JobPick =
   | { kind: "use"; id: string; how: "booking" | "only-open" }
   | { kind: "none" }
-  | { kind: "several"; ids: string[] };
+  | { kind: "several"; ids: string[] }
+  | { kind: "revived"; ids: string[] };
 
-/** `open` is the contact's opportunities with status open. */
-export function pickOpportunity(given: string | null, open: { id: string }[]): JobPick {
-  if (given) return { kind: "use", id: given, how: "booking" };
+/**
+ * `open` is the contact's opportunities with status open; `recentlyClosed` the ids of those lost or
+ * abandoned lately (recentlyClosed()). One GHL sent that isn't open is ignored.
+ */
+export function pickOpportunity(given: string | null, open: { id: string }[], recentlyClosed: string[] = []): JobPick {
+  if (given && open.some((o) => o.id === given)) return { kind: "use", id: given, how: "booking" };
   if (open.length === 1) return { kind: "use", id: open[0].id, how: "only-open" };
-  if (open.length === 0) return { kind: "none" };
-  return { kind: "several", ids: open.map((o) => o.id) };
+  if (open.length > 1) return { kind: "several", ids: open.map((o) => o.id) };
+  return recentlyClosed.length ? { kind: "revived", ids: recentlyClosed } : { kind: "none" };
+}
+
+export const REVIVE_WINDOW_DAYS = 90;
+
+/** Ids of opportunities lost or abandoned within the last 90 days, newest first. Won ones never count. */
+export function recentlyClosed(opps: { id: string; status: string | null; statusChangedAt: string | null }[], now: Date): string[] {
+  const since = now.getTime() - REVIVE_WINDOW_DAYS * 86_400_000;
+  return opps
+    .filter((o) => (o.status === "lost" || o.status === "abandoned") && Date.parse(o.statusChangedAt ?? "") >= since)
+    .sort((a, b) => Date.parse(b.statusChangedAt ?? "") - Date.parse(a.statusChangedAt ?? ""))
+    .map((o) => o.id);
 }
 
 // ---------- which quote ----------
