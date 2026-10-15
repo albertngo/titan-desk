@@ -2,7 +2,7 @@ import "server-only";
 import { requireQuoter } from "@/lib/auth";
 import { AirtableError, createRecord, createRecords, getRecord, listByIds, updateRecord, updateRecords } from "@/lib/airtable/client";
 import { LINE, OPTION, QUOTE, T, VERSION } from "@/lib/airtable/fields";
-import { fromQuote } from "@/lib/editor/model";
+import { fromQuote, type EditorQuote } from "@/lib/editor/model";
 import { versionLabel } from "@/lib/link/identity";
 import { getQuote } from "./load";
 import { cleanEditorQuote, fingerprint, isRecordId, planIsEmpty, planSave, type SavePlan } from "./savePlan";
@@ -81,6 +81,18 @@ export async function saveAsNewVersion(versionId: string, raw: unknown, basis: s
   // A draft that has been replaced is no longer the one to work on; a sent one stays as sent.
   if (str(from.fields[VERSION.status]) === "Draft") await updateRecord(T.versions, versionId, { [VERSION.status]: "Superseded" });
   return { ok: true, versionId: created, writes: r.writes + 1 };
+}
+
+/**
+ * Fill a brand-new, still-empty version with what the quick form built (start.ts). Same plan and
+ * the same writes as Save as new version; never used on a version that already has lines.
+ */
+export async function fillVersion(versionId: string, quote: EditorQuote): Promise<SaveResult> {
+  await requireQuoter();
+  if (!isRecordId(versionId)) return { ok: false, message: "That isn't a quote version." };
+  const current = await getRecord(T.versions, versionId);
+  if (ids(current.fields[VERSION.options]).length > 0) return { ok: false, message: "This version already has options, so the quick form didn't add to it." };
+  return carryOut(versionId, planSave(null, cleanEditorQuote(quote)));
 }
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e)).slice(0, 160);

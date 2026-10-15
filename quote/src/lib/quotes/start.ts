@@ -1,6 +1,6 @@
 import "server-only";
 import { requireQuoter } from "@/lib/auth";
-import { AirtableError, createRecord, updateRecord } from "@/lib/airtable/client";
+import { AirtableError, createRecord, getRecord, updateRecord } from "@/lib/airtable/client";
 import { QUOTE, T } from "@/lib/airtable/fields";
 import { getContact, ghlConfigured, GhlError, GhlNotConfigured, opportunitiesForContact, pipelines, searchContacts, type GhlContact } from "@/lib/ghl/client";
 import { displayPhone, normalizePhone, quoteNumber, sameCustomer } from "@/lib/link/identity";
@@ -9,7 +9,10 @@ import { buildGhlRequest } from "@/lib/link/ghlRequest";
 import { parseNewQuote, type NewQuoteRequest } from "@/lib/link/newQuote";
 import { makeConfigured, sendToGhl } from "@/lib/make/client";
 import type { CustomerSearch, FoundCustomer, StartResult } from "./types";
+import { buildPreliminary, parseWork, workIsEmpty, type QuickWork } from "@/lib/quick/plan";
+import { getQuickForm, quickProducts } from "./load";
 import { firstVersion, quotesByOpportunity } from "./records";
+import { fillVersion } from "./save";
 import { num, str } from "./values";
 
 export type { CustomerSearch, StartResult };
@@ -81,6 +84,8 @@ export async function startQuote(raw: unknown): Promise<StartResult> {
   const parsed = parseNewQuote(raw);
   if (!parsed.ok) return parsed;
   const req = parsed.value;
+  // The quick form's work, if any: which choices and how much, never a price (src/lib/quick/plan.ts).
+  const work = parseWork((raw as { work?: unknown } | null)?.work);
 
   try {
     // One opportunity, one quote: an existing quote is opened, never duplicated.
@@ -88,7 +93,7 @@ export async function startQuote(raw: unknown): Promise<StartResult> {
       const hit = (await quotesByOpportunity()).get(req.opportunityId);
       if (hit) {
         const versionId = hit.versionId ?? (await firstVersion(hit.quoteId, hit.quoteNumber ?? "Q-?"));
-        return { ok: true, versionId, reused: true };
+        return { ok: true, versionId, reused: true, filled: false };
       }
     }
 
@@ -123,9 +128,13 @@ export async function startQuote(raw: unknown): Promise<StartResult> {
 
     const linked = Boolean(req.contactId && req.opportunityId);
     const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
-    const note = linked
-      ? null
-      : `${today}: started in the quote app by ${email}. Needs ${req.contactId ? "a new GHL opportunity" : "a new GHL contact and opportunity"}; link it once it exists.`;
+    const note = [
+      linked ? null : `${today}: started in the quote app by ${email}. Needs ${req.contactId ? "a new GHL opportunity" : "a new GHL contact and opportunity"}; link it once it exists.`,
+      work.building ? `Building: ${work.building}.` : null,
+      work.description ? `Description of project (internal): ${work.description}` : null,
+    ]
+      .filter(Boolean)
+      .join("\n") || null;
 
     const quote = await createRecord(T.quotes, {
       [QUOTE.firstName]: who.first,
@@ -146,7 +155,8 @@ export async function startQuote(raw: unknown): Promise<StartResult> {
     const quoteNo = str(quote.fields[QUOTE.quoteNumber]) ?? quoteNumber(num(quote.fields[QUOTE.seq]) ?? 0);
     const versionId = await firstVersion(quote.id, quoteNo);
     await pushToGhl(quote.id, quoteNo, str(quote.fields[QUOTE.displayName]) ?? quoteNo, req, who, linkedOpp, today);
-    return { ok: true, versionId, reused: false };
+    const filled = workIsEmpty(work) ? false : await fillFromQuickForm(quote.id, versionId, work, today);
+    return { ok: true, versionId, reused: false, filled };
   } catch (e) {
     console.error("startQuote", e);
     if (e instanceof AirtableError && (e.status === 401 || e.status === 403)) {
@@ -156,6 +166,46 @@ export async function startQuote(raw: unknown): Promise<StartResult> {
     if (e instanceof GhlError) return { ok: false, message: "GHL didn't answer. Try again in a moment." };
     return { ok: false, message: "The quote couldn't be created. Try again; if it keeps failing, tell Albert." };
   }
+}
+
+/**
+ * Price the quick form's rows from Airtable and write them into version 1 as one option. Never
+ * fails the quote: whatever couldn't be priced, or a failed save, is noted on the quote and the
+ * editor opens instead.
+ */
+async function fillFromQuickForm(quoteId: string, versionId: string, work: QuickWork, today: string): Promise<boolean> {
+  try {
+    const [choices, products] = await Promise.all([getQuickForm(), quickProducts(work.rows.flatMap((r) => (r.productId ? [r.productId] : [])))]);
+    const { lines, skipped } = buildPreliminary(choices, work, products);
+    const problems = [...skipped];
+    let filled = false;
+    if (lines.length > 0) {
+      const r = await fillVersion(versionId, {
+        quoteRecordId: quoteId,
+        customerName: "",
+        siteAddress: "",
+        siteCity: "",
+        ghlContactId: null,
+        addressStatus: null,
+        discountRate: 0,
+        showHst: true,
+        options: [{ id: "opt_quick_1", name: "Preliminary", description: "", recommended: true, lines }],
+      });
+      if (r.ok) filled = true;
+      else problems.push(`the lines weren't saved (${r.message})`);
+    }
+    if (problems.length > 0) await noteOnQuote(quoteId, `${today}: from the quick form, left out: ${problems.join("; ")}.`);
+    return filled;
+  } catch (e) {
+    console.error("fillFromQuickForm", e);
+    await noteOnQuote(quoteId, `${today}: the quick form's lines couldn't be added (${e instanceof Error ? e.message.slice(0, 120) : "error"}). Add them in the editor.`).catch(() => undefined);
+    return false;
+  }
+}
+
+async function noteOnQuote(quoteId: string, line: string) {
+  const current = await getRecord(T.quotes, quoteId);
+  await updateRecord(T.quotes, quoteId, { [QUOTE.notes]: [str(current.fields[QUOTE.notes]), line].filter(Boolean).join("\n") });
 }
 
 /**

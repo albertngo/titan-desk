@@ -1,7 +1,8 @@
 import "server-only";
 import { requireQuoter } from "@/lib/auth";
 import { AirtableError, getRecord, listByIds, listRecords, type AirtableRecord } from "@/lib/airtable/client";
-import { LINE, OPTION, QUOTE, RATE, RATE_TABLE, STAIR, STAIR_TABLE, T, VERSION } from "@/lib/airtable/fields";
+import { CAT, CATALOGUE_TABLE, LINE, OPTION, QUICK, QUICK_TABLE, QUOTE, RATE, RATE_TABLE, STAIR, STAIR_TABLE, T, VERSION } from "@/lib/airtable/fields";
+import { QUICK_GROUPS, type QuickChoice, type QuickGroup, type QuickPart, type QuickProduct } from "@/lib/quick/plan";
 import { bool, ids, num, str } from "./values";
 import { groupVersions, type QuoteGroup, type QuoteHead } from "./group";
 import type { Quote, QuoteLine, QuoteLink, QuoteOption, RateCard, RateRow, StairRow } from "./types";
@@ -239,4 +240,71 @@ export async function getRateCard(): Promise<RateCard> {
       return [{ id: r.id, name, category: str(f[STAIR.category]), size: str(f[STAIR.size]), rate, cost: num(f[STAIR.cost]) }];
     });
   return { rates, stairs };
+}
+
+// ---------- the quick form (src/lib/quick/plan.ts) ----------
+
+function toProduct(r: AirtableRecord): QuickProduct | null {
+  const f = r.fields;
+  const rate = num(f[CAT.retail]);
+  const name = str(f[CAT.name]);
+  if (rate === null || !name) return null;
+  return { recordId: r.id, sku: str(f[CAT.sku]) ?? "", name, rate, cost: num(f[CAT.cost]) };
+}
+
+const skuFormula = (skus: string[]) => `OR(${skus.map((s) => `{${CAT.sku}}='${s.replace(/[\\']/g, "")}'`).join(",")})`;
+
+/**
+ * The quick form's choices, each with the prices behind it, from the Quick Quote Choices table.
+ * Only active choices whose Rate Card rows and Stair Items are active; a material choice keeps
+ * its standard product when the SKU is found.
+ */
+export async function getQuickForm(): Promise<QuickChoice[]> {
+  await requireQuoter();
+  const [choiceRecs, card] = await Promise.all([listRecords(QUICK_TABLE, { fields: Object.values(QUICK), filterByFormula: `{${QUICK.active}}` }), getRateCard()]);
+  const rates = new Map(card.rates.map((r) => [r.id, r]));
+  const stairs = new Map(card.stairs.map((s) => [s.id, s]));
+  const skus = [...new Set(choiceRecs.map((r) => str(r.fields[QUICK.standardSku])).filter((s): s is string => Boolean(s)))];
+  const productRecs = skus.length ? await listRecords(CATALOGUE_TABLE, { fields: Object.values(CAT), filterByFormula: skuFormula(skus) }) : [];
+  const bySku = new Map(productRecs.flatMap((r) => { const p = toProduct(r); return p ? [[p.sku, p] as const] : []; }));
+
+  return choiceRecs
+    .flatMap((r): QuickChoice[] => {
+      const f = r.fields;
+      const group = str(f[QUICK.group]);
+      const label = str(f[QUICK.choice]);
+      if (!label || !group || !(QUICK_GROUPS as readonly string[]).includes(group)) return [];
+      const rateParts = ids(f[QUICK.rateCard]).map((id) => rates.get(id));
+      const stairParts = ids(f[QUICK.stairItems]).map((id) => stairs.get(id));
+      // A linked row that's inactive or unpriced makes the whole choice unpriceable: leave it off rather than quote part of it.
+      if (rateParts.some((x) => !x) || stairParts.some((x) => !x)) return [];
+      const parts: QuickPart[] = [
+        ...rateParts.map((x) => ({ kind: "rate" as const, recordId: x!.id, labourType: x!.labourType, spec: x!.spec, description: `${x!.labourType} | ${x!.spec}`, contractor: x!.contractor, uom: x!.uom, rate: x!.rate, cost: x!.cost, minCharge: x!.minCharge })),
+        ...stairParts.map((x) => ({ kind: "stair" as const, recordId: x!.id, labourType: null, spec: null, description: `${x!.name}${x!.size ? ` (${x!.size})` : ""}`, contractor: null, uom: "piece", rate: x!.rate, cost: x!.cost, minCharge: null })),
+      ];
+      const sku = str(f[QUICK.standardSku]);
+      const product = sku ? (bySku.get(sku) ?? null) : null;
+      if (group === "Material" ? !product : parts.length === 0) return [];
+      return [{ id: r.id, group: group as QuickGroup, label, sort: num(f[QUICK.sort]) ?? 999, times: Math.max(1, Math.round(num(f[QUICK.times]) ?? 1)), parts, product }];
+    })
+    .sort((a, b) => QUICK_GROUPS.indexOf(a.group) - QUICK_GROUPS.indexOf(b.group) || a.sort - b.sort || a.label.localeCompare(b.label));
+}
+
+/** Catalogue products by record id, for the materials staff picked instead of the standard one. */
+export async function quickProducts(recordIds: string[]): Promise<Map<string, QuickProduct>> {
+  await requireQuoter();
+  if (recordIds.length === 0) return new Map();
+  const recs = await listByIds(CATALOGUE_TABLE, recordIds, Object.values(CAT));
+  return new Map(recs.filter((r) => r.fields[CAT.active] !== false).flatMap((r) => { const p = toProduct(r); return p ? [[p.recordId, p] as const] : []; }));
+}
+
+/** Active catalogue products whose SKU, name or collection contains every word typed. At most 12. */
+export async function searchProducts(query: string): Promise<QuickProduct[]> {
+  await requireQuoter();
+  const words = query.toLowerCase().replace(/[^a-z0-9 .\-]/g, " ").split(/\s+/).filter((w) => w.length > 0).slice(0, 4);
+  if (words.join("").length < 3) return [];
+  const hay = `LOWER({${CAT.sku}}&' '&{${CAT.name}}&' '&{${CAT.collection}}&' '&{${CAT.brand}})`;
+  const formula = `AND({${CAT.active}},${words.map((w) => `SEARCH('${w}',${hay})`).join(",")})`;
+  const recs = await listRecords(CATALOGUE_TABLE, { fields: Object.values(CAT), filterByFormula: formula });
+  return recs.flatMap((r) => { const p = toProduct(r); return p ? [p] : []; }).slice(0, 12);
 }
