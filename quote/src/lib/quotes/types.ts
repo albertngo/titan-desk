@@ -144,3 +144,5 @@ export type JobChoice = {
 export type JobChoices = { ok: true; canLink: boolean; choices: JobChoice[] } | { ok: false; message: string };
 
 export type LinkJobResult = { ok: true } | { ok: false; message: string };
+
+export type ConfirmAddressResult = { ok: true } | { ok: false; message: string };

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { OPP_FIELDS } from "../src/lib/ghl/ids";
 import { buildLinkJob } from "../src/lib/link/ghlRequest";
-import { linkChoices, type JobCandidate } from "../src/lib/link/linkJob";
+import { confirmAddressCheck, linkChoices, type JobCandidate } from "../src/lib/link/linkJob";
 
 // INVENTED ids, names and addresses only: this repo is public.
 const LEADS = "z7ZevSnG9HnGMzC9nSHp";
@@ -60,5 +60,31 @@ describe("linking a quote: what GHL is sent", () => {
   it("leaves an open job's status, and a site that isn't confirmed, alone", () => {
     const body = JSON.parse(buildLinkJob({ ...base, reopen: false, site: null, companyCamUrl: null }).oppBody);
     expect(body).toEqual({ customFields: [{ id: OPP_FIELDS.quoteNumber, field_value: "Q-1234" }] });
+  });
+});
+
+describe("confirming an address by hand", () => {
+  const q = { siteAddress: "1 Example St", addressStatus: "Unconfirmed", projectNumber: null };
+
+  it("confirms the address the person saw, and only while it is unconfirmed and the job isn't won", () => {
+    expect(confirmAddressCheck(q, "1 example st ")).toEqual({ ok: true });
+    expect(confirmAddressCheck({ ...q, addressStatus: "Confirmed" }, "1 Example St").ok).toBe(false);
+    expect(confirmAddressCheck({ ...q, projectNumber: "PP-400" }, "1 Example St").ok).toBe(false);
+    expect(confirmAddressCheck({ ...q, siteAddress: null }, "").ok).toBe(false);
+  });
+
+  it("refuses when the address changed after the page opened", () => {
+    expect(confirmAddressCheck({ ...q, siteAddress: "2 Other Ave" }, "1 Example St")).toMatchObject({ ok: false, message: expect.stringContaining("changed") });
+  });
+
+  it("sends the opportunity only the quote number and the site, never a status or a CompanyCam link", () => {
+    const r = buildLinkJob({ contactId: "conJANE00001", opportunityId: "oppOPEN00001", reopen: false, quoteNumber: "Q-1234", site: { address: "1 Example St", city: "Toronto" }, companyCamUrl: null });
+    expect(JSON.parse(r.oppBody)).toEqual({
+      customFields: [
+        { id: OPP_FIELDS.quoteNumber, field_value: "Q-1234" },
+        { id: OPP_FIELDS.projectAddress, field_value: "1 Example St" },
+        { id: OPP_FIELDS.projectCity, field_value: "Toronto" },
+      ],
+    });
   });
 });

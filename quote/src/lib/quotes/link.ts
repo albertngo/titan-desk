@@ -4,10 +4,10 @@ import { QUOTE, T } from "@/lib/airtable/fields";
 import { requireQuoter } from "@/lib/auth";
 import { ghlConfigured, opportunitiesForContact, pipelines } from "@/lib/ghl/client";
 import { buildLinkJob } from "@/lib/link/ghlRequest";
-import { linkChoices } from "@/lib/link/linkJob";
+import { confirmAddressCheck, linkChoices } from "@/lib/link/linkJob";
 import { makeConfigured, sendToGhl } from "@/lib/make/client";
 import { quotesByOpportunity } from "./records";
-import type { JobChoices, LinkJobResult } from "./types";
+import type { ConfirmAddressResult, JobChoices, LinkJobResult } from "./types";
 import { str } from "./values";
 
 /**
@@ -114,6 +114,51 @@ export async function linkToJob(quoteRecordId: string, opportunityId: string): P
     });
   } catch (e) {
     return { ok: false, message: `GHL was updated, but the quote couldn't be marked Linked (${e instanceof Error ? e.message.slice(0, 120) : "error"}). Set its GHL Opportunity ID to ${job.id} in Airtable.` };
+  }
+  return { ok: true };
+}
+
+/**
+ * Confirm the quote's address by hand (Albert, 2026-10-15), for a site checked with the customer
+ * without a booking. A linked quote sends it to its opportunity through Make first and is confirmed
+ * only once Make has; an unlinked one is confirmed now and its opportunity gets it when linked.
+ */
+export async function confirmAddress(quoteRecordId: string, shown: string): Promise<ConfirmAddressResult> {
+  const email = await requireQuoter();
+  const quote = await quoteRecord(quoteRecordId);
+  if (!quote) return { ok: false, message: "This quote isn't in Airtable any more." };
+  const address = str(quote.fields[QUOTE.siteAddress]);
+  const check = confirmAddressCheck(
+    { siteAddress: address, addressStatus: str(quote.fields[QUOTE.addressStatus]), projectNumber: str(quote.fields[QUOTE.projectNumber]) },
+    String(shown ?? "").slice(0, 300),
+  );
+  if (!check.ok) return check;
+
+  const city = str(quote.fields[QUOTE.siteCity]);
+  const opportunityId = str(quote.fields[QUOTE.ghlOpportunityId]);
+  const contactId = str(quote.fields[QUOTE.ghlContactId]);
+  const quoteNo = str(quote.fields[QUOTE.quoteNumber]);
+  let sent = false;
+  if (opportunityId && contactId && quoteNo) {
+    if (!makeConfigured()) return { ok: false, message: "Sending to GHL isn't switched on for this deployment, so the address wasn't confirmed." };
+    try {
+      await sendToGhl(buildLinkJob({ contactId, opportunityId, reopen: false, quoteNumber: quoteNo, site: { address, city }, companyCamUrl: null }));
+      sent = true;
+    } catch (e) {
+      return { ok: false, message: `GHL wasn't updated (${e instanceof Error ? e.message.slice(0, 120) : "error"}), so the address wasn't confirmed. Try again.` };
+    }
+  }
+  const where = [address, city].filter(Boolean).join(", ");
+  try {
+    await updateRecord(T.quotes, quote.id, {
+      [QUOTE.addressStatus]: "Confirmed",
+      [QUOTE.notes]: appendNote(quote.fields[QUOTE.notes], `address confirmed by ${email}: ${where}.${sent ? " Sent to the GHL opportunity." : " Not linked yet: the opportunity gets it when linked."}`),
+    });
+  } catch (e) {
+    return {
+      ok: false,
+      message: `${sent ? "GHL has the address, but the" : "The"} quote couldn't be marked Confirmed (${e instanceof Error ? e.message.slice(0, 120) : "error"}). Try again.`,
+    };
   }
   return { ok: true };
 }

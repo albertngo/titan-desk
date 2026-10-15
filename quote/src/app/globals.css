@@ -303,6 +303,12 @@ table.items.edit .desc { font-weight: 500; }
 .addbar .lbl { font-size: 12px; color: var(--fg-faint); margin-right: 4px; }
 .chip-btn { font: inherit; font-size: 12px; padding: 5px 12px; border-radius: 99px; border: 1px dashed var(--line-strong); background: var(--card); color: var(--fg-dim); cursor: pointer; }
 .chip-btn:hover { border-style: solid; border-color: var(--accent); color: var(--accent); }
+.ca { flex-basis: 100%; display: grid; gap: 8px; margin-top: 4px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--warn) 35%, var(--line)); border-radius: 8px; background: var(--warn-soft); font-size: 13px; }
+.ca p { margin: 0; }
+.ca .faint { color: var(--fg-dim); }
+.ca-err { color: var(--bad); }
+.ca-btns { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+@media (pointer: coarse) { .ca-btns .btn { min-height: 40px; } .ca-open { min-height: 32px; } }
 .excl { display: flex; gap: 6px; align-items: center; }
 .restored { padding: 10px 16px; }
 

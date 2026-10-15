@@ -1,4 +1,5 @@
 import { ghlContactUrl } from "@/lib/ghl/ids";
+import { ConfirmAddress } from "./ConfirmAddress";
 import { pct } from "@/lib/format";
 import type { Quote } from "@/lib/quotes/types";
 
@@ -43,6 +44,9 @@ export function CustomerCard({ quote }: { quote: Quote }) {
             <span className="lbl">Links</span>
             {l.linkStatus && <span className={`chip ${l.linkStatus === "Linked" ? "good" : "bad"}`}>{l.linkStatus}</span>}
             {l.addressStatus && <span className={`chip ${ADDRESS_CHIP[l.addressStatus] ?? ""}`}>{l.addressStatus === "No address" ? "No address yet" : `Address ${l.addressStatus.toLowerCase()}`}</span>}
+            {l.addressStatus === "Unconfirmed" && quote.siteAddress && !l.projectNumber && (
+              <ConfirmAddress quoteRecordId={l.quoteRecordId} address={quote.siteAddress} city={quote.siteCity} linked={Boolean(l.ghlOpportunityId)} />
+            )}
             {links.map(([k, href]) =>
               href ? (
                 <a key={k} className="chip accent" href={href} target="_blank" rel="noreferrer">

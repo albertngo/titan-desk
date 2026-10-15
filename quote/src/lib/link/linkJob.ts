@@ -37,3 +37,22 @@ export function linkChoices<T extends JobCandidate>(opps: T[], taken: Map<string
     .map((o) => ({ ...o, reopen: o.status !== "open", takenBy: taken.has(o.id) ? (taken.get(o.id) ?? "another quote") : null }))
     .sort((a, b) => Number(b.status === "open") - Number(a.status === "open") || (b.statusChangedAt ?? "").localeCompare(a.statusChangedAt ?? ""));
 }
+
+// ---------- confirming an address by hand ----------
+
+export type AddressCheck = { siteAddress: string | null; addressStatus: string | null; projectNumber: string | null };
+
+/**
+ * Whether staff may confirm a quote's address from its page (Albert, 2026-10-15): it has an
+ * address, it isn't confirmed yet, and the job isn't won (Notion owns a won job's address).
+ * `shown` is the address the person saw when they pressed the button; if the quote's address
+ * has changed since, nothing is confirmed.
+ */
+export function confirmAddressCheck(q: AddressCheck, shown: string): { ok: true } | { ok: false; message: string } {
+  const now = q.siteAddress?.trim() || null;
+  if (!now) return { ok: false, message: "This quote has no address to confirm. Add it on the GHL contact first." };
+  if (q.addressStatus === "Confirmed") return { ok: false, message: "This address is already confirmed." };
+  if (q.projectNumber?.trim()) return { ok: false, message: "This job is won: its address is kept on the Notion project." };
+  if (now.toLowerCase() !== shown.trim().toLowerCase()) return { ok: false, message: "The address changed since this page opened. Reload and check it again." };
+  return { ok: true };
+}

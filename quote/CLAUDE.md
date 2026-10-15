@@ -58,6 +58,11 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   confirmed site and the CompanyCam link to the opportunity through Make (never over a CompanyCam
   link it already has), sets a lost or abandoned one back to open, and only then marks the quote
   Linked. Rules: `src/lib/link/linkJob.ts`, tested in `tests/linkJob.test.ts`.
+- **Confirm address (Albert, 2026-10-15).** Linking never confirms an address; booking does, and so
+  does **Confirm address** on the quote page, for a site checked with the customer some other way.
+  It confirms only the address the person saw (refused if it changed since the page opened), never
+  a won job's, and on a linked quote writes it to the opportunity through Make before marking it
+  Confirmed. Rule: `confirmAddressCheck()` in `src/lib/link/linkJob.ts`.
 - **Customer view (Albert, 2026-10-15).** A switch in the top bar, kept per device in the
   `quote_view` cookie. While on, the server renders no cost, margin, profit, contractor, card rate,
   flags or checks, on every page including the editor: they are not hidden, they are not sent.
