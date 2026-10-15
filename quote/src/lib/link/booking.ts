@@ -8,7 +8,8 @@ import type { Parsed } from "./newQuote";
  * folder and CompanyCam project take. Pure, no I/O; src/lib/quotes/booking.ts carries it out.
  *
  * Rules (Albert, 2026-10-15):
- * - Which job: the opportunity on the booking if GHL sent one; else the contact's only open
+ * - Which job: the opportunity on the booking if GHL sent one that is still open (a returning
+ *   customer's won or lost job never takes a new booking, 2026-10-15); else the contact's only open
  *   opportunity; with none, a new one is made in the Sales pipeline; with several, nobody guesses:
  *   the quote is started unlinked and flagged for staff.
  * - Which quote: the opportunity's own; else the customer's quote that has no opportunity yet;
@@ -40,9 +41,9 @@ export type JobPick =
   | { kind: "none" }
   | { kind: "several"; ids: string[] };
 
-/** `open` is the contact's opportunities with status open. */
+/** `open` is the contact's opportunities with status open. One GHL sent that isn't open is ignored. */
 export function pickOpportunity(given: string | null, open: { id: string }[]): JobPick {
-  if (given) return { kind: "use", id: given, how: "booking" };
+  if (given && open.some((o) => o.id === given)) return { kind: "use", id: given, how: "booking" };
   if (open.length === 1) return { kind: "use", id: open[0].id, how: "only-open" };
   if (open.length === 0) return { kind: "none" };
   return { kind: "several", ids: open.map((o) => o.id) };

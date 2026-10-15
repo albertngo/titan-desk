@@ -36,8 +36,13 @@ describe("booking: which quote does this appointment belong to?", () => {
 });
 
 describe("booking: which job is this appointment for?", () => {
-  it("takes the opportunity on the booking when GHL sent one", () => {
-    expect(pickOpportunity("oppBOOKED001", [{ id: "oppOTHER0001" }])).toEqual({ kind: "use", id: "oppBOOKED001", how: "booking" });
+  it("takes the opportunity on the booking when GHL sent one that is still open", () => {
+    expect(pickOpportunity("oppBOOKED001", [{ id: "oppOTHER0001" }, { id: "oppBOOKED001" }])).toEqual({ kind: "use", id: "oppBOOKED001", how: "booking" });
+  });
+
+  it("ignores one GHL sent that is won, lost or abandoned: a returning customer's old job is never reused", () => {
+    expect(pickOpportunity("oppOLDWON001", [])).toEqual({ kind: "none" });
+    expect(pickOpportunity("oppOLDWON001", [{ id: "oppNEW000001" }])).toEqual({ kind: "use", id: "oppNEW000001", how: "only-open" });
   });
 
   it("otherwise the contact's only open opportunity", () => {
