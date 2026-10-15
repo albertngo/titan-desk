@@ -76,7 +76,9 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
    GHL, never taken from the request. It writes the Quotes table (and a version 1), and creates a
    GHL opportunity through Make only when the contact had none open and none lost or abandoned in the
    last 90 days (that may be the job coming back: the quote is flagged for staff instead). An
-   opportunity GHL sends that isn't open is ignored.
+   opportunity GHL sends that isn't open, or isn't in a project pipeline (a STORE order), is ignored.
+   It answers `made: true` when the job's folder and CompanyCam project already exist (links on the
+   quote, or a CompanyCam URL on the opportunity), and Make then skips making them.
 3. **Staff is not enough.** Only emails on `QUOTE_ALLOWED_EMAILS` get in. The proxy checks
    it and every loader in `src/lib/quotes/load.ts` and `src/lib/quotes/start.ts` checks again
    (`requireQuoter()`). An empty list lets nobody in.

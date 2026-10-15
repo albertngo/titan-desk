@@ -3,7 +3,7 @@ import { timingSafeEqual } from "node:crypto";
 import { createRecord, getRecord, updateRecord } from "@/lib/airtable/client";
 import { QUOTE, T } from "@/lib/airtable/fields";
 import { getContact, ghlConfigured, opportunitiesForContact } from "@/lib/ghl/client";
-import { bookingDecision, opportunityUpdateBody, parseBooking, parseBookingLinks, pickOpportunity, recentlyClosed, sameSiteAs } from "@/lib/link/booking";
+import { alreadyMade, bookingDecision, opportunityUpdateBody, parseBooking, parseBookingLinks, pickOpportunity, projectJobs, recentlyClosed, sameSiteAs } from "@/lib/link/booking";
 import { buildBookingOpportunity } from "@/lib/link/ghlRequest";
 import { displayPhone, normalizeEmail, quoteNumber } from "@/lib/link/identity";
 import { addressStatus } from "@/lib/link/lead";
@@ -31,9 +31,11 @@ export type BookingResult =
       opportunityId: string | null;
       /** JSON for Make's PUT /opportunities/{opportunityId}: quote number and confirmed site. Null when there is nothing to send. */
       opportunityBody: string | null;
-      /** Already made on an earlier booking of this job: Make skips making them again. */
+      /** Links from an earlier booking of this job. */
       folderUrl: string | null;
       companyCamUrl: string | null;
+      /** The folder and CompanyCam project already exist (links on the quote, or a CompanyCam URL on the job's opportunity): Make skips making them. */
+      made: boolean;
       needsLinking: boolean;
       /** The same address is confirmed on the customer's other open job. */
       warning: string | null;
@@ -63,11 +65,13 @@ export async function bookQuote(key: string | null, raw: unknown): Promise<Booki
   const { contactId } = parsed.value;
   if (!ghlConfigured()) return { ok: false, status: 503, message: "GHL reading isn't set up on this deployment, so the customer can't be read." };
 
-  const [contact, opps, quotes] = await Promise.all([getContact(contactId), opportunitiesForContact(contactId), bookingQuotes()]);
+  const [contact, allOpps, quotes] = await Promise.all([getContact(contactId), opportunitiesForContact(contactId), bookingQuotes()]);
   if (!contact) return { ok: false, status: 404, message: "That contact isn't in GHL." };
-  if (parsed.value.opportunityId && !opps.some((o) => o.id === parsed.value.opportunityId)) {
+  if (parsed.value.opportunityId && !allOpps.some((o) => o.id === parsed.value.opportunityId)) {
     return { ok: false, status: 409, message: "That opportunity doesn't belong to this contact." };
   }
+  // A STORE order is never the job, even when GHL's Find Opportunity picks one.
+  const opps = projectJobs(allOpps);
   const job = pickOpportunity(parsed.value.opportunityId, opps.filter((o) => o.status === "open"), recentlyClosed(opps, new Date()));
   const opportunityId = job.kind === "use" ? job.id : null;
 
@@ -145,6 +149,11 @@ export async function bookQuote(key: string | null, raw: unknown): Promise<Booki
   if (warning) await updateRecord(T.quotes, record.id, { [QUOTE.notes]: appendNote(record.fields[QUOTE.notes], warning) }).catch(() => undefined);
 
   const mine = quotes.find((q) => q.id === record.id);
+  const jobOpp = opps.find((o) => o.id === finalOpp);
+  // A job booked before the app has its CompanyCam link on the opportunity only: keep it on the quote too.
+  if (jobOpp?.companyCamUrl && !mine?.companyCamUrl) {
+    await updateRecord(T.quotes, record.id, { [QUOTE.companyCamUrl]: jobOpp.companyCamUrl }).catch(() => undefined);
+  }
   return {
     ok: true,
     created: decision.kind === "create",
@@ -155,7 +164,8 @@ export async function bookQuote(key: string | null, raw: unknown): Promise<Booki
     opportunityId: finalOpp,
     opportunityBody,
     folderUrl: mine?.folderUrl ?? null,
-    companyCamUrl: mine?.companyCamUrl ?? null,
+    companyCamUrl: mine?.companyCamUrl ?? jobOpp?.companyCamUrl ?? null,
+    made: alreadyMade(mine, jobOpp),
     needsLinking: !finalOpp,
     warning,
     note: notes.join(" ") || null,

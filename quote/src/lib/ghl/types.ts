@@ -20,6 +20,8 @@ export type GhlOpportunity = {
   updatedAt: string | null;
   /** When it was last opened, won, lost or abandoned. */
   statusChangedAt: string | null;
+  /** Its CompanyCam URL: set once the job's folder and CompanyCam project were made. */
+  companyCamUrl: string | null;
 };
 
 /** One opportunity's site, from its Project Address / Project City custom fields. */

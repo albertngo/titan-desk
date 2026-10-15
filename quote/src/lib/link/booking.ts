@@ -1,4 +1,4 @@
-import { OPP_FIELDS } from "@/lib/ghl/ids";
+import { OPP_FIELDS, PROJECT_PIPELINE_IDS } from "@/lib/ghl/ids";
 import { matchQuote, type QuoteKeys } from "./match";
 import type { Parsed } from "./newQuote";
 
@@ -12,6 +12,7 @@ import type { Parsed } from "./newQuote";
  *   customer's won or lost job never takes a new booking, 2026-10-15); else the contact's only open
  *   opportunity; with none, a new one is made in the Sales pipeline; with several, nobody guesses:
  *   the quote is started unlinked and flagged for staff.
+ * - Only project pipelines hold jobs: a STORE order is never the job, whatever GHL sends (2026-10-15).
  * - Revived, not reopened: with no open opportunity but one lost or abandoned in the last 90 days,
  *   no new one is made: the booking may be that job coming back (stale workflows abandon a job
  *   without moving its stage). The quote is started unlinked and flagged, naming that job, and staff
@@ -39,6 +40,19 @@ export function parseBooking(raw: unknown): Parsed<BookingRequest> {
 }
 
 // ---------- which job ----------
+
+/** The opportunities that can be a job: those in the project pipelines, never a STORE order. */
+export function projectJobs<T extends { pipelineId: string | null }>(opps: T[]): T[] {
+  return opps.filter((o) => o.pipelineId !== null && PROJECT_PIPELINE_IDS.includes(o.pipelineId));
+}
+
+/**
+ * Whether this job's folder and CompanyCam project already exist, so Make must not make them again:
+ * the quote has their links, or (a job booked before the app) its opportunity has a CompanyCam URL.
+ */
+export function alreadyMade(quote: { folderUrl: string | null; companyCamUrl: string | null } | undefined, job: { companyCamUrl: string | null } | undefined): boolean {
+  return Boolean(quote?.folderUrl || quote?.companyCamUrl || job?.companyCamUrl);
+}
 
 export type JobPick =
   | { kind: "use"; id: string; how: "booking" | "only-open" }

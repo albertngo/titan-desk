@@ -26,6 +26,12 @@ export const LEAD_STAGE_IDS = {
 export const SALES_PIPELINE_ID = "ZxYBFNifUNNxU7xgQclg";
 export const MEETING_SCHEDULED_STAGE_ID = "eb038acb-82cd-494a-864b-4643d7e90a32";
 
+/**
+ * The pipelines a job (a quote, a folder, a CompanyCam project) lives in. "STORE: Material
+ * Pipeline" (ySvXh8g1u1TSjUB5A1Zg) holds counter sales and is never a job.
+ */
+export const PROJECT_PIPELINE_IDS: readonly string[] = [LEADS_PIPELINE_ID, SALES_PIPELINE_ID];
+
 /** Contact custom field "Do You Have A Flooring Project Coming Up? If so, when?" */
 export const CONTACT_TIMING_FIELD = "AqDkCXA2JS0XZ3Hpwy5A";
 
