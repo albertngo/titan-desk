@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, copyState, customerCopy, longDate, parseCopy, pdfName, serializeCopy, torontoToday, type Letterhead } from "../src/lib/send/copy";
+import { addDays, copyState, customerCopy, hstRow, hstWord, longDate, parseCopy, pdfName, serializeCopy, torontoToday, type Letterhead } from "../src/lib/send/copy";
 import { customerLinks, emailMessage, greetingName, isToken, newToken, sendProblems, smsMessage, type SendInput } from "../src/lib/send/plan";
 import { encode, textWidth, wrap } from "../src/lib/send/pdfDoc";
 import { quotePdf } from "../src/lib/send/pdf";
@@ -140,6 +140,22 @@ describe("customer copy", () => {
     expect(o.exclusions).toEqual(["Painting"]);
     expect(o.sections.map((s) => s.name)).toEqual(["Install", "Removal", "Delivery", "Other"]);
     expect(o.sections.find((s) => s.name === "Other")!.total).toBe(0);
+  });
+
+  it("says where a material's HST differs from the quote's (2026-10-16)", () => {
+    const floor = (p: Partial<QuoteLine>) => line({ section: "Materials", lineType: "Material", sourceKind: "product", description: "Oak plank", qty: 100, unitPriceSnap: 5, ...p });
+    const items = (c: ReturnType<typeof customerCopy>) => c.options[0].sections.flatMap((s) => s.lines).filter((l) => l.kind === "item");
+    // Quote charges HST; one material doesn't.
+    const on = customerCopy(quote({ options: [option("A", [line({}), floor({ noHst: true })])] }), AT);
+    expect(items(on).map((l) => (l.kind === "item" ? l.hst ?? null : null))).toEqual([null, "none"]);
+    expect(hstRow(on, on.options[0].totals).label).toBe("HST (13%)");
+    // Quote's HST off; the material still charges it.
+    const off = customerCopy(quote({ showHst: false, discountRate: 0, options: [option("A", [line({}), floor({})], 0, false)] }), AT);
+    expect(items(off).map((l) => (l.kind === "item" ? l.hst ?? null : null))).toEqual([null, "plus"]);
+    expect(off.options[0].totals.hst).toBe(65); // 500 × 13%, the labour untaxed
+    expect(hstRow(off, off.options[0].totals)).toEqual({ label: "HST (13%) on materials", amount: 65 });
+    expect(hstWord(off, off.options[0].totals)).toBe("incl. HST on materials");
+    expect(new TextDecoder("latin1").decode(quotePdf(off))).toContain("plus HST");
   });
 
   it("round-trips through Airtable text, and refuses anything else", () => {

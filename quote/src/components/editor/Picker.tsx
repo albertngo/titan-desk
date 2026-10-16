@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { bestContractor, entryLabel, lineFromEntry, manualLine, searchCatalogue, type CardEntry, type EditorLine } from "@/lib/editor/model";
+import { bestContractor, entryLabel, lineFromEntry, manualLine, rateSnap, searchCatalogue, type CardEntry, type EditorLine } from "@/lib/editor/model";
 import { money } from "@/lib/format";
-import { levelApplies, levelPrice, type ServiceLevel } from "@/lib/pricing/service";
+import { levelPrice, type ServiceLevel } from "@/lib/pricing/service";
 
 /** Add a line: search the rate card and stair items, or type the line in by hand. Customer view shows the charge rate only. */
 export function Picker({
@@ -54,7 +54,7 @@ export function Picker({
                   <span className="nm">{entryLabel(e)}</span>
                   <span className="mt">
                     {e.kind === "rate"
-                      ? `${money(levelPrice(from!.rate, level, levelApplies({ sourceKind: "rate", labourType: e.labourType })))} / ${e.uom ?? "unit"}${customer ? "" : ` · ${e.contractors.length} contractor${e.contractors.length === 1 ? "" : "s"}, ${from!.name === crew ? "crew" : "cheapest"} ${from!.name}`}`
+                      ? `${money(rateSnap(e, from!, null, level).price)} / ${e.uom ?? "unit"}${customer ? "" : ` · ${e.contractors.length} contractor${e.contractors.length === 1 ? "" : "s"}, ${from!.name === crew ? "crew" : "cheapest"} ${from!.name}`}${from!.material && from!.material.choices.length > 1 ? ` · ${from!.material.choices.length} materials` : ""}`
                       : `${money(levelPrice(e.rate, level, true))} / piece${!customer && e.cost === null ? " · no cost on file" : ""}`}
                   </span>
                 </button>

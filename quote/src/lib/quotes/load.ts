@@ -1,11 +1,11 @@
 import "server-only";
 import { requireQuoter } from "@/lib/auth";
 import { AirtableError, getRecord, listByIds, listRecords, type AirtableRecord } from "@/lib/airtable/client";
-import { CAT, CATALOGUE_TABLE, LINE, OPTION, QUICK, QUICK_TABLE, QUOTE, RATE, RATE_TABLE, STAIR, STAIR_TABLE, T, VERSION } from "@/lib/airtable/fields";
+import { CAT, CATALOGUE_TABLE, LINE, MATERIAL, MATERIAL_TABLE, OPTION, QUICK, QUICK_TABLE, QUOTE, RATE, RATE_TABLE, STAIR, STAIR_TABLE, T, VERSION } from "@/lib/airtable/fields";
 import { QUICK_GROUPS, type QuickChoice, type QuickGroup, type QuickPart, type QuickProduct } from "@/lib/quick/plan";
 import { bool, ids, num, str } from "./values";
 import { groupVersions, type QuoteGroup, type QuoteHead } from "./group";
-import type { Quote, QuoteLine, QuoteLink, QuoteOption, RateCard, RateRow, StairRow } from "./types";
+import type { MaterialRow, Quote, QuoteLine, QuoteLink, QuoteOption, RateCard, RateRow, StairRow } from "./types";
 
 /** Read-side loaders. Each one checks the caller is a quoter before touching Airtable. */
 
@@ -83,6 +83,7 @@ function toLine(r: AirtableRecord): QuoteLine {
     costOverride: num(f[LINE.costOverride]),
     manualCost: num(f[LINE.manualCost]),
     minChargeSnap: num(f[LINE.minChargeSnap]),
+    noHst: bool(f[LINE.noHst]),
     hasSource: [LINE.rateItem, LINE.stairItem, LINE.product].some((k) => ids(f[k]).length > 0),
     ...source(f),
     labourType: str(f[LINE.rateLaborType]),
@@ -91,6 +92,7 @@ function toLine(r: AirtableRecord): QuoteLine {
     area: str(f[LINE.area]),
     uom: str(f[LINE.uom]),
     contractor: str(f[LINE.contractor]),
+    materialId: ids(f[LINE.installMaterial])[0] ?? null,
     clientNote: str(f[LINE.clientNote]),
     sortOrder: num(f[LINE.sortOrder]),
     airtableTotal: num(f[LINE.lineTotal]),
@@ -207,12 +209,13 @@ export async function getQuote(id: string): Promise<Quote | null> {
   };
 }
 
-/** Active Rate Card rows and Stair Items, for the editor's line picker. Costs included: quoters only. */
+/** Active Rate Card rows, Stair Items and Install Materials, for the editor. Costs included: quoters only. */
 export async function getRateCard(): Promise<RateCard> {
   await requireQuoter();
-  const [rateRecs, stairRecs] = await Promise.all([
+  const [rateRecs, stairRecs, materialRecs] = await Promise.all([
     listRecords(RATE_TABLE, { fields: Object.values(RATE) }),
     listRecords(STAIR_TABLE, { fields: Object.values(STAIR) }),
+    listRecords(MATERIAL_TABLE, { fields: Object.values(MATERIAL), filterByFormula: `{${MATERIAL.active}}` }),
   ]);
   const rates = rateRecs
     .filter((r) => bool(r.fields[RATE.active]))
@@ -233,6 +236,8 @@ export async function getRateCard(): Promise<RateCard> {
           cost: num(f[RATE.totalCost]) ?? 0,
           minCharge: num(f[RATE.minCharge]),
           defaultWaste: num(f[RATE.defaultWaste]),
+          materialGroup: str(f[RATE.materialGroup]),
+          defaultMaterialId: ids(f[RATE.defaultMaterial])[0] ?? null,
         },
       ];
     });
@@ -245,7 +250,13 @@ export async function getRateCard(): Promise<RateCard> {
       if (!name || rate === null) return [];
       return [{ id: r.id, name, category: str(f[STAIR.category]), size: str(f[STAIR.size]), rate, cost: num(f[STAIR.cost]) }];
     });
-  return { rates, stairs };
+  const materials = materialRecs.flatMap((r): MaterialRow[] => {
+    const f = r.fields;
+    const name = str(f[MATERIAL.name]);
+    const group = str(f[MATERIAL.group]);
+    return name && group ? [{ id: r.id, name, group, cost: num(f[MATERIAL.cost]), price: num(f[MATERIAL.price]) }] : [];
+  });
+  return { rates, stairs, materials };
 }
 
 // ---------- the quick form (src/lib/quick/plan.ts) ----------

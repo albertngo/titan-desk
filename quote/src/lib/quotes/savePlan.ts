@@ -1,4 +1,5 @@
 import { LINE, OPTION, VERSION } from "@/lib/airtable/fields";
+import { sectionOf } from "@/lib/calc";
 import { levelOf } from "@/lib/pricing/service";
 import type { EditorLine, EditorOption, EditorQuote } from "@/lib/editor/model";
 
@@ -60,6 +61,7 @@ function cleanLine(raw: unknown, i: number): EditorLine {
     spec: nullableText(r.spec),
     description: text(r.description),
     contractor: nullableText(r.contractor),
+    materialId: kind === "rate" && isRecordId(r.materialId) ? r.materialId : null,
     area: text(r.area, 200),
     uom: oneOf(LINE_UOMS, nullableText(r.uom, 40)),
     clientNote: text(r.clientNote),
@@ -74,6 +76,7 @@ function cleanLine(raw: unknown, i: number): EditorLine {
     costOverride: num(r.costOverride),
     manualCost: num(r.manualCost),
     minChargeSnap: num(r.minChargeSnap),
+    noHst: r.noHst === true,
     hasSource: Boolean(sourceId),
   };
 }
@@ -137,9 +140,12 @@ export function lineFields(l: EditorLine, sortOrder: number): Fields {
     [LINE.descriptionOverride]: wording === cardWording(l) ? null : wording,
     [LINE.clientNote]: orNull(l.clientNote),
     [LINE.include]: l.include,
+    // Only a material chooses its own HST; anywhere else the box stays clear so it can't mislead.
+    [LINE.noHst]: sectionOf(l) === "Materials" && l.noHst === true,
     [LINE.rateItem]: l.sourceKind === "rate" && l.sourceId ? [l.sourceId] : [],
     [LINE.stairItem]: l.sourceKind === "stair" && l.sourceId ? [l.sourceId] : [],
     [LINE.product]: l.sourceKind === "product" && l.sourceId ? [l.sourceId] : [],
+    [LINE.installMaterial]: l.sourceKind === "rate" && l.materialId ? [l.materialId] : [],
   };
 }
 

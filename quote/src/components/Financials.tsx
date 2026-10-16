@@ -68,7 +68,7 @@ export function Financials({
       </section>
 
       <section className="card">
-        <div className="card-h">Payment schedule <span className="right">{showHst ? "incl. HST" : "HST off"}</span></div>
+        <div className="card-h">Payment schedule <span className="right">{showHst ? "incl. HST" : t.hst ? "HST on materials" : "HST off"}</span></div>
         <div className="pay"><span>Deposit · 35%</span><span className="v">{money(t.payment1)}</span></div>
         <div className="pay"><span>Second · 35%</span><span className="v">{money(t.payment2)}</span></div>
         <div className="pay"><span>Final</span><span className="v">{money(t.paymentFinal)}</span></div>

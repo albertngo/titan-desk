@@ -542,3 +542,6 @@ a.chip.accent:hover { text-decoration: underline; }
   .cq-card { box-shadow: none; }
   .cq-opt { break-inside: auto; }
 }
+/* material swap on a Rate Card line (2026-10-16) */
+.mat { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 11.5px; color: var(--fg-faint); }
+.mat select.cell-in { width: auto; max-width: 220px; min-width: 0; font-size: 12px; padding: 3px 6px; text-overflow: ellipsis; }

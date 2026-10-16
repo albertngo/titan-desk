@@ -107,6 +107,21 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   are marked. The crew sets cost; the price follows the card row (identical across crews except where
   the card itself differs). Rules: `setCrew()` / `crewState()` / `compareCrews()` in
   `src/lib/editor/model.ts`; tested in `tests/editor.test.ts`.
+- **HST per material line (Albert, 2026-10-16).** A line in the Materials section has its own HST
+  box (Quote Lines → No HST; unticked = HST charged, the default); the quote's Charge HST switch
+  covers every other line and never changes a material's. HST = 13% of the taxed lines after the
+  same discount, so with every line taxed it is 13% of the subtotal exactly as before. Airtable
+  mirrors it: Quote Lines → HST Base Own / HST Base Quote, rolled up on Quote Options, feeding HST.
+  The customer page and PDF say "no HST" / "plus HST" on a material that differs from the quote,
+  and "HST (13%) on materials" when only materials are taxed. `chargesHst()` in `src/lib/calc.ts`.
+- **Swappable material (Albert, 2026-10-16).** A Rate Card row can name a Material Group and the
+  Default Material its Titan Rate and Total Cost already include (table Install Materials: Name,
+  Group, Cost, Price per unit of the job, Active; read only). On the line the material can be swapped
+  for any priced material in the group: one line for the customer, named "work · material". Labour =
+  the row less its default; the line = labour (at the service level, so Premium marks up labour only)
+  + the chosen material, so the default at Standard is exactly the row. A row whose default has no
+  price, or costs more than the row, offers no swap. Contractor and crew changes keep the material.
+  Rules: `rateSnap()` / `setMaterial()` in `src/lib/editor/model.ts`; tested in `tests/editor.test.ts`.
 - **All quotes (2026-10-15).** One row per quote, its versions folded under it (newest first),
   and a search over name, quote and project number, city, email and phone digits. Grouping and
   search are pure, in `src/lib/quotes/group.ts`, tested in `tests/group.test.ts`.

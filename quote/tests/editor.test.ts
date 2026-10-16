@@ -13,6 +13,9 @@ import {
   exclusionLine,
   lineFromEntry,
   manualLine,
+  materialChoices,
+  rateSnap,
+  setMaterial,
   parseNum,
   removeLine,
   revertLine,
@@ -25,7 +28,7 @@ import {
   withCustomerFrom,
   type CardEntry,
 } from "../src/lib/editor/model";
-import type { RateRow, StairRow } from "../src/lib/quotes/types";
+import type { MaterialRow, RateRow, StairRow } from "../src/lib/quotes/types";
 import { levelOf } from "../src/lib/pricing/service";
 import { cleanEditorQuote } from "../src/lib/quotes/savePlan";
 
@@ -348,5 +351,95 @@ describe("crew per option (pick a contractor for the whole option)", () => {
     expect(q.options[1].crew).toBe("Crew A");
     const clean = cleanEditorQuote({ options: [{ name: "A", crew: "  Crew A ", lines: [] }, { name: "B", crew: 7, lines: [] }] });
     expect(clean.options.map((o) => o.crew)).toEqual(["Crew A", null]);
+  });
+});
+
+describe("swappable material on a Rate Card line (one line, material named)", () => {
+  // Invented: full-coverage glue install. Crew A's row is $4.00 / cost $3.00 including Glue One
+  // (price $1.00, cost $0.80). Glue Two is dearer, Glue Three has no price yet (not offered).
+  const mats: MaterialRow[] = [
+    { id: "recMat00000000001", name: "Glue One", group: "Full glue", cost: 0.8, price: 1 },
+    { id: "recMat00000000002", name: "Glue Two", group: "Full glue", cost: 1.5, price: 2 },
+    { id: "recMat00000000003", name: "Glue Three", group: "Full glue", cost: 1, price: null },
+    { id: "recMat00000000004", name: "Board", group: "Subfloor", cost: 2, price: 3 },
+  ];
+  const glueRates: RateRow[] = [
+    R({ id: "recRateM000000001", spec: "FULL GLUE", contractor: "Crew A", rate: 4, cost: 3, materialGroup: "Full glue", defaultMaterialId: "recMat00000000001" }),
+    R({ id: "recRateM000000002", spec: "FULL GLUE", contractor: "Crew B", rate: 4, cost: 2.6, materialGroup: "Full glue", defaultMaterialId: "recMat00000000001" }),
+    R({ id: "recRateM000000003", spec: "NO GROUP", contractor: "Crew A", rate: 2, cost: 1 }),
+    // Misconfigured: the default costs more than the whole row, so no swap is offered.
+    R({ id: "recRateM000000004", spec: "BAD", contractor: "Crew A", rate: 0.5, cost: 0.4, materialGroup: "Full glue", defaultMaterialId: "recMat00000000001" }),
+  ];
+  const mc = buildCatalogue(glueRates, [], mats);
+  const glue = mc.find((e) => e.key === "Install|FULL GLUE") as Extract<CardEntry, { kind: "rate" }>;
+
+  function withGlue(level?: "Premium") {
+    let q = blankQuote();
+    const opt = q.options[0].id;
+    q = addLine(q, opt, { ...lineFromEntry(glue, "Install", "Crew A", level), qty: 100 });
+    return { q, opt, id: q.options[0].lines[0].id };
+  }
+
+  it("offers only priced materials in the group, and nothing on a misconfigured row", () => {
+    const a = glue.contractors.find((c) => c.name === "Crew A")!;
+    expect(a.material!.choices.map((m) => m.name)).toEqual(["Glue One", "Glue Two"]);
+    expect(mc.find((e) => e.key === "Install|BAD")!.kind === "rate" && (mc.find((e) => e.key === "Install|BAD") as typeof glue).contractors[0].material).toBeNull();
+  });
+
+  it("a new line is the row as it stands, named with its default material", () => {
+    const { q } = withGlue();
+    const l = q.options[0].lines[0];
+    expect([l.unitPriceSnap, l.unitCostSnap, l.materialId, l.description]).toEqual([4, 3, "recMat00000000001", "Install | FULL GLUE · Glue One"]);
+  });
+
+  it("swapping changes price and cost by the difference, and back again exactly", () => {
+    const { q, opt, id } = withGlue();
+    const two = setMaterial(q, opt, id, "recMat00000000002", mc);
+    const l = two.options[0].lines[0];
+    expect([l.unitPriceSnap, l.unitCostSnap, l.description]).toEqual([5, 3.7, "Install | FULL GLUE · Glue Two"]);
+    const back = setMaterial(two, opt, id, "recMat00000000001", mc).options[0].lines[0];
+    expect([back.unitPriceSnap, back.unitCostSnap]).toEqual([4, 3]);
+    // Not in the group, or not priced: nothing happens.
+    expect(setMaterial(q, opt, id, "recMat00000000004", mc)).toEqual(q);
+    expect(setMaterial(q, opt, id, "recMat00000000003", mc)).toEqual(q);
+  });
+
+  it("Premium marks up the labour only, never the material", () => {
+    const { q, opt, id } = withGlue("Premium");
+    expect(q.options[0].lines[0].unitPriceSnap).toBe(4.45); // (4 − 1) × 1.15 + 1
+    const two = setMaterial({ ...q, options: [{ ...q.options[0], serviceLevel: "Premium" }] }, opt, id, "recMat00000000002", mc);
+    expect(two.options[0].lines[0].unitPriceSnap).toBe(5.45); // 3.45 + 2
+    const std = setServiceLevel(two, opt, "Standard", mc).quote.options[0].lines[0];
+    expect(std.unitPriceSnap).toBe(5);
+    // A row with no material is marked up whole, as before.
+    const plain = mc.find((e) => e.key === "Install|NO GROUP") as typeof glue;
+    expect(rateSnap(plain, plain.contractors[0], null, "Premium").price).toBe(2.3);
+  });
+
+  it("keeps the material when the contractor or crew changes, at the new contractor's labour cost", () => {
+    const { q, opt, id } = withGlue();
+    const two = setMaterial(q, opt, id, "recMat00000000002", mc);
+    const b = setContractor(two, opt, id, "Crew B", mc).options[0].lines[0];
+    expect([b.contractor, b.materialId, b.unitPriceSnap, b.unitCostSnap]).toEqual(["Crew B", "recMat00000000002", 5, 3.3]); // 2.6 − 0.8 + 1.5
+    const crewB = setCrew(two, opt, "Crew B", mc).quote.options[0].lines[0];
+    expect(crewB.unitCostSnap).toBe(3.3);
+  });
+
+  it("never changes a typed price, and says what the line can be swapped between", () => {
+    const { q, opt, id } = withGlue();
+    const typed = updateLine(q, opt, id, { unitPrice: 4.25 });
+    expect(setMaterial(typed, opt, id, "recMat00000000002", mc).options[0].lines[0].unitPrice).toBe(4.25);
+    const c = materialChoices(q.options[0].lines[0], mc);
+    expect([c.choices.length, c.current?.name, c.base?.name]).toEqual([2, "Glue One", "Glue One"]);
+  });
+
+  it("is saved as a link on Rate Card lines only", () => {
+    const clean = cleanEditorQuote({
+      options: [{ name: "A", lines: [
+        { sourceKind: "rate", sourceId: "recRateM000000001", materialId: "recMat00000000002" },
+        { sourceKind: "manual", materialId: "recMat00000000002" },
+      ] }],
+    });
+    expect(clean.options[0].lines.map((l) => l.materialId)).toEqual(["recMat00000000002", null]);
   });
 });

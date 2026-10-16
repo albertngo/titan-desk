@@ -15,12 +15,14 @@ import {
   duplicateOption,
   entryFor,
   exclusionLine,
+  materialChoices,
   parseNum,
   removeLine,
   removeOption,
   revertLine,
   setContractor,
   setCrew,
+  setMaterial,
   setServiceLevel,
   setTerms,
   withCustomerFrom,
@@ -134,9 +136,9 @@ export default function Editor({
   const [newExclusion, setNewExclusion] = useState("");
 
   // Stairs are not quoted on this page (Albert, 2026-10-12): the picker searches the rate card only.
-  const catalogue = useMemo(() => buildCatalogue(card.rates, []), [card]);
-  // Re-pricing (service level, contractor) also needs the stair items lines may come from (the quick form).
-  const pricing = useMemo(() => buildCatalogue(card.rates, card.stairs), [card]);
+  const catalogue = useMemo(() => buildCatalogue(card.rates, [], card.materials), [card]);
+  // Re-pricing (service level, contractor, material) also needs the stair items lines may come from (the quick form).
+  const pricing = useMemo(() => buildCatalogue(card.rates, card.stairs, card.materials), [card]);
   const [levelNote, setLevelNote] = useState<string | null>(null);
   const [crewNote, setCrewNote] = useState<string | null>(null);
   const changed = useMemo(() => JSON.stringify(quote) !== JSON.stringify(initial), [quote, initial]);
@@ -236,6 +238,7 @@ export default function Editor({
     const flags = lineFlags(l);
     const entry = entryFor(l, catalogue);
     const contractors = entry && entry.kind === "rate" ? entry.contractors : [];
+    const mat = materialChoices(l, pricing);
     const overridden = l.unitPrice !== null || l.costOverride !== null;
     const margin = total && total > 0 && cost !== null ? ((total - cost) / total) * 100 : null;
     const upd = (patch: Partial<EditorLine>) => apply(updateLine(quote, option.id, l.id, patch));
@@ -247,6 +250,20 @@ export default function Editor({
             <TextCell value={l.description} label="Description" placeholder="Describe the work" onCommit={(v) => upd({ description: v })} />
           ) : (
             <div className="desc">{l.description}</div>
+          )}
+          {mat.choices.length > 1 && (
+            <label className="mat">
+              Material
+              <select className="cell-in" value={mat.current?.id ?? ""} onChange={(e) => apply(setMaterial(quote, option.id, l.id, e.target.value, pricing))}>
+                {mat.choices.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name} · {money(m.price)}/{l.uom ?? "unit"}
+                    {!customer ? ` · cost ${money(m.cost)}` : ""}
+                    {m.id === mat.base?.id ? " (standard)" : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
           )}
           <div className="subins">
             <TextCell value={l.area} label="Area or room" placeholder="Area / room" className="cell-in mini" onCommit={(v) => upd({ area: v })} />
@@ -317,6 +334,11 @@ export default function Editor({
           <label className="inc" title="Untick to show this line as an optional extra, outside the total.">
             <input type="checkbox" checked={l.include} onChange={(e) => upd({ include: e.target.checked })} /> in total
           </label>
+          {sectionOf(l) === "Materials" && (
+            <label className="inc" title="A material's own HST: the quote's Charge HST switch never changes it.">
+              <input type="checkbox" checked={!l.noHst} onChange={(e) => upd({ noHst: !e.target.checked })} /> HST
+            </label>
+          )}
         </td>
       </tr>
     );
@@ -376,7 +398,7 @@ export default function Editor({
                   onCommit={(v) => apply(setTerms(quote, { discountRate: Math.max(0, Math.min(100, v ?? 0)) / 100 }))}
                 />
               </label>
-              <label className="check-in">
+              <label className="check-in" title="Labour and everything else. Each material line has its own HST box, which this never changes.">
                 <input type="checkbox" checked={quote.showHst} onChange={(e) => apply(setTerms(quote, { showHst: e.target.checked }))} /> Charge HST (13%)
               </label>
             </div>
@@ -585,7 +607,7 @@ export default function Editor({
                   <div className="ov-row bullet"><span className="k">Pre-discount</span><span className="v">{money(t.preDiscount)}</span></div>
                   <div className="ov-row bullet"><span className="k">Discount ({pct(quote.discountRate * 100, 0)})</span><span className="v">{money(t.discount)}</span></div>
                   <div className="ov-row bullet"><span className="k">Subtotal</span><span className="v">{money(t.subtotal)}</span></div>
-                  <div className="ov-row bullet"><span className="k">HST{quote.showHst ? " (13%)" : " (off)"}</span><span className="v">{money(t.hst)}</span></div>
+                  <div className="ov-row bullet"><span className="k">HST{quote.showHst ? " (13%)" : t.hst ? " (materials only)" : " (off)"}</span><span className="v">{money(t.hst)}</span></div>
                   <div className="ov-total"><span>Total</span><span className="v">{money(t.total)}</span></div>
                 </section>
               </div>

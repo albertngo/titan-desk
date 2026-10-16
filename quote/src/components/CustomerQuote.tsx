@@ -1,5 +1,5 @@
 import { money, rate } from "@/lib/format";
-import { longDate, type CopyItem, type CopyOption, type CopyState, type CopyText, type CustomerCopy } from "@/lib/send/copy";
+import { hstRow, hstWord, itemHstNote, longDate, type CopyItem, type CopyOption, type CopyState, type CopyText, type CustomerCopy } from "@/lib/send/copy";
 
 /**
  * The quote as the customer sees it, drawn from the frozen customer copy only. Used by the
@@ -24,7 +24,7 @@ function Line({ l }: { l: CopyItem | CopyText }) {
       </li>
     );
   }
-  const sub = [l.note, l.wastePct ? `includes ${l.wastePct}% waste allowance` : null, l.minimum ? "minimum charge" : null].filter(Boolean).join(" · ");
+  const sub = [l.note, l.wastePct ? `includes ${l.wastePct}% waste allowance` : null, l.minimum ? "minimum charge" : null, itemHstNote(l)].filter(Boolean).join(" · ");
   const qty = l.qty !== null ? `${rate(l.qty)}${l.uom ? ` ${l.uom}` : ""}` : null;
   return (
     <li className={`cq-li${l.optional ? " opt" : ""}`}>
@@ -52,6 +52,7 @@ function Line({ l }: { l: CopyItem | CopyText }) {
 
 function Totals({ o, copy }: { o: CopyOption; copy: CustomerCopy }) {
   const t = o.totals;
+  const h = hstRow(copy, t);
   return (
     <div className="cq-totals">
       <dl>
@@ -62,7 +63,7 @@ function Totals({ o, copy }: { o: CopyOption; copy: CustomerCopy }) {
           </>
         )}
         <div><dt>Subtotal</dt><dd>{money(t.subtotal)}</dd></div>
-        <div><dt>HST{copy.showHst ? " (13%)" : ""}</dt><dd>{copy.showHst ? money(t.hst) : "Not included"}</dd></div>
+        <div><dt>{h.label}</dt><dd>{h.amount !== null ? money(h.amount) : "Not included"}</dd></div>
         <div className="total"><dt>Total</dt><dd>{money(t.total)}</dd></div>
       </dl>
       <div className="cq-pay">
@@ -175,7 +176,7 @@ export function CustomerQuote({
                 <span className="cq-num">Option {i + 1}{o.recommended && <b> · Recommended</b>}</span>
                 <span className="nm">{o.name}</span>
                 <span className="tot">{money(o.totals.total)}</span>
-                <span className="faint">{copy.showHst ? "incl. HST" : "before HST"}</span>
+                <span className="faint">{hstWord(copy, o.totals)}</span>
               </a>
             ))}
           </nav>

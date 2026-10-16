@@ -1,4 +1,4 @@
-import { SECTIONS, isPriced, lineTotal, optionTotals, priceUsed, round2, sectionOf } from "@/lib/calc";
+import { SECTIONS, chargesHst, isPriced, lineTotal, optionTotals, priceUsed, round2, sectionOf } from "@/lib/calc";
 import type { Quote, QuoteLine, QuoteOption } from "@/lib/quotes/types";
 
 /**
@@ -31,6 +31,11 @@ export type CopyItem = {
   amount: number;
   /** An add-on the customer can choose: priced, not in the total. */
   optional: boolean;
+  /**
+   * Only where a material's HST differs from the rest of the quote (2026-10-16): "none" = no HST on
+   * it while the quote charges HST; "plus" = HST on it while the quote does not. Absent otherwise.
+   */
+  hst?: "none" | "plus";
 };
 export type CopyText = { kind: "text"; text: string; note: string | null };
 export type CopySection = { name: string; total: number; lines: (CopyItem | CopyText)[] };
@@ -125,6 +130,7 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean): Cop
         minimum,
         amount,
         optional: !l.include,
+        ...(chargesHst(l, showHst) !== showHst ? { hst: showHst ? ("none" as const) : ("plus" as const) } : {}),
       });
     }
     if (lines.length) sections.push({ name: name === "Unsorted" ? "Other" : name, total: round2(total), lines });
@@ -165,6 +171,20 @@ export function customerCopy(quote: Quote, at: { sentOn: string; validUntil: str
     options: quote.options.map((o) => copyOption(o, quote.discountRate, quote.showHst)),
   };
 }
+
+/** The HST row of an option's totals: a quote with HST off may still charge it on some materials. */
+export function hstRow(copy: Pick<CustomerCopy, "showHst">, t: Pick<CopyTotals, "hst">): { label: string; amount: number | null } {
+  if (copy.showHst) return { label: "HST (13%)", amount: t.hst };
+  if (t.hst !== 0) return { label: "HST (13%) on materials", amount: t.hst };
+  return { label: "HST", amount: null };
+}
+
+/** Under an option's total: what it includes. */
+export const hstWord = (copy: Pick<CustomerCopy, "showHst">, t: Pick<CopyTotals, "hst">) =>
+  copy.showHst ? "incl. HST" : t.hst !== 0 ? "incl. HST on materials" : "before HST";
+
+/** The words a line carries when its HST differs from the quote's. */
+export const itemHstNote = (l: Pick<CopyItem, "hst">) => (l.hst === "none" ? "no HST" : l.hst === "plus" ? "plus HST" : null);
 
 /** Airtable long text holds 100,000 characters; a copy that won't fit is refused, never cut. */
 export const COPY_MAX_CHARS = 95_000;

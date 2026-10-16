@@ -128,6 +128,10 @@ export const LINE = {
   version: "fldToFEW9FfhPXrfg",
   /** Typed wording; when blank, `description` (a formula) falls back to the Rate Card / Stair Item name. */
   descriptionOverride: "fldAdkBeY59oOSPNh",
+  /** Materials lines only (2026-10-16): ticked = no HST on this material. Other sections follow Show HST. */
+  noHst: "fldq8sPfy3iaBFJu5",
+  /** 2026-10-16: the Install Material picked for a Rate Card line; its price and cost are in the snaps. */
+  installMaterial: "fldLHVDiQWa3lOIcq",
   // Airtable's own per-line results — read only for the parity check.
   lineTotal: "fldtr6qmdjmWc1YFM",
   lineCost: "fld64HUgwqcRso3Br",
@@ -147,6 +151,20 @@ export const RATE = {
   minCharge: "fldheQ38Y9S1myfWo",
   defaultWaste: "fldO2w5Frt7Q2QeTj",
   active: "fld2ZHDbhu8PYIJFe",
+  /** 2026-10-16: the Install Materials group this job's material swaps within; blank = no swap. */
+  materialGroup: "fldskxNatiyqheLSd",
+  /** 2026-10-16: the Install Material the Titan Rate and Total Cost already include. */
+  defaultMaterial: "fldKoeawws0YkMo78",
+} as const;
+
+/** Install Materials (2026-10-16), read-only: what a Rate Card job's material can be swapped for. */
+export const MATERIAL_TABLE = "tblyljyGUu6lexd2g";
+export const MATERIAL = {
+  name: "fldCDrRgRpJYeqY63",
+  group: "fldJOxaEfw9HI9KC0",
+  cost: "fldcSDm7iSlX6u9ZA",
+  price: "fldlWjoshIgciIxIy",
+  active: "fldK9CMq2NQfVi2L9",
 } as const;
 
 export const STAIR_TABLE = "tbltRm9tL6r5brZn2";
