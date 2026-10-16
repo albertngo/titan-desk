@@ -26,6 +26,8 @@ export type QuoteOption = {
   description: string | null;
   sortOrder: number | null;
   recommended: boolean;
+  /** "Standard" or "Premium" (Quote Options → Service Level); null when never set, which reads as Standard. */
+  serviceLevel: string | null;
   lines: QuoteLine[];
   /** Airtable's own option rollups, for the parity check. */
   airtable: Partial<OptionTotals>;

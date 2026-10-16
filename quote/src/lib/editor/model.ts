@@ -4,6 +4,7 @@
  * only by src/lib/calc.ts, from the same LineInput fields Airtable stores.
  */
 import { SECTIONS, type LineInput } from "@/lib/calc";
+import { levelApplies, levelOf, levelPrice, type ServiceLevel } from "@/lib/pricing/service";
 import type { Quote, QuoteLine, RateRow, StairRow } from "@/lib/quotes/types";
 
 export type Section = (typeof SECTIONS)[number] | "Unsorted";
@@ -21,7 +22,15 @@ export type EditorLine = LineInput & {
   clientNote: string;
 };
 
-export type EditorOption = { id: string; name: string; description: string; recommended: boolean; lines: EditorLine[] };
+export type EditorOption = {
+  id: string;
+  name: string;
+  description: string;
+  recommended: boolean;
+  /** Standard when absent (older drafts and options saved before 2026-10-16). See src/lib/pricing/service.ts. */
+  serviceLevel?: ServiceLevel;
+  lines: EditorLine[];
+};
 
 export type EditorQuote = {
   /** Airtable record id of the quote being edited; null for a new quote. */
@@ -158,7 +167,8 @@ function baseLine(section: string): Omit<EditorLine, "description" | "sourceKind
   };
 }
 
-export function lineFromEntry(entry: CardEntry, section: string, contractorName?: string): EditorLine {
+/** A line priced from the card, at the option's service level (Premium adds to labour only). */
+export function lineFromEntry(entry: CardEntry, section: string, contractorName?: string, level: ServiceLevel = "Standard"): EditorLine {
   if (entry.kind === "stair") {
     return {
       ...baseLine(section),
@@ -166,7 +176,7 @@ export function lineFromEntry(entry: CardEntry, section: string, contractorName?
       sourceId: entry.recordId,
       description: entryLabel(entry),
       uom: "piece",
-      unitPriceSnap: entry.rate,
+      unitPriceSnap: levelPrice(entry.rate, level, true),
       unitCostSnap: entry.cost,
       hasSource: true,
     };
@@ -182,7 +192,7 @@ export function lineFromEntry(entry: CardEntry, section: string, contractorName?
     contractor: c.name,
     uom: entry.uom,
     waste: entry.defaultWaste,
-    unitPriceSnap: c.rate,
+    unitPriceSnap: levelPrice(c.rate, level, levelApplies({ sourceKind: "rate", labourType: entry.labourType })),
     unitCostSnap: c.cost,
     minChargeSnap: entry.minCharge,
     hasSource: true,
@@ -215,7 +225,7 @@ const mapLine = (q: EditorQuote, optionId: string, lineId: string, f: (l: Editor
   mapOption(q, optionId, (o) => ({ ...o, lines: o.lines.map((l) => (l.id === lineId ? f(l) : l)) }));
 
 export function addOption(q: EditorQuote, name = `Option ${q.options.length + 1}`): EditorQuote {
-  return { ...q, options: [...q.options, { id: newId("opt"), name, description: "", recommended: false, lines: [] }] };
+  return { ...q, options: [...q.options, { id: newId("opt"), name, description: "", recommended: false, serviceLevel: "Standard", lines: [] }] };
 }
 
 /** A full, independent copy: changing the copy never changes the original (no shared lines). */
@@ -257,13 +267,44 @@ export function removeLine(q: EditorQuote, optionId: string, lineId: string): Ed
 
 /** Switch contractor: the card rate and cost follow the new contractor; any override stays as typed. */
 export function setContractor(q: EditorQuote, optionId: string, lineId: string, name: string, entries: CardEntry[]): EditorQuote {
+  const level = levelOf(q.options.find((o) => o.id === optionId) ?? {});
   return mapLine(q, optionId, lineId, (l) => {
     const e = entryFor(l, entries);
     if (!e || e.kind !== "rate") return l;
     const c = e.contractors.find((x) => x.name === name);
     if (!c) return l;
-    return { ...l, contractor: c.name, sourceId: c.recordId, unitPriceSnap: c.rate, unitCostSnap: c.cost };
+    return { ...l, contractor: c.name, sourceId: c.recordId, unitPriceSnap: levelPrice(c.rate, level, levelApplies(l)), unitCostSnap: c.cost };
   });
+}
+
+/**
+ * Change an option's service level. Every labour line priced from the card is re-priced from the
+ * card at the new level (same contractor, cost unchanged). A typed price (override) stays as typed.
+ * A line whose card row no longer exists can't be re-priced from the card; it is left as it was and
+ * returned in `notRepriced` so the screen can say so.
+ */
+export function setServiceLevel(
+  q: EditorQuote,
+  optionId: string,
+  level: ServiceLevel,
+  entries: CardEntry[],
+): { quote: EditorQuote; notRepriced: EditorLine[] } {
+  const notRepriced: EditorLine[] = [];
+  const quote = mapOption(q, optionId, (o) => ({
+    ...o,
+    serviceLevel: level,
+    lines: o.lines.map((l) => {
+      if (!levelApplies(l)) return l;
+      const e = entryFor(l, entries);
+      const card = !e ? null : e.kind === "stair" ? e.rate : (e.contractors.find((c) => c.name === l.contractor) ?? null)?.rate ?? null;
+      if (card === null) {
+        notRepriced.push(l);
+        return l;
+      }
+      return { ...l, unitPriceSnap: levelPrice(card, level, true) };
+    }),
+  }));
+  return { quote, notRepriced };
 }
 
 /** "Back to the card": clear both overrides so the line uses the card rate and cost again. */
@@ -308,6 +349,7 @@ export function fromQuote(quote: Quote): EditorQuote {
       name: o.name,
       description: o.description ?? "",
       recommended: o.recommended,
+      serviceLevel: levelOf(o),
       lines: o.lines.map((l: QuoteLine): EditorLine => ({
         id: l.id,
         sourceKind: l.sourceKind,

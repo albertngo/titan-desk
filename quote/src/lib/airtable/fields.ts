@@ -77,6 +77,8 @@ export const OPTION = {
   description: "fldlFCZXTxESWL8KB",
   sortOrder: "fldqiHTiJqZhNpGlk",
   recommended: "fldslboCP3IZCEhJj",
+  /** Standard / Premium (2026-10-16): Premium prices the option's labour at the card rate +15%. */
+  serviceLevel: "fld7emrZTif7sChk8",
   lines: "fldYmOczi2hNUldJU",
   /** The version this option belongs to; emptied, never deleted, when the option is removed. */
   version: "flduprOIp2Z5Z6JcG",

@@ -43,7 +43,7 @@ const line = (p: Partial<QuoteLine>): QuoteLine => ({
 /** An option whose Airtable rollups agree with the app, as a healthy quote's do. */
 function option(name: string, lines: QuoteLine[], discountRate = 0.1, hst = true, p: Partial<QuoteOption> = {}): QuoteOption {
   const t = optionTotals(lines, discountRate, hst);
-  return { id: `recOPT${name.replace(/\W/g, "").padEnd(11, "0").slice(0, 11)}`, name, description: null, sortOrder: 1, recommended: false, lines, airtable: { ...t }, ...p };
+  return { id: `recOPT${name.replace(/\W/g, "").padEnd(11, "0").slice(0, 11)}`, name, description: null, sortOrder: 1, recommended: false, serviceLevel: null, lines, airtable: { ...t }, ...p };
 }
 
 function quote(p: Partial<Quote> = {}): Quote {

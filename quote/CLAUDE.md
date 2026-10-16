@@ -90,6 +90,14 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   never by the staff app (root rule: a public page never shares a deployment with a write token).
   It reads one thing, `src/lib/quotes/customer.ts`, which shows only the frozen copy of a version
   that was really sent. The PDF is drawn by `src/lib/send/pdfDoc.ts` (no dependencies).
+- **Service level (Albert, 2026-10-16).** Each option is **Standard** or **Premium** (Quote Options →
+  Service Level; blank reads as Standard). Premium is for higher-end clients and needs: labour priced
+  from the card (Rate Card Install/Remove/Refinish/Sand/Paint, and Stair Items) is priced at the card
+  rate **+15%**; cost is unchanged, so the extra is margin. Materials, disposal, hand-typed lines and
+  typed overrides are never changed. The level sets the customer's price; the crew sets our cost.
+  The premium price is written into the line's Unit Price Snap when it is priced, so calc.ts and the
+  Airtable formulas are unchanged. Rules and the markup: `src/lib/pricing/service.ts`; switching:
+  `setServiceLevel()` in `src/lib/editor/model.ts`; tested in `tests/editor.test.ts`.
 - **All quotes (2026-10-15).** One row per quote, its versions folded under it (newest first),
   and a search over name, quote and project number, city, email and phone digits. Grouping and
   search are pure, in `src/lib/quotes/group.ts`, tested in `tests/group.test.ts`.

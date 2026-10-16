@@ -1,4 +1,5 @@
 import { LINE, OPTION, VERSION } from "@/lib/airtable/fields";
+import { levelOf } from "@/lib/pricing/service";
 import type { EditorLine, EditorOption, EditorQuote } from "@/lib/editor/model";
 
 /**
@@ -87,6 +88,7 @@ export function cleanEditorQuote(raw: unknown): EditorQuote {
       name: text(x.name, 120).trim() || `Option ${i + 1}`,
       description: text(x.description, 4000),
       recommended: x.recommended === true,
+      serviceLevel: x.serviceLevel === "Premium" ? "Premium" : "Standard",
       lines: (Array.isArray(x.lines) ? x.lines : []).slice(0, LIMITS.linesPerOption).map(cleanLine),
     };
   });
@@ -146,6 +148,7 @@ export function optionFields(o: EditorOption, sortOrder: number): Fields {
     [OPTION.description]: orNull(o.description),
     [OPTION.sortOrder]: sortOrder,
     [OPTION.recommended]: o.recommended,
+    [OPTION.serviceLevel]: levelOf(o),
   };
 }
 

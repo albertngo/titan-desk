@@ -15,12 +15,15 @@ import {
   revertLine,
   searchCatalogue,
   setContractor,
+  setServiceLevel,
   updateLine,
   updateOption,
   withCustomerFrom,
   type CardEntry,
 } from "../src/lib/editor/model";
 import type { RateRow, StairRow } from "../src/lib/quotes/types";
+import { levelOf } from "../src/lib/pricing/service";
+import { cleanEditorQuote } from "../src/lib/quotes/savePlan";
 
 // INVENTED rates and contractors only: this repo is public.
 const R = (o: Partial<RateRow>): RateRow => ({
@@ -158,5 +161,83 @@ describe("customer and site", () => {
     const merged = withCustomerFrom(draft, now);
     expect([merged.siteAddress, merged.siteCity, merged.ghlContactId, merged.addressStatus]).toEqual(["12 Example St", "Oakville", "conAAA111111", "Confirmed"]);
     expect([merged.discountRate, merged.options[0].lines.length]).toEqual([0.05, 1]);
+  });
+});
+
+describe("service level (Premium = labour +15%)", () => {
+  const removal = cat.find((e) => e.key === "Remove|OLD CARPET")!;
+  const bin = cat.find((e) => e.key === "Disposal|SMALL BIN")!;
+  const stair = cat.find((e) => e.kind === "stair")!;
+
+  function premiumReady() {
+    let q = blankQuote();
+    const opt = q.options[0].id;
+    for (const l of [
+      { ...lineFromEntry(click, "Install"), qty: 100 },
+      { ...lineFromEntry(removal, "Removal"), qty: 100 },
+      { ...lineFromEntry(bin, "Disposal"), qty: 1 },
+      { ...lineFromEntry(stair, "Install"), qty: 10 },
+      { ...manualLine("Delivery", "Delivery"), qty: 1, unitPrice: 200 },
+    ])
+      q = addLine(q, opt, l);
+    return { q, opt };
+  }
+
+  it("new options are Standard", () => {
+    expect(blankQuote().options[0].serviceLevel).toBe("Standard");
+    expect(levelOf({})).toBe("Standard");
+  });
+
+  it("prices labour at the card +15% and leaves cost, disposal and typed lines alone", () => {
+    const { q, opt } = premiumReady();
+    const { quote, notRepriced } = setServiceLevel(q, opt, "Premium", cat);
+    const [install, remove, disposal, tread, delivery] = quote.options[0].lines;
+    expect(quote.options[0].serviceLevel).toBe("Premium");
+    expect(notRepriced).toEqual([]);
+    expect([install.unitPriceSnap, install.unitCostSnap]).toEqual([2.3, 1.0]); // 2 × 1.15, cost unchanged
+    expect(remove.unitPriceSnap).toBe(0.58); // 0.5 × 1.15 = 0.575 → 0.58
+    expect(tread.unitPriceSnap).toBe(103.5);
+    expect(disposal.unitPriceSnap).toBe(300);
+    expect(delivery.unitPrice).toBe(200);
+    // Margin goes up by exactly the markup: price up, cost the same.
+    const std = optionTotals(q.options[0].lines, 0, false);
+    const prem = optionTotals(quote.options[0].lines, 0, false);
+    expect(prem.cost).toBe(std.cost);
+    expect(prem.preDiscount).toBe(230 + 58 + 300 + 1035 + 200);
+  });
+
+  it("goes back to Standard exactly, and never touches a typed price", () => {
+    const { q, opt } = premiumReady();
+    const typed = updateLine(q, opt, q.options[0].lines[0].id, { unitPrice: 2.75 });
+    const prem = setServiceLevel(typed, opt, "Premium", cat).quote;
+    expect(prem.options[0].lines[0].unitPrice).toBe(2.75);
+    const back = setServiceLevel(prem, opt, "Standard", cat).quote;
+    expect(back.options[0].lines.map((l) => l.unitPriceSnap)).toEqual(q.options[0].lines.map((l) => l.unitPriceSnap));
+  });
+
+  it("lines added to, or re-crewed on, a Premium option are priced at Premium", () => {
+    let { q, opt } = premiumReady();
+    q = setServiceLevel(q, opt, "Premium", cat).quote;
+    const added = lineFromEntry(click, "Install", "Crew A", levelOf(q.options[0]));
+    expect(added.unitPriceSnap).toBe(2.3);
+    q = setContractor(q, opt, q.options[0].lines[0].id, "Crew A", cat);
+    expect([q.options[0].lines[0].unitPriceSnap, q.options[0].lines[0].unitCostSnap]).toEqual([2.3, 1.2]);
+  });
+
+  it("says which lines it could not re-price because their card row is gone", () => {
+    const { q, opt } = premiumReady();
+    const gone = cat.filter((e) => e.key !== "Remove|OLD CARPET");
+    const { quote, notRepriced } = setServiceLevel(q, opt, "Premium", gone);
+    expect(notRepriced.map((l) => l.description)).toEqual(["Remove | OLD CARPET"]);
+    expect(quote.options[0].lines[1].unitPriceSnap).toBe(0.5);
+  });
+
+  it("is kept on duplicate and saved as Standard or Premium only", () => {
+    let { q, opt } = premiumReady();
+    q = setServiceLevel(q, opt, "Premium", cat).quote;
+    q = duplicateOption(q, opt);
+    expect(q.options[1].serviceLevel).toBe("Premium");
+    const clean = cleanEditorQuote({ options: [{ name: "A", serviceLevel: "Gold", lines: [] }, { name: "B", serviceLevel: "Premium", lines: [] }] });
+    expect(clean.options.map((o) => o.serviceLevel)).toEqual(["Standard", "Premium"]);
   });
 });

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { bestContractor, entryLabel, lineFromEntry, manualLine, searchCatalogue, type CardEntry, type EditorLine } from "@/lib/editor/model";
 import { money } from "@/lib/format";
+import { levelApplies, levelPrice, type ServiceLevel } from "@/lib/pricing/service";
 
 /** Add a line: search the rate card and stair items, or type the line in by hand. Customer view shows the charge rate only. */
 export function Picker({
@@ -11,12 +12,15 @@ export function Picker({
   onPick,
   onClose,
   customer,
+  level,
 }: {
   section: string;
   catalogue: CardEntry[];
   onPick: (l: EditorLine) => void;
   onClose: () => void;
   customer: boolean;
+  /** The option's service level: Premium shows, and adds, labour at its Premium price. */
+  level: ServiceLevel;
 }) {
   const [q, setQ] = useState("");
   const results = searchCatalogue(catalogue, q, section);
@@ -43,12 +47,12 @@ export function Picker({
             const from = e.kind === "rate" ? bestContractor(e) : null;
             return (
               <li key={e.key}>
-                <button className="pick" onClick={() => onPick(lineFromEntry(e, section))}>
+                <button className="pick" onClick={() => onPick(lineFromEntry(e, section, undefined, level))}>
                   <span className="nm">{entryLabel(e)}</span>
                   <span className="mt">
                     {e.kind === "rate"
-                      ? `${money(from!.rate)} / ${e.uom ?? "unit"}${customer ? "" : ` · ${e.contractors.length} contractor${e.contractors.length === 1 ? "" : "s"}, cheapest ${from!.name}`}`
-                      : `${money(e.rate)} / piece${!customer && e.cost === null ? " · no cost on file" : ""}`}
+                      ? `${money(levelPrice(from!.rate, level, levelApplies({ sourceKind: "rate", labourType: e.labourType })))} / ${e.uom ?? "unit"}${customer ? "" : ` · ${e.contractors.length} contractor${e.contractors.length === 1 ? "" : "s"}, cheapest ${from!.name}`}`
+                      : `${money(levelPrice(e.rate, level, true))} / piece${!customer && e.cost === null ? " · no cost on file" : ""}`}
                   </span>
                 </button>
               </li>
