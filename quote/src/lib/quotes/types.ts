@@ -13,6 +13,8 @@ export type QuoteLine = LineInput & {
   area: string | null;
   uom: string | null;
   contractor: string | null;
+  /** The Install Material picked for a Rate Card line (2026-10-16); null/absent = none. */
+  materialId?: string | null;
   clientNote: string | null;
   sortOrder: number | null;
   /** Airtable's own Line Total / Line Cost, for the per-line parity check. */
@@ -97,7 +99,14 @@ export type RateRow = {
   cost: number;
   minCharge: number | null;
   defaultWaste: number | null;
+  /** Install Materials group the job's material can be swapped within (2026-10-16); absent = no swap. */
+  materialGroup?: string | null;
+  /** The Install Material `rate` and `cost` already include. */
+  defaultMaterialId?: string | null;
 };
+
+/** An Install Material: cost and customer price per unit of the job (per sqft on a sqft row). */
+export type MaterialRow = { id: string; name: string; group: string; cost: number | null; price: number | null };
 
 export type StairRow = {
   id: string;
@@ -108,7 +117,7 @@ export type StairRow = {
   cost: number | null;
 };
 
-export type RateCard = { rates: RateRow[]; stairs: StairRow[] };
+export type RateCard = { rates: RateRow[]; stairs: StairRow[]; materials?: MaterialRow[] };
 
 /* ---------- starting a quote (src/lib/quotes/start.ts) ---------- */
 

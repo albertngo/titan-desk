@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  chargesHst,
   lineCost,
   lineFlags,
   lineTotal,
@@ -125,6 +126,36 @@ describe("option totals", () => {
     expect(t.hst).toBe(0);
     expect(t.total).toBe(1935);
     expect([t.payment1, t.payment2, t.paymentFinal]).toEqual([677.25, 677.25, 580.5]);
+  });
+
+  describe("HST per material line (2026-10-16)", () => {
+    const floor = L({ section: "Materials", lineType: "Material", qty: 100, unitPriceSnap: 5, unitCostSnap: 3 }); // 500
+    const floorNoHst = { ...floor, noHst: true };
+
+    it("a material charges HST by its own choice; everything else follows the quote", () => {
+      expect([chargesHst(floor, false), chargesHst(floorNoHst, true), chargesHst(removal, false), chargesHst(removal, true)]).toEqual([true, false, false, true]);
+    });
+
+    it("with every line taxed it is exactly 13% of the subtotal, as before", () => {
+      const t = optionTotals([...job, floor], 0.1, true);
+      expect(t.hst).toBe(Math.round(t.subtotal * 13) / 100);
+    });
+
+    it("HST off for the quote still charges it on a material, after the discount", () => {
+      const t = optionTotals([...job, floor], 0.1, false);
+      expect(t.subtotal).toBe(2385); // (2150 + 500) − 265
+      expect(t.hst).toBe(58.5); // (500 − 50) × 13%
+      expect(t.total).toBe(2443.5);
+    });
+
+    it("HST on for the quote leaves out a material set to no HST", () => {
+      const t = optionTotals([...job, floorNoHst], 0.1, true);
+      expect(t.hst).toBe(251.55); // only the job's lines, as in the first test
+    });
+
+    it("only Materials lines choose: no HST on a labour line is ignored", () => {
+      expect(optionTotals([{ ...removal, noHst: true }], 0, true).hst).toBe(52); // 400 × 13%
+    });
   });
 
   it("reports no margin on an empty option", () => {

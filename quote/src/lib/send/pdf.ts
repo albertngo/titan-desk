@@ -1,5 +1,5 @@
 import { PAGE, PdfDoc, wrap, type Rgb } from "./pdfDoc";
-import { longDate, type CopyItem, type CopyOption, type CopyText, type CustomerCopy } from "./copy";
+import { hstRow, itemHstNote, longDate, type CopyItem, type CopyOption, type CopyText, type CustomerCopy } from "./copy";
 
 /**
  * The quote as a PDF, drawn from the customer copy only (never from live lines), so the file
@@ -175,7 +175,7 @@ export function quotePdf(copy: CustomerCopy): Uint8Array<ArrayBuffer> {
       return;
     }
     const lines = wrap(l.description, "R", 9, COL.itemW);
-    const sub = [l.note, l.wastePct ? `includes ${l.wastePct}% waste allowance` : null, l.minimum ? "minimum charge" : null].filter(Boolean).join(" · ");
+    const sub = [l.note, l.wastePct ? `includes ${l.wastePct}% waste allowance` : null, l.minimum ? "minimum charge" : null, itemHstNote(l)].filter(Boolean).join(" · ");
     const notes = sub ? wrap(sub, "R", 8, COL.itemW) : [];
     if (room(lines.length * 12 + notes.length * 10 + 6)) tableHead(true);
     const color = l.optional ? DIM : INK;
@@ -201,7 +201,8 @@ export function quotePdf(copy: CustomerCopy): Uint8Array<ArrayBuffer> {
       rows.push([`Discount (${Math.round(copy.discountRate * 1000) / 10}%)`, money(t.discount), false]);
     }
     rows.push(["Subtotal", money(t.subtotal), false]);
-    rows.push([copy.showHst ? "HST (13%)" : "HST", copy.showHst ? money(t.hst) : "Not included", false]);
+    const h = hstRow(copy, t);
+    rows.push([h.label, h.amount !== null ? money(h.amount) : "Not included", false]);
     const pay: [string, number][] = [
       ["Deposit (35%)", t.payment1],
       ["Second payment (35%)", t.payment2],

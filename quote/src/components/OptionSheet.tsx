@@ -219,7 +219,7 @@ export function OptionSheet({
           <div className="ov-row bullet"><span className="k">Pre-discount</span><span className="v">{money(t.preDiscount)}</span></div>
           <div className="ov-row bullet"><span className="k">Discount ({pct(discountRate * 100, 0)})</span><span className="v">{money(t.discount)}</span></div>
           <div className="ov-row bullet"><span className="k">Subtotal</span><span className="v">{money(t.subtotal)}</span></div>
-          <div className="ov-row bullet"><span className="k">HST{showHst ? " (13%)" : " (off)"}</span><span className="v">{money(t.hst)}</span></div>
+          <div className="ov-row bullet"><span className="k">HST{showHst ? " (13%)" : t.hst ? " (materials only)" : " (off)"}</span><span className="v">{money(t.hst)}</span></div>
           <div className="ov-total"><span>Total</span><span className="v">{money(t.total)}</span></div>
         </section>
       </div>

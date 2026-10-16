@@ -10,6 +10,8 @@
  *   Quote Lines.Line Total   = blank for Note/Section/Exclusions; 0 when Include is off;
  *                              ROUND(min-charge-or Qty*(1+Waste)*PriceUsed, 2)
  *   Quote Lines.Line Cost    = blank/0 as above; Manual Cost wins; else ROUND(Qty*(1+Waste)*CostUsed, 2)
+ *   Quote Lines.HST Base Own   = Line Total of a Materials line without No HST, else 0
+ *   Quote Lines.HST Base Quote = Line Total of every line outside Materials, else 0
  *   Quote Options.*          = the option-level formulas in `optionTotals` below
  *
  * Airtable's IF({x}, …) treats blank AND 0 as false; `firstSet` reproduces that.
@@ -53,6 +55,12 @@ export type LineInput = {
   minChargeSnap: number | null;
   /** True when the line links to a Rate Card row, a Stair Item or a catalogue product. */
   hasSource: boolean;
+  /**
+   * Materials lines only (Albert, 2026-10-16): true = this material is not charged HST. A material
+   * line's HST is its own choice (on unless ticked); every other line follows the quote's Show HST.
+   * Absent reads as false.
+   */
+  noHst?: boolean;
 };
 
 export type OptionTotals = {
@@ -125,20 +133,33 @@ export function lineFlags(l: LineInput): Flag[] {
   return flags;
 }
 
-/** Option-level totals. `discountRate` is a fraction (0.11), applied to the pre-discount total. */
+/** Whether a line is charged HST: a material by its own choice, anything else by the quote's Show HST. */
+export function chargesHst(l: LineInput, hstOn: boolean): boolean {
+  return sectionOf(l) === "Materials" ? !l.noHst : hstOn;
+}
+
+/**
+ * Option-level totals. `discountRate` is a fraction (0.11), applied to the pre-discount total.
+ * HST is 13% of the taxed lines after the same discount; with every line taxed that is exactly
+ * 13% of the subtotal, as before 2026-10-16.
+ */
 export function optionTotals(lines: LineInput[], discountRate: number, hstOn: boolean): OptionTotals {
   let pre = 0;
   let cost = 0;
+  let taxed = 0;
   for (const l of lines) {
-    pre += lineTotal(l) ?? 0;
+    const t = lineTotal(l) ?? 0;
+    pre += t;
     cost += lineCost(l) ?? 0;
+    if (chargesHst(l, hstOn)) taxed += t;
   }
   // Airtable: Discount = -ROUND(Pre * Rate, 2); Subtotal = ROUND(Pre - ROUND(Pre * Rate, 2), 2)
   const disc = round2(pre * discountRate);
   const subtotal = round2(pre - disc);
   const profit = round2(subtotal - cost);
   const marginPct = subtotal > 0 ? round(((subtotal - cost) / subtotal) * 100, 1) : null;
-  const hst = hstOn ? round2(subtotal * HST_RATE) : 0;
+  // Airtable: HST = ROUND(ROUND(B - ROUND(B * Rate, 2), 2) * 0.13, 2), B = HST Base Own + IF(Show HST, HST Base Quote, 0)
+  const hst = round2(round2(taxed - round2(taxed * discountRate)) * HST_RATE);
   const total = round2(subtotal + hst);
   const payment1 = round2(total * PAYMENT_SPLIT);
   const payment2 = round2(total * PAYMENT_SPLIT);

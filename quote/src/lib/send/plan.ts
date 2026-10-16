@@ -76,7 +76,7 @@ export function emailMessage(copy: CustomerCopy, to: { contactId: string; firstN
     `<p>Thank you for considering Titan Flooring. Your ${prelim ? "preliminary " : ""}quote ${esc(copy.quoteNumber)} is ready${several ? `, with ${copy.options.length} options to compare` : ""}.</p>`,
     `<table style="width:100%;border-collapse:collapse;margin:8px 0 16px">${rows}</table>`,
     `<p style="margin:20px 0"><a href="${esc(to.link)}" style="background:#1e6fff;color:#fff;text-decoration:none;padding:12px 20px;border-radius:6px;font-weight:600;display:inline-block">View your quote</a></p>`,
-    `<p style="color:#66717f;font-size:13px">${copy.showHst ? "Totals include HST. " : ""}The quote is good until ${esc(longDate(copy.validUntil))}. A PDF copy is attached.${prelim ? " This is a preliminary estimate; we confirm the final price once we have measured." : ""}</p>`,
+    `<p style="color:#66717f;font-size:13px">${copy.showHst ? "Totals include HST. " : copy.options.some((o) => o.totals.hst !== 0) ? "Totals include HST on materials. " : ""}The quote is good until ${esc(longDate(copy.validUntil))}. A PDF copy is attached.${prelim ? " This is a preliminary estimate; we confirm the final price once we have measured." : ""}</p>`,
     `<p>If you have any questions, just reply to this email.</p>`,
     `<p>The Titan Flooring team</p>`,
     `</div>`,

@@ -3,9 +3,9 @@
  * the screen calls these, and tests/editor.test.ts proves them. Money is still computed
  * only by src/lib/calc.ts, from the same LineInput fields Airtable stores.
  */
-import { optionTotals, SECTIONS, type LineInput } from "@/lib/calc";
+import { optionTotals, round2, SECTIONS, type LineInput } from "@/lib/calc";
 import { levelApplies, levelOf, levelPrice, type ServiceLevel } from "@/lib/pricing/service";
-import type { Quote, QuoteLine, RateRow, StairRow } from "@/lib/quotes/types";
+import type { MaterialRow, Quote, QuoteLine, RateRow, StairRow } from "@/lib/quotes/types";
 
 export type Section = (typeof SECTIONS)[number] | "Unsorted";
 
@@ -17,6 +17,8 @@ export type EditorLine = LineInput & {
   spec: string | null;
   description: string;
   contractor: string | null;
+  /** The Install Material picked for a Rate Card line (2026-10-16); null/absent = none. See `rateSnap`. */
+  materialId?: string | null;
   area: string;
   uom: string | null;
   clientNote: string;
@@ -51,6 +53,20 @@ export type EditorQuote = {
   options: EditorOption[];
 };
 
+/**
+ * One contractor's Rate Card row. `rate` and `cost` include the default material, when the row has
+ * one; `material` is set only when the row's material can be swapped (a group, and a default that
+ * has a price and cost no bigger than the row's own).
+ */
+export type CardContractor = {
+  name: string;
+  rate: number;
+  cost: number;
+  recordId: string;
+  material: { default: PricedMaterial; choices: PricedMaterial[] } | null;
+};
+export type PricedMaterial = MaterialRow & { cost: number; price: number };
+
 /** Everything the picker can add: one entry per labour type + spec (contractors inside), or one stair item. */
 export type CardEntry =
   | {
@@ -61,7 +77,7 @@ export type CardEntry =
       uom: string | null;
       minCharge: number | null;
       defaultWaste: number | null;
-      contractors: { name: string; rate: number; cost: number; recordId: string }[];
+      contractors: CardContractor[];
     }
   | { kind: "stair"; key: string; name: string; size: string | null; category: string | null; rate: number; cost: number | null; recordId: string };
 
@@ -97,7 +113,18 @@ export function newId(prefix: "opt" | "line"): string {
 
 // ---------- catalogue ----------
 
-export function buildCatalogue(rates: RateRow[], stairs: StairRow[]): CardEntry[] {
+const priced = (m: MaterialRow): m is PricedMaterial => m.price !== null && m.cost !== null;
+
+/** A row's swappable material, or null when it has none or it isn't fully set up in Airtable. */
+function materialFor(r: RateRow, materials: MaterialRow[]): CardContractor["material"] {
+  if (!r.materialGroup || !r.defaultMaterialId) return null;
+  const choices = materials.filter((m): m is PricedMaterial => m.group === r.materialGroup && priced(m)).sort((a, b) => a.price - b.price || a.name.localeCompare(b.name));
+  const def = choices.find((m) => m.id === r.defaultMaterialId);
+  if (!def || def.price > r.rate || def.cost > r.cost) return null;
+  return { default: def, choices };
+}
+
+export function buildCatalogue(rates: RateRow[], stairs: StairRow[], materials: MaterialRow[] = []): CardEntry[] {
   const byKey = new Map<string, Extract<CardEntry, { kind: "rate" }>>();
   for (const r of rates) {
     const key = `${r.labourType}|${r.spec}`;
@@ -111,7 +138,7 @@ export function buildCatalogue(rates: RateRow[], stairs: StairRow[]): CardEntry[
       defaultWaste: r.defaultWaste,
       contractors: [],
     };
-    e.contractors.push({ name: r.contractor, rate: r.rate, cost: r.cost, recordId: r.id });
+    e.contractors.push({ name: r.contractor, rate: r.rate, cost: r.cost, recordId: r.id, material: materialFor(r, materials) });
     byKey.set(key, e);
   }
   const entries: CardEntry[] = [...byKey.values()];
@@ -169,6 +196,68 @@ function baseLine(section: string): Omit<EditorLine, "description" | "sourceKind
   };
 }
 
+// ---------- material (2026-10-16) ----------
+//
+// A Rate Card row can name a Material Group and the Default Material its Titan Rate and Total
+// Cost already include. On a line the material can be swapped for any other in the group: one
+// line for the customer, named with its material. Labour = the row less its default material;
+// the line = labour (at the service level, so Premium marks up labour only) + the chosen material.
+// With the default material at Standard that is exactly the row's own rate and cost.
+
+type RateEntry = Extract<CardEntry, { kind: "rate" }>;
+
+/** A Rate Card line's card price and cost for one contractor, material and service level. */
+export function rateSnap(entry: RateEntry, c: CardContractor, materialId: string | null | undefined, level: ServiceLevel) {
+  const applies = levelApplies({ sourceKind: "rate", labourType: entry.labourType });
+  const m = c.material;
+  if (!m) return { price: levelPrice(c.rate, level, applies), cost: c.cost, material: null };
+  const chosen = m.choices.find((x) => x.id === materialId) ?? m.default;
+  return {
+    price: round2(levelPrice(round2(c.rate - m.default.price), level, applies) + chosen.price),
+    cost: round2(c.cost - m.default.cost + chosen.cost),
+    material: chosen,
+  };
+}
+
+/** The wording of a Rate Card line: the work, then the material when it has one. */
+export const rateWording = (entry: RateEntry, material: MaterialRow | null) => (material ? `${entryLabel(entry)} · ${material.name}` : entryLabel(entry));
+
+/** Re-price a Rate Card line from the card for a contractor and material. Typed overrides stay as typed. */
+function snapLine(l: EditorLine, entry: RateEntry, c: CardContractor, materialId: string | null | undefined, level: ServiceLevel): EditorLine {
+  const s = rateSnap(entry, c, materialId, level);
+  const material = s.material?.id ?? null;
+  return {
+    ...l,
+    contractor: c.name,
+    sourceId: c.recordId,
+    unitPriceSnap: s.price,
+    unitCostSnap: s.cost,
+    materialId: material,
+    ...(material !== (l.materialId ?? null) ? { description: rateWording(entry, s.material) } : {}),
+  };
+}
+
+/** The materials a line can be swapped between (empty when it has no choice), and the one it has. */
+export function materialChoices(l: EditorLine, entries: CardEntry[]): { choices: PricedMaterial[]; current: PricedMaterial | null; base: PricedMaterial | null } {
+  const e = entryFor(l, entries);
+  const c = e && e.kind === "rate" ? e.contractors.find((x) => x.name === l.contractor) : undefined;
+  const m = c?.material;
+  if (!m) return { choices: [], current: null, base: null };
+  return { choices: m.choices, current: m.choices.find((x) => x.id === l.materialId) ?? m.default, base: m.default };
+}
+
+/** Swap a line's material: price and cost follow the card; a typed price or cost stays as typed. */
+export function setMaterial(q: EditorQuote, optionId: string, lineId: string, materialId: string, entries: CardEntry[]): EditorQuote {
+  const level = levelOf(q.options.find((o) => o.id === optionId) ?? {});
+  return mapLine(q, optionId, lineId, (l) => {
+    const e = entryFor(l, entries);
+    if (!e || e.kind !== "rate") return l;
+    const c = e.contractors.find((x) => x.name === l.contractor);
+    if (!c?.material?.choices.some((m) => m.id === materialId)) return l;
+    return snapLine(l, e, c, materialId, level);
+  });
+}
+
 /** A line priced from the card, at the option's service level (Premium adds to labour only). */
 export function lineFromEntry(entry: CardEntry, section: string, contractorName?: string, level: ServiceLevel = "Standard"): EditorLine {
   if (entry.kind === "stair") {
@@ -184,18 +273,20 @@ export function lineFromEntry(entry: CardEntry, section: string, contractorName?
     };
   }
   const c = entry.contractors.find((x) => x.name === contractorName) ?? bestContractor(entry);
+  const s = rateSnap(entry, c, null, level);
   return {
     ...baseLine(section),
     sourceKind: "rate",
     sourceId: c.recordId,
     labourType: entry.labourType,
     spec: entry.spec,
-    description: entryLabel(entry),
+    description: rateWording(entry, s.material),
     contractor: c.name,
+    materialId: s.material?.id ?? null,
     uom: entry.uom,
     waste: entry.defaultWaste,
-    unitPriceSnap: levelPrice(c.rate, level, levelApplies({ sourceKind: "rate", labourType: entry.labourType })),
-    unitCostSnap: c.cost,
+    unitPriceSnap: s.price,
+    unitCostSnap: s.cost,
     minChargeSnap: entry.minCharge,
     hasSource: true,
   };
@@ -275,7 +366,8 @@ export function setContractor(q: EditorQuote, optionId: string, lineId: string, 
     if (!e || e.kind !== "rate") return l;
     const c = e.contractors.find((x) => x.name === name);
     if (!c) return l;
-    return { ...l, contractor: c.name, sourceId: c.recordId, unitPriceSnap: levelPrice(c.rate, level, levelApplies(l)), unitCostSnap: c.cost };
+    // The material stays when the new contractor's row offers it; otherwise it is that row's default.
+    return snapLine(l, e, c, l.materialId, level);
   });
 }
 
@@ -298,12 +390,15 @@ export function setServiceLevel(
     lines: o.lines.map((l) => {
       if (!levelApplies(l)) return l;
       const e = entryFor(l, entries);
-      const card = !e ? null : e.kind === "stair" ? e.rate : (e.contractors.find((c) => c.name === l.contractor) ?? null)?.rate ?? null;
-      if (card === null) {
+      if (e?.kind === "stair") return { ...l, unitPriceSnap: levelPrice(e.rate, level, true) };
+      const c = e?.kind === "rate" ? e.contractors.find((x) => x.name === l.contractor) : undefined;
+      // A material no longer offered can't be priced from the card either.
+      const gone = !c || !e || e.kind !== "rate" || (!!l.materialId && !c.material?.choices.some((m) => m.id === l.materialId));
+      if (gone) {
         notRepriced.push(l);
         return l;
       }
-      return { ...l, unitPriceSnap: levelPrice(card, level, true) };
+      return { ...l, unitPriceSnap: rateSnap(e, c, l.materialId, level).price };
     }),
   }));
   return { quote, notRepriced };
@@ -384,7 +479,7 @@ export function setCrew(
           if (e.contractors.length > 1) cannot.push(l);
           return l;
         }
-        return { ...l, contractor: c.name, sourceId: c.recordId, unitPriceSnap: levelPrice(c.rate, level, levelApplies(l)), unitCostSnap: c.cost };
+        return snapLine(l, e, c, l.materialId, level);
       }),
     };
   });
@@ -458,6 +553,7 @@ export function fromQuote(quote: Quote): EditorQuote {
         spec: l.spec,
         description: l.description ?? "",
         contractor: l.contractor,
+        materialId: l.materialId ?? null,
         area: l.area ?? "",
         uom: l.uom,
         clientNote: l.clientNote ?? "",
@@ -472,6 +568,7 @@ export function fromQuote(quote: Quote): EditorQuote {
         costOverride: l.costOverride,
         manualCost: l.manualCost,
         minChargeSnap: l.minChargeSnap,
+        noHst: l.noHst ?? false,
         hasSource: l.hasSource,
       })),
     })),
