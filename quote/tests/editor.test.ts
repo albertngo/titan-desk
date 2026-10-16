@@ -220,7 +220,9 @@ describe("service level (Premium = labour +15%)", () => {
   });
 
   it("lines added to, or re-crewed on, a Premium option are priced at Premium", () => {
-    let { q, opt } = premiumReady();
+    const start = premiumReady();
+    let q = start.q;
+    const opt = start.opt;
     q = setServiceLevel(q, opt, "Premium", cat).quote;
     const added = lineFromEntry(click, "Install", "Crew A", levelOf(q.options[0]));
     expect(added.unitPriceSnap).toBe(2.3);
@@ -237,7 +239,9 @@ describe("service level (Premium = labour +15%)", () => {
   });
 
   it("is kept on duplicate and saved as Standard or Premium only", () => {
-    let { q, opt } = premiumReady();
+    const start = premiumReady();
+    let q = start.q;
+    const opt = start.opt;
     q = setServiceLevel(q, opt, "Premium", cat).quote;
     q = duplicateOption(q, opt);
     expect(q.options[1].serviceLevel).toBe("Premium");
@@ -307,7 +311,9 @@ describe("crew per option (pick a contractor for the whole option)", () => {
   });
 
   it("never changes a typed price or cost, and prices at the option's level", () => {
-    let { q, opt } = job();
+    const start = job();
+    let q = start.q;
+    const opt = start.opt;
     q = setServiceLevel(q, opt, "Premium", cc).quote;
     q = updateLine(q, opt, q.options[0].lines[0].id, { unitPrice: 2.75, costOverride: 0.9 });
     const r = setCrew(q, opt, "Crew A", cc).quote.options[0].lines[0];
@@ -333,7 +339,9 @@ describe("crew per option (pick a contractor for the whole option)", () => {
   });
 
   it("new lines go to the crew; the crew is kept on duplicate and saved as text", () => {
-    let { q, opt } = job();
+    const start = job();
+    let q = start.q;
+    const opt = start.opt;
     q = setCrew(q, opt, "Crew A", cc).quote;
     expect(lineFromEntry(get("Install|CLICK PLANK"), "Install", q.options[0].crew ?? undefined).contractor).toBe("Crew A");
     q = duplicateOption(q, opt);
