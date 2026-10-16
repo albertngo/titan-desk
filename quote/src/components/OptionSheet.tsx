@@ -154,6 +154,8 @@ export function OptionSheet({
           <div className="oname">
             {option.name}
             {option.recommended && <span className="chip good">Recommended</span>}
+            {!customer && option.serviceLevel === "Premium" && <span className="chip premium">Premium</span>}
+            {!customer && option.crew && <span className="chip">Crew {option.crew}</span>}
           </div>
           {option.description ? <p className="odesc">{option.description}</p> : <p className="odesc note">No description yet.</p>}
         </div>

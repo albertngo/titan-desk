@@ -6,6 +6,9 @@ import {
   blankQuote,
   bestContractor,
   buildCatalogue,
+  compareCrews,
+  crewState,
+  crewsOf,
   duplicateOption,
   exclusionLine,
   lineFromEntry,
@@ -15,12 +18,16 @@ import {
   revertLine,
   searchCatalogue,
   setContractor,
+  setCrew,
+  setServiceLevel,
   updateLine,
   updateOption,
   withCustomerFrom,
   type CardEntry,
 } from "../src/lib/editor/model";
 import type { RateRow, StairRow } from "../src/lib/quotes/types";
+import { levelOf } from "../src/lib/pricing/service";
+import { cleanEditorQuote } from "../src/lib/quotes/savePlan";
 
 // INVENTED rates and contractors only: this repo is public.
 const R = (o: Partial<RateRow>): RateRow => ({
@@ -158,5 +165,188 @@ describe("customer and site", () => {
     const merged = withCustomerFrom(draft, now);
     expect([merged.siteAddress, merged.siteCity, merged.ghlContactId, merged.addressStatus]).toEqual(["12 Example St", "Oakville", "conAAA111111", "Confirmed"]);
     expect([merged.discountRate, merged.options[0].lines.length]).toEqual([0.05, 1]);
+  });
+});
+
+describe("service level (Premium = labour +15%)", () => {
+  const removal = cat.find((e) => e.key === "Remove|OLD CARPET")!;
+  const bin = cat.find((e) => e.key === "Disposal|SMALL BIN")!;
+  const stair = cat.find((e) => e.kind === "stair")!;
+
+  function premiumReady() {
+    let q = blankQuote();
+    const opt = q.options[0].id;
+    for (const l of [
+      { ...lineFromEntry(click, "Install"), qty: 100 },
+      { ...lineFromEntry(removal, "Removal"), qty: 100 },
+      { ...lineFromEntry(bin, "Disposal"), qty: 1 },
+      { ...lineFromEntry(stair, "Install"), qty: 10 },
+      { ...manualLine("Delivery", "Delivery"), qty: 1, unitPrice: 200 },
+    ])
+      q = addLine(q, opt, l);
+    return { q, opt };
+  }
+
+  it("new options are Standard", () => {
+    expect(blankQuote().options[0].serviceLevel).toBe("Standard");
+    expect(levelOf({})).toBe("Standard");
+  });
+
+  it("prices labour at the card +15% and leaves cost, disposal and typed lines alone", () => {
+    const { q, opt } = premiumReady();
+    const { quote, notRepriced } = setServiceLevel(q, opt, "Premium", cat);
+    const [install, remove, disposal, tread, delivery] = quote.options[0].lines;
+    expect(quote.options[0].serviceLevel).toBe("Premium");
+    expect(notRepriced).toEqual([]);
+    expect([install.unitPriceSnap, install.unitCostSnap]).toEqual([2.3, 1.0]); // 2 × 1.15, cost unchanged
+    expect(remove.unitPriceSnap).toBe(0.58); // 0.5 × 1.15 = 0.575 → 0.58
+    expect(tread.unitPriceSnap).toBe(103.5);
+    expect(disposal.unitPriceSnap).toBe(300);
+    expect(delivery.unitPrice).toBe(200);
+    // Margin goes up by exactly the markup: price up, cost the same.
+    const std = optionTotals(q.options[0].lines, 0, false);
+    const prem = optionTotals(quote.options[0].lines, 0, false);
+    expect(prem.cost).toBe(std.cost);
+    expect(prem.preDiscount).toBe(230 + 58 + 300 + 1035 + 200);
+  });
+
+  it("goes back to Standard exactly, and never touches a typed price", () => {
+    const { q, opt } = premiumReady();
+    const typed = updateLine(q, opt, q.options[0].lines[0].id, { unitPrice: 2.75 });
+    const prem = setServiceLevel(typed, opt, "Premium", cat).quote;
+    expect(prem.options[0].lines[0].unitPrice).toBe(2.75);
+    const back = setServiceLevel(prem, opt, "Standard", cat).quote;
+    expect(back.options[0].lines.map((l) => l.unitPriceSnap)).toEqual(q.options[0].lines.map((l) => l.unitPriceSnap));
+  });
+
+  it("lines added to, or re-crewed on, a Premium option are priced at Premium", () => {
+    const start = premiumReady();
+    let q = start.q;
+    const opt = start.opt;
+    q = setServiceLevel(q, opt, "Premium", cat).quote;
+    const added = lineFromEntry(click, "Install", "Crew A", levelOf(q.options[0]));
+    expect(added.unitPriceSnap).toBe(2.3);
+    q = setContractor(q, opt, q.options[0].lines[0].id, "Crew A", cat);
+    expect([q.options[0].lines[0].unitPriceSnap, q.options[0].lines[0].unitCostSnap]).toEqual([2.3, 1.2]);
+  });
+
+  it("says which lines it could not re-price because their card row is gone", () => {
+    const { q, opt } = premiumReady();
+    const gone = cat.filter((e) => e.key !== "Remove|OLD CARPET");
+    const { quote, notRepriced } = setServiceLevel(q, opt, "Premium", gone);
+    expect(notRepriced.map((l) => l.description)).toEqual(["Remove | OLD CARPET"]);
+    expect(quote.options[0].lines[1].unitPriceSnap).toBe(0.5);
+  });
+
+  it("is kept on duplicate and saved as Standard or Premium only", () => {
+    const start = premiumReady();
+    let q = start.q;
+    const opt = start.opt;
+    q = setServiceLevel(q, opt, "Premium", cat).quote;
+    q = duplicateOption(q, opt);
+    expect(q.options[1].serviceLevel).toBe("Premium");
+    const clean = cleanEditorQuote({ options: [{ name: "A", serviceLevel: "Gold", lines: [] }, { name: "B", serviceLevel: "Premium", lines: [] }] });
+    expect(clean.options.map((o) => o.serviceLevel)).toEqual(["Standard", "Premium"]);
+  });
+});
+
+describe("crew per option (pick a contractor for the whole option)", () => {
+  // Invented: Crew A and Crew B both do click plank and old-carpet removal; only Crew A does the
+  // tile removal; the bin is a shared row (one contractor), and so is the refinish.
+  const crewRates: RateRow[] = [
+    ...rates,
+    R({ id: "recRateF000000001", labourType: "Remove", spec: "OLD CARPET", contractor: "Crew B", rate: 0.5, cost: 0.3 }),
+    R({ id: "recRateG000000001", labourType: "Remove", spec: "TILE", contractor: "Crew A", rate: 4, cost: 2 }),
+    R({ id: "recRateH000000001", labourType: "Remove", spec: "TILE", contractor: "Crew E", rate: 4, cost: 2.5 }),
+  ];
+  const cc = buildCatalogue(crewRates, stairs);
+  const get = (key: string) => cc.find((e) => e.key === key)!;
+
+  function job() {
+    let q = blankQuote();
+    const opt = q.options[0].id;
+    for (const l of [
+      { ...lineFromEntry(get("Install|CLICK PLANK"), "Install"), qty: 100 }, // cheapest: Crew B
+      { ...lineFromEntry(get("Remove|OLD CARPET"), "Removal"), qty: 100 }, // cheapest: Crew A
+      { ...lineFromEntry(get("Remove|TILE"), "Removal"), qty: 50 }, // Crew A or Crew E
+      { ...lineFromEntry(get("Disposal|SMALL BIN"), "Disposal"), qty: 1 }, // Crew C only
+      { ...manualLine("Delivery", "Delivery"), qty: 1, unitPrice: 200 },
+    ])
+      q = addLine(q, opt, l);
+    return { q, opt };
+  }
+  const who = (q: ReturnType<typeof blankQuote>) => q.options[0].lines.map((l) => l.contractor);
+
+  it("lists as crews only contractors there is a choice of, most work first; no names in code", () => {
+    expect(crewsOf(cc).map((c) => [c.name, c.covers])).toEqual([["Crew A", 3], ["Crew B", 2], ["Crew E", 1]]);
+  });
+
+  it("moves every line the crew can do, leaves shared rows and typed lines alone", () => {
+    const { q, opt } = job();
+    const r = setCrew(q, opt, "Crew B", cc);
+    expect(r.quote.options[0].crew).toBe("Crew B");
+    expect(who(r.quote)).toEqual(["Crew B", "Crew B", "Crew A", "Crew C", null]);
+    expect(r.cannot.map((l) => l.description)).toEqual(["Remove | TILE"]);
+    expect(r.quote.options[0].lines[1].unitCostSnap).toBe(0.3); // Crew B's cost for the removal
+    expect(r.quote.options[0].lines[4].unitPrice).toBe(200);
+  });
+
+  it("keeps a line set by hand when the crew changes, and can send it back", () => {
+    const { q, opt } = job();
+    let x = setCrew(q, opt, "Crew A", cc).quote;
+    const install = x.options[0].lines[0].id;
+    x = setContractor(x, opt, install, "Crew B", cc); // one line by hand
+    expect(crewState(x.options[0].lines[0], "Crew A", cc)).toBe("hand");
+    const r = setCrew(x, opt, "Crew B", cc);
+    expect(r.kept).toEqual([]); // it was Crew B by hand; Crew B is now the crew
+    const back = setCrew(r.quote, opt, "Crew A", cc);
+    expect(who(back.quote)).toEqual(["Crew A", "Crew A", "Crew A", "Crew C", null]);
+    // Set by hand under Crew A, then switch to Crew E: the hand-set line stays.
+    let y = setContractor(back.quote, opt, install, "Crew B", cc);
+    const toE = setCrew(y, opt, "Crew E", cc);
+    expect(toE.kept.map((l) => l.id)).toEqual([install]);
+    expect(who(toE.quote)).toEqual(["Crew B", "Crew A", "Crew E", "Crew C", null]);
+    y = setContractor(toE.quote, opt, install, "Crew E", cc); // no Crew E rate: nothing changes
+    expect(y.options[0].lines[0].contractor).toBe("Crew B");
+  });
+
+  it("never changes a typed price or cost, and prices at the option's level", () => {
+    const start = job();
+    let q = start.q;
+    const opt = start.opt;
+    q = setServiceLevel(q, opt, "Premium", cc).quote;
+    q = updateLine(q, opt, q.options[0].lines[0].id, { unitPrice: 2.75, costOverride: 0.9 });
+    const r = setCrew(q, opt, "Crew A", cc).quote.options[0].lines[0];
+    expect([r.contractor, r.unitPrice, r.costOverride, r.unitCostSnap, r.unitPriceSnap]).toEqual(["Crew A", 2.75, 0.9, 1.2, 2.3]);
+  });
+
+  it("clearing the crew leaves every line where it is", () => {
+    const { q, opt } = job();
+    const a = setCrew(q, opt, "Crew A", cc).quote;
+    const none = setCrew(a, opt, null, cc).quote;
+    expect(none.options[0].crew).toBeNull();
+    expect(who(none)).toEqual(who(a));
+  });
+
+  it("compares the option's cost per crew; the price moves only where the card prices crews differently", () => {
+    const { q, opt } = job();
+    const cmp = Object.fromEntries(compareCrews(q, opt, cc).map((c) => [c.name, c]));
+    // Crew A: 100×1.2 + 100×0.2 + 50×2 + 250 = 490 · Crew B: 100×1.0 + 100×0.3 + 50×2 (A stays) + 250 = 480
+    expect(cmp["Crew A"].cost).toBe(490);
+    expect(cmp["Crew B"].cost).toBe(480);
+    expect([cmp["Crew A"].cannot, cmp["Crew B"].cannot, cmp["Crew E"].cannot]).toEqual([0, 1, 2]);
+    expect(setCrew(q, opt, "Crew A", cc).quote.options[0].lines.map((l) => l.unitPriceSnap)).toEqual(q.options[0].lines.map((l) => l.unitPriceSnap));
+  });
+
+  it("new lines go to the crew; the crew is kept on duplicate and saved as text", () => {
+    const start = job();
+    let q = start.q;
+    const opt = start.opt;
+    q = setCrew(q, opt, "Crew A", cc).quote;
+    expect(lineFromEntry(get("Install|CLICK PLANK"), "Install", q.options[0].crew ?? undefined).contractor).toBe("Crew A");
+    q = duplicateOption(q, opt);
+    expect(q.options[1].crew).toBe("Crew A");
+    const clean = cleanEditorQuote({ options: [{ name: "A", crew: "  Crew A ", lines: [] }, { name: "B", crew: 7, lines: [] }] });
+    expect(clean.options.map((o) => o.crew)).toEqual(["Crew A", null]);
   });
 });

@@ -106,6 +106,8 @@ function toOption(r: AirtableRecord, lines: QuoteLine[]): QuoteOption {
     description: str(f[OPTION.description]),
     sortOrder: num(f[OPTION.sortOrder]),
     recommended: bool(f[OPTION.recommended]),
+    serviceLevel: str(f[OPTION.serviceLevel]),
+    crew: str(f[OPTION.crew]),
     lines,
     airtable: {
       preDiscount: num(f[OPTION.preDiscount]) ?? undefined,

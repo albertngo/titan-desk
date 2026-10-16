@@ -10,6 +10,8 @@ import {
   addLine,
   addOption,
   buildCatalogue,
+  compareCrews,
+  crewState,
   duplicateOption,
   entryFor,
   exclusionLine,
@@ -18,6 +20,8 @@ import {
   removeOption,
   revertLine,
   setContractor,
+  setCrew,
+  setServiceLevel,
   setTerms,
   withCustomerFrom,
   updateLine,
@@ -29,6 +33,7 @@ import { ghlContactUrl } from "@/lib/ghl/ids";
 import { money, pct, rate } from "@/lib/format";
 import type { RateCard } from "@/lib/quotes/types";
 import { Picker } from "./Picker";
+import { levelApplies, levelOf, PREMIUM_MARKUP, SERVICE_LEVELS } from "@/lib/pricing/service";
 
 const WORK_SECTIONS = SECTIONS.filter((s) => s !== "Exclusions");
 
@@ -130,6 +135,10 @@ export default function Editor({
 
   // Stairs are not quoted on this page (Albert, 2026-10-12): the picker searches the rate card only.
   const catalogue = useMemo(() => buildCatalogue(card.rates, []), [card]);
+  // Re-pricing (service level, contractor) also needs the stair items lines may come from (the quick form).
+  const pricing = useMemo(() => buildCatalogue(card.rates, card.stairs), [card]);
+  const [levelNote, setLevelNote] = useState<string | null>(null);
+  const [crewNote, setCrewNote] = useState<string | null>(null);
   const changed = useMemo(() => JSON.stringify(quote) !== JSON.stringify(initial), [quote, initial]);
 
   // Keep a draft on this device: closing the tab or losing signal never loses work.
@@ -150,6 +159,8 @@ export default function Editor({
 
   const option = quote.options.find((o) => o.id === activeId) ?? quote.options[0] ?? null;
   const t = option ? optionTotals(option.lines, quote.discountRate, quote.showHst) : null;
+  // What this option would cost with each crew (lines set by hand stay as they are).
+  const crews = useMemo(() => (option && !customer ? compareCrews(quote, option.id, pricing) : []), [quote, option, pricing, customer]);
 
   /** After a save, the device copy is done with: Airtable has it. Open the saved version so its parity check shows. */
   const done = (versionId: string) => {
@@ -201,6 +212,23 @@ export default function Editor({
   const numberOf = new Map<string, number>();
   if (option) for (const s of sectionsShown) for (const l of option.lines) if (sectionOf(l) === s && isPriced(l) && l.include) numberOf.set(l.id, ++n);
 
+  // How a line stands against the option's crew: set by hand (with a way back), or not theirs to do.
+  const crewMark = (l: EditorLine) => {
+    if (!option?.crew) return null;
+    const st = crewState(l, option.crew, pricing);
+    if (st === "hand")
+      return (
+        <span className="crew-mark">
+          set by hand{" "}
+          <button type="button" className="linkbtn" onClick={() => apply(setContractor(quote, option.id, l.id, option.crew!, pricing))}>
+            back to {option.crew}
+          </button>
+        </span>
+      );
+    if (st === "cannot") return <span className="crew-mark warn">no {option.crew} rate</span>;
+    return null;
+  };
+
   const row = (l: EditorLine) => {
     if (!option) return null;
     const total = lineTotal(l);
@@ -239,7 +267,7 @@ export default function Editor({
                 className="cell-in"
                 aria-label="Contractor"
                 value={l.contractor ?? ""}
-                onChange={(e) => apply(setContractor(quote, option.id, l.id, e.target.value, catalogue))}
+                onChange={(e) => apply(setContractor(quote, option.id, l.id, e.target.value, pricing))}
               >
                 {contractors.map((c, i) => (
                   <option key={c.name} value={c.name}>
@@ -250,6 +278,7 @@ export default function Editor({
             ) : (
               <span className="muted">{l.contractor ?? "—"}</span>
             )}
+            {crewMark(l)}
           </td>
         )}
         <td className="r">
@@ -276,7 +305,11 @@ export default function Editor({
         )}
         <td className="r">
           <NumCell value={l.unitPrice} label="Unit price" placeholder={l.unitPriceSnap !== null ? rate(l.unitPriceSnap) : "price"} onCommit={(v) => upd({ unitPrice: v })} />
-          {!customer && l.unitPriceSnap !== null && <span className="sub">card {money(l.unitPriceSnap)}</span>}
+          {!customer && l.unitPriceSnap !== null && (
+            <span className="sub">
+              {levelOf(option) === "Premium" && levelApplies(l) ? `card +${Math.round(PREMIUM_MARKUP * 100)}%` : "card"} {money(l.unitPriceSnap)}
+            </span>
+          )}
         </td>
         {!customer && <td className="r muted">{pct(margin, 0)}</td>}
         <td className="r amt">
@@ -389,6 +422,58 @@ export default function Editor({
                     <label className="check-in">
                       <input type="checkbox" checked={option.recommended} onChange={(e) => apply(updateOption(quote, option.id, { recommended: e.target.checked }))} /> Recommended
                     </label>
+                    {!customer && (
+                      <div className="lvl" role="radiogroup" aria-label="Service level">
+                        {SERVICE_LEVELS.map((lv) => (
+                          <button
+                            key={lv}
+                            type="button"
+                            role="radio"
+                            aria-checked={levelOf(option) === lv}
+                            className={levelOf(option) === lv ? "on" : undefined}
+                            onClick={() => {
+                              if (levelOf(option) === lv) return;
+                              const r = setServiceLevel(quote, option.id, lv, pricing);
+                              apply(r.quote);
+                              setLevelNote(
+                                r.notRepriced.length
+                                  ? `${r.notRepriced.length} line${r.notRepriced.length === 1 ? "" : "s"} kept ${r.notRepriced.length === 1 ? "its" : "their"} price: the Rate Card row is gone (${r.notRepriced.map((l) => l.description).join(", ")}).`
+                                  : null,
+                              );
+                            }}
+                          >
+                            {lv}
+                            {lv === "Premium" && <span className="pct">+{Math.round(PREMIUM_MARKUP * 100)}%</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {!customer && crews.length > 0 && (
+                      <label className="crew">
+                        Crew
+                        <select
+                          className="in"
+                          value={option.crew ?? ""}
+                          onChange={(e) => {
+                            const r = setCrew(quote, option.id, e.target.value || null, pricing);
+                            apply(r.quote);
+                            const said = [
+                              r.kept.length ? `${r.kept.length} line${r.kept.length === 1 ? " was" : "s were"} set by hand and kept (${r.kept.map((l) => l.description).join(", ")}).` : null,
+                              r.cannot.length ? `${e.target.value} has no rate for ${r.cannot.map((l) => l.description).join(", ")}; ${r.cannot.length === 1 ? "it keeps its" : "they keep their"} contractor.` : null,
+                            ].filter(Boolean);
+                            setCrewNote(said.length ? said.join(" ") : null);
+                          }}
+                        >
+                          <option value="">None (pick per line)</option>
+                          {crews.map((c) => (
+                            <option key={c.name} value={c.name}>
+                              {c.name} · cost {money(c.cost)} · {pct(c.marginPct, 1) || "no margin"}
+                              {c.cannot ? ` · can't do ${c.cannot}` : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
                     <span className="spacer" />
                     <button
                       className="btn small"
@@ -412,6 +497,16 @@ export default function Editor({
                       Delete option
                     </button>
                   </div>
+                  {levelNote && !customer && (
+                    <p className="lvl-note" role="status">
+                      {levelNote}
+                    </p>
+                  )}
+                  {crewNote && !customer && (
+                    <p className="lvl-note" role="status">
+                      {crewNote}
+                    </p>
+                  )}
                 </div>
 
                 <div className="tbl-wrap">
@@ -533,6 +628,8 @@ export default function Editor({
         <Picker
           section={picking}
           catalogue={catalogue}
+          level={levelOf(option)}
+          crew={option.crew ?? null}
           onClose={() => setPicking(null)}
           customer={customer}
           onPick={(line) => {

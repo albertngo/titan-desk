@@ -90,6 +90,23 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   never by the staff app (root rule: a public page never shares a deployment with a write token).
   It reads one thing, `src/lib/quotes/customer.ts`, which shows only the frozen copy of a version
   that was really sent. The PDF is drawn by `src/lib/send/pdfDoc.ts` (no dependencies).
+- **Service level (Albert, 2026-10-16).** Each option is **Standard** or **Premium** (Quote Options →
+  Service Level; blank reads as Standard). Premium is for higher-end clients and needs: labour priced
+  from the card (Rate Card Install/Remove/Refinish/Sand/Paint, and Stair Items) is priced at the card
+  rate **+15%**; cost is unchanged, so the extra is margin. Materials, disposal, hand-typed lines and
+  typed overrides are never changed. The level sets the customer's price; the crew sets our cost.
+  The premium price is written into the line's Unit Price Snap when it is priced, so calc.ts and the
+  Airtable formulas are unchanged. Rules and the markup: `src/lib/pricing/service.ts`; switching:
+  `setServiceLevel()` in `src/lib/editor/model.ts`; tested in `tests/editor.test.ts`.
+- **Crew per option (Albert, 2026-10-16).** Pick one contractor for a whole option (Quote Options →
+  Crew) and every line that crew has a Rate Card row for moves to them; any single line can still be
+  set to someone else by hand, and stays that way when the crew changes ("back to <crew>" undoes it).
+  A crew is any contractor the card offers as a choice; work only one contractor is listed for is
+  never touched, and a contractor added to the Rate Card appears as a crew by itself (no names in
+  code). The picker shows each crew's cost and margin for the option; lines the crew has no rate for
+  are marked. The crew sets cost; the price follows the card row (identical across crews except where
+  the card itself differs). Rules: `setCrew()` / `crewState()` / `compareCrews()` in
+  `src/lib/editor/model.ts`; tested in `tests/editor.test.ts`.
 - **All quotes (2026-10-15).** One row per quote, its versions folded under it (newest first),
   and a search over name, quote and project number, city, email and phone digits. Grouping and
   search are pure, in `src/lib/quotes/group.ts`, tested in `tests/group.test.ts`.
