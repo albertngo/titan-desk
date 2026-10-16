@@ -3,7 +3,7 @@
  * the screen calls these, and tests/editor.test.ts proves them. Money is still computed
  * only by src/lib/calc.ts, from the same LineInput fields Airtable stores.
  */
-import { SECTIONS, type LineInput } from "@/lib/calc";
+import { optionTotals, SECTIONS, type LineInput } from "@/lib/calc";
 import { levelApplies, levelOf, levelPrice, type ServiceLevel } from "@/lib/pricing/service";
 import type { Quote, QuoteLine, RateRow, StairRow } from "@/lib/quotes/types";
 
@@ -29,6 +29,8 @@ export type EditorOption = {
   recommended: boolean;
   /** Standard when absent (older drafts and options saved before 2026-10-16). See src/lib/pricing/service.ts. */
   serviceLevel?: ServiceLevel;
+  /** The contractor picked for the whole option (a Rate Card Contractor name); null or absent = none. See setCrew. */
+  crew?: string | null;
   lines: EditorLine[];
 };
 
@@ -225,7 +227,7 @@ const mapLine = (q: EditorQuote, optionId: string, lineId: string, f: (l: Editor
   mapOption(q, optionId, (o) => ({ ...o, lines: o.lines.map((l) => (l.id === lineId ? f(l) : l)) }));
 
 export function addOption(q: EditorQuote, name = `Option ${q.options.length + 1}`): EditorQuote {
-  return { ...q, options: [...q.options, { id: newId("opt"), name, description: "", recommended: false, serviceLevel: "Standard", lines: [] }] };
+  return { ...q, options: [...q.options, { id: newId("opt"), name, description: "", recommended: false, serviceLevel: "Standard", crew: null, lines: [] }] };
 }
 
 /** A full, independent copy: changing the copy never changes the original (no shared lines). */
@@ -307,6 +309,103 @@ export function setServiceLevel(
   return { quote, notRepriced };
 }
 
+// ---------- crew ----------
+//
+// Crew per option (Albert, 2026-10-16): pick one contractor for the whole option and every line
+// they have a Rate Card row for moves to them; any single line can still be set by hand. The
+// crew sets our cost; the customer's price comes from the card at the option's service level.
+//
+// A crew is a contractor offered as a choice somewhere on the card (an entry with two or more
+// contractors). Work only one contractor is listed for (shared rows) is never changed by picking
+// a crew. Nothing here names a contractor: one added to the Rate Card shows up as a crew by itself.
+
+export type Crew = { name: string; covers: number };
+
+/** Every crew on the card, the one covering the most work first. */
+export function crewsOf(entries: CardEntry[]): Crew[] {
+  const covers = new Map<string, number>();
+  for (const e of entries)
+    if (e.kind === "rate" && e.contractors.length > 1) for (const c of e.contractors) covers.set(c.name, (covers.get(c.name) ?? 0) + 1);
+  return [...covers].map(([name, n]) => ({ name, covers: n })).sort((a, b) => b.covers - a.covers || a.name.localeCompare(b.name));
+}
+
+/**
+ * How a line stands against its option's crew:
+ * `crew` it is with the crew · `hand` the crew could do it but someone picked another contractor ·
+ * `cannot` there is a choice of contractor but the crew has no rate for it (or its card row is
+ * gone) · null no crew picked, not a Rate Card line, or work only one contractor does.
+ */
+export type CrewState = "crew" | "hand" | "cannot" | null;
+
+export function crewState(l: EditorLine, crew: string | null | undefined, entries: CardEntry[]): CrewState {
+  if (!crew || l.sourceKind !== "rate") return null;
+  const e = entryFor(l, entries);
+  if (!e) return "cannot";
+  if (e.kind !== "rate") return null;
+  if (!e.contractors.some((c) => c.name === crew)) return e.contractors.length > 1 ? "cannot" : null;
+  return l.contractor === crew ? "crew" : "hand";
+}
+
+/**
+ * Pick (or clear) an option's crew. Lines the new crew has a card row for move to it, with the
+ * card's rate and cost for that crew. Kept as they are, and returned so the screen can say so:
+ * lines set to someone else by hand under the old crew (`kept`), and lines the new crew has no
+ * rate for (`cannot`). Typed prices and costs (overrides) are never changed. Clearing the crew
+ * leaves every line with whoever it has.
+ */
+export function setCrew(
+  q: EditorQuote,
+  optionId: string,
+  crew: string | null,
+  entries: CardEntry[],
+): { quote: EditorQuote; kept: EditorLine[]; cannot: EditorLine[] } {
+  const kept: EditorLine[] = [];
+  const cannot: EditorLine[] = [];
+  const quote = mapOption(q, optionId, (o) => {
+    const level = levelOf(o);
+    if (!crew) return { ...o, crew: null };
+    return {
+      ...o,
+      crew,
+      lines: o.lines.map((l) => {
+        if (l.sourceKind !== "rate") return l;
+        if (crewState(l, o.crew, entries) === "hand") {
+          // Set by hand to someone else under the old crew: it stays. Already the new crew: nothing to say.
+          if (l.contractor !== crew) kept.push(l);
+          return l;
+        }
+        const e = entryFor(l, entries);
+        if (!e || e.kind !== "rate") {
+          cannot.push(l);
+          return l;
+        }
+        const c = e.contractors.find((x) => x.name === crew);
+        if (!c) {
+          if (e.contractors.length > 1) cannot.push(l);
+          return l;
+        }
+        return { ...l, contractor: c.name, sourceId: c.recordId, unitPriceSnap: levelPrice(c.rate, level, levelApplies(l)), unitCostSnap: c.cost };
+      }),
+    };
+  });
+  return { quote, kept, cannot };
+}
+
+export type CrewCompare = Crew & { cost: number; profit: number; marginPct: number | null; cannot: number };
+
+/**
+ * What the option would cost with each crew, keeping the lines set by hand. For the crew picker:
+ * the price only moves where the card itself prices the crews differently.
+ */
+export function compareCrews(q: EditorQuote, optionId: string, entries: CardEntry[]): CrewCompare[] {
+  return crewsOf(entries).map((crew) => {
+    const r = setCrew(q, optionId, crew.name, entries);
+    const o = r.quote.options.find((x) => x.id === optionId);
+    const t = optionTotals(o?.lines ?? [], q.discountRate, q.showHst);
+    return { ...crew, cost: t.cost, profit: t.profit, marginPct: t.marginPct, cannot: r.cannot.length };
+  });
+}
+
 /** "Back to the card": clear both overrides so the line uses the card rate and cost again. */
 export function revertLine(q: EditorQuote, optionId: string, lineId: string): EditorQuote {
   return updateLine(q, optionId, lineId, { unitPrice: null, costOverride: null });
@@ -350,6 +449,7 @@ export function fromQuote(quote: Quote): EditorQuote {
       description: o.description ?? "",
       recommended: o.recommended,
       serviceLevel: levelOf(o),
+      crew: o.crew,
       lines: o.lines.map((l: QuoteLine): EditorLine => ({
         id: l.id,
         sourceKind: l.sourceKind,

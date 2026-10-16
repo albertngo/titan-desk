@@ -89,6 +89,7 @@ export function cleanEditorQuote(raw: unknown): EditorQuote {
       description: text(x.description, 4000),
       recommended: x.recommended === true,
       serviceLevel: x.serviceLevel === "Premium" ? "Premium" : "Standard",
+      crew: text(x.crew, 80).trim() || null,
       lines: (Array.isArray(x.lines) ? x.lines : []).slice(0, LIMITS.linesPerOption).map(cleanLine),
     };
   });
@@ -149,6 +150,7 @@ export function optionFields(o: EditorOption, sortOrder: number): Fields {
     [OPTION.sortOrder]: sortOrder,
     [OPTION.recommended]: o.recommended,
     [OPTION.serviceLevel]: levelOf(o),
+    [OPTION.crew]: o.crew?.trim() || null,
   };
 }
 

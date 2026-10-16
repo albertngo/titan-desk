@@ -28,6 +28,8 @@ export type QuoteOption = {
   recommended: boolean;
   /** "Standard" or "Premium" (Quote Options → Service Level); null when never set, which reads as Standard. */
   serviceLevel: string | null;
+  /** The contractor picked for the whole option (Quote Options → Crew); null when none. */
+  crew: string | null;
   lines: QuoteLine[];
   /** Airtable's own option rollups, for the parity check. */
   airtable: Partial<OptionTotals>;

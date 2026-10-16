@@ -98,6 +98,15 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   The premium price is written into the line's Unit Price Snap when it is priced, so calc.ts and the
   Airtable formulas are unchanged. Rules and the markup: `src/lib/pricing/service.ts`; switching:
   `setServiceLevel()` in `src/lib/editor/model.ts`; tested in `tests/editor.test.ts`.
+- **Crew per option (Albert, 2026-10-16).** Pick one contractor for a whole option (Quote Options →
+  Crew) and every line that crew has a Rate Card row for moves to them; any single line can still be
+  set to someone else by hand, and stays that way when the crew changes ("back to <crew>" undoes it).
+  A crew is any contractor the card offers as a choice; work only one contractor is listed for is
+  never touched, and a contractor added to the Rate Card appears as a crew by itself (no names in
+  code). The picker shows each crew's cost and margin for the option; lines the crew has no rate for
+  are marked. The crew sets cost; the price follows the card row (identical across crews except where
+  the card itself differs). Rules: `setCrew()` / `crewState()` / `compareCrews()` in
+  `src/lib/editor/model.ts`; tested in `tests/editor.test.ts`.
 - **All quotes (2026-10-15).** One row per quote, its versions folded under it (newest first),
   and a search over name, quote and project number, city, email and phone digits. Grouping and
   search are pure, in `src/lib/quotes/group.ts`, tested in `tests/group.test.ts`.

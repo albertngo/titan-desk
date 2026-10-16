@@ -6,6 +6,9 @@ import {
   blankQuote,
   bestContractor,
   buildCatalogue,
+  compareCrews,
+  crewState,
+  crewsOf,
   duplicateOption,
   exclusionLine,
   lineFromEntry,
@@ -15,6 +18,7 @@ import {
   revertLine,
   searchCatalogue,
   setContractor,
+  setCrew,
   setServiceLevel,
   updateLine,
   updateOption,
@@ -239,5 +243,102 @@ describe("service level (Premium = labour +15%)", () => {
     expect(q.options[1].serviceLevel).toBe("Premium");
     const clean = cleanEditorQuote({ options: [{ name: "A", serviceLevel: "Gold", lines: [] }, { name: "B", serviceLevel: "Premium", lines: [] }] });
     expect(clean.options.map((o) => o.serviceLevel)).toEqual(["Standard", "Premium"]);
+  });
+});
+
+describe("crew per option (pick a contractor for the whole option)", () => {
+  // Invented: Crew A and Crew B both do click plank and old-carpet removal; only Crew A does the
+  // tile removal; the bin is a shared row (one contractor), and so is the refinish.
+  const crewRates: RateRow[] = [
+    ...rates,
+    R({ id: "recRateF000000001", labourType: "Remove", spec: "OLD CARPET", contractor: "Crew B", rate: 0.5, cost: 0.3 }),
+    R({ id: "recRateG000000001", labourType: "Remove", spec: "TILE", contractor: "Crew A", rate: 4, cost: 2 }),
+    R({ id: "recRateH000000001", labourType: "Remove", spec: "TILE", contractor: "Crew E", rate: 4, cost: 2.5 }),
+  ];
+  const cc = buildCatalogue(crewRates, stairs);
+  const get = (key: string) => cc.find((e) => e.key === key)!;
+
+  function job() {
+    let q = blankQuote();
+    const opt = q.options[0].id;
+    for (const l of [
+      { ...lineFromEntry(get("Install|CLICK PLANK"), "Install"), qty: 100 }, // cheapest: Crew B
+      { ...lineFromEntry(get("Remove|OLD CARPET"), "Removal"), qty: 100 }, // cheapest: Crew A
+      { ...lineFromEntry(get("Remove|TILE"), "Removal"), qty: 50 }, // Crew A or Crew E
+      { ...lineFromEntry(get("Disposal|SMALL BIN"), "Disposal"), qty: 1 }, // Crew C only
+      { ...manualLine("Delivery", "Delivery"), qty: 1, unitPrice: 200 },
+    ])
+      q = addLine(q, opt, l);
+    return { q, opt };
+  }
+  const who = (q: ReturnType<typeof blankQuote>) => q.options[0].lines.map((l) => l.contractor);
+
+  it("lists as crews only contractors there is a choice of, most work first; no names in code", () => {
+    expect(crewsOf(cc).map((c) => [c.name, c.covers])).toEqual([["Crew A", 3], ["Crew B", 2], ["Crew E", 1]]);
+  });
+
+  it("moves every line the crew can do, leaves shared rows and typed lines alone", () => {
+    const { q, opt } = job();
+    const r = setCrew(q, opt, "Crew B", cc);
+    expect(r.quote.options[0].crew).toBe("Crew B");
+    expect(who(r.quote)).toEqual(["Crew B", "Crew B", "Crew A", "Crew C", null]);
+    expect(r.cannot.map((l) => l.description)).toEqual(["Remove | TILE"]);
+    expect(r.quote.options[0].lines[1].unitCostSnap).toBe(0.3); // Crew B's cost for the removal
+    expect(r.quote.options[0].lines[4].unitPrice).toBe(200);
+  });
+
+  it("keeps a line set by hand when the crew changes, and can send it back", () => {
+    const { q, opt } = job();
+    let x = setCrew(q, opt, "Crew A", cc).quote;
+    const install = x.options[0].lines[0].id;
+    x = setContractor(x, opt, install, "Crew B", cc); // one line by hand
+    expect(crewState(x.options[0].lines[0], "Crew A", cc)).toBe("hand");
+    const r = setCrew(x, opt, "Crew B", cc);
+    expect(r.kept).toEqual([]); // it was Crew B by hand; Crew B is now the crew
+    const back = setCrew(r.quote, opt, "Crew A", cc);
+    expect(who(back.quote)).toEqual(["Crew A", "Crew A", "Crew A", "Crew C", null]);
+    // Set by hand under Crew A, then switch to Crew E: the hand-set line stays.
+    let y = setContractor(back.quote, opt, install, "Crew B", cc);
+    const toE = setCrew(y, opt, "Crew E", cc);
+    expect(toE.kept.map((l) => l.id)).toEqual([install]);
+    expect(who(toE.quote)).toEqual(["Crew B", "Crew A", "Crew E", "Crew C", null]);
+    y = setContractor(toE.quote, opt, install, "Crew E", cc); // no Crew E rate: nothing changes
+    expect(y.options[0].lines[0].contractor).toBe("Crew B");
+  });
+
+  it("never changes a typed price or cost, and prices at the option's level", () => {
+    let { q, opt } = job();
+    q = setServiceLevel(q, opt, "Premium", cc).quote;
+    q = updateLine(q, opt, q.options[0].lines[0].id, { unitPrice: 2.75, costOverride: 0.9 });
+    const r = setCrew(q, opt, "Crew A", cc).quote.options[0].lines[0];
+    expect([r.contractor, r.unitPrice, r.costOverride, r.unitCostSnap, r.unitPriceSnap]).toEqual(["Crew A", 2.75, 0.9, 1.2, 2.3]);
+  });
+
+  it("clearing the crew leaves every line where it is", () => {
+    const { q, opt } = job();
+    const a = setCrew(q, opt, "Crew A", cc).quote;
+    const none = setCrew(a, opt, null, cc).quote;
+    expect(none.options[0].crew).toBeNull();
+    expect(who(none)).toEqual(who(a));
+  });
+
+  it("compares the option's cost per crew; the price moves only where the card prices crews differently", () => {
+    const { q, opt } = job();
+    const cmp = Object.fromEntries(compareCrews(q, opt, cc).map((c) => [c.name, c]));
+    // Crew A: 100×1.2 + 100×0.2 + 50×2 + 250 = 490 · Crew B: 100×1.0 + 100×0.3 + 50×2 (A stays) + 250 = 480
+    expect(cmp["Crew A"].cost).toBe(490);
+    expect(cmp["Crew B"].cost).toBe(480);
+    expect([cmp["Crew A"].cannot, cmp["Crew B"].cannot, cmp["Crew E"].cannot]).toEqual([0, 1, 2]);
+    expect(setCrew(q, opt, "Crew A", cc).quote.options[0].lines.map((l) => l.unitPriceSnap)).toEqual(q.options[0].lines.map((l) => l.unitPriceSnap));
+  });
+
+  it("new lines go to the crew; the crew is kept on duplicate and saved as text", () => {
+    let { q, opt } = job();
+    q = setCrew(q, opt, "Crew A", cc).quote;
+    expect(lineFromEntry(get("Install|CLICK PLANK"), "Install", q.options[0].crew ?? undefined).contractor).toBe("Crew A");
+    q = duplicateOption(q, opt);
+    expect(q.options[1].crew).toBe("Crew A");
+    const clean = cleanEditorQuote({ options: [{ name: "A", crew: "  Crew A ", lines: [] }, { name: "B", crew: 7, lines: [] }] });
+    expect(clean.options.map((o) => o.crew)).toEqual(["Crew A", null]);
   });
 });
