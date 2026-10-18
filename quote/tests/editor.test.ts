@@ -69,6 +69,9 @@ describe("catalogue", () => {
     expect(searchCatalogue(cat, "", "Install").slice(0, 2).map((e) => e.key).sort()).toEqual(["Install|CLICK PLANK", "Refinish|SAND AND COAT"]);
     expect(searchCatalogue(cat, "click plank", "Removal").map((e) => e.key)).toEqual(["Install|CLICK PLANK"]);
     expect(searchCatalogue(cat, "click carpet", "Install")).toEqual([]);
+    // Stair items are offered in the Stairs section only (2026-10-18).
+    expect(searchCatalogue(cat, "", "Install").some((e) => e.kind === "stair")).toBe(false);
+    expect(searchCatalogue(cat, "", "Stairs").some((e) => e.kind === "stair")).toBe(true);
   });
 });
 

@@ -10,6 +10,7 @@ import { parseNewQuote, type NewQuoteRequest } from "@/lib/link/newQuote";
 import { makeConfigured, sendToGhl } from "@/lib/make/client";
 import type { CustomerSearch, FoundCustomer, StartResult } from "./types";
 import { buildPreliminary, parseWork, workIsEmpty, type QuickWork } from "@/lib/quick/plan";
+import { stairDescription } from "@/lib/quick/stairs";
 import { getQuickForm, quickProducts } from "./load";
 import { firstVersion, quotesByOpportunity } from "./records";
 import { fillVersion } from "./save";
@@ -153,9 +154,10 @@ export async function startQuote(raw: unknown): Promise<StartResult> {
       [QUOTE.notes]: note,
     });
     const quoteNo = str(quote.fields[QUOTE.quoteNumber]) ?? quoteNumber(num(quote.fields[QUOTE.seq]) ?? 0);
-    const versionId = await firstVersion(quote.id, quoteNo);
+    const versionId = await firstVersion(quote.id, quoteNo, req.basis);
     await pushToGhl(quote.id, quoteNo, str(quote.fields[QUOTE.displayName]) ?? quoteNo, req, who, linkedOpp, today);
-    const filled = workIsEmpty(work) ? false : await fillFromQuickForm(quote.id, versionId, work, today);
+    // Only a preliminary takes the quick form's work; a full quote opens empty in the editor.
+    const filled = req.basis === "Preliminary" && !workIsEmpty(work) ? await fillFromQuickForm(quote.id, versionId, work, today) : false;
     return { ok: true, versionId, reused: false, filled };
   } catch (e) {
     console.error("startQuote", e);
@@ -169,9 +171,9 @@ export async function startQuote(raw: unknown): Promise<StartResult> {
 }
 
 /**
- * Price the quick form's rows from Airtable and write them into version 1 as one option. Never
- * fails the quote: whatever couldn't be priced, or a failed save, is noted on the quote and the
- * editor opens instead.
+ * Price the quick form's rows from Airtable and write them into version 1 as one option, with the
+ * staircases' customer-facing description on it (2026-10-18). Never fails the quote: whatever
+ * couldn't be priced, or a failed save, is noted on the quote and the editor opens instead.
  */
 async function fillFromQuickForm(quoteId: string, versionId: string, work: QuickWork, today: string): Promise<boolean> {
   try {
@@ -189,7 +191,7 @@ async function fillFromQuickForm(quoteId: string, versionId: string, work: Quick
         addressStatus: null,
         discountRate: 0,
         showHst: true,
-        options: [{ id: "opt_quick_1", name: "Preliminary", description: "", recommended: true, lines }],
+        options: [{ id: "opt_quick_1", name: "Preliminary", description: stairDescription(work.stairs), recommended: true, lines }],
       });
       if (r.ok) filled = true;
       else problems.push(`the lines weren't saved (${r.message})`);
@@ -243,15 +245,17 @@ async function pushToGhl(
         [QUOTE.ghlContactId]: sent.contactId,
         [QUOTE.ghlOpportunityId]: sent.opportunityId,
         [QUOTE.linkStatus]: "Linked",
-        [QUOTE.notes]: `${today}: GHL ${req.contactId ? "opportunity" : "contact and opportunity"} created by the quote app.`,
       });
+      // Appended, never written whole: the building and project description are already on the notes.
+      await noteOnQuote(quoteId, `${today}: GHL ${req.contactId ? "opportunity" : "contact and opportunity"} created by the quote app.`);
     }
   } catch (e) {
     console.error("pushToGhl", e);
-    await updateRecord(T.quotes, quoteId, {
-      [QUOTE.notes]: `${today}: the quote app couldn't update GHL (${e instanceof Error ? e.message.slice(0, 160) : "unknown error"}). ${
+    await noteOnQuote(
+      quoteId,
+      `${today}: the quote app couldn't update GHL (${e instanceof Error ? e.message.slice(0, 160) : "unknown error"}). ${
         linkedOpp ? "Add the quote number to the opportunity by hand." : "Create the opportunity in GHL and link it."
       }`,
-    }).catch(() => undefined);
+    ).catch(() => undefined);
   }
 }

@@ -78,6 +78,8 @@ export type CustomerCopy = {
   sentOn: string;
   validUntil: string;
   customer: { name: string | null; siteAddress: string | null; siteCity: string | null };
+  /** "When are they planning to do the project?" as answered (2026-10-18); absent on older copies. */
+  timing?: string | null;
   /** Fraction, e.g. 0.11. */
   discountRate: number;
   showHst: boolean;
@@ -165,6 +167,7 @@ export function customerCopy(quote: Quote, at: { sentOn: string; validUntil: str
     sentOn: at.sentOn,
     validUntil: at.validUntil,
     customer: { name, siteAddress: clean(quote.siteAddress), siteCity: clean(quote.siteCity) },
+    ...(quote.link?.projectTiming ? { timing: quote.link.projectTiming } : {}),
     discountRate: quote.discountRate,
     showHst: quote.showHst,
     company: at.company,

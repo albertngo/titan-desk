@@ -63,15 +63,42 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   It confirms only the address the person saw (refused if it changed since the page opened), never
   a won job's, and on a linked quote writes it to the opportunity through Make before marking it
   Confirmed. Rule: `confirmAddressCheck()` in `src/lib/link/linkJob.ts`.
-- **Quick form = the preliminary (Albert, 2026-10-15).** Step 4 of New quote, "The job", replaces
-  the GHL "Preliminary Mobile Quote" form: pick work from short lists, type square footage, see a
-  live estimate, and Create quote makes v1 (Preliminary) with one priced option, opened for review.
-  The choices are rows in the Airtable table **Quick Quote Choices** (`QUICK_TABLE`), each pointing
-  at Rate Card rows, Stair Items or, for materials, a standard catalogue **SKU** (text, not a link,
-  so the catalogue's schema and its drift check are untouched); staff can pick a different SKU.
-  Prices are never stored on a choice and never taken from the browser: the server re-prices from
-  Airtable at create time. A choice whose linked row is inactive or unpriced is left off the form.
-  Rules: `src/lib/quick/plan.ts`, tested in `tests/quick.test.ts`.
+- **Two ways to start a quote (Albert, 2026-10-18).** The front page has **+ New quote** (`/new`:
+  customer, opportunity, timing; v1 is *Measured* and opens empty in the editor) and
+  **+ Preliminary quote** (`/new?kind=preliminary`: the same, plus "The job", the quick form; v1 is
+  *Preliminary* with one priced option, opened for review). The request says `kind: "measured"`
+  for the first; anything else is a preliminary (`parseNewQuote()` in `src/lib/link/newQuote.ts`).
+- **Quick form = the preliminary (Albert, 2026-10-15; phone layout 2026-10-18).** "The job"
+  replaces the GHL "Preliminary Mobile Quote" form and its workflow: pick flooring work from
+  short lists, type square footage, add staircases, see a live estimate. Laid out for a phone:
+  Flooring, then Stairs, then anything else; each work group folds to a one-line summary; short
+  lists are chips; "Same as install" copies the square footage onto Remove and Material rows; the
+  estimate and Create stay on screen (`src/components/QuickWork.tsx`). The flooring choices are
+  rows in the Airtable table **Quick Quote Choices** (`QUICK_TABLE`), each pointing at Rate Card
+  rows or, for materials, a standard catalogue **SKU** (text, not a link, so the catalogue's
+  schema and its drift check are untouched); staff can pick a different SKU. Prices are never
+  stored on a choice and never taken from the browser: the server re-prices from Airtable at
+  create time. A choice whose linked row is inactive or unpriced is left off the form. Rules:
+  `src/lib/quick/plan.ts`, tested in `tests/quick.test.ts`.
+- **Stairs on the preliminary (Albert, 2026-10-18).** A staircase is a *profile*, stair type
+  (Main stairs / Townhome / Basement / Half staircase) × method (Sand & stain / Solid red oak
+  caps / Vinyl treads / Vinyl flooring), at a **flat price typed by staff**: one hand-priced line
+  in the Stairs section named "Townhome – Vinyl treads", with no card source, so Premium never
+  marks it up. The profiles and their customer-facing phrases live in code,
+  `src/lib/quick/stairs.ts` (they are copy, not data; Quick Quote Choices has no stair rows),
+  and the old GHL stairs prompt is written out there as `stairDescription()`: one bullet per
+  staircase, the stair type's sentence, the closing sentence only when no staircase got one.
+  Create writes it into the option's description (customer-facing); the editor's Stairs picker
+  offers the same profiles above the Stair Items. Tested in `tests/stairs.test.ts`.
+- **Stairs is its own section again (Albert, 2026-10-18)**, after Install, everywhere sections
+  show (quote page, editor, customer page, PDF, Analysis), with its own subtotal; Stair Items are
+  offered in that section only. This reverses the 2026-10-12 fold into Install; Refinish, Paint
+  and Sand still fold. Grouping only: no money formula and no Airtable change.
+- **The GHL mobile-quote workflow is retired (Albert, 2026-10-18).** Its form, custom fields
+  (`remove_1_sqft`, `staircase_profile_1`, `score_5n31`…) and tags stay in GHL as a manual backup
+  for when this app is down; the app never writes them, and sending adds nothing to GHL beyond the
+  message itself (no tag, note, stage or field). Counts of preliminaries come from Quote Versions
+  (Basis, Status, Sent At/By/To), not from the `mobile quote` tag.
 - **Customer view (Albert, 2026-10-15).** A switch in the top bar, kept per device in the
   `quote_view` cookie. While on, the server renders no cost, margin, profit, contractor, card rate,
   flags or checks, on every page including the editor: they are not hidden, they are not sent.

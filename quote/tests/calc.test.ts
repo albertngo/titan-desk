@@ -40,12 +40,13 @@ const exclusion = L({ lineType: "Other", section: "Exclusions", qty: 1, unitPric
 const job = [removal, install, stairs, delivery, optional, note, exclusion];
 
 describe("sections", () => {
-  it("follows Albert's order, with Other and Exclusions last and no Stairs", () => {
-    expect([...SECTIONS]).toEqual(["Install", "Removal", "Disposal", "Prep", "Materials", "Delivery", "Other", "Exclusions"]);
+  it("follows Albert's order, Stairs after Install, with Other and Exclusions last", () => {
+    expect([...SECTIONS]).toEqual(["Install", "Stairs", "Removal", "Disposal", "Prep", "Materials", "Delivery", "Other", "Exclusions"]);
   });
 
-  it("folds refinish, paint, sand and stairs lines into Install so nothing disappears", () => {
-    for (const old of ["Refinish", "Paint", "Sand", "Stairs"]) expect(sectionOf({ section: old })).toBe("Install");
+  it("folds refinish, paint and sand lines into Install so nothing disappears; Stairs stands on its own (2026-10-18)", () => {
+    for (const old of ["Refinish", "Paint", "Sand"]) expect(sectionOf({ section: old })).toBe("Install");
+    expect(sectionOf({ section: "Stairs" })).toBe("Stairs");
     expect(sectionOf({ section: "Removal" })).toBe("Removal");
     expect(sectionOf({ section: null })).toBe("Unsorted");
     const s = sectionTotals([L({ section: "Refinish", qty: 10, unitPriceSnap: 3 }), L({ section: "Install", qty: 10, unitPriceSnap: 2 })]);
@@ -167,8 +168,8 @@ describe("option totals", () => {
 
   it("subtotals by section", () => {
     const s = sectionTotals(job);
-    expect(s.get("Install")).toBe(1600); // 1540 install + 60 stairs, folded into Install
-    expect(s.has("Stairs")).toBe(false);
+    expect(s.get("Install")).toBe(1540);
+    expect(s.get("Stairs")).toBe(60); // the minimum charge
     expect(s.get("Exclusions")).toBe(0);
   });
 });

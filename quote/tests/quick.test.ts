@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { optionTotals } from "../src/lib/calc";
-import { amountUnit, buildPreliminary, parseWork, type QuickChoice, type QuickPart, type QuickProduct } from "../src/lib/quick/plan";
+import { amountUnit, buildPreliminary, parseWork, QUICK_GROUPS, workIsEmpty, type QuickChoice, type QuickPart, type QuickProduct } from "../src/lib/quick/plan";
 
 // INVENTED rates, costs, ids and products only: this repo is public.
 const part = (o: Partial<QuickPart> & { recordId: string }): QuickPart => ({ kind: "rate", labourType: "Install", spec: "SPEC", description: "Install | SPEC", contractor: "Crew A", uom: "sqft", rate: 2, cost: 1, minCharge: null, ...o });
@@ -58,5 +58,36 @@ describe("quick form: the lines it becomes", () => {
   it("labels each row's amount by what its price is per", () => {
     expect([amountUnit(NAIL), amountUnit(BINS), amountUnit(MAT)]).toEqual(["sqft", null, "sqft"]);
     expect(amountUnit(choice({ id: "x", parts: [part({ recordId: "r", uom: "linear ft" })] }))).toBe("linear ft");
+  });
+});
+
+describe("quick form: staircases (2026-10-18)", () => {
+  it("keeps a staircase with a type, a method and a price, and drops the rest without guessing", () => {
+    const w = parseWork({
+      stairs: [
+        { type: "Townhome", method: "Vinyl treads", price: 1800 },
+        { type: "Main stairs", method: "Sand & stain" },
+        { type: "Attic", method: "Sand & stain", price: 10 },
+        { type: "Basement", method: "Carpet", price: 10 },
+        "nope",
+      ],
+    });
+    expect(w.stairs).toEqual([{ type: "Townhome", method: "Vinyl treads", price: 1800 }]);
+    expect(parseWork({ stairs: Array(5).fill({ type: "Basement", method: "Vinyl flooring", price: 1 }) }).stairs).toHaveLength(3);
+  });
+
+  it("turns each staircase into one flat Stairs line at the typed price, named by its profile", () => {
+    const { lines, skipped } = buildPreliminary(choices, parseWork({ stairs: [{ type: "Main stairs", method: "Solid red oak caps", price: 2400 }] }), new Map());
+    expect(skipped).toEqual([]);
+    expect(lines.map((l) => [l.section, l.lineType, l.sourceKind, l.uom, l.qty, l.unitPrice, l.description])).toEqual([
+      ["Stairs", "Stairs", "manual", "flat", 1, 2400, "Main stairs – Solid red oak caps"],
+    ]);
+    expect(optionTotals(lines, 0, false).preDiscount).toBe(2400);
+  });
+
+  it("counts a staircase as work, and no longer offers a Staircase group of choices", () => {
+    expect(workIsEmpty(parseWork({ stairs: [{ type: "Basement", method: "Vinyl flooring", price: 900 }] }))).toBe(false);
+    expect(workIsEmpty(parseWork({}))).toBe(true);
+    expect([...QUICK_GROUPS]).not.toContain("Staircase");
   });
 });

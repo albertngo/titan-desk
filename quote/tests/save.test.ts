@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { LINE, OPTION, VERSION } from "../src/lib/airtable/fields";
 import type { EditorLine, EditorOption, EditorQuote } from "../src/lib/editor/model";
 import { cleanEditorQuote, isRecordId, lineFields, planIsEmpty, planSave } from "../src/lib/quotes/savePlan";
+import { stairProfileLine } from "../src/lib/quick/stairs";
 
 // INVENTED rates, quantities and ids only: this repo is public.
 const L = (o: Partial<EditorLine> & { id: string }): EditorLine => ({
@@ -182,5 +183,10 @@ describe("what the browser sends, cleaned", () => {
   it("keeps a line priced from the card linked to it", () => {
     const q = cleanEditorQuote({ options: [O({ id: "o", lines: [L({ id: "l", sourceKind: "stair", sourceId: "recStair00000000A", section: "Stairs", lineType: "Stairs", uom: "piece" })] })] });
     expect(q.options[0].lines[0]).toMatchObject({ sourceKind: "stair", sourceId: "recStair00000000A", section: "Stairs", hasSource: true });
+  });
+
+  it("saves a stair profile as a flat Stairs line with no links and its name as the wording (2026-10-18)", () => {
+    const f = lineFields(stairProfileLine("Townhome", "Vinyl treads", 1500), 1);
+    expect(f).toMatchObject({ [LINE.section]: "Stairs", [LINE.lineType]: "Stairs", [LINE.uom]: "flat", [LINE.qty]: 1, [LINE.unitPrice]: 1500, [LINE.descriptionOverride]: "Townhome – Vinyl treads", [LINE.rateItem]: [], [LINE.stairItem]: [], [LINE.product]: [] });
   });
 });

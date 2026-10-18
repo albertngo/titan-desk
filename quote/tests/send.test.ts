@@ -212,12 +212,35 @@ describe("the messages", () => {
 
   it("emails the link and attaches the PDF, through the customer's GHL contact", () => {
     const m = emailMessage(copy, to);
-    expect(m).toMatchObject({ type: "Email", contactId: "contactAbc123", subject: "Your Titan Flooring quote Q-9001", attachments: [`https://view.example.com/c/${"A".repeat(32)}/Titan-Flooring-Quote-Q-9001-v1.pdf`] });
+    expect(m).toMatchObject({ type: "Email", contactId: "contactAbc123", subject: "Your flooring quote Q-9001 from Titan Flooring", attachments: [`https://view.example.com/c/${"A".repeat(32)}/Titan-Flooring-Quote-Q-9001-v1.pdf`] });
     if (m.type !== "Email") throw new Error();
     expect(m.html).toContain(`href="https://view.example.com/c/${"A".repeat(32)}"`);
     expect(m.html).toContain("Hi Pat,");
     expect(m.html).toContain("$772.92");
     expect(m.html).toContain("November 14, 2026");
+  });
+
+  it("says what is included, the way the old mobile-quote messages did, and the timing (2026-10-18)", () => {
+    const q = quote({ basis: "Preliminary", link: { ...quote().link!, projectTiming: "Within 1 month" } });
+    q.options[0].lines.push(line({ section: "Stairs", lineType: "Stairs", sourceKind: "manual", sourceId: null, hasSource: false, description: "Townhome – Vinyl treads", uom: "flat", qty: 1, unitPrice: 1500, unitPriceSnap: null, unitCostSnap: null, contractor: null }));
+    q.options[0].description = "* Townhome – Vinyl treads We'll install waterproof vinyl treads. The handrails will be sanded and refinished to match, and up to 50 spindles are included.";
+    q.options[0].airtable = { ...optionTotals(q.options[0].lines, 0.1, true) };
+    const c = customerCopy(q, AT);
+    expect(c.timing).toBe("Within 1 month");
+    expect(c.options[0].sections.map((s) => s.name)).toContain("Stairs");
+    const m = emailMessage(c, to);
+    if (m.type !== "Email") throw new Error();
+    expect(m.subject).toBe("Your preliminary flooring and stairs quote Q-9001 from Titan Flooring");
+    expect(m.html).toContain("What's included");
+    expect(m.html).toContain("<li>Removal: Carpet removal · 200 sq ft</li>");
+    expect(m.html).toContain("<li>Install: Click install · 220 sq ft</li>");
+    expect(m.html).toContain("<li>Townhome – Vinyl treads We&#39;ll install waterproof vinyl treads. The handrails will be sanded and refinished to match, and up to 50 spindles are included.</li>");
+    expect(m.html).toContain("<li>Timing: Within 1 month</li>");
+    expect(m.html).not.toContain("Stairs: ");
+    const t = smsMessage(c, to);
+    expect(t.type === "SMS" ? t.message : "").toContain("your preliminary flooring and stairs quote Q-9001 from Titan Flooring is ready");
+    const pdf = new TextDecoder("latin1").decode(quotePdf(c));
+    expect(pdf).toContain("(STAIRS)");
   });
 
   it("escapes what staff typed", () => {
@@ -233,7 +256,7 @@ describe("the messages", () => {
     expect(m).toEqual({
       type: "SMS",
       contactId: "contactAbc123",
-      message: `Hi Pat, your Titan Flooring preliminary quote Q-9001 is ready: https://view.example.com/c/${"A".repeat(32)}\nIt's good until November 14, 2026. Any questions, just reply here.`,
+      message: `Hi Pat, your preliminary flooring quote Q-9001 from Titan Flooring is ready: https://view.example.com/c/${"A".repeat(32)}\nIt's good until November 14, 2026. Any questions, just reply here.`,
     });
   });
 
@@ -243,7 +266,8 @@ describe("the messages", () => {
     expect(greetingName("Zoë")).toBe("Zoë");
     expect(greetingName("")).toBeNull();
     expect(greetingName("123")).toBeNull();
-    expect(smsMessage(copy, { ...to, firstName: null }).type === "SMS" && (smsMessage(copy, { ...to, firstName: null }) as { message: string }).message.startsWith("Your Titan")).toBe(true);
+    const anon = smsMessage(copy, { ...to, firstName: null });
+    expect(anon.type === "SMS" ? anon.message : "").toMatch(/^Your flooring quote Q-9001 from Titan Flooring is ready/);
   });
 });
 

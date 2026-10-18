@@ -5,9 +5,11 @@ import { useState, useTransition } from "react";
 import { searchCustomersAction, startQuoteAction } from "@/app/new/actions";
 import { displayPhone } from "@/lib/link/identity";
 import { stageFor, TIMINGS, type Timing } from "@/lib/link/lead";
+import type { NewQuoteKind } from "@/lib/link/newQuote";
 import type { QuickChoice } from "@/lib/quick/plan";
 import type { CustomerSearch, FoundCustomer } from "@/lib/quotes/types";
-import { initialWork, QuickWork, workInput, type WorkState } from "./QuickWork";
+import { money } from "@/lib/format";
+import { estimateWork, initialWork, QuickWork, workInput, type WorkState } from "./QuickWork";
 
 type Choice = { contactId: string; opportunityId: string | null } | { newCustomer: true } | null;
 
@@ -16,8 +18,11 @@ const blankCustomer = { firstName: "", lastName: "", phone: "", email: "", addre
 /**
  * Start a quote: find the customer in GHL, pick the opportunity (or a new one), answer the
  * timing question. Customer details are never typed here unless the customer is brand new.
+ * Two kinds (Albert, 2026-10-18): a preliminary adds the quick form and becomes v1 Preliminary; a
+ * full quote stops at the timing question and opens v1 Measured, empty, in the editor.
  */
-export function NewQuote({ ghlWrites, choices }: { ghlWrites: boolean; choices: QuickChoice[] }) {
+export function NewQuote({ ghlWrites, choices, kind }: { ghlWrites: boolean; choices: QuickChoice[]; kind: NewQuoteKind }) {
+  const prelim = kind === "preliminary";
   const [work, setWork] = useState<WorkState>(() => initialWork(choices));
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<CustomerSearch | null>(null);
@@ -55,9 +60,10 @@ export function NewQuote({ ghlWrites, choices }: { ghlWrites: boolean; choices: 
 
   function create(forceNew = false) {
     setError(null);
+    const shared = { timing, kind: prelim ? "preliminary" : "measured", work: prelim ? workInput(work) : undefined };
     const input = picked
-      ? { contactId: picked.contact.id, opportunityId: (choice as { opportunityId: string | null }).opportunityId, timing, addressConfirmed: confirmed, work: workInput(work) }
-      : { timing, newCustomer: nc, forceNew, work: workInput(work) };
+      ? { ...shared, contactId: picked.contact.id, opportunityId: (choice as { opportunityId: string | null }).opportunityId, addressConfirmed: confirmed }
+      : { ...shared, newCustomer: nc, forceNew };
     startCreate(async () => {
       const r = await startQuoteAction(input);
       if (!r || r.ok) return;
@@ -72,14 +78,19 @@ export function NewQuote({ ghlWrites, choices }: { ghlWrites: boolean; choices: 
 
   const linked = picked !== null && (choice as { opportunityId: string | null }).opportunityId !== null;
   const ready = timing !== null && (picked !== null || (isNew && (nc.firstName.trim() || nc.lastName.trim()) && (nc.phone.trim() || nc.email.trim())));
+  const estimate = prelim ? estimateWork(choices, work) : null;
 
   return (
     <div className="page newq">
       <div className="pagehead">
         <div className="titles">
           <Link className="crumb" href="/">← Quotes</Link>
-          <h1>New quote</h1>
-          <p>Find the customer in GHL, pick their opportunity, ask when they plan to do the project, then pick the work. It becomes the preliminary quote.</p>
+          <h1>{prelim ? "Preliminary quote" : "New quote"}</h1>
+          <p>
+            {prelim
+              ? "Find the customer in GHL, pick their opportunity, ask when they plan to do the project, then pick the work. It becomes the preliminary quote."
+              : "Find the customer in GHL, pick their opportunity and ask when they plan to do the project. The quote opens empty in the editor, as a measured version."}
+          </p>
         </div>
       </div>
 
@@ -223,7 +234,7 @@ export function NewQuote({ ghlWrites, choices }: { ghlWrites: boolean; choices: 
         </div>
       </section>
 
-      {choices.length > 0 && (
+      {prelim && (
         <section className="card">
           <div className="card-h">{picked ? "4" : "3"} · The job <span className="right">Preliminary, not measured</span></div>
           <div className="card-b">
@@ -245,8 +256,22 @@ export function NewQuote({ ghlWrites, choices }: { ghlWrites: boolean; choices: 
           </p>
         )}
         {error && <div className="banner bad" role="alert">{error}</div>}
+      </div>
+      <div className="qw-foot" aria-live="polite">
+        {estimate ? (
+          <div className="est">
+            <span className="k">Preliminary estimate</span>
+            <b>{money(estimate.total)}</b>
+            <span className="faint">{estimate.lines} line{estimate.lines === 1 ? "" : "s"}, before discount and HST</span>
+          </div>
+        ) : (
+          <div className="est">
+            <span className="k">Measured quote</span>
+            <span className="faint">Opens empty in the editor</span>
+          </div>
+        )}
         <button className="btn primary" type="button" disabled={!ready || creating} onClick={() => create()}>
-          {creating ? "Creating…" : "Create quote"}
+          {creating ? "Creating…" : prelim ? "Create preliminary" : "Create quote"}
         </button>
       </div>
     </div>

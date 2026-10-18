@@ -9,7 +9,7 @@ repo with Root Directory `quote`. Rules for changing it: `CLAUDE.md` in this fol
 |---|---|---|
 | 1 | Sign-in, allowlist, quote list, read-only quote view with Airtable parity check, Analysis tab | done |
 | 2 | The editor (`/q/<id>/edit`): options, work-type sections, rate-card picker, contractor switch, overrides with revert, exclusions; draft kept on the device | done |
-| 2b | New quote (`/new`): find the customer in GHL, link or start an opportunity, timing question; creates the quote (Q-1234) and version 1 | done |
+| 2b | New quote (`/new`): find the customer in GHL, link or start an opportunity, timing question; creates the quote (Q-1234) and version 1. Two buttons since 2026-10-18: **New quote** (v1 Measured, opens the editor) and **Preliminary quote** (`/new?kind=preliminary`, the phone-first quick form with stair profiles; v1 Preliminary) | done |
 | 3 | Save the editor to Airtable: **Save** overwrites a Draft version; **Save as new version** makes v2, v3… (Preliminary or Measured) and marks a replaced draft Superseded. Writes limited to the four quote tables; nothing deleted | **this build** |
 | 4 | Send: PDF → OneDrive → GHL, summary to Notion | after 3 |
 

@@ -4,6 +4,10 @@ import { useState } from "react";
 import { bestContractor, entryLabel, lineFromEntry, manualLine, rateSnap, searchCatalogue, type CardEntry, type EditorLine } from "@/lib/editor/model";
 import { money } from "@/lib/format";
 import { levelPrice, type ServiceLevel } from "@/lib/pricing/service";
+import { STAIR_METHODS, STAIR_TYPES, profileName, stairProfileLine } from "@/lib/quick/stairs";
+
+/** The stair profiles (type × method), offered in the Stairs section at a price staff type on the line. */
+const PROFILES = STAIR_TYPES.flatMap((type) => STAIR_METHODS.map((method) => ({ type, method })));
 
 /** Add a line: search the rate card and stair items, or type the line in by hand. Customer view shows the charge rate only. */
 export function Picker({
@@ -27,6 +31,8 @@ export function Picker({
 }) {
   const [q, setQ] = useState("");
   const results = searchCatalogue(catalogue, q, section);
+  const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+  const profiles = section === "Stairs" ? PROFILES.filter((p) => words.every((w) => profileName(p).toLowerCase().includes(w))) : [];
 
   return (
     <div className="modal" role="dialog" aria-modal="true" aria-label={`Add to ${section}`} onClick={onClose} onKeyDown={(e) => e.key === "Escape" && onClose()}>
@@ -46,6 +52,14 @@ export function Picker({
           />
         </div>
         <ul className="pick-list">
+          {profiles.map((p) => (
+            <li key={profileName(p)}>
+              <button className="pick" onClick={() => onPick(stairProfileLine(p.type, p.method, null))}>
+                <span className="nm">{profileName(p)}</span>
+                <span className="mt">Whole staircase at a price you type · its description goes on the option</span>
+              </button>
+            </li>
+          ))}
           {results.map((e) => {
             const from = e.kind === "rate" ? (e.contractors.find((c) => c.name === crew) ?? bestContractor(e)) : null;
             return (
@@ -61,7 +75,7 @@ export function Picker({
               </li>
             );
           })}
-          {results.length === 0 && <li className="empty">Nothing on the rate card matches “{q}”.</li>}
+          {results.length === 0 && profiles.length === 0 && <li className="empty">Nothing on the rate card matches “{q}”.</li>}
           <li>
             <button className="pick manual" onClick={() => onPick(manualLine(section, q.trim()))}>
               <span className="nm">Type it in yourself{q.trim() ? `: “${q.trim()}”` : ""}</span>

@@ -135,10 +135,9 @@ export default function Editor({
   const [picking, setPicking] = useState<string | null>(null);
   const [newExclusion, setNewExclusion] = useState("");
 
-  // Stairs are not quoted on this page (Albert, 2026-10-12): the picker searches the rate card only.
-  const catalogue = useMemo(() => buildCatalogue(card.rates, [], card.materials), [card]);
-  // Re-pricing (service level, contractor, material) also needs the stair items lines may come from (the quick form).
-  const pricing = useMemo(() => buildCatalogue(card.rates, card.stairs, card.materials), [card]);
+  // The rate card and the stair items, for the picker and for re-pricing (service level, contractor, material).
+  const catalogue = useMemo(() => buildCatalogue(card.rates, card.stairs, card.materials), [card]);
+  const pricing = catalogue;
   const [levelNote, setLevelNote] = useState<string | null>(null);
   const [crewNote, setCrewNote] = useState<string | null>(null);
   const changed = useMemo(() => JSON.stringify(quote) !== JSON.stringify(initial), [quote, initial]);

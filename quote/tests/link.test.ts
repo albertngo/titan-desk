@@ -137,10 +137,19 @@ describe("the New quote form", () => {
     const r = parseNewQuote({ contactId: "abcDEF123456", opportunityId: "oppXYZ987654", timing: "1 to 3 months", addressConfirmed: true });
     expect(r).toEqual({
       ok: true,
-      value: { contactId: "abcDEF123456", opportunityId: "oppXYZ987654", timing: "1 to 3 months", addressConfirmed: true, newCustomer: null, forceNew: false },
+      value: { contactId: "abcDEF123456", opportunityId: "oppXYZ987654", timing: "1 to 3 months", addressConfirmed: true, newCustomer: null, forceNew: false, basis: "Preliminary" },
     });
     const n = parseNewQuote({ contactId: "abcDEF123456", opportunityId: "", timing: "Not sure" });
     expect(n.ok && n.value.opportunityId).toBeNull();
+  });
+
+  it("makes a preliminary unless asked for a measured quote (2026-10-18)", () => {
+    const m = parseNewQuote({ contactId: "abcDEF123456", timing: "Not sure", kind: "measured" });
+    expect(m.ok && m.value.basis).toBe("Measured");
+    const p = parseNewQuote({ contactId: "abcDEF123456", timing: "Not sure", kind: "preliminary" });
+    expect(p.ok && p.value.basis).toBe("Preliminary");
+    const odd = parseNewQuote({ timing: "Not sure", newCustomer: { firstName: "Sam", phone: "416-555-0100" }, kind: "whatever" });
+    expect(odd.ok && odd.value.basis).toBe("Preliminary");
   });
 
   it("refuses ids that aren't GHL ids, and an opportunity with no customer", () => {
@@ -164,6 +173,7 @@ describe("the New quote form", () => {
         addressConfirmed: false,
         newCustomer: { firstName: "Jane", lastName: "Doe", phone: "416-555-0199", email: "jane@example.com", address: null, city: null },
         forceNew: false,
+        basis: "Preliminary",
       },
     });
   });
