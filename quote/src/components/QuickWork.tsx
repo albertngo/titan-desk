@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { searchProductsAction } from "@/app/new/actions";
 import { optionTotals } from "@/lib/calc";
 import { money } from "@/lib/format";
-import { amountUnit, BUILDINGS, buildPreliminary, GROUP_ROWS, parseWork, QUICK_GROUPS, type QuickChoice, type QuickGroup, type QuickProduct } from "@/lib/quick/plan";
+import { amountUnit, BUILDINGS, buildPreliminary, choiceRate, GROUP_ROWS, parseWork, QUICK_GROUPS, rowTotal, type QuickChoice, type QuickGroup, type QuickProduct } from "@/lib/quick/plan";
 
 export type PickedProduct = Pick<QuickProduct, "recordId" | "sku" | "name" | "rate">;
 export type WorkRow = { key: string; group: QuickGroup; choiceId: string; amount: string; product: PickedProduct | null };
@@ -34,6 +34,15 @@ export function workInput(w: WorkState) {
 }
 
 const UNIT_LABEL = { sqft: "sq ft", "linear ft": "lin ft", pieces: "pcs" } as const;
+
+/** The rate column's text: "$2.50/sq ft", "$300 flat", or both when a choice has both kinds of part. */
+function rateText(c: QuickChoice, unit: keyof typeof UNIT_LABEL | null, product: PickedProduct | null): string {
+  const { perUnit, flat } = choiceRate(c, product ? { ...product, cost: null } : null);
+  const parts: string[] = [];
+  if (perUnit !== null) parts.push(`${money(perUnit)}/${unit ? UNIT_LABEL[unit] : "unit"}`);
+  if (flat > 0) parts.push(`${money(flat)} flat`);
+  return parts.join(" + ") || "No rate";
+}
 
 /**
  * The quick form: the preliminary, non-measured quote in a minute. Choices and prices come from
@@ -74,6 +83,7 @@ export function QuickWork({ choices, value, onChange }: { choices: QuickChoice[]
             {rows.map((r, i) => {
               const c = byId.get(r.choiceId);
               const unit = c ? amountUnit(c) : g === "Disposal" ? null : "sqft";
+              const total = c ? rowTotal(choices, { choiceId: c.id, amount: toNumber(r.amount), productId: r.product?.recordId ?? null }, picked) : null;
               return (
                 <div key={r.key} className="qw-row">
                   <select
@@ -100,6 +110,14 @@ export function QuickWork({ choices, value, onChange }: { choices: QuickChoice[]
                       <span>{UNIT_LABEL[unit]}</span>
                     </label>
                   )}
+                  <span className="qw-price" aria-label={c ? `${g} ${i + 1} rate and total` : undefined}>
+                    {c && (
+                      <>
+                        <span className="qw-rate">{rateText(c, unit, r.product)}</span>
+                        <b>{total === null ? "—" : money(total)}</b>
+                      </>
+                    )}
+                  </span>
                   {rows.length > 1 && (
                     <button type="button" className="iconbtn danger qw-x" aria-label={`Remove ${g} ${i + 1}`} onClick={() => removeRow(r.key)}>
                       ✕

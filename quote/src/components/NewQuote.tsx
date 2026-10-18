@@ -73,24 +73,37 @@ export function NewQuote({ ghlWrites, choices }: { ghlWrites: boolean; choices: 
   const linked = picked !== null && (choice as { opportunityId: string | null }).opportunityId !== null;
   const ready = timing !== null && (picked !== null || (isNew && (nc.firstName.trim() || nc.lastName.trim()) && (nc.phone.trim() || nc.email.trim())));
 
+  // Sections in order (Albert, 2026-10-18): Job → Customer → Timeline. The job card is left off
+  // when Airtable offers no choices, so the numbers are counted, not typed.
+  const hasJob = choices.length > 0;
+  const step = (n: number) => (hasJob ? n : n - 1);
+
   return (
     <div className="page newq">
       <div className="pagehead">
         <div className="titles">
           <Link className="crumb" href="/">← Quotes</Link>
           <h1>New quote</h1>
-          <p>Find the customer in GHL, pick their opportunity, ask when they plan to do the project, then pick the work. It becomes the preliminary quote.</p>
+          <p>Pick the work, find the customer in GHL and their opportunity, then say when they plan to do the project. It becomes the preliminary quote.</p>
         </div>
       </div>
 
+      {hasJob && (
+        <section className="card">
+          <div className="card-h">1 · Job <span className="right">Preliminary, not measured</span></div>
+          <div className="card-b">
+            <QuickWork choices={choices} value={work} onChange={setWork} />
+          </div>
+        </section>
+      )}
+
       <section className="card">
-        <div className="card-h">1 · Customer</div>
+        <div className="card-h">{step(2)} · Customer</div>
         <div className="card-b nq-body">
           <form className="nq-search" onSubmit={search} role="search">
             <input
               id="nq-query"
               className="in"
-              autoFocus
               placeholder="Name, phone or email"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -183,33 +196,31 @@ export function NewQuote({ ghlWrites, choices }: { ghlWrites: boolean; choices: 
               ))}
             </div>
           )}
+
+          {picked && (
+            <div className="nq-site">
+              <span className="nq-site-h">Site address</span>
+              {picked.contact.address ? (
+                <>
+                  <p>
+                    The contact&apos;s address is <b>{[picked.contact.address, picked.contact.city].filter(Boolean).join(", ")}</b>.
+                  </p>
+                  <label className="check-in">
+                    <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
+                    This is the site for this quote
+                  </label>
+                  {!confirmed && <p className="note">Left unticked, the quote shows it as unconfirmed until it&apos;s confirmed at booking.</p>}
+                </>
+              ) : (
+                <p className="muted">No address on the contact. That&apos;s fine for a preliminary: type it on the GHL contact when you get it, or the booking automation will ask them.</p>
+              )}
+            </div>
+          )}
         </div>
       </section>
 
-      {picked && (
-        <section className="card">
-          <div className="card-h">2 · Site address</div>
-          <div className="card-b nq-body">
-            {picked.contact.address ? (
-              <>
-                <p>
-                  The contact&apos;s address is <b>{[picked.contact.address, picked.contact.city].filter(Boolean).join(", ")}</b>.
-                </p>
-                <label className="check-in">
-                  <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
-                  This is the site for this quote
-                </label>
-                {!confirmed && <p className="note">Left unticked, the quote shows it as unconfirmed until it&apos;s confirmed at booking.</p>}
-              </>
-            ) : (
-              <p className="muted">No address on the contact. That&apos;s fine for a preliminary: type it on the GHL contact when you get it, or the booking automation will ask them.</p>
-            )}
-          </div>
-        </section>
-      )}
-
       <section className="card">
-        <div className="card-h">{picked ? "3" : "2"} · When are they planning to do the project?</div>
+        <div className="card-h">{step(3)} · Timeline <span className="right">When are they planning to do the project?</span></div>
         <div className="card-b">
           <div className="nq-seg" role="radiogroup" aria-label="Project timing">
             {TIMINGS.map((t) => (
@@ -222,15 +233,6 @@ export function NewQuote({ ghlWrites, choices }: { ghlWrites: boolean; choices: 
           </div>
         </div>
       </section>
-
-      {choices.length > 0 && (
-        <section className="card">
-          <div className="card-h">{picked ? "4" : "3"} · The job <span className="right">Preliminary, not measured</span></div>
-          <div className="card-b">
-            <QuickWork choices={choices} value={work} onChange={setWork} />
-          </div>
-        </section>
-      )}
 
       <div className="nq-foot">
         {(picked || isNew) && (

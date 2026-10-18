@@ -385,14 +385,17 @@ table.items.edit .desc { font-weight: 500; }
 .lj-foot .faint { margin-right: auto; }
 @media (max-width: 560px) { .lj-foot .btn { width: 100%; justify-content: center; } .lj-head .chip { display: none; } }
 @media (pointer: coarse) { .lj-opt { padding: 12px; } .lj-foot .btn { min-height: 44px; } }
-/* Quick form (New quote, step 4): one fieldset per group, rows of choice + amount, a live total. */
+/* Quick form (New quote, step 1): one fieldset per group, rows of choice + amount + rate and total, a live total. */
 .qw { display: grid; gap: 14px; }
 .qw-group { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; min-width: 0; }
 .qw-group legend { font-size: 12px; font-weight: 600; color: var(--fg-dim); text-transform: none; padding: 0; margin-bottom: 6px; float: left; width: 100%; }
-.qw-row { display: grid; grid-template-columns: minmax(0, 1fr) 130px 30px; gap: 8px; align-items: center; }
-.qw-row:not(:has(.qw-x)) { grid-template-columns: minmax(0, 1fr) 130px; }
-.qw-row:not(:has(.qw-amt)) { grid-template-columns: minmax(0, 1fr) 30px; }
-.qw-row:not(:has(.qw-amt)):not(:has(.qw-x)) { grid-template-columns: minmax(0, 1fr); }
+.qw-row { display: grid; grid-template-columns: minmax(0, 1fr) 130px 150px 30px; gap: 8px; align-items: center; }
+.qw-row:not(:has(.qw-x)) { grid-template-columns: minmax(0, 1fr) 130px 150px; }
+.qw-row:not(:has(.qw-amt)) { grid-template-columns: minmax(0, 1fr) 150px 30px; }
+.qw-row:not(:has(.qw-amt)):not(:has(.qw-x)) { grid-template-columns: minmax(0, 1fr) 150px; }
+.qw-price { display: grid; justify-items: end; gap: 1px; min-height: 40px; align-content: center; text-align: right; font-variant-numeric: tabular-nums; }
+.qw-price .qw-rate { font-size: 11.5px; color: var(--fg-dim); white-space: nowrap; }
+.qw-price b { font-size: 13.5px; }
 .qw-row select.in { min-height: 40px; }
 .qw-amt { position: relative; display: block; }
 .qw-amt input { min-height: 40px; padding-right: 48px; text-align: right; font-variant-numeric: tabular-nums; }
@@ -410,11 +413,19 @@ table.items.edit .desc { font-weight: 500; }
 .qw-total { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; margin: 0 -16px -16px; border-top: 1px solid var(--line); background: var(--accent-soft); border-radius: 0 0 var(--radius) var(--radius); font-size: 13px; }
 .qw-total b { font-size: 18px; color: var(--accent); font-variant-numeric: tabular-nums; white-space: nowrap; }
 @media (max-width: 560px) {
-  .qw-row { grid-template-columns: minmax(0, 1fr) 110px 30px; }
-  .qw-row:not(:has(.qw-x)) { grid-template-columns: minmax(0, 1fr) 110px; }
+  /* Phones: the choice takes the first line; amount, rate and total share the second. */
+  .qw-row, .qw-row:not(:has(.qw-x)), .qw-row:not(:has(.qw-amt)), .qw-row:not(:has(.qw-amt)):not(:has(.qw-x)) { grid-template-columns: minmax(0, 1fr) 30px; }
+  .qw-row select.in { grid-column: 1; }
+  .qw-row:not(:has(.qw-x)) select.in { grid-column: 1 / -1; }
+  .qw-row .qw-amt { grid-column: 1; width: 130px; }
+  .qw-row .qw-price { grid-column: 1 / -1; min-height: 0; padding-right: 2px; }
+  .qw-row .qw-price:empty { display: none; }
+  .qw-row .qw-x { grid-column: 2; grid-row: 1; }
 }
 @media (pointer: coarse) { .qw-row select.in, .qw-amt input { min-height: 44px; font-size: 16px; } .qw-x { width: 36px; height: 36px; } }
 .nq-newtoggle { justify-self: start; color: var(--accent); }
+.nq-site { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+.nq-site-h { font-size: 12px; font-weight: 600; color: var(--fg-dim); }
 .nq-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 12px; }
 .nq-form label { display: grid; gap: 4px; font-size: 12.5px; color: var(--fg-dim); }
 .nq-seg { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
