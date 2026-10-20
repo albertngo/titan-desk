@@ -170,7 +170,14 @@ export const takesLinearDefault = (c: QuickChoice | undefined | null) => Boolean
 // ---------- what the browser sends ----------
 
 export type QuickRow = { choiceId: string; amount: number | null; productId: string | null };
-export type QuickWork = { rows: QuickRow[]; stairs: StairWork[]; extraCost: number | null; description: string; building: string | null };
+/** A custom item (Albert, 2026-10-20): typed words and a flat price, shown to the customer like any line. */
+export type CustomItem = { description: string; price: number };
+/**
+ * `adjustment` (Albert, 2026-10-20): a flat amount in the total the customer never sees as a line,
+ * for pricing in what we know and they don't. It becomes a private line (see calc.ts LineInput).
+ */
+export type QuickWork = { rows: QuickRow[]; stairs: StairWork[]; custom: CustomItem[]; adjustment: number | null; description: string; building: string | null };
+export const CUSTOM_ROWS = 6;
 
 export const BUILDINGS = ["House", "Townhouse", "Condo / Apartment", "Commercial"] as const;
 
@@ -192,11 +199,18 @@ export function parseWork(raw: unknown): QuickWork {
     const price = amountOf(o.price);
     return isStairType(o.type) && isStairMethod(o.method) && price !== null ? [{ type: o.type, method: o.method, price }] : [];
   });
+  // A custom item needs words and a price; anything else is dropped.
+  const custom = (Array.isArray(r.custom) ? r.custom : []).slice(0, CUSTOM_ROWS).flatMap((x): CustomItem[] => {
+    const o = (x && typeof x === "object" ? x : {}) as Record<string, unknown>;
+    const description = typeof o.description === "string" ? o.description.trim().slice(0, 200) : "";
+    const price = amountOf(o.price);
+    return description && price !== null ? [{ description, price }] : [];
+  });
   const building = typeof r.building === "string" && (BUILDINGS as readonly string[]).includes(r.building) ? r.building : null;
-  return { rows, stairs, extraCost: amountOf(r.extraCost), description: typeof r.description === "string" ? r.description.trim().slice(0, 2000) : "", building };
+  return { rows, stairs, custom, adjustment: amountOf(r.adjustment), description: typeof r.description === "string" ? r.description.trim().slice(0, 2000) : "", building };
 }
 
-export const workIsEmpty = (w: QuickWork) => w.rows.length === 0 && w.stairs.length === 0 && w.extraCost === null;
+export const workIsEmpty = (w: QuickWork) => w.rows.length === 0 && w.stairs.length === 0 && w.custom.length === 0 && w.adjustment === null;
 
 // ---------- the lines it becomes ----------
 
@@ -289,8 +303,9 @@ export function buildPreliminary(choices: QuickChoice[], work: QuickWork, produc
     }
   }
   for (const s of work.stairs) lines.push(stairProfileLine(s.type, s.method, s.price));
-  if (work.extraCost !== null) {
-    lines.push({ ...blank("Other"), sourceKind: "manual", description: "Additional work", uom: "flat", qty: 1, unitPrice: work.extraCost });
+  for (const c of work.custom) lines.push({ ...blank("Other"), sourceKind: "manual", description: c.description, uom: "flat", qty: 1, unitPrice: c.price });
+  if (work.adjustment !== null) {
+    lines.push({ ...blank("Other"), sourceKind: "manual", description: "Private adjustment", uom: "flat", qty: 1, unitPrice: work.adjustment, private: true });
   }
   return { lines, skipped };
 }
@@ -300,6 +315,6 @@ export function buildPreliminary(choices: QuickChoice[], work: QuickWork, produc
  * charges count), before discount and HST. Null when the row can't be priced yet.
  */
 export function rowTotal(choices: QuickChoice[], row: QuickRow, products: Map<string, QuickProduct>): number | null {
-  const { lines } = buildPreliminary(choices, { rows: [row], stairs: [], extraCost: null, description: "", building: null }, products);
+  const { lines } = buildPreliminary(choices, { rows: [row], stairs: [], custom: [], adjustment: null, description: "", building: null }, products);
   return lines.length === 0 ? null : optionTotals(lines, 0, false).preDiscount;
 }

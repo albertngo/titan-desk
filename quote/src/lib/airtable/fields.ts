@@ -132,6 +132,8 @@ export const LINE = {
   noHst: "fldq8sPfy3iaBFJu5",
   /** 2026-10-16: the Install Material picked for a Rate Card line; its price and cost are in the snaps. */
   installMaterial: "fldLHVDiQWa3lOIcq",
+  /** 2026-10-20: ticked = the customer never sees this line; its amount is folded into the others on the copy. */
+  private: "fldNHqs6np6cXJ4NA",
   // Airtable's own per-line results — read only for the parity check.
   lineTotal: "fldtr6qmdjmWc1YFM",
   lineCost: "fld64HUgwqcRso3Br",

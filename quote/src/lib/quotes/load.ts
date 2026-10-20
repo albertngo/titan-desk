@@ -84,6 +84,7 @@ function toLine(r: AirtableRecord): QuoteLine {
     manualCost: num(f[LINE.manualCost]),
     minChargeSnap: num(f[LINE.minChargeSnap]),
     noHst: bool(f[LINE.noHst]),
+    private: bool(f[LINE.private]),
     hasSource: [LINE.rateItem, LINE.stairItem, LINE.product].some((k) => ids(f[k]).length > 0),
     ...source(f),
     labourType: str(f[LINE.rateLaborType]),

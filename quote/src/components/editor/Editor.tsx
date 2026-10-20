@@ -17,6 +17,7 @@ import {
   exclusionLine,
   materialChoices,
   parseNum,
+  privateLine,
   removeLine,
   removeOption,
   revertLine,
@@ -205,13 +206,16 @@ export default function Editor({
     setActiveId(initial.options[0]?.id ?? null);
   };
 
-  const sectionsShown: string[] = option ? WORK_SECTIONS.filter((s) => option.lines.some((l) => sectionOf(l) === s)) : [];
-  if (option?.lines.some((l) => sectionOf(l) === "Unsorted")) sectionsShown.push("Unsorted");
-  const exclusions = option ? option.lines.filter((l) => l.section === "Exclusions") : [];
+  // Private adjustments (2026-10-20) have their own card: the work table never shows them.
+  const shown = option ? option.lines.filter((l) => !l.private) : [];
+  const privates = option ? option.lines.filter((l) => l.private) : [];
+  const sectionsShown: string[] = WORK_SECTIONS.filter((s) => shown.some((l) => sectionOf(l) === s));
+  if (shown.some((l) => sectionOf(l) === "Unsorted")) sectionsShown.push("Unsorted");
+  const exclusions = shown.filter((l) => l.section === "Exclusions");
 
   let n = 0;
   const numberOf = new Map<string, number>();
-  if (option) for (const s of sectionsShown) for (const l of option.lines) if (sectionOf(l) === s && isPriced(l) && l.include) numberOf.set(l.id, ++n);
+  for (const s of sectionsShown) for (const l of shown) if (sectionOf(l) === s && isPriced(l) && l.include) numberOf.set(l.id, ++n);
 
   // How a line stands against the option's crew: set by hand (with a way back), or not theirs to do.
   const crewMark = (l: EditorLine) => {
@@ -551,7 +555,7 @@ export default function Editor({
                         </tr>
                       )}
                       {sectionsShown.flatMap((s) => {
-                        const lines = option.lines.filter((l) => sectionOf(l) === s);
+                        const lines = shown.filter((l) => sectionOf(l) === s);
                         const sum = lines.reduce((a, l) => a + (lineTotal(l) ?? 0), 0);
                         return [
                           <tr className="sect" key={`s-${s}`}>
@@ -576,6 +580,35 @@ export default function Editor({
               </section>
 
               <div className="duo">
+                <section className="card">
+                  <div className="card-h">
+                    Private adjustment
+                    {!customer && <span className="right">Never shown to the customer</span>}
+                  </div>
+                  <div className="card-b notes">
+                    {customer ? (
+                      <p className="faint">{privates.length === 0 ? "None." : `${privates.length} on this option, in the total.`}</p>
+                    ) : (
+                      <>
+                        <p className="faint">A flat amount in the total that the customer never sees as a line: their copy folds it into the other lines. Use it to price in what you know and they don&apos;t.</p>
+                        {privates.map((x) => (
+                          <div className="excl" key={x.id}>
+                            <TextCell className="in" value={x.description} label="Private adjustment" onCommit={(v) => apply(updateLine(quote, option.id, x.id, { description: v }))} />
+                            <span className="qw-amt pv-amt">
+                              <NumCell value={x.unitPrice} label="Private adjustment amount" placeholder="0" onCommit={(v) => apply(updateLine(quote, option.id, x.id, { unitPrice: v }))} />
+                              <span>$</span>
+                            </span>
+                            <button className="iconbtn danger" aria-label="Remove private adjustment" onClick={() => apply(removeLine(quote, option.id, x.id))}>✕</button>
+                          </div>
+                        ))}
+                        <button type="button" className="linkbtn qw-add" onClick={() => apply(addLine(quote, option.id, privateLine(null)))}>
+                          + {privates.length === 0 ? "Add a private adjustment" : "Another private adjustment"}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </section>
+
                 <section className="card">
                   <div className="card-h">Exclusions</div>
                   <div className="card-b notes">

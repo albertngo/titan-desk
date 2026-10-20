@@ -124,6 +124,9 @@ table.items tr.off td { color: var(--fg-faint); }
 .chgd { color: var(--warn); font-weight: 600; }
 .flag { display: inline-block; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; background: var(--warn-soft); color: var(--warn); margin: 4px 4px 0 0; }
 .flag.UNIT { background: var(--bad-soft); color: var(--bad); }
+.flag.PRIVATE { background: var(--head); color: var(--fg-dim); margin-left: 6px; }
+.pv-amt { flex: 0 0 130px; }
+.pv-amt .cell-in { width: 100%; min-height: 36px; padding-right: 26px; text-align: right; }
 .note { font-size: 12px; color: var(--fg-dim); font-style: italic; }
 
 /* ---------- notes + overview row ---------- */
@@ -429,6 +432,9 @@ table.items.edit .desc { font-weight: 500; }
 .qw-auto { font-size: 12px; color: var(--fg-faint); }
 .qw-mat { font-size: 13px !important; min-height: 32px; }
 .qw-thirds { display: grid; gap: 3px; }
+.qw-custom { display: grid; grid-template-columns: minmax(0, 1fr) 130px 32px; gap: 8px; align-items: center; }
+.qw-custom .in { min-height: 40px; }
+@media (max-width: 560px) { .qw-custom { grid-template-columns: minmax(0, 1fr) 32px; } .qw-custom .qw-amt { grid-column: 1; width: 130px; } }
 .qw-thirds ul { margin: 0; padding-left: 18px; }
 .qw-x { width: 32px; height: 32px; flex: none; }
 .qw-add { justify-self: start; color: var(--accent); font-size: 12.5px; min-height: 32px; }

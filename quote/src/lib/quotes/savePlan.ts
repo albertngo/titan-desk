@@ -77,6 +77,7 @@ function cleanLine(raw: unknown, i: number): EditorLine {
     manualCost: num(r.manualCost),
     minChargeSnap: num(r.minChargeSnap),
     noHst: r.noHst === true,
+    private: r.private === true,
     hasSource: Boolean(sourceId),
   };
 }
@@ -142,6 +143,7 @@ export function lineFields(l: EditorLine, sortOrder: number): Fields {
     [LINE.include]: l.include,
     // Only a material chooses its own HST; anywhere else the box stays clear so it can't mislead.
     [LINE.noHst]: sectionOf(l) === "Materials" && l.noHst === true,
+    [LINE.private]: l.private === true,
     [LINE.rateItem]: l.sourceKind === "rate" && l.sourceId ? [l.sourceId] : [],
     [LINE.stairItem]: l.sourceKind === "stair" && l.sourceId ? [l.sourceId] : [],
     [LINE.product]: l.sourceKind === "product" && l.sourceId ? [l.sourceId] : [],

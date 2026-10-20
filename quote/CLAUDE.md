@@ -82,7 +82,10 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   (`pairChoices()` / `pairRate()`). Keep those label endings in Quick Quote Choices; a lone half
   shows under its own label. A moulding row's linear feet start at a third of the flooring's
   square footage under Install (`installAreas()`, whole feet), shown area by area for assistance,
-  until someone types over it; three rows, like the other work
+  until someone types over it; three rows, like the other work. **Custom items and the private
+  adjustment (Albert, 2026-10-20):** two sections of their own on the form. A custom item is typed
+  words and a flat price and lands under Other like any line the customer sees. The private
+  adjustment is a flat amount in the total the customer never sees as a line (below)
   (`src/components/QuickWork.tsx`). The flooring choices are
   rows in the Airtable table **Quick Quote Choices** (`QUICK_TABLE`), each pointing at Rate Card
   rows or, for materials, a standard catalogue **SKU** (text, not a link, so the catalogue's
@@ -155,6 +158,14 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   mirrors it: Quote Lines → HST Base Own / HST Base Quote, rolled up on Quote Options, feeding HST.
   The customer page and PDF say "no HST" / "plus HST" on a material that differs from the quote,
   and "HST (13%) on materials" when only materials are taxed. `chargesHst()` in `src/lib/calc.ts`.
+- **Private lines (Albert, 2026-10-20).** Quote Lines → **Private** (checkbox, `LINE.private`): ticked,
+  the customer never sees the line. It counts in every total exactly like any other line (no money
+  formula changed, in calc.ts or Airtable); the customer copy leaves it out and spreads its amount
+  over the option's included lines in proportion, to the cent, so the lines still add up to the
+  subtotal (`foldable()` / `spread()` in `src/lib/send/copy.ts`; the only time one shows is when
+  there is nothing to fold it into). The editor keeps them in a **Private adjustment** card, out of
+  the work table (`privateLine()` in `model.ts`); the quote page tags them and leaves them out of
+  Customer view. Use it to price in what we know and the customer doesn't.
 - **Swappable material (Albert, 2026-10-16).** A Rate Card row can name a Material Group and the
   Default Material its Titan Rate and Total Cost already include (table Install Materials: Name,
   Group, Cost, Price per unit of the job, Active; read only). On the line the material can be swapped

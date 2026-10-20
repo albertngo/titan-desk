@@ -141,6 +141,13 @@ describe("line fields", () => {
     expect(f[LINE.sortOrder]).toBe(4);
   });
 
+  it("writes the Private box as sent, clear when it wasn't (2026-10-20)", () => {
+    expect(lineFields(L({ id: "p", description: "Private adjustment", uom: "flat", qty: 1, unitPrice: 250, private: true }), 1)[LINE.private]).toBe(true);
+    expect(lineFields(L({ id: "q", description: "Haul away old tile" }), 1)[LINE.private]).toBe(false);
+    const cleaned = cleanEditorQuote({ options: [{ lines: [{ description: "a", private: true }, { description: "b", private: "yes" }, { description: "c" }] }] });
+    expect(cleaned.options[0].lines.map((l) => l.private)).toEqual([true, false, false]);
+  });
+
   it("leaves a card line's own name to Airtable, and keeps wording someone typed", () => {
     const card = { id: "x", sourceKind: "rate" as const, sourceId: "recRate000000000A", labourType: "Install", spec: "CLICK" };
     expect(lineFields(L({ ...card, description: "Install | CLICK" }), 1)[LINE.descriptionOverride]).toBeNull();

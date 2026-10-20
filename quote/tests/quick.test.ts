@@ -37,9 +37,18 @@ const choices = [NAIL, NAIL_GLUE, BINS, MAT, MAT_UNSET];
 
 describe("quick form: what the browser sends", () => {
   it("keeps only choice ids and positive amounts, never a price", () => {
-    const w = parseWork({ rows: [{ choiceId: NAIL.id, amount: 500, unitPrice: 0.01 }, { choiceId: "nope", amount: 1 }, { choiceId: BINS.id, amount: -3 }], extraCost: "x", building: "Castle" });
+    const w = parseWork({ rows: [{ choiceId: NAIL.id, amount: 500, unitPrice: 0.01 }, { choiceId: "nope", amount: 1 }, { choiceId: BINS.id, amount: -3 }], adjustment: "x", building: "Castle" });
     expect(w.rows).toEqual([{ choiceId: NAIL.id, amount: 500, productId: null }, { choiceId: BINS.id, amount: null, productId: null }]);
-    expect([w.extraCost, w.building]).toEqual([null, null]);
+    expect([w.adjustment, w.building]).toEqual([null, null]);
+  });
+
+  it("keeps a custom item only with words and a price, and the private adjustment as a number (2026-10-20)", () => {
+    const w = parseWork({ custom: [{ description: "  Move the piano ", price: 150 }, { description: "", price: 10 }, { description: "No price" }, "nope"], adjustment: 300 });
+    expect(w.custom).toEqual([{ description: "Move the piano", price: 150 }]);
+    expect(w.adjustment).toBe(300);
+    expect(parseWork({ custom: Array(9).fill({ description: "x", price: 1 }) }).custom).toHaveLength(6);
+    expect(workIsEmpty(parseWork({ custom: [{ description: "x", price: 1 }] }))).toBe(false);
+    expect(workIsEmpty(parseWork({ adjustment: 5 }))).toBe(false);
   });
 });
 
@@ -64,10 +73,18 @@ describe("quick form: the lines it becomes", () => {
     expect([picked.sourceId, picked.unitPriceSnap]).toEqual([OTHER.recordId, 5]);
   });
 
-  it("skips and names what it can't price, and adds the extra cost as its own line", () => {
-    const r = buildPreliminary(choices, parseWork({ rows: [{ choiceId: NAIL.id }, { choiceId: MAT_UNSET.id, amount: 100 }, { choiceId: "recGone000000000A", amount: 1 }], extraCost: 250 }), new Map());
+  it("skips and names what it can't price; custom items are flat lines and the adjustment a private one", () => {
+    const r = buildPreliminary(
+      choices,
+      parseWork({ rows: [{ choiceId: NAIL.id }, { choiceId: MAT_UNSET.id, amount: 100 }, { choiceId: "recGone000000000A", amount: 1 }], custom: [{ description: "Move the piano", price: 150 }], adjustment: 250 }),
+      new Map(),
+    );
     expect(r.skipped).toEqual(["Nail down (no amount)", "Tiles (no product)", "a choice that's no longer on the form"]);
-    expect(r.lines.map((l) => [l.description, l.unitPrice, l.section])).toEqual([["Additional work", 250, "Other"]]);
+    expect(r.lines.map((l) => [l.description, l.unitPrice, l.qty, l.uom, l.section, l.private ?? false])).toEqual([
+      ["Move the piano", 150, 1, "flat", "Other", false],
+      ["Private adjustment", 250, 1, "flat", "Other", true],
+    ]);
+    expect(optionTotals(r.lines, 0, false).preDiscount).toBe(400);
   });
 
   it("totals the same way every quote does", () => {

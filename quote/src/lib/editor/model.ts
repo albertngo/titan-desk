@@ -301,6 +301,14 @@ export function manualLine(section: string, description = ""): EditorLine {
   return { ...baseLine(section), sourceKind: "manual", description, uom: section === "Delivery" ? "flat" : null };
 }
 
+/**
+ * A private adjustment (Albert, 2026-10-20): a flat amount that raises (or lowers) the option's
+ * price without the customer ever seeing a line for it. Filed under Other; counts in every total.
+ */
+export function privateLine(amount: number | null, description = "Private adjustment"): EditorLine {
+  return { ...manualLine("Other", description), uom: "flat", qty: 1, unitPrice: amount, private: true };
+}
+
 export function exclusionLine(text: string): EditorLine {
   return { ...baseLine("Exclusions"), sourceKind: "manual", description: text, lineType: "Note" };
 }
@@ -574,6 +582,7 @@ export function fromQuote(quote: Quote): EditorQuote {
         manualCost: l.manualCost,
         minChargeSnap: l.minChargeSnap,
         noHst: l.noHst ?? false,
+        private: l.private ?? false,
         hasSource: l.hasSource,
       })),
     })),

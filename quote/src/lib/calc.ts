@@ -62,6 +62,12 @@ export type LineInput = {
    * Absent reads as false.
    */
   noHst?: boolean;
+  /**
+   * Private line (Albert, 2026-10-20): true = the customer never sees it as a line. It counts in
+   * every total exactly like any other line (no formula changes); the customer copy folds its
+   * amount into the lines the customer does see. Absent reads as false.
+   */
+  private?: boolean;
 };
 
 export type OptionTotals = {

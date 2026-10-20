@@ -9,6 +9,7 @@ import {
   BUILDINGS,
   buildPreliminary,
   choiceRate,
+  CUSTOM_ROWS,
   GROUP_ROWS,
   installAreas,
   pairChoice,
@@ -32,15 +33,19 @@ export type PickedProduct = Pick<QuickProduct, "recordId" | "sku" | "name" | "ra
 export type WorkRow = { key: string; group: QuickGroup; choiceId: string; amount: string; auto: boolean; product: PickedProduct | null };
 /** One staircase on the form: a profile being picked, and the flat price typed for it. */
 export type StairRowState = { key: string; type: StairType | ""; method: StairMethod | ""; price: string };
-export type WorkState = { rows: WorkRow[]; stairs: StairRowState[]; extraCost: string; description: string; building: string };
+/** A custom item (2026-10-20): words and a flat price the customer sees as a line. */
+export type CustomRowState = { key: string; description: string; price: string };
+/** `adjustment`: the private amount in the total the customer never sees (2026-10-20). */
+export type WorkState = { rows: WorkRow[]; stairs: StairRowState[]; custom: CustomRowState[]; adjustment: string; description: string; building: string };
 
 let n = 0;
 const newRow = (group: QuickGroup): WorkRow => ({ key: `r${++n}`, group, choiceId: "", amount: "", auto: true, product: null });
 const newStair = (): StairRowState => ({ key: `s${++n}`, type: "", method: "", price: "" });
+const newCustom = (): CustomRowState => ({ key: `c${++n}`, description: "", price: "" });
 
 export function initialWork(choices: QuickChoice[]): WorkState {
   const groups = QUICK_GROUPS.filter((g) => choices.some((c) => c.group === g));
-  return { rows: groups.map(newRow), stairs: [], extraCost: "", description: "", building: "" };
+  return { rows: groups.map(newRow), stairs: [], custom: [], adjustment: "", description: "", building: "" };
 }
 
 const toNumber = (s: string) => {
@@ -64,7 +69,8 @@ export function workInput(w: WorkState, choices: QuickChoice[]) {
   return {
     rows: w.rows.filter((r) => r.choiceId).map((r) => ({ choiceId: r.choiceId, amount: rowAmount(r, byId.get(r.choiceId), floor), productId: r.product?.recordId ?? null })),
     stairs: w.stairs.filter((s) => s.type && s.method).map((s) => ({ type: s.type, method: s.method, price: toNumber(s.price) })),
-    extraCost: toNumber(w.extraCost),
+    custom: w.custom.filter((c) => c.description.trim()).map((c) => ({ description: c.description.trim(), price: toNumber(c.price) })),
+    adjustment: toNumber(w.adjustment),
     description: w.description,
     building: w.building || null,
   };
@@ -283,19 +289,63 @@ export function QuickWork({ choices, value, onChange }: { choices: QuickChoice[]
         )}
       </section>
 
+      <section className="qw-part" aria-labelledby="qw-custom">
+        <h3 className="qw-part-h" id="qw-custom">
+          Custom items
+          <span className="qw-wg-sum faint">Shown to the customer, priced as typed</span>
+        </h3>
+        {value.custom.map((c, i) => (
+          <div key={c.key} className="qw-custom">
+            <input
+              className="in"
+              placeholder="What it is, in the customer's words"
+              aria-label={`Custom item ${i + 1}`}
+              value={c.description}
+              onChange={(e) => set({ custom: value.custom.map((x) => (x.key === c.key ? { ...x, description: e.target.value } : x)) })}
+            />
+            <span className="qw-amt">
+              <input
+                className="in"
+                inputMode="decimal"
+                placeholder="0"
+                aria-label={`Custom item ${i + 1} price`}
+                value={c.price}
+                onChange={(e) => set({ custom: value.custom.map((x) => (x.key === c.key ? { ...x, price: e.target.value } : x)) })}
+              />
+              <span>$</span>
+            </span>
+            <button type="button" className="iconbtn danger qw-x" aria-label={`Remove custom item ${i + 1}`} onClick={() => set({ custom: value.custom.filter((x) => x.key !== c.key) })}>
+              ✕
+            </button>
+          </div>
+        ))}
+        {value.custom.length < CUSTOM_ROWS && (
+          <button type="button" className="linkbtn qw-add" onClick={() => set({ custom: [...value.custom, newCustom()] })}>
+            + {value.custom.length === 0 ? "Add a custom item" : "Another custom item"}
+          </button>
+        )}
+      </section>
+
+      <section className="qw-part" aria-labelledby="qw-private">
+        <h3 className="qw-part-h" id="qw-private">
+          Private adjustment
+          <span className="qw-wg-sum faint">Never shown to the customer</span>
+        </h3>
+        <label className="qw-money">
+          <span className="k">Added to the total, folded into the other lines on the customer&apos;s copy</span>
+          <span className="qw-amt">
+            <input className="in" inputMode="decimal" placeholder="0" aria-label="Private adjustment" value={value.adjustment} onChange={(e) => set({ adjustment: e.target.value })} />
+            <span>$</span>
+          </span>
+        </label>
+      </section>
+
       <section className="qw-part" aria-labelledby="qw-else">
         <h3 className="qw-part-h" id="qw-else">Anything else</h3>
         <div className="qw-field">
           <span className="k">Building</span>
           <Chips label="Building" options={BUILDINGS} value={value.building} onChange={(v) => set({ building: v })} allowNone />
         </div>
-        <label className="qw-money">
-          <span className="k">Additional cost</span>
-          <span className="qw-amt">
-            <input className="in" inputMode="decimal" placeholder="0" value={value.extraCost} onChange={(e) => set({ extraCost: e.target.value })} />
-            <span>$</span>
-          </span>
-        </label>
         <label className="qw-desc">
           Description of project <span className="faint">(internal, saved on the quote&apos;s notes)</span>
           <textarea className="in area" rows={3} value={value.description} onChange={(e) => set({ description: e.target.value })} />

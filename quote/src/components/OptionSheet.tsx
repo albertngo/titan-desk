@@ -96,6 +96,7 @@ function Row({ l, n, customer }: { l: QuoteLine; n: number | undefined; customer
       <td className="idx">{n ?? ""}</td>
       <td>
         {l.description ?? <span className="note">No description</span>}
+        {l.private && <span className="flag PRIVATE">Private</span>}
         {(l.area || l.clientNote) && <span className="sub">{[l.area, l.clientNote].filter(Boolean).join(" · ")}</span>}
         {!customer && flags.length > 0 && <div>{flags.map((f) => <span key={f} className={`flag ${f}`}>{f}</span>)}</div>}
       </td>
@@ -145,7 +146,7 @@ export function OptionSheet({
   const exclusions = option.lines.filter((l) => l.section === "Exclusions" && l.description);
   const nums = new Map<string, number>();
   let i = 0;
-  for (const s of order) for (const l of option.lines) if (sectionOf(l) === s && isPriced(l) && l.include) nums.set(l.id, ++i);
+  for (const s of order) for (const l of option.lines) if (sectionOf(l) === s && isPriced(l) && l.include && !(customer && l.private)) nums.set(l.id, ++i);
 
   return (
     <>
@@ -179,7 +180,9 @@ export function OptionSheet({
               </thead>
               <tbody>
                 {order.flatMap((s) => {
-                  const lines = option.lines.filter((l) => sectionOf(l) === s);
+                  // Customer view (2026-10-20): private lines are left out, as the sent copy leaves them out.
+                  const lines = option.lines.filter((l) => sectionOf(l) === s && !(customer && l.private));
+                  if (lines.length === 0) return [];
                   const sum = lines.reduce((a, l) => a + (lineTotal(l) ?? 0), 0);
                   return [
                     <tr className="sect" key={`s-${s}`}>

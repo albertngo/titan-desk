@@ -25,7 +25,11 @@ export type CopyItem = {
   uom: string | null;
   /** Whole percent of waste included in `qty`, when there is any. */
   wastePct: number | null;
-  /** Null when a minimum charge sets the amount instead. */
+  /**
+   * Null when a minimum charge sets the amount instead. On an option with a private adjustment
+   * (2026-10-20) the lines carry their share of it, and this is the amount over the quantity to
+   * the cent, so quantity × unit price can be a few cents off the amount.
+   */
   unitPrice: number | null;
   minimum: boolean;
   amount: number;
@@ -110,13 +114,47 @@ function sectionNames(lines: QuoteLine[]): string[] {
   return out;
 }
 
+/**
+ * Private lines (Albert, 2026-10-20) are never listed; what they add is spread over the lines the
+ * customer does see, in proportion to their amounts, to the cent, so the lines still add up to the
+ * subtotal. The only time one shows is when there is nothing to fold it into.
+ */
+function foldable(o: QuoteOption): { listed: QuoteLine[]; fold: number } {
+  const hidden = o.lines.filter((l) => l.private === true && isPriced(l) && l.include);
+  const fold = round2(hidden.reduce((s, l) => s + (lineTotal(l) ?? 0), 0));
+  const visible = o.lines.filter((l) => l.private !== true);
+  const base = visible.filter((l) => isPriced(l) && l.include).reduce((s, l) => s + (lineTotal(l) ?? 0), 0);
+  if (fold === 0) return { listed: visible, fold: 0 };
+  return base > 0 && base + fold >= 0 ? { listed: visible, fold } : { listed: o.lines, fold: 0 };
+}
+
+function spread(sections: CopySection[], fold: number): void {
+  const items = sections.flatMap((s) => s.lines).filter((l): l is CopyItem => l.kind === "item" && !l.optional && l.amount > 0);
+  const base = items.reduce((s, l) => s + l.amount, 0);
+  const targets = items.map((l) => (l.amount + (fold * l.amount) / base) * 100);
+  const cents = targets.map((t) => Math.floor(t + 1e-7));
+  let left = Math.round((base + fold) * 100) - cents.reduce((s, c) => s + c, 0);
+  // The cents the floors dropped go to the lines that lost the most, one each.
+  for (const i of targets.map((t, i) => [t - cents[i], i] as const).sort((a, b) => b[0] - a[0]).map(([, i]) => i)) {
+    if (left <= 0) break;
+    cents[i] += 1;
+    left -= 1;
+  }
+  items.forEach((l, i) => {
+    l.amount = cents[i] / 100;
+    l.unitPrice = l.minimum ? null : l.qty !== null && l.qty > 0 ? round2(l.amount / l.qty) : l.amount;
+  });
+  for (const s of sections) s.total = round2(s.lines.reduce((t, l) => t + (l.kind === "item" && !l.optional ? l.amount : 0), 0));
+}
+
 function copyOption(o: QuoteOption, discountRate: number, showHst: boolean): CopyOption {
   let n = 0;
   const sections: CopySection[] = [];
-  for (const name of sectionNames(o.lines)) {
+  const { listed, fold } = foldable(o);
+  for (const name of sectionNames(listed)) {
     const lines: (CopyItem | CopyText)[] = [];
     let total = 0;
-    for (const l of o.lines.filter((x) => sectionOf(x) === name)) {
+    for (const l of listed.filter((x) => sectionOf(x) === name)) {
       const note = clean([l.area, l.clientNote].filter(Boolean).join(" · "));
       if (!isPriced(l)) {
         const text = clean(l.description);
@@ -149,6 +187,7 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean): Cop
     }
     if (lines.length) sections.push({ name: name === "Unsorted" ? "Other" : name, total: round2(total), lines });
   }
+  if (fold !== 0) spread(sections, fold);
   const t = optionTotals(o.lines, discountRate, showHst);
   return {
     name: clean(o.name) ?? "Option",

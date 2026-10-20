@@ -134,6 +134,40 @@ describe("customer copy", () => {
     expect(o.totals.total).toBe(772.92);
   });
 
+  it("never lists a private line: its amount is spread over the lines the customer sees, to the cent (2026-10-20)", () => {
+    // Visible, included: 200 + 440 + 120 = 760. Private: +76 (10% of it). Spread: 220 + 484 + 132 = 836.
+    const p = quote();
+    p.options[0].lines.push(line({ section: "Other", lineType: "Other", description: "Private adjustment", qty: 1, uom: "flat", unitPrice: 76, unitPriceSnap: null, unitCostSnap: null, sourceKind: "manual", sourceId: null, hasSource: false, private: true }));
+    p.options[0].airtable = { ...optionTotals(p.options[0].lines, 0.1, true) };
+    const c = customerCopy(p, AT);
+    const text = serializeCopy(c);
+    expect(text).not.toContain("Private adjustment");
+    expect(text).not.toContain("private");
+    const items = c.options[0].sections.flatMap((s) => s.lines).filter((l): l is Extract<typeof l, { kind: "item" }> => l.kind === "item");
+    expect(items.filter((l) => !l.optional).map((l) => [l.description, l.amount, l.unitPrice])).toEqual([
+      ["Click install", 484, 2.2],
+      ["Carpet removal", 220, 1.1],
+      ["Delivery", 132, null],
+    ]);
+    const listed = items.filter((l) => !l.optional).reduce((s, l) => s + l.amount, 0);
+    expect(listed).toBe(c.options[0].totals.preDiscount);
+    expect(c.options[0].sections.map((s) => [s.name, s.total])).toEqual([["Install", 484], ["Removal", 220], ["Delivery", 132], ["Other", 0]]);
+    // The add-on keeps its own price; the totals carry the adjustment either way.
+    expect(items.find((l) => l.optional)).toMatchObject({ amount: 120, unitPrice: 30 });
+    expect(c.options[0].totals.total).toBe(optionTotals(p.options[0].lines, 0.1, true).total);
+    // Cents that don't divide evenly land on the lines that lost the most, and the lines still add up.
+    const odd = quote({ options: [option("Odd", [line({ qty: 1, uom: "flat", unitPriceSnap: 10 }), line({ qty: 1, uom: "flat", unitPriceSnap: 10 }), line({ qty: 1, uom: "flat", unitPriceSnap: 10 }), line({ qty: 1, uom: "flat", unitPrice: 1, unitPriceSnap: null, private: true, sourceKind: "manual", sourceId: null, hasSource: false })])] });
+    const oddItems = customerCopy(odd, AT).options[0].sections.flatMap((s) => s.lines).filter((l): l is Extract<typeof l, { kind: "item" }> => l.kind === "item");
+    expect(oddItems.map((l) => l.amount).sort()).toEqual([10.33, 10.33, 10.34]);
+    expect(oddItems.reduce((s, l) => s + l.amount, 0)).toBeCloseTo(31, 10);
+  });
+
+  it("shows a private line after all when there is nothing to fold it into", () => {
+    const alone = quote({ options: [option("Alone", [line({ qty: 1, uom: "flat", unitPrice: 500, unitPriceSnap: null, private: true, sourceKind: "manual", sourceId: null, hasSource: false, description: "Site allowance" })])] });
+    const c = customerCopy(alone, AT);
+    expect(c.options[0].sections.flatMap((s) => s.lines).map((l) => (l.kind === "item" ? [l.description, l.amount] : null))).toEqual([["Site allowance", 500]]);
+  });
+
   it("shows quantity with waste included, so quantity × price is the amount", () => {
     const install = o.sections.find((s) => s.name === "Install")!.lines.find((l) => l.kind === "item")!;
     expect(install).toMatchObject({ qty: 220, unitPrice: 2, amount: 440, wastePct: 10, note: "Living room" });
