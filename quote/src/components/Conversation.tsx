@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { conversationAction } from "@/app/actions/conversation";
-import { callLength, photos, summarize, type Attachment, type Message, type ThreadSummary } from "@/lib/conversation/thread";
+import { callLength, emailPeek, photos, summarize, type Attachment, type Message, type ThreadSummary } from "@/lib/conversation/thread";
 import { ghlContactUrl } from "@/lib/ghl/ids";
 import type { ConversationResult } from "@/lib/quotes/types";
 
@@ -254,6 +254,9 @@ function Bubble({ m, onOpen }: { m: Message; onOpen: (a: Attachment) => void }) 
   const files = m.attachments.filter((a) => a.kind === "file");
   const images = m.attachments.filter((a) => a.kind === "image");
   const failed = m.status === "failed" || m.status === "undelivered";
+  // An email opens as its subject and a peek; the whole thing is one tap away (Albert, 2026-10-20).
+  const [expanded, setExpanded] = useState(false);
+  const peek = m.channel === "email" && m.body ? emailPeek(m.body) : null;
   return (
     <li className={`conv-msg ${m.direction}${m.automated ? " auto" : ""}`}>
       <div className="conv-meta">
@@ -268,7 +271,14 @@ function Bubble({ m, onOpen }: { m: Message; onOpen: (a: Attachment) => void }) 
         {failed && <span className="chip bad">Not delivered</span>}
       </div>
       {m.subject && <div className="conv-subj">{m.subject}</div>}
-      {m.body ? (
+      {m.body && peek?.more ? (
+        <>
+          <div className="conv-body">{expanded ? m.body : peek.peek}</div>
+          <button type="button" className="linkbtn conv-more" onClick={() => setExpanded(!expanded)} aria-expanded={expanded}>
+            {expanded ? "Show less" : "Show full email"}
+          </button>
+        </>
+      ) : m.body ? (
         <div className="conv-body">{m.body}</div>
       ) : m.channel === "call" ? (
         <div className="conv-body faint">{m.direction === "in" ? "Incoming call" : "Outgoing call"}</div>

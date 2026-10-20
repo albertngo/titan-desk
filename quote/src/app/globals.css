@@ -670,3 +670,4 @@ a.chip.accent:hover { text-decoration: underline; }
 }
 @media (prefers-reduced-motion: reduce) { .conv-tab { transition: none; } }
 @media print { .conv-tab, .conv-panel { display: none; } }
+.conv-more { margin-top: 4px; font-size: 12px; font-weight: 600; color: var(--accent); }

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   attachmentOf,
   callLength,
+  emailPeek,
   channelOf,
   hasMore,
   htmlToText,
@@ -170,6 +171,25 @@ describe("the summary line", () => {
     ]);
     expect(summarize(list)).toEqual({ total: 3, photos: 1, automated: 1, lastIn: "2026-10-17T10:00:00.000Z", lastOut: "2026-10-19T10:00:00.000Z" });
     expect(summarize([])).toEqual({ total: 0, photos: 0, automated: 0, lastIn: null, lastOut: null });
+  });
+});
+
+describe("an email's peek", () => {
+  it("shows a short email whole, with nothing to expand", () => {
+    expect(emailPeek("Thanks, see you Tuesday.")).toEqual({ peek: "Thanks, see you Tuesday.", more: false });
+  });
+
+  it("cuts a long first paragraph at a word and says there is more", () => {
+    const body = "Hi Jane, thanks for sending the measurements over. I have put together two options for the basement, one in vinyl plank and one in engineered oak, and attached the quote.";
+    const r = emailPeek(body, 80);
+    expect(r.more).toBe(true);
+    expect(r.peek.length).toBeLessThanOrEqual(81);
+    expect(r.peek).toMatch(/…$/);
+    expect(r.peek).toBe("Hi Jane, thanks for sending the measurements over. I have put together two…");
+  });
+
+  it("stops at the first blank line even when that paragraph is short", () => {
+    expect(emailPeek("Hi Jane,\n\nYour quote is attached.\n\nThanks")).toEqual({ peek: "Hi Jane,", more: true });
   });
 });
 

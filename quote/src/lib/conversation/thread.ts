@@ -239,6 +239,27 @@ export function summarize(messages: Message[]): ThreadSummary {
   };
 }
 
+/** How much of an email shows before "Show full email" (Albert, 2026-10-20): a peek, not the whole thing. */
+export const PEEK_CHARS = 160;
+
+/**
+ * The first lines of an email, cut at a word so it reads as a sentence start. `more` says a
+ * fuller body is waiting behind it; a short email is shown whole and never gets a toggle.
+ */
+export function emailPeek(body: string, max = PEEK_CHARS): { peek: string; more: boolean } {
+  const text = body.trim();
+  const firstBreak = text.indexOf("\n\n");
+  const paragraph = firstBreak > 0 ? text.slice(0, firstBreak).trim() : text;
+  if (paragraph.length <= max && paragraph.length === text.length) return { peek: text, more: false };
+  let cut = paragraph.slice(0, max);
+  if (paragraph.length > max) {
+    const space = cut.lastIndexOf(" ");
+    if (space > max / 2) cut = cut.slice(0, space);
+    cut = cut.replace(/[\s,;:.!?-]+$/, "") + "…";
+  }
+  return { peek: cut, more: true };
+}
+
 /** "3 min" / "45 s" for a call's length. */
 export function callLength(seconds: number | null): string | null {
   if (seconds === null) return null;
