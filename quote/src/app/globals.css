@@ -634,7 +634,6 @@ a.chip.accent:hover { text-decoration: underline; }
 .conv-subj { font-weight: 600; margin-bottom: 2px; }
 .conv-body { white-space: pre-wrap; overflow-wrap: anywhere; }
 .conv-files { margin: 6px 0 0; padding: 0; list-style: none; font-size: 12.5px; display: grid; gap: 2px; }
-.conv-auto { font-size: 12.5px; color: var(--fg-dim); }
 .conv-light { position: fixed; inset: 0; z-index: 50; background: rgba(20, 30, 45, .88); display: grid; grid-template-rows: minmax(0, 1fr) auto; cursor: zoom-out; }
 .conv-light img { max-width: 100%; max-height: 100%; object-fit: contain; margin: auto; display: block; padding: 16px; box-sizing: border-box; }
 .conv-light-bar { display: flex; gap: 8px; align-items: center; padding: 10px 16px; background: var(--card); cursor: default; font-size: 12.5px; color: var(--fg-dim); }

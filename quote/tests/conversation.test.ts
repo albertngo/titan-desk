@@ -10,7 +10,6 @@ import {
   photos,
   sortThread,
   summarize,
-  visibleMessages,
   type Message,
 } from "../src/lib/conversation/thread";
 
@@ -136,10 +135,9 @@ describe("channels and automation", () => {
     expect(isAutomated("TYPE_SMS", null)).toBe(false);
   });
 
-  it("hides automated messages unless asked", () => {
+  it("keeps automated messages in the thread, marked", () => {
     const list = parseMessages([raw({ id: "p" }), raw({ id: "w", source: "workflow" })]);
-    expect(visibleMessages(list, false).map((m) => m.id)).toEqual(["p"]);
-    expect(visibleMessages(list, true).map((m) => m.id)).toEqual(["p", "w"]);
+    expect(list.map((m) => [m.id, m.automated])).toEqual([["p", false], ["w", true]]);
   });
 });
 
@@ -164,13 +162,13 @@ describe("attachments", () => {
 });
 
 describe("the summary line", () => {
-  it("counts people's messages and pictures, and finds the last message each way", () => {
+  it("counts every message and picture, and finds the last message each way", () => {
     const list = parseMessages([
       raw({ id: "a", direction: "inbound", dateAdded: "2026-10-17T10:00:00.000Z" }),
       raw({ id: "b", direction: "outbound", dateAdded: "2026-10-18T10:00:00.000Z", attachments: [] }),
       raw({ id: "w", direction: "outbound", source: "workflow", dateAdded: "2026-10-19T10:00:00.000Z", attachments: [] }),
     ]);
-    expect(summarize(list)).toEqual({ total: 2, photos: 1, automated: 1, lastIn: "2026-10-17T10:00:00.000Z", lastOut: "2026-10-18T10:00:00.000Z" });
+    expect(summarize(list)).toEqual({ total: 3, photos: 1, automated: 1, lastIn: "2026-10-17T10:00:00.000Z", lastOut: "2026-10-19T10:00:00.000Z" });
     expect(summarize([])).toEqual({ total: 0, photos: 0, automated: 0, lastIn: null, lastOut: null });
   });
 });

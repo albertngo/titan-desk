@@ -176,8 +176,9 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   message list is `src/lib/conversation/thread.ts`, tested in `tests/conversation.test.ts`),
   stored nowhere, and **read-only: replying stays in GHL** ("Reply in GHL" in the header). A reply
   box would mean the app writing to GHL with a token of its own; if it is wanted, it is its own
-  decision, and the natural route is Make 4975508, like sending. Workflow, campaign and activity
-  entries are hidden behind "Show automated". Staff only: the pages leave the card out in Customer
+  decision, and the natural route is Make 4975508, like sending. The whole thread is shown (Albert,
+  2026-10-20): workflow, campaign and activity entries too, drawn lighter and labelled Automated,
+  never filtered out. Staff only: the pages leave the card out in Customer
   view, and the customer deployment never has it. Pictures are shown straight from GHL's URLs; one
   the browser cannot load falls back to a link.
 - **All quotes (2026-10-15).** One row per quote, its versions folded under it (newest first),

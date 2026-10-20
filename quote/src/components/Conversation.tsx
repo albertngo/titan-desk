@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { conversationAction } from "@/app/actions/conversation";
-import { callLength, photos, summarize, visibleMessages, type Attachment, type Message, type ThreadSummary } from "@/lib/conversation/thread";
+import { callLength, photos, summarize, type Attachment, type Message, type ThreadSummary } from "@/lib/conversation/thread";
 import { ghlContactUrl } from "@/lib/ghl/ids";
 import type { ConversationResult } from "@/lib/quotes/types";
 
@@ -184,13 +184,12 @@ export function ConversationDrawer({ contactId }: { contactId: string }) {
 /* ---------- the thread itself, shared by both ---------- */
 
 function ConversationBody({ result, ghlUrl }: { result: ConversationResult | null; ghlUrl: string }) {
-  const [showAutomated, setShowAutomated] = useState(false);
   const [shown, setShown] = useState(PAGE);
   const [lightbox, setLightbox] = useState<Attachment | null>(null);
 
   const all = result?.ok ? result.messages : [];
-  const summary = summarize(all);
-  const visible = visibleMessages(all, showAutomated);
+  // The whole thread, booking texts and activity included (Albert, 2026-10-20); automated ones are drawn lighter.
+  const visible = all;
   const thread = visible.slice(Math.max(0, visible.length - shown));
   const earlier = visible.length - thread.length;
   const pics = photos(visible);
@@ -233,13 +232,6 @@ function ConversationBody({ result, ghlUrl }: { result: ConversationResult | nul
         </ol>
       )}
 
-      {result?.ok && summary.automated > 0 && (
-        <label className="check-in conv-auto">
-          <input type="checkbox" checked={showAutomated} onChange={(e) => setShowAutomated(e.target.checked)} />
-          Show {summary.automated} automated message{summary.automated === 1 ? "" : "s"} (booking texts, reminders, activity)
-        </label>
-      )}
-
       {lightbox && (
         <div className="conv-light" role="dialog" aria-label={lightbox.name} onClick={() => setLightbox(null)}>
           <img src={lightbox.url} alt={lightbox.name} referrerPolicy="no-referrer" />
@@ -265,7 +257,7 @@ function Bubble({ m, onOpen }: { m: Message; onOpen: (a: Attachment) => void }) 
   return (
     <li className={`conv-msg ${m.direction}${m.automated ? " auto" : ""}`}>
       <div className="conv-meta">
-        <span className="conv-who">{m.direction === "in" ? "Customer" : m.channel === "note" ? "Note" : "Titan"}</span>
+        <span className="conv-who">{m.direction === "in" ? "Customer" : m.channel === "note" ? "Note" : m.automated ? "Automated" : "Titan"}</span>
         <span className="conv-ch">{m.label}</span>
         {m.callSeconds !== null && <span className="conv-ch">{callLength(m.callSeconds)}</span>}
         {m.at && (

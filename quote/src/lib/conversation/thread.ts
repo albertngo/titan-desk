@@ -30,7 +30,7 @@ export type Message = {
   /** ISO time; null when GHL gave none. */
   at: string | null;
   status: string | null;
-  /** Sent by a workflow, campaign or bulk action, or an activity entry: hidden unless asked for. */
+  /** Sent by a workflow, campaign or bulk action, or an activity entry: shown with the rest, drawn lighter. */
   automated: boolean;
   callSeconds: number | null;
   /** The id to fetch the full email with when the list gave no body. */
@@ -41,7 +41,7 @@ export type ThreadSummary = {
   total: number;
   photos: number;
   automated: number;
-  /** When the customer last wrote / was last written to (ISO), by the messages that count. */
+  /** When the customer last wrote / was last written to (ISO). */
   lastIn: string | null;
   lastOut: string | null;
 };
@@ -222,23 +222,18 @@ export function sortThread(messages: Message[]): Message[] {
     });
 }
 
-/** The messages the screen shows: people's messages always, automated ones only when asked. */
-export function visibleMessages(messages: Message[], showAutomated: boolean): Message[] {
-  return showAutomated ? messages : messages.filter((m) => !m.automated);
-}
-
 /** Every picture in the thread, newest first, for the photo strip. */
 export function photos(messages: Message[]): Attachment[] {
   return [...messages].reverse().flatMap((m) => m.attachments.filter((a) => a.kind === "image"));
 }
 
+/** The whole thread counts (Albert, 2026-10-20): automated messages are shown with the rest, only drawn differently. */
 export function summarize(messages: Message[]): ThreadSummary {
-  const people = messages.filter((m) => !m.automated);
-  const last = (dir: Message["direction"]) => people.filter((m) => m.direction === dir && m.at).map((m) => m.at as string).sort().pop() ?? null;
+  const last = (dir: Message["direction"]) => messages.filter((m) => m.direction === dir && m.at).map((m) => m.at as string).sort().pop() ?? null;
   return {
-    total: people.length,
+    total: messages.length,
     photos: photos(messages).length,
-    automated: messages.length - people.length,
+    automated: messages.filter((m) => m.automated).length,
     lastIn: last("in"),
     lastOut: last("out"),
   };
