@@ -63,9 +63,12 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   It confirms only the address the person saw (refused if it changed since the page opened), never
   a won job's, and on a linked quote writes it to the opportunity through Make before marking it
   Confirmed. Rule: `confirmAddressCheck()` in `src/lib/link/linkJob.ts`.
-- **Quick form = the preliminary (Albert, 2026-10-15).** Step 4 of New quote, "The job", replaces
+- **Quick form = the preliminary (Albert, 2026-10-15).** Step 1 of New quote, "Job", replaces
   the GHL "Preliminary Mobile Quote" form: pick work from short lists, type square footage, see a
   live estimate, and Create quote makes v1 (Preliminary) with one priced option, opened for review.
+  The screen runs Job → Customer (site address folded in) → Timeline, and every job row shows its
+  rate and its total beside the selection, priced the same way the quote will be (`choiceRate()` /
+  `rowTotal()` in `plan.ts`; Albert, 2026-10-18).
   The choices are rows in the Airtable table **Quick Quote Choices** (`QUICK_TABLE`), each pointing
   at Rate Card rows, Stair Items or, for materials, a standard catalogue **SKU** (text, not a link,
   so the catalogue's schema and its drift check are untouched); staff can pick a different SKU.
