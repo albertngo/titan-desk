@@ -1,3 +1,4 @@
+import { optionTotals, round2 } from "@/lib/calc";
 import { LINE_TYPE, type EditorLine } from "@/lib/editor/model";
 import { isStairMethod, isStairType, STAIR_ROWS, stairProfileLine, type StairWork } from "./stairs";
 
@@ -63,6 +64,22 @@ export function amountUnit(c: QuickChoice): "sqft" | "linear ft" | "pieces" | nu
   if (u === "linear ft") return "linear ft";
   if (u) return "pieces";
   return null;
+}
+
+/**
+ * What a choice charges, for the rate column beside it (Albert, 2026-10-18): `perUnit` per square
+ * or linear foot (or piece) typed on the row, summed over the parts priced that way, and `flat`
+ * for the parts counted `times` regardless of amount. A material charges its product's rate.
+ */
+export function choiceRate(c: QuickChoice, product: QuickProduct | null = null): { perUnit: number | null; flat: number } {
+  if (c.group === "Material") {
+    const p = product ?? c.product;
+    return { perUnit: p ? p.rate : null, flat: 0 };
+  }
+  const perUnitParts = c.parts.filter((p) => !isFlat(p.uom));
+  const perUnit = perUnitParts.length ? round2(perUnitParts.reduce((s, p) => s + p.rate, 0)) : null;
+  const flat = round2(c.parts.filter((p) => isFlat(p.uom)).reduce((s, p) => s + p.rate * c.times, 0));
+  return { perUnit, flat };
 }
 
 // ---------- what the browser sends ----------
@@ -191,4 +208,13 @@ export function buildPreliminary(choices: QuickChoice[], work: QuickWork, produc
     lines.push({ ...blank("Other"), sourceKind: "manual", description: "Additional work", uom: "flat", qty: 1, unitPrice: work.extraCost });
   }
   return { lines, skipped };
+}
+
+/**
+ * One row's total for the column beside it, priced the same way the quote will be (so minimum
+ * charges count), before discount and HST. Null when the row can't be priced yet.
+ */
+export function rowTotal(choices: QuickChoice[], row: QuickRow, products: Map<string, QuickProduct>): number | null {
+  const { lines } = buildPreliminary(choices, { rows: [row], stairs: [], extraCost: null, description: "", building: null }, products);
+  return lines.length === 0 ? null : optionTotals(lines, 0, false).preDiscount;
 }

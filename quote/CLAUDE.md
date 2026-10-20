@@ -64,16 +64,19 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   a won job's, and on a linked quote writes it to the opportunity through Make before marking it
   Confirmed. Rule: `confirmAddressCheck()` in `src/lib/link/linkJob.ts`.
 - **Two ways to start a quote (Albert, 2026-10-18).** The front page has **+ New quote** (`/new`:
-  customer, opportunity, timing; v1 is *Measured* and opens empty in the editor) and
-  **+ Preliminary quote** (`/new?kind=preliminary`: the same, plus "The job", the quick form; v1 is
-  *Preliminary* with one priced option, opened for review). The request says `kind: "measured"`
-  for the first; anything else is a preliminary (`parseNewQuote()` in `src/lib/link/newQuote.ts`).
-- **Quick form = the preliminary (Albert, 2026-10-15; phone layout 2026-10-18).** "The job"
-  replaces the GHL "Preliminary Mobile Quote" form and its workflow: pick flooring work from
-  short lists, type square footage, add staircases, see a live estimate. Laid out for a phone:
-  Flooring, then Stairs, then anything else; each work group folds to a one-line summary; short
-  lists are chips; "Same as install" copies the square footage onto Remove and Material rows; the
-  estimate and Create stay on screen (`src/components/QuickWork.tsx`). The flooring choices are
+  customer with the site address folded in, then timeline; v1 is *Measured* and opens empty in the
+  editor) and **+ Preliminary quote** (`/new?kind=preliminary`: the job first, then customer, then
+  timeline, with the step numbers counted; v1 is *Preliminary* with one priced option, opened for
+  review). The request says `kind: "measured"` for the first; anything else is a preliminary
+  (`parseNewQuote()` in `src/lib/link/newQuote.ts`).
+- **Quick form = the preliminary (Albert, 2026-10-15; phone layout 2026-10-18).** "Job", step 1
+  of a preliminary, replaces the GHL "Preliminary Mobile Quote" form and its workflow: pick flooring
+  work from short lists, type square footage, add staircases, see a live estimate. Laid out for a
+  phone: Flooring, then Stairs, then anything else; each work group folds to a one-line summary;
+  short lists are chips; "Same as install" copies the square footage onto Remove and Material rows;
+  every row shows its rate and its total beside the selection, priced the same way the quote will
+  be (`choiceRate()` / `rowTotal()` in `plan.ts`); the estimate and Create stay on screen
+  (`src/components/QuickWork.tsx`). The flooring choices are
   rows in the Airtable table **Quick Quote Choices** (`QUICK_TABLE`), each pointing at Rate Card
   rows or, for materials, a standard catalogue **SKU** (text, not a link, so the catalogue's
   schema and its drift check are untouched); staff can pick a different SKU. Prices are never

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { optionTotals } from "../src/lib/calc";
-import { amountUnit, buildPreliminary, parseWork, QUICK_GROUPS, workIsEmpty, type QuickChoice, type QuickPart, type QuickProduct } from "../src/lib/quick/plan";
+import { amountUnit, buildPreliminary, choiceRate, parseWork, QUICK_GROUPS, rowTotal, workIsEmpty, type QuickChoice, type QuickPart, type QuickProduct } from "../src/lib/quick/plan";
 
 // INVENTED rates, costs, ids and products only: this repo is public.
 const part = (o: Partial<QuickPart> & { recordId: string }): QuickPart => ({ kind: "rate", labourType: "Install", spec: "SPEC", description: "Install | SPEC", contractor: "Crew A", uom: "sqft", rate: 2, cost: 1, minCharge: null, ...o });
@@ -53,6 +53,27 @@ describe("quick form: the lines it becomes", () => {
   it("totals the same way every quote does", () => {
     const { lines } = buildPreliminary(choices, parseWork({ rows: [{ choiceId: NAIL.id, amount: 100 }, { choiceId: BINS.id }, { choiceId: MAT.id, amount: 100 }] }), new Map());
     expect(optionTotals(lines, 0, false).preDiscount).toBe(100 * 2 + 2 * 300 + 100 * 3);
+  });
+
+  it("shows a choice's rate beside it: per unit, flat, or the product's", () => {
+    expect(choiceRate(NAIL)).toEqual({ perUnit: 2, flat: 0 });
+    expect(choiceRate(NAIL_GLUE)).toEqual({ perUnit: 2.5, flat: 0 });
+    expect(choiceRate(BINS)).toEqual({ perUnit: null, flat: 600 });
+    expect(choiceRate(MAT)).toEqual({ perUnit: 3, flat: 0 });
+    expect(choiceRate(MAT, OTHER)).toEqual({ perUnit: 5, flat: 0 });
+    expect(choiceRate(MAT_UNSET)).toEqual({ perUnit: null, flat: 0 });
+    const mixed = choice({ id: "recMixed00000000A", times: 1, parts: [part({ recordId: "r1", rate: 1.25 }), part({ recordId: "r2", uom: "flat", rate: 150 })] });
+    expect(choiceRate(mixed)).toEqual({ perUnit: 1.25, flat: 150 });
+  });
+
+  it("totals one row the way the quote will, minimum charge included, or nothing until it can be priced", () => {
+    expect(rowTotal(choices, { choiceId: NAIL_GLUE.id, amount: 400, productId: null }, new Map())).toBe(1000);
+    expect(rowTotal(choices, { choiceId: BINS.id, amount: null, productId: null }, new Map())).toBe(600);
+    expect(rowTotal(choices, { choiceId: MAT.id, amount: 100, productId: OTHER.recordId }, new Map([[OTHER.recordId, OTHER]]))).toBe(500);
+    expect(rowTotal(choices, { choiceId: NAIL.id, amount: null, productId: null }, new Map())).toBeNull();
+    expect(rowTotal(choices, { choiceId: MAT_UNSET.id, amount: 100, productId: null }, new Map())).toBeNull();
+    const withMin = choice({ id: "recMin0000000000A", parts: [part({ recordId: "rMin", rate: 2, minCharge: 500 })] });
+    expect(rowTotal([withMin], { choiceId: withMin.id, amount: 10, productId: null }, new Map())).toBe(500);
   });
 
   it("labels each row's amount by what its price is per", () => {

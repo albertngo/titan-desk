@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { searchProductsAction } from "@/app/new/actions";
 import { optionTotals } from "@/lib/calc";
 import { money } from "@/lib/format";
-import { amountUnit, BUILDINGS, buildPreliminary, GROUP_ROWS, parseWork, QUICK_GROUPS, type QuickChoice, type QuickGroup, type QuickProduct } from "@/lib/quick/plan";
+import { amountUnit, BUILDINGS, buildPreliminary, choiceRate, GROUP_ROWS, parseWork, QUICK_GROUPS, rowTotal, type QuickChoice, type QuickGroup, type QuickProduct } from "@/lib/quick/plan";
 import { METHOD_PHRASE, modifierFor, profileName, STAIR_METHODS, STAIR_ROWS, STAIR_TYPES, type StairMethod, type StairType } from "@/lib/quick/stairs";
 
 export type PickedProduct = Pick<QuickProduct, "recordId" | "sku" | "name" | "rate">;
@@ -38,14 +38,25 @@ export function workInput(w: WorkState) {
   };
 }
 
+/** The products staff picked on material rows, by record id, as the pricing needs them (no cost in the browser). */
+const pickedProducts = (value: WorkState) => new Map(value.rows.flatMap((r) => (r.product ? [[r.product.recordId, { ...r.product, cost: null }] as const] : [])));
+
 /** The running estimate, the same way the server will price it (before discount and HST). */
 export function estimateWork(choices: QuickChoice[], value: WorkState): { total: number; lines: number } {
-  const picked = new Map(value.rows.flatMap((r) => (r.product ? [[r.product.recordId, { ...r.product, cost: null }] as const] : [])));
-  const { lines } = buildPreliminary(choices, parseWork(workInput(value)), picked);
+  const { lines } = buildPreliminary(choices, parseWork(workInput(value)), pickedProducts(value));
   return { total: optionTotals(lines, 0, false).preDiscount, lines: lines.length };
 }
 
 const UNIT_LABEL = { sqft: "sq ft", "linear ft": "lin ft", pieces: "pcs" } as const;
+
+/** The rate column's text (Albert, 2026-10-18): "$2.50/sq ft", "$300 flat", or both when a choice has both kinds of part. */
+function rateText(c: QuickChoice, unit: keyof typeof UNIT_LABEL | null, product: PickedProduct | null): string {
+  const { perUnit, flat } = choiceRate(c, product ? { ...product, cost: null } : null);
+  const parts: string[] = [];
+  if (perUnit !== null) parts.push(`${money(perUnit)}/${unit ? UNIT_LABEL[unit] : "unit"}`);
+  if (flat > 0) parts.push(`${money(flat)} flat`);
+  return parts.join(" + ") || "No rate";
+}
 /** Up to this many choices a group shows them as chips, one tap each; more and it is a list. */
 const CHIP_LIMIT = 6;
 /** Groups open on first view; the rest start folded with their summary line. */
@@ -62,6 +73,7 @@ const clean = (s: string) => s.replace(/[$,\s]/g, "");
  */
 export function QuickWork({ choices, value, onChange }: { choices: QuickChoice[]; value: WorkState; onChange: (w: WorkState) => void }) {
   const byId = useMemo(() => new Map(choices.map((c) => [c.id, c])), [choices]);
+  const picked = useMemo(() => pickedProducts(value), [value]);
   const groups = QUICK_GROUPS.filter((g) => choices.some((c) => c.group === g));
   const missing = QUICK_GROUPS.filter((g) => !groups.includes(g));
 
@@ -110,26 +122,35 @@ export function QuickWork({ choices, value, onChange }: { choices: QuickChoice[]
                   const c = byId.get(r.choiceId);
                   const unit = c ? amountUnit(c) : g === "Disposal" ? null : "sqft";
                   const copyable = unit === "sqft" && (g === "Remove" || g === "Material") && installSqft !== null && clean(r.amount) !== clean(installSqft);
+                  const total = c ? rowTotal(choices, { choiceId: c.id, amount: toNumber(r.amount), productId: r.product?.recordId ?? null }, picked) : null;
                   return (
                     <div key={r.key} className="qw-row">
                       <ChoiceField label={`${g} ${i + 1}`} none={g === "Disposal" ? "None" : null} options={options} value={r.choiceId} onChange={(id) => setRow(r.key, { choiceId: id, product: null })} />
-                      {unit && (
+                      {(unit || c || rows.length > 1) && (
                         <div className="qw-amt-row">
-                          <label className="qw-amt">
-                            <input
-                              className="in"
-                              inputMode="decimal"
-                              placeholder="0"
-                              aria-label={`${g} ${i + 1} amount in ${unit}`}
-                              value={r.amount}
-                              onChange={(e) => setRow(r.key, { amount: e.target.value })}
-                            />
-                            <span>{UNIT_LABEL[unit]}</span>
-                          </label>
+                          {unit && (
+                            <label className="qw-amt">
+                              <input
+                                className="in"
+                                inputMode="decimal"
+                                placeholder="0"
+                                aria-label={`${g} ${i + 1} amount in ${unit}`}
+                                value={r.amount}
+                                onChange={(e) => setRow(r.key, { amount: e.target.value })}
+                              />
+                              <span>{UNIT_LABEL[unit]}</span>
+                            </label>
+                          )}
                           {copyable && (
                             <button type="button" className="linkbtn qw-same" onClick={() => setRow(r.key, { amount: installSqft! })}>
                               Same as install ({installSqft})
                             </button>
+                          )}
+                          {c && (
+                            <span className="qw-price" aria-label={`${g} ${i + 1} rate and total`}>
+                              <span className="qw-rate">{rateText(c, unit, r.product)}</span>
+                              <b>{total === null ? "—" : money(total)}</b>
+                            </span>
                           )}
                           {rows.length > 1 && (
                             <button type="button" className="iconbtn danger qw-x" aria-label={`Remove ${g} ${i + 1}`} onClick={() => removeRow(r.key)}>
@@ -137,11 +158,6 @@ export function QuickWork({ choices, value, onChange }: { choices: QuickChoice[]
                             </button>
                           )}
                         </div>
-                      )}
-                      {!unit && rows.length > 1 && (
-                        <button type="button" className="iconbtn danger qw-x" aria-label={`Remove ${g} ${i + 1}`} onClick={() => removeRow(r.key)}>
-                          ✕
-                        </button>
                       )}
                       {g === "Material" && c && <ProductPick row={r} standard={c.product} onPick={(p) => setRow(r.key, { product: p })} />}
                     </div>
@@ -180,7 +196,7 @@ export function QuickWork({ choices, value, onChange }: { choices: QuickChoice[]
               </div>
               <Chips label={`Staircase ${i + 1} type`} options={STAIR_TYPES} value={s.type} onChange={(v) => setStair(s.key, { type: v as StairType })} />
               <Chips label={`Staircase ${i + 1} method`} options={STAIR_METHODS} value={s.method} onChange={(v) => setStair(s.key, { method: v as StairMethod })} />
-              <label className="qw-price">
+              <label className="qw-money">
                 <span className="k">Price for this staircase</span>
                 <span className="qw-amt">
                   <input className="in" inputMode="decimal" placeholder="0" aria-label={`Staircase ${i + 1} price`} value={s.price} onChange={(e) => setStair(s.key, { price: e.target.value })} />
@@ -208,7 +224,7 @@ export function QuickWork({ choices, value, onChange }: { choices: QuickChoice[]
           <span className="k">Building</span>
           <Chips label="Building" options={BUILDINGS} value={value.building} onChange={(v) => set({ building: v })} allowNone />
         </div>
-        <label className="qw-price">
+        <label className="qw-money">
           <span className="k">Additional cost</span>
           <span className="qw-amt">
             <input className="in" inputMode="decimal" placeholder="0" value={value.extraCost} onChange={(e) => set({ extraCost: e.target.value })} />
