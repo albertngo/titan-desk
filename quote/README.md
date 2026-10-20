@@ -29,7 +29,8 @@ repo with Root Directory `quote`. Rules for changing it: `CLAUDE.md` in this fol
 | `src/app/api/booking/route.ts`, `src/lib/quotes/booking.ts` | the booking step Make calls when an appointment is confirmed: find the job (or make its opportunity), find or start its quote, confirm the contact's address as the site, return the name and the opportunity update; then record the folder and CompanyCam links (rules in `src/lib/link/booking.ts`) |
 | `src/lib/quotes/refresh.ts` | on every open, brings the quote's customer copy up to date from GHL (rules in `src/lib/link/refresh.ts`) |
 | `src/lib/make/client.ts` | the only caller of Make (one request per new quote) |
-| `src/lib/airtable/fields.ts` | table and field IDs (not secrets) |
+| `src/lib/airtable/fields.ts` | table and field IDs (not secrets), including the read-only Stair Profiles table (2026-10-20) |
+| `src/lib/quick/stairs.ts`, `src/lib/editor/stairBuilder.ts` | staircase profiles: the preset line for the preliminary and its customer wording; the editor's builder that expands a profile into Stair Item lines |
 | `src/lib/quotes/load.ts` | Airtable records → quotes, options, lines |
 | `src/lib/calc.ts` | all quote maths, mirroring the Airtable formulas |
 | `src/components/OptionSheet.tsx` | one option: sections, lines, flags, totals, parity banner |

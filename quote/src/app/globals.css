@@ -460,6 +460,17 @@ table.items.edit .desc { font-weight: 500; }
   .qw-x { width: 40px; height: 40px; }
   .qw-foot .btn { min-height: 48px; }
 }
+/* Stair builder, inside the Stairs picker (2026-10-20). */
+.sb { display: grid; gap: 10px; padding: 12px 16px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--card-2); }
+.sb-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; }
+.sb-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+.sb-grid label { display: grid; gap: 4px; font-size: 12px; color: var(--fg-dim); }
+.sb-grid input { text-align: right; font-variant-numeric: tabular-nums; }
+.sb-lines { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: 12.5px; max-height: 180px; overflow: auto; }
+.sb-lines li { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; border-bottom: 1px dashed var(--line); }
+.sb-msg { margin: 0; font-size: 12.5px; line-height: 1.45; padding: 8px 10px; border-radius: 8px; }
+.sb-msg.warn { background: var(--warn-soft); color: var(--warn); }
+.sb-sum { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 600; }
 .nq-newtoggle { justify-self: start; color: var(--accent); }
 .nq-site { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
 .nq-site-h { font-size: 12px; font-weight: 600; color: var(--fg-dim); }

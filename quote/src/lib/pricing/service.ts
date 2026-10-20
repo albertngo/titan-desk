@@ -24,7 +24,7 @@ export const PREMIUM_LABOUR_TYPES: readonly string[] = ["Install", "Remove", "Re
 
 export const levelOf = (o: { serviceLevel?: string | null }): ServiceLevel => (o.serviceLevel === "Premium" ? "Premium" : "Standard");
 
-/** Whether the service level changes this line's price. */
+/** Whether the service level changes this line's price. A Stair Profile's preset (2026-10-20) is a customer price as set: never marked up. */
 export function levelApplies(l: { sourceKind: string; labourType: string | null }): boolean {
   if (l.sourceKind === "stair") return true;
   return l.sourceKind === "rate" && l.labourType !== null && PREMIUM_LABOUR_TYPES.includes(l.labourType);

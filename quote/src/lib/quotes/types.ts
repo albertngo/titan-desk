@@ -1,11 +1,12 @@
 import type { LineInput, OptionTotals } from "@/lib/calc";
 import type { Message } from "@/lib/conversation/thread";
 import type { GhlContact } from "@/lib/ghl/types";
+import type { StairMethod, StairType } from "@/lib/quick/stairs";
 
 export type QuoteLine = LineInput & {
   id: string;
-  /** Where the price came from: a Rate Card row, a Stair Item, a catalogue product, or typed in. */
-  sourceKind: "rate" | "stair" | "product" | "manual";
+  /** Where the price came from: a Rate Card row, a Stair Item, a catalogue product, a Stair Profile's preset (2026-10-20), or typed in. */
+  sourceKind: "rate" | "stair" | "product" | "profile" | "manual";
   sourceId: string | null;
   /** Rate Card labour type and specification, for lines priced from the card. */
   labourType: string | null;
@@ -118,7 +119,24 @@ export type StairRow = {
   cost: number | null;
 };
 
-export type RateCard = { rates: RateRow[]; stairs: StairRow[]; materials?: MaterialRow[] };
+/** Which Stair Items a profile expands into, by record id, and what each list is counted per. */
+export type StairTemplate = { perStep: string[]; perStaircase: string[]; perOpenSide: string[]; perHandrailFt: string[]; perSpindle: string[]; perPost: string[] };
+
+/** A Stair Profiles row (2026-10-20): a preset-priced staircase for the preliminary, and the builder's template. */
+export type StairProfileRow = {
+  id: string;
+  name: string;
+  type: StairType;
+  method: StairMethod;
+  /** The step count the preset assumes; the builder's default. */
+  steps: number | null;
+  price: number;
+  cost: number | null;
+  sort: number;
+  template: StairTemplate;
+};
+
+export type RateCard = { rates: RateRow[]; stairs: StairRow[]; materials?: MaterialRow[]; profiles?: StairProfileRow[] };
 
 /* ---------- starting a quote (src/lib/quotes/start.ts) ---------- */
 

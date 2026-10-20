@@ -18,7 +18,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pinned (2026-10-20): "latest" asks the GitHub API for the newest release and fails
+          # when the runner is rate-limited. Bump by hand when a newer CLI is wanted.
+          version: 2.121.0
       - name: Start local Supabase
         run: supabase --workdir db start -x studio,inbucket,realtime,edge-runtime,logflare,vector,imgproxy
       - name: pgTAP tests

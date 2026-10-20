@@ -1,13 +1,16 @@
 import { manualLine, type EditorLine } from "@/lib/editor/model";
+import type { StairProfileRow } from "@/lib/quotes/types";
 
 /**
- * Stair profiles on the preliminary (Albert, 2026-10-18). The GHL mobile quote priced stairs by
- * "profile" (Main Stairs – Sand, Townhome – Vinyl Tread…) and a ChatGPT step turned the profile
- * into a customer-facing description. Here a profile is a stair type plus a method, the price is a
- * flat amount typed by staff, and the description is the old prompt's rules written out, so the
- * same profile always produces the same words. Pure, no I/O; tested in tests/stairs.test.ts.
+ * Stair profiles on the preliminary (Albert, 2026-10-18; presets 2026-10-20). The GHL mobile
+ * quote priced stairs by "profile" (Wood on Main Stairs, Sand Steps…) at a preset price, and a
+ * ChatGPT step turned the profile into a customer-facing description. Here a profile is a Stair
+ * Profiles row in Airtable (a name, a stair type, a method, a preset price and cost) and the
+ * description is the old prompt's rules written out from the type and method, so the same profile
+ * always produces the same words. Pure, no I/O; tested in tests/stairs.test.ts.
  *
- * The phrases are customer copy, not data: change them here and they change everywhere.
+ * The phrases are customer copy, not data: change them here and they change everywhere. The
+ * prices are data: they live on the rows, never here.
  */
 
 export const STAIR_TYPES = ["Main stairs", "Townhome", "Basement", "Half staircase"] as const;
@@ -17,8 +20,6 @@ export const STAIR_METHODS = ["Sand & stain", "Solid red oak caps", "Vinyl tread
 export type StairMethod = (typeof STAIR_METHODS)[number];
 
 export type StairProfile = { type: StairType; method: StairMethod };
-/** One staircase on the quick form: its profile and the flat price staff typed. */
-export type StairWork = StairProfile & { price: number };
 
 /** How many staircases the quick form offers (the GHL form had two profiles; three gives room). */
 export const STAIR_ROWS = 3;
@@ -65,11 +66,33 @@ export function parseProfile(description: string | null | undefined): StairProfi
 }
 
 /**
- * One staircase as a quote line: a flat, hand-priced line in the Stairs section. It has no card
- * source, so Premium never marks it up and the typed price is the customer's price.
+ * One staircase as a hand-priced line in the Stairs section (the fallback when no Stair Profiles
+ * row fits). It has no card source, so Premium never marks it up and the typed price is the price.
  */
 export function stairProfileLine(type: StairType, method: StairMethod, price: number | null): EditorLine {
   return { ...manualLine("Stairs", profileName({ type, method })), uom: "flat", qty: 1, unitPrice: price };
+}
+
+/** What a Stair Profiles row says for the description: its type and method. */
+export const profileOf = (row: Pick<StairProfileRow, "type" | "method">): StairProfile => ({ type: row.type, method: row.method });
+
+/**
+ * One staircase priced from a Stair Profiles row (2026-10-20): the preset price and cost as the
+ * card figures, an override only when staff typed a different price. The row is the line's source,
+ * so the editor's builder can later expand it into Stair Item lines; Premium never marks it up.
+ */
+export function profileLine(row: Pick<StairProfileRow, "id" | "name" | "price" | "cost">, override: number | null): EditorLine {
+  return {
+    ...manualLine("Stairs", row.name),
+    sourceKind: "profile",
+    sourceId: row.id,
+    uom: "each",
+    qty: 1,
+    unitPriceSnap: row.price,
+    unitCostSnap: row.cost,
+    unitPrice: override,
+    hasSource: true,
+  };
 }
 
 /* ---------- the description ---------- */

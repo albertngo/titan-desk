@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { lineFlags, lineTotal } from "../src/lib/calc";
-import { CLOSING_SENTENCE, METHOD_PHRASE, modifierFor, parseProfile, profileName, STAIR_METHODS, STAIR_TYPES, stairDescription, stairProfileLine } from "../src/lib/quick/stairs";
+import { CLOSING_SENTENCE, METHOD_PHRASE, modifierFor, parseProfile, profileLine, profileName, profileOf, STAIR_METHODS, STAIR_TYPES, stairDescription, stairProfileLine } from "../src/lib/quick/stairs";
 
 /* Invented prices only (quote/CLAUDE.md rule 4). The phrases are customer copy, not data. */
 
@@ -12,7 +12,17 @@ describe("stair profiles (2026-10-18)", () => {
     for (const bad of ["Main stairs", "Attic – Sand & stain", "Main stairs – Carpet", "Click install", "", null]) expect(parseProfile(bad)).toBeNull();
   });
 
-  it("makes a flat, hand-priced line in the Stairs section with no card source", () => {
+  it("prices a staircase from a Stair Profiles row: preset as the card figures, the row as the source, a typed price as the override (2026-10-20)", () => {
+    const row = { id: "recProf000000000A", name: "Wood on main stairs", type: "Main stairs" as const, method: "Solid red oak caps" as const, price: 4000, cost: 2600 };
+    const l = profileLine(row, null);
+    expect([l.section, l.lineType, l.sourceKind, l.sourceId, l.hasSource, l.uom, l.qty, l.unitPriceSnap, l.unitCostSnap, l.unitPrice, l.description]).toEqual(["Stairs", "Stairs", "profile", row.id, true, "each", 1, 4000, 2600, null, "Wood on main stairs"]);
+    expect(lineTotal(l)).toBe(4000);
+    expect(lineFlags(l)).toEqual([]);
+    expect(lineTotal(profileLine(row, 4500))).toBe(4500);
+    expect(profileOf(row)).toEqual({ type: "Main stairs", method: "Solid red oak caps" });
+  });
+
+  it("makes a flat, hand-priced line in the Stairs section with no card source (the fallback)", () => {
     const l = stairProfileLine("Basement", "Vinyl flooring", 950);
     expect([l.section, l.lineType, l.sourceKind, l.sourceId, l.hasSource, l.uom, l.qty, l.unitPrice, l.description]).toEqual(["Stairs", "Stairs", "manual", null, false, "flat", 1, 950, "Basement – Vinyl flooring"]);
     expect(lineTotal(l)).toBe(950);

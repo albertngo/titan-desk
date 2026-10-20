@@ -47,7 +47,7 @@ const oneOf = <T extends string>(list: readonly T[], v: string | null): T | null
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
 const text = (v: unknown, max = LIMITS.text): string => (typeof v === "string" ? v.slice(0, max) : "");
 const nullableText = (v: unknown, max = 200): string | null => (typeof v === "string" && v.trim() !== "" ? v.trim().slice(0, max) : null);
-const SOURCE_KINDS = ["rate", "stair", "product", "manual"] as const;
+const SOURCE_KINDS = ["rate", "stair", "product", "profile", "manual"] as const;
 
 function cleanLine(raw: unknown, i: number): EditorLine {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
@@ -145,6 +145,7 @@ export function lineFields(l: EditorLine, sortOrder: number): Fields {
     [LINE.rateItem]: l.sourceKind === "rate" && l.sourceId ? [l.sourceId] : [],
     [LINE.stairItem]: l.sourceKind === "stair" && l.sourceId ? [l.sourceId] : [],
     [LINE.product]: l.sourceKind === "product" && l.sourceId ? [l.sourceId] : [],
+    [LINE.stairProfile]: l.sourceKind === "profile" && l.sourceId ? [l.sourceId] : [],
     [LINE.installMaterial]: l.sourceKind === "rate" && l.materialId ? [l.materialId] : [],
   };
 }

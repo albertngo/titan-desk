@@ -11,7 +11,7 @@ export type Section = (typeof SECTIONS)[number] | "Unsorted";
 
 export type EditorLine = LineInput & {
   id: string;
-  sourceKind: "rate" | "stair" | "product" | "manual";
+  sourceKind: "rate" | "stair" | "product" | "profile" | "manual";
   sourceId: string | null;
   labourType: string | null;
   spec: string | null;
@@ -353,6 +353,12 @@ export function updateOption(q: EditorQuote, optionId: string, patch: Partial<Pi
 
 export function addLine(q: EditorQuote, optionId: string, line: EditorLine): EditorQuote {
   return mapOption(q, optionId, (o) => ({ ...o, lines: [...o.lines, line] }));
+}
+
+/** Several lines at once (the stair builder), optionally in place of lines it replaces (a profile's preset line). */
+export function addLines(q: EditorQuote, optionId: string, lines: EditorLine[], replacing: string[] = []): EditorQuote {
+  const drop = new Set(replacing);
+  return mapOption(q, optionId, (o) => ({ ...o, lines: [...o.lines.filter((l) => !drop.has(l.id)), ...lines] }));
 }
 
 export function updateLine(q: EditorQuote, optionId: string, lineId: string, patch: Partial<EditorLine>): EditorQuote {

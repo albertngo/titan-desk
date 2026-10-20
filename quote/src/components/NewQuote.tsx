@@ -6,7 +6,7 @@ import { searchCustomersAction, startQuoteAction } from "@/app/new/actions";
 import { displayPhone } from "@/lib/link/identity";
 import { stageFor, TIMINGS, type Timing } from "@/lib/link/lead";
 import type { NewQuoteKind } from "@/lib/link/newQuote";
-import type { QuickChoice } from "@/lib/quick/plan";
+import type { QuickChoice, QuickProfile } from "@/lib/quick/plan";
 import type { CustomerSearch, FoundCustomer } from "@/lib/quotes/types";
 import { money } from "@/lib/format";
 import { Conversation } from "./Conversation";
@@ -23,7 +23,7 @@ const blankCustomer = { firstName: "", lastName: "", phone: "", email: "", addre
  * full quote stops at the timing question and opens v1 Measured, empty, in the editor.
  * `conversation`: show the picked customer's GHL conversation under the customer (off in Customer view).
  */
-export function NewQuote({ ghlWrites, choices, kind, conversation = false }: { ghlWrites: boolean; choices: QuickChoice[]; kind: NewQuoteKind; conversation?: boolean }) {
+export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = false }: { ghlWrites: boolean; choices: QuickChoice[]; profiles: QuickProfile[]; kind: NewQuoteKind; conversation?: boolean }) {
   const prelim = kind === "preliminary";
   const [work, setWork] = useState<WorkState>(() => initialWork(choices));
   const [query, setQuery] = useState("");
@@ -80,7 +80,7 @@ export function NewQuote({ ghlWrites, choices, kind, conversation = false }: { g
 
   const linked = picked !== null && (choice as { opportunityId: string | null }).opportunityId !== null;
   const ready = timing !== null && (picked !== null || (isNew && (nc.firstName.trim() || nc.lastName.trim()) && (nc.phone.trim() || nc.email.trim())));
-  const estimate = prelim ? estimateWork(choices, work) : null;
+  const estimate = prelim ? estimateWork(choices, profiles, work) : null;
 
   // Sections in order (Albert, 2026-10-18): Job → Customer → Timeline. The job card is only on a
   // preliminary, so the numbers are counted, not typed.
@@ -105,7 +105,7 @@ export function NewQuote({ ghlWrites, choices, kind, conversation = false }: { g
         <section className="card">
           <div className="card-h">1 · Job <span className="right">Preliminary, not measured</span></div>
           <div className="card-b">
-            <QuickWork choices={choices} value={work} onChange={setWork} />
+            <QuickWork choices={choices} profiles={profiles} value={work} onChange={setWork} />
           </div>
         </section>
       )}

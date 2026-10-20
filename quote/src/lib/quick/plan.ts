@@ -1,6 +1,7 @@
 import { optionTotals, round2 } from "@/lib/calc";
 import { LINE_TYPE, type EditorLine } from "@/lib/editor/model";
-import { isStairMethod, isStairType, STAIR_ROWS, stairProfileLine, type StairWork } from "./stairs";
+import type { StairProfileRow } from "@/lib/quotes/types";
+import { profileLine, STAIR_ROWS } from "./stairs";
 
 /**
  * The quick form (Albert, 2026-10-15): staff pick the work from short lists and type square
@@ -85,7 +86,12 @@ export function choiceRate(c: QuickChoice, product: QuickProduct | null = null):
 // ---------- what the browser sends ----------
 
 export type QuickRow = { choiceId: string; amount: number | null; productId: string | null };
+/** One staircase: which Stair Profiles row, and a different price only when staff typed one. */
+export type StairWork = { profileId: string; price: number | null };
 export type QuickWork = { rows: QuickRow[]; stairs: StairWork[]; extraCost: number | null; description: string; building: string | null };
+
+/** A Stair Profiles row as the form needs it. The browser gets these with `cost` null. */
+export type QuickProfile = Pick<StairProfileRow, "id" | "name" | "type" | "method" | "steps" | "price" | "cost">;
 
 export const BUILDINGS = ["House", "Townhouse", "Condo / Apartment", "Commercial"] as const;
 
@@ -101,11 +107,10 @@ export function parseWork(raw: unknown): QuickWork {
     const productId = typeof o.productId === "string" && REC.test(o.productId) ? o.productId : null;
     return [{ choiceId: o.choiceId, amount: amountOf(o.amount), productId }];
   });
-  // A staircase needs a type, a method and a price; anything else is dropped, never guessed.
+  // A staircase is a profile id; a typed price is kept only as an override. Anything else is dropped, never guessed.
   const stairs = (Array.isArray(r.stairs) ? r.stairs : []).slice(0, STAIR_ROWS).flatMap((x): StairWork[] => {
     const o = (x && typeof x === "object" ? x : {}) as Record<string, unknown>;
-    const price = amountOf(o.price);
-    return isStairType(o.type) && isStairMethod(o.method) && price !== null ? [{ type: o.type, method: o.method, price }] : [];
+    return typeof o.profileId === "string" && REC.test(o.profileId) ? [{ profileId: o.profileId, price: amountOf(o.price) }] : [];
   });
   const building = typeof r.building === "string" && (BUILDINGS as readonly string[]).includes(r.building) ? r.building : null;
   return { rows, stairs, extraCost: amountOf(r.extraCost), description: typeof r.description === "string" ? r.description.trim().slice(0, 2000) : "", building };
@@ -148,9 +153,9 @@ export type BuildResult = { lines: EditorLine[]; skipped: string[] };
 /**
  * The preliminary's lines. A row needs an amount unless every part is flat; a material row needs a
  * product (its chosen one, else the standard one). Rows that can't be priced are skipped and named.
- * Each staircase becomes one flat Stairs line at the typed price.
+ * Each staircase becomes one Stairs line at its profile's preset price (or the typed override).
  */
-export function buildPreliminary(choices: QuickChoice[], work: QuickWork, products: Map<string, QuickProduct>): BuildResult {
+export function buildPreliminary(choices: QuickChoice[], work: QuickWork, products: Map<string, QuickProduct>, profiles: Map<string, QuickProfile> = new Map()): BuildResult {
   const byId = new Map(choices.map((c) => [c.id, c]));
   const lines: EditorLine[] = [];
   const skipped: string[] = [];
@@ -203,7 +208,14 @@ export function buildPreliminary(choices: QuickChoice[], work: QuickWork, produc
       });
     }
   }
-  for (const s of work.stairs) lines.push(stairProfileLine(s.type, s.method, s.price));
+  for (const s of work.stairs) {
+    const p = profiles.get(s.profileId);
+    if (!p) {
+      skipped.push("a staircase profile that's no longer on the form");
+      continue;
+    }
+    lines.push(profileLine(p, s.price));
+  }
   if (work.extraCost !== null) {
     lines.push({ ...blank("Other"), sourceKind: "manual", description: "Additional work", uom: "flat", qty: 1, unitPrice: work.extraCost });
   }
@@ -218,3 +230,6 @@ export function rowTotal(choices: QuickChoice[], row: QuickRow, products: Map<st
   const { lines } = buildPreliminary(choices, { rows: [row], stairs: [], extraCost: null, description: "", building: null }, products);
   return lines.length === 0 ? null : optionTotals(lines, 0, false).preDiscount;
 }
+
+/** What one staircase row shows beside its dropdown: the preset, or the price staff typed over it. */
+export const stairTotal = (p: Pick<QuickProfile, "price">, override: number | null): number => override ?? p.price;
