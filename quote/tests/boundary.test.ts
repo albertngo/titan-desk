@@ -142,10 +142,12 @@ describe("GHL boundary", () => {
     // Only the conversation reads: no contact search, no opportunity change.
     expect(loader).not.toMatch(/make\/client|sendToGhl/);
     // The pages leave it out in Customer view, and the customer pages never import it.
-    expect(all.find((f) => f.rel === "app/q/[id]/page.tsx")!.text).toMatch(/\{!customer && quote\.link\?\.ghlContactId && <Conversation/);
+    for (const page of ["app/q/[id]/page.tsx", "app/q/[id]/edit/page.tsx"]) {
+      expect(all.find((f) => f.rel === page)!.text).toMatch(/\{!customer && quote\.link\?\.ghlContactId && <ConversationDrawer/);
+    }
     expect(all.find((f) => f.rel === "app/new/page.tsx")!.text).toMatch(/conversation=\{!customer\}/);
     const importers = all.filter((f) => /from ["'](@\/app\/actions\/conversation|@\/lib\/quotes\/conversation|@\/components\/Conversation|\.\/Conversation)["']/.test(f.text)).map((f) => f.rel).sort();
-    expect(importers).toEqual(["app/actions/conversation.ts", "app/q/[id]/page.tsx", "components/Conversation.tsx", "components/NewQuote.tsx"]);
+    expect(importers).toEqual(["app/actions/conversation.ts", "app/q/[id]/edit/page.tsx", "app/q/[id]/page.tsx", "components/Conversation.tsx", "components/NewQuote.tsx"]);
   });
 });
 

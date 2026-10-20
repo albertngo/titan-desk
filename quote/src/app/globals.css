@@ -634,7 +634,6 @@ a.chip.accent:hover { text-decoration: underline; }
 .conv-subj { font-weight: 600; margin-bottom: 2px; }
 .conv-body { white-space: pre-wrap; overflow-wrap: anywhere; }
 .conv-files { margin: 6px 0 0; padding: 0; list-style: none; font-size: 12.5px; display: grid; gap: 2px; }
-.conv-auto { font-size: 12.5px; color: var(--fg-dim); }
 .conv-light { position: fixed; inset: 0; z-index: 50; background: rgba(20, 30, 45, .88); display: grid; grid-template-rows: minmax(0, 1fr) auto; cursor: zoom-out; }
 .conv-light img { max-width: 100%; max-height: 100%; object-fit: contain; margin: auto; display: block; padding: 16px; box-sizing: border-box; }
 .conv-light-bar { display: flex; gap: 8px; align-items: center; padding: 10px 16px; background: var(--card); cursor: default; font-size: 12.5px; color: var(--fg-dim); }
@@ -650,3 +649,25 @@ a.chip.accent:hover { text-decoration: underline; }
 }
 @media (max-width: 560px) { .conv-msg { max-width: 94%; } .conv-sum { display: none; } }
 @media (pointer: coarse) { .conv-toggle { min-height: 32px; } .conv-ghl { min-height: 32px; display: inline-flex; align-items: center; } }
+/* the conversation as a side drawer on the quote page and the editor (2026-10-20) */
+.conv-tab { position: fixed; right: 0; top: 160px; z-index: 40; writing-mode: vertical-rl; transform: rotate(180deg); display: inline-flex; align-items: center; gap: 8px; padding: 12px 7px; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--fg-dim); background: var(--card); border: 1px solid var(--line-strong); border-right: 0; border-radius: 0 6px 6px 0; box-shadow: var(--shadow); cursor: pointer; transition: color .15s, border-color .15s, right .15s; }
+.conv-tab:hover, .conv-tab.on { color: var(--accent); border-color: var(--accent); }
+.conv-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.conv-tab.on { right: min(440px, 100vw); }
+.conv-tab-n { font-size: 11px; padding: 2px 6px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); writing-mode: horizontal-tb; transform: rotate(90deg); }
+.conv-tab-n.photo { background: var(--good-soft); color: var(--good); white-space: nowrap; }
+.conv-panel { position: fixed; top: 0; right: 0; bottom: 0; width: min(440px, 100vw); z-index: 40; background: var(--card); border-left: 1px solid var(--line); box-shadow: -8px 0 28px rgba(20, 30, 45, .10); display: grid; grid-template-rows: auto minmax(0, 1fr); }
+.conv-panel .card-h { border-radius: 0; }
+.conv-title { display: inline-flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 auto; font-weight: 600; }
+.conv-close { all: unset; cursor: pointer; font-size: 20px; line-height: 1; color: var(--fg-faint); padding: 0 2px; }
+.conv-close:hover { color: var(--fg); }
+.conv-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.conv-panel-b { overflow: auto; padding: 16px; align-content: start; }
+/* On a wide screen the page makes room beside the open panel instead of being covered. */
+@media (min-width: 1200px) {
+  html[data-conv-open="1"] .page { padding-right: calc(440px + clamp(16px, 2.5vw, 32px)); }
+  html[data-conv-open="1"] .topbar-in { padding-right: calc(440px + clamp(16px, 2.5vw, 32px)); }
+}
+@media (prefers-reduced-motion: reduce) { .conv-tab { transition: none; } }
+@media print { .conv-tab, .conv-panel { display: none; } }
+.conv-more { margin-top: 4px; font-size: 12px; font-weight: 600; color: var(--accent); }
