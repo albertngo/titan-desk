@@ -1,6 +1,7 @@
 import { optionTotals, parityDiffs } from "@/lib/calc";
 import type { Quote } from "@/lib/quotes/types";
-import { addDays, isIsoDate, longDate, type CustomerCopy } from "./copy";
+import { addDays, isIsoDate, longDate, type CopyOption, type CustomerCopy } from "./copy";
+import { copyKind, flooringSummary, kindPhrase } from "./summary";
 
 /**
  * Sending a quote (milestone 4, Albert 2026-10-15): the checks before anything leaves, and the
@@ -9,6 +10,8 @@ import { addDays, isIsoDate, longDate, type CustomerCopy } from "./copy";
  *
  * Email and text both go through GHL, so they land in the customer's conversation, from the
  * location's own email and number. The email carries the link and the PDF; the text, the link.
+ * The wording follows what is quoted (flooring, stairs or both, 2026-10-18), and the email lists
+ * what each option includes, the way the old mobile-quote messages did: src/lib/send/summary.ts.
  */
 
 export type Channels = { email: boolean; sms: boolean };
@@ -59,10 +62,34 @@ export function greetingName(first: string | null | undefined): string | null {
   return f && /^[\p{L}][\p{L}'’-]*$/u.test(f) ? f : null;
 }
 
+/**
+ * "What's included" for one option: the flooring summary lines, then the option's own description
+ * (the stair description's bullets become list items; other lines, paragraphs), then the timing.
+ */
+function includedHtml(o: CopyOption, copy: CustomerCopy, several: boolean): string {
+  const items = flooringSummary(o).map((l) => `<li>${esc(l)}</li>`);
+  const paras: string[] = [];
+  for (const raw of (o.description ?? "").split("\n")) {
+    const l = raw.trim();
+    if (!l) continue;
+    if (l.startsWith("* ")) items.push(`<li>${esc(l.slice(2))}</li>`);
+    else paras.push(`<p style="margin:6px 0">${esc(l)}</p>`);
+  }
+  if (copy.timing) items.push(`<li>Timing: ${esc(copy.timing)}</li>`);
+  if (items.length === 0 && paras.length === 0) return "";
+  return [
+    several ? `<p style="margin:14px 0 4px"><b>${esc(o.name)}</b></p>` : `<p style="margin:14px 0 4px"><b>What's included</b></p>`,
+    items.length ? `<ul style="margin:0 0 6px;padding-left:20px">${items.join("")}</ul>` : "",
+    ...paras,
+  ].join("");
+}
+
 export function emailMessage(copy: CustomerCopy, to: { contactId: string; firstName: string | null; link: string; pdfUrl: string }): GhlMessage {
   const hi = greetingName(to.firstName);
   const prelim = copy.basis === "Preliminary";
   const several = copy.options.length > 1;
+  const phrase = kindPhrase(copyKind(copy), prelim);
+  const included = copy.options.map((o) => includedHtml(o, copy, several)).join("");
   const rows = copy.options
     .map(
       (o) =>
@@ -73,8 +100,10 @@ export function emailMessage(copy: CustomerCopy, to: { contactId: string; firstN
   const html = [
     `<div style="font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5;color:#26303c;max-width:560px">`,
     `<p>${hi ? `Hi ${esc(hi)},` : "Hello,"}</p>`,
-    `<p>Thank you for considering Titan Flooring. Your ${prelim ? "preliminary " : ""}quote ${esc(copy.quoteNumber)} is ready${several ? `, with ${copy.options.length} options to compare` : ""}.</p>`,
+    `<p>Thank you for considering Titan Flooring. Your ${esc(phrase)} ${esc(copy.quoteNumber)} is ready${several ? `, with ${copy.options.length} options to compare` : ""}.</p>`,
     `<table style="width:100%;border-collapse:collapse;margin:8px 0 16px">${rows}</table>`,
+    several && included ? `<p style="margin:0 0 4px"><b>What's included</b></p>` : "",
+    included,
     `<p style="margin:20px 0"><a href="${esc(to.link)}" style="background:#1e6fff;color:#fff;text-decoration:none;padding:12px 20px;border-radius:6px;font-weight:600;display:inline-block">View your quote</a></p>`,
     `<p style="color:#66717f;font-size:13px">${copy.showHst ? "Totals include HST. " : copy.options.some((o) => o.totals.hst !== 0) ? "Totals include HST on materials. " : ""}The quote is good until ${esc(longDate(copy.validUntil))}. A PDF copy is attached.${prelim ? " This is a preliminary estimate; we confirm the final price once we have measured." : ""}</p>`,
     `<p>If you have any questions, just reply to this email.</p>`,
@@ -84,7 +113,7 @@ export function emailMessage(copy: CustomerCopy, to: { contactId: string; firstN
   return {
     type: "Email",
     contactId: to.contactId,
-    subject: `Your Titan Flooring quote ${copy.quoteNumber}`,
+    subject: `Your ${phrase} ${copy.quoteNumber} from Titan Flooring`,
     html,
     attachments: [to.pdfUrl],
   };
@@ -92,11 +121,12 @@ export function emailMessage(copy: CustomerCopy, to: { contactId: string; firstN
 
 export function smsMessage(copy: CustomerCopy, to: { contactId: string; firstName: string | null; link: string }): GhlMessage {
   const hi = greetingName(to.firstName);
+  const phrase = kindPhrase(copyKind(copy), copy.basis === "Preliminary");
   return {
     type: "SMS",
     contactId: to.contactId,
     message:
-      `${hi ? `Hi ${hi}, y` : "Y"}our Titan Flooring ${copy.basis === "Preliminary" ? "preliminary " : ""}quote ${copy.quoteNumber} is ready: ${to.link}\n` +
+      `${hi ? `Hi ${hi}, y` : "Y"}our ${phrase} ${copy.quoteNumber} from Titan Flooring is ready: ${to.link}\n` +
       `It's good until ${longDate(copy.validUntil)}. Any questions, just reply here.`,
   };
 }

@@ -7,8 +7,15 @@ import { isTiming, type Timing } from "./lead";
  * Two ways in (Albert, 2026-10-13/14):
  * - an existing GHL contact, with one of their opportunities or a new one;
  * - a brand-new customer (the one time the app takes customer details), with a new opportunity.
- * Every preliminary asks when they plan to do the project.
+ * Every quote asks when they plan to do the project. Two kinds (Albert, 2026-10-18): a
+ * preliminary (the quick form, Basis "Preliminary") and a full quote (Basis "Measured", opened
+ * straight in the editor). The request says `kind: "measured"` for the second; anything else is a
+ * preliminary, as every quote was before.
  */
+
+export type Basis = "Preliminary" | "Measured";
+/** Which New quote screen: the quick form (preliminary) or the full quote. */
+export type NewQuoteKind = "preliminary" | "full";
 
 export type NewCustomer = {
   firstName: string | null;
@@ -29,6 +36,8 @@ export type NewQuoteRequest = {
   newCustomer: NewCustomer | null;
   /** Staff saw the GHL matches for this phone or email and confirmed it's a different person. */
   forceNew: boolean;
+  /** Version 1's basis: Preliminary from the quick form, Measured for a full quote. */
+  basis: Basis;
 };
 
 export type Parsed<T> = { ok: true; value: T } | { ok: false; message: string };
@@ -50,8 +59,9 @@ export function parseNewQuote(raw: unknown): Parsed<NewQuoteRequest> {
   if (contactId && !GHL_ID.test(contactId)) return { ok: false, message: "That GHL contact id isn't valid." };
   if (opportunityId && !GHL_ID.test(opportunityId)) return { ok: false, message: "That GHL opportunity id isn't valid." };
 
+  const basis: Basis = r.kind === "measured" ? "Measured" : "Preliminary";
   if (contactId) {
-    return { ok: true, value: { contactId, opportunityId, timing: r.timing, addressConfirmed: r.addressConfirmed === true, newCustomer: null, forceNew: false } };
+    return { ok: true, value: { contactId, opportunityId, timing: r.timing, addressConfirmed: r.addressConfirmed === true, newCustomer: null, forceNew: false, basis } };
   }
   if (opportunityId) return { ok: false, message: "Pick the customer before their opportunity." };
 
@@ -76,6 +86,7 @@ export function parseNewQuote(raw: unknown): Parsed<NewQuoteRequest> {
       addressConfirmed: Boolean(address),
       newCustomer: { firstName, lastName, phone: phoneRaw ? displayPhone(phoneRaw) : null, email: normalizeEmail(emailRaw), address, city },
       forceNew: r.forceNew === true,
+      basis,
     },
   };
 }

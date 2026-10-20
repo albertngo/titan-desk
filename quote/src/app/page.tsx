@@ -18,7 +18,10 @@ export default async function QuotesPage() {
             <h1>Quotes</h1>
             <p>Every quote, newest first. Open a row to see its versions.</p>
           </div>
-          <Link className="btn primary" href="/new">+ New quote</Link>
+          <div className="pageacts">
+            <Link className="btn" href="/new?kind=preliminary">+ Preliminary quote</Link>
+            <Link className="btn primary" href="/new">+ New quote</Link>
+          </div>
         </div>
         <QuoteList groups={groups} />
       </div>

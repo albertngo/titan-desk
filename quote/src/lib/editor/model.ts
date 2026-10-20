@@ -84,6 +84,7 @@ export type CardEntry =
 /** Which Rate Card labour types belong under each section, best match first. */
 export const SECTION_LABOUR: Record<string, string[]> = {
   Install: ["Install", "Refinish", "Sand", "Paint"],
+  Stairs: [],
   Removal: ["Remove"],
   Disposal: ["Disposal"],
   Prep: ["Install"],
@@ -154,13 +155,17 @@ export const entryLabel = (e: CardEntry) =>
 /** Cheapest contractor for the same work; the card lists them cheapest first. */
 export const bestContractor = (e: Extract<CardEntry, { kind: "rate" }>) => e.contractors[0];
 
-/** Picker search: every word must appear; entries that belong to the section rank first. */
+/**
+ * Picker search: every word must appear; entries that belong to the section rank first. Stair
+ * Items are offered in the Stairs section only (Albert, 2026-10-18), never under flooring work.
+ */
 export function searchCatalogue(entries: CardEntry[], query: string, section: string, limit = 40): CardEntry[] {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   const preferred = SECTION_LABOUR[section] ?? [];
   const belongs = (e: CardEntry) => (e.kind === "stair" ? section === "Stairs" : preferred.includes(e.labourType));
   const rank = (e: CardEntry) => (belongs(e) ? 0 : 1);
   return entries
+    .filter((e) => e.kind !== "stair" || section === "Stairs")
     .filter((e) => {
       const hay = entryLabel(e).toLowerCase();
       return words.every((w) => hay.includes(w));

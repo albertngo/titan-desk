@@ -24,12 +24,13 @@ export const PAYMENT_SPLIT = 0.35;
 /**
  * Work-type sections, in the order they appear everywhere: the quote view, the editor, the
  * "Add work" buttons and the Analysis tab (Albert, 2026-10-12). Install is the main work and
- * takes in refinishing, painting and sanding; stairs are not quoted on this page.
+ * takes in refinishing, painting and sanding. Stairs is its own section again (Albert,
+ * 2026-10-18): stair profiles on the preliminary and Stair Items in the editor live there.
  */
-export const SECTIONS = ["Install", "Removal", "Disposal", "Prep", "Materials", "Delivery", "Other", "Exclusions"] as const;
+export const SECTIONS = ["Install", "Stairs", "Removal", "Disposal", "Prep", "Materials", "Delivery", "Other", "Exclusions"] as const;
 
 /** Older sections folded into Install, so lines saved under them still show (Albert, 2026-10-12). */
-export const SECTION_ALIASES: Record<string, string> = { Refinish: "Install", Paint: "Install", Sand: "Install", Stairs: "Install" };
+export const SECTION_ALIASES: Record<string, string> = { Refinish: "Install", Paint: "Install", Sand: "Install" };
 
 /** The section a line shows under: aliases folded in, no section at all = "Unsorted". */
 export function sectionOf(l: Pick<LineInput, "section">): string {
