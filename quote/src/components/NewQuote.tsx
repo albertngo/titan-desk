@@ -6,7 +6,7 @@ import { searchCustomersAction, startQuoteAction } from "@/app/new/actions";
 import { displayPhone } from "@/lib/link/identity";
 import { stageFor, TIMINGS, type Timing } from "@/lib/link/lead";
 import type { NewQuoteKind } from "@/lib/link/newQuote";
-import type { QuickChoice } from "@/lib/quick/plan";
+import type { QuickChoice, QuickProfile } from "@/lib/quick/plan";
 import type { CustomerSearch, FoundCustomer } from "@/lib/quotes/types";
 import { money } from "@/lib/format";
 import { estimateWork, initialWork, QuickWork, workInput, type WorkState } from "./QuickWork";
@@ -21,7 +21,7 @@ const blankCustomer = { firstName: "", lastName: "", phone: "", email: "", addre
  * Two kinds (Albert, 2026-10-18): a preliminary adds the quick form and becomes v1 Preliminary; a
  * full quote stops at the timing question and opens v1 Measured, empty, in the editor.
  */
-export function NewQuote({ ghlWrites, choices, kind }: { ghlWrites: boolean; choices: QuickChoice[]; kind: NewQuoteKind }) {
+export function NewQuote({ ghlWrites, choices, profiles, kind }: { ghlWrites: boolean; choices: QuickChoice[]; profiles: QuickProfile[]; kind: NewQuoteKind }) {
   const prelim = kind === "preliminary";
   const [work, setWork] = useState<WorkState>(() => initialWork(choices));
   const [query, setQuery] = useState("");
@@ -78,7 +78,7 @@ export function NewQuote({ ghlWrites, choices, kind }: { ghlWrites: boolean; cho
 
   const linked = picked !== null && (choice as { opportunityId: string | null }).opportunityId !== null;
   const ready = timing !== null && (picked !== null || (isNew && (nc.firstName.trim() || nc.lastName.trim()) && (nc.phone.trim() || nc.email.trim())));
-  const estimate = prelim ? estimateWork(choices, work) : null;
+  const estimate = prelim ? estimateWork(choices, profiles, work) : null;
 
   // Sections in order (Albert, 2026-10-18): Job → Customer → Timeline. The job card is only on a
   // preliminary, so the numbers are counted, not typed.
@@ -103,7 +103,7 @@ export function NewQuote({ ghlWrites, choices, kind }: { ghlWrites: boolean; cho
         <section className="card">
           <div className="card-h">1 · Job <span className="right">Preliminary, not measured</span></div>
           <div className="card-b">
-            <QuickWork choices={choices} value={work} onChange={setWork} />
+            <QuickWork choices={choices} profiles={profiles} value={work} onChange={setWork} />
           </div>
         </section>
       )}

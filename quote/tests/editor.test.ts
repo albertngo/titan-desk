@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { lineFlags, lineTotal, optionTotals } from "../src/lib/calc";
 import {
   addLine,
+  addLines,
   addOption,
   blankQuote,
   bestContractor,
@@ -103,6 +104,17 @@ describe("lines", () => {
     const after = q.options[0].lines[0];
     expect([after.unitPrice, after.costOverride]).toEqual([null, null]);
     expect(lineFlags(after)).toEqual([]);
+  });
+
+  it("adds several lines at once, in place of the ones they replace (the stair builder, 2026-10-20)", () => {
+    let q = blankQuote();
+    const opt = q.options[0].id;
+    const preset = { ...manualLine("Stairs", "Preset staircase"), id: "line_preset", unitPrice: 4000 };
+    q = addLine(q, opt, preset);
+    const pieces = [lineFromEntry(cat.find((e) => e.kind === "stair")!, "Stairs"), manualLine("Stairs", "Handrail")];
+    q = addLines(q, opt, pieces, ["line_preset"]);
+    expect(q.options[0].lines.map((l) => l.description)).toEqual([pieces[0].description, "Handrail"]);
+    expect(addLines(q, opt, [], ["nothing"]).options[0].lines).toHaveLength(2);
   });
 
   it("stair items price per piece; manual lines have no source", () => {

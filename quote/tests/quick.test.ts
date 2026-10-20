@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { optionTotals } from "../src/lib/calc";
-import { amountUnit, buildPreliminary, choiceRate, parseWork, QUICK_GROUPS, rowTotal, workIsEmpty, type QuickChoice, type QuickPart, type QuickProduct } from "../src/lib/quick/plan";
+import { amountUnit, buildPreliminary, choiceRate, parseWork, QUICK_GROUPS, rowTotal, stairTotal, workIsEmpty, type QuickChoice, type QuickPart, type QuickProduct } from "../src/lib/quick/plan";
 
 // INVENTED rates, costs, ids and products only: this repo is public.
 const part = (o: Partial<QuickPart> & { recordId: string }): QuickPart => ({ kind: "rate", labourType: "Install", spec: "SPEC", description: "Install | SPEC", contractor: "Crew A", uom: "sqft", rate: 2, cost: 1, minCharge: null, ...o });
@@ -82,32 +82,36 @@ describe("quick form: the lines it becomes", () => {
   });
 });
 
-describe("quick form: staircases (2026-10-18)", () => {
-  it("keeps a staircase with a type, a method and a price, and drops the rest without guessing", () => {
-    const w = parseWork({
-      stairs: [
-        { type: "Townhome", method: "Vinyl treads", price: 1800 },
-        { type: "Main stairs", method: "Sand & stain" },
-        { type: "Attic", method: "Sand & stain", price: 10 },
-        { type: "Basement", method: "Carpet", price: 10 },
-        "nope",
-      ],
-    });
-    expect(w.stairs).toEqual([{ type: "Townhome", method: "Vinyl treads", price: 1800 }]);
-    expect(parseWork({ stairs: Array(5).fill({ type: "Basement", method: "Vinyl flooring", price: 1 }) }).stairs).toHaveLength(3);
+describe("quick form: staircases (2026-10-20)", () => {
+  const MAIN = { id: "recProfMain00000A", name: "Wood on main stairs", type: "Main stairs" as const, method: "Solid red oak caps" as const, steps: 13, price: 4000, cost: 2600 };
+  const HALF = { id: "recProfHalf00000A", name: "Half staircase, sanded", type: "Half staircase" as const, method: "Sand & stain" as const, steps: 5, price: 700, cost: 400 };
+  const profiles = new Map([MAIN, HALF].map((p) => [p.id, p]));
+
+  it("keeps a staircase's profile id, and a typed price only as an override; anything else is dropped", () => {
+    const w = parseWork({ stairs: [{ profileId: MAIN.id, price: 4500 }, { profileId: HALF.id }, { profileId: "nope", price: 1 }, { type: "Townhome", method: "Vinyl treads", price: 10 }, "x"] });
+    expect(w.stairs).toEqual([{ profileId: MAIN.id, price: 4500 }, { profileId: HALF.id, price: null }]);
+    expect(parseWork({ stairs: Array(5).fill({ profileId: MAIN.id }) }).stairs).toHaveLength(3);
   });
 
-  it("turns each staircase into one flat Stairs line at the typed price, named by its profile", () => {
-    const { lines, skipped } = buildPreliminary(choices, parseWork({ stairs: [{ type: "Main stairs", method: "Solid red oak caps", price: 2400 }] }), new Map());
+  it("prices each staircase from its profile's preset, with the row as the line's source, or the override when typed", () => {
+    const { lines, skipped } = buildPreliminary(choices, parseWork({ stairs: [{ profileId: MAIN.id }, { profileId: HALF.id, price: 650 }] }), new Map(), profiles);
     expect(skipped).toEqual([]);
-    expect(lines.map((l) => [l.section, l.lineType, l.sourceKind, l.uom, l.qty, l.unitPrice, l.description])).toEqual([
-      ["Stairs", "Stairs", "manual", "flat", 1, 2400, "Main stairs – Solid red oak caps"],
+    expect(lines.map((l) => [l.section, l.lineType, l.sourceKind, l.sourceId, l.uom, l.qty, l.unitPriceSnap, l.unitCostSnap, l.unitPrice, l.description, l.hasSource])).toEqual([
+      ["Stairs", "Stairs", "profile", MAIN.id, "each", 1, 4000, 2600, null, "Wood on main stairs", true],
+      ["Stairs", "Stairs", "profile", HALF.id, "each", 1, 700, 400, 650, "Half staircase, sanded", true],
     ]);
-    expect(optionTotals(lines, 0, false).preDiscount).toBe(2400);
+    expect(optionTotals(lines, 0, false).preDiscount).toBe(4000 + 650);
+    expect([stairTotal(MAIN, null), stairTotal(MAIN, 4500)]).toEqual([4000, 4500]);
+  });
+
+  it("skips and names a profile that is no longer on the form", () => {
+    const r = buildPreliminary(choices, parseWork({ stairs: [{ profileId: "recGone000000000A" }] }), new Map(), profiles);
+    expect(r.lines).toEqual([]);
+    expect(r.skipped).toEqual(["a staircase profile that's no longer on the form"]);
   });
 
   it("counts a staircase as work, and no longer offers a Staircase group of choices", () => {
-    expect(workIsEmpty(parseWork({ stairs: [{ type: "Basement", method: "Vinyl flooring", price: 900 }] }))).toBe(false);
+    expect(workIsEmpty(parseWork({ stairs: [{ profileId: MAIN.id }] }))).toBe(false);
     expect(workIsEmpty(parseWork({}))).toBe(true);
     expect([...QUICK_GROUPS]).not.toContain("Staircase");
   });

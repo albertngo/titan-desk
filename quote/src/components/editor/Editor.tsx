@@ -8,6 +8,7 @@ import { SECTIONS, isPriced, lineCost, lineFlags, lineTotal, optionTotals, secti
 import {
   UOMS,
   addLine,
+  addLines,
   addOption,
   buildCatalogue,
   compareCrews,
@@ -649,12 +650,18 @@ export default function Editor({
         <Picker
           section={picking}
           catalogue={catalogue}
+          profiles={card.profiles ?? []}
+          profileLines={option.lines.filter((l) => l.sourceKind === "profile").map((l) => ({ id: l.id, sourceId: l.sourceId }))}
           level={levelOf(option)}
           crew={option.crew ?? null}
           onClose={() => setPicking(null)}
           customer={customer}
           onPick={(line) => {
             apply(addLine(quote, option.id, line));
+            setPicking(null);
+          }}
+          onPickMany={(lines, replacing) => {
+            apply(addLines(quote, option.id, lines, replacing));
             setPicking(null);
           }}
         />

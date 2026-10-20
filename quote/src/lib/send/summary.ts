@@ -18,9 +18,9 @@ export type QuoteKind = "flooring" | "stairs" | "both" | "none";
 /** Sections that count as flooring work. "Other" (the quick form's additional cost) decides nothing. */
 const FLOORING = new Set(["Install", "Removal", "Disposal", "Prep", "Materials", "Delivery"]);
 
-/** A stair line: a Stair Item, a stair profile, or anything filed under Stairs. */
+/** A stair line: a Stair Item, a stair profile (preset or typed), or anything filed under Stairs. */
 export const isStairLine = (l: Pick<QuoteLine, "lineType" | "sourceKind" | "section">) =>
-  l.lineType === "Stairs" || l.sourceKind === "stair" || sectionOf(l) === "Stairs";
+  l.lineType === "Stairs" || l.sourceKind === "stair" || l.sourceKind === "profile" || sectionOf(l) === "Stairs";
 
 const kindOf = (stairs: boolean, flooring: boolean): QuoteKind => (stairs && flooring ? "both" : stairs ? "stairs" : flooring ? "flooring" : "none");
 

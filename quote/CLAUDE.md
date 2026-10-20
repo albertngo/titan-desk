@@ -83,16 +83,30 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   stored on a choice and never taken from the browser: the server re-prices from Airtable at
   create time. A choice whose linked row is inactive or unpriced is left off the form. Rules:
   `src/lib/quick/plan.ts`, tested in `tests/quick.test.ts`.
-- **Stairs on the preliminary (Albert, 2026-10-18).** A staircase is a *profile*, stair type
-  (Main stairs / Townhome / Basement / Half staircase) × method (Sand & stain / Solid red oak
-  caps / Vinyl treads / Vinyl flooring), at a **flat price typed by staff**: one hand-priced line
-  in the Stairs section named "Townhome – Vinyl treads", with no card source, so Premium never
-  marks it up. The profiles and their customer-facing phrases live in code,
-  `src/lib/quick/stairs.ts` (they are copy, not data; Quick Quote Choices has no stair rows),
-  and the old GHL stairs prompt is written out there as `stairDescription()`: one bullet per
-  staircase, the stair type's sentence, the closing sentence only when no staircase got one.
-  Create writes it into the option's description (customer-facing); the editor's Stairs picker
-  offers the same profiles above the Stair Items. Tested in `tests/stairs.test.ts`.
+- **Stairs on the preliminary (Albert, 2026-10-18; presets 2026-10-20).** A staircase is a row of the
+  read-only Airtable table **Stair Profiles** (`PROFILE_TABLE`): a customer-facing name, a stair type
+  (Main stairs / Townhome / Basement / Half staircase), a method (Sand & stain / Solid red oak caps /
+  Vinyl treads / Vinyl flooring), the step count the price assumes, a **preset price and cost** (the
+  old GHL dropdown's numbers; a stored price by design, so the preliminary shows a margin), and six
+  links to Stair Items for the builder. The form is one dropdown per staircase, up to three, with
+  "Different price" as the only override; the line it makes has the row as its source (Quote Lines →
+  **Stair Profile**, `sourceKind: "profile"`), the preset as its card figures, and is never marked up
+  by Premium. The customer-facing phrases live in code, `src/lib/quick/stairs.ts` (copy, not data),
+  and the old GHL stairs prompt is written out there as `stairDescription()` from each row's type and
+  method: one bullet per staircase, the stair type's sentence, the closing sentence only when no
+  staircase got one. Create writes it into the option's description. A row with an unknown type or
+  method, or no price, is left off. With no rows at all the editor's picker falls back to type ×
+  method at a typed price. Tested in `tests/quick.test.ts` and `tests/stairs.test.ts`.
+- **The stair builder (Albert, 2026-10-20).** In the editor's Stairs picker, picking a Stair Profile
+  opens the builder: steps (the row's default), open-side steps, handrail feet, spindles and posts.
+  `expandProfile()` in `src/lib/editor/stairBuilder.ts` multiplies the row's six "Per …" links into
+  Stair Item lines priced from the card at the option's service level (an open-side step takes the
+  place of a plain step piece but still counts for risers and sanding; a zero count makes no line; an
+  item the card no longer offers is reported, never guessed; a row with no links says so). **Add
+  staircase** adds the lines and, when ticked, replaces the preliminary's preset line for that
+  profile (`addLines()` in `src/lib/editor/model.ts`), so the measured quote is an edit of the
+  preliminary. Tested in `tests/stairBuilder.test.ts`. Next (not built): Material Group / Default
+  Material on Stair Items for spindle, picket and post types, like the Rate Card's.
 - **Stairs is its own section again (Albert, 2026-10-18)**, after Install, everywhere sections
   show (quote page, editor, customer page, PDF, Analysis), with its own subtotal; Stair Items are
   offered in that section only. This reverses the 2026-10-12 fold into Install; Refinish, Paint

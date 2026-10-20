@@ -1,11 +1,12 @@
 import "server-only";
 import { requireQuoter } from "@/lib/auth";
 import { AirtableError, getRecord, listByIds, listRecords, type AirtableRecord } from "@/lib/airtable/client";
-import { CAT, CATALOGUE_TABLE, LINE, MATERIAL, MATERIAL_TABLE, OPTION, QUICK, QUICK_TABLE, QUOTE, RATE, RATE_TABLE, STAIR, STAIR_TABLE, T, VERSION } from "@/lib/airtable/fields";
+import { CAT, CATALOGUE_TABLE, LINE, MATERIAL, MATERIAL_TABLE, OPTION, PROFILE, PROFILE_TABLE, QUICK, QUICK_TABLE, QUOTE, RATE, RATE_TABLE, STAIR, STAIR_TABLE, T, VERSION } from "@/lib/airtable/fields";
 import { QUICK_GROUPS, type QuickChoice, type QuickGroup, type QuickPart, type QuickProduct } from "@/lib/quick/plan";
+import { isStairMethod, isStairType } from "@/lib/quick/stairs";
 import { bool, ids, num, str } from "./values";
 import { groupVersions, type QuoteGroup, type QuoteHead } from "./group";
-import type { MaterialRow, Quote, QuoteLine, QuoteLink, QuoteOption, RateCard, RateRow, StairRow } from "./types";
+import type { MaterialRow, Quote, QuoteLine, QuoteLink, QuoteOption, RateCard, RateRow, StairProfileRow, StairRow } from "./types";
 
 /** Read-side loaders. Each one checks the caller is a quoter before touching Airtable. */
 
@@ -65,6 +66,8 @@ function source(f: Record<string, unknown>): Pick<QuoteLine, "sourceKind" | "sou
   if (stair) return { sourceKind: "stair", sourceId: stair };
   const product = ids(f[LINE.product])[0];
   if (product) return { sourceKind: "product", sourceId: product };
+  const profile = ids(f[LINE.stairProfile])[0];
+  if (profile) return { sourceKind: "profile", sourceId: profile };
   return { sourceKind: "manual", sourceId: null };
 }
 
@@ -84,7 +87,7 @@ function toLine(r: AirtableRecord): QuoteLine {
     manualCost: num(f[LINE.manualCost]),
     minChargeSnap: num(f[LINE.minChargeSnap]),
     noHst: bool(f[LINE.noHst]),
-    hasSource: [LINE.rateItem, LINE.stairItem, LINE.product].some((k) => ids(f[k]).length > 0),
+    hasSource: [LINE.rateItem, LINE.stairItem, LINE.product, LINE.stairProfile].some((k) => ids(f[k]).length > 0),
     ...source(f),
     labourType: str(f[LINE.rateLaborType]),
     spec: str(f[LINE.rateSpec]),
@@ -209,13 +212,58 @@ export async function getQuote(id: string): Promise<Quote | null> {
   };
 }
 
-/** Active Rate Card rows, Stair Items and Install Materials, for the editor. Costs included: quoters only. */
+/**
+ * Active Stair Profiles (2026-10-20), in their order. A row whose type or method isn't one the app
+ * knows, or that has no price, is left off rather than priced or described wrongly.
+ */
+async function loadProfiles(): Promise<StairProfileRow[]> {
+  const recs = await listRecords(PROFILE_TABLE, { fields: Object.values(PROFILE), filterByFormula: `{${PROFILE.active}}` });
+  return recs
+    .flatMap((r): StairProfileRow[] => {
+      const f = r.fields;
+      const name = str(f[PROFILE.name]);
+      const type = str(f[PROFILE.stairType]);
+      const method = str(f[PROFILE.method]);
+      const price = num(f[PROFILE.price]);
+      if (!name || !isStairType(type) || !isStairMethod(method) || price === null) return [];
+      return [
+        {
+          id: r.id,
+          name,
+          type,
+          method,
+          steps: num(f[PROFILE.steps]),
+          price,
+          cost: num(f[PROFILE.cost]),
+          sort: num(f[PROFILE.sort]) ?? 999,
+          template: {
+            perStep: ids(f[PROFILE.perStep]),
+            perStaircase: ids(f[PROFILE.perStaircase]),
+            perOpenSide: ids(f[PROFILE.perOpenSide]),
+            perHandrailFt: ids(f[PROFILE.perHandrailFt]),
+            perSpindle: ids(f[PROFILE.perSpindle]),
+            perPost: ids(f[PROFILE.perPost]),
+          },
+        },
+      ];
+    })
+    .sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name));
+}
+
+/** The preliminary's staircase dropdown. Costs included: quoters only; the page strips them before the browser. */
+export async function getStairProfiles(): Promise<StairProfileRow[]> {
+  await requireQuoter();
+  return loadProfiles();
+}
+
+/** Active Rate Card rows, Stair Items, Install Materials and Stair Profiles, for the editor. Costs included: quoters only. */
 export async function getRateCard(): Promise<RateCard> {
   await requireQuoter();
-  const [rateRecs, stairRecs, materialRecs] = await Promise.all([
+  const [rateRecs, stairRecs, materialRecs, profiles] = await Promise.all([
     listRecords(RATE_TABLE, { fields: Object.values(RATE) }),
     listRecords(STAIR_TABLE, { fields: Object.values(STAIR) }),
     listRecords(MATERIAL_TABLE, { fields: Object.values(MATERIAL), filterByFormula: `{${MATERIAL.active}}` }),
+    loadProfiles(),
   ]);
   const rates = rateRecs
     .filter((r) => bool(r.fields[RATE.active]))
@@ -256,7 +304,7 @@ export async function getRateCard(): Promise<RateCard> {
     const group = str(f[MATERIAL.group]);
     return name && group ? [{ id: r.id, name, group, cost: num(f[MATERIAL.cost]), price: num(f[MATERIAL.price]) }] : [];
   });
-  return { rates, stairs, materials };
+  return { rates, stairs, materials, profiles };
 }
 
 // ---------- the quick form (src/lib/quick/plan.ts) ----------

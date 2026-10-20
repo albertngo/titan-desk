@@ -1,15 +1,31 @@
 "use client";
 
 import { useState } from "react";
+import { optionTotals } from "@/lib/calc";
 import { bestContractor, entryLabel, lineFromEntry, manualLine, rateSnap, searchCatalogue, type CardEntry, type EditorLine } from "@/lib/editor/model";
+import { defaultInput, expandProfile, type BuilderInput } from "@/lib/editor/stairBuilder";
 import { money } from "@/lib/format";
 import { levelPrice, type ServiceLevel } from "@/lib/pricing/service";
 import { STAIR_METHODS, STAIR_TYPES, profileName, stairProfileLine } from "@/lib/quick/stairs";
+import type { StairProfileRow } from "@/lib/quotes/types";
 
-/** The stair profiles (type × method), offered in the Stairs section at a price staff type on the line. */
-const PROFILES = STAIR_TYPES.flatMap((type) => STAIR_METHODS.map((method) => ({ type, method })));
+/** The fallback when Airtable has no Stair Profiles: type × method, at a price staff type on the line. */
+const CODE_PROFILES = STAIR_TYPES.flatMap((type) => STAIR_METHODS.map((method) => ({ type, method })));
 
-/** Add a line: search the rate card and stair items, or type the line in by hand. Customer view shows the charge rate only. */
+const COUNTS: [keyof BuilderInput, string][] = [
+  ["steps", "Steps"],
+  ["openSideSteps", "Open-side steps"],
+  ["handrailFt", "Handrail (ft)"],
+  ["spindles", "Spindles"],
+  ["posts", "Posts"],
+];
+
+/**
+ * Add a line: search the rate card and stair items, or type the line in by hand. In the Stairs
+ * section, pick a Stair Profile and the builder (2026-10-20) turns it into Stair Item lines from
+ * a few counts, replacing the preliminary's preset line if there is one. Customer view shows the
+ * charge rate only.
+ */
 export function Picker({
   section,
   catalogue,
@@ -18,6 +34,9 @@ export function Picker({
   customer,
   level,
   crew,
+  profiles,
+  profileLines,
+  onPickMany,
 }: {
   section: string;
   catalogue: CardEntry[];
@@ -28,11 +47,29 @@ export function Picker({
   level: ServiceLevel;
   /** The option's crew: new lines go to it when it has a rate for the work, else to the cheapest. */
   crew: string | null;
+  /** Stair Profiles rows, for the Stairs section's builder. */
+  profiles?: StairProfileRow[];
+  /** The option's preset staircase lines (sourceKind "profile"), so the builder can offer to replace one. */
+  profileLines?: { id: string; sourceId: string | null }[];
+  /** Several lines at once, in place of the given line ids (the builder). */
+  onPickMany?: (lines: EditorLine[], replacing: string[]) => void;
 }) {
   const [q, setQ] = useState("");
+  const [building, setBuilding] = useState<StairProfileRow | null>(null);
+  const [input, setInput] = useState<BuilderInput>({ steps: 0, openSideSteps: 0, handrailFt: 0, spindles: 0, posts: 0 });
+  const [replace, setReplace] = useState(true);
   const results = searchCatalogue(catalogue, q, section);
   const words = q.toLowerCase().split(/\s+/).filter(Boolean);
-  const profiles = section === "Stairs" ? PROFILES.filter((p) => words.every((w) => profileName(p).toLowerCase().includes(w))) : [];
+  const rows = section === "Stairs" ? (profiles ?? []).filter((p) => words.every((w) => p.name.toLowerCase().includes(w))) : [];
+  const codeProfiles = section === "Stairs" && (profiles ?? []).length === 0 ? CODE_PROFILES.filter((p) => words.every((w) => profileName(p).toLowerCase().includes(w))) : [];
+  const built = building ? expandProfile(building, input, catalogue, level) : null;
+  const replacing = building ? (profileLines ?? []).filter((l) => l.sourceId === building.id).map((l) => l.id) : [];
+
+  function startBuilding(p: StairProfileRow) {
+    setBuilding(p);
+    setInput(defaultInput(p));
+    setReplace(true);
+  }
 
   return (
     <div className="modal" role="dialog" aria-modal="true" aria-label={`Add to ${section}`} onClick={onClose} onKeyDown={(e) => e.key === "Escape" && onClose()}>
@@ -51,15 +88,70 @@ export function Picker({
             aria-label="Search the rate card"
           />
         </div>
+        {building && built && (
+          <div className="sb" role="group" aria-label={`Build ${building.name}`}>
+            <div className="sb-h">
+              <b>{building.name}</b>
+              <button className="linkbtn" onClick={() => setBuilding(null)}>Back</button>
+            </div>
+            <div className="sb-grid">
+              {COUNTS.map(([k, label]) => (
+                <label key={k}>
+                  {label}
+                  <input className="in" inputMode="numeric" value={input[k] || ""} placeholder="0" onChange={(e) => setInput({ ...input, [k]: Number(e.target.value.replace(/[^\d.]/g, "")) || 0 })} />
+                </label>
+              ))}
+            </div>
+            {built.untemplated ? (
+              <p className="sb-msg warn">This profile has no Stair Items linked yet. Set its Per step, Per staircase and other links in Airtable (Stair Profiles), then come back.</p>
+            ) : (
+              <>
+                <ul className="sb-lines">
+                  {built.lines.map((l) => (
+                    <li key={l.id}>
+                      <span>{l.description}</span>
+                      <span className="faint">{l.qty} × {money(l.unitPriceSnap ?? 0)}</span>
+                    </li>
+                  ))}
+                </ul>
+                {built.missing.length > 0 && <p className="sb-msg warn">{built.missing.length} linked Stair Item{built.missing.length === 1 ? " is" : "s are"} inactive or gone and left out.</p>}
+                {replacing.length > 0 && (
+                  <label className="check-in">
+                    <input type="checkbox" checked={replace} onChange={(e) => setReplace(e.target.checked)} />
+                    Replace the preliminary&apos;s preset line for this staircase
+                  </label>
+                )}
+                <div className="sb-sum">
+                  <span>{built.lines.length} line{built.lines.length === 1 ? "" : "s"} · {money(optionTotals(built.lines, 0, false).preDiscount)}</span>
+                  <button className="btn small primary" disabled={built.lines.length === 0} onClick={() => (onPickMany ?? ((ls) => ls.forEach(onPick)))(built.lines, replace ? replacing : [])}>
+                    Add staircase
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
         <ul className="pick-list">
-          {profiles.map((p) => (
-            <li key={profileName(p)}>
-              <button className="pick" onClick={() => onPick(stairProfileLine(p.type, p.method, null))}>
-                <span className="nm">{profileName(p)}</span>
-                <span className="mt">Whole staircase at a price you type · its description goes on the option</span>
-              </button>
-            </li>
-          ))}
+          {!building &&
+            rows.map((p) => (
+              <li key={p.id}>
+                <button className="pick" onClick={() => startBuilding(p)}>
+                  <span className="nm">{p.name}</span>
+                  <span className="mt">
+                    Preset {money(p.price)}{p.steps ? ` for ${p.steps} steps` : ""} · build it into Stair Item lines
+                  </span>
+                </button>
+              </li>
+            ))}
+          {!building &&
+            codeProfiles.map((p) => (
+              <li key={profileName(p)}>
+                <button className="pick" onClick={() => onPick(stairProfileLine(p.type, p.method, null))}>
+                  <span className="nm">{profileName(p)}</span>
+                  <span className="mt">Whole staircase at a price you type · its description goes on the option</span>
+                </button>
+              </li>
+            ))}
           {results.map((e) => {
             const from = e.kind === "rate" ? (e.contractors.find((c) => c.name === crew) ?? bestContractor(e)) : null;
             return (
@@ -75,7 +167,7 @@ export function Picker({
               </li>
             );
           })}
-          {results.length === 0 && profiles.length === 0 && <li className="empty">Nothing on the rate card matches “{q}”.</li>}
+          {results.length === 0 && rows.length === 0 && codeProfiles.length === 0 && <li className="empty">Nothing on the rate card matches “{q}”.</li>}
           <li>
             <button className="pick manual" onClick={() => onPick(manualLine(section, q.trim()))}>
               <span className="nm">Type it in yourself{q.trim() ? `: “${q.trim()}”` : ""}</span>

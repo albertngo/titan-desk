@@ -10,8 +10,8 @@ import { parseNewQuote, type NewQuoteRequest } from "@/lib/link/newQuote";
 import { makeConfigured, sendToGhl } from "@/lib/make/client";
 import type { CustomerSearch, FoundCustomer, StartResult } from "./types";
 import { buildPreliminary, parseWork, workIsEmpty, type QuickWork } from "@/lib/quick/plan";
-import { stairDescription } from "@/lib/quick/stairs";
-import { getQuickForm, quickProducts } from "./load";
+import { profileOf, stairDescription } from "@/lib/quick/stairs";
+import { getQuickForm, getStairProfiles, quickProducts } from "./load";
 import { firstVersion, quotesByOpportunity } from "./records";
 import { fillVersion } from "./save";
 import { num, str } from "./values";
@@ -177,8 +177,9 @@ export async function startQuote(raw: unknown): Promise<StartResult> {
  */
 async function fillFromQuickForm(quoteId: string, versionId: string, work: QuickWork, today: string): Promise<boolean> {
   try {
-    const [choices, products] = await Promise.all([getQuickForm(), quickProducts(work.rows.flatMap((r) => (r.productId ? [r.productId] : [])))]);
-    const { lines, skipped } = buildPreliminary(choices, work, products);
+    const [choices, products, profileRows] = await Promise.all([getQuickForm(), quickProducts(work.rows.flatMap((r) => (r.productId ? [r.productId] : []))), getStairProfiles()]);
+    const profiles = new Map(profileRows.map((p) => [p.id, p]));
+    const { lines, skipped } = buildPreliminary(choices, work, products, profiles);
     const problems = [...skipped];
     let filled = false;
     if (lines.length > 0) {
@@ -191,7 +192,15 @@ async function fillFromQuickForm(quoteId: string, versionId: string, work: Quick
         addressStatus: null,
         discountRate: 0,
         showHst: true,
-        options: [{ id: "opt_quick_1", name: "Preliminary", description: stairDescription(work.stairs), recommended: true, lines }],
+        options: [
+          {
+            id: "opt_quick_1",
+            name: "Preliminary",
+            description: stairDescription(work.stairs.flatMap((s) => { const p = profiles.get(s.profileId); return p ? [profileOf(p)] : []; })),
+            recommended: true,
+            lines,
+          },
+        ],
       });
       if (r.ok) filled = true;
       else problems.push(`the lines weren't saved (${r.message})`);

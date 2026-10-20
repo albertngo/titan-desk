@@ -132,6 +132,8 @@ export const LINE = {
   noHst: "fldq8sPfy3iaBFJu5",
   /** 2026-10-16: the Install Material picked for a Rate Card line; its price and cost are in the snaps. */
   installMaterial: "fldLHVDiQWa3lOIcq",
+  /** 2026-10-20: the Stair Profiles row a preliminary's staircase line was priced from. */
+  stairProfile: "fldx3bE8kRnoGRRwu",
   // Airtable's own per-line results — read only for the parity check.
   lineTotal: "fldtr6qmdjmWc1YFM",
   lineCost: "fld64HUgwqcRso3Br",
@@ -165,6 +167,30 @@ export const MATERIAL = {
   cost: "fldcSDm7iSlX6u9ZA",
   price: "fldlWjoshIgciIxIy",
   active: "fldK9CMq2NQfVi2L9",
+} as const;
+
+/**
+ * Stair Profiles (created 2026-10-20): one row per staircase on the preliminary's dropdown, with
+ * the preset price and cost (the old GHL mobile-quote options), the stair type and method the
+ * customer description is written from, and six links to Stair Items the editor's builder
+ * multiplies. Read-only here; the preset is a stored price by design (Albert, 2026-10-20).
+ */
+export const PROFILE_TABLE = "tblyRK2dJf4in5NW0";
+export const PROFILE = {
+  name: "fld7ADLJHKax2reWx",
+  stairType: "fldf2CphffH6hIGSQ",
+  method: "fld9kfFNAmCycehXK",
+  steps: "fld5kQiQQLYUrBg0h",
+  price: "fldT9aUZtWm33j0Dx",
+  cost: "fldeb3xEPKzkKcjUi",
+  active: "fldUHwprPSCOCY9RK",
+  sort: "fldTYCChkMwsqolSH",
+  perStep: "flds7wtg7wPOrdsU7",
+  perStaircase: "fldlQUdGb6ZJ6MTMR",
+  perOpenSide: "fld2akp8oQoqfSWKY",
+  perHandrailFt: "fld4SlG2nrbJvfYcr",
+  perSpindle: "fldUjDQvUIjYB6VHr",
+  perPost: "fld56yJLtiGsBdlU4",
 } as const;
 
 export const STAIR_TABLE = "tbltRm9tL6r5brZn2";

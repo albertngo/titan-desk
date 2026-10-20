@@ -63,8 +63,9 @@ describe("what a quote is for", () => {
     // An add-on, a note or an additional cost on its own decides nothing.
     expect(quoteKind({ lines: [line({ include: false }), line({ lineType: "Note", qty: null }), extra] })).toBe("none");
     expect(quoteKind({ lines: [extra, stair] })).toBe("stairs");
-    // A Stair Item from the card, or an old line filed under Stairs, is stairs too.
+    // A Stair Item from the card, a Stair Profile's preset, or an old line filed under Stairs, is stairs too.
     expect(quoteKind({ lines: [line({ sourceKind: "stair", section: "Install", lineType: "Install" })] })).toBe("stairs");
+    expect(quoteKind({ lines: [line({ sourceKind: "profile", sourceId: "recProf000000000A", section: "Install", lineType: "Install", uom: "each", qty: 1, unitPriceSnap: 4000 })] })).toBe("stairs");
   });
 
   it("reads the same from a frozen copy, across its options", () => {
