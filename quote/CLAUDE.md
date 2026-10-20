@@ -166,10 +166,12 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   + the chosen material, so the default at Standard is exactly the row. A row whose default has no
   price, or costs more than the row, offers no swap. Contractor and crew changes keep the material.
   Rules: `rateSnap()` / `setMaterial()` in `src/lib/editor/model.ts`; tested in `tests/editor.test.ts`.
-- **The customer's conversation (Albert, 2026-10-20).** A **Conversation** card on the quote page
-  (folded to a summary line, remembered per device) and on New quote once a customer is picked
-  (open): their texts, emails and chats, our replies and sent quotes, and every photo they sent in
-  a strip at the top, so a preliminary is priced from what the customer actually said. Read live
+- **The customer's conversation (Albert, 2026-10-20).** On the quote page and the editor it is a
+  **drawer docked to the right edge**: a tab with the message and photo counts, a click opens a
+  panel beside the quote (a wide screen makes room for it, a narrow one is slid over; remembered
+  per device; Escape closes). On New quote it is a **card** under the customer once one is picked,
+  open. Same content: their texts, emails and chats, our replies and sent quotes, and every photo
+  they sent in a strip at the top, so a quote is priced from what the customer actually said. Read live
   from GHL each time (`src/lib/quotes/conversation.ts`, a quoter only; the pure reading of GHL's
   message list is `src/lib/conversation/thread.ts`, tested in `tests/conversation.test.ts`),
   stored nowhere, and **read-only: replying stays in GHL** ("Reply in GHL" in the header). A reply

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { ConversationDrawer } from "@/components/Conversation";
 import { EditorClient } from "@/components/editor/EditorClient";
 import { TopBar } from "@/components/TopBar";
 import { requireQuoter } from "@/lib/auth";
@@ -22,6 +23,8 @@ export default async function EditQuotePage({ params }: { params: Promise<{ id: 
   return (
     <>
       <TopBar email={email} />
+      {/* The customer's GHL conversation beside the lines being priced: staff only, never in Customer view. */}
+      {!customer && quote.link?.ghlContactId && <ConversationDrawer contactId={quote.link.ghlContactId} />}
       <EditorClient initial={initial} card={card} backHref={`/q/${quote.id}`} version={version} customer={customer} />
     </>
   );

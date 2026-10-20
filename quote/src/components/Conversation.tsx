@@ -2,59 +2,49 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { conversationAction } from "@/app/actions/conversation";
-import { callLength, photos, summarize, visibleMessages, type Attachment, type Message } from "@/lib/conversation/thread";
+import { callLength, photos, summarize, visibleMessages, type Attachment, type Message, type ThreadSummary } from "@/lib/conversation/thread";
 import { ghlContactUrl } from "@/lib/ghl/ids";
 import type { ConversationResult } from "@/lib/quotes/types";
 
 /** How many of the latest messages open at once; "Show earlier" adds the rest. */
 const PAGE = 12;
-/** The card remembers whether it was left open, per device (localStorage; a private window just forgets). */
-const OPEN_KEY = "quote_conv_open";
-const openListeners = new Set<() => void>();
-const readOpen = () => {
-  try {
-    return localStorage.getItem(OPEN_KEY) === "1";
-  } catch {
-    return false;
-  }
-};
-const writeOpen = (v: boolean) => {
-  try {
-    localStorage.setItem(OPEN_KEY, v ? "1" : "0");
-  } catch {
-    /* fine */
-  }
-  openListeners.forEach((l) => l());
-};
-const subscribeOpen = (l: () => void) => {
-  openListeners.add(l);
-  return () => void openListeners.delete(l);
-};
+
+/* ---------- "was it left open?", per device (localStorage; a private window just forgets) ---------- */
+
+function openStore(key: string) {
+  const listeners = new Set<() => void>();
+  return {
+    read: () => {
+      try {
+        return localStorage.getItem(key) === "1";
+      } catch {
+        return false;
+      }
+    },
+    write: (v: boolean) => {
+      try {
+        localStorage.setItem(key, v ? "1" : "0");
+      } catch {
+        /* fine */
+      }
+      listeners.forEach((l) => l());
+    },
+    subscribe: (l: () => void) => {
+      listeners.add(l);
+      return () => void listeners.delete(l);
+    },
+  };
+}
 const serverOpen = () => false;
+/** The inline card (New quote) and the side drawer (quote page, editor) each remember their own state. */
+const CARD = openStore("quote_conv_open");
+const DRAWER = openStore("quote_conv_drawer");
 
-type Props = {
-  contactId: string;
-  /** Start open (the New quote screen) or folded to its summary line (the quote page). */
-  defaultOpen?: boolean;
-};
+/* ---------- loading ---------- */
 
-/**
- * The customer's GHL conversation, read-only (Albert, 2026-10-20): their texts and emails, our
- * replies and sent quotes, and every photo they sent, in a strip at the top. Loaded after the
- * page renders so opening a quote is not slowed by GHL; never rendered in Customer view (the
- * server leaves it out). Replying happens in GHL: the header links there.
- */
-export function Conversation({ contactId, defaultOpen = false }: Props) {
+/** Loaded once the component is on screen, after the page rendered, so GHL never slows a quote opening. */
+function useConversation(contactId: string): ConversationResult | null {
   const [result, setResult] = useState<ConversationResult | null>(null);
-  const savedOpen = useSyncExternalStore(subscribeOpen, readOpen, serverOpen);
-  /** A click on this card wins over what the device remembered. */
-  const [clickedOpen, setClickedOpen] = useState<boolean | null>(null);
-  const open = clickedOpen ?? (defaultOpen || savedOpen);
-  const [showAutomated, setShowAutomated] = useState(false);
-  const [shown, setShown] = useState(PAGE);
-  const [lightbox, setLightbox] = useState<Attachment | null>(null);
-
-  // Loaded once the card is on screen. A different customer is a different card (key={contactId}).
   useEffect(() => {
     let live = true;
     conversationAction(contactId).then((r) => live && setResult(r));
@@ -62,32 +52,43 @@ export function Conversation({ contactId, defaultOpen = false }: Props) {
       live = false;
     };
   }, [contactId]);
+  return result;
+}
+
+function headlineOf(result: ConversationResult | null, summary: ThreadSummary): string {
+  if (!result) return "Loading…";
+  if (!result.ok) return result.reason === "not-configured" ? "Not set up" : "GHL didn't answer";
+  if (summary.total === 0) return "No messages yet";
+  return [
+    `${summary.total} message${summary.total === 1 ? "" : "s"}`,
+    summary.photos > 0 ? `${summary.photos} photo${summary.photos === 1 ? "" : "s"}` : null,
+    summary.lastIn ? `customer wrote ${ago(summary.lastIn)}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/* ---------- the inline card: New quote, under the picked customer ---------- */
+
+/**
+ * The customer's GHL conversation, read-only (Albert, 2026-10-20): their texts and emails, our
+ * replies and sent quotes, and every photo they sent, in a strip at the top. Never rendered in
+ * Customer view (the server leaves it out). Replying happens in GHL: the header links there.
+ */
+export function Conversation({ contactId, defaultOpen = false }: { contactId: string; defaultOpen?: boolean }) {
+  const result = useConversation(contactId);
+  const savedOpen = useSyncExternalStore(CARD.subscribe, CARD.read, serverOpen);
+  /** A click on this card wins over what the device remembered. */
+  const [clickedOpen, setClickedOpen] = useState<boolean | null>(null);
+  const open = clickedOpen ?? (defaultOpen || savedOpen);
+  const summary = summarize(result?.ok ? result.messages : []);
+  const ghlUrl = (result?.ok && result.ghlUrl) || ghlContactUrl(contactId);
 
   function toggle() {
     const next = !open;
     setClickedOpen(next);
-    if (!defaultOpen) writeOpen(next);
+    if (!defaultOpen) CARD.write(next);
   }
-
-  const all = result?.ok ? result.messages : [];
-  const summary = summarize(all);
-  const visible = visibleMessages(all, showAutomated);
-  const thread = visible.slice(Math.max(0, visible.length - shown));
-  const earlier = visible.length - thread.length;
-  const pics = photos(visible);
-  const ghlUrl = (result?.ok && result.ghlUrl) || ghlContactUrl(contactId);
-
-  const headline = !result
-    ? "Loading…"
-    : !result.ok
-      ? result.reason === "not-configured"
-        ? "Not set up"
-        : "GHL didn't answer"
-      : summary.total === 0
-        ? "No messages yet"
-        : [`${summary.total} message${summary.total === 1 ? "" : "s"}`, summary.photos > 0 ? `${summary.photos} photo${summary.photos === 1 ? "" : "s"}` : null, summary.lastIn ? `customer wrote ${ago(summary.lastIn)}` : null]
-            .filter(Boolean)
-            .join(" · ");
 
   return (
     <section className="card conv" aria-label="Conversation with the customer">
@@ -95,60 +96,148 @@ export function Conversation({ contactId, defaultOpen = false }: Props) {
         <button type="button" className="conv-toggle" onClick={toggle} aria-expanded={open}>
           <span className={`conv-caret${open ? " open" : ""}`} aria-hidden="true">▸</span>
           Conversation
-          <span className="conv-sum">{headline}</span>
+          <span className="conv-sum">{headlineOf(result, summary)}</span>
         </button>
         <a className="conv-ghl" href={ghlUrl} target="_blank" rel="noreferrer">
           Reply in GHL ↗
         </a>
       </div>
-
       {open && (
         <div className="card-b conv-b">
-          {!result && <Skeleton />}
-          {result && !result.ok && (
-            <p className={`banner ${result.reason === "not-configured" ? "warn" : "bad"} conv-banner`}>{result.message}</p>
-          )}
-          {result?.ok && all.length === 0 && <p className="empty">Nothing in GHL with this customer yet. Their texts, emails and photos will show here.</p>}
-
-          {result?.ok && pics.length > 0 && (
-            <div className="conv-photos" aria-label="Photos the customer sent">
-              <span className="lbl">Photos</span>
-              <div className="conv-strip">
-                {pics.map((p) => (
-                  <Thumb key={p.url} a={p} onOpen={setLightbox} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {result?.ok && visible.length > 0 && (
-            <ol className="conv-thread">
-              {(earlier > 0 || result.more) && (
-                <li className="conv-earlier">
-                  {earlier > 0 ? (
-                    <button type="button" className="linkbtn" onClick={() => setShown(shown + PAGE * 3)}>
-                      Show {Math.min(earlier, PAGE * 3)} earlier of {earlier}
-                    </button>
-                  ) : (
-                    <a href={ghlUrl} target="_blank" rel="noreferrer">
-                      Older messages are in GHL ↗
-                    </a>
-                  )}
-                </li>
-              )}
-              {thread.map((m) => (
-                <Bubble key={m.id} m={m} onOpen={setLightbox} />
-              ))}
-            </ol>
-          )}
-
-          {result?.ok && summary.automated > 0 && (
-            <label className="check-in conv-auto">
-              <input type="checkbox" checked={showAutomated} onChange={(e) => setShowAutomated(e.target.checked)} />
-              Show {summary.automated} automated message{summary.automated === 1 ? "" : "s"} (booking texts, reminders, activity)
-            </label>
-          )}
+          <ConversationBody result={result} ghlUrl={ghlUrl} />
         </div>
+      )}
+    </section>
+  );
+}
+
+/* ---------- the side drawer: quote page and editor ---------- */
+
+/**
+ * The same conversation as a panel docked to the right edge, so it sits beside the quote
+ * while lines are priced: a tab on the edge shows the count, a click opens the panel. On a wide
+ * screen the page makes room for it (html[data-conv-open]); on a narrow one it slides over.
+ * Remembered open or closed per device.
+ */
+export function ConversationDrawer({ contactId }: { contactId: string }) {
+  const result = useConversation(contactId);
+  const savedOpen = useSyncExternalStore(DRAWER.subscribe, DRAWER.read, serverOpen);
+  const [clickedOpen, setClickedOpen] = useState<boolean | null>(null);
+  const open = clickedOpen ?? savedOpen;
+  const summary = summarize(result?.ok ? result.messages : []);
+  const ghlUrl = (result?.ok && result.ghlUrl) || ghlContactUrl(contactId);
+
+  function toggle() {
+    const next = !open;
+    setClickedOpen(next);
+    DRAWER.write(next);
+  }
+
+  // The page makes room while the panel is open (globals.css reads this), and Escape closes it.
+  useEffect(() => {
+    const root = document.documentElement;
+    if (open) root.dataset.convOpen = "1";
+    else delete root.dataset.convOpen;
+    if (!open) return () => void delete root.dataset.convOpen;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setClickedOpen(false);
+      DRAWER.write(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      delete root.dataset.convOpen;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <>
+      <button type="button" className={`conv-tab${open ? " on" : ""}`} onClick={toggle} aria-expanded={open} aria-controls="conv-panel">
+        <span>Conversation</span>
+        {summary.total > 0 && <span className="conv-tab-n">{summary.total}</span>}
+        {summary.photos > 0 && <span className="conv-tab-n photo">{summary.photos} photo{summary.photos === 1 ? "" : "s"}</span>}
+      </button>
+      {open && (
+        <aside id="conv-panel" className="conv-panel" aria-label="Conversation with the customer">
+          <div className="card-h conv-h">
+            <span className="conv-title">
+              Conversation
+              <span className="conv-sum">{headlineOf(result, summary)}</span>
+            </span>
+            <a className="conv-ghl" href={ghlUrl} target="_blank" rel="noreferrer">
+              Reply in GHL ↗
+            </a>
+            <button type="button" className="conv-close" onClick={toggle} aria-label="Close the conversation">
+              ×
+            </button>
+          </div>
+          <div className="conv-panel-b conv-b">
+            <ConversationBody result={result} ghlUrl={ghlUrl} />
+          </div>
+        </aside>
+      )}
+    </>
+  );
+}
+
+/* ---------- the thread itself, shared by both ---------- */
+
+function ConversationBody({ result, ghlUrl }: { result: ConversationResult | null; ghlUrl: string }) {
+  const [showAutomated, setShowAutomated] = useState(false);
+  const [shown, setShown] = useState(PAGE);
+  const [lightbox, setLightbox] = useState<Attachment | null>(null);
+
+  const all = result?.ok ? result.messages : [];
+  const summary = summarize(all);
+  const visible = visibleMessages(all, showAutomated);
+  const thread = visible.slice(Math.max(0, visible.length - shown));
+  const earlier = visible.length - thread.length;
+  const pics = photos(visible);
+
+  return (
+    <>
+      {!result && <Skeleton />}
+      {result && !result.ok && <p className={`banner ${result.reason === "not-configured" ? "warn" : "bad"} conv-banner`}>{result.message}</p>}
+      {result?.ok && all.length === 0 && <p className="empty">Nothing in GHL with this customer yet. Their texts, emails and photos will show here.</p>}
+
+      {result?.ok && pics.length > 0 && (
+        <div className="conv-photos" aria-label="Photos the customer sent">
+          <span className="lbl">Photos</span>
+          <div className="conv-strip">
+            {pics.map((p) => (
+              <Thumb key={p.url} a={p} onOpen={setLightbox} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {result?.ok && visible.length > 0 && (
+        <ol className="conv-thread">
+          {(earlier > 0 || result.more) && (
+            <li className="conv-earlier">
+              {earlier > 0 ? (
+                <button type="button" className="linkbtn" onClick={() => setShown(shown + PAGE * 3)}>
+                  Show {Math.min(earlier, PAGE * 3)} earlier of {earlier}
+                </button>
+              ) : (
+                <a href={ghlUrl} target="_blank" rel="noreferrer">
+                  Older messages are in GHL ↗
+                </a>
+              )}
+            </li>
+          )}
+          {thread.map((m) => (
+            <Bubble key={m.id} m={m} onOpen={setLightbox} />
+          ))}
+        </ol>
+      )}
+
+      {result?.ok && summary.automated > 0 && (
+        <label className="check-in conv-auto">
+          <input type="checkbox" checked={showAutomated} onChange={(e) => setShowAutomated(e.target.checked)} />
+          Show {summary.automated} automated message{summary.automated === 1 ? "" : "s"} (booking texts, reminders, activity)
+        </label>
       )}
 
       {lightbox && (
@@ -165,7 +254,7 @@ export function Conversation({ contactId, defaultOpen = false }: Props) {
           </div>
         </div>
       )}
-    </section>
+    </>
   );
 }
 
