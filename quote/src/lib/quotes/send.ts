@@ -4,8 +4,8 @@ import { QUOTE, T, VERSION } from "@/lib/airtable/fields";
 import { requireQuoter } from "@/lib/auth";
 import { fromQuote } from "@/lib/editor/model";
 import { makeConfigured, sendMessage } from "@/lib/make/client";
-import { COPY_MAX_CHARS, customerCopy, parseCopy, pdfName, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "@/lib/send/copy";
-import { customerLinks, emailMessage, isToken, newToken, sendProblems, smsMessage, type Channels } from "@/lib/send/plan";
+import { COPY_MAX_CHARS, customerCopy, DEFAULT_PRICING, isPricing, parseCopy, pdfName, serializeCopy, torontoToday, type CopyPricing, type CustomerCopy, type Letterhead } from "@/lib/send/copy";
+import { customerLinks, emailMessage, isToken, newToken, sendProblems, smsMessage, type SendInput } from "@/lib/send/plan";
 import { getQuote } from "./load";
 import { refreshFromGhl } from "./refresh";
 import { fingerprint } from "./savePlan";
@@ -68,7 +68,7 @@ export async function sentLink(token: string | null): Promise<string | null> {
  * What the customer gets: for a version already sent, the copy frozen on it; for a draft, the
  * copy it would get if sent today. The preview page and PDF show this.
  */
-export async function previewCopy(versionId: string, validUntil?: string): Promise<CustomerCopy | null> {
+export async function previewCopy(versionId: string, validUntil?: string, pricing?: CopyPricing): Promise<CustomerCopy | null> {
   await requireQuoter();
   const quote = await getQuote(versionId);
   if (!quote) return null;
@@ -78,15 +78,15 @@ export async function previewCopy(versionId: string, validUntil?: string): Promi
     if (frozen) return frozen;
   }
   const today = torontoToday(new Date());
-  return customerCopy(quote, { sentOn: quote.sentAt ?? today, validUntil: validUntil ?? quote.validUntil ?? today, company: letterhead() });
+  return customerCopy(quote, { sentOn: quote.sentAt ?? today, validUntil: validUntil ?? quote.validUntil ?? today, company: letterhead(), pricing });
 }
 
-function readInput(raw: unknown): { base: string; validUntil: string; channels: Channels } | null {
+function readInput(raw: unknown): SendInput | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
   const ch = (r.channels ?? {}) as Record<string, unknown>;
   if (typeof r.base !== "string" || typeof r.validUntil !== "string") return null;
-  return { base: r.base, validUntil: r.validUntil, channels: { email: ch.email === true, sms: ch.sms === true } };
+  return { base: r.base, validUntil: r.validUntil, channels: { email: ch.email === true, sms: ch.sms === true }, pricing: isPricing(r.pricing) ? r.pricing : DEFAULT_PRICING };
 }
 
 export async function sendQuote(versionId: string, raw: unknown): Promise<SendResult> {
@@ -105,7 +105,7 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   const problems = sendProblems(quote, input, { today, fingerprint: fingerprint(fromQuote(quote)) });
   if (problems.length) return { ok: false, message: "Not sent.", problems };
 
-  const copy = customerCopy(quote, { sentOn: today, validUntil: input.validUntil, company: letterhead() });
+  const copy = customerCopy(quote, { sentOn: today, validUntil: input.validUntil, company: letterhead(), pricing: input.pricing });
   const text = serializeCopy(copy);
   if (text.length > COPY_MAX_CHARS) return { ok: false, message: "This quote is too long to send as one copy. Split it into fewer options." };
   const token = isToken(quote.customerToken) ? quote.customerToken : newToken();

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { sendQuoteAction } from "@/app/q/[id]/actions";
+import { DEFAULT_PRICING, type CopyPricing } from "@/lib/send/copy";
 
 /**
  * Send this version to the customer through GHL: email (link + PDF) and/or text (link). Two
@@ -73,12 +74,13 @@ export function SendQuote({
   const [until, setUntil] = useState(defaultUntil);
   const [byEmail, setByEmail] = useState(!!email);
   const [bySms, setBySms] = useState(!!phone);
+  const [pricing, setPricing] = useState<CopyPricing>(DEFAULT_PRICING);
   const [asking, setAsking] = useState(false);
   const [error, setError] = useState<{ message: string; problems?: string[] } | null>(null);
   const [done, setDone] = useState<{ link: string; sentTo: string[]; warning: string | null } | null>(null);
   const [sending, startSend] = useTransition();
-  const preview = `/q/${versionId}/preview?until=${until}`;
-  const pdf = `/q/${versionId}/pdf?until=${until}`;
+  const preview = `/q/${versionId}/preview?until=${until}&pricing=${pricing}`;
+  const pdf = `/q/${versionId}/pdf?until=${until}&pricing=${pricing}`;
 
   if (status !== "Draft" || done) {
     const s = done ? { sentAt: today, sentBy: null, sentTo: done.sentTo.join(", "), validUntil: until, link: done.link } : sent;
@@ -116,7 +118,7 @@ export function SendQuote({
   function send() {
     setError(null);
     startSend(async () => {
-      const r = await sendQuoteAction(versionId, { base, validUntil: until, channels: { email: byEmail, sms: bySms } });
+      const r = await sendQuoteAction(versionId, { base, validUntil: until, channels: { email: byEmail, sms: bySms }, pricing });
       setAsking(false);
       if (r.ok) {
         setDone(r);
@@ -155,6 +157,24 @@ export function SendQuote({
           </label>
         </fieldset>
 
+        <fieldset className="sq-ch" disabled={sending || asking}>
+          <legend className="sq-legend">Prices shown</legend>
+          <label>
+            <input type="radio" name="sq-pricing" checked={pricing === "total"} onChange={() => setPricing("total")} />
+            <span>
+              Total only
+              <span className="sub">What each option includes and its total. The default.</span>
+            </span>
+          </label>
+          <label>
+            <input type="radio" name="sq-pricing" checked={pricing === "rates"} onChange={() => setPricing("rates")} />
+            <span>
+              Each line priced
+              <span className="sub">Every line with its quantity, unit price and amount, and each section&apos;s subtotal.</span>
+            </span>
+          </label>
+        </fieldset>
+
         <label className="sq-until-in">
           Good until
           <input className="in" type="date" value={until} min={today} max={maxUntil} onChange={(e) => setUntil(e.target.value)} disabled={sending || asking} />
@@ -175,7 +195,7 @@ export function SendQuote({
         {asking ? (
           <div className="ca sq-ask" role="group" aria-label="Confirm sending">
             <p>
-              Send <b>{label}</b> to {firstName ?? "the customer"} by {channels.join(" and ")}?
+              Send <b>{label}</b> to {firstName ?? "the customer"} by {channels.join(" and ")}, {pricing === "rates" ? "with each line priced" : "with the total only"}?
               <span className="faint"> The version is locked once it is sent.</span>
             </p>
             <div className="ca-btns">

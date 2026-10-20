@@ -18,7 +18,7 @@ import { customerView } from "@/lib/view";
 import { fromQuote } from "@/lib/editor/model";
 import { fingerprint } from "@/lib/quotes/savePlan";
 import { sendingReady, sentLink } from "@/lib/quotes/send";
-import { addDays, torontoToday, VALID_DAYS } from "@/lib/send/copy";
+import { addDays, DEFAULT_PRICING, torontoToday, VALID_DAYS } from "@/lib/send/copy";
 import { sendProblems } from "@/lib/send/plan";
 
 export const dynamic = "force-dynamic";
@@ -53,7 +53,7 @@ export default async function QuotePage({
   const draft = quote.status === "Draft";
   const [ready, link] = await Promise.all([sendingReady(), sentLink(quote.customerToken)]);
   const problems = draft
-    ? sendProblems(quote, { base, validUntil: defaultUntil, channels: { email: !!quote.link?.email, sms: !!quote.link?.phone } }, { today, fingerprint: base })
+    ? sendProblems(quote, { base, validUntil: defaultUntil, channels: { email: !!quote.link?.email, sms: !!quote.link?.phone }, pricing: DEFAULT_PRICING }, { today, fingerprint: base })
     : [];
   const send = customer ? null : (
     <SendQuote

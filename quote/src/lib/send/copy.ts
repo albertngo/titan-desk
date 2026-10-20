@@ -69,6 +69,16 @@ export type Letterhead = {
   hstNumber: string | null;
 };
 
+/**
+ * How much pricing the customer sees (Albert, 2026-10-20): "total" = each option's lines with their
+ * quantities, and the price at the end only; "rates" = every line with its unit price and amount, and
+ * each section's subtotal. New sends default to "total". Absent on copies sent before this existed,
+ * which showed rates, so absent reads as "rates".
+ */
+export type CopyPricing = "rates" | "total";
+export const isPricing = (s: unknown): s is CopyPricing => s === "rates" || s === "total";
+export const DEFAULT_PRICING: CopyPricing = "total";
+
 export type CustomerCopy = {
   v: typeof COPY_VERSION;
   quoteNumber: string;
@@ -80,6 +90,8 @@ export type CustomerCopy = {
   customer: { name: string | null; siteAddress: string | null; siteCity: string | null };
   /** "When are they planning to do the project?" as answered (2026-10-18); absent on older copies. */
   timing?: string | null;
+  /** See CopyPricing; absent on older copies. */
+  pricing?: CopyPricing;
   /** Fraction, e.g. 0.11. */
   discountRate: number;
   showHst: boolean;
@@ -157,7 +169,7 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean): Cop
   };
 }
 
-export function customerCopy(quote: Quote, at: { sentOn: string; validUntil: string; company: Letterhead }): CustomerCopy {
+export function customerCopy(quote: Quote, at: { sentOn: string; validUntil: string; company: Letterhead; pricing?: CopyPricing }): CustomerCopy {
   const name = clean([quote.link?.firstName, quote.link?.lastName].filter(Boolean).join(" ")) ?? clean(quote.customerName);
   return {
     v: COPY_VERSION,
@@ -168,12 +180,16 @@ export function customerCopy(quote: Quote, at: { sentOn: string; validUntil: str
     validUntil: at.validUntil,
     customer: { name, siteAddress: clean(quote.siteAddress), siteCity: clean(quote.siteCity) },
     ...(quote.link?.projectTiming ? { timing: quote.link.projectTiming } : {}),
+    pricing: at.pricing ?? DEFAULT_PRICING,
     discountRate: quote.discountRate,
     showHst: quote.showHst,
     company: at.company,
     options: quote.options.map((o) => copyOption(o, quote.discountRate, quote.showHst)),
   };
 }
+
+/** Whether the page and PDF print each line's unit price and amount, and section subtotals. */
+export const showsRates = (copy: Pick<CustomerCopy, "pricing">) => (copy.pricing ?? "rates") === "rates";
 
 /** The HST row of an option's totals: a quote with HST off may still charge it on some materials. */
 export function hstRow(copy: Pick<CustomerCopy, "showHst">, t: Pick<CopyTotals, "hst">): { label: string; amount: number | null } {

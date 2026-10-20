@@ -425,6 +425,11 @@ table.items.edit .desc { font-weight: 500; }
 .qw-amt input { min-height: 40px; padding-right: 48px; text-align: right; font-variant-numeric: tabular-nums; }
 .qw-amt span { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--fg-faint); pointer-events: none; }
 .qw-same { color: var(--accent); font-size: 12.5px; min-height: 32px; }
+.qw-amt.auto input { color: var(--fg-dim); font-style: italic; }
+.qw-auto { font-size: 12px; color: var(--fg-faint); }
+.qw-mat { font-size: 13px !important; min-height: 32px; }
+.qw-thirds { display: grid; gap: 3px; }
+.qw-thirds ul { margin: 0; padding-left: 18px; }
 .qw-x { width: 32px; height: 32px; flex: none; }
 .qw-add { justify-self: start; color: var(--accent); font-size: 12.5px; min-height: 32px; }
 .qw-prod { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; padding: 6px 10px; border-radius: 6px; background: var(--card-2); font-size: 12.5px; }
@@ -492,6 +497,7 @@ a.chip.accent:hover { text-decoration: underline; }
 .sq-ch input { margin: 2px 0 0; accent-color: var(--accent); }
 .sq-ch .faint { display: block; font-size: 12px; overflow-wrap: anywhere; }
 .sq-ch .sub { display: block; font-size: 11.5px; color: var(--fg-faint); }
+.sq-legend { font-size: 12px; color: var(--fg-dim); font-weight: 600; padding: 0; margin-bottom: 2px; }
 .sq-until-in { display: grid; gap: 4px; font-size: 12px; color: var(--fg-dim); font-weight: 600; }
 .sq-tools { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; }
 .sq-go { width: 100%; justify-content: center; padding: 10px 14px; }
@@ -543,6 +549,7 @@ a.chip.accent:hover { text-decoration: underline; }
 .cq-sec ul { list-style: none; margin: 0; padding: 0; }
 .cq-li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto auto; gap: 4px 14px; padding: 11px 18px; border-top: 1px solid var(--line); font-size: 14px; align-items: baseline; }
 .cq-li:first-child { border-top: 0; }
+.cq-li.noprice { grid-template-columns: 22px minmax(0, 1fr) auto; }
 .cq-li .n { color: var(--fg-faint); font-size: 12px; font-variant-numeric: tabular-nums; }
 .cq-li .d { min-width: 0; overflow-wrap: anywhere; }
 .cq-li .sub { display: block; font-size: 12.5px; color: var(--fg-faint); }

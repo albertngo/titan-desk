@@ -1,9 +1,11 @@
 import { PAGE, PdfDoc, wrap, type Rgb } from "./pdfDoc";
-import { hstRow, itemHstNote, longDate, type CopyItem, type CopyOption, type CopyText, type CustomerCopy } from "./copy";
+import { hstRow, itemHstNote, longDate, showsRates, type CopyItem, type CopyOption, type CopyText, type CustomerCopy } from "./copy";
 
 /**
  * The quote as a PDF, drawn from the customer copy only (never from live lines), so the file
- * attached to the email and the one downloaded from the page are the same document.
+ * attached to the email and the one downloaded from the page are the same document. A copy sent
+ * with the total only (2026-10-20) has no unit price or amount column and no section subtotal;
+ * an optional add-on still says what it would add.
  */
 
 const BLUE: Rgb = [0.118, 0.435, 1];
@@ -28,6 +30,7 @@ const COL = { n: M, item: M + 22, itemW: 268, qty: 412, unit: 482, amount: RIGHT
 
 export function quotePdf(copy: CustomerCopy): Uint8Array<ArrayBuffer> {
   const doc = new PdfDoc(`Titan Flooring quote ${copy.quoteNumber}`);
+  const rates = showsRates(copy);
   let y = TOP;
 
   const newPage = () => {
@@ -110,8 +113,10 @@ export function quotePdf(copy: CustomerCopy): Uint8Array<ArrayBuffer> {
     doc.text(COL.n, y, "#", { font: "B", size: 8, color: DIM });
     doc.text(COL.item, y, cont ? "Item (continued)" : "Item", { font: "B", size: 8, color: DIM });
     doc.text(COL.qty, y, "Quantity", { font: "B", size: 8, color: DIM, align: "right" });
-    doc.text(COL.unit, y, "Unit price", { font: "B", size: 8, color: DIM, align: "right" });
-    doc.text(COL.amount - 4, y, "Amount", { font: "B", size: 8, color: DIM, align: "right" });
+    if (rates) {
+      doc.text(COL.unit, y, "Unit price", { font: "B", size: 8, color: DIM, align: "right" });
+      doc.text(COL.amount - 4, y, "Amount", { font: "B", size: 8, color: DIM, align: "right" });
+    }
     y -= 22;
   }
 
@@ -136,7 +141,7 @@ export function quotePdf(copy: CustomerCopy): Uint8Array<ArrayBuffer> {
     for (const s of o.sections) {
       if (room(40)) tableHead(true);
       doc.text(COL.item, y, s.name.toUpperCase(), { font: "B", size: 8, color: BLUE });
-      if (s.lines.some((l) => l.kind === "item" && !l.optional)) doc.text(COL.amount - 4, y, money(s.total), { font: "B", size: 8, color: DIM, align: "right" });
+      if (rates && s.lines.some((l) => l.kind === "item" && !l.optional)) doc.text(COL.amount - 4, y, money(s.total), { font: "B", size: 8, color: DIM, align: "right" });
       y -= 14;
       for (const l of s.lines) row(l);
       y -= 4;
@@ -174,16 +179,17 @@ export function quotePdf(copy: CustomerCopy): Uint8Array<ArrayBuffer> {
       y -= 4;
       return;
     }
-    const lines = wrap(l.description, "R", 9, COL.itemW);
-    const sub = [l.note, l.wastePct ? `includes ${l.wastePct}% waste allowance` : null, l.minimum ? "minimum charge" : null, itemHstNote(l)].filter(Boolean).join(" · ");
+    const priced = rates || l.optional;
+    const lines = wrap(l.description, "R", 9, priced ? COL.itemW : COL.itemW + 80);
+    const sub = [l.note, l.wastePct ? `includes ${l.wastePct}% waste allowance` : null, priced && l.minimum ? "minimum charge" : null, itemHstNote(l)].filter(Boolean).join(" · ");
     const notes = sub ? wrap(sub, "R", 8, COL.itemW) : [];
     if (room(lines.length * 12 + notes.length * 10 + 6)) tableHead(true);
     const color = l.optional ? DIM : INK;
     if (l.n !== null) doc.text(COL.n, y, String(l.n), { size: 9, color: FAINT });
     lines.forEach((t, k) => doc.text(COL.item, y - k * 12, t, { size: 9, color }));
     if (l.qty !== null) doc.text(COL.qty, y, `${plain.format(l.qty)}${l.uom ? ` ${l.uom}` : ""}`, { size: 9, color, align: "right" });
-    if (l.unitPrice !== null) doc.text(COL.unit, y, money(l.unitPrice), { size: 9, color, align: "right" });
-    doc.text(COL.amount - 4, y, l.optional ? `Optional · ${money(l.amount)}` : money(l.amount), { size: 9, font: l.optional ? "R" : "B", color, align: "right" });
+    if (rates && l.unitPrice !== null) doc.text(COL.unit, y, money(l.unitPrice), { size: 9, color, align: "right" });
+    if (priced) doc.text(COL.amount - 4, y, l.optional ? `Optional · ${money(l.amount)}` : money(l.amount), { size: 9, font: l.optional ? "R" : "B", color, align: "right" });
     y -= lines.length * 12;
     for (const t of notes) {
       doc.text(COL.item, y + 1, t, { size: 8, color: FAINT });

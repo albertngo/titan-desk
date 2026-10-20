@@ -1,10 +1,12 @@
 import { money, rate } from "@/lib/format";
-import { hstRow, hstWord, itemHstNote, longDate, type CopyItem, type CopyOption, type CopyState, type CopyText, type CustomerCopy } from "@/lib/send/copy";
+import { hstRow, hstWord, itemHstNote, longDate, showsRates, type CopyItem, type CopyOption, type CopyState, type CopyText, type CustomerCopy } from "@/lib/send/copy";
 
 /**
  * The quote as the customer sees it, drawn from the frozen customer copy only. Used by the
  * customer link (/c/<token>, on the customer deployment) and by staff's Preview, so the two
- * can never differ. It has no internal figure to hide: the copy never held one.
+ * can never differ. It has no internal figure to hide: the copy never held one. A copy sent
+ * with the total only (2026-10-20) lists each line with its quantity and prices nothing but
+ * the totals and any optional add-on.
  */
 
 const STATE_NOTE: Partial<Record<CopyState, (c: CustomerCopy) => string>> = {
@@ -15,7 +17,7 @@ const STATE_NOTE: Partial<Record<CopyState, (c: CustomerCopy) => string>> = {
 
 const tel = (s: string) => `tel:${s.replace(/[^\d+]/g, "")}`;
 
-function Line({ l }: { l: CopyItem | CopyText }) {
+function Line({ l, rates }: { l: CopyItem | CopyText; rates: boolean }) {
   if (l.kind === "text") {
     return (
       <li className="cq-li text">
@@ -24,10 +26,12 @@ function Line({ l }: { l: CopyItem | CopyText }) {
       </li>
     );
   }
-  const sub = [l.note, l.wastePct ? `includes ${l.wastePct}% waste allowance` : null, l.minimum ? "minimum charge" : null, itemHstNote(l)].filter(Boolean).join(" · ");
+  // With the total only, a line's price stays off the page; an optional add-on still says what it would add.
+  const priced = rates || l.optional;
+  const sub = [l.note, l.wastePct ? `includes ${l.wastePct}% waste allowance` : null, priced && l.minimum ? "minimum charge" : null, itemHstNote(l)].filter(Boolean).join(" · ");
   const qty = l.qty !== null ? `${rate(l.qty)}${l.uom ? ` ${l.uom}` : ""}` : null;
   return (
-    <li className={`cq-li${l.optional ? " opt" : ""}`}>
+    <li className={`cq-li${l.optional ? " opt" : ""}${priced ? "" : " noprice"}`}>
       <span className="n" aria-hidden>{l.n ?? ""}</span>
       <span className="d">
         {l.description}
@@ -35,17 +39,19 @@ function Line({ l }: { l: CopyItem | CopyText }) {
       </span>
       <span className="q">
         {qty}
-        {qty && l.unitPrice !== null && <span className="x"> × {money(l.unitPrice)}</span>}
+        {qty && rates && l.unitPrice !== null && <span className="x"> × {money(l.unitPrice)}</span>}
       </span>
-      <span className="a">
-        {l.optional ? (
-          <>
-            <span className="tag">Optional</span> {money(l.amount)}
-          </>
-        ) : (
-          money(l.amount)
-        )}
-      </span>
+      {priced && (
+        <span className="a">
+          {l.optional ? (
+            <>
+              <span className="tag">Optional</span> {money(l.amount)}
+            </>
+          ) : (
+            money(l.amount)
+          )}
+        </span>
+      )}
     </li>
   );
 }
@@ -77,6 +83,7 @@ function Totals({ o, copy }: { o: CopyOption; copy: CustomerCopy }) {
 }
 
 function OptionBlock({ o, i, copy }: { o: CopyOption; i: number | null; copy: CustomerCopy }) {
+  const rates = showsRates(copy);
   return (
     <section className="cq-card cq-opt" id={i ? `option-${i}` : undefined} aria-labelledby={`opt-h-${i ?? 0}`}>
       <header>
@@ -91,11 +98,11 @@ function OptionBlock({ o, i, copy }: { o: CopyOption; i: number | null; copy: Cu
         <div className="cq-sec" key={s.name}>
           <h3>
             <span>{s.name}</span>
-            {s.lines.some((l) => l.kind === "item" && !l.optional) && <span className="st">{money(s.total)}</span>}
+            {rates && s.lines.some((l) => l.kind === "item" && !l.optional) && <span className="st">{money(s.total)}</span>}
           </h3>
           <ul>
             {s.lines.map((l, k) => (
-              <Line key={k} l={l} />
+              <Line key={k} l={l} rates={rates} />
             ))}
           </ul>
         </div>

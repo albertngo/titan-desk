@@ -75,7 +75,14 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   phone: Flooring, then Stairs, then anything else; each work group folds to a one-line summary;
   short lists are chips; "Same as install" copies the square footage onto Remove and Material rows;
   every row shows its rate and its total beside the selection, priced the same way the quote will
-  be (`choiceRate()` / `rowTotal()` in `plan.ts`); the estimate and Create stay on screen
+  be (`choiceRate()` / `rowTotal()` in `plan.ts`); the estimate and Create stay on screen.
+  **Mouldings (Albert, 2026-10-20):** a choice labelled "X (Mat + Labor)" and its twin "X (Labor)"
+  are one chip, X, with a *Material included* box (ticked to start); the rate reads labour and
+  material apart and together, the material being the difference between the two Rate Card rows
+  (`pairChoices()` / `pairRate()`). Keep those label endings in Quick Quote Choices; a lone half
+  shows under its own label. A moulding row's linear feet start at a third of the flooring's
+  square footage under Install (`installAreas()`, whole feet), shown area by area for assistance,
+  until someone types over it; three rows, like the other work
   (`src/components/QuickWork.tsx`). The flooring choices are
   rows in the Airtable table **Quick Quote Choices** (`QUICK_TABLE`), each pointing at Rate Card
   rows or, for materials, a standard catalogue **SKU** (text, not a link, so the catalogue's
@@ -112,6 +119,10 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   text with the link; good for 30 days unless staff pick another date. What may be sent and the
   message bodies are in `src/lib/send/plan.ts`; the customer copy, a whitelist with no cost, margin,
   contractor, card rate or internal note, in `src/lib/send/copy.ts`; tested in `tests/send.test.ts`.
+  **Prices shown (Albert, 2026-10-20):** the send card asks *Total only* (the default: each line with
+  its quantity, the price at the end only, optional add-ons still priced) or *Each line priced*
+  (unit price, amount and section subtotals); the choice is frozen into the copy as `pricing`, and
+  the page and PDF print from it. Copies sent before this have no `pricing` and read as priced.
   The copy is **frozen on the version** (Customer Copy) and the version is marked Sent, so locked,
   before anything leaves; if neither message goes it returns to Draft. Sending a newer version marks
   older sent ones Superseded, and their links say so. Online acceptance is not built yet.

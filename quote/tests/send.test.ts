@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, copyState, customerCopy, hstRow, hstWord, longDate, parseCopy, pdfName, serializeCopy, torontoToday, type Letterhead } from "../src/lib/send/copy";
+import { addDays, copyState, customerCopy, hstRow, hstWord, longDate, parseCopy, pdfName, serializeCopy, showsRates, torontoToday, type Letterhead } from "../src/lib/send/copy";
 import { customerLinks, emailMessage, greetingName, isToken, newToken, sendProblems, smsMessage, type SendInput } from "../src/lib/send/plan";
 import { encode, textWidth, wrap } from "../src/lib/send/pdfDoc";
 import { quotePdf } from "../src/lib/send/pdf";
@@ -123,6 +123,17 @@ describe("customer copy", () => {
     expect(addOn).toMatchObject({ unitPrice: 30, amount: 120, optional: true, n: null });
   });
 
+  it("is sent with the total only unless asked for each line priced, and older copies read as priced (2026-10-20)", () => {
+    expect(copy.pricing).toBe("total");
+    expect(showsRates(copy)).toBe(false);
+    const priced = customerCopy(q, { ...AT, pricing: "rates" });
+    expect([priced.pricing, showsRates(priced)]).toEqual(["rates", true]);
+    const older = parseCopy(serializeCopy({ ...copy, pricing: undefined }))!;
+    expect([older.pricing, showsRates(older)]).toEqual([undefined, true]);
+    // The figures are in the copy either way: the page and PDF decide what to print.
+    expect(o.totals.total).toBe(772.92);
+  });
+
   it("shows quantity with waste included, so quantity × price is the amount", () => {
     const install = o.sections.find((s) => s.name === "Install")!.lines.find((l) => l.kind === "item")!;
     expect(install).toMatchObject({ qty: 220, unitPrice: 2, amount: 440, wastePct: 10, note: "Living room" });
@@ -168,7 +179,7 @@ describe("customer copy", () => {
 
 describe("before sending", () => {
   const q = quote();
-  const ok: SendInput = { base: fingerprint(fromQuote(q)), validUntil: "2026-11-14", channels: { email: true, sms: true } };
+  const ok: SendInput = { base: fingerprint(fromQuote(q)), validUntil: "2026-11-14", channels: { email: true, sms: true }, pricing: "total" };
   const ctx = { today: "2026-10-15", fingerprint: fingerprint(fromQuote(q)) };
 
   it("lets a healthy draft go", () => {
@@ -325,9 +336,15 @@ describe("the PDF", () => {
   });
 
   it("prints the customer's figures and none of the internal ones", () => {
-    const text = Buffer.from(quotePdf(customerCopy(quote(), AT))).toString("latin1");
-    for (const s of ["(Total)", "($772.92)", "(PREPARED FOR)", "(Pat Example)", "(Optional \\267 $120.00)", "(Living room \\267 includes 10% waste allowance)", "(minimum charge)", "(HST # 123456789 RT0001)"]) expect(text).toContain(s);
+    const text = Buffer.from(quotePdf(customerCopy(quote(), { ...AT, pricing: "rates" }))).toString("latin1");
+    for (const s of ["(Unit price)", "(Amount)", "($2.00)", "($440.00)", "(Total)", "($772.92)", "(PREPARED FOR)", "(Pat Example)", "(Optional \\267 $120.00)", "(Living room \\267 includes 10% waste allowance)", "(minimum charge)", "(HST # 123456789 RT0001)"]) expect(text).toContain(s);
     for (const s of ["Crew Alpha", "price sensitive", "$1.20", "Margin"]) expect(text).not.toContain(s);
+  });
+
+  it("with the total only, prints each line and its quantity but no price until the totals (2026-10-20)", () => {
+    const text = Buffer.from(quotePdf(customerCopy(quote(), AT))).toString("latin1");
+    for (const s of ["(Quantity)", "(Click install)", "(220 sqft)", "(Living room \\267 includes 10% waste allowance)", "(Total)", "($772.92)", "(Subtotal)", "(Optional \\267 $120.00)"]) expect(text).toContain(s);
+    for (const s of ["(Unit price)", "(Amount)", "($2.00)", "($440.00)", "($200.00)", "(minimum charge)"]) expect(text).not.toContain(s);
   });
 
   it("turns the page for a long option and numbers every page", () => {

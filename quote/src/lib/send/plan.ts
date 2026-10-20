@@ -1,6 +1,6 @@
 import { optionTotals, parityDiffs } from "@/lib/calc";
 import type { Quote } from "@/lib/quotes/types";
-import { addDays, isIsoDate, longDate, type CopyOption, type CustomerCopy } from "./copy";
+import { addDays, isIsoDate, longDate, type CopyOption, type CopyPricing, type CustomerCopy } from "./copy";
 import { copyKind, flooringSummary, kindPhrase } from "./summary";
 
 /**
@@ -21,6 +21,8 @@ export type SendInput = {
   base: string;
   validUntil: string;
   channels: Channels;
+  /** Each line priced, or the total only (the default); frozen into the copy. */
+  pricing: CopyPricing;
 };
 
 /** Everything that stops a send. Empty means it may go. Each line is said to staff as is. */
