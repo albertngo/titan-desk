@@ -604,3 +604,49 @@ a.chip.accent:hover { text-decoration: underline; }
 /* material swap on a Rate Card line (2026-10-16) */
 .mat { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 11.5px; color: var(--fg-faint); }
 .mat select.cell-in { width: auto; max-width: 220px; min-width: 0; font-size: 12px; padding: 3px 6px; text-overflow: ellipsis; }
+/* the customer's GHL conversation, read-only (2026-10-20) */
+.conv-h { gap: 10px; }
+.conv-toggle { all: unset; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font: inherit; font-weight: 600; color: var(--fg-dim); min-width: 0; flex: 1 1 auto; }
+.conv-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.conv-caret { display: inline-block; transition: transform .15s; color: var(--fg-faint); }
+.conv-caret.open { transform: rotate(90deg); }
+.conv-sum { font-weight: 500; color: var(--fg-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conv-ghl { margin-left: auto; font-weight: 600; white-space: nowrap; }
+.conv-b { display: grid; gap: 14px; }
+.conv-banner { border: 0; border-radius: var(--radius); }
+.conv-photos { display: grid; gap: 6px; }
+.conv-strip { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scroll-snap-type: x proximity; }
+.conv-strip.small { margin-top: 6px; }
+.conv-thumb { all: unset; box-sizing: border-box; flex: 0 0 auto; width: 112px; height: 112px; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); background: var(--card-2); cursor: zoom-in; scroll-snap-align: start; }
+.conv-strip.small .conv-thumb { width: 84px; height: 84px; }
+.conv-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.conv-thumb:hover { border-color: var(--accent); }
+.conv-thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.conv-thumb.file { display: grid; place-items: center; padding: 8px; font-size: 11.5px; color: var(--accent); text-align: center; overflow-wrap: anywhere; cursor: pointer; }
+.conv-thread { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.conv-earlier { text-align: center; font-size: 12.5px; }
+.conv-msg { max-width: 82%; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--card-2); font-size: 13px; line-height: 1.5; min-width: 0; }
+.conv-msg.in { justify-self: start; border-bottom-left-radius: 3px; }
+.conv-msg.out { justify-self: end; background: var(--accent-soft); border-color: transparent; border-bottom-right-radius: 3px; }
+.conv-msg.auto { background: var(--head); border-style: dashed; }
+.conv-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; font-size: 11.5px; color: var(--fg-faint); margin-bottom: 3px; }
+.conv-who { font-weight: 600; color: var(--fg-dim); }
+.conv-subj { font-weight: 600; margin-bottom: 2px; }
+.conv-body { white-space: pre-wrap; overflow-wrap: anywhere; }
+.conv-files { margin: 6px 0 0; padding: 0; list-style: none; font-size: 12.5px; display: grid; gap: 2px; }
+.conv-auto { font-size: 12.5px; color: var(--fg-dim); }
+.conv-light { position: fixed; inset: 0; z-index: 50; background: rgba(20, 30, 45, .88); display: grid; grid-template-rows: minmax(0, 1fr) auto; cursor: zoom-out; }
+.conv-light img { max-width: 100%; max-height: 100%; object-fit: contain; margin: auto; display: block; padding: 16px; box-sizing: border-box; }
+.conv-light-bar { display: flex; gap: 8px; align-items: center; padding: 10px 16px; background: var(--card); cursor: default; font-size: 12.5px; color: var(--fg-dim); }
+.conv-light-bar span { margin-right: auto; overflow-wrap: anywhere; }
+.conv-skel { display: grid; gap: 10px; }
+.conv-skel-strip { display: flex; gap: 8px; }
+.conv-skel-strip span { width: 112px; height: 112px; border-radius: var(--radius); background: var(--head); }
+.conv-skel-line { height: 44px; border-radius: 10px; background: var(--head); width: 60%; }
+.conv-skel-line.out { justify-self: end; width: 45%; }
+@media (prefers-reduced-motion: no-preference) {
+  .conv-skel-strip span, .conv-skel-line { animation: conv-pulse 1.4s ease-in-out infinite; }
+  @keyframes conv-pulse { 50% { opacity: .55; } }
+}
+@media (max-width: 560px) { .conv-msg { max-width: 94%; } .conv-sum { display: none; } }
+@media (pointer: coarse) { .conv-toggle { min-height: 32px; } .conv-ghl { min-height: 32px; display: inline-flex; align-items: center; } }

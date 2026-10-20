@@ -4,6 +4,7 @@ import { requireQuoter } from "@/lib/auth";
 import { getQuickForm, getStairProfiles } from "@/lib/quotes/load";
 import type { NewQuoteKind } from "@/lib/link/newQuote";
 import { newQuoteSettings } from "@/lib/quotes/start";
+import { customerView } from "@/lib/view";
 
 export const dynamic = "force-dynamic";
 
@@ -19,10 +20,11 @@ export default async function NewQuotePage({ searchParams }: { searchParams: Pro
   const kind = kindOf((await searchParams).kind);
   // The quick form's choices are only needed for a preliminary; a full quote opens empty in the editor.
   const prelim = kind === "preliminary";
-  const [{ ghlWrites }, quick, profileRows] = await Promise.all([
+  const [{ ghlWrites }, quick, profileRows, customer] = await Promise.all([
     newQuoteSettings(),
     prelim ? getQuickForm().catch(() => []) : Promise.resolve([]),
     prelim ? getStairProfiles().catch(() => []) : Promise.resolve([]),
+    customerView(),
   ]);
   // Stair Profiles for the dropdown: the preset price only; cost and the builder's template stay on the server.
   const profiles = profileRows.map(({ id, name, type, method, steps, price }) => ({ id, name, type, method, steps, price, cost: null }));
@@ -35,7 +37,8 @@ export default async function NewQuotePage({ searchParams }: { searchParams: Pro
   return (
     <>
       <TopBar email={email} />
-      <NewQuote ghlWrites={ghlWrites} choices={choices} profiles={profiles} kind={kind} />
+      {/* The picked customer's GHL conversation shows while the job is priced; never in Customer view. */}
+      <NewQuote ghlWrites={ghlWrites} choices={choices} profiles={profiles} kind={kind} conversation={!customer} />
     </>
   );
 }
