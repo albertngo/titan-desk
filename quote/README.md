@@ -48,7 +48,7 @@ repo with Root Directory `quote`. Rules for changing it: `CLAUDE.md` in this fol
 | `QUOTE_MAKE_GHL_HOOK` | the "Quote app → GHL" Make webhook address. Set only once that scenario is on |
 | `QUOTE_MAKE_GHL_KEY` | the shared key that scenario's filters check. Kept in Make and Vercel only |
 | `QUOTE_BOOKING_KEY` | the key the booking scenario (Make 3453735) sends to `/api/booking` in the `x-quote-key` header. Unset = the booking step is off. Kept in Make and Vercel only |
-| `QUOTE_GHL_TOKEN` | its own GHL private integration token, read-only: `contacts.readonly`, `opportunities.readonly`. Without it, New quote can only add new customers |
+| `QUOTE_GHL_TOKEN` | its own GHL private integration token, used read-only: `contacts.readonly`, `opportunities.readonly`, `conversations.readonly`, `conversations/message.readonly` (the token may hold write scopes; the app's GHL client is GET-only and the boundary test keeps it so). Without it, New quote can only add new customers and no conversation shows |
 | `QUOTE_ALLOWED_EMAILS` | comma-separated Microsoft emails allowed to quote |
 | `QUOTE_CUSTOMER_URL` | the customer deployment's address (below), e.g. `https://titan-desk-quote-view.vercel.app`. Unset = sending is off |
 | `QUOTE_COMPANY_NAME` · `_ADDRESS` · `_PHONE` · `_EMAIL` · `_WEBSITE` · `_HST` | the letterhead on every quote sent (name defaults to Titan Flooring; a blank one is left off). Frozen into each quote when it is sent |

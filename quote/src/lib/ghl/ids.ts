@@ -8,6 +8,10 @@ export const GHL_LOCATION_ID = "4BwjVRlyDCR4ZRdcSrFR";
 export const ghlContactUrl = (contactId: string) =>
   `https://app.gohighlevel.com/v2/location/${GHL_LOCATION_ID}/contacts/detail/${encodeURIComponent(contactId)}`;
 
+/** A conversation in GHL's inbox, where staff reply (the app only reads it). */
+export const ghlConversationUrl = (conversationId: string) =>
+  `https://app.gohighlevel.com/v2/location/${GHL_LOCATION_ID}/conversations/conversations/${encodeURIComponent(conversationId)}`;
+
 /** "(1) PROJECT: Lead Qualification": where every new opportunity from the quote app starts. */
 export const LEADS_PIPELINE_ID = "z7ZevSnG9HnGMzC9nSHp";
 

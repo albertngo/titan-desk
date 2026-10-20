@@ -1,4 +1,5 @@
 import type { LineInput, OptionTotals } from "@/lib/calc";
+import type { Message } from "@/lib/conversation/thread";
 import type { GhlContact } from "@/lib/ghl/types";
 
 export type QuoteLine = LineInput & {
@@ -142,6 +143,20 @@ export type StartResult =
   | { ok: true; versionId: string; reused: boolean; /** The quick form's lines went in, so the quote opens for review, not in the editor. */ filled: boolean }
   /** `duplicates`: GHL already has someone with the phone or email typed for a "new" customer. */
   | { ok: false; message: string; duplicates?: FoundCustomer[] };
+
+/* ---------- the customer's conversation (src/lib/quotes/conversation.ts) ---------- */
+
+export type ConversationResult =
+  | {
+      ok: true;
+      /** Oldest first, people's and automated messages together; the screen decides what to show. */
+      messages: Message[];
+      /** Older messages exist in GHL past what was read. */
+      more: boolean;
+      /** The conversation in GHL's inbox, where staff reply; null when the contact has none yet. */
+      ghlUrl: string | null;
+    }
+  | { ok: false; reason: "not-configured" | "error"; message: string };
 
 /* ---------- linking a quote to a job (src/lib/quotes/link.ts) ---------- */
 

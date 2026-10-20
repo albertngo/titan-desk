@@ -26,6 +26,9 @@ export type GhlOpportunity = {
   siteAddress: string | null;
 };
 
+/** One of a contact's conversations in GHL; its messages come separately (src/lib/conversation/thread.ts). */
+export type GhlConversation = { id: string; lastMessageAt: string | null };
+
 /** One opportunity's site, from its Project Address / Project City custom fields. */
 export type GhlSite = { address: string | null; city: string | null };
 

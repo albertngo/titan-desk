@@ -9,6 +9,7 @@ import type { NewQuoteKind } from "@/lib/link/newQuote";
 import type { QuickChoice } from "@/lib/quick/plan";
 import type { CustomerSearch, FoundCustomer } from "@/lib/quotes/types";
 import { money } from "@/lib/format";
+import { Conversation } from "./Conversation";
 import { estimateWork, initialWork, QuickWork, workInput, type WorkState } from "./QuickWork";
 
 type Choice = { contactId: string; opportunityId: string | null } | { newCustomer: true } | null;
@@ -20,8 +21,9 @@ const blankCustomer = { firstName: "", lastName: "", phone: "", email: "", addre
  * timing question. Customer details are never typed here unless the customer is brand new.
  * Two kinds (Albert, 2026-10-18): a preliminary adds the quick form and becomes v1 Preliminary; a
  * full quote stops at the timing question and opens v1 Measured, empty, in the editor.
+ * `conversation`: show the picked customer's GHL conversation under the customer (off in Customer view).
  */
-export function NewQuote({ ghlWrites, choices, kind }: { ghlWrites: boolean; choices: QuickChoice[]; kind: NewQuoteKind }) {
+export function NewQuote({ ghlWrites, choices, kind, conversation = false }: { ghlWrites: boolean; choices: QuickChoice[]; kind: NewQuoteKind; conversation?: boolean }) {
   const prelim = kind === "preliminary";
   const [work, setWork] = useState<WorkState>(() => initialWork(choices));
   const [query, setQuery] = useState("");
@@ -229,6 +231,9 @@ export function NewQuote({ ghlWrites, choices, kind }: { ghlWrites: boolean; cho
           )}
         </div>
       </section>
+
+      {/* What the customer told us, with their photos, while the job above is priced (Albert, 2026-10-20). */}
+      {conversation && picked && <Conversation key={picked.contact.id} contactId={picked.contact.id} defaultOpen />}
 
       <section className="card">
         <div className="card-h">{step(3)} · Timeline <span className="right">When are they planning to do the project?</span></div>
