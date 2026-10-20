@@ -4,6 +4,7 @@ import { requireQuoter } from "@/lib/auth";
 import { getQuickForm } from "@/lib/quotes/load";
 import type { NewQuoteKind } from "@/lib/link/newQuote";
 import { newQuoteSettings } from "@/lib/quotes/start";
+import { customerView } from "@/lib/view";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,11 @@ export default async function NewQuotePage({ searchParams }: { searchParams: Pro
   const email = await requireQuoter();
   const kind = kindOf((await searchParams).kind);
   // The quick form's choices are only needed for a preliminary; a full quote opens empty in the editor.
-  const [{ ghlWrites }, quick] = await Promise.all([newQuoteSettings(), kind === "preliminary" ? getQuickForm().catch(() => []) : Promise.resolve([])]);
+  const [{ ghlWrites }, quick, customer] = await Promise.all([
+    newQuoteSettings(),
+    kind === "preliminary" ? getQuickForm().catch(() => []) : Promise.resolve([]),
+    customerView(),
+  ]);
   // The form needs charge rates only: costs and contractors never reach the browser.
   const choices = quick.map((c) => ({
     ...c,
@@ -28,7 +33,8 @@ export default async function NewQuotePage({ searchParams }: { searchParams: Pro
   return (
     <>
       <TopBar email={email} />
-      <NewQuote ghlWrites={ghlWrites} choices={choices} kind={kind} />
+      {/* The picked customer's GHL conversation shows while the job is priced; never in Customer view. */}
+      <NewQuote ghlWrites={ghlWrites} choices={choices} kind={kind} conversation={!customer} />
     </>
   );
 }

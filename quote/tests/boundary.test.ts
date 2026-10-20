@@ -62,7 +62,7 @@ describe("Airtable boundary", () => {
   });
 
   it("keeps the client, the loaders and the auth check server-only", () => {
-    for (const rel of [CLIENT, GHL, "lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/customer.ts", "lib/auth.ts"]) {
+    for (const rel of [CLIENT, GHL, "lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/customer.ts", "lib/quotes/conversation.ts", "lib/auth.ts"]) {
       expect(all.find((f) => f.rel === rel)!.text).toMatch(/^import "server-only";/m);
     }
   });
@@ -70,7 +70,7 @@ describe("Airtable boundary", () => {
   it("never imports Airtable code into a browser component", () => {
     const leaks = all
       .filter((f) => /^["']use client["'];?/m.test(f.text))
-      .filter((f) => /^import (?!type )[^;]*from ["']@\/lib\/(airtable|quotes\/load|quotes\/start|quotes\/save|quotes\/refresh|quotes\/records|quotes\/booking|quotes\/link|quotes\/send|quotes\/customer|ghl\/client|make\/client|auth)/m.test(f.text))
+      .filter((f) => /^import (?!type )[^;]*from ["']@\/lib\/(airtable|quotes\/load|quotes\/start|quotes\/save|quotes\/refresh|quotes\/records|quotes\/booking|quotes\/link|quotes\/send|quotes\/customer|quotes\/conversation|ghl\/client|make\/client|auth)/m.test(f.text))
       .map((f) => f.rel);
     expect(leaks).toEqual([]);
   });
@@ -81,7 +81,7 @@ describe("Airtable boundary", () => {
 
   it("checks the quoter allowlist in both the proxy and every loader", () => {
     expect(all.find((f) => f.rel === "proxy.ts")!.text).toContain("isQuoter(");
-    for (const rel of ["lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/link.ts", "lib/quotes/send.ts"]) {
+    for (const rel of ["lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/conversation.ts"]) {
       const text = all.find((f) => f.rel === rel)!.text;
       const exported = text.match(/export async function \w+/g) ?? [];
       const guarded = text.match(/export async function \w+[^{]*\{\s*(const \w+ = )?await requireQuoter\(\);/g) ?? [];
@@ -130,6 +130,22 @@ describe("GHL boundary", () => {
   it("only reads: no write verb in the GHL client", () => {
     const client = code(all.find((f) => f.rel === GHL)!.text);
     for (const verb of ["POST", "PATCH", "PUT", "DELETE"]) expect(client).not.toMatch(new RegExp(`["'\`]${verb}["'\`]`));
+    // One request function, GET, and every call goes through it.
+    expect(client).toMatch(/method: "GET"/);
+    expect(client.match(/\bfetch\(/g)?.length).toBe(1);
+  });
+
+  it("the conversation is read live, stored nowhere, and shown only to a quoter on the staff app", () => {
+    const loader = code(all.find((f) => f.rel === "lib/quotes/conversation.ts")!.text);
+    // Never written to Airtable: the loader knows no Airtable function at all.
+    expect(loader).not.toMatch(/airtable|createRecord|updateRecord/);
+    // Only the conversation reads: no contact search, no opportunity change.
+    expect(loader).not.toMatch(/make\/client|sendToGhl/);
+    // The pages leave it out in Customer view, and the customer pages never import it.
+    expect(all.find((f) => f.rel === "app/q/[id]/page.tsx")!.text).toMatch(/\{!customer && quote\.link\?\.ghlContactId && <Conversation/);
+    expect(all.find((f) => f.rel === "app/new/page.tsx")!.text).toMatch(/conversation=\{!customer\}/);
+    const importers = all.filter((f) => /from ["'](@\/app\/actions\/conversation|@\/lib\/quotes\/conversation|@\/components\/Conversation|\.\/Conversation)["']/.test(f.text)).map((f) => f.rel).sort();
+    expect(importers).toEqual(["app/actions/conversation.ts", "app/q/[id]/page.tsx", "components/Conversation.tsx", "components/NewQuote.tsx"]);
   });
 });
 

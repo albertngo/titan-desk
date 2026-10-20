@@ -152,6 +152,18 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   + the chosen material, so the default at Standard is exactly the row. A row whose default has no
   price, or costs more than the row, offers no swap. Contractor and crew changes keep the material.
   Rules: `rateSnap()` / `setMaterial()` in `src/lib/editor/model.ts`; tested in `tests/editor.test.ts`.
+- **The customer's conversation (Albert, 2026-10-20).** A **Conversation** card on the quote page
+  (folded to a summary line, remembered per device) and on New quote once a customer is picked
+  (open): their texts, emails and chats, our replies and sent quotes, and every photo they sent in
+  a strip at the top, so a preliminary is priced from what the customer actually said. Read live
+  from GHL each time (`src/lib/quotes/conversation.ts`, a quoter only; the pure reading of GHL's
+  message list is `src/lib/conversation/thread.ts`, tested in `tests/conversation.test.ts`),
+  stored nowhere, and **read-only: replying stays in GHL** ("Reply in GHL" in the header). A reply
+  box would mean the app writing to GHL with a token of its own; if it is wanted, it is its own
+  decision, and the natural route is Make 4975508, like sending. Workflow, campaign and activity
+  entries are hidden behind "Show automated". Staff only: the pages leave the card out in Customer
+  view, and the customer deployment never has it. Pictures are shown straight from GHL's URLs; one
+  the browser cannot load falls back to a link.
 - **All quotes (2026-10-15).** One row per quote, its versions folded under it (newest first),
   and a search over name, quote and project number, city, email and phone digits. Grouping and
   search are pure, in `src/lib/quotes/group.ts`, tested in `tests/group.test.ts`.
@@ -167,7 +179,10 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
    Only the files listed in the boundary test's `WRITERS` may call it. Never a write to the
    catalogue, Rate Card or Stair Items from this app.
 2a. **One file talks to GHL, and only reads:** `src/lib/ghl/client.ts`, `server-only`, GET
-   only, the only reader of `QUOTE_GHL_TOKEN` (contacts.readonly + opportunities.readonly).
+   only, the only reader of `QUOTE_GHL_TOKEN` (used for contacts.readonly, opportunities.readonly,
+   conversations.readonly and conversations/message.readonly). The token Albert made (2026-10-20)
+   also holds write scopes; the app uses none of them, and the boundary test fails on any write
+   verb in that file. A reply feature, if it comes, is a reviewed change to this rule.
 2b. **One file sends to Make:** `src/lib/make/client.ts`, `server-only`, the only reader of
    `QUOTE_MAKE_GHL_HOOK` / `QUOTE_MAKE_GHL_KEY`, called only from `src/lib/quotes/start.ts`, `src/lib/quotes/booking.ts`, `src/lib/quotes/link.ts` and `src/lib/quotes/send.ts`.
    Set those two variables only after the scenario is switched on: a request to a scenario

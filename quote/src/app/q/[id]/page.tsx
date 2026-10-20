@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Analysis } from "@/components/Analysis";
+import { Conversation } from "@/components/Conversation";
 import { CustomerCard } from "@/components/CustomerCard";
 import { Financials } from "@/components/Financials";
 import { LinkJob } from "@/components/LinkJob";
@@ -96,6 +97,9 @@ export default async function QuotePage({
             {unlinked && jobs && <LinkJob quoteRecordId={unlinked.quoteRecordId} quoteNumber={unlinked.quoteNumber} jobs={jobs} />}
 
             <CustomerCard quote={quote} />
+
+            {/* The customer's GHL conversation: staff only, so Customer view never has it, and never on a quote with no contact. */}
+            {!customer && quote.link?.ghlContactId && <Conversation contactId={quote.link.ghlContactId} />}
 
             {quote.legacyLineCount > 0 && (
               <p className="card banner warn">

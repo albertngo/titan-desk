@@ -1,14 +1,17 @@
 import "server-only";
+import { hasMore, htmlToText, parseMessages, type Message } from "@/lib/conversation/thread";
 import { GHL_LOCATION_ID, OPP_FIELDS } from "./ids";
-import type { GhlContact, GhlOpportunity, GhlPipeline, GhlSite } from "./types";
+import type { GhlContact, GhlConversation, GhlOpportunity, GhlPipeline, GhlSite } from "./types";
 
-export type { GhlContact, GhlOpportunity, GhlPipeline, GhlSite };
+export type { GhlContact, GhlConversation, GhlOpportunity, GhlPipeline, GhlSite };
 
 /**
  * The ONLY file in quote/ that talks to GoHighLevel, and the only one that reads
- * QUOTE_GHL_TOKEN (a read-only private integration token: contacts.readonly and
- * opportunities.readonly). Server-only, GET only: tests/boundary.test.ts fails the build if a
- * write verb appears here. Creating contacts and opportunities is Make's job, never this file's.
+ * QUOTE_GHL_TOKEN (a private integration token used read-only: contacts.readonly,
+ * opportunities.readonly, conversations.readonly and conversations/message.readonly; whatever
+ * else the token holds, this file never uses). Server-only, GET only: tests/boundary.test.ts
+ * fails the build if a write verb appears here. Creating contacts and opportunities is Make's
+ * job, never this file's, and so would be replying to a customer.
  */
 
 const BASE = "https://services.leadconnectorhq.com";
@@ -117,6 +120,44 @@ export async function opportunitySite(id: string): Promise<GhlSite | null> {
     const o = data.opportunity;
     if (!o) return null;
     return { address: customValue(o.customFields, OPP_FIELDS.projectAddress), city: customValue(o.customFields, OPP_FIELDS.projectCity) };
+  } catch (e) {
+    if (e instanceof GhlError && e.status === 404) return null;
+    throw e;
+  }
+}
+
+/* ---------- the customer's conversation (Albert, 2026-10-20): read only ---------- */
+
+/** The contact's conversations in GHL (usually one), most recently active first. */
+export async function conversationsForContact(contactId: string): Promise<GhlConversation[]> {
+  if (!/^[A-Za-z0-9]+$/.test(contactId)) return [];
+  const data = (await get("/conversations/search", { locationId: GHL_LOCATION_ID, contactId, limit: "10" })) as {
+    conversations?: Record<string, unknown>[];
+  };
+  return (data.conversations ?? [])
+    .filter((c) => typeof c.id === "string")
+    .map((c) => ({
+      id: String(c.id),
+      lastMessageAt: typeof c.lastMessageDate === "number" ? new Date(c.lastMessageDate).toISOString() : (s(c.lastMessageDate) ?? s(c.dateUpdated)),
+    }))
+    .sort((a, b) => (b.lastMessageAt ?? "").localeCompare(a.lastMessageAt ?? ""));
+}
+
+/** One conversation's latest messages, oldest first, and whether older ones exist past them. */
+export async function conversationMessages(conversationId: string, limit = 100): Promise<{ messages: Message[]; more: boolean }> {
+  if (!/^[A-Za-z0-9]+$/.test(conversationId)) return { messages: [], more: false };
+  const data = await get(`/conversations/${conversationId}/messages`, { limit: String(limit) });
+  return { messages: parseMessages(data), more: hasMore(data) };
+}
+
+/** The full text of one email, for a message whose list entry carried none. Null when GHL has no such email. */
+export async function emailMessage(emailId: string): Promise<{ subject: string | null; body: string | null } | null> {
+  if (!/^[A-Za-z0-9_-]+$/.test(emailId)) return null;
+  try {
+    const data = (await get(`/conversations/messages/email/${emailId}`, {})) as Record<string, unknown>;
+    const e = (typeof data.emailMessage === "object" && data.emailMessage !== null ? data.emailMessage : data) as Record<string, unknown>;
+    const html = s(e.body);
+    return { subject: s(e.subject), body: html ? htmlToText(html) || null : null };
   } catch (e) {
     if (e instanceof GhlError && e.status === 404) return null;
     throw e;
