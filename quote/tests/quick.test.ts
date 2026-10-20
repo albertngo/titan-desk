@@ -1,6 +1,26 @@
 import { describe, expect, it } from "vitest";
 import { optionTotals } from "../src/lib/calc";
-import { amountUnit, buildPreliminary, choiceRate, parseWork, QUICK_GROUPS, rowTotal, workIsEmpty, type QuickChoice, type QuickPart, type QuickProduct } from "../src/lib/quick/plan";
+import {
+  amountUnit,
+  buildPreliminary,
+  choiceRate,
+  GROUP_ROWS,
+  installAreas,
+  linearFtFromSqft,
+  pairChoice,
+  pairChoices,
+  pairHasToggle,
+  pairOf,
+  pairRate,
+  parseWork,
+  QUICK_GROUPS,
+  rowTotal,
+  takesLinearDefault,
+  workIsEmpty,
+  type QuickChoice,
+  type QuickPart,
+  type QuickProduct,
+} from "../src/lib/quick/plan";
 
 // INVENTED rates, costs, ids and products only: this repo is public.
 const part = (o: Partial<QuickPart> & { recordId: string }): QuickPart => ({ kind: "rate", labourType: "Install", spec: "SPEC", description: "Install | SPEC", contractor: "Crew A", uom: "sqft", rate: 2, cost: 1, minCharge: null, ...o });
@@ -79,6 +99,74 @@ describe("quick form: the lines it becomes", () => {
   it("labels each row's amount by what its price is per", () => {
     expect([amountUnit(NAIL), amountUnit(BINS), amountUnit(MAT)]).toEqual(["sqft", null, "sqft"]);
     expect(amountUnit(choice({ id: "x", parts: [part({ recordId: "r", uom: "linear ft" })] }))).toBe("linear ft");
+  });
+});
+
+describe("quick form: mouldings with or without material (2026-10-20)", () => {
+  const lf = (o: Partial<QuickPart> & { recordId: string }) => part({ labourType: "Install", uom: "linear ft", ...o });
+  const BB_FULL = choice({ id: "recBbFull0000000A", group: "Baseboards", label: "Baseboard (Mat + Labor)", sort: 1, parts: [lf({ recordId: "rBbFull", rate: 2.7 })] });
+  const BB_LAB = choice({ id: "recBbLab00000000A", group: "Baseboards", label: "Baseboard (Labor)", sort: 4, parts: [lf({ recordId: "rBbLab", rate: 1.7 })] });
+  const SHOE_FULL = choice({ id: "recShoeFull00000A", group: "Baseboards", label: "Shoemould (Mat + Labor)", sort: 2, parts: [lf({ recordId: "rShFull", rate: 1.5 })] });
+  const SHOE_LAB = choice({ id: "recShoeLab000000A", group: "Baseboards", label: "Shoemould (Labor)", sort: 5, parts: [lf({ recordId: "rShLab", rate: 1 })] });
+  const BOTH_FULL = choice({ id: "recBothFull00000A", group: "Baseboards", label: "Baseboard + Shoe (Material + Labour)", sort: 3, parts: [lf({ recordId: "rBbFull", rate: 2.7 }), lf({ recordId: "rShFull", rate: 1.5 })] });
+  const BOTH_LAB = choice({ id: "recBothLab000000A", group: "Baseboards", label: "baseboard + shoe (labour only)", sort: 6, parts: [lf({ recordId: "rBbLab", rate: 1.7 }), lf({ recordId: "rShLab", rate: 1 })] });
+  const CROWN = choice({ id: "recCrown00000000A", group: "Baseboards", label: "Crown (Labor)", sort: 7, parts: [lf({ recordId: "rCrown", rate: 3 })] });
+  const QR = choice({ id: "recQr00000000000A", group: "Baseboards", label: "Quarter round", sort: 8, parts: [lf({ recordId: "rQr", rate: 1.2 })] });
+  const mouldings = [BB_FULL, SHOE_FULL, BOTH_FULL, BB_LAB, BOTH_LAB, SHOE_LAB, CROWN, QR];
+
+  it("pairs a choice with its labour-only twin by label, in first-seen order, and leaves the rest alone", () => {
+    const pairs = pairChoices(mouldings);
+    expect(pairs.map((p) => [p.label, p.withMaterial?.id ?? null, p.labourOnly?.id ?? null, pairHasToggle(p)])).toEqual([
+      ["Baseboard", BB_FULL.id, BB_LAB.id, true],
+      ["Shoemould", SHOE_FULL.id, SHOE_LAB.id, true],
+      ["Baseboard + Shoe", BOTH_FULL.id, BOTH_LAB.id, true],
+      ["Crown (Labor)", null, CROWN.id, false],
+      ["Quarter round", QR.id, null, false],
+    ]);
+  });
+
+  it("sends the chosen half, and the only half when there is one", () => {
+    const [bb, , , crown, qr] = pairChoices(mouldings);
+    expect([pairChoice(bb, true).id, pairChoice(bb, false).id]).toEqual([BB_FULL.id, BB_LAB.id]);
+    expect([pairChoice(crown, true).id, pairChoice(crown, false).id]).toEqual([CROWN.id, CROWN.id]);
+    expect([pairChoice(qr, true).id, pairChoice(qr, false).id]).toEqual([QR.id, QR.id]);
+    expect(pairOf(pairChoices(mouldings), BOTH_LAB.id)?.label).toBe("Baseboard + Shoe");
+    expect(pairOf(pairChoices(mouldings), "recNope000000000A")).toBeNull();
+  });
+
+  it("reads labour and material off the two rows, and declines when they don't split", () => {
+    const [bb, shoe, both, crown] = pairChoices(mouldings);
+    expect(pairRate(bb)).toEqual({ labour: 1.7, material: 1 });
+    expect(pairRate(shoe)).toEqual({ labour: 1, material: 0.5 });
+    expect(pairRate(both)).toEqual({ labour: 2.7, material: 1.5 });
+    expect(pairRate(crown)).toBeNull();
+    const upsideDown = pairChoices([choice({ id: "recUpA0000000000A", label: "Odd (Mat + Labor)", parts: [lf({ recordId: "a", rate: 1 })] }), choice({ id: "recUpB0000000000A", label: "Odd (Labor)", parts: [lf({ recordId: "b", rate: 2 })] })]);
+    expect(pairRate(upsideDown[0])).toBeNull();
+  });
+
+  it("offers three moulding rows, like the other work", () => {
+    expect(GROUP_ROWS.Baseboards).toBe(3);
+  });
+
+  it("guesses a moulding's linear feet as a third of the flooring, in whole feet, area by area and together", () => {
+    expect([linearFtFromSqft(900), linearFtFromSqft(1000), linearFtFromSqft(100.4)]).toEqual([300, 333, 33]);
+    const rows = [
+      { group: "Install" as const, choiceId: NAIL.id, amount: 900 },
+      { group: "Install" as const, choiceId: NAIL_GLUE.id, amount: 250 },
+      { group: "Install" as const, choiceId: NAIL.id, amount: null },
+      { group: "Material" as const, choiceId: MAT.id, amount: 900 },
+      { group: "Baseboards" as const, choiceId: BB_FULL.id, amount: null },
+    ];
+    expect(installAreas([...choices, ...mouldings], rows)).toEqual({
+      areas: [
+        { label: "Nail down", sqft: 900, linearFt: 300 },
+        { label: "Nail + glue", sqft: 250, linearFt: 83 },
+      ],
+      sqft: 1150,
+      linearFt: 383,
+    });
+    expect(installAreas(choices, [{ group: "Material", choiceId: MAT.id, amount: 900 }])).toBeNull();
+    expect([takesLinearDefault(BB_FULL), takesLinearDefault(BB_LAB), takesLinearDefault(NAIL), takesLinearDefault(undefined)]).toEqual([true, true, false, false]);
   });
 });
 

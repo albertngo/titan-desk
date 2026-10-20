@@ -22,8 +22,8 @@ export const GROUP_SECTION: Record<QuickGroup, string> = {
   Material: "Materials",
 };
 
-/** How many rows of each group the form offers (the GHL form had the same). */
-export const GROUP_ROWS: Record<QuickGroup, number> = { Remove: 3, Disposal: 1, "Subfloor prep": 2, Install: 3, Baseboards: 1, Material: 3 };
+/** How many rows of each group the form offers (the GHL form had the same; mouldings got three on 2026-10-20). */
+export const GROUP_ROWS: Record<QuickGroup, number> = { Remove: 3, Disposal: 1, "Subfloor prep": 2, Install: 3, Baseboards: 3, Material: 3 };
 
 /** One priced piece behind a choice: a Rate Card row or a Stair Item. */
 export type QuickPart = {
@@ -81,6 +81,91 @@ export function choiceRate(c: QuickChoice, product: QuickProduct | null = null):
   const flat = round2(c.parts.filter((p) => isFlat(p.uom)).reduce((s, p) => s + p.rate * c.times, 0));
   return { perUnit, flat };
 }
+
+// ---------- a choice with and without its material (Albert, 2026-10-20) ----------
+
+/**
+ * "Baseboard (Mat + Labor)" and "Baseboard (Labor)" are two rows in Quick Quote Choices (each on
+ * its own Rate Card row) but one thing to the customer: baseboard, with or without our material.
+ * The form shows such a pair as one chip and a "Material included" box. The pairing is by label:
+ * the same words before a "(Mat + Labor)" or "(Labor)" ending. A choice with neither ending, or
+ * without its partner, is shown on its own under its own label.
+ */
+export type ChoicePair = { label: string; withMaterial: QuickChoice | null; labourOnly: QuickChoice | null };
+
+const WITH_MATERIAL = /\s*\((?:mat(?:erial)?\s*\+\s*labou?r|labou?r\s*\+\s*mat(?:erial)?)\)\s*$/i;
+const LABOUR_ONLY = /\s*\(labou?r(?:\s+only)?\)\s*$/i;
+
+export function pairChoices(options: QuickChoice[]): ChoicePair[] {
+  const pairs: ChoicePair[] = [];
+  const byBase = new Map<string, ChoicePair>();
+  for (const c of options) {
+    const full = WITH_MATERIAL.test(c.label);
+    const labour = !full && LABOUR_ONLY.test(c.label);
+    if (!full && !labour) {
+      pairs.push({ label: c.label, withMaterial: c, labourOnly: null });
+      continue;
+    }
+    const base = c.label.replace(full ? WITH_MATERIAL : LABOUR_ONLY, "").trim();
+    let p = byBase.get(base.toLowerCase());
+    if (!p) {
+      p = { label: base, withMaterial: null, labourOnly: null };
+      byBase.set(base.toLowerCase(), p);
+      pairs.push(p);
+    }
+    if (full && !p.withMaterial) p.withMaterial = c;
+    else if (labour && !p.labourOnly) p.labourOnly = c;
+    else pairs.push({ label: c.label, withMaterial: c, labourOnly: null }); // a second of the same kind stands alone
+  }
+  // A lone half keeps its own words, so "Shoemould" never reads as including material it doesn't.
+  return pairs.map((p) => (p.withMaterial && p.labourOnly ? p : { ...p, label: (p.withMaterial ?? p.labourOnly)!.label }));
+}
+
+/** Whether a pair offers the Material included box. */
+export const pairHasToggle = (p: ChoicePair) => p.withMaterial !== null && p.labourOnly !== null;
+
+/** The choice a pair sends for the box ticked or not (a lone half whichever way). */
+export const pairChoice = (p: ChoicePair, material: boolean): QuickChoice => (material ? (p.withMaterial ?? p.labourOnly) : (p.labourOnly ?? p.withMaterial))!;
+
+/** The pair a chosen choice belongs to, if any. */
+export const pairOf = (pairs: ChoicePair[], choiceId: string) => pairs.find((p) => p.withMaterial?.id === choiceId || p.labourOnly?.id === choiceId) ?? null;
+
+/**
+ * What a pair's labour and material each cost per unit, read off the card: the material is the
+ * difference between the two rows. Null when the pair is not a pair, or the rows don't split cleanly.
+ */
+export function pairRate(p: ChoicePair): { labour: number; material: number } | null {
+  if (!p.withMaterial || !p.labourOnly) return null;
+  const full = choiceRate(p.withMaterial).perUnit;
+  const labour = choiceRate(p.labourOnly).perUnit;
+  if (full === null || labour === null || full <= labour) return null;
+  return { labour, material: round2(full - labour) };
+}
+
+// ---------- linear feet from the flooring (Albert, 2026-10-20) ----------
+
+/** A preliminary's guess at the mouldings: a third of the floor's square footage, in whole linear feet. */
+export const BASEBOARD_RATIO = 1 / 3;
+export const linearFtFromSqft = (sqft: number) => Math.round(sqft * BASEBOARD_RATIO);
+
+/** A row as the form holds it: the group, the choice and the amount typed (null when none). */
+export type FormRow = { group: QuickGroup; choiceId: string; amount: number | null };
+export type InstallAreas = { areas: { label: string; sqft: number; linearFt: number }[]; sqft: number; linearFt: number };
+
+/** The Install rows with a square footage, each with the linear feet it suggests, and the lot together. Null when there are none. */
+export function installAreas(choices: QuickChoice[], rows: FormRow[]): InstallAreas | null {
+  const byId = new Map(choices.map((c) => [c.id, c]));
+  const areas = rows.flatMap((r) => {
+    const c = byId.get(r.choiceId);
+    return c && c.group === "Install" && amountUnit(c) === "sqft" && r.amount !== null ? [{ label: c.label, sqft: r.amount, linearFt: linearFtFromSqft(r.amount) }] : [];
+  });
+  if (areas.length === 0) return null;
+  const sqft = round2(areas.reduce((s, a) => s + a.sqft, 0));
+  return { areas, sqft, linearFt: linearFtFromSqft(sqft) };
+}
+
+/** Whether a choice's row starts at that guess: a moulding priced per linear foot. */
+export const takesLinearDefault = (c: QuickChoice | undefined | null) => Boolean(c && c.group === "Baseboards" && amountUnit(c) === "linear ft");
 
 // ---------- what the browser sends ----------
 

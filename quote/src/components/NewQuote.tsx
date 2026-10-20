@@ -60,7 +60,7 @@ export function NewQuote({ ghlWrites, choices, kind }: { ghlWrites: boolean; cho
 
   function create(forceNew = false) {
     setError(null);
-    const shared = { timing, kind: prelim ? "preliminary" : "measured", work: prelim ? workInput(work) : undefined };
+    const shared = { timing, kind: prelim ? "preliminary" : "measured", work: prelim ? workInput(work, choices) : undefined };
     const input = picked
       ? { ...shared, contactId: picked.contact.id, opportunityId: (choice as { opportunityId: string | null }).opportunityId, addressConfirmed: confirmed }
       : { ...shared, newCustomer: nc, forceNew };

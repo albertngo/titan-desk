@@ -3,18 +3,39 @@
 import { useMemo, useState, useTransition } from "react";
 import { searchProductsAction } from "@/app/new/actions";
 import { optionTotals } from "@/lib/calc";
-import { money } from "@/lib/format";
-import { amountUnit, BUILDINGS, buildPreliminary, choiceRate, GROUP_ROWS, parseWork, QUICK_GROUPS, rowTotal, type QuickChoice, type QuickGroup, type QuickProduct } from "@/lib/quick/plan";
+import { money, rate as plainNumber } from "@/lib/format";
+import {
+  amountUnit,
+  BUILDINGS,
+  buildPreliminary,
+  choiceRate,
+  GROUP_ROWS,
+  installAreas,
+  pairChoice,
+  pairChoices,
+  pairHasToggle,
+  pairOf,
+  pairRate,
+  parseWork,
+  QUICK_GROUPS,
+  rowTotal,
+  takesLinearDefault,
+  type ChoicePair,
+  type QuickChoice,
+  type QuickGroup,
+  type QuickProduct,
+} from "@/lib/quick/plan";
 import { METHOD_PHRASE, modifierFor, profileName, STAIR_METHODS, STAIR_ROWS, STAIR_TYPES, type StairMethod, type StairType } from "@/lib/quick/stairs";
 
 export type PickedProduct = Pick<QuickProduct, "recordId" | "sku" | "name" | "rate">;
-export type WorkRow = { key: string; group: QuickGroup; choiceId: string; amount: string; product: PickedProduct | null };
+/** `auto`: the amount is the form's own guess (a moulding's third of the flooring) until someone types one. */
+export type WorkRow = { key: string; group: QuickGroup; choiceId: string; amount: string; auto: boolean; product: PickedProduct | null };
 /** One staircase on the form: a profile being picked, and the flat price typed for it. */
 export type StairRowState = { key: string; type: StairType | ""; method: StairMethod | ""; price: string };
 export type WorkState = { rows: WorkRow[]; stairs: StairRowState[]; extraCost: string; description: string; building: string };
 
 let n = 0;
-const newRow = (group: QuickGroup): WorkRow => ({ key: `r${++n}`, group, choiceId: "", amount: "", product: null });
+const newRow = (group: QuickGroup): WorkRow => ({ key: `r${++n}`, group, choiceId: "", amount: "", auto: true, product: null });
 const newStair = (): StairRowState => ({ key: `s${++n}`, type: "", method: "", price: "" });
 
 export function initialWork(choices: QuickChoice[]): WorkState {
@@ -27,10 +48,21 @@ const toNumber = (s: string) => {
   return Number.isFinite(v) && v > 0 ? v : null;
 };
 
+/** The flooring's square footage on the form, and the linear feet of moulding it suggests. */
+export const floorAreas = (choices: QuickChoice[], w: WorkState) => installAreas(choices, w.rows.map((r) => ({ group: r.group, choiceId: r.choiceId, amount: toNumber(r.amount) })));
+
+/** A row's amount as the quote will take it: what was typed, or a moulding's guess while it is on auto. */
+export function rowAmount(r: WorkRow, choice: QuickChoice | undefined, floor: ReturnType<typeof floorAreas>): number | null {
+  if (r.auto && takesLinearDefault(choice)) return floor?.linearFt ?? null;
+  return toNumber(r.amount);
+}
+
 /** What New quote sends: which choice and how much, which staircase and its price, never a card price. */
-export function workInput(w: WorkState) {
+export function workInput(w: WorkState, choices: QuickChoice[]) {
+  const byId = new Map(choices.map((c) => [c.id, c]));
+  const floor = floorAreas(choices, w);
   return {
-    rows: w.rows.filter((r) => r.choiceId).map((r) => ({ choiceId: r.choiceId, amount: toNumber(r.amount), productId: r.product?.recordId ?? null })),
+    rows: w.rows.filter((r) => r.choiceId).map((r) => ({ choiceId: r.choiceId, amount: rowAmount(r, byId.get(r.choiceId), floor), productId: r.product?.recordId ?? null })),
     stairs: w.stairs.filter((s) => s.type && s.method).map((s) => ({ type: s.type, method: s.method, price: toNumber(s.price) })),
     extraCost: toNumber(w.extraCost),
     description: w.description,
@@ -43,7 +75,7 @@ const pickedProducts = (value: WorkState) => new Map(value.rows.flatMap((r) => (
 
 /** The running estimate, the same way the server will price it (before discount and HST). */
 export function estimateWork(choices: QuickChoice[], value: WorkState): { total: number; lines: number } {
-  const { lines } = buildPreliminary(choices, parseWork(workInput(value)), pickedProducts(value));
+  const { lines } = buildPreliminary(choices, parseWork(workInput(value, choices)), pickedProducts(value));
   return { total: optionTotals(lines, 0, false).preDiscount, lines: lines.length };
 }
 
@@ -57,6 +89,22 @@ function rateText(c: QuickChoice, unit: keyof typeof UNIT_LABEL | null, product:
   if (flat > 0) parts.push(`${money(flat)} flat`);
   return parts.join(" + ") || "No rate";
 }
+
+/**
+ * The rate for a paired choice (Albert, 2026-10-20), so staff can answer "what's the rate for
+ * baseboard?" either way: labour and material separately, and what they come to together.
+ */
+function pairRateText(pair: ChoicePair, materialOn: boolean, unit: keyof typeof UNIT_LABEL | null): string | null {
+  const split = pairRate(pair);
+  if (!split) return null;
+  const per = `/${unit ? UNIT_LABEL[unit] : "unit"}`;
+  return materialOn
+    ? `Labour ${money(split.labour)} + material ${money(split.material)} = ${money(split.labour + split.material)}${per}`
+    : `Labour ${money(split.labour)}${per} · no material (${money(split.labour + split.material)} with)`;
+}
+
+/** The add-another button's words for a group. */
+const ANOTHER: Partial<Record<QuickGroup, string>> = { "Subfloor prep": "subfloor prep", Baseboards: "moulding" };
 /** Up to this many choices a group shows them as chips, one tap each; more and it is a list. */
 const CHIP_LIMIT = 6;
 /** Groups open on first view; the rest start folded with their summary line. */
@@ -76,6 +124,10 @@ export function QuickWork({ choices, value, onChange }: { choices: QuickChoice[]
   const picked = useMemo(() => pickedProducts(value), [value]);
   const groups = QUICK_GROUPS.filter((g) => choices.some((c) => c.group === g));
   const missing = QUICK_GROUPS.filter((g) => !groups.includes(g));
+  const pairsOf = useMemo(() => new Map(QUICK_GROUPS.map((g) => [g, pairChoices(choices.filter((c) => c.group === g))])), [choices]);
+  // The flooring's square footage: what a moulding row's linear feet start from.
+  const floor = useMemo(() => floorAreas(choices, value), [choices, value]);
+  const amountOf = (r: WorkRow) => rowAmount(r, byId.get(r.choiceId), floor);
 
   const set = (patch: Partial<WorkState>) => onChange({ ...value, ...patch });
   const setRow = (key: string, patch: Partial<WorkRow>) => set({ rows: value.rows.map((r) => (r.key === key ? { ...r, ...patch } : r)) });
@@ -95,7 +147,7 @@ export function QuickWork({ choices, value, onChange }: { choices: QuickChoice[]
     const c = byId.get(r.choiceId);
     if (!c) return null;
     const unit = amountUnit(c);
-    const amt = toNumber(r.amount);
+    const amt = amountOf(r);
     return `${c.label}${unit && amt !== null ? ` · ${amt} ${UNIT_LABEL[unit]}` : ""}`;
   };
   const groupSummary = (g: QuickGroup) => value.rows.filter((r) => r.group === g).map(rowWords).filter(Boolean).join(" · ");
@@ -109,7 +161,7 @@ export function QuickWork({ choices, value, onChange }: { choices: QuickChoice[]
         <h3 className="qw-part-h" id="qw-flooring">Flooring</h3>
         {groups.map((g) => {
           const rows = value.rows.filter((r) => r.group === g);
-          const options = choices.filter((c) => c.group === g);
+          const pairs = pairsOf.get(g) ?? [];
           const summary = groupSummary(g);
           return (
             <details key={g} className="qw-wg" open={OPEN_FIRST.includes(g)}>
@@ -118,37 +170,50 @@ export function QuickWork({ choices, value, onChange }: { choices: QuickChoice[]
                 <span className={`qw-wg-sum${summary ? "" : " faint"}`}>{summary || "Nothing yet"}</span>
               </summary>
               <div className="qw-wg-b">
+                {g === "Baseboards" && <Thirds floor={floor} />}
                 {rows.map((r, i) => {
                   const c = byId.get(r.choiceId);
                   const unit = c ? amountUnit(c) : g === "Disposal" ? null : "sqft";
                   const copyable = unit === "sqft" && (g === "Remove" || g === "Material") && installSqft !== null && clean(r.amount) !== clean(installSqft);
-                  const total = c ? rowTotal(choices, { choiceId: c.id, amount: toNumber(r.amount), productId: r.product?.recordId ?? null }, picked) : null;
+                  const amount = amountOf(r);
+                  const total = c ? rowTotal(choices, { choiceId: c.id, amount, productId: r.product?.recordId ?? null }, picked) : null;
+                  const pair = c ? pairOf(pairs, c.id) : null;
+                  const materialOn = pair !== null && pair.withMaterial?.id === r.choiceId;
+                  const guessed = takesLinearDefault(c);
+                  const onAuto = guessed && r.auto;
                   return (
                     <div key={r.key} className="qw-row">
-                      <ChoiceField label={`${g} ${i + 1}`} none={g === "Disposal" ? "None" : null} options={options} value={r.choiceId} onChange={(id) => setRow(r.key, { choiceId: id, product: null })} />
+                      <ChoiceField label={`${g} ${i + 1}`} none={g === "Disposal" ? "None" : null} pairs={pairs} value={r.choiceId} onChange={(id) => setRow(r.key, { choiceId: id, product: null })} />
                       {(unit || c || rows.length > 1) && (
                         <div className="qw-amt-row">
                           {unit && (
-                            <label className="qw-amt">
+                            <label className={`qw-amt${onAuto ? " auto" : ""}`}>
                               <input
                                 className="in"
                                 inputMode="decimal"
                                 placeholder="0"
                                 aria-label={`${g} ${i + 1} amount in ${unit}`}
-                                value={r.amount}
-                                onChange={(e) => setRow(r.key, { amount: e.target.value })}
+                                value={onAuto ? (floor ? String(floor.linearFt) : "") : r.amount}
+                                onFocus={(e) => onAuto && e.target.select()}
+                                onChange={(e) => setRow(r.key, { amount: e.target.value, auto: false })}
                               />
                               <span>{UNIT_LABEL[unit]}</span>
                             </label>
                           )}
+                          {onAuto && <span className="qw-auto">{floor ? "⅓ of the flooring" : "⅓ of the flooring, once Install has a square footage"}</span>}
+                          {guessed && !r.auto && floor && (
+                            <button type="button" className="linkbtn qw-same" onClick={() => setRow(r.key, { amount: "", auto: true })}>
+                              Use ⅓ of the flooring ({floor.linearFt})
+                            </button>
+                          )}
                           {copyable && (
-                            <button type="button" className="linkbtn qw-same" onClick={() => setRow(r.key, { amount: installSqft! })}>
+                            <button type="button" className="linkbtn qw-same" onClick={() => setRow(r.key, { amount: installSqft!, auto: false })}>
                               Same as install ({installSqft})
                             </button>
                           )}
                           {c && (
                             <span className="qw-price" aria-label={`${g} ${i + 1} rate and total`}>
-                              <span className="qw-rate">{rateText(c, unit, r.product)}</span>
+                              <span className="qw-rate">{(pair && pairRateText(pair, materialOn, unit)) ?? rateText(c, unit, r.product)}</span>
                               <b>{total === null ? "—" : money(total)}</b>
                             </span>
                           )}
@@ -165,7 +230,7 @@ export function QuickWork({ choices, value, onChange }: { choices: QuickChoice[]
                 })}
                 {rows.length < GROUP_ROWS[g] && g !== "Disposal" && (
                   <button type="button" className="linkbtn qw-add" onClick={() => addRow(g)}>
-                    + Another {g === "Subfloor prep" ? "subfloor prep" : g.toLowerCase()}
+                    + Another {ANOTHER[g] ?? g.toLowerCase()}
                   </button>
                 )}
               </div>
@@ -240,24 +305,43 @@ export function QuickWork({ choices, value, onChange }: { choices: QuickChoice[]
   );
 }
 
-/** A short list as one-tap chips; a long one as a list. */
-function ChoiceField({ label, none, options, value, onChange }: { label: string; none: string | null; options: QuickChoice[]; value: string; onChange: (id: string) => void }) {
-  if (options.length <= CHIP_LIMIT) {
+/**
+ * A short list as one-tap chips; a long one as a list. A choice that comes with and without our
+ * material is one chip and a "Material included" box (ticked to start), so picking a moulding is
+ * one tap and the material question is answered on the row, not by reading six labels.
+ */
+function ChoiceField({ label, none, pairs, value, onChange }: { label: string; none: string | null; pairs: ChoicePair[]; value: string; onChange: (id: string) => void }) {
+  const current = pairOf(pairs, value);
+  // The box keeps its setting from chip to chip; a fresh row starts with material included.
+  const materialOn = current ? current.withMaterial?.id === value : true;
+  if (pairs.length <= CHIP_LIMIT) {
     return (
-      <div className="qw-chips" role="radiogroup" aria-label={label}>
-        {none && (
-          <button type="button" className={`qw-chip${value === "" ? " on" : ""}`} role="radio" aria-checked={value === ""} onClick={() => onChange("")}>
-            {none}
-          </button>
+      <>
+        <div className="qw-chips" role="radiogroup" aria-label={label}>
+          {none && (
+            <button type="button" className={`qw-chip${value === "" ? " on" : ""}`} role="radio" aria-checked={value === ""} onClick={() => onChange("")}>
+              {none}
+            </button>
+          )}
+          {pairs.map((p) => {
+            const on = p === current;
+            return (
+              <button type="button" key={p.label} className={`qw-chip${on ? " on" : ""}`} role="radio" aria-checked={on} onClick={() => onChange(on && !none ? "" : pairChoice(p, materialOn).id)}>
+                {p.label}
+              </button>
+            );
+          })}
+        </div>
+        {current && pairHasToggle(current) && (
+          <label className="check-in qw-mat">
+            <input type="checkbox" checked={materialOn} onChange={(e) => onChange(pairChoice(current, e.target.checked).id)} />
+            Material included
+          </label>
         )}
-        {options.map((o) => (
-          <button type="button" key={o.id} className={`qw-chip${value === o.id ? " on" : ""}`} role="radio" aria-checked={value === o.id} onClick={() => onChange(value === o.id && !none ? "" : o.id)}>
-            {o.label}
-          </button>
-        ))}
-      </div>
+      </>
     );
   }
+  const options = pairs.flatMap((p) => [p.withMaterial, p.labourOnly].filter((c): c is QuickChoice => c !== null));
   return (
     <select className="in" aria-label={label} value={value} onChange={(e) => onChange(e.target.value)}>
       <option value="">{none ?? "Choose…"}</option>
@@ -265,6 +349,31 @@ function ChoiceField({ label, none, options, value, onChange }: { label: string;
         <option key={o.id} value={o.id}>{o.label}</option>
       ))}
     </select>
+  );
+}
+
+/** For assistance under Baseboards: each flooring area, a third of it in linear feet, and the lot together. */
+function Thirds({ floor }: { floor: ReturnType<typeof floorAreas> }) {
+  if (!floor) {
+    return <p className="qw-say">Type the flooring&apos;s square footage under Install and each moulding row starts at a third of it in linear feet. Type over it any time.</p>;
+  }
+  return (
+    <div className="qw-say qw-thirds">
+      <b>Linear feet from the flooring</b>, a third of each area:
+      <ul>
+        {floor.areas.map((a, i) => (
+          <li key={i}>
+            {a.label} · {plainNumber(a.sqft)} sq ft → <b>{a.linearFt} lin ft</b>
+          </li>
+        ))}
+      </ul>
+      {floor.areas.length > 1 && (
+        <span>
+          Together {plainNumber(floor.sqft)} sq ft → <b>{floor.linearFt} lin ft</b>
+        </span>
+      )}
+      <span className="faint">Each moulding row starts at {floor.linearFt} lin ft. Type over it when you know better.</span>
+    </div>
   );
 }
 
