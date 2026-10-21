@@ -146,11 +146,26 @@ describe("attachments", () => {
   it("treats known picture extensions, and no extension at all, as pictures; other files as links", () => {
     expect(attachmentOf("https://files.example.com/x/photo.HEIC")?.kind).toBe("image");
     expect(attachmentOf("https://files.example.com/x/abc123")?.kind).toBe("image");
+    expect(attachmentOf("https://files.example.com/x/abc123", "sms")?.kind).toBe("image");
     expect(attachmentOf("https://files.example.com/x/plan.pdf")).toEqual({ url: "https://files.example.com/x/plan.pdf", kind: "file", name: "plan.pdf" });
     expect(attachmentOf("https://files.example.com/x/Floor%20plan.pdf")?.name).toBe("Floor plan.pdf");
     expect(attachmentOf({ url: "https://files.example.com/y.png" })?.name).toBe("y.png");
     expect(attachmentOf("ftp://files.example.com/y.png")).toBeNull();
     expect(attachmentOf("")).toBeNull();
+  });
+
+  it("a voicemail or call recording is played, never shown as a photo", () => {
+    expect(attachmentOf("https://files.example.com/x/abc123", "call")?.kind).toBe("audio");
+    expect(attachmentOf("https://files.example.com/x/voicemail.mp3", "sms")?.kind).toBe("audio");
+    expect(attachmentOf("https://files.example.com/x/notes.pdf", "call")?.kind).toBe("file");
+    expect(attachmentOf("https://files.example.com/x/still-a-photo.jpg", "call")?.kind).toBe("image");
+    const list = parseMessages([
+      raw({ id: "v", type: 1, messageType: "TYPE_CALL", body: undefined, attachments: ["https://files.example.com/rec/abc123"] }),
+      raw({ id: "p", attachments: ["https://files.example.com/x/kitchen.jpg"] }),
+    ]);
+    expect(list.find((m) => m.id === "v")?.attachments[0].kind).toBe("audio");
+    expect(photos(list).map((p) => p.name)).toEqual(["kitchen.jpg"]);
+    expect(summarize(list).photos).toBe(1);
   });
 
   it("lists the thread's pictures newest first", () => {

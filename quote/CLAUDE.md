@@ -179,7 +179,9 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   decision, and the natural route is Make 4975508, like sending. The whole thread is shown (Albert,
   2026-10-20): workflow, campaign and activity entries too, drawn lighter and labelled Automated,
   never filtered out. An email opens as its subject and a short peek, "Show full email" expands it
-  (`emailPeek()`). Staff only: the pages leave the card out in Customer
+  (`emailPeek()`). A voicemail or call recording plays inline and is never in the photo strip (an
+  attachment on a call with no extension is a recording, 2026-10-21); a photo opened full size steps
+  to the next with the arrow keys, the on-screen arrows or a swipe. Staff only: the pages leave the card out in Customer
   view, and the customer deployment never has it. Pictures are shown straight from GHL's URLs; one
   the browser cannot load falls back to a link.
 - **All quotes (2026-10-15).** One row per quote, its versions folded under it (newest first),

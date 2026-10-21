@@ -12,8 +12,12 @@ export type Channel = "sms" | "email" | "call" | "chat" | "note" | "activity" | 
 
 export type Attachment = {
   url: string;
-  /** Shown inline as a picture, or as a link to open. Decided by the URL's extension; no extension = try a picture. */
-  kind: "image" | "file";
+  /**
+   * Shown inline as a picture, played inline (a voicemail or call recording), or a link to open.
+   * Decided by the URL's extension; without one, a call's attachment is its recording and anything
+   * else is tried as a picture.
+   */
+  kind: "image" | "audio" | "file";
   /** The file name from the URL, for the link text. */
   name: string;
 };
@@ -120,10 +124,15 @@ export function isAutomated(messageType: string | null, source: string | null): 
 }
 
 const IMAGE_EXT = /\.(jpe?g|png|gif|webp|heic|heif|bmp|avif)$/i;
+const AUDIO_EXT = /\.(mp3|wav|m4a|aac|ogg|oga|opus|amr|webm)$/i;
 const FILE_EXT = /\.[a-z0-9]{2,5}$/i;
 
-/** An attachment the screen may show: https only. The kind follows the extension; none means try a picture. */
-export function attachmentOf(raw: unknown): Attachment | null {
+/**
+ * An attachment the screen may show: https only. The kind follows the extension; without one, a
+ * call's attachment is its recording (a voicemail is never a photo, Albert 2026-10-21) and anything
+ * else is tried as a picture.
+ */
+export function attachmentOf(raw: unknown, channel: Channel = "other"): Attachment | null {
   const url = typeof raw === "string" ? raw.trim() : typeof raw === "object" && raw !== null ? str((raw as Record<string, unknown>).url) : null;
   if (!url || !/^https:\/\//i.test(url)) return null;
   let pathname = url;
@@ -133,7 +142,13 @@ export function attachmentOf(raw: unknown): Attachment | null {
     return null;
   }
   const name = pathname.split("/").filter(Boolean).pop() ?? "attachment";
-  const kind: Attachment["kind"] = IMAGE_EXT.test(name) || !FILE_EXT.test(name) ? "image" : "file";
+  const kind: Attachment["kind"] = IMAGE_EXT.test(name)
+    ? "image"
+    : AUDIO_EXT.test(name) || (channel === "call" && !FILE_EXT.test(name))
+      ? "audio"
+      : !FILE_EXT.test(name)
+        ? "image"
+        : "file";
   return { url, kind, name };
 }
 
@@ -172,7 +187,7 @@ function parseOne(raw: unknown): Message | null {
   const rawBody = str(m.body);
   const body = rawBody && channel === "email" && /<[a-z][\s\S]*>/i.test(rawBody) ? htmlToText(rawBody) || null : rawBody;
   const direction = str(m.direction)?.toLowerCase() === "inbound" ? "in" : "out";
-  const attachments = (Array.isArray(m.attachments) ? m.attachments : []).map(attachmentOf).filter((a): a is Attachment => a !== null);
+  const attachments = (Array.isArray(m.attachments) ? m.attachments : []).map((a) => attachmentOf(a, channel)).filter((a): a is Attachment => a !== null);
   const seconds = typeof call.duration === "number" && call.duration >= 0 ? Math.round(call.duration) : null;
   return {
     id,
