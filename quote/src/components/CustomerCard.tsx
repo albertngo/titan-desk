@@ -1,4 +1,5 @@
 import { ghlContactUrl } from "@/lib/ghl/ids";
+import { fixAddressLink } from "@/lib/link/linkJob";
 import { ConfirmAddress } from "./ConfirmAddress";
 import { pct } from "@/lib/format";
 import type { Quote } from "@/lib/quotes/types";
@@ -21,6 +22,8 @@ export function CustomerCard({ quote }: { quote: Quote }) {
     ["Valid until", quote.validUntil],
     ["Sent", quote.sentAt],
   ];
+  // Where a wrong address is put right: the contact, the opportunity or the Notion project, by its status.
+  const fix = l ? fixAddressLink(l) : null;
   const links: [string, string | null][] = [
     ["GHL contact", l?.ghlContactId ? ghlContactUrl(l.ghlContactId) : null],
     ["Folder", l?.folderUrl ?? null],
@@ -46,6 +49,11 @@ export function CustomerCard({ quote }: { quote: Quote }) {
             {l.addressStatus && <span className={`chip ${ADDRESS_CHIP[l.addressStatus] ?? ""}`}>{l.addressStatus === "No address" ? "No address yet" : `Address ${l.addressStatus.toLowerCase()}`}</span>}
             {l.addressStatus === "Unconfirmed" && quote.siteAddress && !l.projectNumber && (
               <ConfirmAddress quoteRecordId={l.quoteRecordId} address={quote.siteAddress} city={quote.siteCity} linked={Boolean(l.ghlOpportunityId)} />
+            )}
+            {fix && (
+              <a className="chip accent" href={fix.href} target="_blank" rel="noreferrer" title={fix.hint}>
+                Fix address ↗
+              </a>
             )}
             {links.map(([k, href]) =>
               href ? (

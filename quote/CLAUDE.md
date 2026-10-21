@@ -63,6 +63,12 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   It confirms only the address the person saw (refused if it changed since the page opened), never
   a won job's, and on a linked quote writes it to the opportunity through Make before marking it
   Confirmed. Rule: `confirmAddressCheck()` in `src/lib/link/linkJob.ts`.
+- **Fix address (Albert, 2026-10-21).** A wrong address is fixed where it lives, never typed in the
+  app: an unconfirmed one on the GHL contact; a confirmed site on the opportunity's Project Address
+  (a booking with the wrong contact address confirms the wrong site, and the contact alone no longer
+  changes it); a won job's on the Notion project. **Fix address** beside the address chip on the quote
+  page, and in the editor's customer strip, opens the right one, and the quote follows it the next
+  time it opens. Rule: `fixAddressLink()` in `src/lib/link/linkJob.ts`, tested in `tests/linkJob.test.ts`.
 - **Two ways to start a quote (Albert, 2026-10-18).** The front page has **+ New quote** (`/new`:
   customer with the site address folded in, then timeline; v1 is *Measured* and opens empty in the
   editor) and **+ Preliminary quote** (`/new?kind=preliminary`: the job first, then customer, then

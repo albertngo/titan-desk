@@ -47,7 +47,10 @@ export type EditorQuote = {
   siteAddress: string;
   siteCity: string;
   ghlContactId: string | null;
+  ghlOpportunityId: string | null;
   addressStatus: string | null;
+  projectNumber: string | null;
+  notionProjectUrl: string | null;
   discountRate: number;
   showHst: boolean;
   options: EditorOption[];
@@ -526,15 +529,15 @@ export function setTerms(q: EditorQuote, patch: Partial<Pick<EditorQuote, "disco
  * are now, so a draft saved last week can never show (or later save) an old address.
  */
 export function withCustomerFrom(draft: EditorQuote, current: EditorQuote): EditorQuote {
-  const { customerName, siteAddress, siteCity, ghlContactId, addressStatus } = current;
-  return { ...draft, customerName, siteAddress, siteCity, ghlContactId, addressStatus };
+  const { customerName, siteAddress, siteCity, ghlContactId, ghlOpportunityId, addressStatus, projectNumber, notionProjectUrl } = current;
+  return { ...draft, customerName, siteAddress, siteCity, ghlContactId, ghlOpportunityId, addressStatus, projectNumber, notionProjectUrl };
 }
 
 // ---------- starting points ----------
 
 export function blankQuote(): EditorQuote {
   return addOption(
-    { quoteRecordId: null, customerName: "", siteAddress: "", siteCity: "", ghlContactId: null, addressStatus: null, discountRate: 0, showHst: true, options: [] },
+    { quoteRecordId: null, customerName: "", siteAddress: "", siteCity: "", ghlContactId: null, ghlOpportunityId: null, addressStatus: null, projectNumber: null, notionProjectUrl: null, discountRate: 0, showHst: true, options: [] },
     "Option 1",
   );
 }
@@ -546,7 +549,10 @@ export function fromQuote(quote: Quote): EditorQuote {
     siteAddress: quote.siteAddress ?? "",
     siteCity: quote.siteCity ?? "",
     ghlContactId: quote.link?.ghlContactId ?? null,
+    ghlOpportunityId: quote.link?.ghlOpportunityId ?? null,
     addressStatus: quote.link?.addressStatus ?? null,
+    projectNumber: quote.link?.projectNumber ?? null,
+    notionProjectUrl: quote.link?.notionProjectUrl ?? null,
     discountRate: quote.discountRate,
     showHst: quote.showHst,
     options: quote.options.map((o) => ({
