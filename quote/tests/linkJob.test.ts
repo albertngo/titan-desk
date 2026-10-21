@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { OPP_FIELDS } from "../src/lib/ghl/ids";
 import { buildLinkJob } from "../src/lib/link/ghlRequest";
-import { confirmAddressCheck, linkChoices, type JobCandidate } from "../src/lib/link/linkJob";
+import { confirmAddressCheck, fixAddressLink, linkChoices, type JobCandidate } from "../src/lib/link/linkJob";
 
 // INVENTED ids, names and addresses only: this repo is public.
 const LEADS = "z7ZevSnG9HnGMzC9nSHp";
@@ -86,5 +86,39 @@ describe("confirming an address by hand", () => {
         { id: OPP_FIELDS.projectCity, field_value: "Toronto" },
       ],
     });
+  });
+});
+
+describe("where a wrong address is fixed (2026-10-21)", () => {
+  const base = { addressStatus: null, projectNumber: null, ghlContactId: "conAAA111111", ghlOpportunityId: "oppBBB222222", notionProjectUrl: null };
+
+  it("an unconfirmed address, or none yet, is fixed on the GHL contact", () => {
+    expect(fixAddressLink({ ...base, addressStatus: "Unconfirmed" })?.href).toContain("/contacts/detail/conAAA111111");
+    expect(fixAddressLink({ ...base, addressStatus: "No address" })?.href).toContain("/contacts/detail/conAAA111111");
+    expect(fixAddressLink({ ...base })?.href).toContain("/contacts/detail/conAAA111111");
+  });
+
+  it("a confirmed site is fixed on the opportunity's details, never the contact", () => {
+    const fix = fixAddressLink({ ...base, addressStatus: "Confirmed" });
+    expect(fix?.href).toContain("/opportunities/list/oppBBB222222?tab=OpportunityDetails");
+    expect(fix?.hint).toMatch(/Project Address/);
+  });
+
+  it("a confirmed site on a quote with no opportunity sends the person to link it first", () => {
+    const fix = fixAddressLink({ ...base, addressStatus: "Confirmed", ghlOpportunityId: null });
+    expect(fix?.href).toContain("/contacts/detail/");
+    expect(fix?.hint).toMatch(/Link it/);
+  });
+
+  it("a won job's address lives on the Notion project", () => {
+    expect(fixAddressLink({ ...base, addressStatus: "Confirmed", projectNumber: "PP-412", notionProjectUrl: "https://www.notion.so/example" })).toEqual({
+      href: "https://www.notion.so/example",
+      hint: expect.stringMatching(/Notion project/),
+    });
+    expect(fixAddressLink({ ...base, projectNumber: "PP-412" })).toBeNull();
+  });
+
+  it("gives nothing when there is no contact to go to", () => {
+    expect(fixAddressLink({ ...base, ghlContactId: null, ghlOpportunityId: null })).toBeNull();
   });
 });

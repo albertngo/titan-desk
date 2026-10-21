@@ -1,3 +1,4 @@
+import { ghlContactUrl, ghlOpportunityUrl } from "@/lib/ghl/ids";
 import { projectJobs, REVIVE_WINDOW_DAYS } from "./booking";
 
 /**
@@ -36,6 +37,46 @@ export function linkChoices<T extends JobCandidate>(opps: T[], taken: Map<string
     .filter((o) => o.status === "open" || closedLately(o))
     .map((o) => ({ ...o, reopen: o.status !== "open", takenBy: taken.has(o.id) ? (taken.get(o.id) ?? "another quote") : null }))
     .sort((a, b) => Number(b.status === "open") - Number(a.status === "open") || (b.statusChangedAt ?? "").localeCompare(a.statusChangedAt ?? ""));
+}
+
+// ---------- fixing a wrong address ----------
+
+export type AddressHome = {
+  addressStatus: string | null;
+  projectNumber: string | null;
+  ghlContactId: string | null;
+  ghlOpportunityId: string | null;
+  notionProjectUrl: string | null;
+};
+
+export type FixAddressLink = { href: string; hint: string };
+
+/**
+ * Where a wrong address is put right (Albert, 2026-10-21), by the rule of 2026-10-15: an
+ * unconfirmed address follows the GHL contact; a confirmed site is fixed on the opportunity's
+ * Project Address (a booking with the wrong contact address confirms the wrong site, and the
+ * contact alone can no longer change it); a won job's address lives on the Notion project. The
+ * quote follows the right place the next time it opens. Null when there is nowhere to send
+ * the person.
+ */
+export function fixAddressLink(q: AddressHome): FixAddressLink | null {
+  if (q.projectNumber?.trim()) {
+    return q.notionProjectUrl ? { href: q.notionProjectUrl, hint: "This job is won: its address lives on the Notion project. Fix it there." } : null;
+  }
+  if (q.addressStatus === "Confirmed") {
+    if (q.ghlOpportunityId) {
+      return {
+        href: ghlOpportunityUrl(q.ghlOpportunityId),
+        hint: "A confirmed site is fixed on the opportunity's Project Address and Project City in GHL. The quote follows it the next time it opens. Fix the contact's address too so the next booking is right.",
+      };
+    }
+    return q.ghlContactId
+      ? { href: ghlContactUrl(q.ghlContactId), hint: "This quote isn't linked to an opportunity yet. Link it, then fix the Project Address on the opportunity." }
+      : null;
+  }
+  return q.ghlContactId
+    ? { href: ghlContactUrl(q.ghlContactId), hint: "An unconfirmed address follows the GHL contact. Change it there; the quote follows it the next time it opens." }
+    : null;
 }
 
 // ---------- confirming an address by hand ----------

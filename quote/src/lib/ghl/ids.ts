@@ -8,6 +8,10 @@ export const GHL_LOCATION_ID = "4BwjVRlyDCR4ZRdcSrFR";
 export const ghlContactUrl = (contactId: string) =>
   `https://app.gohighlevel.com/v2/location/${GHL_LOCATION_ID}/contacts/detail/${encodeURIComponent(contactId)}`;
 
+/** An opportunity's details in GHL, where its Project Address and Project City are edited (format from GHL's changelog, 2026-10-21). */
+export const ghlOpportunityUrl = (opportunityId: string) =>
+  `https://app.gohighlevel.com/v2/location/${GHL_LOCATION_ID}/opportunities/list/${encodeURIComponent(opportunityId)}?tab=OpportunityDetails`;
+
 /** A conversation in GHL's inbox, where staff reply (the app only reads it). */
 export const ghlConversationUrl = (conversationId: string) =>
   `https://app.gohighlevel.com/v2/location/${GHL_LOCATION_ID}/conversations/conversations/${encodeURIComponent(conversationId)}`;

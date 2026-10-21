@@ -189,7 +189,10 @@ async function fillFromQuickForm(quoteId: string, versionId: string, work: Quick
         siteAddress: "",
         siteCity: "",
         ghlContactId: null,
+        ghlOpportunityId: null,
         addressStatus: null,
+        projectNumber: null,
+        notionProjectUrl: null,
         discountRate: 0,
         showHst: true,
         options: [

@@ -63,6 +63,12 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   It confirms only the address the person saw (refused if it changed since the page opened), never
   a won job's, and on a linked quote writes it to the opportunity through Make before marking it
   Confirmed. Rule: `confirmAddressCheck()` in `src/lib/link/linkJob.ts`.
+- **Fix address (Albert, 2026-10-21).** A wrong address is fixed where it lives, never typed in the
+  app: an unconfirmed one on the GHL contact; a confirmed site on the opportunity's Project Address
+  (a booking with the wrong contact address confirms the wrong site, and the contact alone no longer
+  changes it); a won job's on the Notion project. **Fix address** beside the address chip on the quote
+  page, and in the editor's customer strip, opens the right one, and the quote follows it the next
+  time it opens. Rule: `fixAddressLink()` in `src/lib/link/linkJob.ts`, tested in `tests/linkJob.test.ts`.
 - **Two ways to start a quote (Albert, 2026-10-18).** The front page has **+ New quote** (`/new`:
   customer with the site address folded in, then timeline; v1 is *Measured* and opens empty in the
   editor) and **+ Preliminary quote** (`/new?kind=preliminary`: the job first, then customer, then
@@ -179,7 +185,9 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   decision, and the natural route is Make 4975508, like sending. The whole thread is shown (Albert,
   2026-10-20): workflow, campaign and activity entries too, drawn lighter and labelled Automated,
   never filtered out. An email opens as its subject and a short peek, "Show full email" expands it
-  (`emailPeek()`). Staff only: the pages leave the card out in Customer
+  (`emailPeek()`). A voicemail or call recording plays inline and is never in the photo strip (an
+  attachment on a call with no extension is a recording, 2026-10-21); a photo opened full size steps
+  to the next with the arrow keys, the on-screen arrows or a swipe. Staff only: the pages leave the card out in Customer
   view, and the customer deployment never has it. Pictures are shown straight from GHL's URLs; one
   the browser cannot load falls back to a link.
 - **All quotes (2026-10-15).** One row per quote, its versions folded under it (newest first),

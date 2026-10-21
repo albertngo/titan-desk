@@ -140,7 +140,7 @@ export function ConversationDrawer({ contactId }: { contactId: string }) {
     else delete root.dataset.convOpen;
     if (!open) return () => void delete root.dataset.convOpen;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
+      if (e.key !== "Escape" || document.querySelector(".conv-light")) return;
       setClickedOpen(false);
       DRAWER.write(false);
     };
@@ -185,7 +185,8 @@ export function ConversationDrawer({ contactId }: { contactId: string }) {
 
 function ConversationBody({ result, ghlUrl }: { result: ConversationResult | null; ghlUrl: string }) {
   const [shown, setShown] = useState(PAGE);
-  const [lightbox, setLightbox] = useState<Attachment | null>(null);
+  /** Which of the thread's photos is open full size, by its place in the strip (newest first). */
+  const [lightbox, setLightbox] = useState<number | null>(null);
 
   const all = result?.ok ? result.messages : [];
   // The whole thread, booking texts and activity included (Albert, 2026-10-20); automated ones are drawn lighter.
@@ -193,6 +194,26 @@ function ConversationBody({ result, ghlUrl }: { result: ConversationResult | nul
   const thread = visible.slice(Math.max(0, visible.length - shown));
   const earlier = visible.length - thread.length;
   const pics = photos(visible);
+  const open = (a: Attachment) => setLightbox(Math.max(0, pics.findIndex((p) => p.url === a.url)));
+  const step = (by: number) => setLightbox((i) => (i === null || pics.length === 0 ? null : (i + by + pics.length) % pics.length));
+
+  // Arrow keys step through the photos, Escape closes the picture (and only the picture: the drawer's
+  // own Escape is skipped while one is open). Registered in the capture phase so it runs first.
+  const count = pics.length;
+  useEffect(() => {
+    if (lightbox === null) return;
+    const move = (by: number) => setLightbox((i) => (i === null || count === 0 ? null : (i + by + count) % count));
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowRight") move(1);
+      else if (e.key === "ArrowLeft") move(-1);
+      else if (e.key === "Escape") setLightbox(null);
+      else return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [lightbox, count]);
 
   return (
     <>
@@ -205,7 +226,7 @@ function ConversationBody({ result, ghlUrl }: { result: ConversationResult | nul
           <span className="lbl">Photos</span>
           <div className="conv-strip">
             {pics.map((p) => (
-              <Thumb key={p.url} a={p} onOpen={setLightbox} />
+              <Thumb key={p.url} a={p} onOpen={open} />
             ))}
           </div>
         </div>
@@ -227,32 +248,66 @@ function ConversationBody({ result, ghlUrl }: { result: ConversationResult | nul
             </li>
           )}
           {thread.map((m) => (
-            <Bubble key={m.id} m={m} onOpen={setLightbox} />
+            <Bubble key={m.id} m={m} onOpen={open} />
           ))}
         </ol>
       )}
 
-      {lightbox && (
-        <div className="conv-light" role="dialog" aria-label={lightbox.name} onClick={() => setLightbox(null)}>
-          <img src={lightbox.url} alt={lightbox.name} referrerPolicy="no-referrer" />
-          <div className="conv-light-bar" onClick={(e) => e.stopPropagation()}>
-            <span>{lightbox.name}</span>
-            <a className="btn small" href={lightbox.url} target="_blank" rel="noreferrer">
-              Open full size ↗
-            </a>
-            <button type="button" className="btn small" onClick={() => setLightbox(null)}>
-              Close
-            </button>
-          </div>
-        </div>
+      {lightbox !== null && pics[lightbox] && (
+        <Lightbox pic={pics[lightbox]} index={lightbox} count={pics.length} onStep={step} onClose={() => setLightbox(null)} />
       )}
     </>
+  );
+}
+
+/** One photo full size; left and right arrows, the buttons, or a swipe move to the next (Albert, 2026-10-21). */
+function Lightbox({ pic, index, count, onStep, onClose }: { pic: Attachment; index: number; count: number; onStep: (by: number) => void; onClose: () => void }) {
+  const [touchX, setTouchX] = useState<number | null>(null);
+  const many = count > 1;
+  return (
+    <div
+      className="conv-light"
+      role="dialog"
+      aria-label={`Photo ${index + 1} of ${count}: ${pic.name}`}
+      onClick={onClose}
+      onTouchStart={(e) => setTouchX(e.touches[0]?.clientX ?? null)}
+      onTouchEnd={(e) => {
+        const x = e.changedTouches[0]?.clientX;
+        if (touchX !== null && x !== undefined && Math.abs(x - touchX) > 40) onStep(x < touchX ? 1 : -1);
+        setTouchX(null);
+      }}
+    >
+      <img src={pic.url} alt={pic.name} referrerPolicy="no-referrer" />
+      {many && (
+        <>
+          <button type="button" className="conv-nav prev" aria-label="Previous photo" onClick={(e) => { e.stopPropagation(); onStep(-1); }}>
+            ‹
+          </button>
+          <button type="button" className="conv-nav next" aria-label="Next photo" onClick={(e) => { e.stopPropagation(); onStep(1); }}>
+            ›
+          </button>
+        </>
+      )}
+      <div className="conv-light-bar" onClick={(e) => e.stopPropagation()}>
+        <span>
+          {many && <b>{index + 1} of {count} · </b>}
+          {pic.name}
+        </span>
+        <a className="btn small" href={pic.url} target="_blank" rel="noreferrer">
+          Open full size ↗
+        </a>
+        <button type="button" className="btn small" onClick={onClose}>
+          Close
+        </button>
+      </div>
+    </div>
   );
 }
 
 function Bubble({ m, onOpen }: { m: Message; onOpen: (a: Attachment) => void }) {
   const files = m.attachments.filter((a) => a.kind === "file");
   const images = m.attachments.filter((a) => a.kind === "image");
+  const audio = m.attachments.filter((a) => a.kind === "audio");
   const failed = m.status === "failed" || m.status === "undelivered";
   // An email opens as its subject and a peek; the whole thing is one tap away (Albert, 2026-10-20).
   const [expanded, setExpanded] = useState(false);
@@ -281,10 +336,10 @@ function Bubble({ m, onOpen }: { m: Message; onOpen: (a: Attachment) => void }) 
       ) : m.body ? (
         <div className="conv-body">{m.body}</div>
       ) : m.channel === "call" ? (
-        <div className="conv-body faint">{m.direction === "in" ? "Incoming call" : "Outgoing call"}</div>
+        <div className="conv-body faint">{audio.length > 0 ? "Voicemail" : m.direction === "in" ? "Incoming call" : "Outgoing call"}</div>
       ) : m.channel === "email" ? (
         <div className="conv-body faint">Email body not available here. Open it in GHL.</div>
-      ) : images.length === 0 && files.length === 0 ? (
+      ) : images.length === 0 && files.length === 0 && audio.length === 0 ? (
         <div className="conv-body faint">(no text)</div>
       ) : null}
       {images.length > 0 && (
@@ -294,6 +349,13 @@ function Bubble({ m, onOpen }: { m: Message; onOpen: (a: Attachment) => void }) 
           ))}
         </div>
       )}
+      {audio.map((a) => (
+        <audio key={a.url} className="conv-audio" controls preload="none" src={a.url}>
+          <a href={a.url} target="_blank" rel="noreferrer">
+            {a.name} ↗
+          </a>
+        </audio>
+      ))}
       {files.length > 0 && (
         <ul className="conv-files">
           {files.map((a) => (

@@ -33,6 +33,7 @@ import {
   type EditorQuote,
 } from "@/lib/editor/model";
 import { ghlContactUrl } from "@/lib/ghl/ids";
+import { fixAddressLink } from "@/lib/link/linkJob";
 import { money, pct, rate } from "@/lib/format";
 import type { RateCard } from "@/lib/quotes/types";
 import { Picker } from "./Picker";
@@ -387,6 +388,18 @@ export default function Editor({
                       Open in GHL ↗
                     </a>
                   )}
+                  {(() => {
+                    // A confirmed site is fixed on the opportunity, not the contact: point the right way.
+                    const fix = fixAddressLink(quote);
+                    return fix && fix.href !== (quote.ghlContactId ? ghlContactUrl(quote.ghlContactId) : null) ? (
+                      <>
+                        {" · "}
+                        <a href={fix.href} target="_blank" rel="noreferrer" title={fix.hint}>
+                          Fix address ↗
+                        </a>
+                      </>
+                    ) : null;
+                  })()}
                 </span>
               </div>
               <label>
