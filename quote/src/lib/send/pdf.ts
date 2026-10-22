@@ -56,7 +56,7 @@ export function quotePdf(copy: CustomerCopy): Uint8Array<ArrayBuffer> {
   for (const [k, v] of [
     ["Quote", `${copy.quoteNumber}${copy.version !== null ? ` · v${copy.version}` : ""}`],
     ["Date", longDate(copy.sentOn)],
-    ["Valid until", longDate(copy.validUntil)],
+    ...(copy.validUntil ? [["Valid until", longDate(copy.validUntil)]] : []),
   ]) {
     doc.text(RIGHT - 110, ry, k, { size: 8.5, color: DIM, align: "right" });
     doc.text(RIGHT, ry, v, { font: "B", size: 8.5, color: INK, align: "right" });

@@ -19,7 +19,8 @@ export type Channels = { email: boolean; sms: boolean };
 export type SendInput = {
   /** What the person sending saw (fingerprint of the version when the page opened). */
   base: string;
-  validUntil: string;
+  /** Null on a preliminary (Albert, 2026-10-22): an estimate has no good-until date. */
+  validUntil: string | null;
   channels: Channels;
 };
 
@@ -38,9 +39,12 @@ export function sendProblems(quote: Quote, input: SendInput, ctx: { today: strin
     if (t.total <= 0) out.push(`${o.name} has nothing priced in it.`);
     else if (parityDiffs(t, o.airtable).length > 0) out.push(`The app and Airtable disagree on ${o.name}. Fix that before sending.`);
   }
-  if (!isIsoDate(input.validUntil)) out.push("Choose the date the quote is good until.");
-  else if (input.validUntil < ctx.today) out.push("The valid-until date is in the past.");
-  else if (input.validUntil > addDays(ctx.today, 365)) out.push("The valid-until date is more than a year away.");
+  // A preliminary carries no good-until date (Albert, 2026-10-22); any date sent with one is ignored.
+  if (quote.basis !== "Preliminary") {
+    if (!isIsoDate(input.validUntil)) out.push("Choose the date the quote is good until.");
+    else if (input.validUntil < ctx.today) out.push("The valid-until date is in the past.");
+    else if (input.validUntil > addDays(ctx.today, 365)) out.push("The valid-until date is more than a year away.");
+  }
   if (!input.channels.email && !input.channels.sms) out.push("Choose email, text, or both.");
   if (input.channels.email && !quote.link?.email) out.push("GHL has no email for this customer.");
   if (input.channels.sms && !quote.link?.phone) out.push("GHL has no phone number for this customer.");
@@ -105,7 +109,7 @@ export function emailMessage(copy: CustomerCopy, to: { contactId: string; firstN
     several && included ? `<p style="margin:0 0 4px"><b>What's included</b></p>` : "",
     included,
     `<p style="margin:20px 0"><a href="${esc(to.link)}" style="background:#1e6fff;color:#fff;text-decoration:none;padding:12px 20px;border-radius:6px;font-weight:600;display:inline-block">View your quote</a></p>`,
-    `<p style="color:#66717f;font-size:13px">${copy.showHst ? "Totals include HST. " : copy.options.some((o) => o.totals.hst !== 0) ? "Totals include HST on materials. " : ""}The quote is good until ${esc(longDate(copy.validUntil))}. A PDF copy is attached.${prelim ? " This is a preliminary estimate; we confirm the final price once we have measured." : ""}</p>`,
+    `<p style="color:#66717f;font-size:13px">${copy.showHst ? "Totals include HST. " : copy.options.some((o) => o.totals.hst !== 0) ? "Totals include HST on materials. " : ""}${copy.validUntil ? `The quote is good until ${esc(longDate(copy.validUntil))}. ` : ""}A PDF copy is attached.${prelim ? " This is a preliminary estimate; we confirm the final price once we have measured." : ""}</p>`,
     `<p>If you have any questions, just reply to this email.</p>`,
     `<p>The Titan Flooring team</p>`,
     `</div>`,
@@ -127,7 +131,7 @@ export function smsMessage(copy: CustomerCopy, to: { contactId: string; firstNam
     contactId: to.contactId,
     message:
       `${hi ? `Hi ${hi}, y` : "Y"}our ${phrase} ${copy.quoteNumber} from Titan Flooring is ready: ${to.link}\n` +
-      `It's good until ${longDate(copy.validUntil)}. Any questions, just reply here.`,
+      `${copy.validUntil ? `It's good until ${longDate(copy.validUntil)}. ` : copy.basis === "Preliminary" ? "It's an estimate; we confirm the price once we've measured. " : ""}Any questions, just reply here.`,
   };
 }
 

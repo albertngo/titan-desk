@@ -258,8 +258,11 @@ describe("the messages", () => {
     expect(m).toEqual({
       type: "SMS",
       contactId: "contactAbc123",
-      message: `Hi Pat, your preliminary flooring quote Q-9001 from Titan Flooring is ready: https://view.example.com/c/${"A".repeat(32)}\nIt's good until November 14, 2026. Any questions, just reply here.`,
+      // A preliminary carries no good-until date (2026-10-22).
+      message: `Hi Pat, your preliminary flooring quote Q-9001 from Titan Flooring is ready: https://view.example.com/c/${"A".repeat(32)}\nIt's an estimate; we confirm the price once we've measured. Any questions, just reply here.`,
     });
+    const measured = smsMessage(customerCopy(quote(), AT), to);
+    expect(measured.type === "SMS" && measured.message).toContain("It's good until November 14, 2026.");
   });
 
   it("greets by first name only when there is a real one", () => {
@@ -430,5 +433,35 @@ describe("lump sum (2026-10-22)", () => {
     expect(customerCopy(quote(), AT).pricing).toBe("itemised");
     // Nothing said = the default = lump sum.
     expect(customerCopy({ ...quote(), itemised: undefined }, AT).pricing).toBe("lump");
+  });
+});
+
+describe("a preliminary has no good-until date (2026-10-22)", () => {
+  const prelim = quote({ basis: "Preliminary" });
+  const NO_DATE = { ...AT, validUntil: null };
+
+  it("sends without a date and ignores one; a measured quote still needs one", () => {
+    const ctx = { today: "2026-10-15", fingerprint: fingerprint(fromQuote(prelim)) };
+    expect(sendProblems(prelim, { base: ctx.fingerprint, validUntil: null, channels: { email: true, sms: false } }, ctx)).toEqual([]);
+    expect(sendProblems(prelim, { base: ctx.fingerprint, validUntil: "2020-01-01", channels: { email: true, sms: false } }, ctx)).toEqual([]);
+    const measured = quote();
+    const mctx = { today: "2026-10-15", fingerprint: fingerprint(fromQuote(measured)) };
+    expect(sendProblems(measured, { base: mctx.fingerprint, validUntil: null, channels: { email: true, sms: false } }, mctx)).toEqual(["Choose the date the quote is good until."]);
+  });
+
+  it("carries no date in the copy, the PDF, the email or the text, and its link never expires", () => {
+    const c = customerCopy(prelim, AT);
+    expect(c.validUntil).toBeNull();
+    expect(customerCopy(prelim, NO_DATE).validUntil).toBeNull();
+    expect(new TextDecoder("latin1").decode(quotePdf(c))).not.toContain("Valid until");
+    const mail = emailMessage(c, { contactId: "c1", firstName: "Jane", link: "https://example.test/c/x", pdfUrl: "https://example.test/c/x/q.pdf" });
+    expect(mail.type === "Email" && mail.html).not.toContain("good until");
+    expect(mail.type === "Email" && mail.html).toContain("preliminary estimate");
+    const text = smsMessage(c, { contactId: "c1", firstName: "Jane", link: "https://example.test/c/x" });
+    expect(text.type === "SMS" && text.message).not.toContain("good until");
+    expect(text.type === "SMS" && text.message).toContain("estimate");
+    expect(copyState("Sent", null, "2030-01-01")).toBe("open");
+    // A measured quote keeps its date.
+    expect(customerCopy(quote(), AT).validUntil).toBe("2026-11-14");
   });
 });
