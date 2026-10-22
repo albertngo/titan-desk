@@ -54,6 +54,7 @@ export function SendQuote({
   problems,
   ready,
   sent,
+  preliminary,
 }: {
   versionId: string;
   label: string;
@@ -68,6 +69,8 @@ export function SendQuote({
   problems: string[];
   ready: { ready: boolean; why: string | null };
   sent: SentInfo | null;
+  /** A preliminary has no good-until date (Albert, 2026-10-22): the field is not shown and none is sent. */
+  preliminary: boolean;
 }) {
   const router = useRouter();
   const [until, setUntil] = useState(defaultUntil);
@@ -79,11 +82,12 @@ export function SendQuote({
   const [error, setError] = useState<{ message: string; problems?: string[] } | null>(null);
   const [done, setDone] = useState<{ link: string; sentTo: string[]; warning: string | null } | null>(null);
   const [sending, startSend] = useTransition();
-  const preview = `/q/${versionId}/preview?until=${until}${breakdown ? "&itemised=1" : ""}`;
-  const pdf = `/q/${versionId}/pdf?until=${until}${breakdown ? "&itemised=1" : ""}`;
+  const q = [preliminary ? null : `until=${until}`, breakdown ? "itemised=1" : null].filter(Boolean).join("&");
+  const preview = `/q/${versionId}/preview${q ? `?${q}` : ""}`;
+  const pdf = `/q/${versionId}/pdf${q ? `?${q}` : ""}`;
 
   if (status !== "Draft" || done) {
-    const s = done ? { sentAt: today, sentBy: null, sentTo: done.sentTo.join(", "), validUntil: until, link: done.link } : sent;
+    const s = done ? { sentAt: today, sentBy: null, sentTo: done.sentTo.join(", "), validUntil: preliminary ? null : until, link: done.link } : sent;
     return (
       <section className="card sq" id="send" aria-labelledby="sq-h">
         <div className="card-h" id="sq-h">
@@ -118,7 +122,7 @@ export function SendQuote({
   function send() {
     setError(null);
     startSend(async () => {
-      const r = await sendQuoteAction(versionId, { base, validUntil: until, channels: { email: byEmail, sms: bySms }, itemised: breakdown });
+      const r = await sendQuoteAction(versionId, { base, validUntil: preliminary ? null : until, channels: { email: byEmail, sms: bySms }, itemised: breakdown });
       setAsking(false);
       if (r.ok) {
         setDone(r);
@@ -175,10 +179,14 @@ export function SendQuote({
           </label>
         </fieldset>
 
+        {preliminary ? (
+          <p className="note">A preliminary has no good-until date: it is an estimate, not an offer, and its link stays open.</p>
+        ) : (
         <label className="sq-until-in">
           Good until
           <input className="in" type="date" value={until} min={today} max={maxUntil} onChange={(e) => setUntil(e.target.value)} disabled={sending || asking} />
         </label>
+        )}
 
         <div className="sq-tools">
           <a href={preview} target="_blank" rel="noreferrer">Preview what the customer sees</a>
@@ -206,7 +214,7 @@ export function SendQuote({
             </div>
           </div>
         ) : (
-          <button type="button" className="btn primary sq-go" disabled={blocked || channels.length === 0 || !until} onClick={() => setAsking(true)}>
+          <button type="button" className="btn primary sq-go" disabled={blocked || channels.length === 0 || (!preliminary && !until)} onClick={() => setAsking(true)}>
             Send quote
           </button>
         )}

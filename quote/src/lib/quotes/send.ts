@@ -82,13 +82,13 @@ export async function previewCopy(versionId: string, validUntil?: string, itemis
   return customerCopy({ ...quote, itemised }, { sentOn: quote.sentAt ?? today, validUntil: validUntil ?? quote.validUntil ?? today, company: letterhead() });
 }
 
-function readInput(raw: unknown): { base: string; validUntil: string; channels: Channels; itemised: boolean } | null {
+function readInput(raw: unknown): { base: string; validUntil: string | null; channels: Channels; itemised: boolean } | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
   const ch = (r.channels ?? {}) as Record<string, unknown>;
-  if (typeof r.base !== "string" || typeof r.validUntil !== "string") return null;
-  // Lump sum unless the sender chose the breakdown (2026-10-22).
-  return { base: r.base, validUntil: r.validUntil, channels: { email: ch.email === true, sms: ch.sms === true }, itemised: r.itemised === true };
+  if (typeof r.base !== "string" || (typeof r.validUntil !== "string" && r.validUntil !== null)) return null;
+  // Lump sum unless the sender chose the breakdown (2026-10-22). A null date is a preliminary's; sendProblems refuses it on anything else.
+  return { base: r.base, validUntil: typeof r.validUntil === "string" ? r.validUntil : null, channels: { email: ch.email === true, sms: ch.sms === true }, itemised: r.itemised === true };
 }
 
 export async function sendQuote(versionId: string, raw: unknown): Promise<SendResult> {
@@ -107,7 +107,9 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   const problems = sendProblems(quote, input, { today, fingerprint: fingerprint(fromQuote(quote)) });
   if (problems.length) return { ok: false, message: "Not sent.", problems };
 
-  const copy = customerCopy({ ...quote, itemised: input.itemised }, { sentOn: today, validUntil: input.validUntil, company: letterhead() });
+  // A preliminary has no good-until date whatever was sent (Albert, 2026-10-22); its link never expires.
+  const validUntil = quote.basis === "Preliminary" ? null : input.validUntil;
+  const copy = customerCopy({ ...quote, itemised: input.itemised }, { sentOn: today, validUntil, company: letterhead() });
   const text = serializeCopy(copy);
   if (text.length > COPY_MAX_CHARS) return { ok: false, message: "This quote is too long to send as one copy. Split it into fewer options." };
   const token = isToken(quote.customerToken) ? quote.customerToken : newToken();
@@ -119,7 +121,7 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
     [VERSION.customerToken]: token,
     [VERSION.customerCopy]: text,
     [VERSION.itemised]: input.itemised,
-    [VERSION.validUntil]: input.validUntil,
+    [VERSION.validUntil]: validUntil,
     [VERSION.status]: "Sent",
     [VERSION.sentAt]: today,
     [VERSION.sentBy]: sender,

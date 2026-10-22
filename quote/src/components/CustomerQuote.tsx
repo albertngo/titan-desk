@@ -8,7 +8,7 @@ import { discountLabel, hstRow, hstWord, isLump, itemHstNote, longDate, type Cop
  */
 
 const STATE_NOTE: Partial<Record<CopyState, (c: CustomerCopy) => string>> = {
-  expired: (c) => `This quote was good until ${longDate(c.validUntil)}. Prices may have changed since; get in touch and we'll confirm them.`,
+  expired: (c) => `This quote was good until ${c.validUntil ? longDate(c.validUntil) : "its date"}. Prices may have changed since; get in touch and we'll confirm them.`,
   closed: () => "This quote is no longer open. Get in touch if you'd like us to look at it again.",
   replaced: () => "We've sent you a newer version of this quote. The one below is kept for your records.",
 };
@@ -163,7 +163,7 @@ export function CustomerQuote({
           {site && <p className="cq-site">{site}</p>}
           <dl className="cq-meta">
             <div><dt>Date</dt><dd>{longDate(copy.sentOn)}</dd></div>
-            <div><dt>Good until</dt><dd>{longDate(copy.validUntil)}</dd></div>
+            {copy.validUntil && <div><dt>Good until</dt><dd>{longDate(copy.validUntil)}</dd></div>}
           </dl>
           {copy.basis === "Preliminary" && (
             <p className="cq-prelim">This is a preliminary estimate, based on what we know so far. We confirm the final price once we have measured the space.</p>

@@ -71,6 +71,7 @@ export default async function QuotePage({
       problems={problems}
       ready={ready}
       sent={draft ? null : { sentAt: quote.sentAt, sentBy: quote.sentBy, sentTo: quote.sentTo, validUntil: quote.validUntil, link }}
+      preliminary={quote.basis === "Preliminary"}
     />
   );
 

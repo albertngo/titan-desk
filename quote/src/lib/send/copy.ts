@@ -78,7 +78,8 @@ export type CustomerCopy = {
   basis: string | null;
   /** YYYY-MM-DD, Toronto. */
   sentOn: string;
-  validUntil: string;
+  /** YYYY-MM-DD; null on a preliminary (Albert, 2026-10-22): an estimate has no good-until date and its link never expires. */
+  validUntil: string | null;
   customer: { name: string | null; siteAddress: string | null; siteCity: string | null };
   /** "When are they planning to do the project?" as answered (2026-10-18); absent on older copies. */
   timing?: string | null;
@@ -185,7 +186,7 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
   };
 }
 
-export function customerCopy(quote: Quote, at: { sentOn: string; validUntil: string; company: Letterhead }): CustomerCopy {
+export function customerCopy(quote: Quote, at: { sentOn: string; validUntil: string | null; company: Letterhead }): CustomerCopy {
   const name = clean([quote.link?.firstName, quote.link?.lastName].filter(Boolean).join(" ")) ?? clean(quote.customerName);
   return {
     v: COPY_VERSION,
@@ -193,7 +194,7 @@ export function customerCopy(quote: Quote, at: { sentOn: string; validUntil: str
     version: quote.version,
     basis: quote.basis,
     sentOn: at.sentOn,
-    validUntil: at.validUntil,
+    validUntil: quote.basis === "Preliminary" ? null : at.validUntil,
     customer: { name, siteAddress: clean(quote.siteAddress), siteCity: clean(quote.siteCity) },
     ...(quote.link?.projectTiming ? { timing: quote.link.projectTiming } : {}),
     discountRate: quote.discountRate,
