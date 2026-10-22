@@ -1,4 +1,5 @@
 import { optionTotals, round2 } from "@/lib/calc";
+import { PRIVATE_SECTION } from "@/lib/calc";
 import { LINE_TYPE, type EditorLine } from "@/lib/editor/model";
 import type { StairProfileRow } from "@/lib/quotes/types";
 import { profileLine, STAIR_ROWS } from "./stairs";
@@ -225,8 +226,9 @@ export function buildPreliminary(choices: QuickChoice[], work: QuickWork, produc
     }
     lines.push(profileLine(p, s.price));
   }
+  // The preliminary's additional cost is a Private line (Albert, 2026-10-22): the customer sees it as the one rolled-up "Additional work" row, never itemised.
   if (work.extraCost !== null) {
-    lines.push({ ...blank("Other"), sourceKind: "manual", description: "Additional work", uom: "flat", qty: 1, unitPrice: work.extraCost });
+    lines.push({ ...blank(PRIVATE_SECTION), sourceKind: "manual", description: "Additional work", uom: "flat", qty: 1, unitPrice: work.extraCost });
   }
   return { lines, skipped };
 }

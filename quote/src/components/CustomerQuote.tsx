@@ -42,9 +42,9 @@ function Line({ l }: { l: CopyItem | CopyText }) {
           <>
             <span className="tag">Optional</span> {money(l.amount)}
           </>
-        ) : (
+        ) : l.amount !== null ? (
           money(l.amount)
-        )}
+        ) : null}
       </span>
     </li>
   );
@@ -91,7 +91,7 @@ function OptionBlock({ o, i, copy }: { o: CopyOption; i: number | null; copy: Cu
         <div className="cq-sec" key={s.name}>
           <h3>
             <span>{s.name}</span>
-            {s.lines.some((l) => l.kind === "item" && !l.optional) && <span className="st">{money(s.total)}</span>}
+            {s.total !== null && s.lines.some((l) => l.kind === "item" && !l.optional) && <span className="st">{money(s.total)}</span>}
           </h3>
           <ul>
             {s.lines.map((l, k) => (
@@ -167,6 +167,7 @@ export function CustomerQuote({
           {copy.basis === "Preliminary" && (
             <p className="cq-prelim">This is a preliminary estimate, based on what we know so far. We confirm the final price once we have measured the space.</p>
           )}
+          {copy.lumpSum && <p className="cq-lump">Priced as one sum for the project. The items below show what it includes.</p>}
         </section>
 
         {several && (

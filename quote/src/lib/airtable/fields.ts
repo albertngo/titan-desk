@@ -63,6 +63,8 @@ export const VERSION = {
   discountRate: "fldiQXF2LNtK5Auix",
   /** 2026-10-22: why the discount was given, in the customer's words; prints beside the Discount row. */
   discountReason: "fldD60VsOq8Ob2atE",
+  /** 2026-10-22: ticked = the customer sees one price for the project, no unit prices or line amounts. */
+  lumpSum: "fldCOPt8yqlgd8sJf",
   /** The version this one replaced (Save as new version). */
   supersedes: "fldPJSJz7AWEBdyRD",
   /** Airtable's own guard (formula): text when a preliminary must not be sent because a measured version exists. */

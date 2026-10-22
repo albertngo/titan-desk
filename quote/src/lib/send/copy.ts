@@ -25,10 +25,11 @@ export type CopyItem = {
   uom: string | null;
   /** Whole percent of waste included in `qty`, when there is any. */
   wastePct: number | null;
-  /** Null when a minimum charge sets the amount instead. */
+  /** Null when a minimum charge sets the amount instead, or on a lump-sum quote. */
   unitPrice: number | null;
   minimum: boolean;
-  amount: number;
+  /** Null on a lump-sum quote (2026-10-22) for a counted line: the customer gets one price. An add-on keeps its price. */
+  amount: number | null;
   /** An add-on the customer can choose: priced, not in the total. */
   optional: boolean;
   /**
@@ -38,7 +39,8 @@ export type CopyItem = {
   hst?: "none" | "plus";
 };
 export type CopyText = { kind: "text"; text: string; note: string | null };
-export type CopySection = { name: string; total: number; lines: (CopyItem | CopyText)[] };
+/** `total` is null on a lump-sum quote. */
+export type CopySection = { name: string; total: number | null; lines: (CopyItem | CopyText)[] };
 
 export type CopyTotals = {
   preDiscount: number;
@@ -84,6 +86,12 @@ export type CustomerCopy = {
   discountRate: number;
   /** Why, in the customer's words, beside the Discount row (2026-10-22); absent when none was given. */
   discountReason?: string;
+  /**
+   * Lump sum (2026-10-22): the customer sees what the work includes and one price for the project.
+   * Counted lines carry no unit price or amount and sections no total; add-ons keep their price;
+   * the totals block is the price. Absent = itemised.
+   */
+  lumpSum?: true;
   showHst: boolean;
   company: Letterhead;
   options: CopyOption[];
@@ -102,7 +110,7 @@ function sectionNames(lines: QuoteLine[]): string[] {
   return out;
 }
 
-function copyOption(o: QuoteOption, discountRate: number, showHst: boolean): CopyOption {
+function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lumpSum = false): CopyOption {
   let n = 0;
   const sections: CopySection[] = [];
   for (const name of sectionNames(o.lines)) {
@@ -124,6 +132,8 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean): Cop
       const minimum = (l.minChargeSnap ?? 0) > 0 && extent * price > 0 && extent * price < (l.minChargeSnap ?? 0);
       const qty = l.qty === null ? null : round2(extent);
       if (l.include) total += amount;
+      // Lump sum: a counted line shows what it is and how much, never what it costs; an add-on must still say its price.
+      const lump = lumpSum && l.include;
       lines.push({
         kind: "item",
         n: l.include ? ++n : null,
@@ -132,25 +142,25 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean): Cop
         qty,
         uom: clean(l.uom),
         wastePct: l.waste ? Math.round(l.waste * 100) : null,
-        unitPrice: minimum ? null : price,
-        minimum,
-        amount,
+        unitPrice: minimum || lump ? null : price,
+        minimum: lump ? false : minimum,
+        amount: lump ? null : amount,
         optional: !l.include,
         ...(chargesHst(l, showHst) !== showHst ? { hst: showHst ? ("none" as const) : ("plus" as const) } : {}),
       });
     }
-    if (lines.length) sections.push({ name: name === "Unsorted" ? "Other" : name, total: round2(total), lines });
+    if (lines.length) sections.push({ name: name === "Unsorted" ? "Other" : name, total: lumpSum ? null : round2(total), lines });
   }
   // The Private section as the customer sees it (2026-10-22): one row in Other, the option's name for it, the total, nothing else.
   const hidden = privateRollup(o.lines);
   if (hidden > 0) {
     let other = sections.find((s) => s.name === "Other");
     if (!other) {
-      other = { name: "Other", total: 0, lines: [] };
+      other = { name: "Other", total: lumpSum ? null : 0, lines: [] };
       sections.push(other);
     }
-    other.lines.push({ kind: "item", n: ++n, description: clean(o.privateLabel) ?? DEFAULT_PRIVATE_LABEL, note: null, qty: null, uom: null, wastePct: null, unitPrice: null, minimum: false, amount: hidden, optional: false });
-    other.total = round2(other.total + hidden);
+    other.lines.push({ kind: "item", n: ++n, description: clean(o.privateLabel) ?? DEFAULT_PRIVATE_LABEL, note: null, qty: null, uom: null, wastePct: null, unitPrice: null, minimum: false, amount: lumpSum ? null : hidden, optional: false });
+    if (other.total !== null) other.total = round2(other.total + hidden);
   }
   const t = optionTotals(o.lines, discountRate, showHst);
   return {
@@ -185,9 +195,10 @@ export function customerCopy(quote: Quote, at: { sentOn: string; validUntil: str
     ...(quote.link?.projectTiming ? { timing: quote.link.projectTiming } : {}),
     discountRate: quote.discountRate,
     ...(clean(quote.discountReason) ? { discountReason: clean(quote.discountReason)! } : {}),
+    ...(quote.lumpSum ? { lumpSum: true as const } : {}),
     showHst: quote.showHst,
     company: at.company,
-    options: quote.options.map((o) => copyOption(o, quote.discountRate, quote.showHst)),
+    options: quote.options.map((o) => copyOption(o, quote.discountRate, quote.showHst, quote.lumpSum === true)),
   };
 }
 

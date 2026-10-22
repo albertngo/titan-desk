@@ -59,7 +59,8 @@ describe("quick form: the lines it becomes", () => {
   it("skips and names what it can't price, and adds the extra cost as its own line", () => {
     const r = buildPreliminary(choices, parseWork({ rows: [{ choiceId: NAIL.id }, { choiceId: MAT_UNSET.id, amount: 100 }, { choiceId: "recGone000000000A", amount: 1 }], extraCost: 250 }), new Map());
     expect(r.skipped).toEqual(["Nail down (no amount)", "Tiles (no product)", "a choice that's no longer on the form"]);
-    expect(r.lines.map((l) => [l.description, l.unitPrice, l.section])).toEqual([["Additional work", 250, "Other"]]);
+    // Private (2026-10-22): the customer sees it as the rolled-up "Additional work" row, never as a line.
+    expect(r.lines.map((l) => [l.description, l.unitPrice, l.section])).toEqual([["Additional work", 250, "Private"]]);
   });
 
   it("totals the same way every quote does", () => {

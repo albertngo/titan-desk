@@ -286,8 +286,8 @@ export function QuickWork({ choices, profiles, value, onChange }: { choices: Qui
           <span className="k">Building</span>
           <Chips label="Building" options={BUILDINGS} value={value.building} onChange={(v) => set({ building: v })} allowNone />
         </div>
-        <label className="qw-money">
-          <span className="k">Additional cost</span>
+        <label className="qw-money" title="Goes on the quote as a private line: the customer sees one “Additional work” row with the amount, never what it was for.">
+          <span className="k">Additional cost <span className="faint">(private: shown to the customer as one “Additional work” row)</span></span>
           <span className="qw-amt">
             <input className="in" inputMode="decimal" placeholder="0" value={value.extraCost} onChange={(e) => set({ extraCost: e.target.value })} />
             <span>$</span>
