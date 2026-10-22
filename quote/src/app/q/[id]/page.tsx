@@ -135,7 +135,6 @@ export default async function QuotePage({
                 discountRate={quote.discountRate}
                 showHst={quote.showHst}
                 quoteNotes={quote.notes}
-                airtableUrl={airtableUrl}
                 editHref={`/q/${quote.id}/edit`}
                 customer={customer}
               />
