@@ -37,12 +37,13 @@ const LABEL: Record<keyof OptionTotals, string> = {
  * Priced sections in work order; exclusions are not a table section, they go to the notes card.
  * In Customer view the Private section is left out and its total shows as one row in Other (2026-10-22).
  */
-function sectionOrder(lines: QuoteLine[], customer: boolean): string[] {
+function sectionOrder(lines: QuoteLine[], customer: boolean, lump: boolean): string[] {
   const present = new Set(lines.filter((l) => isPriced(l) || l.lineType === "Note" || l.lineType === "Section").map(sectionOf));
   present.delete("Exclusions");
   if (customer) {
     present.delete(PRIVATE_SECTION);
-    if (privateRollup(lines) > 0) present.add("Other");
+    // The roll-up row exists only on an itemised quote; a lump sum folds the amount into the one price.
+    if (!lump && privateRollup(lines) > 0) present.add("Other");
   }
   const known: string[] = SECTIONS.filter((s) => present.has(s));
   if (present.has("Unsorted")) known.push("Unsorted");
@@ -165,13 +166,13 @@ export function OptionSheet({
   lumpSum?: boolean;
 }) {
   const lump = customer && lumpSum === true;
-  const order = sectionOrder(option.lines, customer);
+  const order = sectionOrder(option.lines, customer, lump);
   const exclusions = option.lines.filter((l) => l.section === "Exclusions" && l.description);
   const nums = new Map<string, number>();
   let i = 0;
   for (const s of order) for (const l of option.lines) if (sectionOf(l) === s && isPriced(l) && l.include) nums.set(l.id, ++i);
-  // Customer view: the Private section's total as one numbered row at the end of Other.
-  const hidden = customer ? privateRollup(option.lines) : 0;
+  // Customer view: the Private section's total as one numbered row at the end of Other; not on a lump sum.
+  const hidden = customer && !lump ? privateRollup(option.lines) : 0;
 
   return (
     <>

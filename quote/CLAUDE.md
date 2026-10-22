@@ -210,7 +210,8 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   lose unit price and amount; only Install, Removal, Prep and Materials lines keep a quantity, for
   clarity about the scope (`LUMP_QTY_SECTIONS` in `calc.ts`); sections lose their total; the totals
   block shows price before HST, HST and total with the payment schedule and no discount rows (the
-  discount is in the price); optional add-ons keep their price, since they are not in it. **The
+  discount is in the price); optional add-ons keep their price, since they are not in it; the
+  Private section's roll-up row is not shown at all, its amount being inside the one price. **The
   choice is made when sending**: the Send card offers *Lump sum only* (default) or *Send breakdown*,
   the preview and PDF links follow the choice (`?itemised=1`), and the send writes it to Quote
   Versions → **Itemised Pricing** in the same update as the frozen copy (`pricing: "lump" |

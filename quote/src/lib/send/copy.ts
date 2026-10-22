@@ -156,7 +156,8 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
     if (lines.length) sections.push({ name: name === "Unsorted" ? "Other" : name, total: lumpSum ? null : round2(total), lines });
   }
   // The Private section as the customer sees it (2026-10-22): one row in Other, the option's name for it, the total, nothing else.
-  const hidden = privateRollup(o.lines);
+  // On a lump sum there is no row at all (Albert, 2026-10-22): the amount is already inside the one price.
+  const hidden = lumpSum ? 0 : privateRollup(o.lines);
   if (hidden > 0) {
     let other = sections.find((s) => s.name === "Other");
     if (!other) {
