@@ -692,4 +692,7 @@ a.chip.accent:hover { text-decoration: underline; }
   .newq > .pagehead { grid-column: 1 / -1; }
   .newq > .conv { grid-column: 2; grid-row: 2 / span 8; max-width: 480px; margin-bottom: 0; position: sticky; top: 12px; }
   .newq > .conv .conv-b { max-height: calc(100vh - 80px); overflow: auto; overscroll-behavior: contain; }
+  .newq > .conv .conv-b > .conv-photos { position: sticky; top: -16px; z-index: 2; margin: -16px -16px 0; padding: 16px 16px 10px; background: var(--card); border-bottom: 1px solid var(--line); }
 }
+/* The customer's photo strip stays at the top of the drawer while the thread scrolls under it (Albert, 2026-10-22). */
+.conv-panel-b > .conv-photos { position: sticky; top: -16px; z-index: 2; margin: -16px -16px 0; padding: 16px 16px 10px; background: var(--card); border-bottom: 1px solid var(--line); }
