@@ -93,6 +93,7 @@ export function cleanEditorQuote(raw: unknown): EditorQuote {
       recommended: x.recommended === true,
       serviceLevel: x.serviceLevel === "Premium" ? "Premium" : "Standard",
       crew: text(x.crew, 80).trim() || null,
+      privateLabel: text(x.privateLabel, 120).trim() || null,
       lines: (Array.isArray(x.lines) ? x.lines : []).slice(0, LIMITS.linesPerOption).map(cleanLine),
     };
   });
@@ -161,6 +162,7 @@ export function optionFields(o: EditorOption, sortOrder: number): Fields {
     [OPTION.recommended]: o.recommended,
     [OPTION.serviceLevel]: levelOf(o),
     [OPTION.crew]: o.crew?.trim() || null,
+    [OPTION.privateLabel]: o.privateLabel?.trim() || null,
   };
 }
 

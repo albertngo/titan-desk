@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { saveAsNewVersionAction, saveVersionAction } from "@/app/q/[id]/edit/actions";
 import { Financials } from "@/components/Financials";
-import { SECTIONS, isPriced, lineCost, lineFlags, lineTotal, optionTotals, sectionOf } from "@/lib/calc";
+import { DEFAULT_PRIVATE_LABEL, PRIVATE_SECTION, SECTIONS, isPriced, lineCost, lineFlags, lineTotal, optionTotals, privateRollup, sectionOf } from "@/lib/calc";
 import {
   UOMS,
   addLine,
@@ -208,7 +208,11 @@ export default function Editor({
     setActiveId(initial.options[0]?.id ?? null);
   };
 
-  const sectionsShown: string[] = option ? WORK_SECTIONS.filter((s) => option.lines.some((l) => sectionOf(l) === s)) : [];
+  // Customer view leaves the Private section out and shows its total as one row in Other (2026-10-22).
+  const hidden = option && customer ? privateRollup(option.lines) : 0;
+  const sectionsShown: string[] = option
+    ? WORK_SECTIONS.filter((s) => (customer && s === PRIVATE_SECTION ? false : option.lines.some((l) => sectionOf(l) === s) || (s === "Other" && hidden > 0)))
+    : [];
   if (option?.lines.some((l) => sectionOf(l) === "Unsorted")) sectionsShown.push("Unsorted");
   const exclusions = option ? option.lines.filter((l) => l.section === "Exclusions") : [];
 
@@ -567,16 +571,40 @@ export default function Editor({
                       )}
                       {sectionsShown.flatMap((s) => {
                         const lines = option.lines.filter((l) => sectionOf(l) === s);
-                        const sum = lines.reduce((a, l) => a + (lineTotal(l) ?? 0), 0);
+                        const rollup = s === "Other" && hidden > 0 ? hidden : 0;
+                        const sum = lines.reduce((a, l) => a + (lineTotal(l) ?? 0), 0) + rollup;
                         return [
                           <tr className="sect" key={`s-${s}`}>
                             <td colSpan={customer ? 4 : 7}>
                               {s}{" "}
                               <button className="addinline" onClick={() => setPicking(s)}>+ Add</button>
+                              {s === PRIVATE_SECTION && !customer && (
+                                <span className="priv-as" title="These lines are never itemised for the customer. On the page, the PDF and the email they roll up into one row in Other with this name and their total.">
+                                  Not itemised for the customer. Shown as{" "}
+                                  <TextCell
+                                    value={option.privateLabel ?? ""}
+                                    placeholder={DEFAULT_PRIVATE_LABEL}
+                                    label="Private section, shown to the customer as"
+                                    className="cell-in mini"
+                                    onCommit={(v) => apply(updateOption(quote, option.id, { privateLabel: v.trim() || null }))}
+                                  />
+                                </span>
+                              )}
                             </td>
                             <td className="r">{money(sum)}</td>
                           </tr>,
                           ...lines.map(row),
+                          ...(rollup > 0
+                            ? [
+                                <tr key="private-rollup">
+                                  <td className="idx">{numberOf.size + 1}</td>
+                                  <td>{option.privateLabel ?? DEFAULT_PRIVATE_LABEL}</td>
+                                  <td className="r">—</td>
+                                  <td className="r">—</td>
+                                  <td className="r"><b>{money(rollup)}</b></td>
+                                </tr>,
+                              ]
+                            : []),
                         ];
                       })}
                     </tbody>
@@ -584,7 +612,7 @@ export default function Editor({
                 </div>
                 <div className="addbar">
                   <span className="lbl">Add work</span>
-                  {WORK_SECTIONS.map((s) => (
+                  {WORK_SECTIONS.filter((s) => !(customer && s === PRIVATE_SECTION)).map((s) => (
                     <button key={s} className="chip-btn" onClick={() => setPicking(s)}>{s}</button>
                   ))}
                 </div>

@@ -1,4 +1,4 @@
-import { SECTIONS, chargesHst, isPriced, lineTotal, optionTotals, priceUsed, round2, sectionOf } from "@/lib/calc";
+import { DEFAULT_PRIVATE_LABEL, PRIVATE_SECTION, SECTIONS, chargesHst, isPriced, lineTotal, optionTotals, priceUsed, privateRollup, round2, sectionOf } from "@/lib/calc";
 import type { Quote, QuoteLine, QuoteOption } from "@/lib/quotes/types";
 
 /**
@@ -93,6 +93,8 @@ const clean = (s: string | null | undefined) => (s ?? "").replace(/\s+/g, " ").t
 function sectionNames(lines: QuoteLine[]): string[] {
   const present = new Set(lines.filter((l) => isPriced(l) || l.lineType === "Note" || l.lineType === "Section").map(sectionOf));
   present.delete("Exclusions");
+  // Private lines are never itemised: they roll up into one row in Other (copyOption, below).
+  present.delete(PRIVATE_SECTION);
   const out: string[] = SECTIONS.filter((s) => present.has(s));
   if (present.has("Unsorted")) out.push("Unsorted");
   return out;
@@ -136,6 +138,17 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean): Cop
       });
     }
     if (lines.length) sections.push({ name: name === "Unsorted" ? "Other" : name, total: round2(total), lines });
+  }
+  // The Private section as the customer sees it (2026-10-22): one row in Other, the option's name for it, the total, nothing else.
+  const hidden = privateRollup(o.lines);
+  if (hidden > 0) {
+    let other = sections.find((s) => s.name === "Other");
+    if (!other) {
+      other = { name: "Other", total: 0, lines: [] };
+      sections.push(other);
+    }
+    other.lines.push({ kind: "item", n: ++n, description: clean(o.privateLabel) ?? DEFAULT_PRIVATE_LABEL, note: null, qty: null, uom: null, wastePct: null, unitPrice: null, minimum: false, amount: hidden, optional: false });
+    other.total = round2(other.total + hidden);
   }
   const t = optionTotals(o.lines, discountRate, showHst);
   return {

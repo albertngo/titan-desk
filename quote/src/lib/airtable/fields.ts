@@ -81,6 +81,8 @@ export const OPTION = {
   serviceLevel: "fld7emrZTif7sChk8",
   /** The contractor picked for the whole option (2026-10-16), a Rate Card Contractor name. Sets cost only. */
   crew: "fldAclqYwusXAlizF",
+  /** 2026-10-22: what the customer sees in place of the option's Private section (one rolled-up row); blank = "Additional work". */
+  privateLabel: "fldBYBPfe6bcSdsQD",
   lines: "fldYmOczi2hNUldJU",
   /** The version this option belongs to; emptied, never deleted, when the option is removed. */
   version: "flduprOIp2Z5Z6JcG",

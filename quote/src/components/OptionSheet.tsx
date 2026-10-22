@@ -1,5 +1,8 @@
 import Link from "next/link";
 import {
+  DEFAULT_PRIVATE_LABEL,
+  PRIVATE_SECTION,
+  privateRollup,
   SECTIONS,
   sectionOf,
   costUsed,
@@ -29,10 +32,17 @@ const LABEL: Record<keyof OptionTotals, string> = {
 };
 
 
-/** Priced sections in work order; exclusions are not a table section, they go to the notes card. */
-function sectionOrder(lines: QuoteLine[]): string[] {
+/**
+ * Priced sections in work order; exclusions are not a table section, they go to the notes card.
+ * In Customer view the Private section is left out and its total shows as one row in Other (2026-10-22).
+ */
+function sectionOrder(lines: QuoteLine[], customer: boolean): string[] {
   const present = new Set(lines.filter((l) => isPriced(l) || l.lineType === "Note" || l.lineType === "Section").map(sectionOf));
   present.delete("Exclusions");
+  if (customer) {
+    present.delete(PRIVATE_SECTION);
+    if (privateRollup(lines) > 0) present.add("Other");
+  }
   const known: string[] = SECTIONS.filter((s) => present.has(s));
   if (present.has("Unsorted")) known.push("Unsorted");
   return known;
@@ -139,11 +149,13 @@ export function OptionSheet({
   /** Customer view: no cost, margin, contractor, card rate, flags or parity check. */
   customer: boolean;
 }) {
-  const order = sectionOrder(option.lines);
+  const order = sectionOrder(option.lines, customer);
   const exclusions = option.lines.filter((l) => l.section === "Exclusions" && l.description);
   const nums = new Map<string, number>();
   let i = 0;
   for (const s of order) for (const l of option.lines) if (sectionOf(l) === s && isPriced(l) && l.include) nums.set(l.id, ++i);
+  // Customer view: the Private section's total as one numbered row at the end of Other.
+  const hidden = customer ? privateRollup(option.lines) : 0;
 
   return (
     <>
@@ -178,13 +190,28 @@ export function OptionSheet({
               <tbody>
                 {order.flatMap((s) => {
                   const lines = option.lines.filter((l) => sectionOf(l) === s);
-                  const sum = lines.reduce((a, l) => a + (lineTotal(l) ?? 0), 0);
+                  const rollup = s === "Other" && hidden > 0 ? hidden : 0;
+                  const sum = lines.reduce((a, l) => a + (lineTotal(l) ?? 0), 0) + rollup;
                   return [
                     <tr className="sect" key={`s-${s}`}>
-                      <td colSpan={customer ? 4 : 7}>{s}</td>
+                      <td colSpan={customer ? 4 : 7}>
+                        {s}
+                        {s === PRIVATE_SECTION && <span className="sub"> · not itemised for the customer: one row, “{option.privateLabel ?? DEFAULT_PRIVATE_LABEL}”</span>}
+                      </td>
                       <td className="r">{money(sum)}</td>
                     </tr>,
                     ...lines.map((l) => <Row key={l.id} l={l} n={nums.get(l.id)} customer={customer} />),
+                    ...(rollup > 0
+                      ? [
+                          <tr key="private-rollup">
+                            <td className="idx">{i + 1}</td>
+                            <td>{option.privateLabel ?? DEFAULT_PRIVATE_LABEL}</td>
+                            <td className="r">—</td>
+                            <td className="r">—</td>
+                            <td className="r"><b>{money(rollup)}</b></td>
+                          </tr>,
+                        ]
+                      : []),
                   ];
                 })}
               </tbody>

@@ -34,6 +34,8 @@ export type EditorOption = {
   serviceLevel?: ServiceLevel;
   /** The contractor picked for the whole option (a Rate Card Contractor name); null or absent = none. See setCrew. */
   crew?: string | null;
+  /** What the customer sees in place of the Private section's lines (2026-10-22); null or absent = "Additional work". */
+  privateLabel?: string | null;
   lines: EditorLine[];
 };
 
@@ -103,6 +105,7 @@ export const LINE_TYPE: Record<string, string> = {
   Materials: "Material",
   Delivery: "Delivery",
   Other: "Other",
+  Private: "Other",
   Exclusions: "Note",
   Stairs: "Stairs",
 };
@@ -349,7 +352,7 @@ export function removeOption(q: EditorQuote, optionId: string): EditorQuote {
   return { ...q, options: q.options.filter((o) => o.id !== optionId) };
 }
 
-export function updateOption(q: EditorQuote, optionId: string, patch: Partial<Pick<EditorOption, "name" | "description" | "recommended">>): EditorQuote {
+export function updateOption(q: EditorQuote, optionId: string, patch: Partial<Pick<EditorOption, "name" | "description" | "recommended" | "privateLabel">>): EditorQuote {
   let next = mapOption(q, optionId, (o) => ({ ...o, ...patch }));
   if (patch.recommended) next = { ...next, options: next.options.map((o) => (o.id === optionId ? o : { ...o, recommended: false })) };
   return next;
@@ -577,6 +580,7 @@ export function fromQuote(quote: Quote): EditorQuote {
       recommended: o.recommended,
       serviceLevel: levelOf(o),
       crew: o.crew,
+      privateLabel: o.privateLabel ?? null,
       lines: o.lines.map((l: QuoteLine): EditorLine => ({
         id: l.id,
         sourceKind: l.sourceKind,

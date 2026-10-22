@@ -40,8 +40,8 @@ const exclusion = L({ lineType: "Other", section: "Exclusions", qty: 1, unitPric
 const job = [removal, install, stairs, delivery, optional, note, exclusion];
 
 describe("sections", () => {
-  it("follows Albert's order, Stairs after Install, with Other and Exclusions last", () => {
-    expect([...SECTIONS]).toEqual(["Install", "Stairs", "Removal", "Disposal", "Prep", "Materials", "Delivery", "Other", "Exclusions"]);
+  it("follows Albert's order, Stairs after Install, with Other, Private (2026-10-22) and Exclusions last", () => {
+    expect([...SECTIONS]).toEqual(["Install", "Stairs", "Removal", "Disposal", "Prep", "Materials", "Delivery", "Other", "Private", "Exclusions"]);
   });
 
   it("folds refinish, paint and sand lines into Install so nothing disappears; Stairs stands on its own (2026-10-18)", () => {
