@@ -27,7 +27,21 @@ export const PAYMENT_SPLIT = 0.35;
  * takes in refinishing, painting and sanding. Stairs is its own section again (Albert,
  * 2026-10-18): stair profiles on the preliminary and Stair Items in the editor live there.
  */
-export const SECTIONS = ["Install", "Stairs", "Removal", "Disposal", "Prep", "Materials", "Delivery", "Other", "Exclusions"] as const;
+export const SECTIONS = ["Install", "Stairs", "Removal", "Disposal", "Prep", "Materials", "Delivery", "Other", "Private", "Exclusions"] as const;
+
+/**
+ * The Private section (Albert, 2026-10-22): lines priced like any other and counted in every total,
+ * but never itemised for the customer. On everything they get, the included ones roll up into one
+ * row in Other, named by the option (`privateLabel`, else the default below), with their total and
+ * no quantity or unit price. A private line priced at zero is cost only and never shows at all.
+ */
+export const PRIVATE_SECTION = "Private";
+export const DEFAULT_PRIVATE_LABEL = "Additional work";
+
+/** What the customer's rolled-up row shows: the included Private lines' total, before discount. */
+export function privateRollup(lines: LineInput[]): number {
+  return round2(lines.filter((l) => sectionOf(l) === PRIVATE_SECTION).reduce((a, l) => a + (lineTotal(l) ?? 0), 0));
+}
 
 /** Older sections folded into Install, so lines saved under them still show (Albert, 2026-10-12). */
 export const SECTION_ALIASES: Record<string, string> = { Refinish: "Install", Paint: "Install", Sand: "Install" };

@@ -200,6 +200,16 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   to the next with the arrow keys, the on-screen arrows or a swipe. Staff only: the pages leave the card out in Customer
   view, and the customer deployment never has it. Pictures are shown straight from GHL's URLs; one
   the browser cannot load falls back to a link.
+- **The Private section (Albert, 2026-10-22).** A section after Other in the editor (Quote Lines →
+  Section `Private`, a choice added that day) for costs the customer is billed for but not shown,
+  and for cost-only lines. Its lines are priced and counted like any other, in every total, the
+  margin and the checks; nothing changes in `calc.ts` or Airtable's formulas. On everything the
+  customer gets (page, PDF, email) and in Customer view, the included ones roll up into **one row in
+  Other** named by the option (Quote Options → **Private Line Name**, blank = "Additional work") with
+  their total and no quantity or unit price, so the customer's lines still add up to the subtotal;
+  a private line priced at zero is cost only and never shows at all. Never a hidden amount: the
+  customer-copy whitelist in `copy.ts` does the roll-up and `tests/send.test.ts` pins that no
+  private description or cost reaches the copy. `PRIVATE_SECTION` / `privateRollup()` in `calc.ts`.
 - **Accepted price (Albert, 2026-10-22).** Under each option's overview in the editor, **Accepted
   price, before HST** takes the amount the customer agreed to and sets the quote's discount so that
   option lands on it (`setAcceptedPrice()` in `src/lib/editor/model.ts`, tested). The discount is one

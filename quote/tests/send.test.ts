@@ -354,3 +354,36 @@ describe("PDF text", () => {
     expect(wrap("Supercalifragilisticexpialidocious", "R", 10, 40).every((l) => textWidth(l, "R", 10) <= 40)).toBe(true);
   });
 });
+
+describe("the Private section (2026-10-22)", () => {
+  // INVENTED numbers. Two private lines: one priced (a rep's fee the customer is billed for but not shown), one cost only.
+  const priv = (p: Partial<QuoteLine>) => line({ section: "Private", lineType: "Other", sourceKind: "manual", contractor: null, unitPriceSnap: null, unitCostSnap: null, ...p });
+  const lines = [line({}), priv({ description: "Rep referral fee", qty: 1, uom: "flat", unitPrice: 500, costOverride: 300 }), priv({ description: "Contingency, cost only", qty: 1, uom: "flat", unitPrice: 0, costOverride: 150 })];
+
+  it("rolls the priced private lines into one row in Other, named by the option, with no quantity or unit price", () => {
+    const c = customerCopy(quote({ discountRate: 0, options: [option("A", lines, 0, true, { privateLabel: "Site preparation and sundries" })] }), AT);
+    const o = c.options[0];
+    expect(o.sections.map((s) => s.name)).toEqual(["Install", "Other"]);
+    const other = o.sections.find((s) => s.name === "Other")!;
+    expect(other.lines).toEqual([{ kind: "item", n: 2, description: "Site preparation and sundries", note: null, qty: null, uom: null, wastePct: null, unitPrice: null, minimum: false, amount: 500, optional: false }]);
+    expect(other.total).toBe(500);
+    // The lines still add up to the subtotal: 200 + 500, no discount.
+    expect(o.sections.reduce((a, s) => a + s.total, 0)).toBe(o.totals.subtotal);
+    expect(o.totals.subtotal).toBe(700);
+  });
+
+  it("defaults the row's name, and never lets a private line's own words or cost reach the customer", () => {
+    const c = customerCopy(quote({ options: [option("A", lines, 0, true)] }), AT);
+    const text = serializeCopy(c);
+    expect(text).toContain("Additional work");
+    for (const leak of ["Rep referral fee", "Contingency", "300", "150", "Private"]) expect(text).not.toContain(leak);
+    expect(new TextDecoder("latin1").decode(quotePdf(c))).not.toContain("Rep referral");
+  });
+
+  it("shows nothing at all when the private lines carry cost only, and counts an excluded one for nothing", () => {
+    const costOnly = customerCopy(quote({ options: [option("A", [line({}), priv({ description: "Contingency", qty: 1, uom: "flat", unitPrice: 0, costOverride: 150 })], 0, true)] }), AT);
+    expect(costOnly.options[0].sections.map((s) => s.name)).toEqual(["Install"]);
+    const excluded = customerCopy(quote({ options: [option("A", [line({}), priv({ description: "Maybe", qty: 1, uom: "flat", unitPrice: 500, include: false })], 0, true)] }), AT);
+    expect(excluded.options[0].sections.map((s) => s.name)).toEqual(["Install"]);
+  });
+});

@@ -34,6 +34,8 @@ export type QuoteOption = {
   serviceLevel: string | null;
   /** The contractor picked for the whole option (Quote Options → Crew); null when none. */
   crew: string | null;
+  /** Quote Options → Private Line Name (2026-10-22): the customer's one row for the Private section; null = "Additional work". */
+  privateLabel?: string | null;
   lines: QuoteLine[];
   /** Airtable's own option rollups, for the parity check. */
   airtable: Partial<OptionTotals>;
