@@ -73,12 +73,14 @@ export function SendQuote({
   const [until, setUntil] = useState(defaultUntil);
   const [byEmail, setByEmail] = useState(!!email);
   const [bySms, setBySms] = useState(!!phone);
+  /** What the customer gets: the lump sum, always the default, or the breakdown (Albert, 2026-10-22). */
+  const [breakdown, setBreakdown] = useState(false);
   const [asking, setAsking] = useState(false);
   const [error, setError] = useState<{ message: string; problems?: string[] } | null>(null);
   const [done, setDone] = useState<{ link: string; sentTo: string[]; warning: string | null } | null>(null);
   const [sending, startSend] = useTransition();
-  const preview = `/q/${versionId}/preview?until=${until}`;
-  const pdf = `/q/${versionId}/pdf?until=${until}`;
+  const preview = `/q/${versionId}/preview?until=${until}${breakdown ? "&itemised=1" : ""}`;
+  const pdf = `/q/${versionId}/pdf?until=${until}${breakdown ? "&itemised=1" : ""}`;
 
   if (status !== "Draft" || done) {
     const s = done ? { sentAt: today, sentBy: null, sentTo: done.sentTo.join(", "), validUntil: until, link: done.link } : sent;
@@ -116,7 +118,7 @@ export function SendQuote({
   function send() {
     setError(null);
     startSend(async () => {
-      const r = await sendQuoteAction(versionId, { base, validUntil: until, channels: { email: byEmail, sms: bySms } });
+      const r = await sendQuoteAction(versionId, { base, validUntil: until, channels: { email: byEmail, sms: bySms }, itemised: breakdown });
       setAsking(false);
       if (r.ok) {
         setDone(r);
@@ -151,6 +153,24 @@ export function SendQuote({
             <span>
               Text <span className="faint">{phone ?? "no phone in GHL"}</span>
               {phone && <span className="sub">Link</span>}
+            </span>
+          </label>
+        </fieldset>
+
+        <fieldset className="sq-ch" disabled={sending || asking}>
+          <legend className="sr-only">What the customer sees</legend>
+          <label>
+            <input type="radio" name="sq-pricing" checked={!breakdown} onChange={() => setBreakdown(false)} />
+            <span>
+              Lump sum only
+              <span className="sub">What the work includes and one price. Quantities on install, removal, prep and materials; no line prices.</span>
+            </span>
+          </label>
+          <label>
+            <input type="radio" name="sq-pricing" checked={breakdown} onChange={() => setBreakdown(true)} />
+            <span>
+              Send breakdown
+              <span className="sub">Every line with its unit price and amount, section totals and the discount.</span>
             </span>
           </label>
         </fieldset>

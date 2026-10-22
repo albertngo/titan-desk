@@ -1,5 +1,5 @@
 import { money, rate } from "@/lib/format";
-import { discountLabel, hstRow, hstWord, itemHstNote, longDate, type CopyItem, type CopyOption, type CopyState, type CopyText, type CustomerCopy } from "@/lib/send/copy";
+import { discountLabel, hstRow, hstWord, isLump, itemHstNote, longDate, type CopyItem, type CopyOption, type CopyState, type CopyText, type CustomerCopy } from "@/lib/send/copy";
 
 /**
  * The quote as the customer sees it, drawn from the frozen customer copy only. Used by the
@@ -56,13 +56,14 @@ function Totals({ o, copy }: { o: CopyOption; copy: CustomerCopy }) {
   return (
     <div className="cq-totals">
       <dl>
-        {t.discount !== 0 && (
+        {/* Lump sum: no breakdown of the price, so no discount rows either; the price is the price. */}
+        {!isLump(copy) && t.discount !== 0 && (
           <>
             <div><dt>Subtotal before discount</dt><dd>{money(t.preDiscount)}</dd></div>
             <div className="disc"><dt>{discountLabel(copy)}</dt><dd>{money(t.discount)}</dd></div>
           </>
         )}
-        <div><dt>Subtotal</dt><dd>{money(t.subtotal)}</dd></div>
+        <div><dt>{isLump(copy) ? "Price (before HST)" : "Subtotal"}</dt><dd>{money(t.subtotal)}</dd></div>
         <div><dt>{h.label}</dt><dd>{h.amount !== null ? money(h.amount) : "Not included"}</dd></div>
         <div className="total"><dt>Total</dt><dd>{money(t.total)}</dd></div>
       </dl>
@@ -167,7 +168,7 @@ export function CustomerQuote({
           {copy.basis === "Preliminary" && (
             <p className="cq-prelim">This is a preliminary estimate, based on what we know so far. We confirm the final price once we have measured the space.</p>
           )}
-          {copy.lumpSum && <p className="cq-lump">Priced as one sum for the project. The items below show what it includes.</p>}
+          {isLump(copy) && <p className="cq-lump">Priced as one sum for the project. The items below show what it includes.</p>}
         </section>
 
         {several && (

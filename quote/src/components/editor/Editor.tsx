@@ -424,9 +424,6 @@ export default function Editor({
               <label className="check-in" title="Labour and everything else. Each material line has its own HST box, which this never changes.">
                 <input type="checkbox" checked={quote.showHst} onChange={(e) => apply(setTerms(quote, { showHst: e.target.checked }))} /> Charge HST (13%)
               </label>
-              <label className="check-in" title="The customer sees what the work includes and one price for the project: no unit prices, no line or section amounts. Optional add-ons keep their price. Frozen into the quote when it is sent.">
-                <input type="checkbox" checked={!!quote.lumpSum} onChange={(e) => apply(setTerms(quote, { lumpSum: e.target.checked }))} /> Lump sum for the customer
-              </label>
             </div>
           </section>
 

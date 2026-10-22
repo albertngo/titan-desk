@@ -9,12 +9,14 @@ import { isIsoDate } from "@/lib/send/copy";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Customer preview" };
 
-export default async function PreviewPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ until?: string }> }) {
+export default async function PreviewPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ until?: string; itemised?: string }> }) {
   const { id } = await params;
-  const { until } = await searchParams;
-  const copy = await previewCopy(id, isIsoDate(until) ? until : undefined);
+  const { until, itemised } = await searchParams;
+  // `itemised=1` previews the breakdown; otherwise the lump sum, the default (Albert, 2026-10-22).
+  const copy = await previewCopy(id, isIsoDate(until) ? until : undefined, itemised === "1");
   if (!copy) notFound();
-  const pdf = `/q/${id}/pdf${isIsoDate(until) ? `?until=${until}` : ""}`;
+  const q = [isIsoDate(until) ? `until=${until}` : null, itemised === "1" ? "itemised=1" : null].filter(Boolean).join("&");
+  const pdf = `/q/${id}/pdf${q ? `?${q}` : ""}`;
   return (
     <CustomerQuote
       copy={copy}

@@ -1,5 +1,5 @@
 import { PAGE, PdfDoc, wrap, type Rgb } from "./pdfDoc";
-import { discountLabel, hstRow, itemHstNote, longDate, type CopyItem, type CopyOption, type CopyText, type CustomerCopy } from "./copy";
+import { discountLabel, hstRow, isLump, itemHstNote, longDate, type CopyItem, type CopyOption, type CopyText, type CustomerCopy } from "./copy";
 
 /**
  * The quote as a PDF, drawn from the customer copy only (never from live lines), so the file
@@ -78,7 +78,7 @@ export function quotePdf(copy: CustomerCopy): Uint8Array<ArrayBuffer> {
 
   for (const note of [
     copy.basis === "Preliminary" ? "This is a preliminary estimate, based on what we know so far. We confirm the final price once we have measured the space." : null,
-    copy.lumpSum ? "Priced as one sum for the project. The items listed show what it includes." : null,
+    isLump(copy) ? "Priced as one sum for the project. The items listed show what it includes." : null,
   ]) {
     if (!note) continue;
     const lines = wrap(note, "R", 9, RIGHT - M - 24);
@@ -110,7 +110,7 @@ export function quotePdf(copy: CustomerCopy): Uint8Array<ArrayBuffer> {
     doc.text(COL.item, y, cont ? "Item (continued)" : "Item", { font: "B", size: 8, color: DIM });
     doc.text(COL.qty, y, "Quantity", { font: "B", size: 8, color: DIM, align: "right" });
     // A lump-sum quote has no price columns: the totals block is the price (2026-10-22).
-    if (!copy.lumpSum) {
+    if (!isLump(copy)) {
       doc.text(COL.unit, y, "Unit price", { font: "B", size: 8, color: DIM, align: "right" });
       doc.text(COL.amount - 4, y, "Amount", { font: "B", size: 8, color: DIM, align: "right" });
     }
@@ -198,11 +198,12 @@ export function quotePdf(copy: CustomerCopy): Uint8Array<ArrayBuffer> {
   function totals(o: CopyOption) {
     const t = o.totals;
     const rows: [string, string, boolean][] = [];
-    if (t.discount !== 0) {
+    // Lump sum: no breakdown of the price, so no discount rows either.
+    if (t.discount !== 0 && !isLump(copy)) {
       rows.push(["Subtotal before discount", money(t.preDiscount), false]);
       rows.push([discountLabel(copy), money(t.discount), false]);
     }
-    rows.push(["Subtotal", money(t.subtotal), false]);
+    rows.push([isLump(copy) ? "Price (before HST)" : "Subtotal", money(t.subtotal), false]);
     const h = hstRow(copy, t);
     rows.push([h.label, h.amount !== null ? money(h.amount) : "Not included", false]);
     const pay: [string, number][] = [

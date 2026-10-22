@@ -58,8 +58,8 @@ export type EditorQuote = {
   showHst: boolean;
   /** Why the discount was given, in the customer's words (2026-10-22); prints beside the Discount row. */
   discountReason?: string | null;
-  /** Lump sum for the customer (2026-10-22): one price, no unit prices or line amounts. Absent = itemised. */
-  lumpSum?: boolean;
+  /** Itemised pricing for the customer (2026-10-22). False or absent = lump sum, the default: one price, no line prices. */
+  itemised?: boolean;
   options: EditorOption[];
 };
 
@@ -528,7 +528,7 @@ export function revertLine(q: EditorQuote, optionId: string, lineId: string): Ed
   return updateLine(q, optionId, lineId, { unitPrice: null, costOverride: null });
 }
 
-export function setTerms(q: EditorQuote, patch: Partial<Pick<EditorQuote, "discountRate" | "showHst" | "discountReason" | "lumpSum">>): EditorQuote {
+export function setTerms(q: EditorQuote, patch: Partial<Pick<EditorQuote, "discountRate" | "showHst" | "discountReason" | "itemised">>): EditorQuote {
   return { ...q, ...patch };
 }
 
@@ -610,7 +610,7 @@ export function fromQuote(quote: Quote): EditorQuote {
     discountRate: quote.discountRate,
     showHst: quote.showHst,
     discountReason: quote.discountReason ?? null,
-    lumpSum: quote.lumpSum ?? false,
+    itemised: quote.itemised ?? false,
     options: quote.options.map((o) => ({
       id: o.id,
       name: o.name,

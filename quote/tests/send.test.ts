@@ -54,6 +54,8 @@ function quote(p: Partial<Quote> = {}): Quote {
     status: "Draft",
     basis: "Measured",
     showHst: true,
+    // Itemised by default in these fixtures: the lump-sum tests opt out (lump sum is the app default since 2026-10-22).
+    itemised: true,
     discountRate: 0.1,
     validUntil: null,
     sentAt: null,
@@ -403,19 +405,30 @@ describe("discount reason (2026-10-22)", () => {
 
 describe("lump sum (2026-10-22)", () => {
   it("keeps what the work includes and drops every price but the add-ons' and the totals", () => {
-    const c = customerCopy(quote({ lumpSum: true }), AT);
-    expect(c.lumpSum).toBe(true);
+    const c = customerCopy(quote({ itemised: false }), AT);
+    expect(c.pricing).toBe("lump");
     const o = c.options[0];
     const items = o.sections.flatMap((s) => s.lines).filter((l): l is Extract<typeof l, { kind: "item" }> => l.kind === "item");
     for (const l of items.filter((x) => !x.optional)) expect([l.unitPrice, l.amount, l.minimum]).toEqual([null, null, false]);
     expect(items.find((x) => x.optional)).toMatchObject({ unitPrice: 30, amount: 120 });
-    expect(items.every((x) => x.qty !== null || x.description === "Stair nosing")).toBe(true);
+    // Quantities stay on Install, Removal, Prep and Materials lines only; everything else is words.
+    const qtyBySection = o.sections.map((s) => [s.name, s.lines.filter((l) => l.kind === "item" && !l.optional).map((l) => (l.kind === "item" ? l.qty : null))]);
+    expect(qtyBySection).toEqual([
+      ["Install", [220]],
+      ["Removal", [200]],
+      ["Delivery", [null]],
+      ["Other", []],
+    ]);
     expect(o.sections.every((s) => s.total === null)).toBe(true);
     expect(o.totals).toEqual(customerCopy(quote(), AT).options[0].totals);
     const pdf = new TextDecoder("latin1").decode(quotePdf(c));
     expect(pdf).not.toContain("Unit price");
+    expect(pdf).not.toContain("Discount");
+    expect(pdf).toContain("Price \\(before HST\\)"); // parentheses are escaped inside a PDF string
     expect(pdf).toContain("one sum for the project");
     expect(parseCopy(serializeCopy(c))).toEqual(c);
-    expect("lumpSum" in customerCopy(quote(), AT)).toBe(false);
+    expect(customerCopy(quote(), AT).pricing).toBe("itemised");
+    // Nothing said = the default = lump sum.
+    expect(customerCopy({ ...quote(), itemised: undefined }, AT).pricing).toBe("lump");
   });
 });

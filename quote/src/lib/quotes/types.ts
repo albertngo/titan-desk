@@ -76,8 +76,8 @@ export type Quote = {
   discountRate: number;
   /** Quote Versions → Discount Reason (2026-10-22): why, in the customer's words; prints beside the Discount row. */
   discountReason?: string | null;
-  /** Quote Versions → Lump Sum (2026-10-22): the customer sees one price, no unit prices or line amounts. */
-  lumpSum?: boolean;
+  /** Quote Versions → Itemised Pricing (2026-10-22). False or absent = lump sum, the default: one price, no line prices. */
+  itemised?: boolean;
   validUntil: string | null;
   sentAt: string | null;
   /** Sending: Airtable's own reason this version must not be sent (a measured version exists), if any. */
