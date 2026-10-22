@@ -21,6 +21,7 @@ import {
   removeLine,
   revertLine,
   searchCatalogue,
+  setAcceptedPrice,
   setContractor,
   setCrew,
   setServiceLevel,
@@ -456,5 +457,33 @@ describe("swappable material on a Rate Card line (one line, material named)", ()
       ] }],
     });
     expect(clean.options[0].lines.map((l) => l.materialId)).toEqual(["recMat00000000002", null]);
+  });
+});
+
+describe("accepted price (2026-10-22)", () => {
+  // INVENTED numbers: list price 1,000 from one hand-typed line.
+  const withWork = () => {
+    const q = addOption(blankQuote());
+    const id = q.options[0].id;
+    return { id, q: addLine(q, id, { ...manualLine("Install", "Work"), qty: 100, unitPrice: 10 }) };
+  };
+
+  it("sets the quote's discount so the option lands on the accepted pre-tax price", () => {
+    const { q, id } = withWork();
+    const r = setAcceptedPrice(q, id, 900);
+    expect(r.discountRate).toBe(0.1);
+    expect(optionTotals(r.options[0].lines, r.discountRate, r.showHst).subtotal).toBe(900);
+    expect(setAcceptedPrice(q, id, 875).discountRate).toBe(0.125);
+  });
+
+  it("gives no discount at or above the list price, and changes nothing it cannot work from", () => {
+    const { q, id } = withWork();
+    expect(setAcceptedPrice(q, id, 1000).discountRate).toBe(0);
+    expect(setAcceptedPrice(q, id, 1200).discountRate).toBe(0);
+    expect(setAcceptedPrice(q, id, null)).toBe(q);
+    expect(setAcceptedPrice(q, id, -5)).toBe(q);
+    expect(setAcceptedPrice(q, "recNoSuchOption0A", 500)).toBe(q);
+    const empty = addOption(blankQuote());
+    expect(setAcceptedPrice(empty, empty.options[0].id, 500)).toBe(empty);
   });
 });

@@ -4,6 +4,7 @@
  * only by src/lib/calc.ts, from the same LineInput fields Airtable stores.
  */
 import { optionTotals, round2, SECTIONS, type LineInput } from "@/lib/calc";
+import { impliedRate } from "@/lib/pricing/accepted";
 import { levelApplies, levelOf, levelPrice, type ServiceLevel } from "@/lib/pricing/service";
 import type { MaterialRow, Quote, QuoteLine, RateRow, StairRow } from "@/lib/quotes/types";
 
@@ -522,6 +523,20 @@ export function revertLine(q: EditorQuote, optionId: string, lineId: string): Ed
 
 export function setTerms(q: EditorQuote, patch: Partial<Pick<EditorQuote, "discountRate" | "showHst">>): EditorQuote {
   return { ...q, ...patch };
+}
+
+/**
+ * "They accept this price" (Albert, 2026-10-22): set the quote's discount so that this option's
+ * price before HST lands on the amount the customer agreed to. The discount is one per version,
+ * so every option follows it; it is worked out from this option's list price. A price at or
+ * above the list price means no discount; an option with nothing priced changes nothing.
+ */
+export function setAcceptedPrice(q: EditorQuote, optionId: string, acceptedPreTax: number | null): EditorQuote {
+  const o = q.options.find((x) => x.id === optionId);
+  if (!o || acceptedPreTax === null || !(acceptedPreTax >= 0)) return q;
+  const rate = impliedRate(optionTotals(o.lines, 0, q.showHst).preDiscount, acceptedPreTax);
+  if (rate === null) return q;
+  return setTerms(q, { discountRate: Math.max(0, rate) });
 }
 
 /**

@@ -694,6 +694,11 @@ a.chip.accent:hover { text-decoration: underline; }
   .newq > .conv .conv-b { max-height: calc(100vh - 80px); overflow: auto; overscroll-behavior: contain; }
   .newq > .conv .conv-b > .conv-photos { position: sticky; top: -16px; z-index: 2; margin: -16px -16px 0; padding: 16px 16px 10px; background: var(--card); border-bottom: 1px solid var(--line); }
 }
+/* "Accepted price" under an option's overview in the editor (Albert, 2026-10-22). */
+.ov-accept { display: grid; gap: 4px; padding: 12px 16px 14px; border-top: 1px solid var(--line); }
+.ov-accept label { display: grid; gap: 4px; font-size: 12.5px; font-weight: 600; color: var(--fg-dim); }
+.ov-accept .cell-in { font-size: 14px; font-weight: 600; max-width: 180px; }
+.ov-accept .mt { font-size: 12px; color: var(--fg-faint); line-height: 1.4; }
 /* "If they accept a price" on the Analysis tab (Albert, 2026-10-22). */
 .acc .card-b { display: grid; gap: 14px; }
 .acc .card-b > * { min-width: 0; }

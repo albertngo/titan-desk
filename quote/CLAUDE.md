@@ -198,6 +198,12 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   to the next with the arrow keys, the on-screen arrows or a swipe. Staff only: the pages leave the card out in Customer
   view, and the customer deployment never has it. Pictures are shown straight from GHL's URLs; one
   the browser cannot load falls back to a link.
+- **Accepted price (Albert, 2026-10-22).** Under each option's overview in the editor, **Accepted
+  price, before HST** takes the amount the customer agreed to and sets the quote's discount so that
+  option lands on it (`setAcceptedPrice()` in `src/lib/editor/model.ts`, tested). The discount is one
+  per version (Quote Versions → Discount Rate), so every option follows it; it is worked out from the
+  option it was typed on. A price at or above the list price means no discount. Typing the discount
+  directly in **Discount %** still works. Nothing in Airtable changed.
 - **If they accept a price (Albert, 2026-10-22).** The Analysis tab opens with a card where staff type
   the pre-tax amount the customer agreed to, or a discount %, and see the discount it implies against
   the list price and the cost, profit and margin left, beside the quote as it stands. Analysis only:
