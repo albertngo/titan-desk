@@ -431,6 +431,16 @@ describe("lump sum (2026-10-22)", () => {
     expect(pdf).toContain("one sum for the project");
     expect(parseCopy(serializeCopy(c))).toEqual(c);
     expect(customerCopy(quote(), AT).pricing).toBe("itemised");
+  });
+
+  it("shows no row for the Private section: its amount is already inside the one price", () => {
+    const priv = line({ section: "Private", lineType: "Other", sourceKind: "manual", description: "Rep fee", qty: 1, uom: "flat", unitPrice: 500, unitPriceSnap: null, unitCostSnap: null });
+    const lump = customerCopy(quote({ itemised: false, options: [option("A", [line({}), priv], 0, true)] }), AT);
+    expect(lump.options[0].sections.map((s) => s.name)).toEqual(["Install"]);
+    expect(serializeCopy(lump)).not.toContain("Additional work");
+    expect(lump.options[0].totals.preDiscount).toBe(700); // 200 + the 500 private line, inside the price
+    const itemised = customerCopy(quote({ itemised: true, options: [option("A", [line({}), priv], 0, true)] }), AT);
+    expect(itemised.options[0].sections.map((s) => s.name)).toEqual(["Install", "Other"]);
     // Nothing said = the default = lump sum.
     expect(customerCopy({ ...quote(), itemised: undefined }, AT).pricing).toBe("lump");
   });
