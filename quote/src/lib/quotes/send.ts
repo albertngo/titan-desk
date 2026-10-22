@@ -1,11 +1,12 @@
 import "server-only";
 import { listByIds, updateRecord, updateRecords } from "@/lib/airtable/client";
 import { QUOTE, T, VERSION } from "@/lib/airtable/fields";
-import { requireQuoter } from "@/lib/auth";
+import { requireQuoter, requireQuoterPerson } from "@/lib/auth";
 import { fromQuote } from "@/lib/editor/model";
 import { makeConfigured, sendMessage } from "@/lib/make/client";
 import { COPY_MAX_CHARS, customerCopy, parseCopy, pdfName, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "@/lib/send/copy";
-import { customerLinks, emailMessage, isToken, newToken, sendProblems, smsMessage, type Channels } from "@/lib/send/plan";
+import { customerLinks, emailFromFor, emailMessage, isToken, newToken, sendProblems, smsMessage, type Channels, type Sender } from "@/lib/send/plan";
+import { authorFields, firstNameOf, type Person } from "./history";
 import { getQuote } from "./load";
 import { refreshFromGhl } from "./refresh";
 import { fingerprint } from "./savePlan";
@@ -20,7 +21,10 @@ import { ids, str } from "./values";
  *   1. checks, against Airtable as it is now and the fingerprint of what the person saw;
  *   2. freezes the customer copy on the version and marks it Sent, in one write, so the version
  *      is locked before anything leaves and a second send is refused;
- *   3. sends the email and/or the text through Make (GHL), each confirmed on its own;
+ *   3. sends the email and/or the text through Make (GHL), each confirmed on its own. The email
+ *      goes out from the signed-in quoter's address (2026-10-22, Albert): GHL's `emailFrom`, tried
+ *      first as "Albert @ Titan Flooring <albert@…>", then as the bare address, then the location
+ *      default, so a sender GHL won't accept never stops a quote going out — the warning says so;
  *   4. if neither went, puts the version back to Draft; if one did, it stays Sent and says which
  *      failed. Older sent versions of the same quote become Superseded, so their links say so.
  */
@@ -44,7 +48,19 @@ function letterhead(): Letterhead {
     email: v("QUOTE_COMPANY_EMAIL"),
     website: v("QUOTE_COMPANY_WEBSITE"),
     hstNumber: v("QUOTE_COMPANY_HST"),
+    logoUrl: /^https:\/\//.test(v("QUOTE_LOGO_URL") ?? "") ? v("QUOTE_LOGO_URL") : null,
   };
+}
+
+/** The in-store visit booking page a preliminary's email offers (the GHL calendar link); unset = no button. */
+const bookingUrl = () => (/^https:\/\//.test(process.env.QUOTE_BOOKING_URL?.trim() ?? "") ? process.env.QUOTE_BOOKING_URL!.trim() : null);
+
+const senderOf = (p: Person): Sender => ({ email: p.email, firstName: firstNameOf(p) });
+
+/** For the Send card: the address the email will go out from, or null when GHL's default sender will be used. */
+export async function sendsFrom(): Promise<string | null> {
+  const person = await requireQuoterPerson();
+  return emailFromFor(senderOf(person), letterhead().email, false);
 }
 
 export type SendReady = { ready: boolean; why: string | null };
@@ -82,6 +98,18 @@ export async function previewCopy(versionId: string, validUntil?: string, itemis
   return customerCopy({ ...quote, itemised }, { sentOn: quote.sentAt ?? today, validUntil: validUntil ?? quote.validUntil ?? today, company: letterhead() });
 }
 
+/** The email as it would be sent today, for the staff preview (2026-10-22): placeholder links, the signed-in sender. */
+export async function previewEmail(versionId: string, validUntil?: string, itemised = false): Promise<string | null> {
+  const person = await requireQuoterPerson();
+  const copy = await previewCopy(versionId, validUntil, itemised);
+  if (!copy) return null;
+  const quote = await getQuote(versionId);
+  const base = customerBase() ?? "https://example.invalid";
+  const { link, pdfUrl } = customerLinks(base, isToken(quote?.customerToken) ? quote!.customerToken! : "x".repeat(32), pdfName(copy));
+  const m = emailMessage(copy, { contactId: "preview", firstName: quote?.link?.firstName ?? null, link, pdfUrl }, senderOf(person), { bookingUrl: bookingUrl() });
+  return m.type === "Email" ? m.html : null;
+}
+
 function readInput(raw: unknown): { base: string; validUntil: string | null; channels: Channels; itemised: boolean } | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
@@ -92,7 +120,8 @@ function readInput(raw: unknown): { base: string; validUntil: string | null; cha
 }
 
 export async function sendQuote(versionId: string, raw: unknown): Promise<SendResult> {
-  const sender = await requireQuoter();
+  const person = await requireQuoterPerson();
+  const sender = person.email;
   const input = readInput(raw);
   if (!REC_ID.test(versionId) || !input) return { ok: false, message: "That request didn't make sense. Reload the page." };
   const ready = await sendingReady();
@@ -130,18 +159,31 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
 
   const sentTo: string[] = [];
   const failed: string[] = [];
+  const notes: string[] = [];
   const firstName = quote.link?.firstName ?? null;
+  const from = senderOf(person);
+  let sentFrom: string | null = null;
   if (input.channels.email) {
-    try {
-      await sendMessage(emailMessage(copy, { contactId, firstName, link, pdfUrl }));
-      sentTo.push("Email");
-    } catch (e) {
-      failed.push(`Email: ${e instanceof Error ? e.message : String(e)}`);
+    // From the quoter, named, then bare, then GHL's default: a refused sender costs a retry, never the send.
+    const attempts = [...new Set([emailFromFor(from, copy.company.email, true), emailFromFor(from, copy.company.email, false), null])];
+    let last: unknown = null;
+    for (const emailFrom of attempts) {
+      try {
+        await sendMessage(emailMessage(copy, { contactId, firstName, link, pdfUrl }, from, { emailFrom, bookingUrl: bookingUrl() }));
+        sentTo.push("Email");
+        sentFrom = emailFrom;
+        if (emailFrom === null && attempts[0] !== null) notes.push(`GHL would not send from ${from.email}, so the email went out from the location's default address.`);
+        last = null;
+        break;
+      } catch (e) {
+        last = e;
+      }
     }
+    if (last) failed.push(`Email: ${last instanceof Error ? last.message : String(last)}`);
   }
   if (input.channels.sms) {
     try {
-      await sendMessage(smsMessage(copy, { contactId, firstName, link }));
+      await sendMessage(smsMessage(copy, { contactId, firstName, link }, from));
       sentTo.push("Text");
     } catch (e) {
       failed.push(`Text: ${e instanceof Error ? e.message : String(e)}`);
@@ -157,9 +199,9 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
     return { ok: false, message: `Nothing was sent, and the version is still a draft. ${failed.join(" ")}` };
   }
 
-  const notes: string[] = [];
   try {
-    await updateRecord(T.versions, quote.id, { [VERSION.sentTo]: sentTo.join(", ") });
+    const how = `sent by ${sentTo.join(" and ").toLowerCase()}${sentFrom ? ` from ${sentFrom}` : sentTo.includes("Email") ? " from the location's default address" : ""}`;
+    await updateRecord(T.versions, quote.id, { [VERSION.sentTo]: sentTo.join(", "), ...authorFields(person, new Date(), how, quote.editLog) });
   } catch {
     notes.push("Airtable didn't record how it was sent.");
   }

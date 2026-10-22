@@ -18,7 +18,8 @@ import { refreshFromGhl } from "@/lib/quotes/refresh";
 import { customerView } from "@/lib/view";
 import { fromQuote } from "@/lib/editor/model";
 import { fingerprint } from "@/lib/quotes/savePlan";
-import { sendingReady, sentLink } from "@/lib/quotes/send";
+import { sendingReady, sendsFrom, sentLink } from "@/lib/quotes/send";
+import { logEntries } from "@/lib/quotes/history";
 import { addDays, torontoToday, VALID_DAYS } from "@/lib/send/copy";
 import { sendProblems } from "@/lib/send/plan";
 
@@ -52,7 +53,7 @@ export default async function QuotePage({
   const base = fingerprint(fromQuote(quote));
   const defaultUntil = quote.validUntil && quote.validUntil >= today ? quote.validUntil : addDays(today, VALID_DAYS);
   const draft = quote.status === "Draft";
-  const [ready, link] = await Promise.all([sendingReady(), sentLink(quote.customerToken)]);
+  const [ready, link, from] = await Promise.all([sendingReady(), sentLink(quote.customerToken), sendsFrom()]);
   const problems = draft
     ? sendProblems(quote, { base, validUntil: defaultUntil, channels: { email: !!quote.link?.email, sms: !!quote.link?.phone } }, { today, fingerprint: base })
     : [];
@@ -72,7 +73,36 @@ export default async function QuotePage({
       ready={ready}
       sent={draft ? null : { sentAt: quote.sentAt, sentBy: quote.sentBy, sentTo: quote.sentTo, validUntil: quote.validUntil, link }}
       preliminary={quote.basis === "Preliminary"}
+      from={from}
     />
+  );
+  // Who worked on this version (2026-10-22): newest first, from the append-only Edit Log. Staff only.
+  const history = logEntries(quote.editLog);
+  const historyCard = customer ? null : (
+    <section className="card hist" aria-labelledby="hist-h">
+      <div className="card-h" id="hist-h">
+        History
+        {quote.lastEditedBy && <span className="right faint">last saved by {quote.lastEditedBy}</span>}
+      </div>
+      <div className="card-b">
+        {history.length === 0 ? (
+          <p className="faint">No saves recorded yet{quote.createdBy ? ` · created by ${quote.createdBy}` : ""}.</p>
+        ) : (
+          <details open={history.length <= 3}>
+            <summary>{history.length} {history.length === 1 ? "entry" : "entries"}</summary>
+            <ul className="hist-l">
+              {history.map((h, i) => (
+                <li key={i}>
+                  <span className="hist-when">{h.when}</span>
+                  <span className="hist-who">{h.who}</span>
+                  <span className="hist-what">{h.what}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+      </div>
+    </section>
   );
 
   return (
@@ -146,6 +176,7 @@ export default async function QuotePage({
               </section>
             )}
             {!(option && totals) && send}
+            {!(option && totals) && historyCard}
           </div>
 
           {option && totals && (
@@ -159,6 +190,7 @@ export default async function QuotePage({
                 agrees={parityDiffs(totals, option.airtable).length === 0}
                 customer={customer}
               />
+              {historyCard}
             </div>
           )}
         </div>

@@ -55,6 +55,7 @@ export function SendQuote({
   ready,
   sent,
   preliminary,
+  from,
 }: {
   versionId: string;
   label: string;
@@ -71,6 +72,8 @@ export function SendQuote({
   sent: SentInfo | null;
   /** A preliminary has no good-until date (Albert, 2026-10-22): the field is not shown and none is sent. */
   preliminary: boolean;
+  /** The address the email goes out from: the signed-in quoter's (2026-10-22); null = GHL's default sender. */
+  from: string | null;
 }) {
   const router = useRouter();
   const [until, setUntil] = useState(defaultUntil);
@@ -85,6 +88,7 @@ export function SendQuote({
   const q = [preliminary ? null : `until=${until}`, breakdown ? "itemised=1" : null].filter(Boolean).join("&");
   const preview = `/q/${versionId}/preview${q ? `?${q}` : ""}`;
   const pdf = `/q/${versionId}/pdf${q ? `?${q}` : ""}`;
+  const emailPreview = `/q/${versionId}/preview/email${q ? `?${q}` : ""}`;
 
   if (status !== "Draft" || done) {
     const s = done ? { sentAt: today, sentBy: null, sentTo: done.sentTo.join(", "), validUntil: preliminary ? null : until, link: done.link } : sent;
@@ -109,6 +113,7 @@ export function SendQuote({
           {s?.link && <CopyLink link={s.link} />}
           <div className="sq-tools">
             <a href={`/q/${versionId}/preview`} target="_blank" rel="noreferrer">What the customer sees</a>
+            <a href={`/q/${versionId}/preview/email`} target="_blank" rel="noreferrer">The email</a>
             <a href={`/q/${versionId}/pdf`} target="_blank" rel="noreferrer">PDF</a>
           </div>
         </div>
@@ -149,7 +154,7 @@ export function SendQuote({
             <input type="checkbox" checked={byEmail && !!email} disabled={!email} onChange={(e) => setByEmail(e.target.checked)} />
             <span>
               Email <span className="faint">{email ?? "no email in GHL"}</span>
-              {email && <span className="sub">Link and PDF</span>}
+              {email && <span className="sub">Link and PDF{from ? `, from ${from}` : ", from the location's default address"}</span>}
             </span>
           </label>
           <label className={phone ? undefined : "off"}>
@@ -181,6 +186,7 @@ export function SendQuote({
 
         <div className="sq-tools">
           <a href={preview} target="_blank" rel="noreferrer">Preview what the customer sees</a>
+          <a href={emailPreview} target="_blank" rel="noreferrer">Preview the email</a>
           <a href={pdf} target="_blank" rel="noreferrer">PDF</a>
         </div>
 

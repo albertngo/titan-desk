@@ -85,6 +85,12 @@ export type Quote = {
   /** The customer link's secret, once the version has been sent (or a send was started). */
   customerToken: string | null;
   sentBy: string | null;
+  /** Who worked on this version (2026-10-22): Quote Versions → Created By (app), Last Edited By/At, Edit Log. */
+  createdBy?: string | null;
+  lastEditedBy?: string | null;
+  /** ISO timestamp. */
+  lastEditedAt?: string | null;
+  editLog?: string | null;
   sentTo: string | null;
   notes: string | null;
   customerName: string | null;

@@ -4,6 +4,7 @@ import { QUOTE, T, VERSION } from "@/lib/airtable/fields";
 import { versionLabel } from "@/lib/link/identity";
 import type { SiteQuote } from "@/lib/link/booking";
 import type { QuoteKeys } from "@/lib/link/match";
+import { authorFields, type Person } from "./history";
 import { ids, str } from "./values";
 
 /**
@@ -48,8 +49,11 @@ export async function bookingQuotes(): Promise<(QuoteKeys & SiteQuote & { folder
   }));
 }
 
-/** Version 1 of a new quote, as a Draft. */
-export async function firstVersion(quoteId: string, quoteNo: string, basis: "Preliminary" | "Measured" = "Preliminary"): Promise<string> {
+/**
+ * Version 1 of a new quote, as a Draft. `by` is the signed-in person who made it, recorded on the
+ * version (2026-10-22); the booking step has no person and leaves it blank.
+ */
+export async function firstVersion(quoteId: string, quoteNo: string, basis: "Preliminary" | "Measured" = "Preliminary", by: Person | null = null): Promise<string> {
   const v = await createRecord(T.versions, {
     [VERSION.label]: versionLabel(quoteNo, 1),
     [VERSION.version]: 1,
@@ -57,6 +61,7 @@ export async function firstVersion(quoteId: string, quoteNo: string, basis: "Pre
     [VERSION.basis]: basis,
     [VERSION.showHst]: true,
     [VERSION.quote]: [quoteId],
+    ...(by ? authorFields(by, new Date(), `created v1 (${basis.toLowerCase()})`, null, true) : {}),
   });
   return v.id;
 }

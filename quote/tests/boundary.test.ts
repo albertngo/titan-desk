@@ -84,7 +84,7 @@ describe("Airtable boundary", () => {
     for (const rel of ["lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/conversation.ts"]) {
       const text = all.find((f) => f.rel === rel)!.text;
       const exported = text.match(/export async function \w+/g) ?? [];
-      const guarded = text.match(/export async function \w+[^{]*\{\s*(const \w+ = )?await requireQuoter\(\);/g) ?? [];
+      const guarded = text.match(/export async function \w+[^{]*\{\s*(const \w+ = )?await requireQuoter(Person)?\(\);/g) ?? [];
       expect(exported.length).toBeGreaterThan(0);
       expect(guarded.length).toBe(exported.length);
     }
