@@ -694,5 +694,12 @@ a.chip.accent:hover { text-decoration: underline; }
   .newq > .conv .conv-b { max-height: calc(100vh - 80px); overflow: auto; overscroll-behavior: contain; }
   .newq > .conv .conv-b > .conv-photos { position: sticky; top: -16px; z-index: 2; margin: -16px -16px 0; padding: 16px 16px 10px; background: var(--card); border-bottom: 1px solid var(--line); }
 }
+/* "If they accept a price" on the Analysis tab (Albert, 2026-10-22). */
+.acc .card-b { display: grid; gap: 14px; }
+.acc .card-b > * { min-width: 0; }
+.acc-in { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px 12px; max-width: 720px; }
+.acc-in label { display: grid; gap: 4px; font-size: 12.5px; color: var(--fg-dim); }
+.acc-say { font-size: 13.5px; line-height: 1.5; padding: 8px 12px; border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 6px 6px 0; max-width: 72ch; }
+.acc-say b { color: var(--fg); }
 /* The customer's photo strip stays at the top of the drawer while the thread scrolls under it (Albert, 2026-10-22). */
 .conv-panel-b > .conv-photos { position: sticky; top: -16px; z-index: 2; margin: -16px -16px 0; padding: 16px 16px 10px; background: var(--card); border-bottom: 1px solid var(--line); }

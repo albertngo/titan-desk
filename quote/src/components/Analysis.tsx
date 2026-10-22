@@ -1,6 +1,7 @@
 import { SECTIONS, lineFlags, optionTotals, sectionTotals, type OptionTotals } from "@/lib/calc";
 import { money, pct } from "@/lib/format";
 import type { Quote } from "@/lib/quotes/types";
+import { AcceptedPrice } from "./AcceptedPrice";
 
 const METRICS: { key: keyof OptionTotals; label: string; best?: "max"; internal?: true }[] = [
   { key: "subtotal", label: "Subtotal" },
@@ -18,11 +19,18 @@ export function Analysis({ quote, customer }: { quote: Quote; customer: boolean 
     s: sectionTotals(o.lines),
     flags: o.lines.reduce((n, l) => n + lineFlags(l).length, 0),
   }));
+  // "If they accept a price": staff only, so its lines (cost included) are never sent to a Customer view page.
+  const accepted = !customer && opts.length > 0 && (
+    <AcceptedPrice options={quote.options.map((o) => ({ id: o.id, name: o.name, lines: o.lines }))} discountRate={quote.discountRate} showHst={quote.showHst} />
+  );
   if (opts.length < 2)
     return (
-      <section className="card">
-        <p className="empty">Analysis compares options. Add a second option to this quote to see it.</p>
-      </section>
+      <div className="an">
+        {accepted}
+        <section className="card">
+          <p className="empty">Comparing options needs a second option on this quote.</p>
+        </section>
+      </div>
     );
 
   const sections = [...SECTIONS.filter((s) => s !== "Exclusions"), "Unsorted"].filter((s) =>
@@ -31,6 +39,7 @@ export function Analysis({ quote, customer }: { quote: Quote; customer: boolean 
 
   return (
     <div className="an">
+      {accepted}
       <section className="card">
       <div className="card-h">Options side by side</div>
       <div className="tbl-wrap">

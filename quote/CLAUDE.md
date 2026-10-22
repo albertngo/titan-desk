@@ -198,6 +198,12 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   to the next with the arrow keys, the on-screen arrows or a swipe. Staff only: the pages leave the card out in Customer
   view, and the customer deployment never has it. Pictures are shown straight from GHL's URLs; one
   the browser cannot load falls back to a link.
+- **If they accept a price (Albert, 2026-10-22).** The Analysis tab opens with a card where staff type
+  the pre-tax amount the customer agreed to, or a discount %, and see the discount it implies against
+  the list price and the cost, profit and margin left, beside the quote as it stands. Analysis only:
+  nothing is saved and the quote's discount is not changed; applying it is still an edit. Staff only:
+  the server never renders it in Customer view, so cost never reaches that page. Pure maths in
+  `src/lib/pricing/accepted.ts` (the same `optionTotals()` as every quote), tested in `tests/accepted.test.ts`.
 - **All quotes (2026-10-15).** One row per quote, its versions folded under it (newest first),
   and a search over name, quote and project number, city, email and phone digits. Grouping and
   search are pure, in `src/lib/quotes/group.ts`, tested in `tests/group.test.ts`.
