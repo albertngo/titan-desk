@@ -26,6 +26,7 @@ import {
   setMaterial,
   setServiceLevel,
   setAcceptedPrice,
+  setDiscountAmount,
   setTerms,
   withCustomerFrom,
   updateLine,
@@ -416,6 +417,10 @@ export default function Editor({
                   onCommit={(v) => apply(setTerms(quote, { discountRate: Math.max(0, Math.min(100, v ?? 0)) / 100 }))}
                 />
               </label>
+              <label title="Prints beside the Discount row on the customer's page and PDF, e.g. “Fall promotion”.">
+                Discount reason
+                <TextCell value={quote.discountReason ?? ""} placeholder="e.g. Fall promotion" label="Discount reason" onCommit={(v) => apply(setTerms(quote, { discountReason: v.trim() || null }))} />
+              </label>
               <label className="check-in" title="Labour and everything else. Each material line has its own HST box, which this never changes.">
                 <input type="checkbox" checked={quote.showHst} onChange={(e) => apply(setTerms(quote, { showHst: e.target.checked }))} /> Charge HST (13%)
               </label>
@@ -652,13 +657,25 @@ export default function Editor({
                   <div className="ov-row bullet"><span className="k">HST{quote.showHst ? " (13%)" : t.hst ? " (materials only)" : " (off)"}</span><span className="v">{money(t.hst)}</span></div>
                   <div className="ov-total"><span>Total</span><span className="v">{money(t.total)}</span></div>
                   {/* "They accept this price": type the pre-tax amount and the quote's discount is set to land on it (Albert, 2026-10-22). */}
-                  <div className="ov-accept" title="Sets the quote's discount from this option's list price. One discount per quote, so every option follows it.">
-                    <label>
-                      Accepted price, before HST
-                      <NumCell value={t.subtotal} label="Accepted price before HST" placeholder="0" onCommit={(v) => apply(setAcceptedPrice(quote, option.id, v))} />
-                    </label>
+                  <div className="ov-accept" title="Below the list price this sets the quote's discount, one per quote, so every option follows it. Above it, the difference goes in as a private line the customer sees as one row in Other.">
+                    <div className="ov-accept-in">
+                      <label>
+                        Accepted price, before HST
+                        <NumCell value={t.subtotal} label="Accepted price before HST" placeholder="0" onCommit={(v) => apply(setAcceptedPrice(quote, option.id, v))} />
+                      </label>
+                      <label>
+                        or $ off
+                        <NumCell value={t.discount === 0 ? null : -t.discount} label="Discount in dollars" placeholder="0" onCommit={(v) => apply(setDiscountAmount(quote, option.id, v))} />
+                      </label>
+                    </div>
                     <span className="mt">
-                      {t.preDiscount > 0 ? <>Sets the discount from this option&apos;s list price of {money(t.preDiscount)}{quote.options.length > 1 ? "; every option follows it" : ""}.</> : "Nothing priced yet."}
+                      {t.preDiscount > 0 ? (
+                        <>
+                          List price {money(t.preDiscount)}. Below it sets the discount{quote.options.length > 1 ? ", which every option follows" : ""}; above it adds a private line for the difference, shown to the customer as one row.
+                        </>
+                      ) : (
+                        "Nothing priced yet."
+                      )}
                     </span>
                   </div>
                 </section>

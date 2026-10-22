@@ -61,6 +61,8 @@ export const VERSION = {
   lines: "fldCmBh6M92eJoVTW",
   options: "fldGHuPGdZ1zbUmeF",
   discountRate: "fldiQXF2LNtK5Auix",
+  /** 2026-10-22: why the discount was given, in the customer's words; prints beside the Discount row. */
+  discountReason: "fldD60VsOq8Ob2atE",
   /** The version this one replaced (Save as new version). */
   supersedes: "fldPJSJz7AWEBdyRD",
   /** Airtable's own guard (formula): text when a preliminary must not be sent because a measured version exists. */

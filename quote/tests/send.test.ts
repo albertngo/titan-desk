@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, copyState, customerCopy, hstRow, hstWord, longDate, parseCopy, pdfName, serializeCopy, torontoToday, type Letterhead } from "../src/lib/send/copy";
+import { addDays, copyState, customerCopy, discountLabel, hstRow, hstWord, longDate, parseCopy, pdfName, serializeCopy, torontoToday, type Letterhead } from "../src/lib/send/copy";
 import { customerLinks, emailMessage, greetingName, isToken, newToken, sendProblems, smsMessage, type SendInput } from "../src/lib/send/plan";
 import { encode, textWidth, wrap } from "../src/lib/send/pdfDoc";
 import { quotePdf } from "../src/lib/send/pdf";
@@ -385,5 +385,18 @@ describe("the Private section (2026-10-22)", () => {
     expect(costOnly.options[0].sections.map((s) => s.name)).toEqual(["Install"]);
     const excluded = customerCopy(quote({ options: [option("A", [line({}), priv({ description: "Maybe", qty: 1, uom: "flat", unitPrice: 500, include: false })], 0, true)] }), AT);
     expect(excluded.options[0].sections.map((s) => s.name)).toEqual(["Install"]);
+  });
+});
+
+describe("discount reason (2026-10-22)", () => {
+  it("prints beside the Discount row on the page and the PDF when one was given, and is absent otherwise", () => {
+    const withReason = customerCopy(quote({ discountReason: "  Fall promotion " }), AT);
+    expect(withReason.discountReason).toBe("Fall promotion");
+    expect(discountLabel(withReason)).toBe("Discount (10%) · Fall promotion");
+    expect(new TextDecoder("latin1").decode(quotePdf(withReason))).toContain("Fall promotion");
+    const without = customerCopy(quote(), AT);
+    expect("discountReason" in without).toBe(false);
+    expect(discountLabel(without)).toBe("Discount (10%)");
+    expect(parseCopy(serializeCopy(withReason))).toEqual(withReason);
   });
 });

@@ -1,5 +1,5 @@
 import { PAGE, PdfDoc, wrap, type Rgb } from "./pdfDoc";
-import { hstRow, itemHstNote, longDate, type CopyItem, type CopyOption, type CopyText, type CustomerCopy } from "./copy";
+import { discountLabel, hstRow, itemHstNote, longDate, type CopyItem, type CopyOption, type CopyText, type CustomerCopy } from "./copy";
 
 /**
  * The quote as a PDF, drawn from the customer copy only (never from live lines), so the file
@@ -198,7 +198,7 @@ export function quotePdf(copy: CustomerCopy): Uint8Array<ArrayBuffer> {
     const rows: [string, string, boolean][] = [];
     if (t.discount !== 0) {
       rows.push(["Subtotal before discount", money(t.preDiscount), false]);
-      rows.push([`Discount (${Math.round(copy.discountRate * 1000) / 10}%)`, money(t.discount), false]);
+      rows.push([discountLabel(copy), money(t.discount), false]);
     }
     rows.push(["Subtotal", money(t.subtotal), false]);
     const h = hstRow(copy, t);
