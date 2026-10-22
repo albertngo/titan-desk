@@ -36,6 +36,12 @@ export const SECTIONS = ["Install", "Stairs", "Removal", "Disposal", "Prep", "Ma
  * no quantity or unit price. A private line priced at zero is cost only and never shows at all.
  */
 export const PRIVATE_SECTION = "Private";
+
+/**
+ * Lump sum (Albert, 2026-10-22): the customer gets descriptions, then the price. Only these
+ * sections' lines keep a quantity, for clarity about the scope; every other line is words only.
+ */
+export const LUMP_QTY_SECTIONS: ReadonlySet<string> = new Set(["Install", "Removal", "Prep", "Materials"]);
 export const DEFAULT_PRIVATE_LABEL = "Additional work";
 
 /** What the customer's rolled-up row shows: the included Private lines' total, before discount. */

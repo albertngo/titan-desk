@@ -1,4 +1,4 @@
-import { DEFAULT_PRIVATE_LABEL, PRIVATE_SECTION, SECTIONS, chargesHst, isPriced, lineTotal, optionTotals, priceUsed, privateRollup, round2, sectionOf } from "@/lib/calc";
+import { DEFAULT_PRIVATE_LABEL, LUMP_QTY_SECTIONS, PRIVATE_SECTION, SECTIONS, chargesHst, isPriced, lineTotal, optionTotals, priceUsed, privateRollup, round2, sectionOf } from "@/lib/calc";
 import type { Quote, QuoteLine, QuoteOption } from "@/lib/quotes/types";
 
 /**
@@ -87,11 +87,13 @@ export type CustomerCopy = {
   /** Why, in the customer's words, beside the Discount row (2026-10-22); absent when none was given. */
   discountReason?: string;
   /**
-   * Lump sum (2026-10-22): the customer sees what the work includes and one price for the project.
-   * Counted lines carry no unit price or amount and sections no total; add-ons keep their price;
-   * the totals block is the price. Absent = itemised.
+   * How the price is shown (2026-10-22). "lump", the default for every version since that day: the
+   * customer sees what the work includes and one price for the project; counted lines carry no
+   * unit price or amount, quantities stay on the scope sections only, sections carry no total,
+   * there are no discount rows, add-ons keep their price. "itemised": everything. Absent = itemised,
+   * for copies frozen before this existed.
    */
-  lumpSum?: true;
+  pricing?: "lump" | "itemised";
   showHst: boolean;
   company: Letterhead;
   options: CopyOption[];
@@ -132,16 +134,17 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
       const minimum = (l.minChargeSnap ?? 0) > 0 && extent * price > 0 && extent * price < (l.minChargeSnap ?? 0);
       const qty = l.qty === null ? null : round2(extent);
       if (l.include) total += amount;
-      // Lump sum: a counted line shows what it is and how much, never what it costs; an add-on must still say its price.
+      // Lump sum: a counted line shows what it is, never what it costs; how much only for the scope sections. An add-on must still say its price.
       const lump = lumpSum && l.include;
+      const showQty = !lump || LUMP_QTY_SECTIONS.has(name);
       lines.push({
         kind: "item",
         n: l.include ? ++n : null,
         description: clean(l.description) ?? "Item",
         note,
-        qty,
-        uom: clean(l.uom),
-        wastePct: l.waste ? Math.round(l.waste * 100) : null,
+        qty: showQty ? qty : null,
+        uom: showQty ? clean(l.uom) : null,
+        wastePct: showQty && l.waste ? Math.round(l.waste * 100) : null,
         unitPrice: minimum || lump ? null : price,
         minimum: lump ? false : minimum,
         amount: lump ? null : amount,
@@ -195,10 +198,10 @@ export function customerCopy(quote: Quote, at: { sentOn: string; validUntil: str
     ...(quote.link?.projectTiming ? { timing: quote.link.projectTiming } : {}),
     discountRate: quote.discountRate,
     ...(clean(quote.discountReason) ? { discountReason: clean(quote.discountReason)! } : {}),
-    ...(quote.lumpSum ? { lumpSum: true as const } : {}),
+    pricing: quote.itemised === true ? "itemised" : "lump",
     showHst: quote.showHst,
     company: at.company,
-    options: quote.options.map((o) => copyOption(o, quote.discountRate, quote.showHst, quote.lumpSum === true)),
+    options: quote.options.map((o) => copyOption(o, quote.discountRate, quote.showHst, quote.itemised !== true)),
   };
 }
 
@@ -208,6 +211,9 @@ export function hstRow(copy: Pick<CustomerCopy, "showHst">, t: Pick<CopyTotals, 
   if (t.hst !== 0) return { label: "HST (13%) on materials", amount: t.hst };
   return { label: "HST", amount: null };
 }
+
+/** A lump-sum copy: descriptions, then the price. A copy with no `pricing` was frozen before the choice existed and is itemised. */
+export const isLump = (copy: Pick<CustomerCopy, "pricing">) => copy.pricing === "lump";
 
 /** The Discount row's label: the rate, and the reason when one was given ("Discount (10%) · Fall promotion"). */
 export const discountLabel = (copy: Pick<CustomerCopy, "discountRate" | "discountReason">) =>

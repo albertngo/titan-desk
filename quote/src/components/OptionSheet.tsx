@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   DEFAULT_PRIVATE_LABEL,
+  LUMP_QTY_SECTIONS,
   PRIVATE_SECTION,
   privateRollup,
   SECTIONS,
@@ -112,8 +113,12 @@ function Row({ l, n, customer, lump }: { l: QuoteLine; n: number | undefined; cu
       </td>
       {!customer && <td className="muted">{l.contractor ?? "—"}</td>}
       <td className="r">
-        {rate(l.qty)} <span className="faint">{l.uom ?? ""}</span>
-        {l.waste ? <span className="sub">+{Math.round(l.waste * 100)}% waste</span> : null}
+        {lump && !LUMP_QTY_SECTIONS.has(sectionOf(l)) ? null : (
+          <>
+            {rate(l.qty)} <span className="faint">{l.uom ?? ""}</span>
+            {l.waste ? <span className="sub">+{Math.round(l.waste * 100)}% waste</span> : null}
+          </>
+        )}
       </td>
       {!customer && (
         <td className="r">

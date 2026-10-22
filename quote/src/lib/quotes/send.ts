@@ -68,7 +68,8 @@ export async function sentLink(token: string | null): Promise<string | null> {
  * What the customer gets: for a version already sent, the copy frozen on it; for a draft, the
  * copy it would get if sent today. The preview page and PDF show this.
  */
-export async function previewCopy(versionId: string, validUntil?: string): Promise<CustomerCopy | null> {
+/** `itemised`: preview the breakdown; false, the default, previews the lump sum (Albert, 2026-10-22). A sent version shows its frozen copy either way. */
+export async function previewCopy(versionId: string, validUntil?: string, itemised = false): Promise<CustomerCopy | null> {
   await requireQuoter();
   const quote = await getQuote(versionId);
   if (!quote) return null;
@@ -78,15 +79,16 @@ export async function previewCopy(versionId: string, validUntil?: string): Promi
     if (frozen) return frozen;
   }
   const today = torontoToday(new Date());
-  return customerCopy(quote, { sentOn: quote.sentAt ?? today, validUntil: validUntil ?? quote.validUntil ?? today, company: letterhead() });
+  return customerCopy({ ...quote, itemised }, { sentOn: quote.sentAt ?? today, validUntil: validUntil ?? quote.validUntil ?? today, company: letterhead() });
 }
 
-function readInput(raw: unknown): { base: string; validUntil: string; channels: Channels } | null {
+function readInput(raw: unknown): { base: string; validUntil: string; channels: Channels; itemised: boolean } | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
   const ch = (r.channels ?? {}) as Record<string, unknown>;
   if (typeof r.base !== "string" || typeof r.validUntil !== "string") return null;
-  return { base: r.base, validUntil: r.validUntil, channels: { email: ch.email === true, sms: ch.sms === true } };
+  // Lump sum unless the sender chose the breakdown (2026-10-22).
+  return { base: r.base, validUntil: r.validUntil, channels: { email: ch.email === true, sms: ch.sms === true }, itemised: r.itemised === true };
 }
 
 export async function sendQuote(versionId: string, raw: unknown): Promise<SendResult> {
@@ -105,7 +107,7 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   const problems = sendProblems(quote, input, { today, fingerprint: fingerprint(fromQuote(quote)) });
   if (problems.length) return { ok: false, message: "Not sent.", problems };
 
-  const copy = customerCopy(quote, { sentOn: today, validUntil: input.validUntil, company: letterhead() });
+  const copy = customerCopy({ ...quote, itemised: input.itemised }, { sentOn: today, validUntil: input.validUntil, company: letterhead() });
   const text = serializeCopy(copy);
   if (text.length > COPY_MAX_CHARS) return { ok: false, message: "This quote is too long to send as one copy. Split it into fewer options." };
   const token = isToken(quote.customerToken) ? quote.customerToken : newToken();
@@ -116,6 +118,7 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   await updateRecord(T.versions, quote.id, {
     [VERSION.customerToken]: token,
     [VERSION.customerCopy]: text,
+    [VERSION.itemised]: input.itemised,
     [VERSION.validUntil]: input.validUntil,
     [VERSION.status]: "Sent",
     [VERSION.sentAt]: today,

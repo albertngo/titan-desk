@@ -137,7 +137,7 @@ export default async function QuotePage({
                 quoteNotes={quote.notes}
                 editHref={`/q/${quote.id}/edit`}
                 customer={customer}
-                lumpSum={quote.lumpSum === true}
+                lumpSum={quote.itemised !== true}
               />
             ) : (
               <section className="card">

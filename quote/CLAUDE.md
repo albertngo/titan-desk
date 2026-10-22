@@ -202,13 +202,18 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   to the next with the arrow keys, the on-screen arrows or a swipe. Staff only: the pages leave the card out in Customer
   view, and the customer deployment never has it. Pictures are shown straight from GHL's URLs; one
   the browser cannot load falls back to a link.
-- **Lump sum (Albert, 2026-10-22).** A switch in the editor's terms, **Lump sum for the customer**
-  (Quote Versions → Lump Sum, frozen into the copy as `lumpSum`): the customer sees what the work
-  includes and one price for the project. Counted lines keep their words and quantity and lose
-  unit price and amount; sections lose their total; the totals block is the price; optional
-  add-ons keep their price, since they are not in it. Page, PDF and the quote page's Customer
-  view all follow it; the email already showed totals only. The editor in Customer view does not
-  yet hide line prices on a lump-sum version.
+- **Lump sum is the default, always (Albert, 2026-10-22).** The customer sees what the work includes
+  and one price for the project, **no line price or breakdown**: counted lines keep their words and
+  lose unit price and amount; only Install, Removal, Prep and Materials lines keep a quantity, for
+  clarity about the scope (`LUMP_QTY_SECTIONS` in `calc.ts`); sections lose their total; the totals
+  block shows price before HST, HST and total with the payment schedule and no discount rows (the
+  discount is in the price); optional add-ons keep their price, since they are not in it. **The
+  choice is made when sending**: the Send card offers *Lump sum only* (default) or *Send breakdown*,
+  the preview and PDF links follow the choice (`?itemised=1`), and the send writes it to Quote
+  Versions → **Itemised Pricing** in the same update as the frozen copy (`pricing: "lump" |
+  "itemised"` on the copy; one with neither was frozen before and is itemised). The editor has no
+  switch. The quote page's Customer view shows the lump sum unless the version was sent itemised;
+  the editor in Customer view does not hide line prices.
 - **The Private section (Albert, 2026-10-22).** A section after Other in the editor (Quote Lines →
   Section `Private`, a choice added that day) for costs the customer is billed for but not shown,
   and for cost-only lines. Its lines are priced and counted like any other, in every total, the
