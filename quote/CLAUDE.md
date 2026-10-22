@@ -80,6 +80,9 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   work from short lists, type square footage, add staircases, see a live estimate. Laid out for a
   phone: Flooring, then Stairs, then anything else; each work group folds to a one-line summary;
   short lists are chips; "Same as install" copies the square footage onto Remove and Material rows;
+  **Typed items** (2026-10-22) is a section of up to ten items entered by hand (words, amount, priced
+  per sq ft / lin ft / each / flat, price and an optional cost per unit) that become hand-typed lines
+  in the Other section, the same as "Add a line" in the editor (`QuickManual` in `plan.ts`, tested);
   a Baseboards row in linear feet defaults to **a third of the install square feet, rounded to the
   nearest foot** (Albert, 2026-10-22), follows the install while it was never typed, and keeps what
   staff type, with "⅓ of install" to snap back (`baseboardDefault()` / `baseboardFollow()` in `plan.ts`);

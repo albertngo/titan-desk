@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { optionTotals } from "../src/lib/calc";
-import { amountUnit, BASEBOARD_PER_SQFT, baseboardDefault, baseboardFollow, buildPreliminary, choiceRate, parseWork, QUICK_GROUPS, rowTotal, stairTotal, workIsEmpty, type QuickChoice, type QuickPart, type QuickProduct } from "../src/lib/quick/plan";
+import { lineCost, lineTotal, optionTotals } from "../src/lib/calc";
+import { amountUnit, BASEBOARD_PER_SQFT, baseboardDefault, baseboardFollow, buildPreliminary, choiceRate, parseWork, QUICK_GROUPS, manualTotal, rowTotal, stairTotal, workIsEmpty, type QuickChoice, type QuickPart, type QuickProduct } from "../src/lib/quick/plan";
 
 // INVENTED rates, costs, ids and products only: this repo is public.
 const part = (o: Partial<QuickPart> & { recordId: string }): QuickPart => ({ kind: "rate", labourType: "Install", spec: "SPEC", description: "Install | SPEC", contractor: "Crew A", uom: "sqft", rate: 2, cost: 1, minCharge: null, ...o });
@@ -152,5 +152,35 @@ describe("quick form: baseboards follow the install (2026-10-22)", () => {
     expect(baseboardFollow("200", 600, null)).toBe("");
     expect(baseboardFollow("", 600, null)).toBeNull();
     expect(baseboardFollow("", null, null)).toBeNull();
+  });
+});
+
+describe("quick form: items typed by hand (2026-10-22)", () => {
+  it("keeps a typed item's words, positive numbers and a unit we price per; drops one with no words", () => {
+    const w = parseWork({ manual: [{ description: "  Move the piano ", qty: 2, uom: "each", rate: 150, cost: 80 }, { description: "", rate: 5 }, { description: "Sealer", qty: -1, uom: "furlong", rate: "9" }] });
+    expect(w.manual).toEqual([
+      { description: "Move the piano", qty: 2, uom: "each", rate: 150, cost: 80 },
+      { description: "Sealer", qty: null, uom: "each", rate: null, cost: null },
+    ]);
+    expect(workIsEmpty(parseWork({ manual: [{ description: "x" }] }))).toBe(false);
+  });
+
+  it("becomes a hand-typed line in Other at the typed price and cost, a flat one counted once", () => {
+    const w = parseWork({ manual: [{ description: "Sealer", qty: 120, uom: "sqft", rate: 1.5, cost: 0.4 }, { description: "Permit", uom: "flat", rate: 300 }] });
+    const { lines, skipped } = buildPreliminary([], w, new Map());
+    expect(skipped).toEqual([]);
+    expect(lines.map((l) => [l.sourceKind, l.section, l.description, l.uom, l.qty, l.unitPrice, l.costOverride, lineTotal(l), lineCost(l)])).toEqual([
+      ["manual", "Other", "Sealer", "sqft", 120, 1.5, 0.4, 180, 48],
+      ["manual", "Other", "Permit", "flat", 1, 300, null, 300, 0],
+    ]);
+    expect(manualTotal(w.manual[0])).toBe(180);
+  });
+
+  it("skips and names an item with no price, or no amount when it is priced per unit", () => {
+    const w = parseWork({ manual: [{ description: "Sealer", qty: 120, uom: "sqft" }, { description: "Permit", uom: "each", rate: 300 }] });
+    const { lines, skipped } = buildPreliminary([], w, new Map());
+    expect(lines).toEqual([]);
+    expect(skipped).toEqual(["Sealer (no price)", "Permit (no amount)"]);
+    expect(manualTotal(w.manual[1])).toBeNull();
   });
 });
