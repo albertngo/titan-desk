@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { searchProductsAction } from "@/app/new/actions";
 import { optionTotals } from "@/lib/calc";
 import { money } from "@/lib/format";
-import { amountUnit, BUILDINGS, buildPreliminary, choiceRate, GROUP_ROWS, parseWork, QUICK_GROUPS, rowTotal, stairTotal, type QuickChoice, type QuickGroup, type QuickProduct, type QuickProfile } from "@/lib/quick/plan";
+import { amountUnit, baseboardDefault, baseboardFollow, BUILDINGS, buildPreliminary, choiceRate, GROUP_ROWS, parseWork, QUICK_GROUPS, rowTotal, stairTotal, type QuickChoice, type QuickGroup, type QuickProduct, type QuickProfile } from "@/lib/quick/plan";
 import { METHOD_PHRASE, modifierFor, STAIR_ROWS } from "@/lib/quick/stairs";
 
 export type PickedProduct = Pick<QuickProduct, "recordId" | "sku" | "name" | "rate">;
@@ -79,13 +79,44 @@ export function QuickWork({ choices, profiles, value, onChange }: { choices: Qui
   const missing = QUICK_GROUPS.filter((g) => !groups.includes(g));
 
   const set = (patch: Partial<WorkState>) => onChange({ ...value, ...patch });
-  const setRow = (key: string, patch: Partial<WorkRow>) => set({ rows: value.rows.map((r) => (r.key === key ? { ...r, ...patch } : r)) });
-  const removeRow = (key: string) => set({ rows: value.rows.filter((r) => r.key !== key) });
+
+  // The first Install row with a square footage, as a number: baseboards follow it, Remove and Material can copy it.
+  const installOf = (rows: WorkRow[]) => {
+    const r = rows.find((x) => x.group === "Install" && x.choiceId && toNumber(x.amount) !== null);
+    return r ? toNumber(r.amount) : null;
+  };
+  const isLinearBaseboard = (r: WorkRow) => {
+    const c = byId.get(r.choiceId);
+    return r.group === "Baseboards" && !!c && amountUnit(c) === "linear ft";
+  };
+  /** Every change to the rows goes through here, so a baseboard amount that was never typed follows the install figure. */
+  const setRows = (next: WorkRow[]) => {
+    const from = installOf(value.rows);
+    const to = installOf(next);
+    const rows =
+      from === to
+        ? next
+        : next.map((r) => {
+            const a = isLinearBaseboard(r) ? baseboardFollow(r.amount, from, to) : null;
+            return a === null ? r : { ...r, amount: a };
+          });
+    set({ rows });
+  };
+  const setRow = (key: string, patch: Partial<WorkRow>) => {
+    let rows = value.rows.map((r) => (r.key === key ? { ...r, ...patch } : r));
+    // A baseboard choice picked on a blank row takes the default straight away.
+    if (patch.choiceId !== undefined) {
+      const dflt = baseboardDefault(installOf(rows));
+      rows = rows.map((r) => (r.key === key && isLinearBaseboard(r) && r.amount.trim() === "" && dflt !== null ? { ...r, amount: String(dflt) } : r));
+    }
+    setRows(rows);
+  };
+  const removeRow = (key: string) => setRows(value.rows.filter((r) => r.key !== key));
   const addRow = (g: QuickGroup) => {
     const at = value.rows.map((r) => r.group).lastIndexOf(g);
     const rows = [...value.rows];
     rows.splice(at + 1, 0, newRow(g));
-    set({ rows });
+    setRows(rows);
   };
   const setStair = (key: string, patch: Partial<StairRowState>) => set({ stairs: value.stairs.map((s) => (s.key === key ? { ...s, ...patch } : s)) });
 
@@ -126,6 +157,9 @@ export function QuickWork({ choices, profiles, value, onChange }: { choices: Qui
                   const c = byId.get(r.choiceId);
                   const unit = c ? amountUnit(c) : g === "Disposal" ? null : "sqft";
                   const copyable = unit === "sqft" && (g === "Remove" || g === "Material") && installSqft !== null && clean(r.amount) !== clean(installSqft);
+                  // Baseboards: a third of the install square feet, offered back once the amount has been edited.
+                  const third = isLinearBaseboard(r) ? baseboardDefault(installOf(value.rows)) : null;
+                  const thirdable = third !== null && clean(r.amount) !== String(third);
                   const total = c ? rowTotal(choices, { choiceId: c.id, amount: toNumber(r.amount), productId: r.product?.recordId ?? null }, picked) : null;
                   return (
                     <div key={r.key} className="qw-row">
@@ -150,6 +184,11 @@ export function QuickWork({ choices, profiles, value, onChange }: { choices: Qui
                               Same as install ({installSqft})
                             </button>
                           )}
+                          {thirdable && (
+                            <button type="button" className="linkbtn qw-same" onClick={() => setRow(r.key, { amount: String(third) })}>
+                              ⅓ of install ({third})
+                            </button>
+                          )}
                           {c && (
                             <span className="qw-price" aria-label={`${g} ${i + 1} rate and total`}>
                               <span className="qw-rate">{rateText(c, unit, r.product)}</span>
@@ -163,7 +202,7 @@ export function QuickWork({ choices, profiles, value, onChange }: { choices: Qui
                           )}
                         </div>
                       )}
-                      {g === "Material" && c && <ProductPick row={r} standard={c.product} onPick={(p) => setRow(r.key, { product: p })} />}
+                      {g === "Material" && c && <ProductPick row={r} standard={c.product} fallback={c.parts.length > 0 ? "allowance from the rate card" : "none set"} onPick={(p) => setRow(r.key, { product: p })} />}
                     </div>
                   );
                 })}
@@ -304,7 +343,7 @@ function Chips({ label, options, value, onChange, allowNone = false }: { label: 
 }
 
 /** A material row's product: the standard one, or one staff search for by SKU or name. */
-function ProductPick({ row, standard, onPick }: { row: WorkRow; standard: QuickProduct | null; onPick: (p: PickedProduct | null) => void }) {
+function ProductPick({ row, standard, fallback, onPick }: { row: WorkRow; standard: QuickProduct | null; fallback: string; onPick: (p: PickedProduct | null) => void }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [found, setFound] = useState<PickedProduct[] | null>(null);
@@ -320,7 +359,7 @@ function ProductPick({ row, standard, onPick }: { row: WorkRow; standard: QuickP
   return (
     <div className="qw-prod">
       <span className="mt">
-        {row.product ? "Chosen" : "Standard"}: {shown ? `${shown.name}${shown.sku ? ` (${shown.sku})` : ""} · ${money(shown.rate)}/sq ft` : "none set"}
+        {row.product ? "Chosen" : "Standard"}: {shown ? `${shown.name}${shown.sku ? ` (${shown.sku})` : ""} · ${money(shown.rate)}/sq ft` : fallback}
       </span>
       <button type="button" className="linkbtn" onClick={() => setOpen(!open)} aria-expanded={open}>
         {open ? "Close" : "Choose a specific product"}

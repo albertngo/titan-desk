@@ -75,7 +75,8 @@ export function amountUnit(c: QuickChoice): "sqft" | "linear ft" | "pieces" | nu
 export function choiceRate(c: QuickChoice, product: QuickProduct | null = null): { perUnit: number | null; flat: number } {
   if (c.group === "Material") {
     const p = product ?? c.product;
-    return { perUnit: p ? p.rate : null, flat: 0 };
+    if (p) return { perUnit: p.rate, flat: 0 };
+    // No product: the Material Rate Card row behind the choice prices it (2026-10-22), below.
   }
   const perUnitParts = c.parts.filter((p) => !isFlat(p.uom));
   const perUnit = perUnitParts.length ? round2(perUnitParts.reduce((s, p) => s + p.rate, 0)) : null;
@@ -168,22 +169,29 @@ export function buildPreliminary(choices: QuickChoice[], work: QuickWork, produc
     const section = GROUP_SECTION[c.group];
     if (c.group === "Material") {
       const p = (row.productId ? products.get(row.productId) : null) ?? c.product;
-      if (!p || row.amount === null) {
-        skipped.push(`${c.label} (${!p ? "no product" : "no square footage"})`);
+      if (p) {
+        if (row.amount === null) {
+          skipped.push(`${c.label} (no square footage)`);
+          continue;
+        }
+        lines.push({
+          ...blank(section),
+          sourceKind: "product",
+          sourceId: p.recordId,
+          description: `${p.name}${p.sku ? ` (${p.sku})` : ""}`,
+          uom: "sqft",
+          qty: row.amount,
+          unitPriceSnap: p.rate,
+          unitCostSnap: p.cost,
+          hasSource: true,
+        });
         continue;
       }
-      lines.push({
-        ...blank(section),
-        sourceKind: "product",
-        sourceId: p.recordId,
-        description: `${p.name}${p.sku ? ` (${p.sku})` : ""}`,
-        uom: "sqft",
-        qty: row.amount,
-        unitPriceSnap: p.rate,
-        unitCostSnap: p.cost,
-        hasSource: true,
-      });
-      continue;
+      if (c.parts.length === 0) {
+        skipped.push(`${c.label} (no product)`);
+        continue;
+      }
+      // No product set: the Material Rate Card row behind the choice prices it, like any other row (2026-10-22).
     }
     const needsAmount = c.parts.some((p) => !isFlat(p.uom));
     if (c.parts.length === 0 || (needsAmount && row.amount === null)) {
@@ -233,3 +241,25 @@ export function rowTotal(choices: QuickChoice[], row: QuickRow, products: Map<st
 
 /** What one staircase row shows beside its dropdown: the preset, or the price staff typed over it. */
 export const stairTotal = (p: Pick<QuickProfile, "price">, override: number | null): number => override ?? p.price;
+
+// ---------- baseboards follow the install (Albert, 2026-10-22) ----------
+
+/** Baseboard linear feet default to a third of the install square feet, rounded to the nearest foot. */
+export const BASEBOARD_PER_SQFT = 1 / 3;
+
+export const baseboardDefault = (installSqft: number | null): number | null =>
+  installSqft !== null && installSqft > 0 ? Math.round(installSqft * BASEBOARD_PER_SQFT) : null;
+
+/**
+ * What a baseboard row's amount becomes when the install square footage goes from `from` to `to`:
+ * blank, or still the default the old figure gave, follows the new figure (and blanks when there is
+ * no install any more); anything typed by hand stays. Null means leave the amount as it is.
+ */
+export function baseboardFollow(amount: string, from: number | null, to: number | null): string | null {
+  const typed = amount.trim();
+  const prev = baseboardDefault(from);
+  if (typed !== "" && (prev === null || Number(typed) !== prev)) return null;
+  const next = baseboardDefault(to);
+  if (next === null) return typed === "" ? null : "";
+  return String(next);
+}

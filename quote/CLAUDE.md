@@ -80,12 +80,18 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   work from short lists, type square footage, add staircases, see a live estimate. Laid out for a
   phone: Flooring, then Stairs, then anything else; each work group folds to a one-line summary;
   short lists are chips; "Same as install" copies the square footage onto Remove and Material rows;
+  a Baseboards row in linear feet defaults to **a third of the install square feet, rounded to the
+  nearest foot** (Albert, 2026-10-22), follows the install while it was never typed, and keeps what
+  staff type, with "⅓ of install" to snap back (`baseboardDefault()` / `baseboardFollow()` in `plan.ts`);
   every row shows its rate and its total beside the selection, priced the same way the quote will
   be (`choiceRate()` / `rowTotal()` in `plan.ts`); the estimate and Create stay on screen
   (`src/components/QuickWork.tsx`). The flooring choices are
   rows in the Airtable table **Quick Quote Choices** (`QUICK_TABLE`), each pointing at Rate Card
   rows or, for materials, a standard catalogue **SKU** (text, not a link, so the catalogue's
-  schema and its drift check are untouched); staff can pick a different SKU. Prices are never
+  schema and its drift check are untouched); staff can pick a different SKU. A material choice is
+  priced from its product; a Rate Card row linked beside it is a fallback for when it has no
+  product, never a requirement (2026-10-22: the eight Material choices had vanished because each
+  also linked an inactive Material row). Prices are never
   stored on a choice and never taken from the browser: the server re-prices from Airtable at
   create time. A choice whose linked row is inactive or unpriced is left off the form. Rules:
   `src/lib/quick/plan.ts`, tested in `tests/quick.test.ts`.
@@ -192,6 +198,18 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   to the next with the arrow keys, the on-screen arrows or a swipe. Staff only: the pages leave the card out in Customer
   view, and the customer deployment never has it. Pictures are shown straight from GHL's URLs; one
   the browser cannot load falls back to a link.
+- **Accepted price (Albert, 2026-10-22).** Under each option's overview in the editor, **Accepted
+  price, before HST** takes the amount the customer agreed to and sets the quote's discount so that
+  option lands on it (`setAcceptedPrice()` in `src/lib/editor/model.ts`, tested). The discount is one
+  per version (Quote Versions → Discount Rate), so every option follows it; it is worked out from the
+  option it was typed on. A price at or above the list price means no discount. Typing the discount
+  directly in **Discount %** still works. Nothing in Airtable changed.
+- **If they accept a price (Albert, 2026-10-22).** The Analysis tab opens with a card where staff type
+  the pre-tax amount the customer agreed to, or a discount %, and see the discount it implies against
+  the list price and the cost, profit and margin left, beside the quote as it stands. Analysis only:
+  nothing is saved and the quote's discount is not changed; applying it is still an edit. Staff only:
+  the server never renders it in Customer view, so cost never reaches that page. Pure maths in
+  `src/lib/pricing/accepted.ts` (the same `optionTotals()` as every quote), tested in `tests/accepted.test.ts`.
 - **All quotes (2026-10-15).** One row per quote, its versions folded under it (newest first),
   and a search over name, quote and project number, city, email and phone digits. Grouping and
   search are pure, in `src/lib/quotes/group.ts`, tested in `tests/group.test.ts`.

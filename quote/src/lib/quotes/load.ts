@@ -341,15 +341,18 @@ export async function getQuickForm(): Promise<QuickChoice[]> {
       if (!label || !group || !(QUICK_GROUPS as readonly string[]).includes(group)) return [];
       const rateParts = ids(f[QUICK.rateCard]).map((id) => rates.get(id));
       const stairParts = ids(f[QUICK.stairItems]).map((id) => stairs.get(id));
-      // A linked row that's inactive or unpriced makes the whole choice unpriceable: leave it off rather than quote part of it.
-      if (rateParts.some((x) => !x) || stairParts.some((x) => !x)) return [];
-      const parts: QuickPart[] = [
-        ...rateParts.map((x) => ({ kind: "rate" as const, recordId: x!.id, labourType: x!.labourType, spec: x!.spec, description: `${x!.labourType} | ${x!.spec}`, contractor: x!.contractor, uom: x!.uom, rate: x!.rate, cost: x!.cost, minCharge: x!.minCharge })),
-        ...stairParts.map((x) => ({ kind: "stair" as const, recordId: x!.id, labourType: null, spec: null, description: `${x!.name}${x!.size ? ` (${x!.size})` : ""}`, contractor: null, uom: "piece", rate: x!.rate, cost: x!.cost, minCharge: null })),
-      ];
       const sku = str(f[QUICK.standardSku]);
       const product = sku ? (bySku.get(sku) ?? null) : null;
-      if (group === "Material" ? !product : parts.length === 0) return [];
+      // A material with a standard product is priced from it (2026-10-22): a Rate Card row linked beside
+      // it is a fallback for when there is no product, never a requirement, so a dead link doesn't hide the choice.
+      const material = group === "Material";
+      // Otherwise a linked row that's inactive or unpriced makes the whole choice unpriceable: leave it off rather than quote part of it.
+      if (!(material && product) && (rateParts.some((x) => !x) || stairParts.some((x) => !x))) return [];
+      const parts: QuickPart[] = [
+        ...rateParts.flatMap((x) => (x ? [{ kind: "rate" as const, recordId: x.id, labourType: x.labourType, spec: x.spec, description: `${x.labourType} | ${x.spec}`, contractor: x.contractor, uom: x.uom, rate: x.rate, cost: x.cost, minCharge: x.minCharge }] : [])),
+        ...stairParts.flatMap((x) => (x ? [{ kind: "stair" as const, recordId: x.id, labourType: null, spec: null, description: `${x.name}${x.size ? ` (${x.size})` : ""}`, contractor: null, uom: "piece", rate: x.rate, cost: x.cost, minCharge: null }] : [])),
+      ];
+      if (material ? !product && parts.length === 0 : parts.length === 0) return [];
       return [{ id: r.id, group: group as QuickGroup, label, sort: num(f[QUICK.sort]) ?? 999, times: Math.max(1, Math.round(num(f[QUICK.times]) ?? 1)), parts, product }];
     })
     .sort((a, b) => QUICK_GROUPS.indexOf(a.group) - QUICK_GROUPS.indexOf(b.group) || a.sort - b.sort || a.label.localeCompare(b.label));

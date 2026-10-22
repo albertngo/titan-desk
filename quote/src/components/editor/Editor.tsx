@@ -25,6 +25,7 @@ import {
   setCrew,
   setMaterial,
   setServiceLevel,
+  setAcceptedPrice,
   setTerms,
   withCustomerFrom,
   updateLine,
@@ -622,6 +623,16 @@ export default function Editor({
                   <div className="ov-row bullet"><span className="k">Subtotal</span><span className="v">{money(t.subtotal)}</span></div>
                   <div className="ov-row bullet"><span className="k">HST{quote.showHst ? " (13%)" : t.hst ? " (materials only)" : " (off)"}</span><span className="v">{money(t.hst)}</span></div>
                   <div className="ov-total"><span>Total</span><span className="v">{money(t.total)}</span></div>
+                  {/* "They accept this price": type the pre-tax amount and the quote's discount is set to land on it (Albert, 2026-10-22). */}
+                  <div className="ov-accept" title="Sets the quote's discount from this option's list price. One discount per quote, so every option follows it.">
+                    <label>
+                      Accepted price, before HST
+                      <NumCell value={t.subtotal} label="Accepted price before HST" placeholder="0" onCommit={(v) => apply(setAcceptedPrice(quote, option.id, v))} />
+                    </label>
+                    <span className="mt">
+                      {t.preDiscount > 0 ? <>Sets the discount from this option&apos;s list price of {money(t.preDiscount)}{quote.options.length > 1 ? "; every option follows it" : ""}.</> : "Nothing priced yet."}
+                    </span>
+                  </div>
                 </section>
               </div>
             </>
