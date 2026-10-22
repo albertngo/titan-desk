@@ -161,23 +161,14 @@ export function SendQuote({
           </label>
         </fieldset>
 
-        <fieldset className="sq-ch" disabled={sending || asking}>
-          <legend className="sr-only">What the customer sees</legend>
-          <label>
-            <input type="radio" name="sq-pricing" checked={!breakdown} onChange={() => setBreakdown(false)} />
-            <span>
-              Lump sum only
-              <span className="sub">What the work includes and one price. Quantities on install, removal, prep and materials; no line prices.</span>
-            </span>
-          </label>
-          <label>
-            <input type="radio" name="sq-pricing" checked={breakdown} onChange={() => setBreakdown(true)} />
-            <span>
-              Send breakdown
-              <span className="sub">Every line with its unit price and amount, section totals and the discount.</span>
-            </span>
-          </label>
-        </fieldset>
+        <label className="sq-until-in" title="Lump sum: what the work includes and one price; quantities on install, removal, prep and materials, no line prices. Breakdown: every line with its unit price and amount, section totals and the discount.">
+          Pricing shown
+          <select className="in" value={breakdown ? "breakdown" : "lump"} onChange={(e) => setBreakdown(e.target.value === "breakdown")} disabled={sending || asking}>
+            <option value="lump">Lump sum only</option>
+            <option value="breakdown">Send breakdown</option>
+          </select>
+          <span className="sub">{breakdown ? "Every line with its unit price and amount, section totals and the discount." : "What the work includes and one price; no line prices."}</span>
+        </label>
 
         {preliminary ? (
           <p className="note">A preliminary has no good-until date: it is an estimate, not an offer, and its link stays open.</p>
