@@ -24,7 +24,8 @@ export const GROUP_SECTION: Record<QuickGroup, string> = {
 };
 
 /** How many rows of each group the form offers (the GHL form had the same). */
-export const GROUP_ROWS: Record<QuickGroup, number> = { Remove: 3, Disposal: 1, "Subfloor prep": 2, Install: 3, Baseboards: 1, Material: 3 };
+/** Baseboards went from 1 to 3 rows on 2026-10-22 (Albert): baseboard in one area, shoe only in another. */
+export const GROUP_ROWS: Record<QuickGroup, number> = { Remove: 3, Disposal: 1, "Subfloor prep": 2, Install: 3, Baseboards: 3, Material: 3 };
 
 /** One priced piece behind a choice: a Rate Card row or a Stair Item. */
 export type QuickPart = {

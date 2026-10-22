@@ -85,9 +85,10 @@ export function QuickWork({ choices, profiles, value, onChange }: { choices: Qui
     const r = rows.find((x) => x.group === "Install" && x.choiceId && toNumber(x.amount) !== null);
     return r ? toNumber(r.amount) : null;
   };
-  const isLinearBaseboard = (r: WorkRow) => {
+  /** Only the first Baseboards row follows the install (2026-10-22): a second row, for another area, starts blank and never double-counts. */
+  const followsInstall = (r: WorkRow, rows: WorkRow[]) => {
     const c = byId.get(r.choiceId);
-    return r.group === "Baseboards" && !!c && amountUnit(c) === "linear ft";
+    return r.group === "Baseboards" && rows.find((x) => x.group === "Baseboards")?.key === r.key && !!c && amountUnit(c) === "linear ft";
   };
   /** Every change to the rows goes through here, so a baseboard amount that was never typed follows the install figure. */
   const setRows = (next: WorkRow[]) => {
@@ -97,7 +98,7 @@ export function QuickWork({ choices, profiles, value, onChange }: { choices: Qui
       from === to
         ? next
         : next.map((r) => {
-            const a = isLinearBaseboard(r) ? baseboardFollow(r.amount, from, to) : null;
+            const a = followsInstall(r, next) ? baseboardFollow(r.amount, from, to) : null;
             return a === null ? r : { ...r, amount: a };
           });
     set({ rows });
@@ -107,7 +108,7 @@ export function QuickWork({ choices, profiles, value, onChange }: { choices: Qui
     // A baseboard choice picked on a blank row takes the default straight away.
     if (patch.choiceId !== undefined) {
       const dflt = baseboardDefault(installOf(rows));
-      rows = rows.map((r) => (r.key === key && isLinearBaseboard(r) && r.amount.trim() === "" && dflt !== null ? { ...r, amount: String(dflt) } : r));
+      rows = rows.map((r) => (r.key === key && followsInstall(r, rows) && r.amount.trim() === "" && dflt !== null ? { ...r, amount: String(dflt) } : r));
     }
     setRows(rows);
   };
@@ -158,7 +159,7 @@ export function QuickWork({ choices, profiles, value, onChange }: { choices: Qui
                   const unit = c ? amountUnit(c) : g === "Disposal" ? null : "sqft";
                   const copyable = unit === "sqft" && (g === "Remove" || g === "Material") && installSqft !== null && clean(r.amount) !== clean(installSqft);
                   // Baseboards: a third of the install square feet, offered back once the amount has been edited.
-                  const third = isLinearBaseboard(r) ? baseboardDefault(installOf(value.rows)) : null;
+                  const third = followsInstall(r, value.rows) ? baseboardDefault(installOf(value.rows)) : null;
                   const thirdable = third !== null && clean(r.amount) !== String(third);
                   const total = c ? rowTotal(choices, { choiceId: c.id, amount: toNumber(r.amount), productId: r.product?.recordId ?? null }, picked) : null;
                   return (
@@ -208,7 +209,7 @@ export function QuickWork({ choices, profiles, value, onChange }: { choices: Qui
                 })}
                 {rows.length < GROUP_ROWS[g] && g !== "Disposal" && (
                   <button type="button" className="linkbtn qw-add" onClick={() => addRow(g)}>
-                    + Another {g === "Subfloor prep" ? "subfloor prep" : g.toLowerCase()}
+                    + Another {g === "Subfloor prep" ? "subfloor prep" : g === "Baseboards" ? "moulding area" : g.toLowerCase()}
                   </button>
                 )}
               </div>
