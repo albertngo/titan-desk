@@ -111,6 +111,7 @@ export function cleanEditorQuote(raw: unknown): EditorQuote {
     notionProjectUrl: null,
     discountRate: Math.min(1, Math.max(0, rate)),
     discountReason: nullableText(r.discountReason, 120),
+    lumpSum: r.lumpSum === true,
     showHst: r.showHst !== false,
     options,
   };
@@ -180,6 +181,7 @@ export function planSave(original: EditorQuote | null, edited: EditorQuote): Sav
   if (!original || original.discountRate !== edited.discountRate) plan.version[VERSION.discountRate] = edited.discountRate;
   if (!original || original.showHst !== edited.showHst) plan.version[VERSION.showHst] = edited.showHst;
   if (!original || (original.discountReason ?? null) !== (edited.discountReason ?? null)) plan.version[VERSION.discountReason] = edited.discountReason ?? null;
+  if (!original || !!original.lumpSum !== !!edited.lumpSum) plan.version[VERSION.lumpSum] = !!edited.lumpSum;
 
   const oldOptions = new Map((original?.options ?? []).map((o, i) => [o.id, { o, i }]));
   const oldLines = new Map((original?.options ?? []).flatMap((o) => o.lines.map((l, i) => [l.id, { l, i, option: o.id }] as const)));
@@ -227,7 +229,7 @@ export const planIsEmpty = (p: SavePlan) =>
  * a save is refused if Airtable no longer matches it, so nobody's newer work is overwritten.
  */
 export function fingerprint(q: EditorQuote): string {
-  const s = JSON.stringify({ d: q.discountRate, h: q.showHst, r: q.discountReason ?? null, o: q.options });
+  const s = JSON.stringify({ d: q.discountRate, h: q.showHst, r: q.discountReason ?? null, l: !!q.lumpSum, o: q.options });
   let h = 0x811c9dc5;
   for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i);

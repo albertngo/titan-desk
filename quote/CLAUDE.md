@@ -84,7 +84,9 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   to the nearest foot** (Albert, 2026-10-22), follows the install while it was never typed, and keeps
   what staff type, with "⅓ of install" to snap back (`baseboardDefault()` / `baseboardFollow()` in
   `plan.ts`); Baseboards allows up to three rows (2026-10-22: baseboard in one area, shoe only in
-  another) and only the first follows the install, so a second never double-counts;
+  another) and only the first follows the install, so a second never double-counts; the form's
+  **Additional cost** becomes a Private line (2026-10-22), so the customer sees it as the one
+  rolled-up "Additional work" row and never as an itemised line;
   every row shows its rate and its total beside the selection, priced the same way the quote will
   be (`choiceRate()` / `rowTotal()` in `plan.ts`); the estimate and Create stay on screen
   (`src/components/QuickWork.tsx`). The flooring choices are
@@ -200,6 +202,13 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   to the next with the arrow keys, the on-screen arrows or a swipe. Staff only: the pages leave the card out in Customer
   view, and the customer deployment never has it. Pictures are shown straight from GHL's URLs; one
   the browser cannot load falls back to a link.
+- **Lump sum (Albert, 2026-10-22).** A switch in the editor's terms, **Lump sum for the customer**
+  (Quote Versions → Lump Sum, frozen into the copy as `lumpSum`): the customer sees what the work
+  includes and one price for the project. Counted lines keep their words and quantity and lose
+  unit price and amount; sections lose their total; the totals block is the price; optional
+  add-ons keep their price, since they are not in it. Page, PDF and the quote page's Customer
+  view all follow it; the email already showed totals only. The editor in Customer view does not
+  yet hide line prices on a lump-sum version.
 - **The Private section (Albert, 2026-10-22).** A section after Other in the editor (Quote Lines →
   Section `Private`, a choice added that day) for costs the customer is billed for but not shown,
   and for cost-only lines. Its lines are priced and counted like any other, in every total, the

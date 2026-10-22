@@ -83,12 +83,13 @@ function Parity({ option, t }: { option: QuoteOption; t: OptionTotals }) {
   );
 }
 
-function Row({ l, n, customer }: { l: QuoteLine; n: number | undefined; customer: boolean }) {
+/** `lump`: Customer view on a lump-sum quote (2026-10-22): no unit price, no line total. */
+function Row({ l, n, customer, lump }: { l: QuoteLine; n: number | undefined; customer: boolean; lump: boolean }) {
   if (!isPriced(l)) {
     return (
       <tr>
         <td className="idx" />
-        <td colSpan={customer ? 4 : 7}>
+        <td colSpan={lump ? 2 : customer ? 4 : 7}>
           {l.description}
           {l.clientNote && <span className="sub">{l.clientNote}</span>}
         </td>
@@ -121,12 +122,18 @@ function Row({ l, n, customer }: { l: QuoteLine; n: number | undefined; customer
           {!!l.manualCost && <span className="sub">manual line cost</span>}
         </td>
       )}
-      <td className="r">
-        <span className={rateOvr && !customer ? "chgd" : undefined}>{money(priceUsed(l))}</span>
-        {rateOvr && !customer && <span className="sub">card {money(l.unitPriceSnap)}</span>}
-      </td>
+      {!lump && (
+        <td className="r">
+          <span className={rateOvr && !customer ? "chgd" : undefined}>{money(priceUsed(l))}</span>
+          {rateOvr && !customer && <span className="sub">card {money(l.unitPriceSnap)}</span>}
+        </td>
+      )}
       {!customer && <td className="r muted">{pct(margin, 0)}</td>}
-      <td className="r amt">{l.include ? money(total) : <span className="note">optional</span>}</td>
+      {lump ? (
+        <td className="r amt">{l.include ? "" : <span className="note">optional · {money(total)}</span>}</td>
+      ) : (
+        <td className="r amt">{l.include ? money(total) : <span className="note">optional</span>}</td>
+      )}
     </tr>
   );
 }
@@ -139,6 +146,7 @@ export function OptionSheet({
   quoteNotes,
   editHref,
   customer,
+  lumpSum,
 }: {
   option: QuoteOption;
   t: OptionTotals;
@@ -148,7 +156,10 @@ export function OptionSheet({
   editHref: string;
   /** Customer view: no cost, margin, contractor, card rate, flags or parity check. */
   customer: boolean;
+  /** The version is a lump sum: in Customer view, no unit prices, line or section amounts (2026-10-22). */
+  lumpSum?: boolean;
 }) {
+  const lump = customer && lumpSum === true;
   const order = sectionOrder(option.lines, customer);
   const exclusions = option.lines.filter((l) => l.section === "Exclusions" && l.description);
   const nums = new Map<string, number>();
@@ -182,9 +193,9 @@ export function OptionSheet({
                   {!customer && <th>Contractor</th>}
                   <th className="r">Quantity</th>
                   {!customer && <th className="r">Cost</th>}
-                  <th className="r">Unit price</th>
+                  {!lump && <th className="r">Unit price</th>}
                   {!customer && <th className="r">Margin</th>}
-                  <th className="r">Line total</th>
+                  <th className="r">{lump ? "" : "Line total"}</th>
                 </tr>
               </thead>
               <tbody>
@@ -194,21 +205,21 @@ export function OptionSheet({
                   const sum = lines.reduce((a, l) => a + (lineTotal(l) ?? 0), 0) + rollup;
                   return [
                     <tr className="sect" key={`s-${s}`}>
-                      <td colSpan={customer ? 4 : 7}>
+                      <td colSpan={lump ? 3 : customer ? 4 : 7}>
                         {s}
                         {s === PRIVATE_SECTION && <span className="sub"> · not itemised for the customer: one row, “{option.privateLabel ?? DEFAULT_PRIVATE_LABEL}”</span>}
                       </td>
-                      <td className="r">{money(sum)}</td>
+                      <td className="r">{lump ? "" : money(sum)}</td>
                     </tr>,
-                    ...lines.map((l) => <Row key={l.id} l={l} n={nums.get(l.id)} customer={customer} />),
+                    ...lines.map((l) => <Row key={l.id} l={l} n={nums.get(l.id)} customer={customer} lump={lump} />),
                     ...(rollup > 0
                       ? [
                           <tr key="private-rollup">
                             <td className="idx">{i + 1}</td>
                             <td>{option.privateLabel ?? DEFAULT_PRIVATE_LABEL}</td>
                             <td className="r">—</td>
-                            <td className="r">—</td>
-                            <td className="r"><b>{money(rollup)}</b></td>
+                            {!lump && <td className="r">—</td>}
+                            <td className="r">{lump ? "" : <b>{money(rollup)}</b>}</td>
                           </tr>,
                         ]
                       : []),

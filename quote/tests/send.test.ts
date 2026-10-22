@@ -368,7 +368,7 @@ describe("the Private section (2026-10-22)", () => {
     expect(other.lines).toEqual([{ kind: "item", n: 2, description: "Site preparation and sundries", note: null, qty: null, uom: null, wastePct: null, unitPrice: null, minimum: false, amount: 500, optional: false }]);
     expect(other.total).toBe(500);
     // The lines still add up to the subtotal: 200 + 500, no discount.
-    expect(o.sections.reduce((a, s) => a + s.total, 0)).toBe(o.totals.subtotal);
+    expect(o.sections.reduce((a, s) => a + (s.total ?? 0), 0)).toBe(o.totals.subtotal);
     expect(o.totals.subtotal).toBe(700);
   });
 
@@ -398,5 +398,24 @@ describe("discount reason (2026-10-22)", () => {
     expect("discountReason" in without).toBe(false);
     expect(discountLabel(without)).toBe("Discount (10%)");
     expect(parseCopy(serializeCopy(withReason))).toEqual(withReason);
+  });
+});
+
+describe("lump sum (2026-10-22)", () => {
+  it("keeps what the work includes and drops every price but the add-ons' and the totals", () => {
+    const c = customerCopy(quote({ lumpSum: true }), AT);
+    expect(c.lumpSum).toBe(true);
+    const o = c.options[0];
+    const items = o.sections.flatMap((s) => s.lines).filter((l): l is Extract<typeof l, { kind: "item" }> => l.kind === "item");
+    for (const l of items.filter((x) => !x.optional)) expect([l.unitPrice, l.amount, l.minimum]).toEqual([null, null, false]);
+    expect(items.find((x) => x.optional)).toMatchObject({ unitPrice: 30, amount: 120 });
+    expect(items.every((x) => x.qty !== null || x.description === "Stair nosing")).toBe(true);
+    expect(o.sections.every((s) => s.total === null)).toBe(true);
+    expect(o.totals).toEqual(customerCopy(quote(), AT).options[0].totals);
+    const pdf = new TextDecoder("latin1").decode(quotePdf(c));
+    expect(pdf).not.toContain("Unit price");
+    expect(pdf).toContain("one sum for the project");
+    expect(parseCopy(serializeCopy(c))).toEqual(c);
+    expect("lumpSum" in customerCopy(quote(), AT)).toBe(false);
   });
 });

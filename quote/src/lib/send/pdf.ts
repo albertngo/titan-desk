@@ -76,13 +76,12 @@ export function quotePdf(copy: CustomerCopy): Uint8Array<ArrayBuffer> {
   }
   y -= 20;
 
-  if (copy.basis === "Preliminary") {
-    const lines = wrap(
-      "This is a preliminary estimate, based on what we know so far. We confirm the final price once we have measured the space.",
-      "R",
-      9,
-      RIGHT - M - 24,
-    );
+  for (const note of [
+    copy.basis === "Preliminary" ? "This is a preliminary estimate, based on what we know so far. We confirm the final price once we have measured the space." : null,
+    copy.lumpSum ? "Priced as one sum for the project. The items listed show what it includes." : null,
+  ]) {
+    if (!note) continue;
+    const lines = wrap(note, "R", 9, RIGHT - M - 24);
     const h = lines.length * 12 + 14;
     doc.rect(M, y - h + 8, RIGHT - M, h, SOFT);
     lines.forEach((l, i) => doc.text(M + 12, y - 6 - i * 12, l, { size: 9, color: INK }));
@@ -110,8 +109,11 @@ export function quotePdf(copy: CustomerCopy): Uint8Array<ArrayBuffer> {
     doc.text(COL.n, y, "#", { font: "B", size: 8, color: DIM });
     doc.text(COL.item, y, cont ? "Item (continued)" : "Item", { font: "B", size: 8, color: DIM });
     doc.text(COL.qty, y, "Quantity", { font: "B", size: 8, color: DIM, align: "right" });
-    doc.text(COL.unit, y, "Unit price", { font: "B", size: 8, color: DIM, align: "right" });
-    doc.text(COL.amount - 4, y, "Amount", { font: "B", size: 8, color: DIM, align: "right" });
+    // A lump-sum quote has no price columns: the totals block is the price (2026-10-22).
+    if (!copy.lumpSum) {
+      doc.text(COL.unit, y, "Unit price", { font: "B", size: 8, color: DIM, align: "right" });
+      doc.text(COL.amount - 4, y, "Amount", { font: "B", size: 8, color: DIM, align: "right" });
+    }
     y -= 22;
   }
 
@@ -136,7 +138,7 @@ export function quotePdf(copy: CustomerCopy): Uint8Array<ArrayBuffer> {
     for (const s of o.sections) {
       if (room(40)) tableHead(true);
       doc.text(COL.item, y, s.name.toUpperCase(), { font: "B", size: 8, color: BLUE });
-      if (s.lines.some((l) => l.kind === "item" && !l.optional)) doc.text(COL.amount - 4, y, money(s.total), { font: "B", size: 8, color: DIM, align: "right" });
+      if (s.total !== null && s.lines.some((l) => l.kind === "item" && !l.optional)) doc.text(COL.amount - 4, y, money(s.total), { font: "B", size: 8, color: DIM, align: "right" });
       y -= 14;
       for (const l of s.lines) row(l);
       y -= 4;
@@ -183,7 +185,7 @@ export function quotePdf(copy: CustomerCopy): Uint8Array<ArrayBuffer> {
     lines.forEach((t, k) => doc.text(COL.item, y - k * 12, t, { size: 9, color }));
     if (l.qty !== null) doc.text(COL.qty, y, `${plain.format(l.qty)}${l.uom ? ` ${l.uom}` : ""}`, { size: 9, color, align: "right" });
     if (l.unitPrice !== null) doc.text(COL.unit, y, money(l.unitPrice), { size: 9, color, align: "right" });
-    doc.text(COL.amount - 4, y, l.optional ? `Optional · ${money(l.amount)}` : money(l.amount), { size: 9, font: l.optional ? "R" : "B", color, align: "right" });
+    if (l.amount !== null) doc.text(COL.amount - 4, y, l.optional ? `Optional · ${money(l.amount)}` : money(l.amount), { size: 9, font: l.optional ? "R" : "B", color, align: "right" });
     y -= lines.length * 12;
     for (const t of notes) {
       doc.text(COL.item, y + 1, t, { size: 8, color: FAINT });

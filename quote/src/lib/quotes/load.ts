@@ -198,6 +198,7 @@ export async function getQuote(id: string): Promise<Quote | null> {
     showHst: bool(f[VERSION.showHst]),
     discountRate: num(f[VERSION.discountRate]) ?? 0,
     discountReason: str(f[VERSION.discountReason]),
+    lumpSum: bool(f[VERSION.lumpSum]),
     validUntil: str(f[VERSION.validUntil]),
     sentAt: str(f[VERSION.sentAt]),
     sendBlock: str(f[VERSION.sendBlock]),
