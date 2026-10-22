@@ -127,7 +127,6 @@ export function OptionSheet({
   discountRate,
   showHst,
   quoteNotes,
-  airtableUrl,
   editHref,
   customer,
 }: {
@@ -136,7 +135,6 @@ export function OptionSheet({
   discountRate: number;
   showHst: boolean;
   quoteNotes: string | null;
-  airtableUrl: string;
   editHref: string;
   /** Customer view: no cost, margin, contractor, card rate, flags or parity check. */
   customer: boolean;
@@ -225,7 +223,6 @@ export function OptionSheet({
       </div>
 
       <div className="actions">
-        <a className="btn" href={airtableUrl} target="_blank" rel="noreferrer">Open in Airtable</a>
         <Link className="btn" href={editHref}>Edit</Link>
         {!customer && <a className="btn primary" href="#send">Send to customer</a>}
       </div>
