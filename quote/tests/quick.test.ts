@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { optionTotals } from "../src/lib/calc";
-import { amountUnit, buildPreliminary, choiceRate, parseWork, QUICK_GROUPS, rowTotal, stairTotal, workIsEmpty, type QuickChoice, type QuickPart, type QuickProduct } from "../src/lib/quick/plan";
+import { amountUnit, BASEBOARD_PER_SQFT, baseboardDefault, baseboardFollow, buildPreliminary, choiceRate, parseWork, QUICK_GROUPS, rowTotal, stairTotal, workIsEmpty, type QuickChoice, type QuickPart, type QuickProduct } from "../src/lib/quick/plan";
 
 // INVENTED rates, costs, ids and products only: this repo is public.
 const part = (o: Partial<QuickPart> & { recordId: string }): QuickPart => ({ kind: "rate", labourType: "Install", spec: "SPEC", description: "Install | SPEC", contractor: "Crew A", uom: "sqft", rate: 2, cost: 1, minCharge: null, ...o });
@@ -114,5 +114,31 @@ describe("quick form: staircases (2026-10-20)", () => {
     expect(workIsEmpty(parseWork({ stairs: [{ profileId: MAIN.id }] }))).toBe(false);
     expect(workIsEmpty(parseWork({}))).toBe(true);
     expect([...QUICK_GROUPS]).not.toContain("Staircase");
+  });
+});
+
+describe("quick form: baseboards follow the install (2026-10-22)", () => {
+  it("defaults to a third of the install square feet, rounded to the nearest foot", () => {
+    expect([100, 500, 950, 20, 7].map(baseboardDefault)).toEqual([33, 167, 317, 7, 2]);
+    expect([null, 0].map(baseboardDefault)).toEqual([null, null]);
+    expect(BASEBOARD_PER_SQFT).toBeCloseTo(1 / 3);
+  });
+
+  it("fills a blank amount, and moves one still at the old default when the install changes", () => {
+    expect(baseboardFollow("", null, 600)).toBe("200");
+    expect(baseboardFollow("200", 600, 900)).toBe("300");
+    expect(baseboardFollow(" 200 ", 600, 900)).toBe("300");
+  });
+
+  it("never touches an amount staff typed, even when the install changes or goes away", () => {
+    expect(baseboardFollow("150", 600, 900)).toBeNull();
+    expect(baseboardFollow("150", 600, null)).toBeNull();
+    expect(baseboardFollow("150", null, 600)).toBeNull();
+  });
+
+  it("blanks the default again when the install is cleared, and leaves a blank alone", () => {
+    expect(baseboardFollow("200", 600, null)).toBe("");
+    expect(baseboardFollow("", 600, null)).toBeNull();
+    expect(baseboardFollow("", null, null)).toBeNull();
   });
 });

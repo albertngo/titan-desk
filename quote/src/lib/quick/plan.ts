@@ -233,3 +233,25 @@ export function rowTotal(choices: QuickChoice[], row: QuickRow, products: Map<st
 
 /** What one staircase row shows beside its dropdown: the preset, or the price staff typed over it. */
 export const stairTotal = (p: Pick<QuickProfile, "price">, override: number | null): number => override ?? p.price;
+
+// ---------- baseboards follow the install (Albert, 2026-10-22) ----------
+
+/** Baseboard linear feet default to a third of the install square feet, rounded to the nearest foot. */
+export const BASEBOARD_PER_SQFT = 1 / 3;
+
+export const baseboardDefault = (installSqft: number | null): number | null =>
+  installSqft !== null && installSqft > 0 ? Math.round(installSqft * BASEBOARD_PER_SQFT) : null;
+
+/**
+ * What a baseboard row's amount becomes when the install square footage goes from `from` to `to`:
+ * blank, or still the default the old figure gave, follows the new figure (and blanks when there is
+ * no install any more); anything typed by hand stays. Null means leave the amount as it is.
+ */
+export function baseboardFollow(amount: string, from: number | null, to: number | null): string | null {
+  const typed = amount.trim();
+  const prev = baseboardDefault(from);
+  if (typed !== "" && (prev === null || Number(typed) !== prev)) return null;
+  const next = baseboardDefault(to);
+  if (next === null) return typed === "" ? null : "";
+  return String(next);
+}
