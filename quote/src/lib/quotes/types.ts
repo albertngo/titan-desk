@@ -74,6 +74,8 @@ export type Quote = {
   showHst: boolean;
   /** Fraction, e.g. 0.11. */
   discountRate: number;
+  /** Quote Versions → Discount Reason (2026-10-22): why, in the customer's words; prints beside the Discount row. */
+  discountReason?: string | null;
   validUntil: string | null;
   sentAt: string | null;
   /** Sending: Airtable's own reason this version must not be sent (a measured version exists), if any. */

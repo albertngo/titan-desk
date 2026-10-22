@@ -705,6 +705,7 @@ a.chip.accent:hover { text-decoration: underline; }
 .ov-accept { display: grid; gap: 4px; padding: 12px 16px 14px; border-top: 1px solid var(--line); }
 .ov-accept label { display: grid; gap: 4px; font-size: 12.5px; font-weight: 600; color: var(--fg-dim); }
 .ov-accept .cell-in { font-size: 14px; font-weight: 600; max-width: 180px; }
+.ov-accept-in { display: flex; flex-wrap: wrap; gap: 8px 16px; }
 .ov-accept .mt { font-size: 12px; color: var(--fg-faint); line-height: 1.4; }
 /* "If they accept a price" on the Analysis tab (Albert, 2026-10-22). */
 .acc .card-b { display: grid; gap: 14px; }

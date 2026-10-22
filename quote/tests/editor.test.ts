@@ -21,7 +21,10 @@ import {
   removeLine,
   revertLine,
   searchCatalogue,
+  PRICE_ADJUSTMENT,
   setAcceptedPrice,
+  setDiscountAmount,
+  setTerms,
   setContractor,
   setCrew,
   setServiceLevel,
@@ -485,5 +488,49 @@ describe("accepted price (2026-10-22)", () => {
     expect(setAcceptedPrice(q, "recNoSuchOption0A", 500)).toBe(q);
     const empty = addOption(blankQuote());
     expect(setAcceptedPrice(empty, empty.options[0].id, 500)).toBe(empty);
+  });
+});
+
+describe("accepted price above the list price, and a discount in dollars (2026-10-22)", () => {
+  const withWork = () => {
+    const q = addOption(blankQuote());
+    const id = q.options[0].id;
+    return { id, q: addLine(q, id, { ...manualLine("Install", "Work"), qty: 100, unitPrice: 10 }) };
+  };
+  const adjustment = (q: ReturnType<typeof blankQuote>) => q.options[0].lines.find((l) => l.description === PRICE_ADJUSTMENT);
+
+  it("above the list price adds one private adjustment line for the difference and clears the discount", () => {
+    const { q, id } = withWork();
+    const r = setAcceptedPrice(setTerms(q, { discountRate: 0.1 }), id, 1250);
+    expect(r.discountRate).toBe(0);
+    expect(adjustment(r)).toMatchObject({ section: "Private", sourceKind: "manual", uom: "flat", qty: 1, unitPrice: 250, include: true });
+    expect(optionTotals(r.options[0].lines, r.discountRate, r.showHst).subtotal).toBe(1250);
+  });
+
+  it("updates the adjustment in place, works from the list price without it, and removes it when the price comes back down", () => {
+    const { q, id } = withWork();
+    const up = setAcceptedPrice(q, id, 1250);
+    const more = setAcceptedPrice(up, id, 1400);
+    expect(more.options[0].lines.filter((l) => l.description === PRICE_ADJUSTMENT)).toHaveLength(1);
+    expect(adjustment(more)!.id).toBe(adjustment(up)!.id);
+    expect(adjustment(more)!.unitPrice).toBe(400);
+    const down = setAcceptedPrice(more, id, 900);
+    expect(adjustment(down)).toBeUndefined();
+    expect(down.discountRate).toBe(0.1);
+    expect(optionTotals(down.options[0].lines, down.discountRate, down.showHst).subtotal).toBe(900);
+  });
+
+  it("takes a discount in dollars as the list price less that amount", () => {
+    const { q, id } = withWork();
+    expect(setDiscountAmount(q, id, 100).discountRate).toBe(0.1);
+    expect(setDiscountAmount(q, id, 0).discountRate).toBe(0);
+    expect(setDiscountAmount(q, id, 2000).discountRate).toBe(1);
+    expect(setDiscountAmount(q, id, -5)).toBe(q);
+    expect(setDiscountAmount(q, id, null)).toBe(q);
+    // Typed on a quote that was pushed above the list, it removes the adjustment first.
+    const up = setAcceptedPrice(q, id, 1250);
+    const back = setDiscountAmount(up, id, 50);
+    expect(adjustment(back)).toBeUndefined();
+    expect(back.discountRate).toBe(0.05);
   });
 });

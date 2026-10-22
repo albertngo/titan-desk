@@ -3,7 +3,7 @@
  * the screen calls these, and tests/editor.test.ts proves them. Money is still computed
  * only by src/lib/calc.ts, from the same LineInput fields Airtable stores.
  */
-import { optionTotals, round2, SECTIONS, type LineInput } from "@/lib/calc";
+import { lineTotal, optionTotals, PRIVATE_SECTION, round2, SECTIONS, type LineInput } from "@/lib/calc";
 import { impliedRate } from "@/lib/pricing/accepted";
 import { levelApplies, levelOf, levelPrice, type ServiceLevel } from "@/lib/pricing/service";
 import type { MaterialRow, Quote, QuoteLine, RateRow, StairRow } from "@/lib/quotes/types";
@@ -56,6 +56,8 @@ export type EditorQuote = {
   notionProjectUrl: string | null;
   discountRate: number;
   showHst: boolean;
+  /** Why the discount was given, in the customer's words (2026-10-22); prints beside the Discount row. */
+  discountReason?: string | null;
   options: EditorOption[];
 };
 
@@ -524,22 +526,54 @@ export function revertLine(q: EditorQuote, optionId: string, lineId: string): Ed
   return updateLine(q, optionId, lineId, { unitPrice: null, costOverride: null });
 }
 
-export function setTerms(q: EditorQuote, patch: Partial<Pick<EditorQuote, "discountRate" | "showHst">>): EditorQuote {
+export function setTerms(q: EditorQuote, patch: Partial<Pick<EditorQuote, "discountRate" | "showHst" | "discountReason">>): EditorQuote {
   return { ...q, ...patch };
 }
 
 /**
- * "They accept this price" (Albert, 2026-10-22): set the quote's discount so that this option's
- * price before HST lands on the amount the customer agreed to. The discount is one per version,
- * so every option follows it; it is worked out from this option's list price. A price at or
- * above the list price means no discount; an option with nothing priced changes nothing.
+ * The private line the accepted price adds when it is above the list price (2026-10-22). Known by
+ * its words: rename it and it is an ordinary private line the accepted price no longer touches.
+ */
+export const PRICE_ADJUSTMENT = "Accepted price adjustment";
+
+const adjustmentOf = (o: EditorOption) => o.lines.find((l) => l.section === PRIVATE_SECTION && l.sourceKind === "manual" && l.description === PRICE_ADJUSTMENT);
+
+/** An option's list price before any discount and without the accepted-price adjustment, and that adjustment line. */
+function listPriceOf(q: EditorQuote, o: EditorOption): { base: number; adj: EditorLine | undefined } {
+  const adj = adjustmentOf(o);
+  return { base: round2(optionTotals(o.lines, 0, q.showHst).preDiscount - (adj ? (lineTotal(adj) ?? 0) : 0)), adj };
+}
+
+/**
+ * "They accept this price" (Albert, 2026-10-22): land this option's price before HST on the amount
+ * the customer agreed to. Below the list price that is the quote's discount, worked out from this
+ * option's list price; the discount is one per version, so every option follows it. Above the list
+ * price the difference goes in as a private line, "Accepted price adjustment", which the customer
+ * sees as the Private section's one row in Other, and the discount is cleared; the line is updated
+ * in place, and removed again when a price at or below the list is typed. An option with nothing
+ * priced changes nothing.
  */
 export function setAcceptedPrice(q: EditorQuote, optionId: string, acceptedPreTax: number | null): EditorQuote {
   const o = q.options.find((x) => x.id === optionId);
   if (!o || acceptedPreTax === null || !(acceptedPreTax >= 0)) return q;
-  const rate = impliedRate(optionTotals(o.lines, 0, q.showHst).preDiscount, acceptedPreTax);
-  if (rate === null) return q;
-  return setTerms(q, { discountRate: Math.max(0, rate) });
+  const { base, adj } = listPriceOf(q, o);
+  if (!(base > 0)) return q;
+  if (acceptedPreTax <= base) {
+    const without = adj ? removeLine(q, optionId, adj.id) : q;
+    return setTerms(without, { discountRate: Math.max(0, impliedRate(base, acceptedPreTax) ?? 0) });
+  }
+  const extra = round2(acceptedPreTax - base);
+  const patch = { uom: "flat", qty: 1, unitPrice: extra, include: true, costOverride: null, manualCost: null };
+  const withLine = adj ? updateLine(q, optionId, adj.id, patch) : addLine(q, optionId, { ...manualLine(PRIVATE_SECTION, PRICE_ADJUSTMENT), ...patch });
+  return setTerms(withLine, { discountRate: 0 });
+}
+
+/** A discount typed in dollars on an option (2026-10-22): the same as accepting the list price less that amount. */
+export function setDiscountAmount(q: EditorQuote, optionId: string, amount: number | null): EditorQuote {
+  const o = q.options.find((x) => x.id === optionId);
+  if (!o || amount === null || !(amount >= 0)) return q;
+  const { base } = listPriceOf(q, o);
+  return setAcceptedPrice(q, optionId, Math.max(0, round2(base - amount)));
 }
 
 /**
@@ -573,6 +607,7 @@ export function fromQuote(quote: Quote): EditorQuote {
     notionProjectUrl: quote.link?.notionProjectUrl ?? null,
     discountRate: quote.discountRate,
     showHst: quote.showHst,
+    discountReason: quote.discountReason ?? null,
     options: quote.options.map((o) => ({
       id: o.id,
       name: o.name,

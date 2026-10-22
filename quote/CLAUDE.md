@@ -214,8 +214,14 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   price, before HST** takes the amount the customer agreed to and sets the quote's discount so that
   option lands on it (`setAcceptedPrice()` in `src/lib/editor/model.ts`, tested). The discount is one
   per version (Quote Versions → Discount Rate), so every option follows it; it is worked out from the
-  option it was typed on. A price at or above the list price means no discount. Typing the discount
-  directly in **Discount %** still works. Nothing in Airtable changed.
+  option it was typed on. **Above the list price** (later the same day) the difference goes in as a
+  private line, "Accepted price adjustment", which the customer sees as the Private section's one row
+  in Other, and the discount is cleared; the line is updated in place and removed again when a price
+  at or below the list is typed (rename it and it is an ordinary private line). **$ off** beside the
+  box takes the discount in dollars (`setDiscountAmount()`), and **Discount %** in the terms still takes
+  a percent. **Discount reason** (Quote Versions → Discount Reason, 2026-10-22) is the customer's
+  words for why, printed beside the Discount row on the page and the PDF (`discountLabel()` in
+  `copy.ts`); it is part of the frozen copy and the save fingerprint.
 - **If they accept a price (Albert, 2026-10-22).** The Analysis tab opens with a card where staff type
   the pre-tax amount the customer agreed to, or a discount %, and see the discount it implies against
   the list price and the cost, profit and margin left, beside the quote as it stands. Analysis only:

@@ -82,6 +82,8 @@ export type CustomerCopy = {
   timing?: string | null;
   /** Fraction, e.g. 0.11. */
   discountRate: number;
+  /** Why, in the customer's words, beside the Discount row (2026-10-22); absent when none was given. */
+  discountReason?: string;
   showHst: boolean;
   company: Letterhead;
   options: CopyOption[];
@@ -182,6 +184,7 @@ export function customerCopy(quote: Quote, at: { sentOn: string; validUntil: str
     customer: { name, siteAddress: clean(quote.siteAddress), siteCity: clean(quote.siteCity) },
     ...(quote.link?.projectTiming ? { timing: quote.link.projectTiming } : {}),
     discountRate: quote.discountRate,
+    ...(clean(quote.discountReason) ? { discountReason: clean(quote.discountReason)! } : {}),
     showHst: quote.showHst,
     company: at.company,
     options: quote.options.map((o) => copyOption(o, quote.discountRate, quote.showHst)),
@@ -194,6 +197,10 @@ export function hstRow(copy: Pick<CustomerCopy, "showHst">, t: Pick<CopyTotals, 
   if (t.hst !== 0) return { label: "HST (13%) on materials", amount: t.hst };
   return { label: "HST", amount: null };
 }
+
+/** The Discount row's label: the rate, and the reason when one was given ("Discount (10%) · Fall promotion"). */
+export const discountLabel = (copy: Pick<CustomerCopy, "discountRate" | "discountReason">) =>
+  `Discount (${Math.round(copy.discountRate * 1000) / 10}%)${copy.discountReason ? ` · ${copy.discountReason}` : ""}`;
 
 /** Under an option's total: what it includes. */
 export const hstWord = (copy: Pick<CustomerCopy, "showHst">, t: Pick<CopyTotals, "hst">) =>

@@ -127,8 +127,10 @@ describe("saving a version", () => {
     const edited = original();
     edited.discountRate = 0.11;
     expect(planSave(original(), edited).version).toEqual({ [VERSION.discountRate]: 0.11 });
+    const reasoned = { ...original(), discountReason: "Fall promotion" };
+    expect(planSave(original(), reasoned).version).toEqual({ [VERSION.discountReason]: "Fall promotion" });
     const fresh = planSave(null, original());
-    expect(fresh.version).toEqual({ [VERSION.discountRate]: 0.1, [VERSION.showHst]: true });
+    expect(fresh.version).toEqual({ [VERSION.discountRate]: 0.1, [VERSION.showHst]: true, [VERSION.discountReason]: null });
     expect(fresh.createOptions).toHaveLength(2);
     expect(fresh.createLines).toHaveLength(2);
     expect(fresh.updateLines).toEqual([]);

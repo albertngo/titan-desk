@@ -1,5 +1,5 @@
 import { money, rate } from "@/lib/format";
-import { hstRow, hstWord, itemHstNote, longDate, type CopyItem, type CopyOption, type CopyState, type CopyText, type CustomerCopy } from "@/lib/send/copy";
+import { discountLabel, hstRow, hstWord, itemHstNote, longDate, type CopyItem, type CopyOption, type CopyState, type CopyText, type CustomerCopy } from "@/lib/send/copy";
 
 /**
  * The quote as the customer sees it, drawn from the frozen customer copy only. Used by the
@@ -59,7 +59,7 @@ function Totals({ o, copy }: { o: CopyOption; copy: CustomerCopy }) {
         {t.discount !== 0 && (
           <>
             <div><dt>Subtotal before discount</dt><dd>{money(t.preDiscount)}</dd></div>
-            <div className="disc"><dt>Discount ({Math.round(copy.discountRate * 1000) / 10}%)</dt><dd>{money(t.discount)}</dd></div>
+            <div className="disc"><dt>{discountLabel(copy)}</dt><dd>{money(t.discount)}</dd></div>
           </>
         )}
         <div><dt>Subtotal</dt><dd>{money(t.subtotal)}</dd></div>
