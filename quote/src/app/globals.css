@@ -55,6 +55,10 @@ h1, h2, h3, p { margin: 0; }
 .layout.full { grid-template-columns: minmax(0, 1fr); }
 .stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; }
 @media (max-width: 980px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+/* On a wide screen the right column (Financials, Send) follows the scroll (Albert, 2026-10-22); taller than the window, it scrolls itself. */
+@media (min-width: 981px) {
+  .layout > .stack:nth-child(2) { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow: auto; overscroll-behavior: contain; align-content: start; }
+}
 
 /* ---------- cards ---------- */
 .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); min-width: 0; }
