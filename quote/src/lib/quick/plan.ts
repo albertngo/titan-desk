@@ -89,17 +89,7 @@ export function choiceRate(c: QuickChoice, product: QuickProduct | null = null):
 export type QuickRow = { choiceId: string; amount: number | null; productId: string | null };
 /** One staircase: which Stair Profiles row, and a different price only when staff typed one. */
 export type StairWork = { profileId: string; price: number | null };
-/**
- * An item typed by hand on the preliminary (Albert, 2026-10-22): what it is, how much, what it is
- * priced per, the price and, when known, the cost, each per unit. It becomes a hand-typed line
- * in the Other section, the same as "Add a line" in the editor.
- */
-export type QuickManual = { description: string; qty: number | null; uom: ManualUom; rate: number | null; cost: number | null };
-export const MANUAL_UOMS = ["sqft", "linear ft", "each", "flat"] as const;
-export type ManualUom = (typeof MANUAL_UOMS)[number];
-/** Up to this many typed items on one preliminary. */
-export const MANUAL_ROWS = 10;
-export type QuickWork = { rows: QuickRow[]; stairs: StairWork[]; manual: QuickManual[]; extraCost: number | null; description: string; building: string | null };
+export type QuickWork = { rows: QuickRow[]; stairs: StairWork[]; extraCost: number | null; description: string; building: string | null };
 
 /** A Stair Profiles row as the form needs it. The browser gets these with `cost` null. */
 export type QuickProfile = Pick<StairProfileRow, "id" | "name" | "type" | "method" | "steps" | "price" | "cost">;
@@ -124,18 +114,10 @@ export function parseWork(raw: unknown): QuickWork {
     return typeof o.profileId === "string" && REC.test(o.profileId) ? [{ profileId: o.profileId, price: amountOf(o.price) }] : [];
   });
   const building = typeof r.building === "string" && (BUILDINGS as readonly string[]).includes(r.building) ? r.building : null;
-  // A typed item needs words; its numbers are kept only when positive, and its unit only when it is one we price per.
-  const manual = (Array.isArray(r.manual) ? r.manual : []).slice(0, MANUAL_ROWS).flatMap((x): QuickManual[] => {
-    const o = (x && typeof x === "object" ? x : {}) as Record<string, unknown>;
-    const description = typeof o.description === "string" ? o.description.trim().slice(0, 200) : "";
-    if (!description) return [];
-    const uom = typeof o.uom === "string" && (MANUAL_UOMS as readonly string[]).includes(o.uom) ? (o.uom as ManualUom) : "each";
-    return [{ description, qty: amountOf(o.qty), uom, rate: amountOf(o.rate), cost: amountOf(o.cost) }];
-  });
-  return { rows, stairs, manual, extraCost: amountOf(r.extraCost), description: typeof r.description === "string" ? r.description.trim().slice(0, 2000) : "", building };
+  return { rows, stairs, extraCost: amountOf(r.extraCost), description: typeof r.description === "string" ? r.description.trim().slice(0, 2000) : "", building };
 }
 
-export const workIsEmpty = (w: QuickWork) => w.rows.length === 0 && w.stairs.length === 0 && w.manual.length === 0 && w.extraCost === null;
+export const workIsEmpty = (w: QuickWork) => w.rows.length === 0 && w.stairs.length === 0 && w.extraCost === null;
 
 // ---------- the lines it becomes ----------
 
@@ -242,48 +224,18 @@ export function buildPreliminary(choices: QuickChoice[], work: QuickWork, produc
     }
     lines.push(profileLine(p, s.price));
   }
-  for (const m of work.manual) {
-    const flat = m.uom === "flat";
-    if (m.rate === null || (!flat && m.qty === null)) {
-      skipped.push(`${m.description} (${m.rate === null ? "no price" : "no amount"})`);
-      continue;
-    }
-    lines.push(manualItemLine(m));
-  }
   if (work.extraCost !== null) {
     lines.push({ ...blank("Other"), sourceKind: "manual", description: "Additional work", uom: "flat", qty: 1, unitPrice: work.extraCost });
   }
   return { lines, skipped };
 }
 
-/** A typed item as a line: a hand-typed price (and cost) per unit, a flat one counted once, in the Other section. */
-function manualItemLine(m: QuickManual): EditorLine {
-  const flat = m.uom === "flat";
-  return {
-    ...blank("Other"),
-    sourceKind: "manual",
-    description: m.description,
-    uom: m.uom,
-    qty: flat ? 1 : m.qty,
-    unitPrice: m.rate,
-    costOverride: m.cost,
-  };
-}
-
-const EMPTY_WORK: Omit<QuickWork, "rows" | "manual"> = { stairs: [], extraCost: null, description: "", building: null };
-
 /**
  * One row's total for the column beside it, priced the same way the quote will be (so minimum
  * charges count), before discount and HST. Null when the row can't be priced yet.
  */
 export function rowTotal(choices: QuickChoice[], row: QuickRow, products: Map<string, QuickProduct>): number | null {
-  const { lines } = buildPreliminary(choices, { ...EMPTY_WORK, rows: [row], manual: [] }, products);
-  return lines.length === 0 ? null : optionTotals(lines, 0, false).preDiscount;
-}
-
-/** One typed item's total beside it, or null until it has what it needs. */
-export function manualTotal(m: QuickManual): number | null {
-  const { lines } = buildPreliminary([], { ...EMPTY_WORK, rows: [], manual: [m] }, new Map());
+  const { lines } = buildPreliminary(choices, { rows: [row], stairs: [], extraCost: null, description: "", building: null }, products);
   return lines.length === 0 ? null : optionTotals(lines, 0, false).preDiscount;
 }
 

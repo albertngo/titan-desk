@@ -4,25 +4,22 @@ import { useMemo, useState, useTransition } from "react";
 import { searchProductsAction } from "@/app/new/actions";
 import { optionTotals } from "@/lib/calc";
 import { money } from "@/lib/format";
-import { amountUnit, baseboardDefault, baseboardFollow, BUILDINGS, buildPreliminary, choiceRate, GROUP_ROWS, MANUAL_ROWS, MANUAL_UOMS, manualTotal, parseWork, QUICK_GROUPS, rowTotal, stairTotal, type ManualUom, type QuickChoice, type QuickGroup, type QuickProduct, type QuickProfile } from "@/lib/quick/plan";
+import { amountUnit, baseboardDefault, baseboardFollow, BUILDINGS, buildPreliminary, choiceRate, GROUP_ROWS, parseWork, QUICK_GROUPS, rowTotal, stairTotal, type QuickChoice, type QuickGroup, type QuickProduct, type QuickProfile } from "@/lib/quick/plan";
 import { METHOD_PHRASE, modifierFor, STAIR_ROWS } from "@/lib/quick/stairs";
 
 export type PickedProduct = Pick<QuickProduct, "recordId" | "sku" | "name" | "rate">;
 export type WorkRow = { key: string; group: QuickGroup; choiceId: string; amount: string; product: PickedProduct | null };
 /** One staircase on the form: the Stair Profiles row picked, and a different price only if typed. */
 export type StairRowState = { key: string; profileId: string; price: string };
-/** One item typed by hand (2026-10-22): words, amount, what it is priced per, price and cost per unit, as typed. */
-export type ManualRowState = { key: string; description: string; qty: string; uom: ManualUom; rate: string; cost: string };
-export type WorkState = { rows: WorkRow[]; stairs: StairRowState[]; manual: ManualRowState[]; extraCost: string; description: string; building: string };
+export type WorkState = { rows: WorkRow[]; stairs: StairRowState[]; extraCost: string; description: string; building: string };
 
 let n = 0;
 const newRow = (group: QuickGroup): WorkRow => ({ key: `r${++n}`, group, choiceId: "", amount: "", product: null });
 const newStair = (): StairRowState => ({ key: `s${++n}`, profileId: "", price: "" });
-const newManual = (): ManualRowState => ({ key: `m${++n}`, description: "", qty: "", uom: "sqft", rate: "", cost: "" });
 
 export function initialWork(choices: QuickChoice[]): WorkState {
   const groups = QUICK_GROUPS.filter((g) => choices.some((c) => c.group === g));
-  return { rows: groups.map(newRow), stairs: [], manual: [], extraCost: "", description: "", building: "" };
+  return { rows: groups.map(newRow), stairs: [], extraCost: "", description: "", building: "" };
 }
 
 const toNumber = (s: string) => {
@@ -35,7 +32,6 @@ export function workInput(w: WorkState) {
   return {
     rows: w.rows.filter((r) => r.choiceId).map((r) => ({ choiceId: r.choiceId, amount: toNumber(r.amount), productId: r.product?.recordId ?? null })),
     stairs: w.stairs.filter((s) => s.profileId).map((s) => ({ profileId: s.profileId, price: toNumber(s.price) })),
-    manual: w.manual.filter((m) => m.description.trim()).map((m) => ({ description: m.description.trim(), qty: toNumber(m.qty), uom: m.uom, rate: toNumber(m.rate), cost: toNumber(m.cost) })),
     extraCost: toNumber(w.extraCost),
     description: w.description,
     building: w.building || null,
@@ -123,14 +119,6 @@ export function QuickWork({ choices, profiles, value, onChange }: { choices: Qui
     setRows(rows);
   };
   const setStair = (key: string, patch: Partial<StairRowState>) => set({ stairs: value.stairs.map((s) => (s.key === key ? { ...s, ...patch } : s)) });
-  const setManual = (key: string, patch: Partial<ManualRowState>) => set({ manual: value.manual.map((m) => (m.key === key ? { ...m, ...patch } : m)) });
-  const manualSummary = value.manual
-    .filter((m) => m.description.trim())
-    .map((m) => {
-      const total = manualTotal({ description: m.description.trim(), qty: toNumber(m.qty), uom: m.uom, rate: toNumber(m.rate), cost: toNumber(m.cost) });
-      return `${m.description.trim()}${total !== null ? ` · ${money(total)}` : ""}`;
-    })
-    .join(" · ");
 
   // The first Install row with a square footage: Remove and Material rows can take it in one tap.
   const installSqft = value.rows.find((r) => r.group === "Install" && r.choiceId && toNumber(r.amount) !== null)?.amount ?? null;
@@ -287,54 +275,6 @@ export function QuickWork({ choices, profiles, value, onChange }: { choices: Qui
         {profiles.length > 0 && value.stairs.length < STAIR_ROWS && (
           <button type="button" className="linkbtn qw-add" onClick={() => set({ stairs: [...value.stairs, newStair()] })}>
             + {value.stairs.length === 0 ? "Add a staircase" : "Another staircase"}
-          </button>
-        )}
-      </section>
-
-      <section className="qw-part" aria-labelledby="qw-manual">
-        <h3 className="qw-part-h" id="qw-manual">
-          Typed items
-          <span className={`qw-wg-sum${manualSummary ? "" : " faint"}`}>{manualSummary || "Nothing typed"}</span>
-        </h3>
-        {value.manual.map((m, i) => {
-          const total = manualTotal({ description: m.description.trim() || "item", qty: toNumber(m.qty), uom: m.uom, rate: toNumber(m.rate), cost: toNumber(m.cost) });
-          const flat = m.uom === "flat";
-          return (
-            <div key={m.key} className="qw-stair qw-item">
-              <div className="qw-stair-h">
-                <span className="nm">Item {i + 1}</span>
-                <button type="button" className="iconbtn danger qw-x" aria-label={`Remove item ${i + 1}`} onClick={() => set({ manual: value.manual.filter((x) => x.key !== m.key) })}>
-                  ✕
-                </button>
-              </div>
-              <input className="in" placeholder="What it is, as the customer will read it" aria-label={`Item ${i + 1} description`} value={m.description} onChange={(e) => setManual(m.key, { description: e.target.value })} />
-              <Chips label={`Item ${i + 1} priced per`} options={MANUAL_UOMS} value={m.uom} onChange={(v) => setManual(m.key, { uom: v as ManualUom })} />
-              <div className="qw-amt-row">
-                {!flat && (
-                  <label className="qw-amt">
-                    <input className="in" inputMode="decimal" placeholder="0" aria-label={`Item ${i + 1} amount in ${UNIT_LABEL[m.uom as keyof typeof UNIT_LABEL] ?? m.uom}`} value={m.qty} onChange={(e) => setManual(m.key, { qty: e.target.value })} />
-                    <span>{UNIT_LABEL[m.uom as keyof typeof UNIT_LABEL] ?? m.uom}</span>
-                  </label>
-                )}
-                <label className="qw-amt">
-                  <input className="in" inputMode="decimal" placeholder="0" aria-label={`Item ${i + 1} price${flat ? "" : " per unit"}`} value={m.rate} onChange={(e) => setManual(m.key, { rate: e.target.value })} />
-                  <span>{flat ? "$ flat" : "$ price"}</span>
-                </label>
-                <label className="qw-amt">
-                  <input className="in" inputMode="decimal" placeholder="0" aria-label={`Item ${i + 1} cost${flat ? "" : " per unit"}, optional`} value={m.cost} onChange={(e) => setManual(m.key, { cost: e.target.value })} />
-                  <span>$ cost</span>
-                </label>
-                <span className="qw-price" aria-label={`Item ${i + 1} total`}>
-                  <span className="qw-rate">{m.cost.trim() ? "cost typed" : "no cost yet"}</span>
-                  <b>{total === null ? "—" : money(total)}</b>
-                </span>
-              </div>
-            </div>
-          );
-        })}
-        {value.manual.length < MANUAL_ROWS && (
-          <button type="button" className="linkbtn qw-add" onClick={() => set({ manual: [...value.manual, newManual()] })}>
-            + {value.manual.length === 0 ? "Add an item by hand" : "Another item"}
           </button>
         )}
       </section>
