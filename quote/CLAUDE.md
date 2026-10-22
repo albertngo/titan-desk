@@ -88,7 +88,10 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   (`src/components/QuickWork.tsx`). The flooring choices are
   rows in the Airtable table **Quick Quote Choices** (`QUICK_TABLE`), each pointing at Rate Card
   rows or, for materials, a standard catalogue **SKU** (text, not a link, so the catalogue's
-  schema and its drift check are untouched); staff can pick a different SKU. Prices are never
+  schema and its drift check are untouched); staff can pick a different SKU. A material choice is
+  priced from its product; a Rate Card row linked beside it is a fallback for when it has no
+  product, never a requirement (2026-10-22: the eight Material choices had vanished because each
+  also linked an inactive Material row). Prices are never
   stored on a choice and never taken from the browser: the server re-prices from Airtable at
   create time. A choice whose linked row is inactive or unpriced is left off the form. Rules:
   `src/lib/quick/plan.ts`, tested in `tests/quick.test.ts`.

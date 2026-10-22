@@ -13,7 +13,9 @@ const STD: QuickProduct = { recordId: "recProdStd00000AA", sku: "STD-1", name: "
 const OTHER: QuickProduct = { recordId: "recProdOther000AA", sku: "OTH-9", name: "Other plank", rate: 5, cost: 3 };
 const MAT = choice({ id: "recMat0000000000A", group: "Material", label: "Vinyl click", product: STD });
 const MAT_UNSET = choice({ id: "recMatUnset00000A", group: "Material", label: "Tiles", product: null });
-const choices = [NAIL, NAIL_GLUE, BINS, MAT, MAT_UNSET];
+/** A material with no product, priced from a Material row on the Rate Card instead (2026-10-22). */
+const MAT_ROW = choice({ id: "recMatRow0000000A", group: "Material", label: "Cork", product: null, parts: [part({ recordId: "recRateCork0000AA", labourType: "Material", spec: "Cork", description: "Material | Cork", rate: 1.8, cost: 1.4 })] });
+const choices = [NAIL, NAIL_GLUE, BINS, MAT, MAT_UNSET, MAT_ROW];
 
 describe("quick form: what the browser sends", () => {
   it("keeps only choice ids and positive amounts, never a price", () => {
@@ -42,6 +44,16 @@ describe("quick form: the lines it becomes", () => {
     expect([std.sourceKind, std.sourceId, std.qty, std.unitPriceSnap, std.section]).toEqual(["product", STD.recordId, 300, 3, "Materials"]);
     const picked = buildPreliminary(choices, parseWork({ rows: [{ choiceId: MAT.id, amount: 300, productId: OTHER.recordId }] }), new Map([[OTHER.recordId, OTHER]])).lines[0];
     expect([picked.sourceId, picked.unitPriceSnap]).toEqual([OTHER.recordId, 5]);
+  });
+
+  it("prices a material with no product from the Material rate card row behind it, until a product is picked (2026-10-22)", () => {
+    const row = buildPreliminary(choices, parseWork({ rows: [{ choiceId: MAT_ROW.id, amount: 100 }] }), new Map()).lines[0];
+    expect([row.sourceKind, row.sourceId, row.qty, row.unitPriceSnap, row.unitCostSnap, row.section]).toEqual(["rate", "recRateCork0000AA", 100, 1.8, 1.4, "Materials"]);
+    expect(choiceRate(MAT_ROW)).toEqual({ perUnit: 1.8, flat: 0 });
+    expect(rowTotal(choices, { choiceId: MAT_ROW.id, amount: 100, productId: null }, new Map())).toBe(180);
+    const picked = buildPreliminary(choices, parseWork({ rows: [{ choiceId: MAT_ROW.id, amount: 100, productId: OTHER.recordId }] }), new Map([[OTHER.recordId, OTHER]])).lines[0];
+    expect([picked.sourceKind, picked.sourceId, picked.unitPriceSnap]).toEqual(["product", OTHER.recordId, 5]);
+    expect(buildPreliminary(choices, parseWork({ rows: [{ choiceId: MAT_ROW.id }] }), new Map()).skipped).toEqual(["Cork (no amount)"]);
   });
 
   it("skips and names what it can't price, and adds the extra cost as its own line", () => {

@@ -202,7 +202,7 @@ export function QuickWork({ choices, profiles, value, onChange }: { choices: Qui
                           )}
                         </div>
                       )}
-                      {g === "Material" && c && <ProductPick row={r} standard={c.product} onPick={(p) => setRow(r.key, { product: p })} />}
+                      {g === "Material" && c && <ProductPick row={r} standard={c.product} fallback={c.parts.length > 0 ? "allowance from the rate card" : "none set"} onPick={(p) => setRow(r.key, { product: p })} />}
                     </div>
                   );
                 })}
@@ -343,7 +343,7 @@ function Chips({ label, options, value, onChange, allowNone = false }: { label: 
 }
 
 /** A material row's product: the standard one, or one staff search for by SKU or name. */
-function ProductPick({ row, standard, onPick }: { row: WorkRow; standard: QuickProduct | null; onPick: (p: PickedProduct | null) => void }) {
+function ProductPick({ row, standard, fallback, onPick }: { row: WorkRow; standard: QuickProduct | null; fallback: string; onPick: (p: PickedProduct | null) => void }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [found, setFound] = useState<PickedProduct[] | null>(null);
@@ -359,7 +359,7 @@ function ProductPick({ row, standard, onPick }: { row: WorkRow; standard: QuickP
   return (
     <div className="qw-prod">
       <span className="mt">
-        {row.product ? "Chosen" : "Standard"}: {shown ? `${shown.name}${shown.sku ? ` (${shown.sku})` : ""} · ${money(shown.rate)}/sq ft` : "none set"}
+        {row.product ? "Chosen" : "Standard"}: {shown ? `${shown.name}${shown.sku ? ` (${shown.sku})` : ""} · ${money(shown.rate)}/sq ft` : fallback}
       </span>
       <button type="button" className="linkbtn" onClick={() => setOpen(!open)} aria-expanded={open}>
         {open ? "Close" : "Choose a specific product"}

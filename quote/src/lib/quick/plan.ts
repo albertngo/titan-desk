@@ -75,7 +75,8 @@ export function amountUnit(c: QuickChoice): "sqft" | "linear ft" | "pieces" | nu
 export function choiceRate(c: QuickChoice, product: QuickProduct | null = null): { perUnit: number | null; flat: number } {
   if (c.group === "Material") {
     const p = product ?? c.product;
-    return { perUnit: p ? p.rate : null, flat: 0 };
+    if (p) return { perUnit: p.rate, flat: 0 };
+    // No product: the Material Rate Card row behind the choice prices it (2026-10-22), below.
   }
   const perUnitParts = c.parts.filter((p) => !isFlat(p.uom));
   const perUnit = perUnitParts.length ? round2(perUnitParts.reduce((s, p) => s + p.rate, 0)) : null;
@@ -168,22 +169,29 @@ export function buildPreliminary(choices: QuickChoice[], work: QuickWork, produc
     const section = GROUP_SECTION[c.group];
     if (c.group === "Material") {
       const p = (row.productId ? products.get(row.productId) : null) ?? c.product;
-      if (!p || row.amount === null) {
-        skipped.push(`${c.label} (${!p ? "no product" : "no square footage"})`);
+      if (p) {
+        if (row.amount === null) {
+          skipped.push(`${c.label} (no square footage)`);
+          continue;
+        }
+        lines.push({
+          ...blank(section),
+          sourceKind: "product",
+          sourceId: p.recordId,
+          description: `${p.name}${p.sku ? ` (${p.sku})` : ""}`,
+          uom: "sqft",
+          qty: row.amount,
+          unitPriceSnap: p.rate,
+          unitCostSnap: p.cost,
+          hasSource: true,
+        });
         continue;
       }
-      lines.push({
-        ...blank(section),
-        sourceKind: "product",
-        sourceId: p.recordId,
-        description: `${p.name}${p.sku ? ` (${p.sku})` : ""}`,
-        uom: "sqft",
-        qty: row.amount,
-        unitPriceSnap: p.rate,
-        unitCostSnap: p.cost,
-        hasSource: true,
-      });
-      continue;
+      if (c.parts.length === 0) {
+        skipped.push(`${c.label} (no product)`);
+        continue;
+      }
+      // No product set: the Material Rate Card row behind the choice prices it, like any other row (2026-10-22).
     }
     const needsAmount = c.parts.some((p) => !isFlat(p.uom));
     if (c.parts.length === 0 || (needsAmount && row.amount === null)) {
