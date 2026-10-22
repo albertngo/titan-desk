@@ -682,3 +682,14 @@ a.chip.accent:hover { text-decoration: underline; }
 .conv-light { position: fixed; }
 .conv-light-bar b { color: var(--fg); font-weight: 600; }
 @media (pointer: coarse) { .conv-nav { width: 40px; height: 56px; } }
+
+/* New quote on a wide screen (Albert, 2026-10-22): the conversation card moves beside the form,
+   into the empty right column, and stays in view while the job is priced. Below 1200px it keeps
+   its place in the flow, under the customer. The DOM order never changes. */
+@media (min-width: 1200px) {
+  .newq { display: grid; grid-template-columns: minmax(0, 880px) minmax(320px, 1fr); column-gap: 24px; align-items: start; }
+  .newq > * { grid-column: 1; min-width: 0; }
+  .newq > .pagehead { grid-column: 1 / -1; }
+  .newq > .conv { grid-column: 2; grid-row: 2 / span 8; max-width: 480px; margin-bottom: 0; position: sticky; top: 12px; }
+  .newq > .conv .conv-b { max-height: calc(100vh - 80px); overflow: auto; overscroll-behavior: contain; }
+}

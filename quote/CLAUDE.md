@@ -176,7 +176,8 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   **drawer docked to the right edge**: a tab with the message and photo counts, a click opens a
   panel beside the quote (a wide screen makes room for it, a narrow one is slid over; remembered
   per device; Escape closes). On New quote it is a **card** under the customer once one is picked,
-  open. Same content: their texts, emails and chats, our replies and sent quotes, and every photo
+  open; on a wide screen (1200px and up, 2026-10-22) that card sits in a right-hand column beside
+  the form and stays in view while the job is priced, by CSS only (`.newq` grid in `globals.css`). Same content: their texts, emails and chats, our replies and sent quotes, and every photo
   they sent in a strip at the top, so a quote is priced from what the customer actually said. Read live
   from GHL each time (`src/lib/quotes/conversation.ts`, a quoter only; the pure reading of GHL's
   message list is `src/lib/conversation/thread.ts`, tested in `tests/conversation.test.ts`),
