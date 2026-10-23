@@ -1,6 +1,6 @@
 import { optionTotals, parityDiffs } from "@/lib/calc";
 import type { Quote } from "@/lib/quotes/types";
-import { addDays, isIsoDate, longDate, type CopyOption, type CustomerCopy } from "./copy";
+import { addDays, hstWord, isIsoDate, longDate, type CopyOption, type CustomerCopy } from "./copy";
 import { copyKind, flooringSummary, kindPhrase } from "./summary";
 
 /**
@@ -54,8 +54,33 @@ export function sendProblems(quote: Quote, input: SendInput, ctx: { today: strin
 /* ---------- the messages ---------- */
 
 export type GhlMessage =
-  | { type: "Email"; contactId: string; subject: string; html: string; attachments: string[] }
+  | { type: "Email"; contactId: string; subject: string; html: string; attachments: string[]; emailFrom?: string }
   | { type: "SMS"; contactId: string; message: string };
+
+/**
+ * Who the message comes from (2026-10-22, Albert: "the quote is sent out from the email logged into
+ * the app"). `email` is the signed-in quoter's address; `firstName` signs the text and makes the
+ * From name ("Albert @ Titan Flooring", the convention GHL's own emails already use). Null = the
+ * location's default sender, which GHL uses when no `emailFrom` is given.
+ */
+export type Sender = { email: string; firstName: string | null };
+
+/**
+ * The From line for GHL's `emailFrom`. The quoter's address is used only on the company's own
+ * domain (the letterhead email's), because GHL can send only from a domain it has verified; a
+ * quoter signed in with any other address falls back to the location default. `named` puts the
+ * display name in front; the send tries that first and the bare address second (plan: send.ts).
+ */
+export function emailFromFor(sender: Sender | null, companyEmail: string | null, named: boolean): string | null {
+  if (!sender) return null;
+  const domain = (e: string) => e.trim().toLowerCase().split("@")[1] ?? "";
+  if (companyEmail && domain(companyEmail) && domain(sender.email) !== domain(companyEmail)) return null;
+  const address = sender.email.trim().toLowerCase();
+  if (!/^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(address)) return null;
+  return named && sender.firstName ? `${sender.firstName} @ ${COMPANY} <${address}>` : address;
+}
+
+const COMPANY = "Titan Flooring";
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 const cad = new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" });
@@ -66,73 +91,271 @@ export function greetingName(first: string | null | undefined): string | null {
   return f && /^[\p{L}][\p{L}'’-]*$/u.test(f) ? f : null;
 }
 
-/**
- * "What's included" for one option: the flooring summary lines, then the option's own description
- * (the stair description's bullets become list items; other lines, paragraphs), then the timing.
+/*
+ * The email's look (2026-10-22, Albert: recreate the GHL "Rough quote is ready" template and
+ * improve on it). What it keeps from that template: the cream header band with the logo, the dark
+ * ink, the shape a customer already knows (greeting, what's included, the total, one button, next
+ * steps, footer). What changed: the page is warm paper instead of pale blue, the logo is letterhead
+ * size instead of column width, a serif headline in a plain sentence replaces the emoji greeting,
+ * small blue eyebrows replace underlined titles, the summary is a left-aligned card with the total
+ * set large, the button is a pill, and the carousel, click tracking and unsubscribe line are gone
+ * (a quote is transactional). The accent is the logo's own blue, not the template's terracotta,
+ * so the email, the customer page and the PDF read as one brand. Email-safe: tables, inline
+ * styles, a 600px column that collapses under 620px, no web fonts (Gmail and Outlook ignore
+ * them; Georgia and the system sans stack are what every client has).
  */
-function includedHtml(o: CopyOption, copy: CustomerCopy, several: boolean): string {
-  const items = flooringSummary(o).map((l) => `<li>${esc(l)}</li>`);
-  const paras: string[] = [];
-  for (const raw of (o.description ?? "").split("\n")) {
-    const l = raw.trim();
-    if (!l) continue;
-    if (l.startsWith("* ")) items.push(`<li>${esc(l.slice(2))}</li>`);
-    else paras.push(`<p style="margin:6px 0">${esc(l)}</p>`);
-  }
-  if (copy.timing) items.push(`<li>Timing: ${esc(copy.timing)}</li>`);
-  if (items.length === 0 && paras.length === 0) return "";
-  return [
-    several ? `<p style="margin:14px 0 4px"><b>${esc(o.name)}</b></p>` : `<p style="margin:14px 0 4px"><b>What's included</b></p>`,
-    items.length ? `<ul style="margin:0 0 6px;padding-left:20px">${items.join("")}</ul>` : "",
-    ...paras,
-  ].join("");
+const C = {
+  page: "#efe9df",
+  cream: "#f3f1e7",
+  card: "#ffffff",
+  ink: "#2b2a27",
+  body: "#4a4742",
+  muted: "#85807a",
+  faint: "#a39d95",
+  hair: "#e4ddd0",
+  wash: "#f8f5ef",
+  accent: "#283890",
+  accentDeep: "#1f2d75",
+} as const;
+const SERIF = "Georgia, 'Times New Roman', serif";
+const SANS = "-apple-system, 'Segoe UI', 'Helvetica Neue', sans-serif";
+
+const row = (inner: string, pad = "0 40px") => `<tr><td class="pad" style="padding:${pad};">${inner}</td></tr>`;
+const eyebrow = (text: string) =>
+  `<p style="margin:0 0 8px;font-family:${SANS};font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:${C.accent};font-weight:600;">${text}</p>`;
+const para = (text: string, size = 16, color: string = C.body, margin = "0 0 16px", extra = "") =>
+  `<p style="margin:${margin};font-family:${SANS};font-size:${size}px;line-height:1.6;color:${color};${extra}">${text}</p>`;
+const hairline = (pad = "28px 40px") => row(`<div style="height:1px;line-height:1px;font-size:1px;background:${C.hair};">&nbsp;</div>`, pad);
+
+function button(label: string, href: string, primary = true): string {
+  const bg = primary ? C.accent : C.card;
+  const fg = primary ? "#ffffff" : C.ink;
+  const ring = primary ? "" : `box-shadow:inset 0 0 0 1px ${C.hair};`;
+  return (
+    `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;border-collapse:separate;">` +
+    `<tr><td align="center" bgcolor="${bg}" style="border-radius:999px;${ring}mso-padding-alt:14px 28px;">` +
+    `<a href="${esc(href)}" style="display:inline-block;padding:14px 28px;font-family:${SANS};font-size:15px;font-weight:600;letter-spacing:.01em;color:${fg};text-decoration:none;border-radius:999px;">${label}&nbsp;&nbsp;&rarr;</a>` +
+    `</td></tr></table>`
+  );
 }
 
-export function emailMessage(copy: CustomerCopy, to: { contactId: string; firstName: string | null; link: string; pdfUrl: string }): GhlMessage {
+/** One option as a card in a cream tray: its name, what it includes with quantities, and the total set large. */
+function optionCard(o: CopyOption, copy: CustomerCopy, several: boolean): string {
+  const items: string[] = [];
+  const cell = (text: string, right = false) =>
+    `<td${right ? ' align="right"' : ""} style="padding:11px 0;border-bottom:1px solid ${C.hair};font-family:${SANS};font-size:${right ? 14 : 15}px;color:${right ? C.muted : C.body};${right ? "white-space:nowrap;" : ""}">${text}</td>`;
+  for (const line of flooringSummary(o)) {
+    const [label, rest] = line.split(/:\s(.*)/s);
+    if (!rest) continue;
+    if (/^Total /.test(label)) continue;
+    // "Carpet removal · 200 sq ft; Tile removal · 50 sq ft" → one row per item, quantity on the right.
+    for (const item of rest.split("; ")) {
+      const [what, qty] = item.split(" · ");
+      // "Removal · Remove existing laminate" says it twice: when the line already opens with the work, show it alone.
+      const stem = label.toLowerCase().replace(/al$/, "");
+      const dup = what.toLowerCase().startsWith(stem) || (label === "Subfloor prep" && /^subfloor/i.test(what));
+      const amount = qty ? esc(qty.replace(/^\d+(?:\.\d+)?/, (n) => Number(n).toLocaleString("en-CA"))) : "included";
+      items.push(`<tr>${cell(dup ? esc(what) : `${esc(label)} &middot; ${esc(what)}`)}${cell(amount, true)}</tr>`);
+    }
+  }
+  const stairs = o.sections.find((s) => s.name === "Stairs");
+  const UNIT: Record<string, string> = { sqft: "sq ft", "linear ft": "lin ft", piece: "pcs", each: "each" };
+  for (const l of stairs?.lines ?? []) {
+    if (l.kind !== "item" || l.optional) continue;
+    const unit = l.uom ? UNIT[l.uom] : undefined;
+    items.push(`<tr>${cell(`Stairs &middot; ${esc(l.description)}`)}${cell(unit && l.qty ? `${esc(String(l.qty))} ${unit}` : "included", true)}</tr>`);
+  }
+  for (const raw of (o.description ?? "").split("\n")) {
+    const t = raw.trim();
+    if (t.startsWith("* ")) items.push(`<tr>${cell(esc(t.slice(2)))}${cell("", true)}</tr>`);
+  }
+  if (copy.timing) items.push(`<tr>${cell("Timing")}${cell(esc(copy.timing), true)}</tr>`);
+  const prelim = copy.basis === "Preliminary";
+  const badge = o.recommended && several ? `<span style="display:inline-block;padding:4px 10px;border-radius:999px;background:${C.cream};font-family:${SANS};font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:${C.accentDeep};font-weight:600;">Recommended</span>` : "";
+  const title = several ? esc(o.name) : prelim ? "What&rsquo;s included" : "Your quote";
+  const totalLabel = prelim ? "Rough total" : "Total";
+  const note = hstWord(copy, o.totals);
+  return (
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.wash};border-radius:18px;"><tr><td style="padding:8px;">` +
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.card};border:1px solid ${C.hair};border-radius:12px;">` +
+    `<tr><td style="padding:22px 24px 6px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>` +
+    `<td style="font-family:${SERIF};font-size:20px;color:${C.ink};">${title}</td>${badge ? `<td align="right">${badge}</td>` : ""}</tr></table></td></tr>` +
+    (items.length ? `<tr><td style="padding:0 24px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${items.join("")}</table></td></tr>` : "") +
+    `<tr><td style="padding:18px 24px 22px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>` +
+    `<td style="font-family:${SANS};font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:${C.muted};">${totalLabel}<br><span style="font-size:12px;letter-spacing:0;text-transform:none;">${esc(note)}</span></td>` +
+    `<td align="right" class="total" style="font-family:${SERIF};font-size:30px;color:${C.ink};white-space:nowrap;">${cad.format(o.totals.total)}</td>` +
+    `</tr></table></td></tr></table></td></tr></table>`
+  );
+}
+
+function steps(items: [string, string][]): string {
+  return (
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">` +
+    items
+      .map(
+        ([title, text], i) =>
+          `<tr><td valign="top" width="40" style="padding:0 16px 18px 0;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>` +
+          `<td align="center" width="32" height="32" bgcolor="${C.cream}" style="border-radius:999px;font-family:${SERIF};font-size:15px;color:${C.accentDeep};line-height:32px;">${i + 1}</td></tr></table></td>` +
+          `<td valign="top" style="padding:0 0 18px;"><p style="margin:0 0 2px;font-family:${SANS};font-size:15px;font-weight:600;color:${C.ink};">${title}</p>` +
+          `<p style="margin:0;font-family:${SANS};font-size:14px;line-height:1.55;color:${C.body};">${text}</p></td></tr>`,
+      )
+      .join("") +
+    `</table>`
+  );
+}
+
+/** The frame every quote email shares: paper, the cream band with the logo, the white card, the letterhead footer. */
+function frame(copy: CustomerCopy, title: string, preheader: string, body: string): string {
+  const co = copy.company;
+  const logo = co.logoUrl
+    ? `<img src="${esc(co.logoUrl)}" width="210" alt="${esc(co.name.toUpperCase())}" style="display:block;width:210px;max-width:100%;height:auto;margin:0 auto;font-family:${SERIF};font-size:22px;letter-spacing:.18em;color:${C.ink};">`
+    : `<p style="margin:0;font-family:${SERIF};font-size:22px;letter-spacing:.18em;text-transform:uppercase;color:${C.accent};">${esc(co.name)}</p>`;
+  const tel = co.phone ? `<a href="tel:${esc(co.phone.replace(/[^\d+]/g, ""))}" style="color:${C.muted};text-decoration:none;">${esc(co.phone)}</a>` : "";
+  const site = co.website ? `<a href="${esc(/^https?:/.test(co.website) ? co.website : `https://${co.website}`)}" style="color:${C.muted};text-decoration:none;">${esc(co.website.replace(/^https?:\/\//, ""))}</a>` : "";
+  const footerLines = [
+    [co.address ? esc(co.address) : "", tel].filter(Boolean).join(" &nbsp;&middot;&nbsp; "),
+    [site, co.email ? `<a href="mailto:${esc(co.email)}" style="color:${C.muted};text-decoration:none;">${esc(co.email)}</a>` : ""].filter(Boolean).join(" &nbsp;&middot;&nbsp; "),
+    co.hstNumber ? `HST # ${esc(co.hstNumber)}` : "",
+  ].filter(Boolean);
+  return (
+    `<!doctype html><html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office"><head>` +
+    `<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light only">` +
+    `<title>${esc(title)}</title>` +
+    `<!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->` +
+    `<style>body{margin:0;padding:0;-webkit-text-size-adjust:100%}table{border-collapse:collapse}img{border:0;line-height:100%;outline:none;text-decoration:none}` +
+    `@media only screen and (max-width:620px){.wrap{width:100% !important}.pad{padding-left:22px !important;padding-right:22px !important}.h1{font-size:26px !important}.total{font-size:26px !important}}</style></head>` +
+    `<body style="margin:0;padding:0;background:${C.page};">` +
+    `<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;color:${C.page};">${esc(preheader)}&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</div>` +
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.page};"><tr><td align="center" style="padding:32px 12px 48px;">` +
+    `<!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->` +
+    `<table role="presentation" class="wrap" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">` +
+    `<tr><td align="center" bgcolor="${C.cream}" style="background:${C.cream};border-radius:18px 18px 0 0;padding:30px 40px 26px;">${logo}</td></tr>` +
+    `<tr><td style="height:1px;line-height:1px;font-size:1px;background:${C.hair};">&nbsp;</td></tr>` +
+    `<tr><td bgcolor="${C.card}" style="background:${C.card};border-radius:0 0 18px 18px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${body}<tr><td style="padding:0 0 8px;"></td></tr></table></td></tr>` +
+    `<tr><td style="padding:28px 24px 0;" align="center">` +
+    `<p style="margin:0 0 6px;font-family:${SERIF};font-size:15px;letter-spacing:.2em;text-transform:uppercase;color:${C.ink};">${esc(co.name)}</p>` +
+    (footerLines.length ? `<p style="margin:0 0 10px;font-family:${SANS};font-size:12px;line-height:1.7;color:${C.muted};">${footerLines.join("<br>")}</p>` : "") +
+    `<p style="margin:0;font-family:${SANS};font-size:11px;line-height:1.6;color:${C.faint};">You&rsquo;re receiving this because you asked ${esc(co.name)} for a quote. Reply to this email and it reaches us directly.</p>` +
+    `</td></tr></table><!--[if mso]></td></tr></table><![endif]--></td></tr></table></body></html>`
+  );
+}
+
+/** The payment schedule in words, from the frozen totals (35 / 35 / balance, calc.ts PAYMENT_SPLIT). */
+function paymentWords(o: CopyOption): string {
+  const pct = (part: number) => `${Math.round((part / o.totals.total) * 100)}%`;
+  return `${pct(o.totals.payment1)} to reserve your dates, ${pct(o.totals.payment2)} when the crew starts, and the balance on completion. No payment is due until you choose a start date.`;
+}
+
+export function emailMessage(
+  copy: CustomerCopy,
+  to: { contactId: string; firstName: string | null; link: string; pdfUrl: string },
+  sender: Sender | null = null,
+  options: { emailFrom?: string | null; bookingUrl?: string | null } = {},
+): GhlMessage {
   const hi = greetingName(to.firstName);
   const prelim = copy.basis === "Preliminary";
   const several = copy.options.length > 1;
-  const phrase = kindPhrase(copyKind(copy), prelim);
-  const included = copy.options.map((o) => includedHtml(o, copy, several)).join("");
-  const rows = copy.options
-    .map(
-      (o) =>
-        `<tr><td style="padding:8px 0;border-bottom:1px solid #e4e8ee">${esc(o.name)}${o.recommended && several ? ' <span style="color:#1e6fff;font-size:12px">· Recommended</span>' : ""}</td>` +
-        `<td style="padding:8px 0;border-bottom:1px solid #e4e8ee;text-align:right;white-space:nowrap"><b>${cad.format(o.totals.total)}</b></td></tr>`,
-    )
-    .join("");
-  const html = [
-    `<div style="font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.5;color:#26303c;max-width:560px">`,
-    `<p>${hi ? `Hi ${esc(hi)},` : "Hello,"}</p>`,
-    `<p>Thank you for considering Titan Flooring. Your ${esc(phrase)} ${esc(copy.quoteNumber)} is ready${several ? `, with ${copy.options.length} options to compare` : ""}.</p>`,
-    `<table style="width:100%;border-collapse:collapse;margin:8px 0 16px">${rows}</table>`,
-    several && included ? `<p style="margin:0 0 4px"><b>What's included</b></p>` : "",
-    included,
-    `<p style="margin:20px 0"><a href="${esc(to.link)}" style="background:#1e6fff;color:#fff;text-decoration:none;padding:12px 20px;border-radius:6px;font-weight:600;display:inline-block">View your quote</a></p>`,
-    `<p style="color:#66717f;font-size:13px">${copy.showHst ? "Totals include HST. " : copy.options.some((o) => o.totals.hst !== 0) ? "Totals include HST on materials. " : ""}${copy.validUntil ? `The quote is good until ${esc(longDate(copy.validUntil))}. ` : ""}A PDF copy is attached.${prelim ? " This is a preliminary estimate; we confirm the final price once we have measured." : ""}</p>`,
-    `<p>If you have any questions, just reply to this email.</p>`,
-    `<p>The Titan Flooring team</p>`,
-    `</div>`,
-  ].join("");
+  const phrase = kindPhrase(copyKind(copy), false); // "flooring and stairs quote"
+  const what = phrase.replace(/ quote$/, "");
+  const noun = prelim ? "estimate" : "quote";
+  const subject = `Your ${prelim ? `${what} estimate` : phrase} ${copy.quoteNumber} from ${copy.company.name}`;
+  const totals = copy.options.map((o) => o.totals.total);
+  const low = Math.min(...totals);
+  const preheader = several
+    ? `${copy.options.length} options from ${cad.format(low)} ${hstWord(copy, copy.options[totals.indexOf(low)].totals)}${copy.validUntil ? ` · good until ${longDate(copy.validUntil)}` : ""}`
+    : `${prelim ? "Rough total" : "Total"} ${cad.format(totals[0])} ${hstWord(copy, copy.options[0].totals)}${copy.validUntil ? ` · good until ${longDate(copy.validUntil)}` : ""}`;
+
+  const headline = `${hi ? `Hi ${esc(hi)}, your` : "Your"} ${esc(what === "quote" ? "" : what).trim()} ${noun} is ready.`.replace(/\s+/g, " ");
+  const intro = prelim
+    ? `Thanks for having us over. Here is the rough number we talked about, based on what we saw. Once you&rsquo;ve picked a material and we&rsquo;ve measured, we confirm the final price.`
+    : several
+      ? `${copy.options.length} ways to do the work, side by side. Open the quote to see every detail and the payment schedule.`
+      : `Everything we talked about is in the quote, with the payment schedule. Open it to see the detail.`;
+
+  const cards = copy.options.map((o) => row(optionCard(o, copy, several), "0 40px 16px")).join("");
+  const under = [
+    "A PDF copy is attached.",
+    copy.validUntil ? `This ${noun} is good until <b style="color:${C.ink};font-weight:600;">${esc(longDate(copy.validUntil))}</b>.` : prelim ? "The link doesn&rsquo;t expire." : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const next: [string, string][] = prelim
+    ? [
+        ["Visit the showroom", "See and feel the samples in person. Fifteen minutes is usually enough to narrow it to two or three."],
+        ["We measure and confirm", `A measured quote replaces this estimate, with the exact ${what.includes("stair") && !what.includes("flooring") ? "scope" : "square footage"} and your chosen material.`],
+        ["Pick a date", "Most projects start within two to three weeks of a confirmed quote."],
+      ]
+    : [
+        [several ? "Choose an option" : "Say yes", several ? "Reply with the one you want, or tell us if you&rsquo;d like a mix." : "Reply to this email, or call us, and we hold your dates."],
+        ["We hold your dates", "Once the deposit is in, your start date is yours and the material is ordered."],
+        ["Install", "We confirm the crew&rsquo;s arrival the day before they start."],
+      ];
+  const signoff = sender?.firstName ? `${esc(sender.firstName)} &middot; ${esc(copy.company.name)}` : `The ${esc(copy.company.name)} team`;
+  const ask = sender?.firstName ? ` Ask for ${esc(sender.firstName)}.` : "";
+  const phone = copy.company.phone ? ` or call <a href="tel:${esc(copy.company.phone.replace(/[^\d+]/g, ""))}" style="color:${C.ink};">${esc(copy.company.phone)}</a>` : "";
+
+  const body =
+    row(
+      eyebrow(prelim ? "Preliminary estimate" : `Quote${copy.version !== null ? ` &middot; version ${copy.version}` : ""}`) +
+        `<p style="margin:-2px 0 14px;font-family:${SANS};font-size:12px;color:${C.muted};letter-spacing:.04em;">${esc(copy.quoteNumber)} &middot; ${esc(longDate(copy.sentOn))}</p>` +
+        `<h1 class="h1" style="margin:0 0 16px;font-family:${SERIF};font-weight:400;font-size:30px;line-height:1.2;color:${C.ink};letter-spacing:-.01em;">${headline}</h1>` +
+        para(intro),
+      "40px 40px 24px",
+    ) +
+    cards +
+    row(button(several ? `View and compare your ${noun}` : `View your ${noun}`, to.link), "12px 40px 10px") +
+    row(para(under, 13, C.muted, "0", "text-align:center;"), "0 40px 8px") +
+    (prelim ? "" : hairline() + row(eyebrow("How payment works") + para(esc(paymentWords(copy.options[0])), 15, C.body, "0 0 6px"))) +
+    hairline(prelim ? "28px 40px" : "22px 40px 28px") +
+    row(eyebrow("What happens next") + steps(next), "0 40px 6px") +
+    (prelim && options.bookingUrl ? row(button("Book an in-store visit", options.bookingUrl, false), "0 40px 30px") : "") +
+    hairline("0 40px 28px") +
+    row(para(`Questions? Reply to this email${phone}.${ask}`, 15, C.body, "0 0 4px") + para(signoff, 14, C.muted, "0 0 36px"));
+
+  // An explicit `emailFrom` wins, null included (the send's retries pass the bare address, then none).
+  const from = "emailFrom" in options ? options.emailFrom : emailFromFor(sender, copy.company.email, true);
   return {
     type: "Email",
     contactId: to.contactId,
-    subject: `Your ${phrase} ${copy.quoteNumber} from Titan Flooring`,
-    html,
+    subject,
+    html: frame(copy, subject, preheader, body),
     attachments: [to.pdfUrl],
+    ...(from ? { emailFrom: from } : {}),
   };
 }
 
-export function smsMessage(copy: CustomerCopy, to: { contactId: string; firstName: string | null; link: string }): GhlMessage {
+/**
+ * The text (2026-10-22): who is texting, the one number they care about, the link on its own
+ * line, how to reply. Straight apostrophes on purpose: one curly quote or emoji switches the
+ * whole message to UCS-2 and halves each segment.
+ */
+export function smsMessage(copy: CustomerCopy, to: { contactId: string; firstName: string | null; link: string }, sender: Sender | null = null): GhlMessage {
   const hi = greetingName(to.firstName);
-  const phrase = kindPhrase(copyKind(copy), copy.basis === "Preliminary");
-  return {
-    type: "SMS",
-    contactId: to.contactId,
-    message:
-      `${hi ? `Hi ${hi}, y` : "Y"}our ${phrase} ${copy.quoteNumber} from Titan Flooring is ready: ${to.link}\n` +
-      `${copy.validUntil ? `It's good until ${longDate(copy.validUntil)}. ` : copy.basis === "Preliminary" ? "It's an estimate; we confirm the price once we've measured. " : ""}Any questions, just reply here.`,
-  };
+  const prelim = copy.basis === "Preliminary";
+  const several = copy.options.length > 1;
+  const kind = kindPhrase(copyKind(copy), false).replace(/ quote$/, "");
+  const whoFrom = sender?.firstName ? `it's ${sender.firstName} from ${copy.company.name}` : `it's ${copy.company.name}`;
+  const totals = copy.options.map((o) => o.totals.total);
+  const low = Math.min(...totals);
+  const money = (n: number) => (Number.isInteger(n) ? `$${n.toLocaleString("en-CA")}` : cad.format(n));
+  const hst = hstWord(copy, copy.options[totals.indexOf(low)].totals);
+  const first = hi ? `Hi ${hi}, ${whoFrom}.` : `Hi, ${whoFrom}.`;
+  const what = prelim
+    ? `Thanks for having us over. Your rough ${kind === "quote" ? "" : `${kind} `}estimate is ${money(totals[0])} ${hst}, and the breakdown is here:`
+    : several
+      ? `${copy.options.length} options for your ${kind === "quote" ? "project" : kind} are ready to compare, from ${money(low)} ${hst}${copy.validUntil ? `, good until ${shortDate(copy.validUntil)}` : ""}:`
+      : `Your ${kind === "quote" ? "" : `${kind} `}quote is ready, ${money(totals[0])} ${hst}${copy.validUntil ? `, good until ${shortDate(copy.validUntil)}` : ""}:`;
+  const close = prelim
+    ? "It's a preliminary number until we've measured. Reply here with any questions."
+    : several
+      ? "Reply here with the one you'd like, or with questions."
+      : `Reply here${copy.company.phone ? ` or call ${copy.company.phone}` : ""} if anything needs changing.`;
+  return { type: "SMS", contactId: to.contactId, message: `${first} ${what}\n${to.link}\n${close}` };
+}
+
+/** "Nov 21" for a text. */
+function shortDate(iso: string): string {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-CA", { timeZone: "UTC", month: "short", day: "numeric" });
 }
 
 /* ---------- the link ---------- */

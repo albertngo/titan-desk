@@ -1,9 +1,10 @@
 import "server-only";
-import { requireQuoter } from "@/lib/auth";
+import { requireQuoterPerson } from "@/lib/auth";
 import { AirtableError, createRecord, createRecords, getRecord, listByIds, updateRecord, updateRecords } from "@/lib/airtable/client";
 import { LINE, OPTION, QUOTE, T, VERSION } from "@/lib/airtable/fields";
 import { fromQuote, type EditorQuote } from "@/lib/editor/model";
 import { versionLabel } from "@/lib/link/identity";
+import { authorFields, describePlan } from "./history";
 import { getQuote } from "./load";
 import { cleanEditorQuote, fingerprint, isRecordId, planIsEmpty, planSave, type SavePlan } from "./savePlan";
 import { ids, num, str } from "./values";
@@ -22,7 +23,7 @@ export type Basis = (typeof BASES)[number];
 
 /** Overwrite a Draft version with what the editor holds. Refused if Airtable changed since the editor opened it. */
 export async function saveVersion(versionId: string, raw: unknown, base: string): Promise<SaveResult> {
-  await requireQuoter();
+  const person = await requireQuoterPerson();
   if (!isRecordId(versionId)) return { ok: false, message: "That isn't a quote version." };
   const current = await getQuote(versionId);
   if (!current) return { ok: false, message: "This version isn't in Airtable any more." };
@@ -40,12 +41,14 @@ export async function saveVersion(versionId: string, raw: unknown, base: string)
   const edited = cleanEditorQuote(raw);
   const plan = planSave(original, edited);
   if (planIsEmpty(plan)) return { ok: true, versionId, writes: 0 };
+  // Who saved, when, and what: in the same update as the version's own fields (2026-10-22).
+  plan.version = { ...plan.version, ...authorFields(person, new Date(), `saved: ${describePlan(plan)}`, current.editLog) };
   return carryOut(versionId, plan);
 }
 
 /** Save what the editor holds as the next version of the same quote, leaving the version it came from as it was. */
 export async function saveAsNewVersion(versionId: string, raw: unknown, basis: string): Promise<SaveResult> {
-  await requireQuoter();
+  const person = await requireQuoterPerson();
   if (!isRecordId(versionId)) return { ok: false, message: "That isn't a quote version." };
   if (!(BASES as readonly string[]).includes(basis)) return { ok: false, message: "Choose Preliminary or Measured." };
   const from = await getRecord(T.versions, versionId).catch((e) => {
@@ -71,6 +74,7 @@ export async function saveAsNewVersion(versionId: string, raw: unknown, basis: s
       [VERSION.basis]: basis,
       [VERSION.quote]: [quoteId],
       [VERSION.supersedes]: [versionId],
+      ...authorFields(person, new Date(), `created v${n} from v${num(from.fields[VERSION.version]) ?? "?"} (${basis.toLowerCase()}): ${describePlan(plan)}`, null, true),
     });
     created = v.id;
   } catch (e) {
@@ -88,11 +92,13 @@ export async function saveAsNewVersion(versionId: string, raw: unknown, basis: s
  * the same writes as Save as new version; never used on a version that already has lines.
  */
 export async function fillVersion(versionId: string, quote: EditorQuote): Promise<SaveResult> {
-  await requireQuoter();
+  const person = await requireQuoterPerson();
   if (!isRecordId(versionId)) return { ok: false, message: "That isn't a quote version." };
   const current = await getRecord(T.versions, versionId);
   if (ids(current.fields[VERSION.options]).length > 0) return { ok: false, message: "This version already has options, so the quick form didn't add to it." };
-  return carryOut(versionId, planSave(null, cleanEditorQuote(quote)));
+  const plan = planSave(null, cleanEditorQuote(quote));
+  plan.version = { ...plan.version, ...authorFields(person, new Date(), `priced from the quick form: ${describePlan(plan)}`, str(current.fields[VERSION.editLog])) };
+  return carryOut(versionId, plan);
 }
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e)).slice(0, 160);

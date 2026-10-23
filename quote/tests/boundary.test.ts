@@ -84,7 +84,7 @@ describe("Airtable boundary", () => {
     for (const rel of ["lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/conversation.ts"]) {
       const text = all.find((f) => f.rel === rel)!.text;
       const exported = text.match(/export async function \w+/g) ?? [];
-      const guarded = text.match(/export async function \w+[^{]*\{\s*(const \w+ = )?await requireQuoter\(\);/g) ?? [];
+      const guarded = text.match(/export async function \w+[^{]*\{\s*(const \w+ = )?await requireQuoter(Person)?\(\);/g) ?? [];
       expect(exported.length).toBeGreaterThan(0);
       expect(guarded.length).toBe(exported.length);
     }
@@ -109,7 +109,7 @@ describe("booking step (Make, no sign-in)", () => {
 
   it("is the only path the staff app lets through without a sign-in, besides signing in", () => {
     const proxy = all.find((f) => f.rel === "proxy.ts")!.text;
-    expect(proxy).toContain('matcher: ["/((?!_next/|favicon\\\\.ico|robots\\\\.txt).*)"]');
+    expect(proxy).toContain('matcher: ["/((?!_next/|brand/|favicon\\\\.ico|robots\\\\.txt).*)"]');
     expect(proxy).toContain("const OPEN_ON_STAFF = /^\\/(login|auth\\/|denied|api\\/booking)/;");
     expect(all.filter((f) => f.rel.startsWith("app/api/")).map((f) => f.rel)).toEqual([ROUTE]);
   });
@@ -123,7 +123,12 @@ describe("booking step (Make, no sign-in)", () => {
 
 describe("GHL boundary", () => {
   it("has exactly one file that talks to GHL, and it alone reads the token", () => {
-    expect(all.filter((f) => code(f.text).includes("leadconnectorhq.com")).map((f) => f.rel)).toEqual([GHL]);
+    // lib/ghl/ids.ts may spell the host once, for the public booking page a preliminary's email links
+    // (2026-10-23): a constant, no request. The client is still the only file that fetches from it.
+    expect(all.filter((f) => code(f.text).includes("leadconnectorhq.com")).map((f) => f.rel).sort()).toEqual([GHL, "lib/ghl/ids.ts"].sort());
+    const ids = code(all.find((f) => f.rel === "lib/ghl/ids.ts")!.text);
+    expect(ids).not.toMatch(/\bfetch\(|import .* from/);
+    expect(ids).toMatch(/widget\/booking\//);
     expect(all.filter((f) => code(f.text).includes("QUOTE_GHL_TOKEN")).map((f) => f.rel)).toEqual([GHL]);
   });
 

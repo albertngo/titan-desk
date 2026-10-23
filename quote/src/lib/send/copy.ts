@@ -69,6 +69,8 @@ export type Letterhead = {
   email: string | null;
   website: string | null;
   hstNumber: string | null;
+  /** The logo in the email's header band (2026-10-22), an https URL; absent = the company name set as a wordmark. */
+  logoUrl?: string | null;
 };
 
 export type CustomerCopy = {

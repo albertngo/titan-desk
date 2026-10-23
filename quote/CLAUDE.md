@@ -148,6 +148,38 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   The copy is **frozen on the version** (Customer Copy) and the version is marked Sent, so locked,
   before anything leaves; if neither message goes it returns to Draft. Sending a newer version marks
   older sent ones Superseded, and their links say so. Online acceptance is not built yet.
+- **The email and the text (Albert, 2026-10-22: recreate the GHL "Rough quote is ready" template and
+  improve on it).** `emailMessage()` in `src/lib/send/plan.ts` builds a complete, email-safe document:
+  warm paper, the cream header band with the logo (the brand kit's horizontal lockup, Secondary
+  Logo 2, shipped in `public/brand/` and served by the customer deployment, which the proxy lets
+  through without a sign-in; `QUOTE_LOGO_URL` overrides it; with neither, the company name as a
+  wordmark), a serif headline, one card per option (what's included with quantities, the total set
+  large, Recommended badge), a pill button, the payment schedule in words on a measured quote, three
+  "what happens next" steps (a preliminary offers **Book an in-store visit**, the GHL calendar in `src/lib/ghl/ids.ts`),
+  and a transactional footer from the letterhead: no carousel, no click tracking, no unsubscribe. The
+  accent is the logo's blue (`#283890`), not the old template's terracotta. Tables and inline styles
+  only, 600px collapsing under 620px, no web fonts. The text names who is writing, gives the one
+  number, puts the link on its own line and stays in GSM-7 (no curly quotes or emoji). **Preview the
+  email** on the Send card (`/q/<id>/preview/email`) shows it exactly as GHL will send it. The
+  customer page `/c/<token>` carries OpenGraph tags so the link's preview card in a text shows the
+  logo (`public/brand/og.png`), never the customer or the amount.
+- **Sent from the person signed in (Albert, 2026-10-22).** The email goes out from the quoter's own
+  address through GHL's `emailFrom`: tried as "Albert @ Titan Flooring <albert@…>" (the From-name
+  convention GHL's own emails use), then the bare address, then GHL's default sender, so a sender GHL
+  refuses costs a retry and never the send; the Send card says which address will be used and the
+  result says if it fell back. Only an address on the letterhead's domain (`QUOTE_COMPANY_EMAIL`) is
+  offered, because GHL sends only from a domain it has verified. The person comes from the Microsoft
+  sign-in (`requireQuoterPerson()` in `src/lib/auth.ts`: email plus display name; the first name
+  signs the email and the text, `firstNameOf()` in `src/lib/quotes/history.ts`; a shared box like
+  info@ signs as the company). Rule: `emailFromFor()` in `plan.ts`, tested in `tests/send.test.ts`.
+  Make 4975508 forwards the message body verbatim, so nothing changed in Make.
+- **Who worked on a version (Albert, 2026-10-22).** Quote Versions carries **Created By (app)**,
+  **Last Edited By**, **Last Edited At** and an append-only **Edit Log** (one line per save, new
+  version, quick-form fill or send: Toronto time, the signed-in email, what changed, e.g. `saved: 2
+  lines changed, 1 line added`). Written by the app in the same update as the save, never by hand;
+  Airtable's own last-modified fields would name the app's token for everyone. The quote page shows a
+  **History** card, newest first, staff only. Pure helpers in `src/lib/quotes/history.ts`, tested in
+  `tests/history.test.ts`.
 - **The customer deployment (2026-10-15).** Customer links `/c/<token>` and their PDFs are served by
   a second Vercel project on this folder with `QUOTE_MODE=customer` and a read-only Airtable token,
   never by the staff app (root rule: a public page never shares a deployment with a write token).

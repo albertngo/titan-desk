@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addDays, copyState, customerCopy, discountLabel, hstRow, hstWord, longDate, parseCopy, pdfName, serializeCopy, torontoToday, type Letterhead } from "../src/lib/send/copy";
-import { customerLinks, emailMessage, greetingName, isToken, newToken, sendProblems, smsMessage, type SendInput } from "../src/lib/send/plan";
+import { customerLinks, emailFromFor, emailMessage, greetingName, isToken, newToken, sendProblems, smsMessage, type SendInput } from "../src/lib/send/plan";
 import { encode, textWidth, wrap } from "../src/lib/send/pdfDoc";
 import { quotePdf } from "../src/lib/send/pdf";
 import { fromQuote } from "../src/lib/editor/model";
@@ -222,7 +222,7 @@ describe("the messages", () => {
     expect(m.html).toContain("November 14, 2026");
   });
 
-  it("says what is included, the way the old mobile-quote messages did, and the timing (2026-10-18)", () => {
+  it("says what is included, the way the old mobile-quote messages did, and the timing (2026-10-18; card rows since 2026-10-22)", () => {
     const q = quote({ basis: "Preliminary", link: { ...quote().link!, projectTiming: "Within 1 month" } });
     q.options[0].lines.push(line({ section: "Stairs", lineType: "Stairs", sourceKind: "manual", sourceId: null, hasSource: false, description: "Townhome – Vinyl treads", uom: "flat", qty: 1, unitPrice: 1500, unitPriceSnap: null, unitCostSnap: null, contractor: null }));
     q.options[0].description = "* Townhome – Vinyl treads We'll install waterproof vinyl treads. The handrails will be sanded and refinished to match, and up to 50 spindles are included.";
@@ -232,47 +232,108 @@ describe("the messages", () => {
     expect(c.options[0].sections.map((s) => s.name)).toContain("Stairs");
     const m = emailMessage(c, to);
     if (m.type !== "Email") throw new Error();
-    expect(m.subject).toBe("Your preliminary flooring and stairs quote Q-9001 from Titan Flooring");
-    expect(m.html).toContain("What's included");
-    expect(m.html).toContain("<li>Removal: Carpet removal · 200 sq ft</li>");
-    expect(m.html).toContain("<li>Install: Click install · 220 sq ft</li>");
-    expect(m.html).toContain("<li>Townhome – Vinyl treads We&#39;ll install waterproof vinyl treads. The handrails will be sanded and refinished to match, and up to 50 spindles are included.</li>");
-    expect(m.html).toContain("<li>Timing: Within 1 month</li>");
-    expect(m.html).not.toContain("Stairs: ");
+    expect(m.subject).toBe("Your flooring and stairs estimate Q-9001 from Titan Flooring");
+    expect(m.html).toContain("What&rsquo;s included");
+    expect(m.html).toContain("Removal &middot; Carpet removal</td>");
+    expect(m.html).toContain(">200 sq ft</td>");
+    expect(m.html).toContain("Install &middot; Click install</td>");
+    // A line that already opens with the work is not prefixed, and a quantity gets its thousands separator.
+    const big = customerCopy(quote({ options: [option("One", [line({ section: "Removal", lineType: "Removal", description: "Remove old carpet", qty: 1500, unitPrice: 1, unitPriceSnap: null, unitCostSnap: null, contractor: null, sourceKind: "manual", sourceId: null, hasSource: false })])] }), AT);
+    const bm = emailMessage(big, to);
+    expect(bm.type === "Email" && bm.html).toContain(">Remove old carpet</td>");
+    expect(bm.type === "Email" && bm.html).toContain(">1,500 sq ft</td>");
+    expect(m.html).toContain("Stairs &middot; Townhome – Vinyl treads</td>");
+    expect(m.html).toContain("Townhome – Vinyl treads We&#39;ll install waterproof vinyl treads. The handrails will be sanded and refinished to match, and up to 50 spindles are included.</td>");
+    expect(m.html).toContain(">Timing</td>");
+    expect(m.html).toContain(">Within 1 month</td>");
+    expect(m.html).toContain("Rough total");
     const t = smsMessage(c, to);
-    expect(t.type === "SMS" ? t.message : "").toContain("your preliminary flooring and stairs quote Q-9001 from Titan Flooring is ready");
-    const pdf = new TextDecoder("latin1").decode(quotePdf(c));
-    expect(pdf).toContain("(STAIRS)");
+    expect(t.type === "SMS" ? t.message : "").toContain("Your rough flooring and stairs estimate is $");
+  });
+
+  it("is sent from the signed-in quoter on the company's domain, and from GHL's default otherwise (2026-10-22)", () => {
+    const albert = { email: "Albert@Example.com", firstName: "Albert" };
+    expect(emailFromFor(albert, "hello@example.com", true)).toBe("Albert @ Titan Flooring <albert@example.com>");
+    expect(emailFromFor(albert, "hello@example.com", false)).toBe("albert@example.com");
+    expect(emailFromFor({ email: "info@example.com", firstName: null }, "hello@example.com", true)).toBe("info@example.com");
+    // A quoter signed in on another domain: GHL can only send from a verified one, so the location default is used.
+    expect(emailFromFor({ email: "albert@gmail.example", firstName: "Albert" }, "hello@example.com", true)).toBeNull();
+    // No letterhead email configured: nothing to check the domain against, so the quoter's address is used.
+    expect(emailFromFor(albert, null, false)).toBe("albert@example.com");
+    expect(emailFromFor(null, "hello@example.com", true)).toBeNull();
+    const m = emailMessage(copy, to, albert);
+    expect(m.type === "Email" && m.emailFrom).toBe("Albert @ Titan Flooring <albert@example.com>");
+    expect(m.type === "Email" && m.html).toContain("Albert &middot; Titan Flooring");
+    expect(m.type === "Email" && m.html).toContain("Ask for Albert.");
+    const plain = emailMessage(copy, to);
+    expect(plain.type === "Email" && "emailFrom" in plain).toBe(false);
+    expect(plain.type === "Email" && plain.html).toContain("The Titan Flooring team");
+    // The send can force a particular From (the bare address, or none) on a retry.
+    expect(emailMessage(copy, to, albert, { emailFrom: null }).type === "Email" && "emailFrom" in emailMessage(copy, to, albert, { emailFrom: null })).toBe(false);
+  });
+
+  it("is a framed, email-safe document: tables, inline styles, the logo when there is one, the letterhead in the footer", () => {
+    const m = emailMessage(copy, to);
+    if (m.type !== "Email") throw new Error();
+    expect(m.html.startsWith("<!doctype html>")).toBe(true);
+    expect(m.html).not.toContain("<img"); // no logo configured: the name is set as a wordmark
+    expect(m.html).toContain(">Titan Flooring</p>");
+    expect(m.html).toContain("1 Example Road, Testville");
+    expect(m.html).toContain("HST # 123456789 RT0001");
+    expect(m.html).not.toMatch(/<link|<script|unsubscribe/i);
+    const withLogo = emailMessage(customerCopy(quote(), { ...AT, company: { ...COMPANY, logoUrl: "https://cdn.example.com/logo.png" } }), to);
+    expect(withLogo.type === "Email" && withLogo.html.match(/<img /g)?.length).toBe(1);
+    expect(withLogo.type === "Email" && withLogo.html).toContain('src="https://cdn.example.com/logo.png"');
+    // Two options: each is a card with its name, the recommended one marked, and the button says compare.
+    const two = customerCopy(quote({ options: [quote().options[0], option("Engineered oak", quote().options[0].lines, 0.1, true, { recommended: true })] }), AT);
+    const mm = emailMessage(two, to);
+    expect(mm.type === "Email" && mm.html).toContain(">Recommended</span>");
+    expect(mm.type === "Email" && mm.html).toContain("View and compare your quote");
+    expect(mm.type === "Email" && mm.html).toContain("2 ways to do the work");
   });
 
   it("escapes what staff typed", () => {
-    const sneaky = customerCopy(quote({ options: [option('<img src=x onerror="alert(1)">', quote().options[0].lines)] }), AT);
-    const m = emailMessage(sneaky, to);
+    const evil = '<img src=x onerror="alert(1)">';
+    const two = customerCopy(quote({ options: [option(evil, quote().options[0].lines), option("Plain", quote().options[0].lines)] }), AT);
+    const m = emailMessage(two, { ...to, firstName: "<b>Pat</b>" });
     if (m.type !== "Email") throw new Error();
     expect(m.html).not.toContain("<img");
-    expect(m.html).toContain("&lt;img");
+    expect(m.html).toContain("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;");
+    expect(m.html).not.toContain("<b>Pat</b>");
+    const bad = emailMessage(copy, { ...to, link: 'https://x.example/" onclick="alert(1)' });
+    expect(bad.type === "Email" && bad.html).toContain("href=\"https://x.example/&quot; onclick=&quot;alert(1)\"");
   });
 
-  it("texts the link, and says preliminary when it is", () => {
-    const m = smsMessage(customerCopy(quote({ basis: "Preliminary" }), AT), to);
+  it("texts who is writing, the one number, the link on its own line, and says preliminary when it is (2026-10-22)", () => {
+    const me = { email: "albert@example.com", firstName: "Albert" };
+    const m = smsMessage(customerCopy(quote({ basis: "Preliminary" }), AT), to, me);
     expect(m).toEqual({
       type: "SMS",
       contactId: "contactAbc123",
       // A preliminary carries no good-until date (2026-10-22).
-      message: `Hi Pat, your preliminary flooring quote Q-9001 from Titan Flooring is ready: https://view.example.com/c/${"A".repeat(32)}\nIt's an estimate; we confirm the price once we've measured. Any questions, just reply here.`,
+      message: `Hi Pat, it's Albert from Titan Flooring. Thanks for having us over. Your rough flooring estimate is $772.92 incl. HST, and the breakdown is here:\nhttps://view.example.com/c/${"A".repeat(32)}\nIt's a preliminary number until we've measured. Reply here with any questions.`,
     });
-    const measured = smsMessage(customerCopy(quote(), AT), to);
-    expect(measured.type === "SMS" && measured.message).toContain("It's good until November 14, 2026.");
+    const measured = smsMessage(customerCopy(quote(), AT), to, me);
+    expect(measured.type === "SMS" && measured.message).toBe(
+      `Hi Pat, it's Albert from Titan Flooring. Your flooring quote is ready, $772.92 incl. HST, good until Nov 14:\nhttps://view.example.com/c/${"A".repeat(32)}\nReply here or call 555-000-0000 if anything needs changing.`,
+    );
+    const two = customerCopy(quote({ options: [quote().options[0], option("Oak", quote().options[0].lines)] }), AT);
+    const pair = smsMessage(two, to, me);
+    expect(pair.type === "SMS" && pair.message).toContain("2 options for your flooring are ready to compare, from $772.92 incl. HST, good until Nov 14:");
+    // No curly quotes or emoji anywhere: one would switch the text to UCS-2 and halve each segment.
+    for (const t of [m, measured]) expect(t.type === "SMS" && /^[\x20-\x7e\n]*$/.test(t.message)).toBe(true);
   });
 
-  it("greets by first name only when there is a real one", () => {
+  it("greets by first name only when there is a real one, and signs with the company when the sender has none", () => {
     expect(greetingName("Pat")).toBe("Pat");
     expect(greetingName(" Mary Ann ")).toBe("Mary");
     expect(greetingName("Zoë")).toBe("Zoë");
     expect(greetingName("")).toBeNull();
     expect(greetingName("123")).toBeNull();
     const anon = smsMessage(copy, { ...to, firstName: null });
-    expect(anon.type === "SMS" ? anon.message : "").toMatch(/^Your flooring quote Q-9001 from Titan Flooring is ready/);
+    expect(anon.type === "SMS" ? anon.message : "").toMatch(/^Hi, it's Titan Flooring\. Your flooring quote is ready/);
+    const shared = smsMessage(copy, to, { email: "info@example.com", firstName: null });
+    expect(shared.type === "SMS" ? shared.message : "").toMatch(/^Hi Pat, it's Titan Flooring\./);
   });
 });
 
@@ -466,7 +527,8 @@ describe("a preliminary has no good-until date (2026-10-22)", () => {
     expect(new TextDecoder("latin1").decode(quotePdf(c))).not.toContain("Valid until");
     const mail = emailMessage(c, { contactId: "c1", firstName: "Jane", link: "https://example.test/c/x", pdfUrl: "https://example.test/c/x/q.pdf" });
     expect(mail.type === "Email" && mail.html).not.toContain("good until");
-    expect(mail.type === "Email" && mail.html).toContain("preliminary estimate");
+    expect(mail.type === "Email" && mail.html).toContain("Preliminary estimate");
+    expect(mail.type === "Email" && mail.html).toContain("The link doesn&rsquo;t expire.");
     const text = smsMessage(c, { contactId: "c1", firstName: "Jane", link: "https://example.test/c/x" });
     expect(text.type === "SMS" && text.message).not.toContain("good until");
     expect(text.type === "SMS" && text.message).toContain("estimate");

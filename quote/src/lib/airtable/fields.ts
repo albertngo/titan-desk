@@ -74,6 +74,15 @@ export const VERSION = {
   customerCopy: "fldolHclfZEvpNfVD",
   sentBy: "fld9H5ufunLFG5Tak",
   sentTo: "fldC6n0ROmUBqL7pw",
+  /**
+   * Who worked on the version (2026-10-22, Albert: "editing and saving should have a history of the
+   * person working on the file"): the signed-in person who created it, who last saved it and when,
+   * and an append-only log, one line per save or send. Written by the app only.
+   */
+  createdBy: "fldyHhdyjLMds9x0H",
+  lastEditedBy: "fldhfKZGSX2R9AiiM",
+  lastEditedAt: "fldRCdXB6ehz1Nkqk",
+  editLog: "fldvoKc0aiv9xktcg",
 } as const;
 
 export const OPTION = {

@@ -1,5 +1,5 @@
 import "server-only";
-import { requireQuoter } from "@/lib/auth";
+import { requireQuoter, requireQuoterPerson } from "@/lib/auth";
 import { AirtableError, createRecord, getRecord, updateRecord } from "@/lib/airtable/client";
 import { QUOTE, T } from "@/lib/airtable/fields";
 import { getContact, ghlConfigured, GhlError, GhlNotConfigured, opportunitiesForContact, pipelines, searchContacts, type GhlContact } from "@/lib/ghl/client";
@@ -81,7 +81,8 @@ async function alreadyInGhl(typed: { phone: string | null; email: string | null 
 
 
 export async function startQuote(raw: unknown): Promise<StartResult> {
-  const email = await requireQuoter();
+  const person = await requireQuoterPerson();
+  const email = person.email;
   const parsed = parseNewQuote(raw);
   if (!parsed.ok) return parsed;
   const req = parsed.value;
@@ -93,7 +94,7 @@ export async function startQuote(raw: unknown): Promise<StartResult> {
     if (req.opportunityId) {
       const hit = (await quotesByOpportunity()).get(req.opportunityId);
       if (hit) {
-        const versionId = hit.versionId ?? (await firstVersion(hit.quoteId, hit.quoteNumber ?? "Q-?"));
+        const versionId = hit.versionId ?? (await firstVersion(hit.quoteId, hit.quoteNumber ?? "Q-?", "Preliminary", person));
         return { ok: true, versionId, reused: true, filled: false };
       }
     }
@@ -154,7 +155,7 @@ export async function startQuote(raw: unknown): Promise<StartResult> {
       [QUOTE.notes]: note,
     });
     const quoteNo = str(quote.fields[QUOTE.quoteNumber]) ?? quoteNumber(num(quote.fields[QUOTE.seq]) ?? 0);
-    const versionId = await firstVersion(quote.id, quoteNo, req.basis);
+    const versionId = await firstVersion(quote.id, quoteNo, req.basis, person);
     await pushToGhl(quote.id, quoteNo, str(quote.fields[QUOTE.displayName]) ?? quoteNo, req, who, linkedOpp, today);
     // Only a preliminary takes the quick form's work; a full quote opens empty in the editor.
     const filled = req.basis === "Preliminary" && !workIsEmpty(work) ? await fillFromQuickForm(quote.id, versionId, work, today) : false;
