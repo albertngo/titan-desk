@@ -6,7 +6,7 @@ import { Fragment } from "react";
  */
 export function AnswerText({ text }: { text: string }) {
   return (
-    <div className="space-y-1 text-sm leading-relaxed">
+    <div className="space-y-1.5 leading-relaxed text-ink">
       {text.split(/\n+/).map((line, i) => (
         <p key={i}>{inline(line.replace(/^\s*[-*]\s+/, "• "))}</p>
       ))}
@@ -17,7 +17,7 @@ export function AnswerText({ text }: { text: string }) {
 function inline(line: string) {
   return line.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).map((seg, i) => {
     if (seg.startsWith("**") && seg.endsWith("**")) return <strong key={i}>{seg.slice(2, -2)}</strong>;
-    if (seg.startsWith("`") && seg.endsWith("`")) return <code key={i} className="rounded bg-zinc-100 px-1 font-mono text-[12px]">{seg.slice(1, -1)}</code>;
+    if (seg.startsWith("`") && seg.endsWith("`")) return <code key={i} className="rounded bg-cream px-1 font-mono text-[13px] text-denim">{seg.slice(1, -1)}</code>;
     return <Fragment key={i}>{seg}</Fragment>;
   });
 }

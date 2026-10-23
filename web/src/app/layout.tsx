@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { titanSans, titanSerif } from "@/lib/fonts";
 
 export const metadata: Metadata = {
   title: { default: "askBert", template: "%s · askBert" },
@@ -20,7 +21,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en-CA">
+    <html lang="en-CA" className={`${titanSerif.variable} ${titanSans.variable}`}>
       <body>{children}</body>
     </html>
   );

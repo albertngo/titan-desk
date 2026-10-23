@@ -1,9 +1,23 @@
 @import "tailwindcss";
 
-/* askBert assistant accent (bg-askbert, text-askbert, …) */
+/* Titan brand palette (Brand Guideline Sheet, 2024). askBert is drawn in it. */
 @theme {
-  --color-askbert: #1e6fff;
-  --color-askbert-dark: #1557d6;
+  --color-denim: #293895;        /* Liquid Denim: primary */
+  --color-denim-dark: #1f2b75;
+  --color-cream: #f3f1e7;        /* Cream: canvas */
+  --color-cream-deep: #e8e4d3;
+  --color-campfire: #cf6335;     /* Campfire: promos only */
+  --color-campfire-dark: #a9481f;/* text-bearing promo badges (AA on cream text) */
+  --color-sky: #cfe2ee;          /* Sky Blue */
+  --color-peach: #f3e0d8;        /* Peach Milk */
+  --color-ink: #1b2147;          /* denim-tinted body text */
+  --color-askbert: #293895;
+  --color-askbert-dark: #1f2b75;
+}
+
+@theme inline {
+  --font-display: var(--font-titan-serif), "PT Serif", Georgia, serif;
+  --font-brand: var(--font-titan-sans), Inter, system-ui, sans-serif;
 }
 
 :root {
