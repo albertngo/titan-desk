@@ -3,12 +3,13 @@
 import { useEveAgent } from "eve/react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AnswerText } from "@/components/askbert/AnswerText";
-import { ShopCard, ShopCardSkeleton } from "@/components/askbert/ShopCard";
+import { ShopCard, ShopCardSkeleton } from "@/components/ShopCard";
 import { ShortcutIcon } from "@/components/askbert/ShortcutIcon";
 import { hitSessionLimit, messageText, referencedProducts, type MessageLike } from "@/lib/askbert-cards";
 import { fromGroup, fromProduct, SHORTCUTS, TYPE_CHIPS, type ShopItem, type Shortcut } from "@/lib/askbert-shop";
 import { EMPTY_FILTERS, filtersToArgs } from "@/lib/db/filters";
 import { searchStaffGrouped } from "@/lib/db/queries";
+import { ASKBERT_EVENT } from "@/lib/askbert-bridge";
 import { supabaseBrowser } from "@/lib/supabase/client";
 
 /** How many collections the "On promo now" shelf shows. */
@@ -88,12 +89,27 @@ export function AskBert() {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, agent.status]);
 
-  const ask = (text: string) => {
+  const ask = (text: string): boolean => {
     const q = text.trim();
-    if (!q || !canAsk) return;
+    if (!q || !canAsk) return false;
     setDraft("");
     void agent.send(q);
+    return true;
   };
+
+  // "Ask Bert about this" from any page: open the shop and ask (or leave it in the box if Bert is busy).
+  const askRef = useRef(ask);
+  useEffect(() => { askRef.current = ask; });
+  useEffect(() => {
+    const onAsk = (e: Event) => {
+      const q = (e as CustomEvent<string>).detail;
+      if (typeof q !== "string") return;
+      setOpen(true);
+      if (!askRef.current(q)) setDraft(q);
+    };
+    window.addEventListener(ASKBERT_EVENT, onAsk);
+    return () => window.removeEventListener(ASKBERT_EVENT, onAsk);
+  }, []);
 
   const fill = (text: string) => {
     setDraft(text);
