@@ -3,6 +3,7 @@ import { listByIds, updateRecord, updateRecords } from "@/lib/airtable/client";
 import { QUOTE, T, VERSION } from "@/lib/airtable/fields";
 import { requireQuoter, requireQuoterPerson } from "@/lib/auth";
 import { fromQuote } from "@/lib/editor/model";
+import { BOOKING_URL } from "@/lib/ghl/ids";
 import { makeConfigured, sendMessage } from "@/lib/make/client";
 import { COPY_MAX_CHARS, customerCopy, parseCopy, pdfName, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "@/lib/send/copy";
 import { customerLinks, emailFromFor, emailMessage, isToken, newToken, sendProblems, smsMessage, type Channels, type Sender } from "@/lib/send/plan";
@@ -64,8 +65,8 @@ function logoUrl(): string | null {
   return base ? `${base.replace(/\/+$/, "")}/brand/titan-flooring-logo.png` : null;
 }
 
-/** The in-store visit booking page a preliminary's email offers (the GHL calendar link); unset = no button. */
-const bookingUrl = () => (/^https:\/\//.test(process.env.QUOTE_BOOKING_URL?.trim() ?? "") ? process.env.QUOTE_BOOKING_URL!.trim() : null);
+/** The in-store visit booking page a preliminary's email offers: the GHL calendar in src/lib/ghl/ids.ts. */
+const bookingUrl = () => BOOKING_URL;
 
 const senderOf = (p: Person): Sender => ({ email: p.email, firstName: firstNameOf(p) });
 

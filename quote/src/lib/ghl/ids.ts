@@ -16,6 +16,14 @@ export const ghlOpportunityUrl = (opportunityId: string) =>
 export const ghlConversationUrl = (conversationId: string) =>
   `https://app.gohighlevel.com/v2/location/${GHL_LOCATION_ID}/conversations/conversations/${encodeURIComponent(conversationId)}`;
 
+/**
+ * The in-store visit booking page (the GHL calendar widget the old "Rough quote is ready" emails
+ * linked, all three variants, read back 2026-10-22). A preliminary's email offers it as the next
+ * step. An id, not a secret, like everything else in this file.
+ */
+export const BOOKING_CALENDAR_ID = "c6Ah9rvmM9KZtmMYV0tZ";
+export const BOOKING_URL = `https://api.leadconnectorhq.com/widget/booking/${BOOKING_CALENDAR_ID}`;
+
 /** "(1) PROJECT: Lead Qualification": where every new opportunity from the quote app starts. */
 export const LEADS_PIPELINE_ID = "z7ZevSnG9HnGMzC9nSHp";
 
