@@ -150,7 +150,9 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   older sent ones Superseded, and their links say so. Online acceptance is not built yet.
 - **The email and the text (Albert, 2026-10-22: recreate the GHL "Rough quote is ready" template and
   improve on it).** `emailMessage()` in `src/lib/send/plan.ts` builds a complete, email-safe document:
-  warm paper, the cream header band with the logo (`QUOTE_LOGO_URL`, else the company name as a
+  warm paper, the cream header band with the logo (the brand kit's horizontal lockup, Secondary
+  Logo 2, shipped in `public/brand/` and served by the customer deployment, which the proxy lets
+  through without a sign-in; `QUOTE_LOGO_URL` overrides it; with neither, the company name as a
   wordmark), a serif headline, one card per option (what's included with quantities, the total set
   large, Recommended badge), a pill button, the payment schedule in words on a measured quote, three
   "what happens next" steps (a preliminary offers **Book an in-store visit**, `QUOTE_BOOKING_URL`),
@@ -160,7 +162,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   number, puts the link on its own line and stays in GSM-7 (no curly quotes or emoji). **Preview the
   email** on the Send card (`/q/<id>/preview/email`) shows it exactly as GHL will send it. The
   customer page `/c/<token>` carries OpenGraph tags so the link's preview card in a text shows the
-  logo, never the customer or the amount.
+  logo (`public/brand/og.png`), never the customer or the amount.
 - **Sent from the person signed in (Albert, 2026-10-22).** The email goes out from the quoter's own
   address through GHL's `emailFrom`: tried as "Albert @ Titan Flooring <albert@…>" (the From-name
   convention GHL's own emails use), then the bare address, then GHL's default sender, so a sender GHL

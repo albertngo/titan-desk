@@ -109,7 +109,7 @@ describe("booking step (Make, no sign-in)", () => {
 
   it("is the only path the staff app lets through without a sign-in, besides signing in", () => {
     const proxy = all.find((f) => f.rel === "proxy.ts")!.text;
-    expect(proxy).toContain('matcher: ["/((?!_next/|favicon\\\\.ico|robots\\\\.txt).*)"]');
+    expect(proxy).toContain('matcher: ["/((?!_next/|brand/|favicon\\\\.ico|robots\\\\.txt).*)"]');
     expect(proxy).toContain("const OPEN_ON_STAFF = /^\\/(login|auth\\/|denied|api\\/booking)/;");
     expect(all.filter((f) => f.rel.startsWith("app/api/")).map((f) => f.rel)).toEqual([ROUTE]);
   });

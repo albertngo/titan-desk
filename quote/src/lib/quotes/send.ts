@@ -48,8 +48,20 @@ function letterhead(): Letterhead {
     email: v("QUOTE_COMPANY_EMAIL"),
     website: v("QUOTE_COMPANY_WEBSITE"),
     hstNumber: v("QUOTE_COMPANY_HST"),
-    logoUrl: /^https:\/\//.test(v("QUOTE_LOGO_URL") ?? "") ? v("QUOTE_LOGO_URL") : null,
+    logoUrl: logoUrl(),
   };
+}
+
+/**
+ * The logo in the email's header (2026-10-23): the brand kit's horizontal lockup, shipped in
+ * public/brand/ and served by the customer deployment (the public host, no sign-in on /brand/).
+ * QUOTE_LOGO_URL overrides it; with neither, the header shows the company name as a wordmark.
+ */
+function logoUrl(): string | null {
+  const override = process.env.QUOTE_LOGO_URL?.trim();
+  if (override && /^https:\/\//.test(override)) return override;
+  const base = customerBase();
+  return base ? `${base.replace(/\/+$/, "")}/brand/titan-flooring-logo.png` : null;
 }
 
 /** The in-store visit booking page a preliminary's email offers (the GHL calendar link); unset = no button. */

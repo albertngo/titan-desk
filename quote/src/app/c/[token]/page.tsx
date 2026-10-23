@@ -10,7 +10,10 @@ export const dynamic = "force-dynamic";
 // The token is the key to the page: never hand it to another site in a Referer header.
 // The OpenGraph tags (2026-10-22) draw the preview card iMessage and Android show under the link in a
 // text: the logo and a generic line, never the customer, the number or the amount.
+const base = process.env.QUOTE_CUSTOMER_URL?.trim();
+const logo = process.env.QUOTE_LOGO_URL?.trim();
 export const metadata: Metadata = {
+  ...(base && /^https:\/\//.test(base) ? { metadataBase: new URL(base) } : {}),
   title: { absolute: "Your quote · Titan Flooring" },
   description: "Open your quote from Titan Flooring.",
   referrer: "no-referrer",
@@ -20,7 +23,8 @@ export const metadata: Metadata = {
     description: "Open your quote from Titan Flooring.",
     siteName: "Titan Flooring",
     type: "website",
-    ...(/^https:\/\//.test(process.env.QUOTE_LOGO_URL?.trim() ?? "") ? { images: [{ url: process.env.QUOTE_LOGO_URL!.trim(), alt: "Titan Flooring" }] } : {}),
+    // The card image ships with the app (public/brand/og.png, 1200×630); QUOTE_LOGO_URL overrides it.
+    images: [{ url: logo && /^https:\/\//.test(logo) ? logo : "/brand/og.png", width: 1200, height: 630, alt: "Titan Flooring" }],
   },
 };
 
