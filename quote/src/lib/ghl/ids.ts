@@ -17,12 +17,15 @@ export const ghlConversationUrl = (conversationId: string) =>
   `https://app.gohighlevel.com/v2/location/${GHL_LOCATION_ID}/conversations/conversations/${encodeURIComponent(conversationId)}`;
 
 /**
- * The in-store visit booking page (the GHL calendar widget the old "Rough quote is ready" emails
- * linked, all three variants, read back 2026-10-22). A preliminary's email offers it as the next
- * step. An id, not a secret, like everything else in this file.
+ * The two booking pages a preliminary's email offers (GHL calendar widgets; ids, not secrets, like
+ * everything else in this file). In-store is the calendar the old "Rough quote is ready" emails
+ * linked (read back 2026-10-22) and is the email's button: picking a material comes first. In-home
+ * (Albert, 2026-10-23) is the measurement, linked from the "We measure and confirm" step, for a
+ * preliminary made over the phone or at the counter where nobody has been to the house yet.
  */
-export const BOOKING_CALENDAR_ID = "c6Ah9rvmM9KZtmMYV0tZ";
-export const BOOKING_URL = `https://api.leadconnectorhq.com/widget/booking/${BOOKING_CALENDAR_ID}`;
+export const BOOKING_CALENDAR_IDS = { inStore: "c6Ah9rvmM9KZtmMYV0tZ", inHome: "9wHcUAkAFKWUwN75TbtW" } as const;
+const bookingPage = (id: string) => `https://api.leadconnectorhq.com/widget/booking/${id}`;
+export const BOOKING_URLS = { inStore: bookingPage(BOOKING_CALENDAR_IDS.inStore), inHome: bookingPage(BOOKING_CALENDAR_IDS.inHome) } as const;
 
 /** "(1) PROJECT: Lead Qualification": where every new opportunity from the quote app starts. */
 export const LEADS_PIPELINE_ID = "z7ZevSnG9HnGMzC9nSHp";

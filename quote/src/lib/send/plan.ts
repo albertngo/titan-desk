@@ -250,7 +250,7 @@ export function emailMessage(
   copy: CustomerCopy,
   to: { contactId: string; firstName: string | null; link: string; pdfUrl: string },
   sender: Sender | null = null,
-  options: { emailFrom?: string | null; bookingUrl?: string | null } = {},
+  options: { emailFrom?: string | null; booking?: { inStore: string; inHome: string } | null } = {},
 ): GhlMessage {
   const hi = greetingName(to.firstName);
   const prelim = copy.basis === "Preliminary";
@@ -279,10 +279,12 @@ export function emailMessage(
   ]
     .filter(Boolean)
     .join(" ");
+  // A step's own link (2026-10-23): the in-store calendar on the showroom step, the in-home one on the measurement step.
+  const stepLink = (href: string | undefined, label: string) => (href ? ` <a href="${esc(href)}" style="color:${C.accent};font-weight:600;text-decoration:none;white-space:nowrap;">${label}&nbsp;&rarr;</a>` : "");
   const next: [string, string][] = prelim
     ? [
-        ["Visit the showroom", "See and feel the samples in person. Fifteen minutes is usually enough to narrow it to two or three."],
-        ["We measure and confirm", `A measured quote replaces this estimate, with the exact ${what.includes("stair") && !what.includes("flooring") ? "scope" : "square footage"} and your chosen material.`],
+        ["Visit the showroom", `See and feel the samples in person. Fifteen minutes is usually enough to narrow it to two or three.${stepLink(options.booking?.inStore, "Book a showroom visit")}`],
+        ["We measure and confirm", `A measured quote replaces this estimate, with the exact ${what.includes("stair") && !what.includes("flooring") ? "scope" : "square footage"} and your chosen material.${stepLink(options.booking?.inHome, "Book a measurement")}`],
         ["Pick a date", "Most projects start within two to three weeks of a confirmed quote."],
       ]
     : [
@@ -308,7 +310,7 @@ export function emailMessage(
     (prelim ? "" : hairline() + row(eyebrow("How payment works") + para(esc(paymentWords(copy.options[0])), 15, C.body, "0 0 6px"))) +
     hairline(prelim ? "28px 40px" : "22px 40px 28px") +
     row(eyebrow("What happens next") + steps(next), "0 40px 6px") +
-    (prelim && options.bookingUrl ? row(button("Book an in-store visit", options.bookingUrl, false), "0 40px 30px") : "") +
+    (prelim && options.booking ? row(button("Book an in-store visit", options.booking.inStore, false), "0 40px 30px") : "") +
     hairline("0 40px 28px") +
     row(para(`Questions? Reply to this email${phone}.${ask}`, 15, C.body, "0 0 4px") + para(signoff, 14, C.muted, "0 0 36px"));
 

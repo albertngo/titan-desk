@@ -3,7 +3,7 @@ import { listByIds, updateRecord, updateRecords } from "@/lib/airtable/client";
 import { QUOTE, T, VERSION } from "@/lib/airtable/fields";
 import { requireQuoter, requireQuoterPerson } from "@/lib/auth";
 import { fromQuote } from "@/lib/editor/model";
-import { BOOKING_URL } from "@/lib/ghl/ids";
+import { BOOKING_URLS } from "@/lib/ghl/ids";
 import { makeConfigured, sendMessage } from "@/lib/make/client";
 import { COPY_MAX_CHARS, customerCopy, parseCopy, pdfName, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "@/lib/send/copy";
 import { customerLinks, emailFromFor, emailMessage, isToken, newToken, sendProblems, smsMessage, type Channels, type Sender } from "@/lib/send/plan";
@@ -65,8 +65,8 @@ function logoUrl(): string | null {
   return base ? `${base.replace(/\/+$/, "")}/brand/titan-flooring-logo.png` : null;
 }
 
-/** The in-store visit booking page a preliminary's email offers: the GHL calendar in src/lib/ghl/ids.ts. */
-const bookingUrl = () => BOOKING_URL;
+/** The in-store and in-home booking pages a preliminary's email offers: the GHL calendars in src/lib/ghl/ids.ts. */
+const booking = () => BOOKING_URLS;
 
 const senderOf = (p: Person): Sender => ({ email: p.email, firstName: firstNameOf(p) });
 
@@ -119,7 +119,7 @@ export async function previewEmail(versionId: string, validUntil?: string, itemi
   const quote = await getQuote(versionId);
   const base = customerBase() ?? "https://example.invalid";
   const { link, pdfUrl } = customerLinks(base, isToken(quote?.customerToken) ? quote!.customerToken! : "x".repeat(32), pdfName(copy));
-  const m = emailMessage(copy, { contactId: "preview", firstName: quote?.link?.firstName ?? null, link, pdfUrl }, senderOf(person), { bookingUrl: bookingUrl() });
+  const m = emailMessage(copy, { contactId: "preview", firstName: quote?.link?.firstName ?? null, link, pdfUrl }, senderOf(person), { booking: booking() });
   return m.type === "Email" ? m.html : null;
 }
 
@@ -182,7 +182,7 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
     let last: unknown = null;
     for (const emailFrom of attempts) {
       try {
-        await sendMessage(emailMessage(copy, { contactId, firstName, link, pdfUrl }, from, { emailFrom, bookingUrl: bookingUrl() }));
+        await sendMessage(emailMessage(copy, { contactId, firstName, link, pdfUrl }, from, { emailFrom, booking: booking() }));
         sentTo.push("Email");
         sentFrom = emailFrom;
         if (emailFrom === null && attempts[0] !== null) notes.push(`GHL would not send from ${from.email}, so the email went out from the location's default address.`);
