@@ -20,8 +20,8 @@ import { fromQuote } from "@/lib/editor/model";
 import { fingerprint } from "@/lib/quotes/savePlan";
 import { sendingReady, sendsFrom, sentLink } from "@/lib/quotes/send";
 import { logEntries } from "@/lib/quotes/history";
-import { addDays, torontoToday, VALID_DAYS } from "@/lib/send/copy";
-import { sendProblems } from "@/lib/send/plan";
+import { addDays, leadPrice, torontoToday, VALID_DAYS } from "@/lib/send/copy";
+import { optionProblem, sendProblems } from "@/lib/send/plan";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Quote" };
@@ -55,8 +55,13 @@ export default async function QuotePage({
   const draft = quote.status === "Draft";
   const [ready, link, from] = await Promise.all([sendingReady(), sentLink(quote.customerToken), sendsFrom()]);
   const problems = draft
-    ? sendProblems(quote, { base, validUntil: defaultUntil, channels: { email: !!quote.link?.email, sms: !!quote.link?.phone } }, { today, fingerprint: base })
+    ? sendProblems(quote, { base, validUntil: defaultUntil, channels: { email: !!quote.link?.email, sms: !!quote.link?.phone } }, { today, fingerprint: base, skipOptions: true })
     : [];
+  // Which options go to the customer (2026-10-24): one tick each on the Send card, with its price before HST and any problem.
+  const sendOptions = quote.options.map((o) => {
+    const lead = leadPrice(quote, optionTotals(o.lines, quote.discountRate, quote.showHst));
+    return { id: o.id, name: o.name, price: `${money(lead.amount)} ${lead.tag}`, recommended: o.recommended, problem: optionProblem(quote, o) };
+  });
   const send = customer ? null : (
     <SendQuote
       versionId={quote.id}
@@ -74,6 +79,7 @@ export default async function QuotePage({
       sent={draft ? null : { sentAt: quote.sentAt, sentBy: quote.sentBy, sentTo: quote.sentTo, validUntil: quote.validUntil, link }}
       preliminary={quote.basis === "Preliminary"}
       from={from}
+      options={sendOptions}
     />
   );
   // Who worked on this version (2026-10-22): newest first, from the append-only Edit Log. Staff only.

@@ -169,6 +169,15 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   by default, because a preliminary can go out before anyone has been to the house (a confirmed site
   only means an appointment was booked, not that it has happened), and "Thanks for having us over"
   when the sender ticks **We've already been to the home**. The app never guesses this.
+- **Choosing which options go (Albert, 2026-10-24).** With two or more options, the Send card has a tick
+  per option (name, price before HST, any problem), all ticked by default. Only the ticked options go
+  into the frozen copy, so the page, PDF, email and text all show the same set, numbered from 1; the
+  edit log records "options 1 and 3". Only ticked options are checked, so a half-built option no
+  longer blocks a send once it is unticked (`optionProblem()` / `chooseOptions()` in
+  `src/lib/send/plan.ts`; the card passes `skipOptions` to `sendProblems()` and applies the per-option
+  check live, the send runs everything). The previews and PDF follow the ticks (`?options=`). **The
+  email lists three or more options compactly** (names and prices before HST; the detail is on the
+  page); one or two get a full card each. Tested in `tests/send.test.ts`.
 - **Sent from the person signed in (Albert, 2026-10-22).** The email goes out from the quoter's own
   address through GHL's `emailFrom`: tried as "Albert @ Titan Flooring <albert@…>" (the From-name
   convention GHL's own emails use), then the bare address, then GHL's default sender, so a sender GHL

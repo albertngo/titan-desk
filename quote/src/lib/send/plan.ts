@@ -22,10 +22,50 @@ export type SendInput = {
   /** Null on a preliminary (Albert, 2026-10-22): an estimate has no good-until date. */
   validUntil: string | null;
   channels: Channels;
+  /**
+   * The options going to the customer (Albert, 2026-10-24), by record id; null or absent = all of
+   * them. Everything the customer gets (page, PDF, email, text) is drawn from these only.
+   */
+  optionIds?: string[] | null;
 };
 
-/** Everything that stops a send. Empty means it may go. Each line is said to staff as is. */
-export function sendProblems(quote: Quote, input: SendInput, ctx: { today: string; fingerprint: string }): string[] {
+const OPTION_ID = /^rec[A-Za-z0-9]{14}$/;
+
+/** The option ids a request names: a list of record ids, or null for "all". Anything else reads as "all". */
+export function parseOptionIds(raw: unknown): string[] | null {
+  if (typeof raw === "string") raw = raw.split(",").filter(Boolean);
+  if (!Array.isArray(raw)) return null;
+  return [...new Set(raw.filter((x): x is string => typeof x === "string" && OPTION_ID.test(x)))];
+}
+
+/** The quote with only the chosen options, in their order; null = all. An id not on the quote is ignored here and refused by sendProblems. */
+export function chooseOptions<Q extends Pick<Quote, "options">>(quote: Q, ids: string[] | null | undefined): Q {
+  if (!ids) return quote;
+  const keep = new Set(ids);
+  return { ...quote, options: quote.options.filter((o) => keep.has(o.id)) };
+}
+
+/** "options 1 and 3" for the edit log, numbered as the editor shows them; null when every option went. */
+export function chosenWords(quote: Pick<Quote, "options">, ids: string[] | null | undefined): string | null {
+  if (!ids || quote.options.every((o) => ids.includes(o.id))) return null;
+  const nums = quote.options.flatMap((o, i) => (ids.includes(o.id) ? [String(i + 1)] : []));
+  return nums.length === 1 ? `option ${nums[0]} only` : `options ${nums.slice(0, -1).join(", ")} and ${nums.at(-1)}`;
+}
+
+/** What stops one option going to the customer, or null. */
+export function optionProblem(quote: Pick<Quote, "discountRate" | "showHst">, o: Quote["options"][number]): string | null {
+  const t = optionTotals(o.lines, quote.discountRate, quote.showHst);
+  if (t.total <= 0) return `${o.name} has nothing priced in it.`;
+  if (parityDiffs(t, o.airtable).length > 0) return `The app and Airtable disagree on ${o.name}. Fix that before sending.`;
+  return null;
+}
+
+/**
+ * Everything that stops a send. Empty means it may go. Each line is said to staff as is.
+ * `skipOptions`: leave out the per-option checks, for the Send card, which applies optionProblem() to
+ * whatever is ticked as the sender changes it. The send itself always runs every check.
+ */
+export function sendProblems(quote: Quote, input: SendInput, ctx: { today: string; fingerprint: string; skipOptions?: boolean }): string[] {
   const out: string[] = [];
   if (quote.status !== "Draft") out.push(`This version is ${quote.status ?? "not a draft"}. Only a draft is sent; save a new version to send changes.`);
   if (ctx.fingerprint !== input.base) out.push("This version changed since the page opened. Reload it and check it before sending.");
@@ -34,10 +74,17 @@ export function sendProblems(quote: Quote, input: SendInput, ctx: { today: strin
   if (quote.sendBlock) out.push(quote.sendBlock);
   if (quote.legacyLineCount > 0) out.push("Some lines are in the old A/B/C format and on no option. Move them onto an option first.");
   if (quote.options.length === 0) out.push("This version has no options.");
-  for (const o of quote.options) {
-    const t = optionTotals(o.lines, quote.discountRate, quote.showHst);
-    if (t.total <= 0) out.push(`${o.name} has nothing priced in it.`);
-    else if (parityDiffs(t, o.airtable).length > 0) out.push(`The app and Airtable disagree on ${o.name}. Fix that before sending.`);
+  const ids = input.optionIds ?? null;
+  if (!ctx.skipOptions) {
+    if (ids && quote.options.length > 0) {
+      if (ids.length === 0) out.push("Choose at least one option to send.");
+      else if (ids.some((id) => !quote.options.some((o) => o.id === id))) out.push("An option you chose is no longer on this version. Reload the page.");
+    }
+    // Only what goes to the customer is checked: an unticked draft option never blocks a send (2026-10-24).
+    for (const o of chooseOptions(quote, ids).options) {
+      const p = optionProblem(quote, o);
+      if (p) out.push(p);
+    }
   }
   // A preliminary carries no good-until date (Albert, 2026-10-22); any date sent with one is ignored.
   if (quote.basis !== "Preliminary") {
@@ -200,6 +247,34 @@ function optionCard(o: CopyOption, copy: CustomerCopy, several: boolean): string
   );
 }
 
+/** Three or more options (2026-10-24): one card listing each option's name and its price before HST. */
+function optionList(copy: CustomerCopy): string {
+  const prelim = copy.basis === "Preliminary";
+  const rows = copy.options
+    .map((o, i) => {
+      const lead = leadPrice(copy, o.totals);
+      const badge = o.recommended
+        ? ` <span style="display:inline-block;margin-left:6px;padding:2px 8px;border-radius:999px;background:${C.cream};font-family:${SANS};font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:${C.accentDeep};font-weight:600;vertical-align:2px;">Recommended</span>`
+        : "";
+      return (
+        `<tr><td style="padding:13px 0;border-bottom:1px solid ${C.hair};font-family:${SANS};font-size:15px;color:${C.ink};">` +
+        `<span style="color:${C.muted};font-size:13px;">Option ${i + 1}</span><br>${esc(o.name)}${badge}</td>` +
+        `<td align="right" valign="bottom" style="padding:13px 0;border-bottom:1px solid ${C.hair};white-space:nowrap;">` +
+        `<span style="font-family:${SERIF};font-size:20px;color:${C.ink};">${cad.format(lead.amount)}</span>` +
+        `<span style="font-family:${SANS};font-size:12px;color:${C.muted};"> ${esc(lead.tag)}</span></td></tr>`
+      );
+    })
+    .join("");
+  return (
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.wash};border-radius:18px;"><tr><td style="padding:8px;">` +
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.card};border:1px solid ${C.hair};border-radius:12px;">` +
+    `<tr><td style="padding:22px 24px 4px;font-family:${SERIF};font-size:20px;color:${C.ink};">Your ${copy.options.length} options</td></tr>` +
+    `<tr><td style="padding:0 24px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${rows}</table></td></tr>` +
+    `<tr><td style="padding:14px 24px 20px;font-family:${SANS};font-size:13px;line-height:1.5;color:${C.muted};">${prelim ? "Rough prices. " : ""}What each option includes, the HST and the payment schedule are on the quote page.</td></tr>` +
+    `</table></td></tr></table>`
+  );
+}
+
 function steps(items: [string, string][]): string {
   return (
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">` +
@@ -289,7 +364,10 @@ export function emailMessage(
       ? `${copy.options.length} ways to do the work, side by side. Open the quote to see every detail and the payment schedule.`
       : `Everything we talked about is in the quote, with the payment schedule. Open it to see the detail.`;
 
-  const cards = copy.options.map((o) => row(optionCard(o, copy, several), "0 40px 16px")).join("");
+  // One or two options: a full card each. Three or more (2026-10-24): one compact list of names and prices,
+  // the detail on the quote page, so the email stays short however many options went.
+  const compact = copy.options.length >= 3;
+  const cards = compact ? row(optionList(copy), "0 40px 16px") : copy.options.map((o) => row(optionCard(o, copy, several), "0 40px 16px")).join("");
   // No PDF attached by default (Albert, 2026-10-24): an attachment is a copy we can never see opened, while the
   // quote page's Download PDF is. The sender ticks Attach PDF for a client who needs the file in their inbox.
   const under = [
