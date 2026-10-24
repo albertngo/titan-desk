@@ -346,17 +346,19 @@ export function smsMessage(copy: CustomerCopy, to: { contactId: string; firstNam
   const money = (n: number) => (Number.isInteger(n) ? `$${n.toLocaleString("en-CA")}` : cad.format(n));
   const hst = hstWord(copy, copy.options[totals.indexOf(low)].totals);
   const first = hi ? `Hi ${hi}, ${whoFrom}.` : `Hi, ${whoFrom}.`;
+  // Layout (Albert, 2026-10-24): the news, a blank line, "See the full details here:" with the link on
+  // its own line, a blank line, how to reply. No phone number: the reply goes to the same thread.
   const what = prelim
-    ? `${options.visited ? "Thanks for having us over." : "Thanks for telling us about your project."} Your rough ${kind === "quote" ? "" : `${kind} `}estimate is ${money(totals[0])} ${hst}, and the breakdown is here:`
+    ? `${options.visited ? "Thanks for having us over." : "Thanks for telling us about your project."} Your rough ${kind === "quote" ? "" : `${kind} `}estimate is ${money(totals[0])} ${hst}.`
     : several
-      ? `${copy.options.length} options for your ${kind === "quote" ? "project" : kind} are ready to compare, from ${money(low)} ${hst}${copy.validUntil ? `, good until ${shortDate(copy.validUntil)}` : ""}:`
-      : `Your ${kind === "quote" ? "" : `${kind} `}quote is ready, ${money(totals[0])} ${hst}${copy.validUntil ? `, good until ${shortDate(copy.validUntil)}` : ""}:`;
+      ? `${copy.options.length} options for your ${kind === "quote" ? "project" : kind} are ready to compare, from ${money(low)} ${hst}${copy.validUntil ? `, good until ${shortDate(copy.validUntil)}` : ""}.`
+      : `Your ${kind === "quote" ? "" : `${kind} `}quote is ready, ${money(totals[0])} ${hst}${copy.validUntil ? `, good until ${shortDate(copy.validUntil)}` : ""}.`;
   const close = prelim
-    ? "It's a preliminary number until we've measured. Reply here with any questions."
+    ? "We confirm the price once we've measured. Any questions, just reply."
     : several
-      ? "Reply here with the one you'd like, or with questions."
-      : `Reply here${copy.company.phone ? ` or call ${copy.company.phone}` : ""} if anything needs changing.`;
-  return { type: "SMS", contactId: to.contactId, message: `${first} ${what}\n${to.link}\n${close}` };
+      ? "Reply here with the one you'd like, or with any questions."
+      : "Reply here if anything needs changing.";
+  return { type: "SMS", contactId: to.contactId, message: `${first} ${what}\n\nSee the full details here:\n${to.link}\n\n${close}` };
 }
 
 /** "Nov 21" for a text. */

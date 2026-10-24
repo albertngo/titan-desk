@@ -249,6 +249,9 @@ describe("the messages", () => {
     expect(m.html).toContain("Rough total");
     const t = smsMessage(c, to);
     expect(t.type === "SMS" ? t.message : "").toContain("Your rough flooring and stairs estimate is $");
+    // The link sits alone on its line, after the label, with a blank line before the reply line; no phone number (2026-10-24).
+    expect(t.type === "SMS" ? t.message : "").toMatch(/\n\nSee the full details here:\nhttps:\/\/\S+\n\n/);
+    expect(t.type === "SMS" ? t.message : "").not.toMatch(/call|555-000-0000/);
   });
 
   it("is sent from the signed-in quoter on the company's domain, and from GHL's default otherwise (2026-10-22)", () => {
@@ -341,17 +344,17 @@ describe("the messages", () => {
       type: "SMS",
       contactId: "contactAbc123",
       // A preliminary carries no good-until date (2026-10-22), and opens generically unless the sender says we have visited (2026-10-24).
-      message: `Hi Pat, it's Albert from Titan Flooring. Thanks for telling us about your project. Your rough flooring estimate is $772.92 incl. HST, and the breakdown is here:\nhttps://view.example.com/c/${"A".repeat(32)}\nIt's a preliminary number until we've measured. Reply here with any questions.`,
+      message: `Hi Pat, it's Albert from Titan Flooring. Thanks for telling us about your project. Your rough flooring estimate is $772.92 incl. HST.\n\nSee the full details here:\nhttps://view.example.com/c/${"A".repeat(32)}\n\nWe confirm the price once we've measured. Any questions, just reply.`,
     });
     const after = smsMessage(customerCopy(quote({ basis: "Preliminary" }), AT), to, me, { visited: true });
-    expect(after.type === "SMS" && after.message).toContain("Thanks for having us over. Your rough flooring estimate");
+    expect(after.type === "SMS" && after.message).toContain("Thanks for having us over. Your rough flooring estimate is $772.92 incl. HST.\n\nSee the full details here:");
     const measured = smsMessage(customerCopy(quote(), AT), to, me);
     expect(measured.type === "SMS" && measured.message).toBe(
-      `Hi Pat, it's Albert from Titan Flooring. Your flooring quote is ready, $772.92 incl. HST, good until Nov 14:\nhttps://view.example.com/c/${"A".repeat(32)}\nReply here or call 555-000-0000 if anything needs changing.`,
+      `Hi Pat, it's Albert from Titan Flooring. Your flooring quote is ready, $772.92 incl. HST, good until Nov 14.\n\nSee the full details here:\nhttps://view.example.com/c/${"A".repeat(32)}\n\nReply here if anything needs changing.`,
     );
     const two = customerCopy(quote({ options: [quote().options[0], option("Oak", quote().options[0].lines)] }), AT);
     const pair = smsMessage(two, to, me);
-    expect(pair.type === "SMS" && pair.message).toContain("2 options for your flooring are ready to compare, from $772.92 incl. HST, good until Nov 14:");
+    expect(pair.type === "SMS" && pair.message).toContain("2 options for your flooring are ready to compare, from $772.92 incl. HST, good until Nov 14.\n\nSee the full details here:\n");
     // No curly quotes or emoji anywhere: one would switch the text to UCS-2 and halve each segment.
     for (const t of [m, measured]) expect(t.type === "SMS" && /^[\x20-\x7e\n]*$/.test(t.message)).toBe(true);
   });
