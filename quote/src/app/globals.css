@@ -597,15 +597,9 @@ a.chip.accent:hover { text-decoration: underline; }
 .cq-pay div span:last-child { color: var(--fg); font-variant-numeric: tabular-nums; }
 .cq-excl { padding: 14px 18px 18px; border-top: 1px solid var(--line); font-size: 14px; }
 .cq-excl ul { margin: 0; padding-left: 18px; color: var(--fg-dim); }
-.cq-contact { padding: 18px; display: flex; gap: 14px 20px; align-items: center; flex-wrap: wrap; }
-.cq-contact > div:first-child { margin-right: auto; }
-.cq-contact h2 { font-size: 17px; font-weight: 700; }
-.cq-contact p { color: var(--fg-dim); font-size: 14px; }
-.cq-cta { display: flex; gap: 8px; flex-wrap: wrap; }
-.cq-cta .btn { padding: 10px 16px; font-size: 14px; }
-.cq-legal { flex-basis: 100%; font-size: 12px; }
+.cq-legal { padding: 4px 0 0; text-align: center; font-size: 12px; color: var(--fg-faint); }
 @media print {
-  .cq-dl, .cq-preview, .cq-cta, .cq-pick { display: none; }
+  .cq-dl, .cq-preview, .cq-pick { display: none; }
   .cq { background: #fff; }
   .cq-card { box-shadow: none; }
   .cq-opt { break-inside: auto; }
