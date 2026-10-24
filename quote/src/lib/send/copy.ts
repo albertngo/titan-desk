@@ -227,6 +227,18 @@ export const discountLabel = (copy: Pick<CustomerCopy, "discountRate" | "discoun
 export const hstWord = (copy: Pick<CustomerCopy, "showHst">, t: Pick<CopyTotals, "hst">) =>
   copy.showHst ? "incl. HST" : t.hst !== 0 ? "incl. HST on materials" : "before HST";
 
+/**
+ * The price the email and the text lead with (Albert, 2026-10-24): before HST, with "+ HST" after it,
+ * the way contractors quote and customers compare. HST charged only on materials says so; a quote
+ * that charges no HST at all says "before HST", as everywhere else. The customer page and PDF keep
+ * their own totals block (hstWord / hstRow).
+ */
+export function leadPrice(copy: Pick<CustomerCopy, "showHst">, t: Pick<CopyTotals, "subtotal" | "hst" | "total">): { amount: number; tag: string; addsHst: boolean } {
+  if (copy.showHst) return { amount: t.subtotal, tag: "+ HST", addsHst: true };
+  if (t.hst !== 0) return { amount: t.subtotal, tag: "+ HST on materials", addsHst: true };
+  return { amount: t.subtotal, tag: "before HST", addsHst: false };
+}
+
 /** The words a line carries when its HST differs from the quote's. */
 export const itemHstNote = (l: Pick<CopyItem, "hst">) => (l.hst === "none" ? "no HST" : l.hst === "plus" ? "plus HST" : null);
 

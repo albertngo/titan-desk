@@ -295,6 +295,32 @@ describe("the messages", () => {
     expect(mm.type === "Email" && mm.html).toContain("2 ways to do the work");
   });
 
+  it("leads every amount before HST, with the HST and the with-HST total under it (2026-10-24)", () => {
+    const m = emailMessage(copy, to);
+    if (m.type !== "Email") throw new Error();
+    // The big number is the price before HST, tagged "+ HST"; the two quiet lines carry the tax and the total.
+    expect(m.html).toMatch(/class="total"[^>]*><span[^>]*>\$684\.00<\/span><span[^>]*> \+ HST<\/span>/);
+    expect(m.html.match(/\+ HST/g)?.length).toBe(2); // beside the number, and in the preheader; never twice on the card
+    expect(m.html).toContain(">HST (13%)</td>");
+    expect(m.html).toContain(">$88.92</td>");
+    expect(m.html).toContain(">With HST</td>");
+    expect(m.html).toContain(">$772.92</td>");
+    expect(m.html).toContain("Total $684.00 + HST");
+    expect(m.html).not.toContain("incl. HST");
+    // No HST charged at all: "before HST", and no tax lines.
+    const off = customerCopy(quote({ showHst: false, options: [option("Vinyl plank", quote().options[0].lines, 0.1, false)] }), AT);
+    const om = emailMessage(off, to);
+    expect(om.type === "Email" && om.html).toContain("before HST");
+    expect(om.type === "Email" && om.html).not.toMatch(/With HST|\+ HST/);
+    const ot = smsMessage(off, to);
+    expect(ot.type === "SMS" && ot.message).toMatch(/\$[\d,.]+ before HST, good until/);
+    // Two options: the text quotes the lower price before HST.
+    const pricier = option("Oak", quote().options[0].lines.map((l) => ({ ...l, unitPrice: (l.unitPrice ?? 0) * 2, unitPriceSnap: l.unitPriceSnap === null ? null : l.unitPriceSnap * 2 })));
+    pricier.airtable = optionTotals(pricier.lines, 0.1, true);
+    const two = smsMessage(customerCopy(quote({ options: [pricier, quote().options[0]] }), AT), to);
+    expect(two.type === "SMS" && two.message).toContain("from $684 + HST");
+  });
+
   it("opens a preliminary generically unless the sender says we have been to the home (2026-10-24)", () => {
     const c = customerCopy(quote({ basis: "Preliminary" }), AT);
     const before = emailMessage(c, to);
@@ -344,17 +370,17 @@ describe("the messages", () => {
       type: "SMS",
       contactId: "contactAbc123",
       // A preliminary carries no good-until date (2026-10-22), and opens generically unless the sender says we have visited (2026-10-24).
-      message: `Hi Pat, it's Albert from Titan Flooring. Thanks for telling us about your project. Your rough flooring estimate is $772.92 incl. HST.\n\nSee the full details here:\nhttps://view.example.com/c/${"A".repeat(32)}\n\nWe confirm the price once we've measured. Any questions, just reply.`,
+      message: `Hi Pat, it's Albert from Titan Flooring. Thanks for telling us about your project. Your rough flooring estimate is $684 + HST.\n\nSee the full details here:\nhttps://view.example.com/c/${"A".repeat(32)}\n\nWe confirm the price once we've measured. Any questions, just reply.`,
     });
     const after = smsMessage(customerCopy(quote({ basis: "Preliminary" }), AT), to, me, { visited: true });
-    expect(after.type === "SMS" && after.message).toContain("Thanks for having us over. Your rough flooring estimate is $772.92 incl. HST.\n\nSee the full details here:");
+    expect(after.type === "SMS" && after.message).toContain("Thanks for having us over. Your rough flooring estimate is $684 + HST.\n\nSee the full details here:");
     const measured = smsMessage(customerCopy(quote(), AT), to, me);
     expect(measured.type === "SMS" && measured.message).toBe(
-      `Hi Pat, it's Albert from Titan Flooring. Your flooring quote is ready, $772.92 incl. HST, good until Nov 14.\n\nSee the full details here:\nhttps://view.example.com/c/${"A".repeat(32)}\n\nReply here if anything needs changing.`,
+      `Hi Pat, it's Albert from Titan Flooring. Your flooring quote is ready, $684 + HST, good until Nov 14.\n\nSee the full details here:\nhttps://view.example.com/c/${"A".repeat(32)}\n\nReply here if anything needs changing.`,
     );
     const two = customerCopy(quote({ options: [quote().options[0], option("Oak", quote().options[0].lines)] }), AT);
     const pair = smsMessage(two, to, me);
-    expect(pair.type === "SMS" && pair.message).toContain("2 options for your flooring are ready to compare, from $772.92 incl. HST, good until Nov 14.\n\nSee the full details here:\n");
+    expect(pair.type === "SMS" && pair.message).toContain("2 options for your flooring are ready to compare, from $684 + HST, good until Nov 14.\n\nSee the full details here:\n");
     // No curly quotes or emoji anywhere: one would switch the text to UCS-2 and halve each segment.
     for (const t of [m, measured]) expect(t.type === "SMS" && /^[\x20-\x7e\n]*$/.test(t.message)).toBe(true);
   });
