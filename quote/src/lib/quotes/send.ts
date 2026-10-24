@@ -112,25 +112,25 @@ export async function previewCopy(versionId: string, validUntil?: string, itemis
 }
 
 /** The email as it would be sent today, for the staff preview (2026-10-22): placeholder links, the signed-in sender. */
-export async function previewEmail(versionId: string, validUntil?: string, itemised = false, visited = false): Promise<string | null> {
+export async function previewEmail(versionId: string, validUntil?: string, itemised = false, visited = false, attachPdf = false): Promise<string | null> {
   const person = await requireQuoterPerson();
   const copy = await previewCopy(versionId, validUntil, itemised);
   if (!copy) return null;
   const quote = await getQuote(versionId);
   const base = customerBase() ?? "https://example.invalid";
   const { link, pdfUrl } = customerLinks(base, isToken(quote?.customerToken) ? quote!.customerToken! : "x".repeat(32), pdfName(copy));
-  const m = emailMessage(copy, { contactId: "preview", firstName: quote?.link?.firstName ?? null, link, pdfUrl }, senderOf(person), { booking: booking(), visited });
+  const m = emailMessage(copy, { contactId: "preview", firstName: quote?.link?.firstName ?? null, link, pdfUrl }, senderOf(person), { booking: booking(), visited, attachPdf });
   return m.type === "Email" ? m.html : null;
 }
 
-function readInput(raw: unknown): { base: string; validUntil: string | null; channels: Channels; itemised: boolean; visited: boolean } | null {
+function readInput(raw: unknown): { base: string; validUntil: string | null; channels: Channels; itemised: boolean; visited: boolean; attachPdf: boolean } | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
   const ch = (r.channels ?? {}) as Record<string, unknown>;
   if (typeof r.base !== "string" || (typeof r.validUntil !== "string" && r.validUntil !== null)) return null;
   // Lump sum unless the sender chose the breakdown (2026-10-22). A null date is a preliminary's; sendProblems refuses it on anything else.
   // `visited` (2026-10-24): the sender says whether we have been to the home; a preliminary's opening words follow it.
-  return { base: r.base, validUntil: typeof r.validUntil === "string" ? r.validUntil : null, channels: { email: ch.email === true, sms: ch.sms === true }, itemised: r.itemised === true, visited: r.visited === true };
+  return { base: r.base, validUntil: typeof r.validUntil === "string" ? r.validUntil : null, channels: { email: ch.email === true, sms: ch.sms === true }, itemised: r.itemised === true, visited: r.visited === true, attachPdf: r.attachPdf === true };
 }
 
 export async function sendQuote(versionId: string, raw: unknown): Promise<SendResult> {
@@ -183,7 +183,7 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
     let last: unknown = null;
     for (const emailFrom of attempts) {
       try {
-        await sendMessage(emailMessage(copy, { contactId, firstName, link, pdfUrl }, from, { emailFrom, booking: booking(), visited: input.visited }));
+        await sendMessage(emailMessage(copy, { contactId, firstName, link, pdfUrl }, from, { emailFrom, booking: booking(), visited: input.visited, attachPdf: input.attachPdf }));
         sentTo.push("Email");
         sentFrom = emailFrom;
         if (emailFrom === null && attempts[0] !== null) notes.push(`GHL would not send from ${from.email}, so the email went out from the location's default address.`);
@@ -214,7 +214,7 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   }
 
   try {
-    const how = `sent by ${sentTo.join(" and ").toLowerCase()}${sentFrom ? ` from ${sentFrom}` : sentTo.includes("Email") ? " from the location's default address" : ""}`;
+    const how = `sent by ${sentTo.join(" and ").toLowerCase()}${sentFrom ? ` from ${sentFrom}` : sentTo.includes("Email") ? " from the location's default address" : ""}${sentTo.includes("Email") && input.attachPdf ? ", PDF attached" : ""}`;
     await updateRecord(T.versions, quote.id, { [VERSION.sentTo]: sentTo.join(", "), ...authorFields(person, new Date(), how, quote.editLog) });
   } catch {
     notes.push("Airtable didn't record how it was sent.");

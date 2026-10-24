@@ -83,6 +83,8 @@ export function SendQuote({
   const [breakdown, setBreakdown] = useState(false);
   /** A preliminary can go out before anyone has been to the house (Albert, 2026-10-24): the generic opening is the default. */
   const [visited, setVisited] = useState(false);
+  /** Attach the PDF to the email (Albert, 2026-10-24): off by default, so opens and downloads go through the tracked quote page. */
+  const [attachPdf, setAttachPdf] = useState(false);
   const [asking, setAsking] = useState(false);
   const [error, setError] = useState<{ message: string; problems?: string[] } | null>(null);
   const [done, setDone] = useState<{ link: string; sentTo: string[]; warning: string | null } | null>(null);
@@ -90,7 +92,8 @@ export function SendQuote({
   const q = [preliminary ? null : `until=${until}`, breakdown ? "itemised=1" : null, preliminary && visited ? "visited=1" : null].filter(Boolean).join("&");
   const preview = `/q/${versionId}/preview${q ? `?${q}` : ""}`;
   const pdf = `/q/${versionId}/pdf${q ? `?${q}` : ""}`;
-  const emailPreview = `/q/${versionId}/preview/email${q ? `?${q}` : ""}`;
+  const eq = [q, attachPdf ? "pdf=1" : null].filter(Boolean).join("&");
+  const emailPreview = `/q/${versionId}/preview/email${eq ? `?${eq}` : ""}`;
 
   if (status !== "Draft" || done) {
     const s = done ? { sentAt: today, sentBy: null, sentTo: done.sentTo.join(", "), validUntil: preliminary ? null : until, link: done.link } : sent;
@@ -129,7 +132,7 @@ export function SendQuote({
   function send() {
     setError(null);
     startSend(async () => {
-      const r = await sendQuoteAction(versionId, { base, validUntil: preliminary ? null : until, channels: { email: byEmail, sms: bySms }, itemised: breakdown, visited: preliminary && visited });
+      const r = await sendQuoteAction(versionId, { base, validUntil: preliminary ? null : until, channels: { email: byEmail, sms: bySms }, itemised: breakdown, visited: preliminary && visited, attachPdf: byEmail && attachPdf });
       setAsking(false);
       if (r.ok) {
         setDone(r);
@@ -156,9 +159,18 @@ export function SendQuote({
             <input type="checkbox" checked={byEmail && !!email} disabled={!email} onChange={(e) => setByEmail(e.target.checked)} />
             <span>
               Email <span className="faint">{email ?? "no email in GHL"}</span>
-              {email && <span className="sub">Link and PDF{from ? `, from ${from}` : ", from the location's default address"}</span>}
+              {email && <span className="sub">{attachPdf ? "Link and PDF" : "Link"}{from ? `, from ${from}` : ", from the location's default address"}</span>}
             </span>
           </label>
+          {email && byEmail && (
+            <label className="sq-attach">
+              <input type="checkbox" checked={attachPdf} onChange={(e) => setAttachPdf(e.target.checked)} />
+              <span>
+                Attach PDF
+                <span className="sub">{attachPdf ? "The file goes in the email too. Opening it is never tracked." : "Off: the customer downloads the PDF from the quote page, where it is tracked."}</span>
+              </span>
+            </label>
+          )}
           <label className={phone ? undefined : "off"}>
             <input type="checkbox" checked={bySms && !!phone} disabled={!phone} onChange={(e) => setBySms(e.target.checked)} />
             <span>

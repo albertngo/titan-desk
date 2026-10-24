@@ -138,8 +138,9 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   Charge rates, line totals, the discount, HST and payments stay. Any new screen that shows an
   internal figure must take `customerView()` and leave it out.
 - **Sending (milestone 4, Albert 2026-10-15).** **Send to customer** on a draft's page sends it
-  through GHL (Make 4975508, route `message`): an email with the link and the PDF attached, and/or a
-  text with the link; good for 30 days unless staff pick another date. **A preliminary has no
+  through GHL (Make 4975508, route `message`): an email with the link, and/or a text with the link (the
+  PDF is downloaded from the quote page; **Attach PDF** on the Send card, off by default since 2026-10-24,
+  also puts it in the email, because an attached copy is never seen opened); good for 30 days unless staff pick another date. **A preliminary has no
   good-until date (Albert, 2026-10-22):** it is an estimate, not an offer, so the Send card shows no
   date, the copy's `validUntil` is null, the page, PDF, email and text say nothing about one, and
   the link never expires; a date sent with one is ignored server-side. What may be sent and the

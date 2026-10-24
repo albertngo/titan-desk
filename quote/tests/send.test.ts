@@ -214,7 +214,14 @@ describe("the messages", () => {
 
   it("emails the link and attaches the PDF, through the customer's GHL contact", () => {
     const m = emailMessage(copy, to);
-    expect(m).toMatchObject({ type: "Email", contactId: "contactAbc123", subject: "Your flooring quote Q-9001 from Titan Flooring", attachments: [`https://view.example.com/c/${"A".repeat(32)}/Titan-Flooring-Quote-Q-9001-v1.pdf`] });
+    expect(m).toMatchObject({ type: "Email", contactId: "contactAbc123", subject: "Your flooring quote Q-9001 from Titan Flooring" });
+    // No PDF attached unless the sender ticks Attach PDF (2026-10-24): the page's download is the tracked copy.
+    expect("attachments" in m).toBe(false);
+    expect(m.type === "Email" && m.html).toContain("You can download a PDF from the quote page.");
+    expect(m.type === "Email" && m.html).not.toContain("A PDF copy is attached.");
+    const withPdf = emailMessage(copy, to, null, { attachPdf: true });
+    expect(withPdf).toMatchObject({ attachments: [`https://view.example.com/c/${"A".repeat(32)}/Titan-Flooring-Quote-Q-9001-v1.pdf`] });
+    expect(withPdf.type === "Email" && withPdf.html).toContain("A PDF copy is attached.");
     if (m.type !== "Email") throw new Error();
     expect(m.html).toContain(`href="https://view.example.com/c/${"A".repeat(32)}"`);
     expect(m.html).toContain("Hi Pat,");
