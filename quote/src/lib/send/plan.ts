@@ -250,7 +250,7 @@ export function emailMessage(
   copy: CustomerCopy,
   to: { contactId: string; firstName: string | null; link: string; pdfUrl: string },
   sender: Sender | null = null,
-  options: { emailFrom?: string | null; booking?: { inStore: string; inHome: string } | null } = {},
+  options: { emailFrom?: string | null; booking?: { inStore: string; inHome: string } | null; visited?: boolean } = {},
 ): GhlMessage {
   const hi = greetingName(to.firstName);
   const prelim = copy.basis === "Preliminary";
@@ -266,8 +266,12 @@ export function emailMessage(
     : `${prelim ? "Rough total" : "Total"} ${cad.format(totals[0])} ${hstWord(copy, copy.options[0].totals)}${copy.validUntil ? ` · good until ${longDate(copy.validUntil)}` : ""}`;
 
   const headline = `${hi ? `Hi ${esc(hi)}, your` : "Your"} ${esc(what === "quote" ? "" : what).trim()} ${noun} is ready.`.replace(/\s+/g, " ");
+  // A preliminary can go out before anyone has been to the house (Albert, 2026-10-24), so the generic
+  // opening is the default; the sender ticks "we've been to the home" for the warmer one.
   const intro = prelim
-    ? `Thanks for having us over. Here is the rough number we talked about, based on what we saw. Once you&rsquo;ve picked a material and we&rsquo;ve measured, we confirm the final price.`
+    ? options.visited
+      ? `Thanks for having us over. Here is the rough number we talked about, based on what we saw. Once you&rsquo;ve picked a material and we&rsquo;ve measured, we confirm the final price.`
+      : `Thanks for telling us about your project. Here is a rough number based on what you&rsquo;ve described. Once you&rsquo;ve picked a material and we&rsquo;ve measured, we confirm the final price.`
     : several
       ? `${copy.options.length} ways to do the work, side by side. Open the quote to see every detail and the payment schedule.`
       : `Everything we talked about is in the quote, with the payment schedule. Open it to see the detail.`;
@@ -331,7 +335,7 @@ export function emailMessage(
  * line, how to reply. Straight apostrophes on purpose: one curly quote or emoji switches the
  * whole message to UCS-2 and halves each segment.
  */
-export function smsMessage(copy: CustomerCopy, to: { contactId: string; firstName: string | null; link: string }, sender: Sender | null = null): GhlMessage {
+export function smsMessage(copy: CustomerCopy, to: { contactId: string; firstName: string | null; link: string }, sender: Sender | null = null, options: { visited?: boolean } = {}): GhlMessage {
   const hi = greetingName(to.firstName);
   const prelim = copy.basis === "Preliminary";
   const several = copy.options.length > 1;
@@ -343,7 +347,7 @@ export function smsMessage(copy: CustomerCopy, to: { contactId: string; firstNam
   const hst = hstWord(copy, copy.options[totals.indexOf(low)].totals);
   const first = hi ? `Hi ${hi}, ${whoFrom}.` : `Hi, ${whoFrom}.`;
   const what = prelim
-    ? `Thanks for having us over. Your rough ${kind === "quote" ? "" : `${kind} `}estimate is ${money(totals[0])} ${hst}, and the breakdown is here:`
+    ? `${options.visited ? "Thanks for having us over." : "Thanks for telling us about your project."} Your rough ${kind === "quote" ? "" : `${kind} `}estimate is ${money(totals[0])} ${hst}, and the breakdown is here:`
     : several
       ? `${copy.options.length} options for your ${kind === "quote" ? "project" : kind} are ready to compare, from ${money(low)} ${hst}${copy.validUntil ? `, good until ${shortDate(copy.validUntil)}` : ""}:`
       : `Your ${kind === "quote" ? "" : `${kind} `}quote is ready, ${money(totals[0])} ${hst}${copy.validUntil ? `, good until ${shortDate(copy.validUntil)}` : ""}:`;

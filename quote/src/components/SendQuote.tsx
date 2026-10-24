@@ -81,11 +81,13 @@ export function SendQuote({
   const [bySms, setBySms] = useState(!!phone);
   /** What the customer gets: the lump sum, always the default, or the breakdown (Albert, 2026-10-22). */
   const [breakdown, setBreakdown] = useState(false);
+  /** A preliminary can go out before anyone has been to the house (Albert, 2026-10-24): the generic opening is the default. */
+  const [visited, setVisited] = useState(false);
   const [asking, setAsking] = useState(false);
   const [error, setError] = useState<{ message: string; problems?: string[] } | null>(null);
   const [done, setDone] = useState<{ link: string; sentTo: string[]; warning: string | null } | null>(null);
   const [sending, startSend] = useTransition();
-  const q = [preliminary ? null : `until=${until}`, breakdown ? "itemised=1" : null].filter(Boolean).join("&");
+  const q = [preliminary ? null : `until=${until}`, breakdown ? "itemised=1" : null, preliminary && visited ? "visited=1" : null].filter(Boolean).join("&");
   const preview = `/q/${versionId}/preview${q ? `?${q}` : ""}`;
   const pdf = `/q/${versionId}/pdf${q ? `?${q}` : ""}`;
   const emailPreview = `/q/${versionId}/preview/email${q ? `?${q}` : ""}`;
@@ -127,7 +129,7 @@ export function SendQuote({
   function send() {
     setError(null);
     startSend(async () => {
-      const r = await sendQuoteAction(versionId, { base, validUntil: preliminary ? null : until, channels: { email: byEmail, sms: bySms }, itemised: breakdown });
+      const r = await sendQuoteAction(versionId, { base, validUntil: preliminary ? null : until, channels: { email: byEmail, sms: bySms }, itemised: breakdown, visited: preliminary && visited });
       setAsking(false);
       if (r.ok) {
         setDone(r);
@@ -176,7 +178,16 @@ export function SendQuote({
         </label>
 
         {preliminary ? (
-          <p className="note">A preliminary has no good-until date: it is an estimate, not an offer, and its link stays open.</p>
+          <>
+            <label className="sq-visited">
+              <input type="checkbox" checked={visited} onChange={(e) => setVisited(e.target.checked)} disabled={sending || asking} />
+              <span>
+                We&rsquo;ve already been to the home
+                <span className="sub">{visited ? "Opens with “Thanks for having us over” and the number we talked about." : "Opens with “Thanks for telling us about your project”; tick this if the visit has happened."}</span>
+              </span>
+            </label>
+            <p className="note">A preliminary has no good-until date: it is an estimate, not an offer, and its link stays open.</p>
+          </>
         ) : (
         <label className="sq-until-in">
           Good until

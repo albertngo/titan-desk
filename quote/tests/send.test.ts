@@ -292,6 +292,18 @@ describe("the messages", () => {
     expect(mm.type === "Email" && mm.html).toContain("2 ways to do the work");
   });
 
+  it("opens a preliminary generically unless the sender says we have been to the home (2026-10-24)", () => {
+    const c = customerCopy(quote({ basis: "Preliminary" }), AT);
+    const before = emailMessage(c, to);
+    expect(before.type === "Email" && before.html).toContain("Thanks for telling us about your project. Here is a rough number based on what you&rsquo;ve described.");
+    expect(before.type === "Email" && before.html).not.toContain("having us over");
+    const after = emailMessage(c, to, null, { visited: true });
+    expect(after.type === "Email" && after.html).toContain("Thanks for having us over. Here is the rough number we talked about, based on what we saw.");
+    // A measured quote never says either.
+    const measured = emailMessage(copy, to, null, { visited: true });
+    expect(measured.type === "Email" && measured.html).not.toMatch(/having us over|telling us about/);
+  });
+
   it("offers both bookings on a preliminary, each on its step, and the showroom as the button (2026-10-23)", () => {
     const c = customerCopy(quote({ basis: "Preliminary" }), AT);
     const booking = { inStore: "https://book.example/store", inHome: "https://book.example/home" };
@@ -328,9 +340,11 @@ describe("the messages", () => {
     expect(m).toEqual({
       type: "SMS",
       contactId: "contactAbc123",
-      // A preliminary carries no good-until date (2026-10-22).
-      message: `Hi Pat, it's Albert from Titan Flooring. Thanks for having us over. Your rough flooring estimate is $772.92 incl. HST, and the breakdown is here:\nhttps://view.example.com/c/${"A".repeat(32)}\nIt's a preliminary number until we've measured. Reply here with any questions.`,
+      // A preliminary carries no good-until date (2026-10-22), and opens generically unless the sender says we have visited (2026-10-24).
+      message: `Hi Pat, it's Albert from Titan Flooring. Thanks for telling us about your project. Your rough flooring estimate is $772.92 incl. HST, and the breakdown is here:\nhttps://view.example.com/c/${"A".repeat(32)}\nIt's a preliminary number until we've measured. Reply here with any questions.`,
     });
+    const after = smsMessage(customerCopy(quote({ basis: "Preliminary" }), AT), to, me, { visited: true });
+    expect(after.type === "SMS" && after.message).toContain("Thanks for having us over. Your rough flooring estimate");
     const measured = smsMessage(customerCopy(quote(), AT), to, me);
     expect(measured.type === "SMS" && measured.message).toBe(
       `Hi Pat, it's Albert from Titan Flooring. Your flooring quote is ready, $772.92 incl. HST, good until Nov 14:\nhttps://view.example.com/c/${"A".repeat(32)}\nReply here or call 555-000-0000 if anything needs changing.`,
