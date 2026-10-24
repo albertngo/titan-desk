@@ -242,6 +242,11 @@ describe("the messages", () => {
     const bm = emailMessage(big, to);
     expect(bm.type === "Email" && bm.html).toContain(">Remove old carpet</td>");
     expect(bm.type === "Email" && bm.html).toContain(">1,500 sq ft</td>");
+    // A Rate Card name carries its own section, so it is never prefixed (2026-10-24): no "Install · Refinish | SAND".
+    const rc = customerCopy(quote({ options: [option("One", [line({ section: "Install", description: "Refinish | SAND - Hardwood (Oak)", qty: 1333, unitPrice: 1, unitPriceSnap: null, unitCostSnap: null, contractor: null, sourceKind: "manual", sourceId: null, hasSource: false })])] }), AT);
+    const rm = emailMessage(rc, to);
+    expect(rm.type === "Email" && rm.html).toContain(">Refinish | SAND - Hardwood (Oak)</td>");
+    expect(rm.type === "Email" && rm.html).not.toContain("Install &middot; Refinish");
     expect(m.html).toContain("Stairs &middot; Townhome – Vinyl treads</td>");
     expect(m.html).toContain("Townhome – Vinyl treads We&#39;ll install waterproof vinyl treads. The handrails will be sanded and refinished to match, and up to 50 spindles are included.</td>");
     expect(m.html).toContain(">Timing</td>");
@@ -249,6 +254,9 @@ describe("the messages", () => {
     expect(m.html).toContain("Rough total");
     const t = smsMessage(c, to);
     expect(t.type === "SMS" ? t.message : "").toContain("Your rough flooring and stairs estimate is $");
+    // The link sits alone on its line, after the label, with a blank line before the reply line; no phone number (2026-10-24).
+    expect(t.type === "SMS" ? t.message : "").toMatch(/\n\nSee the full details here:\nhttps:\/\/\S+\n\n/);
+    expect(t.type === "SMS" ? t.message : "").not.toMatch(/call|555-000-0000/);
   });
 
   it("is sent from the signed-in quoter on the company's domain, and from GHL's default otherwise (2026-10-22)", () => {
@@ -292,6 +300,44 @@ describe("the messages", () => {
     expect(mm.type === "Email" && mm.html).toContain("2 ways to do the work");
   });
 
+  it("leads every amount before HST, with the HST and the with-HST total under it (2026-10-24)", () => {
+    const m = emailMessage(copy, to);
+    if (m.type !== "Email") throw new Error();
+    // The big number is the price before HST, tagged "+ HST"; the two quiet lines carry the tax and the total.
+    expect(m.html).toMatch(/class="total"[^>]*><span[^>]*>\$684\.00<\/span><span[^>]*> \+ HST<\/span>/);
+    expect(m.html.match(/\+ HST/g)?.length).toBe(2); // beside the number, and in the preheader; never twice on the card
+    expect(m.html).toContain(">HST (13%)</td>");
+    expect(m.html).toContain(">$88.92</td>");
+    expect(m.html).toContain(">With HST</td>");
+    expect(m.html).toContain(">$772.92</td>");
+    expect(m.html).toContain("Total $684.00 + HST");
+    expect(m.html).not.toContain("incl. HST");
+    // No HST charged at all: "before HST", and no tax lines.
+    const off = customerCopy(quote({ showHst: false, options: [option("Vinyl plank", quote().options[0].lines, 0.1, false)] }), AT);
+    const om = emailMessage(off, to);
+    expect(om.type === "Email" && om.html).toContain("before HST");
+    expect(om.type === "Email" && om.html).not.toMatch(/With HST|\+ HST/);
+    const ot = smsMessage(off, to);
+    expect(ot.type === "SMS" && ot.message).toMatch(/\$[\d,.]+ before HST, good until/);
+    // Two options: the text quotes the lower price before HST.
+    const pricier = option("Oak", quote().options[0].lines.map((l) => ({ ...l, unitPrice: (l.unitPrice ?? 0) * 2, unitPriceSnap: l.unitPriceSnap === null ? null : l.unitPriceSnap * 2 })));
+    pricier.airtable = optionTotals(pricier.lines, 0.1, true);
+    const two = smsMessage(customerCopy(quote({ options: [pricier, quote().options[0]] }), AT), to);
+    expect(two.type === "SMS" && two.message).toContain("from $684 + HST");
+  });
+
+  it("opens a preliminary generically unless the sender says we have been to the home (2026-10-24)", () => {
+    const c = customerCopy(quote({ basis: "Preliminary" }), AT);
+    const before = emailMessage(c, to);
+    expect(before.type === "Email" && before.html).toContain("Thanks for telling us about your project. Here is a rough number based on what you&rsquo;ve described.");
+    expect(before.type === "Email" && before.html).not.toContain("having us over");
+    const after = emailMessage(c, to, null, { visited: true });
+    expect(after.type === "Email" && after.html).toContain("Thanks for having us over. Here is the rough number we talked about, based on what we saw.");
+    // A measured quote never says either.
+    const measured = emailMessage(copy, to, null, { visited: true });
+    expect(measured.type === "Email" && measured.html).not.toMatch(/having us over|telling us about/);
+  });
+
   it("offers both bookings on a preliminary, each on its step, and the showroom as the button (2026-10-23)", () => {
     const c = customerCopy(quote({ basis: "Preliminary" }), AT);
     const booking = { inStore: "https://book.example/store", inHome: "https://book.example/home" };
@@ -328,16 +374,18 @@ describe("the messages", () => {
     expect(m).toEqual({
       type: "SMS",
       contactId: "contactAbc123",
-      // A preliminary carries no good-until date (2026-10-22).
-      message: `Hi Pat, it's Albert from Titan Flooring. Thanks for having us over. Your rough flooring estimate is $772.92 incl. HST, and the breakdown is here:\nhttps://view.example.com/c/${"A".repeat(32)}\nIt's a preliminary number until we've measured. Reply here with any questions.`,
+      // A preliminary carries no good-until date (2026-10-22), and opens generically unless the sender says we have visited (2026-10-24).
+      message: `Hi Pat, it's Albert from Titan Flooring. Thanks for telling us about your project. Your rough flooring estimate is $684 + HST.\n\nSee the full details here:\nhttps://view.example.com/c/${"A".repeat(32)}\n\nWe confirm the price once we've measured. Any questions, just reply.`,
     });
+    const after = smsMessage(customerCopy(quote({ basis: "Preliminary" }), AT), to, me, { visited: true });
+    expect(after.type === "SMS" && after.message).toContain("Thanks for having us over. Your rough flooring estimate is $684 + HST.\n\nSee the full details here:");
     const measured = smsMessage(customerCopy(quote(), AT), to, me);
     expect(measured.type === "SMS" && measured.message).toBe(
-      `Hi Pat, it's Albert from Titan Flooring. Your flooring quote is ready, $772.92 incl. HST, good until Nov 14:\nhttps://view.example.com/c/${"A".repeat(32)}\nReply here or call 555-000-0000 if anything needs changing.`,
+      `Hi Pat, it's Albert from Titan Flooring. Your flooring quote is ready, $684 + HST, good until Nov 14.\n\nSee the full details here:\nhttps://view.example.com/c/${"A".repeat(32)}\n\nReply here if anything needs changing.`,
     );
     const two = customerCopy(quote({ options: [quote().options[0], option("Oak", quote().options[0].lines)] }), AT);
     const pair = smsMessage(two, to, me);
-    expect(pair.type === "SMS" && pair.message).toContain("2 options for your flooring are ready to compare, from $772.92 incl. HST, good until Nov 14:");
+    expect(pair.type === "SMS" && pair.message).toContain("2 options for your flooring are ready to compare, from $684 + HST, good until Nov 14.\n\nSee the full details here:\n");
     // No curly quotes or emoji anywhere: one would switch the text to UCS-2 and halve each segment.
     for (const t of [m, measured]) expect(t.type === "SMS" && /^[\x20-\x7e\n]*$/.test(t.message)).toBe(true);
   });
@@ -410,7 +458,8 @@ describe("the PDF", () => {
 
   it("prints the customer's figures and none of the internal ones", () => {
     const text = Buffer.from(quotePdf(customerCopy(quote(), AT))).toString("latin1");
-    for (const s of ["(Total)", "($772.92)", "(PREPARED FOR)", "(Pat Example)", "(Optional \\267 $120.00)", "(Living room \\267 includes 10% waste allowance)", "(minimum charge)", "(HST # 123456789 RT0001)"]) expect(text).toContain(s);
+    // Leads before HST (2026-10-24): the bar is the subtotal "+ HST"; the tax and the total with it follow.
+    for (const s of ["(Subtotal before HST)", "($684.00)", "(HST \\(13%\\))", "($88.92)", "(Total with HST)", "($772.92)", "(PAYMENT SCHEDULE, WITH HST)", "(PREPARED FOR)", "(Pat Example)", "(Optional \\267 $120.00)", "(Living room \\267 includes 10% waste allowance)", "(minimum charge)", "(HST # 123456789 RT0001)"]) expect(text).toContain(s);
     for (const s of ["Crew Alpha", "price sensitive", "$1.20", "Margin"]) expect(text).not.toContain(s);
   });
 
@@ -506,7 +555,8 @@ describe("lump sum (2026-10-22)", () => {
     const pdf = new TextDecoder("latin1").decode(quotePdf(c));
     expect(pdf).not.toContain("Unit price");
     expect(pdf).not.toContain("Discount");
-    expect(pdf).toContain("Price \\(before HST\\)"); // parentheses are escaped inside a PDF string
+    expect(pdf).toContain("(Price before HST)"); // leads before HST, like the email (2026-10-24)
+    expect(pdf).toContain("(Total with HST)");
     expect(pdf).toContain("one sum for the project");
     expect(parseCopy(serializeCopy(c))).toEqual(c);
     expect(customerCopy(quote(), AT).pricing).toBe("itemised");

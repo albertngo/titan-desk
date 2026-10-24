@@ -588,6 +588,9 @@ a.chip.accent:hover { text-decoration: underline; }
 .cq-totals .disc dd { color: var(--good); }
 .cq-totals .total { margin-top: 6px; padding: 10px 12px; border-radius: 8px; background: var(--accent); color: var(--accent-ink); font-weight: 700; font-size: 17px; }
 .cq-totals .total dt { color: var(--accent-ink); }
+.cq-totals .total .tag { font-weight: 500; font-size: 13px; opacity: .85; }
+.cq-totals .total ~ div { padding: 0 12px; }
+.cq-totals .with dt, .cq-totals .with dd { font-weight: 600; color: var(--fg); }
 .cq-pay { order: 1; font-size: 13.5px; display: grid; gap: 4px; align-content: start; }
 .cq-pay h4, .cq-excl h4 { margin: 0 0 4px; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--fg-faint); }
 .cq-pay div { display: flex; justify-content: space-between; gap: 12px; color: var(--fg-dim); }
@@ -718,6 +721,11 @@ a.chip.accent:hover { text-decoration: underline; }
 .acc-say b { color: var(--fg); }
 /* The customer's photo strip stays at the top of the drawer while the thread scrolls under it (Albert, 2026-10-22). */
 .conv-panel-b > .conv-photos { position: sticky; top: -16px; z-index: 2; margin: -16px -16px 0; padding: 16px 16px 10px; background: var(--card); border-bottom: 1px solid var(--line); }
+
+/* Send card: the visited switch on a preliminary (2026-10-24). */
+.sq-visited { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; }
+.sq-visited input { margin-top: 3px; }
+.sq-visited .sub { display: block; font-size: 12px; color: var(--fg-dim); }
 
 /* History card (2026-10-22): who saved or sent a version, newest first. */
 .hist summary { cursor: pointer; font-size: 12.5px; color: var(--fg-dim); }

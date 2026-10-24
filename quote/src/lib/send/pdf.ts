@@ -1,5 +1,5 @@
 import { PAGE, PdfDoc, wrap, type Rgb } from "./pdfDoc";
-import { discountLabel, hstRow, isLump, itemHstNote, longDate, type CopyItem, type CopyOption, type CopyText, type CustomerCopy } from "./copy";
+import { discountLabel, hstRow, isLump, itemHstNote, leadPrice, longDate, type CopyItem, type CopyOption, type CopyText, type CustomerCopy } from "./copy";
 
 /**
  * The quote as a PDF, drawn from the customer copy only (never from live lines), so the file
@@ -203,15 +203,18 @@ export function quotePdf(copy: CustomerCopy): Uint8Array<ArrayBuffer> {
       rows.push(["Subtotal before discount", money(t.preDiscount), false]);
       rows.push([discountLabel(copy), money(t.discount), false]);
     }
-    rows.push([isLump(copy) ? "Price (before HST)" : "Subtotal", money(t.subtotal), false]);
+    // Leads before HST, like the email and the text (Albert, 2026-10-24): the blue bar is the price
+    // before HST; the tax and the total with it follow under it.
+    const lead = leadPrice(copy, t);
     const h = hstRow(copy, t);
-    rows.push([h.label, h.amount !== null ? money(h.amount) : "Not included", false]);
+    const after: [string, string][] = [[h.label, h.amount !== null ? money(h.amount) : "Not included"]];
+    if (lead.addsHst) after.push(["Total with HST", money(t.total)]);
     const pay: [string, number][] = [
       ["Deposit (35%)", t.payment1],
       ["Second payment (35%)", t.payment2],
       ["Final payment", t.paymentFinal],
     ];
-    room(rows.length * 15 + 42 + pay.length * 13 + 30);
+    room(rows.length * 15 + 42 + after.length * 15 + pay.length * 13 + 30);
     y -= 6;
     const x0 = 340;
     for (const [k, v] of rows) {
@@ -221,10 +224,17 @@ export function quotePdf(copy: CustomerCopy): Uint8Array<ArrayBuffer> {
     }
     y -= 8;
     doc.rect(x0 - 8, y - 7, RIGHT - x0 + 8, 22, BLUE);
-    doc.text(x0, y, "Total", { font: "B", size: 11, color: [1, 1, 1] });
-    doc.text(COL.amount - 4, y, money(t.total), { font: "B", size: 11, color: [1, 1, 1], align: "right" });
-    y -= 30;
-    doc.text(x0, y, "PAYMENT SCHEDULE", { font: "B", size: 7.5, color: FAINT });
+    doc.text(x0, y, `${isLump(copy) ? "Price" : "Subtotal"} before HST`, { font: "B", size: 11, color: [1, 1, 1] });
+    doc.text(COL.amount - 4, y, money(t.subtotal), { font: "B", size: 11, color: [1, 1, 1], align: "right" });
+    y -= 22;
+    for (const [k, v] of after) {
+      const strong = k === "Total with HST";
+      doc.text(x0, y, k, { font: strong ? "B" : "R", size: 9, color: strong ? INK : DIM });
+      doc.text(COL.amount - 4, y, v, { font: strong ? "B" : "R", size: 9, color: INK, align: "right" });
+      y -= 15;
+    }
+    y -= 15;
+    doc.text(x0, y, lead.addsHst ? "PAYMENT SCHEDULE, WITH HST" : "PAYMENT SCHEDULE", { font: "B", size: 7.5, color: FAINT });
     y -= 13;
     for (const [k, v] of pay) {
       doc.text(x0, y, k, { size: 9, color: DIM });

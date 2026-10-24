@@ -163,7 +163,11 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   number, puts the link on its own line and stays in GSM-7 (no curly quotes or emoji). **Preview the
   email** on the Send card (`/q/<id>/preview/email`) shows it exactly as GHL will send it. The
   customer page `/c/<token>` carries OpenGraph tags so the link's preview card in a text shows the
-  logo (`public/brand/og.png`), never the customer or the amount.
+  logo (`public/brand/og.png`), never the customer or the amount. **A preliminary's opening words
+  follow a switch on the Send card (Albert, 2026-10-24):** "Thanks for telling us about your project"
+  by default, because a preliminary can go out before anyone has been to the house (a confirmed site
+  only means an appointment was booked, not that it has happened), and "Thanks for having us over"
+  when the sender ticks **We've already been to the home**. The app never guesses this.
 - **Sent from the person signed in (Albert, 2026-10-22).** The email goes out from the quoter's own
   address through GHL's `emailFrom`: tried as "Albert @ Titan Flooring <albert@…>" (the From-name
   convention GHL's own emails use), then the bare address, then GHL's default sender, so a sender GHL

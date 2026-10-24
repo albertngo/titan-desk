@@ -1,6 +1,6 @@
 import { optionTotals, parityDiffs } from "@/lib/calc";
 import type { Quote } from "@/lib/quotes/types";
-import { addDays, hstWord, isIsoDate, longDate, type CopyOption, type CustomerCopy } from "./copy";
+import { addDays, hstRow, isIsoDate, leadPrice, longDate, type CopyOption, type CustomerCopy } from "./copy";
 import { copyKind, flooringSummary, kindPhrase } from "./summary";
 
 /**
@@ -153,7 +153,8 @@ function optionCard(o: CopyOption, copy: CustomerCopy, several: boolean): string
       const [what, qty] = item.split(" · ");
       // "Removal · Remove existing laminate" says it twice: when the line already opens with the work, show it alone.
       const stem = label.toLowerCase().replace(/al$/, "");
-      const dup = what.toLowerCase().startsWith(stem) || (label === "Subfloor prep" && /^subfloor/i.test(what));
+      // Rate Card names carry their own section ("Refinish | SAND - Hardwood"), so they never take a prefix (2026-10-24).
+      const dup = what.includes(" | ") || what.toLowerCase().startsWith(stem) || (label === "Subfloor prep" && /^subfloor/i.test(what));
       const amount = qty ? esc(qty.replace(/^\d+(?:\.\d+)?/, (n) => Number(n).toLocaleString("en-CA"))) : "included";
       items.push(`<tr>${cell(dup ? esc(what) : `${esc(label)} &middot; ${esc(what)}`)}${cell(amount, true)}</tr>`);
     }
@@ -174,7 +175,17 @@ function optionCard(o: CopyOption, copy: CustomerCopy, several: boolean): string
   const badge = o.recommended && several ? `<span style="display:inline-block;padding:4px 10px;border-radius:999px;background:${C.cream};font-family:${SANS};font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:${C.accentDeep};font-weight:600;">Recommended</span>` : "";
   const title = several ? esc(o.name) : prelim ? "What&rsquo;s included" : "Your quote";
   const totalLabel = prelim ? "Rough total" : "Total";
-  const note = hstWord(copy, o.totals);
+  // Before HST, set large, with the HST and the with-HST total as two quiet lines under it (2026-10-24).
+  const lead = leadPrice(copy, o.totals);
+  const tax = hstRow(copy, o.totals);
+  const small = (label: string, amount: string) =>
+    `<tr><td style="padding:3px 0 0;font-family:${SANS};font-size:13px;color:${C.muted};">${label}</td><td align="right" style="padding:3px 0 0;font-family:${SANS};font-size:13px;color:${C.muted};white-space:nowrap;">${amount}</td></tr>`;
+  const breakdown = lead.addsHst && tax.amount !== null
+    ? `<tr><td colspan="2" style="padding:10px 0 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid ${C.hair};">` +
+      `<tr><td colspan="2" style="height:6px;line-height:6px;font-size:1px;">&nbsp;</td></tr>` +
+      small(esc(tax.label), cad.format(tax.amount)) + small("With HST", cad.format(o.totals.total)) +
+      `</table></td></tr>`
+    : "";
   return (
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.wash};border-radius:18px;"><tr><td style="padding:8px;">` +
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.card};border:1px solid ${C.hair};border-radius:12px;">` +
@@ -182,9 +193,10 @@ function optionCard(o: CopyOption, copy: CustomerCopy, several: boolean): string
     `<td style="font-family:${SERIF};font-size:20px;color:${C.ink};">${title}</td>${badge ? `<td align="right">${badge}</td>` : ""}</tr></table></td></tr>` +
     (items.length ? `<tr><td style="padding:0 24px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${items.join("")}</table></td></tr>` : "") +
     `<tr><td style="padding:18px 24px 22px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>` +
-    `<td style="font-family:${SANS};font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:${C.muted};">${totalLabel}<br><span style="font-size:12px;letter-spacing:0;text-transform:none;">${esc(note)}</span></td>` +
-    `<td align="right" class="total" style="font-family:${SERIF};font-size:30px;color:${C.ink};white-space:nowrap;">${cad.format(o.totals.total)}</td>` +
-    `</tr></table></td></tr></table></td></tr></table>`
+    // "+ HST" sits beside the number; the line under the label speaks only when it has something to add.
+    `<td style="font-family:${SANS};font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:${C.muted};">${totalLabel}${lead.addsHst && copy.showHst ? "" : `<br><span style="font-size:12px;letter-spacing:0;text-transform:none;">${lead.addsHst ? "HST on materials only" : "before HST"}</span>`}</td>` +
+    `<td align="right" class="total" style="font-family:${SERIF};font-size:30px;color:${C.ink};"><span style="white-space:nowrap;">${cad.format(lead.amount)}</span>${lead.addsHst ? `<span style="font-family:${SANS};font-size:14px;color:${C.muted};white-space:nowrap;"> + HST</span>` : ""}</td>` +
+    `</tr>${breakdown}</table></td></tr></table></td></tr></table>`
   );
 }
 
@@ -250,7 +262,7 @@ export function emailMessage(
   copy: CustomerCopy,
   to: { contactId: string; firstName: string | null; link: string; pdfUrl: string },
   sender: Sender | null = null,
-  options: { emailFrom?: string | null; booking?: { inStore: string; inHome: string } | null } = {},
+  options: { emailFrom?: string | null; booking?: { inStore: string; inHome: string } | null; visited?: boolean } = {},
 ): GhlMessage {
   const hi = greetingName(to.firstName);
   const prelim = copy.basis === "Preliminary";
@@ -259,15 +271,20 @@ export function emailMessage(
   const what = phrase.replace(/ quote$/, "");
   const noun = prelim ? "estimate" : "quote";
   const subject = `Your ${prelim ? `${what} estimate` : phrase} ${copy.quoteNumber} from ${copy.company.name}`;
-  const totals = copy.options.map((o) => o.totals.total);
-  const low = Math.min(...totals);
+  // Every amount leads before HST (2026-10-24); with several options, the lowest.
+  const leads = copy.options.map((o) => leadPrice(copy, o.totals));
+  const low = leads.reduce((a, b) => (b.amount < a.amount ? b : a));
   const preheader = several
-    ? `${copy.options.length} options from ${cad.format(low)} ${hstWord(copy, copy.options[totals.indexOf(low)].totals)}${copy.validUntil ? ` · good until ${longDate(copy.validUntil)}` : ""}`
-    : `${prelim ? "Rough total" : "Total"} ${cad.format(totals[0])} ${hstWord(copy, copy.options[0].totals)}${copy.validUntil ? ` · good until ${longDate(copy.validUntil)}` : ""}`;
+    ? `${copy.options.length} options from ${cad.format(low.amount)} ${low.tag}${copy.validUntil ? ` · good until ${longDate(copy.validUntil)}` : ""}`
+    : `${prelim ? "Rough total" : "Total"} ${cad.format(leads[0].amount)} ${leads[0].tag}${copy.validUntil ? ` · good until ${longDate(copy.validUntil)}` : ""}`;
 
   const headline = `${hi ? `Hi ${esc(hi)}, your` : "Your"} ${esc(what === "quote" ? "" : what).trim()} ${noun} is ready.`.replace(/\s+/g, " ");
+  // A preliminary can go out before anyone has been to the house (Albert, 2026-10-24), so the generic
+  // opening is the default; the sender ticks "we've been to the home" for the warmer one.
   const intro = prelim
-    ? `Thanks for having us over. Here is the rough number we talked about, based on what we saw. Once you&rsquo;ve picked a material and we&rsquo;ve measured, we confirm the final price.`
+    ? options.visited
+      ? `Thanks for having us over. Here is the rough number we talked about, based on what we saw. Once you&rsquo;ve picked a material and we&rsquo;ve measured, we confirm the final price.`
+      : `Thanks for telling us about your project. Here is a rough number based on what you&rsquo;ve described. Once you&rsquo;ve picked a material and we&rsquo;ve measured, we confirm the final price.`
     : several
       ? `${copy.options.length} ways to do the work, side by side. Open the quote to see every detail and the payment schedule.`
       : `Everything we talked about is in the quote, with the payment schedule. Open it to see the detail.`;
@@ -331,28 +348,30 @@ export function emailMessage(
  * line, how to reply. Straight apostrophes on purpose: one curly quote or emoji switches the
  * whole message to UCS-2 and halves each segment.
  */
-export function smsMessage(copy: CustomerCopy, to: { contactId: string; firstName: string | null; link: string }, sender: Sender | null = null): GhlMessage {
+export function smsMessage(copy: CustomerCopy, to: { contactId: string; firstName: string | null; link: string }, sender: Sender | null = null, options: { visited?: boolean } = {}): GhlMessage {
   const hi = greetingName(to.firstName);
   const prelim = copy.basis === "Preliminary";
   const several = copy.options.length > 1;
   const kind = kindPhrase(copyKind(copy), false).replace(/ quote$/, "");
   const whoFrom = sender?.firstName ? `it's ${sender.firstName} from ${copy.company.name}` : `it's ${copy.company.name}`;
-  const totals = copy.options.map((o) => o.totals.total);
-  const low = Math.min(...totals);
+  // Every amount before HST, "+ HST" after it (2026-10-24); with several options, the lowest.
+  const leads = copy.options.map((o) => leadPrice(copy, o.totals));
+  const low = leads.reduce((a, b) => (b.amount < a.amount ? b : a));
   const money = (n: number) => (Number.isInteger(n) ? `$${n.toLocaleString("en-CA")}` : cad.format(n));
-  const hst = hstWord(copy, copy.options[totals.indexOf(low)].totals);
   const first = hi ? `Hi ${hi}, ${whoFrom}.` : `Hi, ${whoFrom}.`;
+  // Layout (Albert, 2026-10-24): the news, a blank line, "See the full details here:" with the link on
+  // its own line, a blank line, how to reply. No phone number: the reply goes to the same thread.
   const what = prelim
-    ? `Thanks for having us over. Your rough ${kind === "quote" ? "" : `${kind} `}estimate is ${money(totals[0])} ${hst}, and the breakdown is here:`
+    ? `${options.visited ? "Thanks for having us over." : "Thanks for telling us about your project."} Your rough ${kind === "quote" ? "" : `${kind} `}estimate is ${money(leads[0].amount)} ${leads[0].tag}.`
     : several
-      ? `${copy.options.length} options for your ${kind === "quote" ? "project" : kind} are ready to compare, from ${money(low)} ${hst}${copy.validUntil ? `, good until ${shortDate(copy.validUntil)}` : ""}:`
-      : `Your ${kind === "quote" ? "" : `${kind} `}quote is ready, ${money(totals[0])} ${hst}${copy.validUntil ? `, good until ${shortDate(copy.validUntil)}` : ""}:`;
+      ? `${copy.options.length} options for your ${kind === "quote" ? "project" : kind} are ready to compare, from ${money(low.amount)} ${low.tag}${copy.validUntil ? `, good until ${shortDate(copy.validUntil)}` : ""}.`
+      : `Your ${kind === "quote" ? "" : `${kind} `}quote is ready, ${money(leads[0].amount)} ${leads[0].tag}${copy.validUntil ? `, good until ${shortDate(copy.validUntil)}` : ""}.`;
   const close = prelim
-    ? "It's a preliminary number until we've measured. Reply here with any questions."
+    ? "We confirm the price once we've measured. Any questions, just reply."
     : several
-      ? "Reply here with the one you'd like, or with questions."
-      : `Reply here${copy.company.phone ? ` or call ${copy.company.phone}` : ""} if anything needs changing.`;
-  return { type: "SMS", contactId: to.contactId, message: `${first} ${what}\n${to.link}\n${close}` };
+      ? "Reply here with the one you'd like, or with any questions."
+      : "Reply here if anything needs changing.";
+  return { type: "SMS", contactId: to.contactId, message: `${first} ${what}\n\nSee the full details here:\n${to.link}\n\n${close}` };
 }
 
 /** "Nov 21" for a text. */
