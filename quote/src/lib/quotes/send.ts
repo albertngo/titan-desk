@@ -6,7 +6,7 @@ import { fromQuote } from "@/lib/editor/model";
 import { BOOKING_URLS } from "@/lib/ghl/ids";
 import { makeConfigured, sendMessage } from "@/lib/make/client";
 import { COPY_MAX_CHARS, customerCopy, parseCopy, pdfName, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "@/lib/send/copy";
-import { customerLinks, emailFromFor, emailMessage, isToken, newToken, sendProblems, smsMessage, type Channels, type Sender } from "@/lib/send/plan";
+import { chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, isToken, newToken, parseOptionIds, sendProblems, smsMessage, type Channels, type Sender } from "@/lib/send/plan";
 import { authorFields, firstNameOf, type Person } from "./history";
 import { getQuote } from "./load";
 import { refreshFromGhl } from "./refresh";
@@ -98,7 +98,7 @@ export async function sentLink(token: string | null): Promise<string | null> {
  * copy it would get if sent today. The preview page and PDF show this.
  */
 /** `itemised`: preview the breakdown; false, the default, previews the lump sum (Albert, 2026-10-22). A sent version shows its frozen copy either way. */
-export async function previewCopy(versionId: string, validUntil?: string, itemised = false): Promise<CustomerCopy | null> {
+export async function previewCopy(versionId: string, validUntil?: string, itemised = false, optionIds: string[] | null = null): Promise<CustomerCopy | null> {
   await requireQuoter();
   const quote = await getQuote(versionId);
   if (!quote) return null;
@@ -108,29 +108,31 @@ export async function previewCopy(versionId: string, validUntil?: string, itemis
     if (frozen) return frozen;
   }
   const today = torontoToday(new Date());
-  return customerCopy({ ...quote, itemised }, { sentOn: quote.sentAt ?? today, validUntil: validUntil ?? quote.validUntil ?? today, company: letterhead() });
+  // A draft previews only the options ticked on the Send card (2026-10-24); none matching = all.
+  const chosen = chooseOptions(quote, optionIds);
+  return customerCopy({ ...(chosen.options.length ? chosen : quote), itemised }, { sentOn: quote.sentAt ?? today, validUntil: validUntil ?? quote.validUntil ?? today, company: letterhead() });
 }
 
 /** The email as it would be sent today, for the staff preview (2026-10-22): placeholder links, the signed-in sender. */
-export async function previewEmail(versionId: string, validUntil?: string, itemised = false, visited = false): Promise<string | null> {
+export async function previewEmail(versionId: string, validUntil?: string, itemised = false, visited = false, attachPdf = false, optionIds: string[] | null = null): Promise<string | null> {
   const person = await requireQuoterPerson();
-  const copy = await previewCopy(versionId, validUntil, itemised);
+  const copy = await previewCopy(versionId, validUntil, itemised, optionIds);
   if (!copy) return null;
   const quote = await getQuote(versionId);
   const base = customerBase() ?? "https://example.invalid";
   const { link, pdfUrl } = customerLinks(base, isToken(quote?.customerToken) ? quote!.customerToken! : "x".repeat(32), pdfName(copy));
-  const m = emailMessage(copy, { contactId: "preview", firstName: quote?.link?.firstName ?? null, link, pdfUrl }, senderOf(person), { booking: booking(), visited });
+  const m = emailMessage(copy, { contactId: "preview", firstName: quote?.link?.firstName ?? null, link, pdfUrl }, senderOf(person), { booking: booking(), visited, attachPdf });
   return m.type === "Email" ? m.html : null;
 }
 
-function readInput(raw: unknown): { base: string; validUntil: string | null; channels: Channels; itemised: boolean; visited: boolean } | null {
+function readInput(raw: unknown): { base: string; validUntil: string | null; channels: Channels; itemised: boolean; visited: boolean; attachPdf: boolean; optionIds: string[] | null } | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
   const ch = (r.channels ?? {}) as Record<string, unknown>;
   if (typeof r.base !== "string" || (typeof r.validUntil !== "string" && r.validUntil !== null)) return null;
   // Lump sum unless the sender chose the breakdown (2026-10-22). A null date is a preliminary's; sendProblems refuses it on anything else.
   // `visited` (2026-10-24): the sender says whether we have been to the home; a preliminary's opening words follow it.
-  return { base: r.base, validUntil: typeof r.validUntil === "string" ? r.validUntil : null, channels: { email: ch.email === true, sms: ch.sms === true }, itemised: r.itemised === true, visited: r.visited === true };
+  return { base: r.base, validUntil: typeof r.validUntil === "string" ? r.validUntil : null, channels: { email: ch.email === true, sms: ch.sms === true }, itemised: r.itemised === true, visited: r.visited === true, attachPdf: r.attachPdf === true, optionIds: r.optionIds === undefined || r.optionIds === null ? null : (parseOptionIds(r.optionIds) ?? []) };
 }
 
 export async function sendQuote(versionId: string, raw: unknown): Promise<SendResult> {
@@ -152,7 +154,8 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
 
   // A preliminary has no good-until date whatever was sent (Albert, 2026-10-22); its link never expires.
   const validUntil = quote.basis === "Preliminary" ? null : input.validUntil;
-  const copy = customerCopy({ ...quote, itemised: input.itemised }, { sentOn: today, validUntil, company: letterhead() });
+  // Only the options ticked on the Send card go to the customer, everywhere (2026-10-24).
+  const copy = customerCopy({ ...chooseOptions(quote, input.optionIds), itemised: input.itemised }, { sentOn: today, validUntil, company: letterhead() });
   const text = serializeCopy(copy);
   if (text.length > COPY_MAX_CHARS) return { ok: false, message: "This quote is too long to send as one copy. Split it into fewer options." };
   const token = isToken(quote.customerToken) ? quote.customerToken : newToken();
@@ -183,7 +186,7 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
     let last: unknown = null;
     for (const emailFrom of attempts) {
       try {
-        await sendMessage(emailMessage(copy, { contactId, firstName, link, pdfUrl }, from, { emailFrom, booking: booking(), visited: input.visited }));
+        await sendMessage(emailMessage(copy, { contactId, firstName, link, pdfUrl }, from, { emailFrom, booking: booking(), visited: input.visited, attachPdf: input.attachPdf }));
         sentTo.push("Email");
         sentFrom = emailFrom;
         if (emailFrom === null && attempts[0] !== null) notes.push(`GHL would not send from ${from.email}, so the email went out from the location's default address.`);
@@ -214,7 +217,7 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   }
 
   try {
-    const how = `sent by ${sentTo.join(" and ").toLowerCase()}${sentFrom ? ` from ${sentFrom}` : sentTo.includes("Email") ? " from the location's default address" : ""}`;
+    const how = `sent by ${sentTo.join(" and ").toLowerCase()}${sentFrom ? ` from ${sentFrom}` : sentTo.includes("Email") ? " from the location's default address" : ""}${sentTo.includes("Email") && input.attachPdf ? ", PDF attached" : ""}${chosenWords(quote, input.optionIds) ? `, ${chosenWords(quote, input.optionIds)}` : ""}`;
     await updateRecord(T.versions, quote.id, { [VERSION.sentTo]: sentTo.join(", "), ...authorFields(person, new Date(), how, quote.editLog) });
   } catch {
     notes.push("Airtable didn't record how it was sent.");

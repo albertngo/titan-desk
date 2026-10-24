@@ -13,7 +13,6 @@ const STATE_NOTE: Partial<Record<CopyState, (c: CustomerCopy) => string>> = {
   replaced: () => "We've sent you a newer version of this quote. The one below is kept for your records.",
 };
 
-const tel = (s: string) => `tel:${s.replace(/[^\d+]/g, "")}`;
 
 function Line({ l }: { l: CopyItem | CopyText }) {
   if (l.kind === "text") {
@@ -190,21 +189,13 @@ export function CustomerQuote({
           <OptionBlock key={i} o={o} i={several ? i + 1 : null} copy={copy} />
         ))}
 
-        <footer className="cq-card cq-contact">
-          <div>
-            <h2>Questions?</h2>
-            <p>Reply to the message this came in, or get in touch directly.</p>
-          </div>
-          <div className="cq-cta">
-            {c.phone && <a className="btn primary" href={tel(c.phone)}>Call {c.phone}</a>}
-            {c.email && <a className="btn" href={`mailto:${c.email}?subject=${encodeURIComponent(`Quote ${copy.quoteNumber}`)}`}>Email us</a>}
-          </div>
-          {(c.website || c.hstNumber) && (
-            <p className="faint cq-legal">
-              {[c.website, c.hstNumber ? `HST # ${c.hstNumber}` : null].filter(Boolean).join(" · ")}
-            </p>
-          )}
-        </footer>
+        {/* The "Questions?" card with Call / Email buttons is gone (Albert, 2026-10-24): replies go to the
+            message the quote came in. The website and HST number stay, as one quiet line. */}
+        {(c.website || c.hstNumber) && (
+          <footer className="cq-legal">
+            {[c.website, c.hstNumber ? `HST # ${c.hstNumber}` : null].filter(Boolean).join(" · ")}
+          </footer>
+        )}
       </main>
     </div>
   );

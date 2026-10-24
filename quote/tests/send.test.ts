@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addDays, copyState, customerCopy, discountLabel, hstRow, hstWord, longDate, parseCopy, pdfName, serializeCopy, torontoToday, type Letterhead } from "../src/lib/send/copy";
-import { customerLinks, emailFromFor, emailMessage, greetingName, isToken, newToken, sendProblems, smsMessage, type SendInput } from "../src/lib/send/plan";
+import { chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, greetingName, isToken, newToken, optionProblem, parseOptionIds, sendProblems, smsMessage, type SendInput } from "../src/lib/send/plan";
 import { encode, textWidth, wrap } from "../src/lib/send/pdfDoc";
 import { quotePdf } from "../src/lib/send/pdf";
 import { fromQuote } from "../src/lib/editor/model";
@@ -214,7 +214,14 @@ describe("the messages", () => {
 
   it("emails the link and attaches the PDF, through the customer's GHL contact", () => {
     const m = emailMessage(copy, to);
-    expect(m).toMatchObject({ type: "Email", contactId: "contactAbc123", subject: "Your flooring quote Q-9001 from Titan Flooring", attachments: [`https://view.example.com/c/${"A".repeat(32)}/Titan-Flooring-Quote-Q-9001-v1.pdf`] });
+    expect(m).toMatchObject({ type: "Email", contactId: "contactAbc123", subject: "Your flooring quote Q-9001 from Titan Flooring" });
+    // No PDF attached unless the sender ticks Attach PDF (2026-10-24): the page's download is the tracked copy.
+    expect("attachments" in m).toBe(false);
+    expect(m.type === "Email" && m.html).toContain("You can download a PDF from the quote page.");
+    expect(m.type === "Email" && m.html).not.toContain("A PDF copy is attached.");
+    const withPdf = emailMessage(copy, to, null, { attachPdf: true });
+    expect(withPdf).toMatchObject({ attachments: [`https://view.example.com/c/${"A".repeat(32)}/Titan-Flooring-Quote-Q-9001-v1.pdf`] });
+    expect(withPdf.type === "Email" && withPdf.html).toContain("A PDF copy is attached.");
     if (m.type !== "Email") throw new Error();
     expect(m.html).toContain(`href="https://view.example.com/c/${"A".repeat(32)}"`);
     expect(m.html).toContain("Hi Pat,");
@@ -603,5 +610,74 @@ describe("a preliminary has no good-until date (2026-10-22)", () => {
     expect(copyState("Sent", null, "2030-01-01")).toBe("open");
     // A measured quote keeps its date.
     expect(customerCopy(quote(), AT).validUntil).toBe("2026-11-14");
+  });
+});
+
+describe("choosing which options go to the customer (2026-10-24)", () => {
+  // Option ids in the fixtures are names; real ones are record ids, which is what parseOptionIds accepts.
+  const A = "recOptionAAAAAAAA", B = "recOptionBBBBBBBB", C = "recOptionCCCCCCCC";
+  const to = { contactId: "contactAbc123", firstName: "Pat", link: "https://view.example.com/c/x", pdfUrl: "https://view.example.com/c/x/q.pdf" };
+  const lines = quote().options[0].lines;
+  const three = () => {
+    const opts = [option("Vinyl plank", lines), option("Oak", lines, 0.1, true, { recommended: true }), option("Draft idea", [line({ lineType: "Note", description: "tbc" })])];
+    opts[0].id = A; opts[1].id = B; opts[2].id = C;
+    return quote({ options: opts });
+  };
+
+  it("reads a list of record ids, and anything else as all", () => {
+    expect(parseOptionIds([A, "nope", A, C])).toEqual([A, C]);
+    expect(parseOptionIds(`${A},${B}`)).toEqual([A, B]);
+    expect(parseOptionIds(undefined)).toBeNull();
+    expect(parseOptionIds("")).toEqual([]);
+  });
+
+  it("keeps the chosen options in the editor's order, and says which went", () => {
+    const q = three();
+    expect(chooseOptions(q, [C, A]).options.map((o) => o.id)).toEqual([A, C]);
+    expect(chooseOptions(q, null).options).toHaveLength(3);
+    expect(chosenWords(q, [A, B])).toBe("options 1 and 2");
+    expect(chosenWords(q, [B])).toBe("option 2 only");
+    expect(chosenWords(q, [A, B, C])).toBeNull();
+    expect(chosenWords(q, null)).toBeNull();
+  });
+
+  it("checks only what goes: an unticked half-built option no longer blocks the send", () => {
+    const q = three();
+    const ctx = { today: "2026-10-15", fingerprint: fingerprint(fromQuote(q)) };
+    const input: SendInput = { base: ctx.fingerprint, validUntil: "2026-11-14", channels: { email: true, sms: false } };
+    expect(sendProblems(q, input, ctx)).toEqual(["Draft idea has nothing priced in it."]);
+    expect(sendProblems(q, { ...input, optionIds: [A, B] }, ctx)).toEqual([]);
+    expect(sendProblems(q, { ...input, optionIds: [] }, ctx)).toEqual(["Choose at least one option to send."]);
+    expect(sendProblems(q, { ...input, optionIds: [A, "recGoneGoneGoneGo"] }, ctx)).toContain("An option you chose is no longer on this version. Reload the page.");
+    // The Send card applies the per-option checks itself, to whatever is ticked.
+    expect(sendProblems(q, input, { ...ctx, skipOptions: true })).toEqual([]);
+    expect(optionProblem(q, q.options[2])).toBe("Draft idea has nothing priced in it.");
+    expect(optionProblem(q, q.options[0])).toBeNull();
+  });
+
+  it("draws everything the customer gets from the chosen options only", () => {
+    const c = customerCopy(chooseOptions(three(), [B]), AT);
+    expect(c.options.map((o) => o.name)).toEqual(["Oak"]);
+    const m = emailMessage(c, to);
+    expect(m.type === "Email" && m.html).not.toMatch(/Vinyl plank|Draft idea/);
+    const t = smsMessage(c, to);
+    expect(t.type === "SMS" && t.message).toContain("Your flooring quote is ready");
+  });
+
+  it("lists three or more options compactly in the email: names and prices, the detail on the page", () => {
+    const q = three();
+    q.options[2] = { ...option("Engineered hardwood", lines), id: C };
+    const m = emailMessage(customerCopy(q, AT), to);
+    if (m.type !== "Email") throw new Error();
+    expect(m.html).toContain("Your 3 options");
+    expect(m.html).toContain("Option 3</span><br>Engineered hardwood");
+    expect(m.html).toContain(">Recommended</span>");
+    expect(m.html).toContain("What each option includes, the HST and the payment schedule are on the quote page.");
+    expect(m.html).not.toContain("What&rsquo;s included");
+    expect(m.html).not.toContain(">With HST</td>");
+    // Two options still get a full card each.
+    const two = emailMessage(customerCopy(chooseOptions(q, [A, B]), AT), to);
+    expect(two.type === "Email" && two.html).not.toContain("Your 2 options");
+    expect(two.type === "Email" && two.html.match(/>With HST<\/td>/g)?.length).toBe(2);
   });
 });

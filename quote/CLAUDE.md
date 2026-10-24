@@ -138,8 +138,9 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   Charge rates, line totals, the discount, HST and payments stay. Any new screen that shows an
   internal figure must take `customerView()` and leave it out.
 - **Sending (milestone 4, Albert 2026-10-15).** **Send to customer** on a draft's page sends it
-  through GHL (Make 4975508, route `message`): an email with the link and the PDF attached, and/or a
-  text with the link; good for 30 days unless staff pick another date. **A preliminary has no
+  through GHL (Make 4975508, route `message`): an email with the link, and/or a text with the link (the
+  PDF is downloaded from the quote page; **Attach PDF** on the Send card, off by default since 2026-10-24,
+  also puts it in the email, because an attached copy is never seen opened); good for 30 days unless staff pick another date. **A preliminary has no
   good-until date (Albert, 2026-10-22):** it is an estimate, not an offer, so the Send card shows no
   date, the copy's `validUntil` is null, the page, PDF, email and text say nothing about one, and
   the link never expires; a date sent with one is ignored server-side. What may be sent and the
@@ -168,6 +169,15 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   by default, because a preliminary can go out before anyone has been to the house (a confirmed site
   only means an appointment was booked, not that it has happened), and "Thanks for having us over"
   when the sender ticks **We've already been to the home**. The app never guesses this.
+- **Choosing which options go (Albert, 2026-10-24).** With two or more options, the Send card has a tick
+  per option (name, price before HST, any problem), all ticked by default. Only the ticked options go
+  into the frozen copy, so the page, PDF, email and text all show the same set, numbered from 1; the
+  edit log records "options 1 and 3". Only ticked options are checked, so a half-built option no
+  longer blocks a send once it is unticked (`optionProblem()` / `chooseOptions()` in
+  `src/lib/send/plan.ts`; the card passes `skipOptions` to `sendProblems()` and applies the per-option
+  check live, the send runs everything). The previews and PDF follow the ticks (`?options=`). **The
+  email lists three or more options compactly** (names and prices before HST; the detail is on the
+  page); one or two get a full card each. Tested in `tests/send.test.ts`.
 - **Sent from the person signed in (Albert, 2026-10-22).** The email goes out from the quoter's own
   address through GHL's `emailFrom`: tried as "Albert @ Titan Flooring <albert@…>" (the From-name
   convention GHL's own emails use), then the bare address, then GHL's default sender, so a sender GHL

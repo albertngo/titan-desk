@@ -56,6 +56,7 @@ export function SendQuote({
   sent,
   preliminary,
   from,
+  options,
 }: {
   versionId: string;
   label: string;
@@ -74,6 +75,8 @@ export function SendQuote({
   preliminary: boolean;
   /** The address the email goes out from: the signed-in quoter's (2026-10-22); null = GHL's default sender. */
   from: string | null;
+  /** The version's options, for choosing which go to the customer (2026-10-24). */
+  options: { id: string; name: string; price: string; recommended: boolean; problem: string | null }[];
 }) {
   const router = useRouter();
   const [until, setUntil] = useState(defaultUntil);
@@ -83,14 +86,23 @@ export function SendQuote({
   const [breakdown, setBreakdown] = useState(false);
   /** A preliminary can go out before anyone has been to the house (Albert, 2026-10-24): the generic opening is the default. */
   const [visited, setVisited] = useState(false);
+  /** Attach the PDF to the email (Albert, 2026-10-24): off by default, so opens and downloads go through the tracked quote page. */
+  const [attachPdf, setAttachPdf] = useState(false);
+  /** Which options go to the customer (2026-10-24): all of them unless the sender unticks some. */
+  const [chosen, setChosen] = useState<string[]>(() => options.map((o) => o.id));
+  const everyOption = chosen.length === options.length;
+  const optionIds = everyOption ? null : chosen;
+  const optionProblems = options.filter((o) => chosen.includes(o.id) && o.problem).map((o) => o.problem!);
+  const allProblems = [...problems, ...(options.length > 0 && chosen.length === 0 ? ["Choose at least one option to send."] : []), ...optionProblems];
   const [asking, setAsking] = useState(false);
   const [error, setError] = useState<{ message: string; problems?: string[] } | null>(null);
   const [done, setDone] = useState<{ link: string; sentTo: string[]; warning: string | null } | null>(null);
   const [sending, startSend] = useTransition();
-  const q = [preliminary ? null : `until=${until}`, breakdown ? "itemised=1" : null, preliminary && visited ? "visited=1" : null].filter(Boolean).join("&");
+  const q = [preliminary ? null : `until=${until}`, breakdown ? "itemised=1" : null, preliminary && visited ? "visited=1" : null, optionIds ? `options=${optionIds.join(",")}` : null].filter(Boolean).join("&");
   const preview = `/q/${versionId}/preview${q ? `?${q}` : ""}`;
   const pdf = `/q/${versionId}/pdf${q ? `?${q}` : ""}`;
-  const emailPreview = `/q/${versionId}/preview/email${q ? `?${q}` : ""}`;
+  const eq = [q, attachPdf ? "pdf=1" : null].filter(Boolean).join("&");
+  const emailPreview = `/q/${versionId}/preview/email${eq ? `?${eq}` : ""}`;
 
   if (status !== "Draft" || done) {
     const s = done ? { sentAt: today, sentBy: null, sentTo: done.sentTo.join(", "), validUntil: preliminary ? null : until, link: done.link } : sent;
@@ -124,12 +136,12 @@ export function SendQuote({
   }
 
   const channels = [byEmail && email ? `email (${email})` : null, bySms && phone ? `text (${phone})` : null].filter(Boolean);
-  const blocked = problems.length > 0 || !ready.ready;
+  const blocked = allProblems.length > 0 || !ready.ready;
 
   function send() {
     setError(null);
     startSend(async () => {
-      const r = await sendQuoteAction(versionId, { base, validUntil: preliminary ? null : until, channels: { email: byEmail, sms: bySms }, itemised: breakdown, visited: preliminary && visited });
+      const r = await sendQuoteAction(versionId, { base, validUntil: preliminary ? null : until, channels: { email: byEmail, sms: bySms }, itemised: breakdown, visited: preliminary && visited, attachPdf: byEmail && attachPdf, optionIds });
       setAsking(false);
       if (r.ok) {
         setDone(r);
@@ -142,10 +154,10 @@ export function SendQuote({
     <section className="card sq" id="send" aria-labelledby="sq-h">
       <div className="card-h" id="sq-h">Send to customer</div>
       <div className="card-b">
-        {problems.length > 0 && (
+        {allProblems.length > 0 && (
           <div className="sq-msg warn">
             <b>Not ready to send</b>
-            <ul>{problems.map((p) => <li key={p}>{p}</li>)}</ul>
+            <ul>{allProblems.map((p) => <li key={p}>{p}</li>)}</ul>
           </div>
         )}
         {!ready.ready && <p className="sq-msg warn">{ready.why}</p>}
@@ -156,9 +168,18 @@ export function SendQuote({
             <input type="checkbox" checked={byEmail && !!email} disabled={!email} onChange={(e) => setByEmail(e.target.checked)} />
             <span>
               Email <span className="faint">{email ?? "no email in GHL"}</span>
-              {email && <span className="sub">Link and PDF{from ? `, from ${from}` : ", from the location's default address"}</span>}
+              {email && <span className="sub">{attachPdf ? "Link and PDF" : "Link"}{from ? `, from ${from}` : ", from the location's default address"}</span>}
             </span>
           </label>
+          {email && byEmail && (
+            <label className="sq-attach">
+              <input type="checkbox" checked={attachPdf} onChange={(e) => setAttachPdf(e.target.checked)} />
+              <span>
+                Attach PDF
+                <span className="sub">{attachPdf ? "The file goes in the email too. Opening it is never tracked." : "Off: the customer downloads the PDF from the quote page, where it is tracked."}</span>
+              </span>
+            </label>
+          )}
           <label className={phone ? undefined : "off"}>
             <input type="checkbox" checked={bySms && !!phone} disabled={!phone} onChange={(e) => setBySms(e.target.checked)} />
             <span>
@@ -167,6 +188,26 @@ export function SendQuote({
             </span>
           </label>
         </fieldset>
+
+        {options.length > 1 && (
+          <fieldset className="sq-opts" disabled={sending || asking}>
+            <legend>Options to send <span className="faint">{everyOption ? "all" : `${chosen.length} of ${options.length}`}</span></legend>
+            {options.map((o, i) => (
+              <label key={o.id} className={chosen.includes(o.id) ? undefined : "off"}>
+                <input
+                  type="checkbox"
+                  checked={chosen.includes(o.id)}
+                  onChange={(e) => setChosen((c) => (e.target.checked ? options.map((x) => x.id).filter((id) => id === o.id || c.includes(id)) : c.filter((id) => id !== o.id)))}
+                />
+                <span>
+                  <span className="nm">{i + 1}. {o.name}{o.recommended ? <span className="rec"> · Recommended</span> : null}</span>
+                  <span className="sub">{o.problem ?? o.price}</span>
+                </span>
+              </label>
+            ))}
+            {!everyOption && chosen.length > 0 && <p className="note">The customer sees only these, numbered from 1, on the page, the PDF, the email and the text.</p>}
+          </fieldset>
+        )}
 
         <label className="sq-until-in" title="Lump sum: what the work includes and one price; quantities on install, removal, prep and materials, no line prices. Breakdown: every line with its unit price and amount, section totals and the discount.">
           Pricing shown

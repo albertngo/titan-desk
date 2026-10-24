@@ -1,5 +1,6 @@
 import { previewEmail } from "@/lib/quotes/send";
 import { isIsoDate } from "@/lib/send/copy";
+import { parseOptionIds } from "@/lib/send/plan";
 
 /**
  * Staff only: the email exactly as GHL would send it for this version today, as a page, so the
@@ -13,7 +14,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const { id } = await params;
   const url = new URL(req.url);
   const until = url.searchParams.get("until");
-  const html = await previewEmail(id, until && isIsoDate(until) ? until : undefined, url.searchParams.get("itemised") === "1", url.searchParams.get("visited") === "1");
+  const html = await previewEmail(id, until && isIsoDate(until) ? until : undefined, url.searchParams.get("itemised") === "1", url.searchParams.get("visited") === "1", url.searchParams.get("pdf") === "1", parseOptionIds(url.searchParams.get("options")));
   if (!html) return new Response("Not found", { status: 404 });
   return new Response(html, {
     headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "X-Robots-Tag": "noindex", "Referrer-Policy": "no-referrer" },

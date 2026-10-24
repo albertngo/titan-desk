@@ -3,19 +3,20 @@ import { notFound } from "next/navigation";
 import { CustomerQuote } from "@/components/CustomerQuote";
 import { previewCopy } from "@/lib/quotes/send";
 import { isIsoDate } from "@/lib/send/copy";
+import { parseOptionIds } from "@/lib/send/plan";
 
 /** Staff only: exactly what the customer gets if this version is sent, before it is. */
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Customer preview" };
 
-export default async function PreviewPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ until?: string; itemised?: string }> }) {
+export default async function PreviewPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ until?: string; itemised?: string; options?: string }> }) {
   const { id } = await params;
-  const { until, itemised } = await searchParams;
+  const { until, itemised, options } = await searchParams;
   // `itemised=1` previews the breakdown; otherwise the lump sum, the default (Albert, 2026-10-22).
-  const copy = await previewCopy(id, isIsoDate(until) ? until : undefined, itemised === "1");
+  const copy = await previewCopy(id, isIsoDate(until) ? until : undefined, itemised === "1", parseOptionIds(options ?? null));
   if (!copy) notFound();
-  const q = [isIsoDate(until) ? `until=${until}` : null, itemised === "1" ? "itemised=1" : null].filter(Boolean).join("&");
+  const q = [isIsoDate(until) ? `until=${until}` : null, itemised === "1" ? "itemised=1" : null, options ? `options=${encodeURIComponent(options)}` : null].filter(Boolean).join("&");
   const pdf = `/q/${id}/pdf${q ? `?${q}` : ""}`;
   return (
     <CustomerQuote
