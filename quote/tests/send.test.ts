@@ -242,6 +242,11 @@ describe("the messages", () => {
     const bm = emailMessage(big, to);
     expect(bm.type === "Email" && bm.html).toContain(">Remove old carpet</td>");
     expect(bm.type === "Email" && bm.html).toContain(">1,500 sq ft</td>");
+    // A Rate Card name carries its own section, so it is never prefixed (2026-10-24): no "Install · Refinish | SAND".
+    const rc = customerCopy(quote({ options: [option("One", [line({ section: "Install", description: "Refinish | SAND - Hardwood (Oak)", qty: 1333, unitPrice: 1, unitPriceSnap: null, unitCostSnap: null, contractor: null, sourceKind: "manual", sourceId: null, hasSource: false })])] }), AT);
+    const rm = emailMessage(rc, to);
+    expect(rm.type === "Email" && rm.html).toContain(">Refinish | SAND - Hardwood (Oak)</td>");
+    expect(rm.type === "Email" && rm.html).not.toContain("Install &middot; Refinish");
     expect(m.html).toContain("Stairs &middot; Townhome – Vinyl treads</td>");
     expect(m.html).toContain("Townhome – Vinyl treads We&#39;ll install waterproof vinyl treads. The handrails will be sanded and refinished to match, and up to 50 spindles are included.</td>");
     expect(m.html).toContain(">Timing</td>");
@@ -453,7 +458,8 @@ describe("the PDF", () => {
 
   it("prints the customer's figures and none of the internal ones", () => {
     const text = Buffer.from(quotePdf(customerCopy(quote(), AT))).toString("latin1");
-    for (const s of ["(Total)", "($772.92)", "(PREPARED FOR)", "(Pat Example)", "(Optional \\267 $120.00)", "(Living room \\267 includes 10% waste allowance)", "(minimum charge)", "(HST # 123456789 RT0001)"]) expect(text).toContain(s);
+    // Leads before HST (2026-10-24): the bar is the subtotal "+ HST"; the tax and the total with it follow.
+    for (const s of ["(Subtotal before HST)", "($684.00)", "(HST \\(13%\\))", "($88.92)", "(Total with HST)", "($772.92)", "(PAYMENT SCHEDULE, WITH HST)", "(PREPARED FOR)", "(Pat Example)", "(Optional \\267 $120.00)", "(Living room \\267 includes 10% waste allowance)", "(minimum charge)", "(HST # 123456789 RT0001)"]) expect(text).toContain(s);
     for (const s of ["Crew Alpha", "price sensitive", "$1.20", "Margin"]) expect(text).not.toContain(s);
   });
 
@@ -549,7 +555,8 @@ describe("lump sum (2026-10-22)", () => {
     const pdf = new TextDecoder("latin1").decode(quotePdf(c));
     expect(pdf).not.toContain("Unit price");
     expect(pdf).not.toContain("Discount");
-    expect(pdf).toContain("Price \\(before HST\\)"); // parentheses are escaped inside a PDF string
+    expect(pdf).toContain("(Price before HST)"); // leads before HST, like the email (2026-10-24)
+    expect(pdf).toContain("(Total with HST)");
     expect(pdf).toContain("one sum for the project");
     expect(parseCopy(serializeCopy(c))).toEqual(c);
     expect(customerCopy(quote(), AT).pricing).toBe("itemised");

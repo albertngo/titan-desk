@@ -1,5 +1,5 @@
 import { money, rate } from "@/lib/format";
-import { discountLabel, hstRow, hstWord, isLump, itemHstNote, longDate, type CopyItem, type CopyOption, type CopyState, type CopyText, type CustomerCopy } from "@/lib/send/copy";
+import { discountLabel, hstRow, isLump, itemHstNote, leadPrice, longDate, type CopyItem, type CopyOption, type CopyState, type CopyText, type CustomerCopy } from "@/lib/send/copy";
 
 /**
  * The quote as the customer sees it, drawn from the frozen customer copy only. Used by the
@@ -53,6 +53,7 @@ function Line({ l }: { l: CopyItem | CopyText }) {
 function Totals({ o, copy }: { o: CopyOption; copy: CustomerCopy }) {
   const t = o.totals;
   const h = hstRow(copy, t);
+  const lead = leadPrice(copy, t);
   return (
     <div className="cq-totals">
       <dl>
@@ -63,12 +64,13 @@ function Totals({ o, copy }: { o: CopyOption; copy: CustomerCopy }) {
             <div className="disc"><dt>{discountLabel(copy)}</dt><dd>{money(t.discount)}</dd></div>
           </>
         )}
-        <div><dt>{isLump(copy) ? "Price (before HST)" : "Subtotal"}</dt><dd>{money(t.subtotal)}</dd></div>
+        {/* Leads before HST, like the email and the text (Albert, 2026-10-24); the tax and the total with it follow. */}
+        <div className="total"><dt>{isLump(copy) ? "Price" : "Subtotal"} <span className="tag">before HST</span></dt><dd>{money(t.subtotal)}</dd></div>
         <div><dt>{h.label}</dt><dd>{h.amount !== null ? money(h.amount) : "Not included"}</dd></div>
-        <div className="total"><dt>Total</dt><dd>{money(t.total)}</dd></div>
+        {lead.addsHst && <div className="with"><dt>Total with HST</dt><dd>{money(t.total)}</dd></div>}
       </dl>
       <div className="cq-pay">
-        <h4>Payment schedule</h4>
+        <h4>Payment schedule{lead.addsHst ? ", with HST" : ""}</h4>
         <div><span>Deposit (35%)</span><span>{money(t.payment1)}</span></div>
         <div><span>Second payment (35%)</span><span>{money(t.payment2)}</span></div>
         <div><span>Final payment</span><span>{money(t.paymentFinal)}</span></div>
@@ -177,8 +179,8 @@ export function CustomerQuote({
               <a key={i} href={`#option-${i + 1}`} className={`cq-card cq-pickc${o.recommended ? " rec" : ""}`}>
                 <span className="cq-num">Option {i + 1}{o.recommended && <b> · Recommended</b>}</span>
                 <span className="nm">{o.name}</span>
-                <span className="tot">{money(o.totals.total)}</span>
-                <span className="faint">{hstWord(copy, o.totals)}</span>
+                <span className="tot">{money(leadPrice(copy, o.totals).amount)}</span>
+                <span className="faint">{leadPrice(copy, o.totals).tag}</span>
               </a>
             ))}
           </nav>

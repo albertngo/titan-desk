@@ -153,7 +153,8 @@ function optionCard(o: CopyOption, copy: CustomerCopy, several: boolean): string
       const [what, qty] = item.split(" · ");
       // "Removal · Remove existing laminate" says it twice: when the line already opens with the work, show it alone.
       const stem = label.toLowerCase().replace(/al$/, "");
-      const dup = what.toLowerCase().startsWith(stem) || (label === "Subfloor prep" && /^subfloor/i.test(what));
+      // Rate Card names carry their own section ("Refinish | SAND - Hardwood"), so they never take a prefix (2026-10-24).
+      const dup = what.includes(" | ") || what.toLowerCase().startsWith(stem) || (label === "Subfloor prep" && /^subfloor/i.test(what));
       const amount = qty ? esc(qty.replace(/^\d+(?:\.\d+)?/, (n) => Number(n).toLocaleString("en-CA"))) : "included";
       items.push(`<tr>${cell(dup ? esc(what) : `${esc(label)} &middot; ${esc(what)}`)}${cell(amount, true)}</tr>`);
     }
