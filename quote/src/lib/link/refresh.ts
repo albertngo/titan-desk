@@ -56,3 +56,23 @@ export function customerRefresh(copy: CustomerCopy, contact: LiveContact | null,
   }
   return patch;
 }
+
+/**
+ * The PP number and Notion page of an accepted quote's project (2026-10-27). Make 3710214 makes the
+ * Notion project when the opportunity goes to Project Won and writes both back onto the opportunity;
+ * the quote copies them the next time it opens. Blanks are filled, never overwritten: a PP number is
+ * the project's identity, and a different one on the opportunity is for a person to look at. Only a
+ * number that looks like one ("PP-412") and an https link are taken.
+ */
+export type ProjectPatch = { projectNumber?: string; notionProjectUrl?: string };
+
+export function projectPickup(copy: { projectNumber: string | null; notionProjectUrl: string | null }, live: { projectNumber: string | null; notionUrl: string | null } | null): ProjectPatch {
+  if (!live) return {};
+  const patch: ProjectPatch = {};
+  const pp = t(live.projectNumber)?.toUpperCase().replace(/^PP\s*-?\s*/, "PP-") ?? null;
+  if (!t(copy.projectNumber) && pp && /^PP-\d{1,6}$/.test(pp)) patch.projectNumber = pp;
+  const url = t(live.notionUrl);
+  if (!t(copy.notionProjectUrl) && url && /^https:\/\/(www\.)?notion\.(so|site)\//.test(url)) patch.notionProjectUrl = url;
+  return patch;
+}
+

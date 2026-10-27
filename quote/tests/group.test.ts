@@ -56,7 +56,11 @@ describe("All quotes: quick filters and dates", () => {
     expect(inFilter(g({}, "Sent"), "draft")).toBe(false);
     expect(inFilter(g({}, "Sent"), "sent")).toBe(true);
     expect(inFilter(g({ projectNumber: "PP-1" }, "Superseded"), "won")).toBe(true);
-    expect(inFilter(g({}, "Accepted"), "won")).toBe(true);
+    // 2026-10-27: accepted with no PP number yet is Accepted; with one, Won. Neither is Sent.
+    expect(inFilter(g({}, "Accepted"), "accepted")).toBe(true);
+    expect(inFilter(g({}, "Accepted"), "won")).toBe(false);
+    expect(inFilter(g({ projectNumber: "PP-2" }, "Won"), "accepted")).toBe(false);
+    expect(inFilter(g({ projectNumber: "PP-2" }, "Sent"), "sent")).toBe(false);
     expect(inFilter(g({}, "Lost"), "all")).toBe(true);
   });
 
