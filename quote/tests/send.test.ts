@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, copyRange, copyState, customerCopy, discountLabel, hstRow, hstWord, isRange, longDate, offersPdf, parseCopy, pdfName, prelimNote, priceRange, rangeText, rangeWhy, serializeCopy, torontoToday, type Letterhead } from "../src/lib/send/copy";
+import { addDays, copyRange, copyState, customerCopy, discountLabel, hstRow, hstWord, isRange, longDate, offersPdf, parseCopy, pdfName, prelimNote, priceRange, rangeText, rangeWhy, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "../src/lib/send/copy";
 import { chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, greetingName, isToken, newToken, optionProblem, parseOptionIds, sendProblems, smsMessage, type SendInput } from "../src/lib/send/plan";
 import { encode, textWidth, wrap } from "../src/lib/send/pdfDoc";
 import { quotePdf } from "../src/lib/send/pdf";
@@ -100,7 +100,7 @@ function quote(p: Partial<Quote> = {}): Quote {
   };
 }
 
-const COMPANY: Letterhead = { name: "Titan Flooring", address: "1 Example Road, Testville", phone: "555-000-0000", email: "hello@example.com", website: null, hstNumber: "123456789 RT0001" };
+const COMPANY: Letterhead = { name: "Titan Flooring", address: "1 Example Road, Testville", phone: "555-000-0000", email: "hello@example.com", website: null };
 const AT = { sentOn: "2026-10-15", validUntil: "2026-11-14", company: COMPANY };
 
 describe("customer copy", () => {
@@ -296,7 +296,8 @@ describe("the messages", () => {
     expect(m.html).not.toContain("<img"); // no logo configured: the name is set as a wordmark
     expect(m.html).toContain(">Titan Flooring</p>");
     expect(m.html).toContain("1 Example Road, Testville");
-    expect(m.html).toContain("HST # 123456789 RT0001");
+    // No HST number anywhere (Albert, 2026-10-27: an estimate, not a formal invoice).
+    expect(m.html).not.toContain("HST #");
     expect(m.html).not.toMatch(/<link|<script|unsubscribe/i);
     const withLogo = emailMessage(customerCopy(quote(), { ...AT, company: { ...COMPANY, logoUrl: "https://cdn.example.com/logo.png" } }), to);
     expect(withLogo.type === "Email" && withLogo.html.match(/<img /g)?.length).toBe(1);
@@ -466,7 +467,13 @@ describe("the PDF", () => {
   it("prints the customer's figures and none of the internal ones", () => {
     const text = Buffer.from(quotePdf(customerCopy(quote(), AT))).toString("latin1");
     // Leads before HST (2026-10-24): the bar is the subtotal "+ HST"; the tax and the total with it follow.
-    for (const s of ["(Subtotal before HST)", "($684.00)", "(HST \\(13%\\))", "($88.92)", "(Total with HST)", "($772.92)", "(PAYMENT SCHEDULE, WITH HST)", "(PREPARED FOR)", "(Pat Example)", "(Optional \\267 $120.00)", "(Living room \\267 includes 10% waste allowance)", "(minimum charge)", "(HST # 123456789 RT0001)"]) expect(text).toContain(s);
+    for (const s of ["(Subtotal before HST)", "($684.00)", "(HST \\(13%\\))", "($88.92)", "(Total with HST)", "($772.92)", "(PAYMENT SCHEDULE, WITH HST)", "(PREPARED FOR)", "(Pat Example)", "(Optional \\267 $120.00)", "(Living room \\267 includes 10% waste allowance)", "(minimum charge)"]) expect(text).toContain(s);
+    expect(text).not.toContain("HST #");
+    // A copy frozen before 2026-10-27 still carries the number; it is never drawn.
+    const old = { ...customerCopy(quote(), AT), company: { ...COMPANY, hstNumber: "123456789 RT0001" } } as CustomerCopy;
+    expect(Buffer.from(quotePdf(old)).toString("latin1")).not.toContain("123456789");
+    const mail = emailMessage(old, { contactId: "c", firstName: "Sam", link: "https://quote.example/c/x" });
+    expect(mail.type === "Email" && mail.html.includes("123456789")).toBe(false);
     for (const s of ["Crew Alpha", "price sensitive", "$1.20", "Margin"]) expect(text).not.toContain(s);
   });
 

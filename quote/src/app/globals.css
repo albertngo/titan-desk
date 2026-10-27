@@ -598,9 +598,10 @@ a.chip.accent:hover { text-decoration: underline; }
   .cq-opt h2 { padding-right: 0; }
   .cq-rec { position: static; display: inline-block; margin-top: 8px; }
 }
-.cq-totals { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; padding: 16px 18px 18px; border-top: 1px solid var(--line-strong); background: var(--card-2); }
-@media (max-width: 560px) { .cq-totals { grid-template-columns: minmax(0, 1fr); } }
-.cq-totals dl { margin: 0; display: grid; gap: 6px; order: 2; }
+/* Price first, the payment schedule under it, both full width (2026-10-27: side by side, long stage notes
+   pushed the amounts into the price box). */
+.cq-totals { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; padding: 16px 18px 18px; border-top: 1px solid var(--line-strong); background: var(--card-2); }
+.cq-totals dl { margin: 0; display: grid; gap: 6px; order: 1; }
 .cq-totals dl div { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
 .cq-totals dt { color: var(--fg-dim); }
 .cq-totals dd { margin: 0; font-variant-numeric: tabular-nums; }
@@ -613,13 +614,13 @@ a.chip.accent:hover { text-decoration: underline; }
 .cq-totals .total.range { flex-wrap: wrap; row-gap: 2px; }
 .cq-totals .total.range dd { white-space: nowrap; }
 .cq-totals .with dt, .cq-totals .with dd { font-weight: 600; color: var(--fg); }
-.cq-pay { order: 1; font-size: 13.5px; display: grid; gap: 4px; align-content: start; }
+.cq-pay { order: 2; font-size: 13.5px; display: grid; gap: 6px; align-content: start; padding-top: 14px; border-top: 1px solid var(--line); }
 .cq-pay h4, .cq-excl h4 { margin: 0 0 4px; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--fg-faint); }
-.cq-pay div { display: flex; justify-content: space-between; gap: 12px; color: var(--fg-dim); }
-.cq-pay div span:last-child { color: var(--fg); font-variant-numeric: tabular-nums; }
-.cq-pay div span:first-child { display: grid; }
+.cq-pay > div { display: flex; justify-content: space-between; gap: 12px; color: var(--fg-dim); }
+.cq-pay > div > span:last-child { color: var(--fg); font-variant-numeric: tabular-nums; }
+.cq-pay > div > span:first-child { display: grid; min-width: 0; flex: 1; }
 .cq-pay .sub { font-size: 12px; color: var(--fg-faint); }
-.cq-pay div span:last-child { white-space: nowrap; }
+.cq-pay > div > span:last-child { white-space: nowrap; }
 .cq-excl { padding: 14px 18px 18px; border-top: 1px solid var(--line); font-size: 14px; }
 .cq-excl ul { margin: 0; padding-left: 18px; color: var(--fg-dim); }
 .cq-legal { padding: 4px 0 0; text-align: center; font-size: 12px; color: var(--fg-faint); }

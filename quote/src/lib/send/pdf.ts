@@ -61,7 +61,7 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null)
   const c = copy.company;
   doc.text(M, y - 16, c.name.toUpperCase(), { font: "B", size: 17, color: BLUE });
   let ly = y - 32;
-  for (const l of [c.address, [c.phone, c.email].filter(Boolean).join("  ·  "), c.website, c.hstNumber ? `HST # ${c.hstNumber}` : null]) {
+  for (const l of [c.address, [c.phone, c.email].filter(Boolean).join("  ·  "), c.website]) {
     if (!l) continue;
     doc.text(M, ly, l, { size: 8.5, color: DIM });
     ly -= 11;

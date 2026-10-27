@@ -336,7 +336,6 @@ function frame(copy: CustomerCopy, title: string, preheader: string, body: strin
   const footerLines = [
     [co.address ? esc(co.address) : "", tel].filter(Boolean).join(" &nbsp;&middot;&nbsp; "),
     [site, co.email ? `<a href="mailto:${esc(co.email)}" style="color:${C.muted};text-decoration:none;">${esc(co.email)}</a>` : ""].filter(Boolean).join(" &nbsp;&middot;&nbsp; "),
-    co.hstNumber ? `HST # ${esc(co.hstNumber)}` : "",
   ].filter(Boolean);
   return (
     `<!doctype html><html lang="en" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office"><head>` +
