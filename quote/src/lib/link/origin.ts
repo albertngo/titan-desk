@@ -18,6 +18,7 @@ export const ORIGINS = [
   "Repeat Customer",
   "Google Ad",
   "Meta Ad",
+  "Neighbour Ad",
   "Other",
 ] as const;
 

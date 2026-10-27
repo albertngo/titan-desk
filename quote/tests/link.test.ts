@@ -146,6 +146,8 @@ describe("the New quote form", () => {
   it("takes where they found us from the list only (2026-10-27)", () => {
     const pick = parseNewQuote({ contactId: "abcDEF123456", timing: "Not sure", origin: "Meta Ad" });
     expect(pick.ok && pick.value.origin).toBe("Meta Ad");
+    const neighbour = parseNewQuote({ contactId: "abcDEF123456", timing: "Not sure", origin: "Neighbour Ad" });
+    expect(neighbour.ok && neighbour.value.origin).toBe("Neighbour Ad");
     const off = parseNewQuote({ contactId: "abcDEF123456", timing: "Not sure", origin: "Billboard" });
     expect(off.ok && off.value.origin).toBeNull();
     const fresh = parseNewQuote({ timing: "Not sure", origin: "Direct: Walk-in", newCustomer: { firstName: "Jane", phone: "416-555-0199" } });
