@@ -190,12 +190,14 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   page); one or two get a full card each. Tested in `tests/send.test.ts`.
 - **A preliminary goes as a range (Albert, 2026-10-27).** Customers took a preliminary's one number as
   the price, so a measured quote that came in higher read as a change. Everything the customer gets
-  (email, text, page, PDF) shows the price before HST as a range instead: 10% either side, rounded
-  outward to a round figure ($10 steps under $1,000, $50 under $10,000, $100 above; `priceRange()` in
-  `src/lib/send/copy.ts`), the range with HST under it, no HST amount, no discount rows, and the payment
-  schedule in shares of the final price. The words stay the same apart from "a price range" for "a rough
-  number" and one passage (`rangeWhy()`): the final price can be expected to fall within it, and what the
-  measure confirms can add to the cost or bring it down. The text says "$4,850 to $6,000" (an en dash is
+  (email, text, page, PDF) shows the price before HST as a range instead: **3% under to 10% over, the top
+  never more than $3,000 over** (same day, Albert: a measured quote rarely comes in lower, people read a
+  range from its low end, and 10% of a big job is too wide), each end rounded outward to a round figure
+  ($10 steps under $1,000, $50 under $10,000, $100 above; `priceRange()` in `src/lib/send/copy.ts`), the
+  range with HST under it (the same range with the HST on it), no HST amount, no discount rows, and the
+  payment schedule in shares of the final price. The words stay the same apart from "a price range" for
+  "a rough number" and one passage (`rangeWhy()`): the final price can be expected to fall within it, and
+  what the measure confirms decides where in it they land. The text says "$5,250 to $6,000" (an en dash is
   not GSM-7) and stays at two segments. The range is frozen on the copy (`CopyOption.range`), so a
   preliminary sent before this keeps its one number. The Send card says which range the customer will
   see; the quote page and the editor still show staff the exact price. Tested in `tests/send.test.ts`.

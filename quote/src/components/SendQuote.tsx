@@ -230,7 +230,7 @@ export function SendQuote({
             <p className="note">A preliminary has no good-until date: it is an estimate, not an offer, and its link stays open.</p>
             {/* 2026-10-27: the customer never sees the preliminary's one price. */}
             <p className="note">
-              The customer sees a range, not the price: 10% either side, rounded out to a round figure
+              The customer sees a range, not the price: 3% under it to 10% over it (at most $3,000 over), rounded out to a round figure
               {options.length === 1 ? <>: <b>{options[0].price}</b></> : ", per option above"}.
             </p>
           </>

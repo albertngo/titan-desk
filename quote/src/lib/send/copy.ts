@@ -114,26 +114,35 @@ const clean = (s: string | null | undefined) => (s ?? "").replace(/\s+/g, " ").t
 
 /**
  * A preliminary goes out as a range (Albert, 2026-10-27). Customers took a preliminary's one number
- * as the price, so a measured quote that came in higher read as a change. The calculated price sits
- * in the middle and each end is 10% out from it, rounded outward to a round figure, so the range is
- * never narrower than 10% either side. It is frozen on the copy like every other figure: a copy
- * frozen before this has no range and keeps showing its one price.
+ * as the price, so a measured quote that came in higher read as a change. A measured quote rarely
+ * comes in lower, and people read a range from its low end, so the calculated price sits just above
+ * the bottom: 3% under it to 10% over it, the top never more than $3,000 over (a big job's range
+ * would otherwise be too wide to mean anything), each end rounded outward to a round figure. It is
+ * frozen on the copy like every other figure: a copy frozen before this has no range and keeps
+ * showing its one price.
  */
-export const RANGE_SPREAD = 0.1;
+export const RANGE_BELOW = 0.03;
+export const RANGE_ABOVE = 0.1;
+export const RANGE_ABOVE_CAP = 3000;
 
 /** Round figures for a range's ends: $10 under $1,000, $50 under $10,000, $100 above. */
 const rangeStep = (amount: number) => (amount < 1000 ? 10 : amount < 10000 ? 50 : 100);
 
-export function priceRange(amount: number, spread = RANGE_SPREAD): { low: number; high: number } {
-  const step = rangeStep(amount);
-  // round2 first, so 1,000 × 1.1 is 1,100 and not 1,100.0000000000002 rounded up a step.
-  return { low: Math.max(0, Math.floor(round2(amount * (1 - spread)) / step) * step), high: Math.ceil(round2(amount * (1 + spread)) / step) * step };
+/** Low rounded down and high rounded up; round2 first, so 1,000 × 1.1 is 1,100 and not a float a hair over it rounded up a step. */
+const outward = (low: number, high: number, step: number) => ({ low: Math.max(0, Math.floor(round2(low) / step) * step), high: Math.ceil(round2(high) / step) * step });
+
+export function priceRange(amount: number): { low: number; high: number } {
+  return outward(amount * (1 - RANGE_BELOW), amount + Math.min(amount * RANGE_ABOVE, RANGE_ABOVE_CAP), rangeStep(amount));
 }
 
-/** The range before HST from the price before HST, and with HST from the total, each rounded the same way. */
+/**
+ * The range before HST from the price before HST; the range with HST is that range with the quote's
+ * HST on it, so the two always agree (the cap applies to the price, not to the tax on it).
+ */
 export function copyRange(t: Pick<CopyTotals, "subtotal" | "total">): CopyRange {
   const before = priceRange(t.subtotal);
-  const after = priceRange(t.total);
+  const ratio = t.subtotal > 0 ? t.total / t.subtotal : 1;
+  const after = outward(before.low * ratio, before.high * ratio, rangeStep(t.total));
   return { low: before.low, high: before.high, lowWithHst: after.low, highWithHst: after.high };
 }
 
@@ -152,12 +161,13 @@ export const isRange = (copy: Pick<CustomerCopy, "options">) => copy.options.som
 
 /**
  * What the range means, in the same words on the page, the PDF and the email (Albert, 2026-10-27:
- * "it can be expected to be within this range. Certain factors can add to or decrease the cost,
- * depending on what happens after an actual visit occurs"). A stairs-only quote names stair things.
+ * "it can be expected to be within this range"). It says where the price lands is decided at the
+ * measure, never that it may come down: the range barely reaches below the price. A stairs-only
+ * quote names stair things.
  */
 export function rangeWhy(copy: Pick<CustomerCopy, "options">): string {
   const what = copyKind(copy) === "stairs" ? "the exact step count and the condition of the stairs" : "the exact square footage and the condition of the subfloor";
-  return `Your final price can be expected to fall within the range below. A few things can only be confirmed when we come out to measure, like ${what}, and they can add to the cost or bring it down.`;
+  return `Your final price can be expected to fall within the range below. What we confirm when we measure, like ${what}, decides where in it you land.`;
 }
 
 /** The preliminary note at the top of the page and the PDF. */

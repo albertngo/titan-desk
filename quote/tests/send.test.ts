@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, copyState, customerCopy, discountLabel, hstRow, hstWord, isRange, longDate, parseCopy, pdfName, prelimNote, priceRange, rangeText, rangeWhy, serializeCopy, torontoToday, type Letterhead } from "../src/lib/send/copy";
+import { addDays, copyRange, copyState, customerCopy, discountLabel, hstRow, hstWord, isRange, longDate, parseCopy, pdfName, prelimNote, priceRange, rangeText, rangeWhy, serializeCopy, torontoToday, type Letterhead } from "../src/lib/send/copy";
 import { chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, greetingName, isToken, newToken, optionProblem, parseOptionIds, sendProblems, smsMessage, type SendInput } from "../src/lib/send/plan";
 import { encode, textWidth, wrap } from "../src/lib/send/pdfDoc";
 import { quotePdf } from "../src/lib/send/pdf";
@@ -384,11 +384,11 @@ describe("the messages", () => {
       type: "SMS",
       contactId: "contactAbc123",
       // A preliminary carries no good-until date (2026-10-22), and opens generically unless the sender says we have visited (2026-10-24).
-      // Since 2026-10-27, as a range: $684 less 10% is $615.60, down to $610; plus 10% is $752.40, up to $760.
-      message: `Hi Pat, it's Albert from Titan Flooring. Thanks for telling us about your project. Your flooring estimate is $610 to $760 + HST.\n\nSee the full details here:\nhttps://view.example.com/c/${"A".repeat(32)}\n\nThe final price should land in that range. Any questions, just reply.`,
+      // Since 2026-10-27, as a range: $684 less 3% is $663.48, down to $660; plus 10% is $752.40, up to $760.
+      message: `Hi Pat, it's Albert from Titan Flooring. Thanks for telling us about your project. Your flooring estimate is $660 to $760 + HST.\n\nSee the full details here:\nhttps://view.example.com/c/${"A".repeat(32)}\n\nThe final price should land in that range. Any questions, just reply.`,
     });
     const after = smsMessage(customerCopy(quote({ basis: "Preliminary" }), AT), to, me, { visited: true });
-    expect(after.type === "SMS" && after.message).toContain("Thanks for having us over. Your flooring estimate is $610 to $760 + HST.\n\nSee the full details here:");
+    expect(after.type === "SMS" && after.message).toContain("Thanks for having us over. Your flooring estimate is $660 to $760 + HST.\n\nSee the full details here:");
     const measured = smsMessage(customerCopy(quote(), AT), to, me);
     expect(measured.type === "SMS" && measured.message).toBe(
       `Hi Pat, it's Albert from Titan Flooring. Your flooring quote is ready, $684 + HST, good until Nov 14.\n\nSee the full details here:\nhttps://view.example.com/c/${"A".repeat(32)}\n\nReply here if anything needs changing.`,
@@ -590,28 +590,41 @@ describe("a preliminary goes as a range (Albert, 2026-10-27)", () => {
   const prelim = () => quote({ basis: "Preliminary" });
   const pdfText = (c: ReturnType<typeof customerCopy>) => new TextDecoder("latin1").decode(quotePdf(c));
 
-  it("puts 10% either side of the price, rounded outward to a round figure", () => {
-    // $10 steps under $1,000, $50 under $10,000, $100 above; never narrower than 10% either side.
-    expect(priceRange(684)).toEqual({ low: 610, high: 760 });
-    expect(priceRange(4930)).toEqual({ low: 4400, high: 5450 });
-    expect(priceRange(12345)).toEqual({ low: 11100, high: 13600 });
+  it("runs from 3% under the price to 10% over it, the top at most $3,000 over, rounded outward", () => {
+    // $10 steps under $1,000, $50 under $10,000, $100 above.
+    expect(priceRange(684)).toEqual({ low: 660, high: 760 });
+    expect(priceRange(2000)).toEqual({ low: 1900, high: 2200 });
+    expect(priceRange(4930)).toEqual({ low: 4750, high: 5450 });
+    expect(priceRange(6000)).toEqual({ low: 5800, high: 6600 });
+    expect(priceRange(12345)).toEqual({ low: 11900, high: 13600 });
+    expect(priceRange(15000)).toEqual({ low: 14500, high: 16500 });
+    // The cap starts at $30,000, where 10% is $3,000.
+    expect(priceRange(30000)).toEqual({ low: 29100, high: 33000 });
+    expect(priceRange(60000)).toEqual({ low: 58200, high: 63000 });
     // A round price stays round: 1,000 × 1.1 is 1,100, not a float a hair over it rounded up a step.
-    expect(priceRange(1000)).toEqual({ low: 900, high: 1100 });
-    expect(priceRange(5000)).toEqual({ low: 4500, high: 5500 });
+    expect(priceRange(1000)).toEqual({ low: 950, high: 1100 });
     expect(priceRange(0)).toEqual({ low: 0, high: 0 });
-    for (const n of [99.99, 684, 999, 1234.56, 9999, 25000]) {
+    for (const n of [99.99, 684, 999, 1234.56, 9999, 25000, 31000, 250000]) {
       const r = priceRange(n);
-      expect(r.low).toBeLessThanOrEqual(Math.round(n * 90) / 100);
-      expect(r.high).toBeGreaterThanOrEqual(Math.round(n * 110) / 100);
+      expect(r.low).toBeLessThan(n);
+      expect(r.low).toBeLessThanOrEqual(Math.round(n * 97) / 100);
+      expect(r.high).toBeGreaterThanOrEqual(Math.round((n + Math.min(n * 0.1, 3000)) * 100) / 100);
     }
     expect(rangeText(4400, 5450)).toBe("$4,400 – $5,450");
     expect(rangeText(610, 760, " to ")).toBe("$610 to $760");
   });
 
+  it("puts the HST on the range itself, so the two ranges agree even where the cap applies", () => {
+    // $60,000 + 13%: the range with HST is $58,200 × 1.13 to $63,000 × 1.13, rounded outward.
+    expect(copyRange({ subtotal: 60000, total: 67800 })).toEqual({ low: 58200, high: 63000, lowWithHst: 65700, highWithHst: 71200 });
+    // No HST at all: the same range twice.
+    expect(copyRange({ subtotal: 6000, total: 6000 })).toEqual({ low: 5800, high: 6600, lowWithHst: 5800, highWithHst: 6600 });
+  });
+
   it("freezes the range on a preliminary's copy, before HST and with it, and keeps the exact totals underneath", () => {
     const c = customerCopy(prelim(), AT);
     // $684 before HST, $772.92 with it (the fixture's numbers).
-    expect(c.options[0].range).toEqual({ low: 610, high: 760, lowWithHst: 690, highWithHst: 860 });
+    expect(c.options[0].range).toEqual({ low: 660, high: 760, lowWithHst: 740, highWithHst: 860 });
     expect(c.options[0].totals.subtotal).toBe(684);
     expect(isRange(c)).toBe(true);
     expect(parseCopy(serializeCopy(c))?.options[0].range).toEqual(c.options[0].range);
@@ -625,14 +638,15 @@ describe("a preliminary goes as a range (Albert, 2026-10-27)", () => {
     const m = emailMessage(customerCopy(prelim(), AT), to);
     if (m.type !== "Email") throw new Error();
     expect(m.html).toContain("Estimated range");
-    expect(m.html).toContain("$610 &ndash;</span> <span style=\"white-space:nowrap;\">$760</span>");
+    expect(m.html).toContain("$660 &ndash;</span> <span style=\"white-space:nowrap;\">$760</span>");
     expect(m.html).toContain(">With HST</td>");
-    expect(m.html).toContain("$690 – $860");
-    expect(m.html).toContain("Estimated range $610 – $760 + HST"); // the preheader
+    expect(m.html).toContain("$740 – $860");
+    expect(m.html).toContain("Estimated range $660 – $760 + HST"); // the preheader
     for (const exact of ["$684", "$88.92", "$772.92", "Rough total"]) expect(m.html).not.toContain(exact);
-    // What the range means, in Albert's words.
+    // What the range means, in Albert's words; it never promises the price may come down.
     expect(m.html).toContain("Your final price can be expected to fall within the range below.");
-    expect(m.html).toContain("they can add to the cost or bring it down.");
+    expect(m.html).toContain("decides where in it you land.");
+    expect(m.html).not.toContain("bring it down");
   });
 
   it("lists several options' ranges, and says from where the lowest starts", () => {
@@ -640,15 +654,15 @@ describe("a preliminary goes as a range (Albert, 2026-10-27)", () => {
     const three = customerCopy(quote({ basis: "Preliminary", options: [option("A", lines), option("B", lines), option("C", lines)] }), AT);
     const m = emailMessage(three, to);
     if (m.type !== "Email") throw new Error();
-    expect(m.html).toContain("$610 &ndash; $760");
+    expect(m.html).toContain("$660 &ndash; $760");
     expect(m.html).toContain("Estimated ranges. What each option includes");
-    expect(m.html).toContain("3 options from $610 + HST");
+    expect(m.html).toContain("3 options from $660 + HST");
   });
 
   it("texts the range in GSM-7, with \"to\" instead of a dash", () => {
     const t = smsMessage(customerCopy(prelim(), AT), to);
     if (t.type !== "SMS") throw new Error();
-    expect(t.message).toContain("Your flooring estimate is $610 to $760 + HST.");
+    expect(t.message).toContain("Your flooring estimate is $660 to $760 + HST.");
     expect(t.message).not.toContain("$684");
     expect(/^[\x20-\x7e\n]*$/.test(t.message)).toBe(true);
     // Still two segments (2026-10-24) with a full-length link and a longer name than the fixture's.
