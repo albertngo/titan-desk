@@ -34,6 +34,8 @@ export type CopyItem = {
   amount: number | null;
   /** An add-on the customer can choose: priced, not in the total. */
   optional: boolean;
+  /** An add-on the customer ticked when accepting (2026-10-27): now part of the work, at the price shown. Only on an accepted copy. */
+  added?: boolean;
   /**
    * Only where a material's HST differs from the rest of the quote (2026-10-16): "none" = no HST on
    * it while the quote charges HST; "plus" = HST on it while the quote does not. Absent otherwise.
@@ -66,6 +68,8 @@ export type CopyStage = { label: string; when: string; pay: PayHow; amount: numb
 export type CopyRange = { low: number; high: number; lowWithHst: number; highWithHst: number };
 
 export type CopyOption = {
+  /** The Quote Options record it was made from (2026-10-27), so an acceptance can name it. Never shown. Absent on older copies. */
+  ref?: string;
   name: string;
   description: string | null;
   recommended: boolean;
@@ -115,6 +119,8 @@ export type CustomerCopy = {
   pricing?: "lump" | "itemised";
   showHst: boolean;
   company: Letterhead;
+  /** The payment schedule it was sent with (2026-10-27), so ticked add-ons can be scheduled the same way. Absent = 35 / 35 / balance. */
+  paymentSchedule?: PaymentSchedule;
   options: CopyOption[];
 };
 
@@ -293,6 +299,7 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
   }
   const t = optionTotals(o.lines, discountRate, showHst);
   return {
+    ref: o.id,
     name: clean(o.name) ?? "Option",
     description: o.description?.trim() || null,
     recommended: o.recommended,
@@ -339,6 +346,7 @@ export function customerCopy(quote: Quote, at: { sentOn: string; validUntil: str
     pricing: lump ? "lump" : "itemised",
     showHst: quote.showHst,
     company: at.company,
+    ...(quote.schedule ? { paymentSchedule: quote.schedule } : {}),
     options: quote.options.map((o) => copyOption(o, quote.discountRate, quote.showHst, lump, prelim && at.range !== false, quote.schedule ?? defaultSchedule())),
   };
 }
@@ -450,3 +458,6 @@ export function pdfName(copy: Pick<CustomerCopy, "quoteNumber" | "version">): st
   const q = copy.quoteNumber.replace(/[^A-Za-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") || "Quote";
   return `Titan-Flooring-Quote-${q}${copy.version !== null ? `-v${copy.version}` : ""}.pdf`;
 }
+
+/** The stamped accepted PDF's name (2026-10-27), served beside the quote's own on the same link. */
+export const acceptedPdfName = (copy: Pick<CustomerCopy, "quoteNumber" | "version">) => pdfName(copy).replace(/\.pdf$/, "-accepted.pdf");

@@ -1,4 +1,5 @@
 import "server-only";
+import { parseAcceptance, type Acceptance } from "@/lib/accept/plan";
 import { listByIds, listRecords } from "@/lib/airtable/client";
 import { QUOTE, T, VERSION } from "@/lib/airtable/fields";
 import { isCustomerDeployment } from "@/lib/mode";
@@ -18,12 +19,13 @@ import { ids, num, str } from "./values";
  * tests/boundary.test.ts pins all three, and that only app/c/ imports this file.
  */
 
-export type CustomerQuote = { copy: CustomerCopy; state: CopyState; today: string; newerToken: string | null };
+/** `acceptance`: the record of the customer's yes (2026-10-27), frozen like the copy; only on an accepted version. */
+export type CustomerQuote = { copy: CustomerCopy; state: CopyState; today: string; newerToken: string | null; acceptance: Acceptance | null };
 
 export async function customerQuote(token: string): Promise<CustomerQuote | null> {
   if (!isCustomerDeployment() || !isToken(token)) return null;
   const found = await listRecords(T.versions, {
-    fields: [VERSION.status, VERSION.validUntil, VERSION.customerCopy, VERSION.quote],
+    fields: [VERSION.status, VERSION.validUntil, VERSION.customerCopy, VERSION.quote, VERSION.acceptance],
     filterByFormula: `{${VERSION.customerToken}}='${token}'`,
   });
   if (found.length !== 1) return null;
@@ -33,7 +35,8 @@ export async function customerQuote(token: string): Promise<CustomerQuote | null
   const copy = parseCopy(str(f[VERSION.customerCopy]));
   if (state === "hidden" || !copy) return null;
   const newerToken = state === "replaced" ? await newestSent(ids(f[VERSION.quote])[0], found[0].id) : null;
-  return { copy, state, today, newerToken };
+  const acceptance = state === "accepted" ? parseAcceptance(str(f[VERSION.acceptance])) : null;
+  return { copy, state, today, newerToken, acceptance };
 }
 
 /** For a replaced version: the link of the quote's newest version that is out with the customer. */

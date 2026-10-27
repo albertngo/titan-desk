@@ -1,3 +1,4 @@
+import { parseSignature, type Acceptance } from "@/lib/accept/plan";
 import { PAGE, PdfDoc, wrap, type Rgb } from "./pdfDoc";
 import { discountLabel, hstRow, isLump, itemHstNote, leadPrice, longDate, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyText, type CustomerCopy } from "./copy";
 
@@ -26,7 +27,19 @@ const money = (n: number) => cad.format(n);
 /* Item table columns. */
 const COL = { n: M, item: M + 22, itemW: 268, qty: 412, unit: 482, amount: RIGHT };
 
-export function quotePdf(copy: CustomerCopy): Uint8Array<ArrayBuffer> {
+/** What the accepted stamp says (2026-10-27): drawn on the accepted PDF, whose copy is acceptedCopy(). */
+export type AcceptedStamp = { acceptance: Acceptance; when: string };
+
+const GREEN: Rgb = [0.09, 0.42, 0.27];
+const MINT: Rgb = [0.92, 0.97, 0.94];
+
+export function methodWords(a: Acceptance): string {
+  if (a.method === "store") return "In our store, signed below.";
+  if (a.method === "staff") return `Recorded by ${a.recordedBy ?? "staff"} on the customer's behalf: ${a.reason ?? ""}`;
+  return "Online, from the link we sent.";
+}
+
+export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null): Uint8Array<ArrayBuffer> {
   const doc = new PdfDoc(`Titan Flooring quote ${copy.quoteNumber}`);
   let y = TOP;
 
@@ -75,6 +88,31 @@ export function quotePdf(copy: CustomerCopy): Uint8Array<ArrayBuffer> {
     doc.text(M, y, site, { size: 9.5, color: DIM });
   }
   y -= 20;
+
+  /* ---------- the accepted stamp (2026-10-27) ---------- */
+  if (stamp) {
+    const a = stamp.acceptance;
+    const sig = parseSignature(a.signature);
+    const lines = [
+      `Accepted by ${a.name} on ${stamp.when}.`,
+      `Option: ${a.option.name}${a.addOns.length ? `, with ${a.addOns.map((x) => x.description).join(", ")}` : ""}.`,
+      ...wrap(methodWords(a), "R", 9, RIGHT - M - (sig ? 200 : 24)),
+      `Agreed to the Project Expectations, version ${a.terms}.`,
+    ];
+    const h = Math.max(lines.length * 12 + 28, sig ? 84 : 0);
+    doc.rect(M, y - h + 8, RIGHT - M, h, MINT);
+    doc.text(M + 12, y - 8, "ACCEPTED", { font: "B", size: 10, color: GREEN });
+    lines.forEach((l, i) => doc.text(M + 12, y - 22 - i * 12, l, { size: 9, color: INK }));
+    if (sig) {
+      // The 1000 × 300 drawing box, scaled into 170 × 51 points at the right of the stamp, y flipped.
+      const x0 = RIGHT - 182;
+      const top = y - 6;
+      doc.strokes(sig.map((st) => st.map(([x, yy]) => [x0 + (x / 1000) * 170, top - (yy / 300) * 51] as [number, number])), INK, 1);
+      doc.line(x0, top - 56, x0 + 170, top - 56, RULE, 0.5);
+      doc.text(x0, top - 66, "Signature", { size: 7, color: FAINT });
+    }
+    y -= h + 10;
+  }
 
   for (const note of [
     copy.basis === "Preliminary" ? prelimNote(copy) : null,
@@ -185,7 +223,7 @@ export function quotePdf(copy: CustomerCopy): Uint8Array<ArrayBuffer> {
     lines.forEach((t, k) => doc.text(COL.item, y - k * 12, t, { size: 9, color }));
     if (l.qty !== null) doc.text(COL.qty, y, `${plain.format(l.qty)}${l.uom ? ` ${l.uom}` : ""}`, { size: 9, color, align: "right" });
     if (l.unitPrice !== null) doc.text(COL.unit, y, money(l.unitPrice), { size: 9, color, align: "right" });
-    if (l.amount !== null) doc.text(COL.amount - 4, y, l.optional ? `Optional · ${money(l.amount)}` : money(l.amount), { size: 9, font: l.optional ? "R" : "B", color, align: "right" });
+    if (l.amount !== null) doc.text(COL.amount - 4, y, l.optional ? `Optional · ${money(l.amount)}` : l.added ? `Added · ${money(l.amount)}` : money(l.amount), { size: 9, font: l.optional ? "R" : "B", color, align: "right" });
     y -= lines.length * 12;
     for (const t of notes) {
       doc.text(COL.item, y + 1, t, { size: 8, color: FAINT });

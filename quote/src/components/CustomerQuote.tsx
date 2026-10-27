@@ -37,9 +37,9 @@ function Line({ l }: { l: CopyItem | CopyText }) {
         {qty && l.unitPrice !== null && <span className="x"> × {money(l.unitPrice)}</span>}
       </span>
       <span className="a">
-        {l.optional ? (
+        {l.optional || l.added ? (
           <>
-            <span className="tag">Optional</span> {money(l.amount)}
+            <span className="tag">{l.added ? "Added" : "Optional"}</span> {money(l.amount)}
           </>
         ) : l.amount !== null ? (
           money(l.amount)
@@ -151,6 +151,8 @@ export function CustomerQuote({
   pdfHref,
   newerHref,
   banner,
+  note: noteSlot,
+  after,
 }: {
   copy: CustomerCopy;
   state: CopyState;
@@ -158,6 +160,10 @@ export function CustomerQuote({
   newerHref: string | null;
   /** Staff preview only: a line above everything saying what this is. */
   banner?: React.ReactNode;
+  /** Above the quote: what an accepted quote's customer does next (2026-10-27). Replaces the state line. */
+  note?: React.ReactNode;
+  /** Under the options: the Accept panel (2026-10-27). */
+  after?: React.ReactNode;
 }) {
   const c = copy.company;
   const several = copy.options.length > 1;
@@ -173,12 +179,13 @@ export function CustomerQuote({
           {c.address && <div>{c.address}</div>}
         </div>
         <a className="btn cq-dl" href={pdfHref}>
-          Download PDF
+          {state === "accepted" ? "Download accepted PDF" : "Download PDF"}
         </a>
       </header>
 
       <main className="cq-main">
-        {note && (
+        {noteSlot}
+        {!noteSlot && note && (
           <p className={`cq-state ${state}`} role="status">
             {note}
             {newerHref && (
@@ -220,6 +227,8 @@ export function CustomerQuote({
         {copy.options.map((o, i) => (
           <OptionBlock key={i} o={o} i={several ? i + 1 : null} copy={copy} />
         ))}
+
+        {after}
 
         {/* The "Questions?" card with Call / Email buttons is gone (Albert, 2026-10-24): replies go to the
             message the quote came in. The website and HST number stay, as one quiet line. */}

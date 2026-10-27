@@ -151,6 +151,15 @@ export class PdfDoc {
     this.ops(page).push(`${rgb(color)} RG ${n2(width)} w ${n2(x1)} ${n2(y1)} m ${n2(x2)} ${n2(y2)} l S`);
   }
 
+  /** Pen strokes (a drawn signature, 2026-10-27): each a polyline, round caps and joins. */
+  strokes(lines: [number, number][][], color: Rgb, width = 1.2, page?: number) {
+    const ops = this.ops(page);
+    for (const pts of lines) {
+      if (pts.length < 2) continue;
+      ops.push(`${rgb(color)} RG ${n2(width)} w 1 J 1 j ${pts.map(([x, y], i) => `${n2(x)} ${n2(y)} ${i === 0 ? "m" : "l"}`).join(" ")} S`);
+    }
+  }
+
   /** The finished file. */
   bytes(): Uint8Array<ArrayBuffer> {
     if (this.pages.length === 0) this.addPage();

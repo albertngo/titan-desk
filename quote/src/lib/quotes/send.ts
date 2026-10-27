@@ -3,6 +3,8 @@ import { listByIds, updateRecord, updateRecords } from "@/lib/airtable/client";
 import { QUOTE, T, VERSION } from "@/lib/airtable/fields";
 import { requireQuoter, requireQuoterPerson } from "@/lib/auth";
 import { fromQuote } from "@/lib/editor/model";
+import { etransferEmail } from "@/lib/accept/settings";
+import { TERMS } from "@/lib/accept/terms";
 import { BOOKING_URLS } from "@/lib/ghl/ids";
 import { makeConfigured, sendMessage } from "@/lib/make/client";
 import { COPY_MAX_CHARS, customerCopy, parseCopy, pdfName, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "@/lib/send/copy";
@@ -65,6 +67,12 @@ function logoUrl(): string | null {
   return base ? `${base.replace(/\/+$/, "")}/brand/titan-flooring-logo.png` : null;
 }
 
+/**
+ * Whether the email should say "press Accept" (2026-10-27): the terms are in the app and the deposit
+ * address is set. The keys on both deployments go in on the same day the terms PDF does (go-live).
+ */
+const acceptOnline = () => TERMS !== null && etransferEmail() !== null;
+
 /** The in-store and in-home booking pages a preliminary's email offers: the GHL calendars in src/lib/ghl/ids.ts. */
 const booking = () => BOOKING_URLS;
 
@@ -125,7 +133,7 @@ export async function previewEmail(versionId: string, validUntil?: string, itemi
   const quote = await getQuote(versionId);
   const base = customerBase() ?? "https://example.invalid";
   const { link, pdfUrl } = customerLinks(base, isToken(quote?.customerToken) ? quote!.customerToken! : "x".repeat(32), pdfName(copy));
-  const m = emailMessage(copy, { contactId: "preview", firstName: quote?.link?.firstName ?? null, link, pdfUrl }, senderOf(person), { booking: booking(), visited, attachPdf });
+  const m = emailMessage(copy, { contactId: "preview", firstName: quote?.link?.firstName ?? null, link, pdfUrl }, senderOf(person), { booking: booking(), visited, attachPdf, acceptOnline: acceptOnline() });
   return m.type === "Email" ? m.html : null;
 }
 
@@ -194,7 +202,7 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
     let last: unknown = null;
     for (const emailFrom of attempts) {
       try {
-        await sendMessage(emailMessage(copy, { contactId, firstName, link, pdfUrl }, from, { emailFrom, booking: booking(), visited: input.visited, attachPdf: input.attachPdf }));
+        await sendMessage(emailMessage(copy, { contactId, firstName, link, pdfUrl }, from, { emailFrom, booking: booking(), visited: input.visited, attachPdf: input.attachPdf, acceptOnline: acceptOnline() }));
         sentTo.push("Email");
         sentFrom = emailFrom;
         if (emailFrom === null && attempts[0] !== null) notes.push(`GHL would not send from ${from.email}, so the email went out from the location's default address.`);

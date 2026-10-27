@@ -12,7 +12,7 @@ const SRC = path.resolve(__dirname, "../src");
 const CLIENT = "lib/airtable/client.ts";
 const GHL = "lib/ghl/client.ts";
 /** The only files allowed to create or update Airtable records. Adding one is a reviewed decision. */
-const WRITERS = ["lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/address.ts"];
+const WRITERS = ["lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/address.ts", "lib/accept/record.ts"];
 const CATALOGUE = "tblfLXD3zkSdNQGbS";
 
 function files(dir: string): string[] {
@@ -62,7 +62,7 @@ describe("Airtable boundary", () => {
   });
 
   it("keeps the client, the loaders and the auth check server-only", () => {
-    for (const rel of [CLIENT, GHL, "lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/customer.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/auth.ts"]) {
+    for (const rel of [CLIENT, GHL, "lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/customer.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/acceptClient.ts", "lib/accept/record.ts", "lib/accept/accept.ts", "lib/accept/staff.ts", "lib/auth.ts"]) {
       expect(all.find((f) => f.rel === rel)!.text).toMatch(/^import "server-only";/m);
     }
   });
@@ -70,7 +70,7 @@ describe("Airtable boundary", () => {
   it("never imports Airtable code into a browser component", () => {
     const leaks = all
       .filter((f) => /^["']use client["'];?/m.test(f.text))
-      .filter((f) => /^import (?!type )[^;]*from ["']@\/lib\/(airtable|quotes\/load|quotes\/start|quotes\/save|quotes\/refresh|quotes\/records|quotes\/booking|quotes\/link|quotes\/send|quotes\/customer|quotes\/conversation|quotes\/address|ghl\/client|make\/client|auth)/m.test(f.text))
+      .filter((f) => /^import (?!type )[^;]*from ["']@\/lib\/(airtable|quotes\/load|quotes\/start|quotes\/save|quotes\/refresh|quotes\/records|quotes\/booking|quotes\/link|quotes\/send|quotes\/customer|quotes\/conversation|quotes\/address|quotes\/acceptClient|accept\/record|accept\/accept|accept\/staff|ghl\/client|make\/client|auth)/m.test(f.text))
       .map((f) => f.rel);
     expect(leaks).toEqual([]);
   });
@@ -107,11 +107,11 @@ describe("booking step (Make, no sign-in)", () => {
     expect(text).toMatch(/if \(!want \|\| !given\) return false;/);
   });
 
-  it("is the only path the staff app lets through without a sign-in, besides signing in", () => {
+  it("is, with the accept step (2026-10-27), the only path the staff app lets through without a sign-in, besides signing in", () => {
     const proxy = all.find((f) => f.rel === "proxy.ts")!.text;
-    expect(proxy).toContain('matcher: ["/((?!_next/|brand/|favicon\\\\.ico|robots\\\\.txt).*)"]');
-    expect(proxy).toContain("const OPEN_ON_STAFF = /^\\/(login|auth\\/|denied|api\\/booking)/;");
-    expect(all.filter((f) => f.rel.startsWith("app/api/")).map((f) => f.rel)).toEqual([ROUTE]);
+    expect(proxy).toContain('matcher: ["/((?!_next/|brand/|docs/|favicon\\\\.ico|robots\\\\.txt).*)"]');
+    expect(proxy).toContain("const OPEN_ON_STAFF = /^\\/(login|auth\\/|denied|api\\/booking|api\\/accept)/;");
+    expect(all.filter((f) => f.rel.startsWith("app/api/")).map((f) => f.rel).sort()).toEqual(["app/api/accept/route.ts", ROUTE]);
   });
 
   it("keeps the shared quote helpers away from pages and actions", () => {
@@ -162,10 +162,10 @@ describe("Make boundary", () => {
     expect(all.filter((f) => /hook\.[a-z0-9]+\.make\.com|make\.com\//.test(code(f.text))).map((f) => f.rel)).toEqual([]);
   });
 
-  it("is server-only and only reached from starting, booking, linking and sending a quote, and from Address arrived", () => {
+  it("is server-only and only reached from starting, booking, linking and sending a quote, Address arrived, and acceptance", () => {
     expect(all.find((f) => f.rel === "lib/make/client.ts")!.text).toMatch(/^import "server-only";/m);
     const callers = all.filter((f) => f.rel !== "lib/make/client.ts" && /from ["']@\/lib\/make\/client["']/.test(f.text)).map((f) => f.rel);
-    expect(callers.sort()).toEqual(["lib/quotes/address.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/start.ts"]);
+    expect(callers.sort()).toEqual(["lib/accept/record.ts", "lib/quotes/address.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/start.ts"]);
   });
 
   it("Address arrived fills only the contact in GHL and only the Quotes table in Airtable", () => {
@@ -201,14 +201,63 @@ describe("customer links (no sign-in, customer deployment only)", () => {
   it("is reached from the customer pages only, and they reach nothing else that reads Airtable", () => {
     const importers = all.filter((f) => /from ["']@\/lib\/quotes\/customer["']/.test(f.text)).map((f) => f.rel).sort();
     expect(importers).toEqual(["app/c/[token]/[file]/route.ts", "app/c/[token]/page.tsx"]);
+    // Acceptance (2026-10-27) adds pure rules and settings, and the one keyed client to the staff app; nothing that reads Airtable.
+    const allowed = ["quotes/customer", "send/copy", "send/pdf", "accept/plan", "accept/terms", "accept/settings", "pricing/schedule", "quotes/acceptClient"];
     for (const f of all.filter((x) => x.rel.startsWith("app/c/"))) {
       const lib = [...f.text.matchAll(/from ["']@\/lib\/([^"']+)["']/g)].map((m) => m[1]);
-      expect(lib.every((l) => ["quotes/customer", "send/copy", "send/pdf"].includes(l))).toBe(true);
+      expect(lib.filter((l) => !allowed.includes(l))).toEqual([]);
     }
   });
 
   it("the proxy serves customer links only on the customer deployment, and 404s them on the staff app", () => {
     const proxy = code(all.find((f) => f.rel === "proxy.ts")!.text);
     expect(proxy).toMatch(/export async function proxy\(request: NextRequest\) \{\s*const path = request\.nextUrl\.pathname;\s*if \(isCustomerDeployment\(\)\) return CUSTOMER_PAGES\.test\(path\) \? NextResponse\.next\(\) : notFound\(\);\s*if \(path\.startsWith\("\/c\/"\)\) return notFound\(\);/);
+  });
+});
+
+describe("acceptance (2026-10-27): the one write path from a customer link", () => {
+  const ROUTE = "app/api/accept/route.ts";
+  const ACCEPT = "lib/accept/accept.ts";
+  const STAFF = "lib/accept/staff.ts";
+  const CLIENTSIDE = "lib/quotes/acceptClient.ts";
+  const text = (rel: string) => code(all.find((f) => f.rel === rel)!.text);
+  const importers = (mod: string) => all.filter((f) => new RegExp(`from ["']@/lib/${mod}["']|from ["']\\./${mod.split("/").pop()}["']`).test(f.text)).map((f) => f.rel).sort();
+
+  it("checks the shared key before anything else, in the route and in every function it calls", () => {
+    expect(text(ROUTE)).toMatch(/export async function POST\(req: Request\) \{\s*const key = req\.headers\.get\("x-quote-key"\);\s*if \(!acceptKeyOk\(key\)\) return/);
+    const exported = text(ACCEPT).match(/export async function \w+/g) ?? [];
+    const guarded = text(ACCEPT).match(/export async function \w+[^{]*\{\s*if \(!acceptKeyOk\(key\)\) return/g) ?? [];
+    expect(exported.length).toBeGreaterThan(0);
+    expect(guarded.length).toBe(exported.length);
+    // A missing key turns acceptance off; it never opens it.
+    expect(text(ACCEPT)).toMatch(/if \(!want \|\| !given\) return false;/);
+  });
+
+  it("the staff side checks the signed-in quoter first in every export", () => {
+    const exported = text(STAFF).match(/export async function \w+/g) ?? [];
+    const guarded = text(STAFF).match(/export async function \w+[^{]*\{\s*(const \w+ = )?await requireQuoter(Person)?\(\);/g) ?? [];
+    expect(exported.length).toBeGreaterThan(0);
+    expect(guarded.length).toBe(exported.length);
+  });
+
+  it("the writes are reached only through the keyed step and the signed-in staff side", () => {
+    expect(importers("accept/record")).toEqual([ACCEPT, STAFF]);
+    expect(importers("accept/accept")).toEqual([ROUTE]);
+    expect(importers("accept/staff")).toEqual(["app/q/[id]/actions.ts", "app/q/[id]/page.tsx"]);
+    // Nothing the request says about money is used: the acceptance is built from the frozen copy.
+    expect(text(ACCEPT)).toMatch(/buildAcceptance\(target\.copy, input,/);
+  });
+
+  it("the customer deployment holds only the key: one reader, no Airtable, reached only from the customer page's action", () => {
+    expect(all.filter((f) => /QUOTE_ACCEPT_KEY/.test(code(f.text))).map((f) => f.rel).sort()).toEqual([ACCEPT, CLIENTSIDE]);
+    expect(text(CLIENTSIDE)).not.toMatch(/airtable|createRecord|updateRecord|make\/client/);
+    expect(text(CLIENTSIDE)).toMatch(/isCustomerDeployment\(\)/);
+    expect(importers("quotes/acceptClient")).toEqual(["app/c/[token]/actions.ts", "app/c/[token]/page.tsx"]);
+  });
+
+  it("the customer loader still only reads, and returns the frozen acceptance with the frozen copy", () => {
+    const loader = text("lib/quotes/customer.ts");
+    expect(loader).not.toMatch(/\b(createRecords?|updateRecords?)\(/);
+    expect(loader).toMatch(/parseAcceptance\(/);
   });
 });

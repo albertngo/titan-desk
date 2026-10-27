@@ -769,3 +769,59 @@ a.chip.accent:hover { text-decoration: underline; }
 .sched-amt.bad, .pay .v.bad { color: var(--bad, #b42318); }
 .sched-bad { margin: 0; padding-left: 18px; color: var(--bad, #b42318); font-size: 13px; }
 @media (max-width: 760px) { .sched-r { grid-template-columns: 1fr 84px; } .sched-when, .sched-r select { grid-column: 1 / -1; } }
+
+/* Acceptance (2026-10-27): the customer's Accept panel and accepted note, and the staff cards. */
+.cq-accept { padding: 18px; display: grid; gap: 14px; scroll-margin-top: 12px; }
+.cq-accept h2 { margin: 0; font-size: 20px; }
+.cq-accept fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 6px; }
+.cq-accept legend { font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--fg-faint); margin-bottom: 4px; }
+.acc-opts label, .acc-adds label { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.acc-opts label.on { border-color: var(--accent); background: var(--accent-soft); }
+.acc-opts .amt, .acc-adds .amt { font-variant-numeric: tabular-nums; color: var(--fg-dim); white-space: nowrap; }
+.acc-sum { margin: 0; display: grid; gap: 4px; padding: 12px; background: var(--card-2); border-radius: 8px; }
+.acc-sum div { display: flex; justify-content: space-between; gap: 12px; }
+.acc-sum dt { display: grid; color: var(--fg-dim); }
+.acc-sum dd { margin: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.acc-sum .tot { font-weight: 700; border-bottom: 1px solid var(--line); padding-bottom: 6px; margin-bottom: 4px; }
+.acc-sum .tot dt { color: var(--fg); }
+.acc-sum .dep { font-weight: 600; }
+.acc-sum .dep dt { color: var(--fg); }
+.acc-sum .sub { font-size: 12px; font-weight: 400; color: var(--fg-faint); }
+.acc-note { margin: 0; font-size: 13.5px; color: var(--fg-dim); }
+.acc-terms { display: flex; gap: 10px; align-items: flex-start; font-size: 14.5px; }
+.acc-terms input { margin-top: 3px; }
+.acc-terms a { text-decoration: underline; }
+.acc-name { display: grid; gap: 4px; font-size: 13px; color: var(--fg-dim); }
+.acc-name input { font: inherit; font-size: 16px; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: 8px; color: var(--fg); }
+.acc-sign { display: grid; gap: 4px; font-size: 13px; color: var(--fg-dim); }
+.acc-sign canvas { width: 100%; aspect-ratio: 10 / 3; border: 1px dashed var(--line-strong); border-radius: 8px; background: #fff; touch-action: none; }
+.acc-sign .linkbtn { justify-self: end; }
+.acc-err { margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--bad-soft); color: var(--bad); font-size: 14px; }
+.acc-go { justify-content: center; padding: 14px; font-size: 16px; }
+.acc-go:disabled { opacity: .5; cursor: not-allowed; }
+.cq-accepted { padding: 18px; display: grid; gap: 10px; border-color: var(--good); }
+.cq-accepted .cq-kicker { margin: 0; color: var(--good); }
+.cq-accepted h2 { margin: 0; font-size: 19px; line-height: 1.35; }
+.cq-accepted p { margin: 0; color: var(--fg-dim); font-size: 14.5px; }
+.cq-accepted .dep { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 12px 14px; background: var(--good-soft); border-radius: 8px; }
+.cq-accepted .dep .k { font-weight: 600; }
+.cq-accepted .dep .v { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; grid-row: span 2; align-self: center; }
+.cq-accepted .dep .how { font-size: 14px; color: var(--fg); }
+.cq-accepted .links a { text-decoration: underline; }
+.accept-card .acc-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0; }
+.accept-card .acc-form { display: grid; gap: 10px; margin-top: 12px; }
+.accept-card .acc-form textarea { font: inherit; padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: var(--radius); }
+.accept-card .banner { margin-top: 10px; border-radius: var(--radius); border: 0; }
+.accept-card.done { border-color: var(--good); }
+.acc-dl { margin: 8px 0; display: grid; gap: 3px; font-size: 13px; }
+.acc-dl div { display: flex; justify-content: space-between; gap: 12px; }
+.acc-dl dt { color: var(--fg-dim); }
+.acc-dl dd { margin: 0; font-variant-numeric: tabular-nums; }
+.acc-sig { width: 180px; height: 54px; color: var(--fg); border-bottom: 1px solid var(--line); display: block; margin: 4px 0 8px; }
+.handoff { list-style: none; margin: 8px 0; padding: 0; display: grid; gap: 4px; font-size: 13px; }
+.handoff li::before { content: "● "; }
+.handoff li.good { color: var(--good); }
+.handoff li.warn { color: var(--warn); }
+.handoff li.faint { color: var(--fg-faint); }
+.acc-links { font-size: 13px; margin: 8px 0; }
+.linkbtn.danger:hover { color: var(--bad); }

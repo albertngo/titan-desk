@@ -1,5 +1,6 @@
+import { acceptedCopy, acceptedWhen } from "@/lib/accept/plan";
 import { customerQuote } from "@/lib/quotes/customer";
-import { pdfName } from "@/lib/send/copy";
+import { acceptedPdfName, pdfName } from "@/lib/send/copy";
 import { quotePdf } from "@/lib/send/pdf";
 
 /**
@@ -9,11 +10,16 @@ import { quotePdf } from "@/lib/send/pdf";
 export async function GET(_req: Request, { params }: { params: Promise<{ token: string; file: string }> }) {
   const { token, file } = await params;
   const found = await customerQuote(token);
-  if (!found || file !== pdfName(found.copy)) return new Response("Not found", { status: 404 });
-  return new Response(quotePdf(found.copy), {
+  if (!found) return new Response("Not found", { status: 404 });
+  // An accepted quote (2026-10-27) also has its stamped PDF, the one the acceptance email attaches.
+  const a = found.acceptance;
+  const accepted = a && file === acceptedPdfName(found.copy);
+  if (!accepted && file !== pdfName(found.copy)) return new Response("Not found", { status: 404 });
+  const bytes = accepted ? quotePdf(acceptedCopy(found.copy, a), { acceptance: a, when: acceptedWhen(a.at) }) : quotePdf(found.copy);
+  return new Response(bytes, {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename="${pdfName(found.copy)}"`,
+      "Content-Disposition": `inline; filename="${file}"`,
       "Cache-Control": "private, no-store",
       "Referrer-Policy": "no-referrer",
       "X-Robots-Tag": "noindex",
