@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CONTACT_ORIGIN_FIELD, CONTACT_TIMING_FIELD, GHL_LOCATION_ID, LEAD_STAGE_IDS, LEADS_PIPELINE_ID, MEETING_SCHEDULED_STAGE_ID, OPP_FIELDS, SALES_PIPELINE_ID } from "../src/lib/ghl/ids";
-import { buildBookingOpportunity, buildGhlRequest, CONTACT_ID_SLOT, type GhlRequestInput } from "../src/lib/link/ghlRequest";
+import { buildAddressEdit, buildBookingOpportunity, buildGhlRequest, CONTACT_ID_SLOT, type GhlRequestInput } from "../src/lib/link/ghlRequest";
 
 // INVENTED customer and ids only: this repo is public.
 const base: GhlRequestInput = {
@@ -129,6 +129,20 @@ describe("the opportunity the booking step makes when a booked contact has none"
         { id: OPP_FIELDS.quoteNumber, field_value: "Q-1234" },
         { id: OPP_FIELDS.projectAddress, field_value: "12 Example St" },
         { id: OPP_FIELDS.projectCity, field_value: "Oakville" },
+      ],
+    });
+  });
+});
+
+describe("changing the address in the app (2026-10-27)", () => {
+  it("puts the same address on the contact and on the opportunity's Project Address, and nothing else", () => {
+    const r = buildAddressEdit({ contactId: "conJANE00001", opportunityId: "oppJANE00001", address: "34 Sample Ave", city: "Mississauga" });
+    expect(r).toMatchObject({ mode: "link", contactId: "conJANE00001", opportunityId: "oppJANE00001" });
+    expect(parse(r.contactBody)).toEqual({ address1: "34 Sample Ave", city: "Mississauga" });
+    expect(parse(r.oppBody)).toEqual({
+      customFields: [
+        { id: OPP_FIELDS.projectAddress, field_value: "34 Sample Ave" },
+        { id: OPP_FIELDS.projectCity, field_value: "Mississauga" },
       ],
     });
   });

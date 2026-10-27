@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { OPP_FIELDS } from "../src/lib/ghl/ids";
 import { buildLinkJob } from "../src/lib/link/ghlRequest";
-import { confirmAddressCheck, fixAddressLink, linkChoices, type JobCandidate } from "../src/lib/link/linkJob";
+import { addressEditBlock, addressEditCheck, confirmAddressCheck, fixAddressLink, linkChoices, type AddressEditQuote, type JobCandidate } from "../src/lib/link/linkJob";
 
 // INVENTED ids, names and addresses only: this repo is public.
 const LEADS = "z7ZevSnG9HnGMzC9nSHp";
@@ -120,5 +120,62 @@ describe("where a wrong address is fixed (2026-10-21)", () => {
 
   it("gives nothing when there is no contact to go to", () => {
     expect(fixAddressLink({ ...base, ghlContactId: null, ghlOpportunityId: null })).toBeNull();
+  });
+});
+
+describe("changing the address in the app (2026-10-27)", () => {
+  const q: AddressEditQuote = {
+    siteAddress: "1 Example St",
+    siteCity: "Toronto",
+    addressStatus: "Unconfirmed",
+    projectNumber: null,
+    ghlContactId: "conAAA111111",
+    ghlOpportunityId: "oppBBB222222",
+  };
+  const shown = { address: "1 Example St", city: "Toronto" };
+  const next = { address: "  22   Sample Ave ", city: "Oakville " };
+
+  it("is offered on a linked quote that isn't won, and nowhere else", () => {
+    expect(addressEditBlock(q)).toBeNull();
+    expect(addressEditBlock({ ...q, projectNumber: "PP-412" })).toMatch(/Notion project/);
+    expect(addressEditBlock({ ...q, ghlOpportunityId: null })).toMatch(/Link this quote/);
+    expect(addressEditBlock({ ...q, ghlContactId: null })).toMatch(/no GHL contact/);
+  });
+
+  it("sends the tidied address to the quote's own contact and opportunity", () => {
+    expect(addressEditCheck(q, shown, next)).toEqual({
+      ok: true,
+      contactId: "conAAA111111",
+      opportunityId: "oppBBB222222",
+      address: "22 Sample Ave",
+      city: "Oakville",
+      addressStatus: "Unconfirmed",
+    });
+  });
+
+  it("never confirms an address, and a confirmed site stays confirmed", () => {
+    expect(addressEditCheck({ ...q, addressStatus: "No address", siteAddress: null, siteCity: null }, { address: "", city: "" }, next)).toMatchObject({ ok: true, addressStatus: "Unconfirmed" });
+    expect(addressEditCheck({ ...q, addressStatus: null }, shown, next)).toMatchObject({ ok: true, addressStatus: "Unconfirmed" });
+    expect(addressEditCheck({ ...q, addressStatus: "Confirmed" }, shown, next)).toMatchObject({ ok: true, addressStatus: "Confirmed" });
+  });
+
+  it("refuses a won job, an unlinked quote, and a blank street or city", () => {
+    expect(addressEditCheck({ ...q, projectNumber: "PP-412" }, shown, next)).toMatchObject({ ok: false, message: expect.stringMatching(/Notion project/) });
+    expect(addressEditCheck({ ...q, ghlOpportunityId: null }, shown, next)).toMatchObject({ ok: false });
+    expect(addressEditCheck(q, shown, { address: "22 Sample Ave", city: "  " })).toMatchObject({ ok: false, message: expect.stringMatching(/street address and the city/) });
+    expect(addressEditCheck(q, shown, { address: "", city: "Oakville" })).toMatchObject({ ok: false });
+    expect(addressEditCheck(q, shown, { address: "x".repeat(201), city: "Oakville" })).toMatchObject({ ok: false, message: expect.stringMatching(/too long/) });
+  });
+
+  it("writes nothing if the quote's address changed since the page opened", () => {
+    expect(addressEditCheck(q, { address: "9 Other Rd", city: "Toronto" }, next)).toMatchObject({ ok: false, message: expect.stringMatching(/changed since/) });
+    expect(addressEditCheck(q, { address: "1 Example St", city: "Ajax" }, next)).toMatchObject({ ok: false });
+    // Spacing and case in what the page showed don't count as a change.
+    expect(addressEditCheck(q, { address: " 1 example st", city: "TORONTO" }, next)).toMatchObject({ ok: true });
+  });
+
+  it("refuses an address that is the same as the quote's, but lets a spelling or case fix through", () => {
+    expect(addressEditCheck(q, shown, { address: " 1 Example  St", city: "Toronto" })).toMatchObject({ ok: false, message: expect.stringMatching(/already has/) });
+    expect(addressEditCheck(q, shown, { address: "1 EXAMPLE ST", city: "Toronto" })).toMatchObject({ ok: true, address: "1 EXAMPLE ST" });
   });
 });

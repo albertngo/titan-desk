@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { saveAsNewVersionAction, saveVersionAction } from "@/app/q/[id]/edit/actions";
+import { EditAddress, type SavedAddress } from "@/components/EditAddress";
 import { Financials } from "@/components/Financials";
 import { DEFAULT_PRIVATE_LABEL, PRIVATE_SECTION, SECTIONS, isPriced, lineCost, lineFlags, lineTotal, optionTotals, privateRollup, sectionOf } from "@/lib/calc";
 import {
@@ -35,7 +36,7 @@ import {
   type EditorQuote,
 } from "@/lib/editor/model";
 import { ghlContactUrl } from "@/lib/ghl/ids";
-import { fixAddressLink } from "@/lib/link/linkJob";
+import { addressEditBlock, fixAddressLink } from "@/lib/link/linkJob";
 import { money, pct, rate } from "@/lib/format";
 import type { RateCard } from "@/lib/quotes/types";
 import { Picker } from "./Picker";
@@ -114,6 +115,7 @@ export default function Editor({
   backHref,
   version,
   customer,
+  quoteRowId = null,
 }: {
   initial: EditorQuote;
   card: RateCard;
@@ -121,6 +123,8 @@ export default function Editor({
   version: EditorVersion;
   /** Customer view: no cost, margin, contractor, card rate or flags on screen. */
   customer: boolean;
+  /** The quote's row in the Quotes table (not the version being edited): where its address lives. */
+  quoteRowId?: string | null;
 }) {
   const key = draftKey(initial);
   const [boot] = useState(() => loadDraft(key));
@@ -138,6 +142,10 @@ export default function Editor({
   const [activeId, setActiveId] = useState<string | null>(quote.options[0]?.id ?? null);
   const [picking, setPicking] = useState<string | null>(null);
   const [newExclusion, setNewExclusion] = useState("");
+  // An address changed from here (2026-10-27) is already in GHL and on the quote, never part of the draft.
+  const [savedSite, setSavedSite] = useState<SavedAddress | null>(null);
+  const site = savedSite ? { ...quote, siteAddress: savedSite.address, siteCity: savedSite.city, addressStatus: savedSite.addressStatus } : quote;
+  const addressEditable = Boolean(quoteRowId) && addressEditBlock(quote) === null;
 
   // The rate card and the stair items, for the picker and for re-pricing (service level, contractor, material).
   const catalogue = useMemo(() => buildCatalogue(card.rates, card.stairs, card.materials), [card]);
@@ -384,19 +392,30 @@ export default function Editor({
               <div className="ro-strip">
                 <span className="who">{quote.customerName || <span className="faint">No customer</span>}</span>
                 <span className="where">
-                  {[quote.siteAddress, quote.siteCity].filter(Boolean).join(", ") || <span className="faint">No address yet</span>}
+                  {[site.siteAddress, site.siteCity].filter(Boolean).join(", ") || <span className="faint">No address yet</span>}
                 </span>
-                {quote.addressStatus === "Unconfirmed" && <span className="chip warn">Address unconfirmed</span>}
+                {site.addressStatus === "Unconfirmed" && <span className="chip warn">Address unconfirmed</span>}
+                {addressEditable && (
+                  <EditAddress
+                    quoteRecordId={quoteRowId!}
+                    address={site.siteAddress || null}
+                    city={site.siteCity || null}
+                    confirmed={site.addressStatus === "Confirmed"}
+                    onSaved={setSavedSite}
+                  />
+                )}
                 <span className="note">
-                  Change these on the GHL contact (after Won, in the Notion project), not here.{" "}
+                  {addressEditable
+                    ? "Change the name, phone and email on the GHL contact, not here."
+                    : "Change these on the GHL contact (after Won, in the Notion project), not here."}{" "}
                   {quote.ghlContactId && (
                     <a href={ghlContactUrl(quote.ghlContactId)} target="_blank" rel="noreferrer">
                       Open in GHL ↗
                     </a>
                   )}
                   {(() => {
-                    // A confirmed site is fixed on the opportunity, not the contact: point the right way.
-                    const fix = fixAddressLink(quote);
+                    // Where the address can't be changed here, point at where it lives (when that isn't the contact link above).
+                    const fix = addressEditable ? null : fixAddressLink(quote);
                     return fix && fix.href !== (quote.ghlContactId ? ghlContactUrl(quote.ghlContactId) : null) ? (
                       <>
                         {" · "}

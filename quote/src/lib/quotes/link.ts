@@ -3,11 +3,11 @@ import { AirtableError, getRecord, updateRecord } from "@/lib/airtable/client";
 import { QUOTE, T } from "@/lib/airtable/fields";
 import { requireQuoter } from "@/lib/auth";
 import { ghlConfigured, opportunitiesForContact, pipelines } from "@/lib/ghl/client";
-import { buildLinkJob } from "@/lib/link/ghlRequest";
-import { confirmAddressCheck, linkChoices } from "@/lib/link/linkJob";
+import { buildAddressEdit, buildLinkJob } from "@/lib/link/ghlRequest";
+import { addressEditCheck, confirmAddressCheck, linkChoices, type Place } from "@/lib/link/linkJob";
 import { makeConfigured, sendToGhl } from "@/lib/make/client";
 import { quotesByOpportunity } from "./records";
-import type { ConfirmAddressResult, JobChoices, LinkJobResult } from "./types";
+import type { ConfirmAddressResult, EditAddressResult, JobChoices, LinkJobResult } from "./types";
 import { str } from "./values";
 
 /**
@@ -161,4 +161,57 @@ export async function confirmAddress(quoteRecordId: string, shown: string): Prom
     };
   }
   return { ok: true };
+}
+
+const place = (v: unknown): Place => {
+  const o = (v ?? {}) as Record<string, unknown>;
+  return { address: String(o.address ?? "").slice(0, 300), city: String(o.city ?? "").slice(0, 300) };
+};
+
+/**
+ * Change the quote's address from the app (Albert, 2026-10-27; until then it was fixed in GHL
+ * only). The new address goes to the GHL contact and the linked opportunity through Make first,
+ * and the quote's copy changes only once Make confirms both. Rules: addressEditCheck().
+ */
+export async function editAddress(quoteRecordId: string, shown: unknown, next: unknown): Promise<EditAddressResult> {
+  const email = await requireQuoter();
+  const quote = await quoteRecord(quoteRecordId);
+  if (!quote) return { ok: false, message: "This quote isn't in Airtable any more." };
+  const f = quote.fields;
+  const was = { address: str(f[QUOTE.siteAddress]), city: str(f[QUOTE.siteCity]) };
+  const check = addressEditCheck(
+    {
+      siteAddress: was.address,
+      siteCity: was.city,
+      addressStatus: str(f[QUOTE.addressStatus]),
+      projectNumber: str(f[QUOTE.projectNumber]),
+      ghlContactId: str(f[QUOTE.ghlContactId]),
+      ghlOpportunityId: str(f[QUOTE.ghlOpportunityId]),
+    },
+    place(shown),
+    place(next),
+  );
+  if (!check.ok) return check;
+  if (!makeConfigured()) return { ok: false, message: "Sending to GHL isn't switched on for this deployment, so the address wasn't changed." };
+
+  try {
+    await sendToGhl(buildAddressEdit(check));
+  } catch (e) {
+    return { ok: false, message: `GHL wasn't updated (${e instanceof Error ? e.message.slice(0, 120) : "error"}), so the address wasn't changed. Try again.` };
+  }
+  const before = [was.address, was.city].filter(Boolean).join(", ") || "no address";
+  try {
+    await updateRecord(T.quotes, quote.id, {
+      [QUOTE.siteAddress]: check.address,
+      [QUOTE.siteCity]: check.city,
+      [QUOTE.addressStatus]: check.addressStatus,
+      [QUOTE.notes]: appendNote(f[QUOTE.notes], `address changed by ${email}: ${before} → ${check.address}, ${check.city}. Sent to the GHL contact and opportunity.`),
+    });
+  } catch (e) {
+    return {
+      ok: false,
+      message: `GHL has the new address, but the quote couldn't be updated (${e instanceof Error ? e.message.slice(0, 120) : "error"}). It picks it up from GHL the next time it opens.`,
+    };
+  }
+  return { ok: true, address: check.address, city: check.city, addressStatus: check.addressStatus };
 }

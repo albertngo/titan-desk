@@ -330,6 +330,13 @@ table.items.edit .desc { font-weight: 500; }
 .ca-err { color: var(--bad); }
 .ca-btns { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 @media (pointer: coarse) { .ca-btns .btn { min-height: 40px; } .ca-open { min-height: 32px; } }
+/* Changing the address in the app (2026-10-27): the Confirm address panel, in neutral. */
+.ea { border-color: var(--line); background: var(--card-2); }
+.ea-fields { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; }
+.ea label { display: grid; gap: 4px; font-size: 12px; color: var(--fg-faint); }
+.ea .cell-in { padding: 7px 9px; }
+@media (max-width: 560px) { .ea-fields { grid-template-columns: 1fr; } }
+@media (pointer: coarse) { .ea .cell-in { min-height: 40px; font-size: 16px; } }
 .excl { display: flex; gap: 6px; align-items: center; }
 .restored { padding: 10px 16px; }
 

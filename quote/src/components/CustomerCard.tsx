@@ -1,6 +1,7 @@
 import { ghlContactUrl } from "@/lib/ghl/ids";
-import { fixAddressLink } from "@/lib/link/linkJob";
+import { addressEditBlock, fixAddressLink } from "@/lib/link/linkJob";
 import { ConfirmAddress } from "./ConfirmAddress";
+import { EditAddress } from "./EditAddress";
 import { pct } from "@/lib/format";
 import type { Quote } from "@/lib/quotes/types";
 
@@ -22,8 +23,9 @@ export function CustomerCard({ quote }: { quote: Quote }) {
     ["Valid until", quote.validUntil],
     ["Sent", quote.sentAt],
   ];
-  // Where a wrong address is put right: the contact, the opportunity or the Notion project, by its status.
-  const fix = l ? fixAddressLink(l) : null;
+  // A linked quote's address is changed here (2026-10-27); otherwise Fix address points at where it lives.
+  const editable = l ? addressEditBlock(l) === null : false;
+  const fix = l && !editable ? fixAddressLink(l) : null;
   const links: [string, string | null][] = [
     ["GHL contact", l?.ghlContactId ? ghlContactUrl(l.ghlContactId) : null],
     ["Folder", l?.folderUrl ?? null],
@@ -50,6 +52,7 @@ export function CustomerCard({ quote }: { quote: Quote }) {
             {l.addressStatus === "Unconfirmed" && quote.siteAddress && !l.projectNumber && (
               <ConfirmAddress quoteRecordId={l.quoteRecordId} address={quote.siteAddress} city={quote.siteCity} linked={Boolean(l.ghlOpportunityId)} />
             )}
+            {editable && <EditAddress quoteRecordId={l.quoteRecordId} address={quote.siteAddress} city={quote.siteCity} confirmed={l.addressStatus === "Confirmed"} />}
             {fix && (
               <a className="chip accent" href={fix.href} target="_blank" rel="noreferrer" title={fix.hint}>
                 Fix address ↗

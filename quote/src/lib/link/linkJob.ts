@@ -57,7 +57,8 @@ export type FixAddressLink = { href: string; hint: string };
  * Project Address (a booking with the wrong contact address confirms the wrong site, and the
  * contact alone can no longer change it); a won job's address lives on the Notion project. The
  * quote follows the right place the next time it opens. Null when there is nowhere to send
- * the person.
+ * the person. Since 2026-10-27 a linked quote's address is changed in the app instead
+ * (addressEditBlock() below); the screens show this link only where that can't be done.
  */
 export function fixAddressLink(q: AddressHome): FixAddressLink | null {
   if (q.projectNumber?.trim()) {
@@ -71,12 +72,57 @@ export function fixAddressLink(q: AddressHome): FixAddressLink | null {
       };
     }
     return q.ghlContactId
-      ? { href: ghlContactUrl(q.ghlContactId), hint: "This quote isn't linked to an opportunity yet. Link it, then fix the Project Address on the opportunity." }
+      ? { href: ghlContactUrl(q.ghlContactId), hint: "This quote isn't linked to an opportunity yet. Link it, then change the address here." }
       : null;
   }
   return q.ghlContactId
     ? { href: ghlContactUrl(q.ghlContactId), hint: "An unconfirmed address follows the GHL contact. Change it there; the quote follows it the next time it opens." }
     : null;
+}
+
+// ---------- changing the address in the app ----------
+
+/**
+ * Why a quote's address can't be changed from the app, or null when it can (Albert, 2026-10-27).
+ * A won job's lives on the Notion project. Otherwise the change goes to the GHL contact and the
+ * linked opportunity together, through Make's "link" route, so the quote needs both.
+ * Where it can't, Fix address still points the person at the right place.
+ */
+export function addressEditBlock(q: Pick<AddressHome, "projectNumber" | "ghlContactId" | "ghlOpportunityId">): string | null {
+  if (q.projectNumber?.trim()) return "This job is won: its address is kept on the Notion project.";
+  if (!q.ghlContactId) return "This quote has no GHL contact to change.";
+  if (!q.ghlOpportunityId) return "Link this quote to its opportunity first; then its address can be changed here.";
+  return null;
+}
+
+export type AddressEditQuote = Pick<AddressHome, "addressStatus" | "projectNumber" | "ghlContactId" | "ghlOpportunityId"> & {
+  siteAddress: string | null;
+  siteCity: string | null;
+};
+export type Place = { address: string; city: string };
+export type AddressEditOk = { ok: true; contactId: string; opportunityId: string; address: string; city: string; addressStatus: "Confirmed" | "Unconfirmed" };
+
+const tidy = (v: string | null | undefined) => (v ?? "").trim().replace(/\s+/g, " ");
+const sameText = (a: string | null | undefined, b: string | null | undefined) => tidy(a).toLowerCase() === tidy(b).toLowerCase();
+
+/**
+ * Whether a new address may be written (Albert, 2026-10-27). `shown` is what the person saw when
+ * they opened the form; if the quote's address has changed since, nothing is written. Typing an
+ * address never confirms it (booking and Confirm address do): an unconfirmed one stays
+ * unconfirmed, and a confirmed site stays confirmed, corrected.
+ */
+export function addressEditCheck(q: AddressEditQuote, shown: Place, next: Place): AddressEditOk | { ok: false; message: string } {
+  const blocked = addressEditBlock(q);
+  if (blocked) return { ok: false, message: blocked };
+  const address = tidy(next.address);
+  const city = tidy(next.city);
+  if (!address || !city) return { ok: false, message: "Type the street address and the city." };
+  if (address.length > 200 || city.length > 80) return { ok: false, message: "That address is too long." };
+  if (!sameText(q.siteAddress, shown.address) || !sameText(q.siteCity, shown.city)) {
+    return { ok: false, message: "The address changed since this page opened. Reload and check it again." };
+  }
+  if (address === tidy(q.siteAddress) && city === tidy(q.siteCity)) return { ok: false, message: "That's the address the quote already has." };
+  return { ok: true, contactId: q.ghlContactId!, opportunityId: q.ghlOpportunityId!, address, city, addressStatus: q.addressStatus === "Confirmed" ? "Confirmed" : "Unconfirmed" };
 }
 
 // ---------- confirming an address by hand ----------

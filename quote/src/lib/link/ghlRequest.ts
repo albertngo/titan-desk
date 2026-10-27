@@ -150,6 +150,28 @@ export function buildLinkJob(i: {
 }
 
 /**
+ * Changing a quote's address in the app (Albert, 2026-10-27). The same address goes on the GHL
+ * contact (where the next booking reads it) and on the opportunity's Project Address / City (the
+ * site a confirmed quote follows), through the same "link" route, which updates the contact and
+ * then the opportunity. Nothing else on either record changes; the contact's postal code is
+ * left as it is, since the app never holds one.
+ */
+export function buildAddressEdit(i: { contactId: string; opportunityId: string; address: string; city: string }): GhlRequest {
+  return {
+    mode: "link",
+    contactId: i.contactId,
+    opportunityId: i.opportunityId,
+    contactBody: JSON.stringify({ address1: i.address, city: i.city }),
+    oppBody: JSON.stringify({
+      customFields: [
+        { id: OPP_FIELDS.projectAddress, field_value: i.address },
+        { id: OPP_FIELDS.projectCity, field_value: i.city },
+      ],
+    }),
+  };
+}
+
+/**
  * The booking step's one GHL write of its own: a job whose appointment was confirmed with no
  * opportunity gets one, in the Sales pipeline's Meeting (Scheduled) stage, already carrying the
  * quote number and the site. Same "new-opportunity" route through Make as a new quote; the

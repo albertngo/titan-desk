@@ -15,7 +15,8 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   (PP-412). "Job" and "family" are retired. The tables were renamed in Airtable on that date
   (Quote Families → Quotes, Quotes → Quote Versions); IDs did not change.
 - **GHL owns the customer.** Name, phone, email and address are display copies on the quote;
-  staff edit them in GHL. The app reads GHL to find a customer and their opportunities and
+  staff edit them in GHL, except the address, which can also be changed in the app since
+  2026-10-27 (**Edit address**, below), and goes to GHL before the copy changes. The app reads GHL to find a customer and their opportunities and
   never writes to it with a token of its own. GHL changes go through one Make scenario,
   "Quote app → GHL" (4975508): the app builds the exact request bodies in
   `src/lib/link/ghlRequest.ts` (tested) and Make forwards them with its GHL connection. Matching rules
@@ -26,13 +27,15 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   address from the contact; a *confirmed* address from the opportunity's Project Address; and
   no address change once won (Notion owns it). Nothing is blanked. Rules: `src/lib/link/refresh.ts`,
   tested in `tests/refresh.test.ts`. GHL being down never stops a quote opening.
-- **Where the site address comes from (Albert, 2026-10-15).** Staff type it on the GHL contact,
-  nowhere else: the contact's address is where the next appointment is (the booking texts read
-  it too). It reaches the job's opportunity at three moments only: GHL's own workflow fills a
+- **Where the site address comes from (Albert, 2026-10-15; Edit address 2026-10-27).** Staff type
+  it on the GHL contact, or with **Edit address** in the app, which writes the contact and the
+  opportunity together: the contact's address is where the next appointment is (the booking texts
+  read it too). It reaches the job's opportunity at four moments only: GHL's own workflow fills a
   blank Project Address when an opportunity is created (unconfirmed); booking (`/api/booking`)
   copies the contact's address onto that job as the confirmed site; "Address arrived" fills a
-  booked job's site that is still blank. A confirmed site never changes because the contact did;
-  fixing one is done on the opportunity's Project Address. The app writes a site onto an
+  booked job's site that is still blank; Edit address writes it there along with the contact. A
+  confirmed site never changes because the contact did in GHL; fixing one there is done on the
+  opportunity's Project Address. Apart from Edit address, the app writes a site onto an
   opportunity only when it is confirmed.
 - **One shared name:** `First Surname - MMYY - Q-1234`, then ` - PP-412` once won. First name
   first (Albert, 2026-10-14); MMYY is the month the quote was created, in Toronto time, never the
@@ -69,6 +72,22 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   changes it); a won job's on the Notion project. **Fix address** beside the address chip on the quote
   page, and in the editor's customer strip, opens the right one, and the quote follows it the next
   time it opens. Rule: `fixAddressLink()` in `src/lib/link/linkJob.ts`, tested in `tests/linkJob.test.ts`.
+  Since 2026-10-27 it shows only where Edit address can't be used: a won job, or a quote not yet
+  linked to an opportunity.
+- **Edit address (Albert, 2026-10-27: "making an EDIT in the app will update the address on contact
+  and the linked opportunity").** On a linked quote that isn't won, **Edit address** (beside the
+  address chip on the quote page, and in the editor's customer strip) takes a street and a city and
+  sends them through Make 4975508's `link` route in one request: the GHL contact's `address1` /
+  `city`, then the opportunity's Project Address / Project City (`buildAddressEdit()` in
+  `src/lib/link/ghlRequest.ts`), so nothing changed in Make. The quote's copy changes only once Make
+  confirms, and the quote's Notes record who changed it from what. It never confirms an address (an
+  unconfirmed one stays unconfirmed, a confirmed site stays confirmed) and writes nothing if the
+  quote's address changed since the form opened. A won job's address stays on the Notion project. A
+  quote with no opportunity is linked first, because the `link` route needs one (changing only the
+  contact would be a new Make route). The contact's postal code is left as it is; the app holds none.
+  In the editor the new address is shown at once and is never part of the draft or a save. Rules:
+  `addressEditBlock()` / `addressEditCheck()` in `src/lib/link/linkJob.ts`, tested in
+  `tests/linkJob.test.ts` and `tests/ghlRequest.test.ts`.
 - **Two ways to start a quote (Albert, 2026-10-18).** The front page has **+ New quote** (`/new`:
   customer with the site address folded in, then timeline; v1 is *Measured* and opens empty in the
   editor) and **+ Preliminary quote** (`/new?kind=preliminary`: the job first, then customer, then

@@ -211,6 +211,9 @@ export type LinkJobResult = { ok: true } | { ok: false; message: string };
 
 export type ConfirmAddressResult = { ok: true } | { ok: false; message: string };
 
+/** Changing the address in the app (2026-10-27): what the quote has now, once GHL took it. */
+export type EditAddressResult = { ok: true; address: string; city: string; addressStatus: string } | { ok: false; message: string };
+
 /* ---------- sending a quote (src/lib/quotes/send.ts) ---------- */
 
 export type SendResult =
