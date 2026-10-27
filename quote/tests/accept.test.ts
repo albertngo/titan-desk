@@ -302,8 +302,9 @@ describe("GHL: won, contract, lost", () => {
     expect(JSON.parse(r.contactBody)).toEqual({});
     const body = JSON.parse(r.oppBody);
     expect(body).toMatchObject({ pipelineId: SALES_PIPELINE_ID, pipelineStageId: "w", status: "won", monetaryValue: 1243 });
-    // No field id configured yet: nothing is written to a field that doesn't exist.
-    if (!ACCEPT_FIELDS.acceptedQuote) expect(body.customFields).toBeUndefined();
+    // The opportunity's Accepted Quote field gets the customer's link; Make 3710214 copies it to Notion's Quote Link.
+    expect(body.customFields).toEqual([{ id: ACCEPT_FIELDS.acceptedQuote, field_value: "https://quote.example/c/x" }]);
+    expect(JSON.parse(buildWon({ contactId: "c1", opportunityId: "o1", wonStageId: "w", total: 1243, acceptedLink: null }).oppBody).customFields).toBeUndefined();
   });
 
   it("a change only moves the value; a cancel only sets lost", () => {

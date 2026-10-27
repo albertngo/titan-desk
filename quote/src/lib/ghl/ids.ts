@@ -76,16 +76,16 @@ export const OPP_FIELDS = {
 } as const;
 
 /**
- * Opportunity fields for acceptance (2026-10-27), made in GHL by Albert before it goes live; null
- * until their ids are filled in here, and nothing is written to a field that is null.
+ * Opportunity fields for acceptance (2026-10-27), made in GHL by Albert the same day (ids read from
+ * GHL's custom field list). Nothing is written to a field set to null here.
  * - acceptedQuote: the customer's link to the accepted quote (then the newest change). Make 3710214
  *   puts it in the Notion project's Quote Link.
  * - notionProjectUrl: the Notion project's page, written back by Make 3710214 with the PP number
  *   (OPP_FIELDS.projectNumber), so the quote picks both up the next time it opens.
  */
 export const ACCEPT_FIELDS: { acceptedQuote: string | null; notionProjectUrl: string | null } = {
-  acceptedQuote: null,
-  notionProjectUrl: null,
+  acceptedQuote: "NSaXdQWlPFMvihL3LKjF",
+  notionProjectUrl: "blsXznbxF6YoZ88ZeD94",
 };
 
 /**
