@@ -217,7 +217,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   through without a sign-in; `QUOTE_LOGO_URL` overrides it; with neither, the company name as a
   wordmark), a serif headline, one card per option (what's included with quantities, the total set
   large, Recommended badge), a pill button, the payment schedule in words on a measured quote, three
-  "what happens next" steps (a preliminary links the in-store calendar on its showroom step and as the button, and the
+  "what happens next" steps (a preliminary links the in-store calendar on its showroom step (the separate in-store button went 2026-10-27, it said the same thing twice) and the
   in-home measurement calendar on its measure step; both GHL calendar ids in `src/lib/ghl/ids.ts`),
   and a transactional footer from the letterhead: no carousel, no click tracking, no unsubscribe. The
   accent is the logo's blue (`#283890`), not the old template's terracotta. Tables and inline styles

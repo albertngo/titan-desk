@@ -346,7 +346,7 @@ describe("the messages", () => {
     expect(measured.type === "Email" && measured.html).not.toMatch(/having us over|telling us about/);
   });
 
-  it("offers both bookings on a preliminary, each on its step, and the showroom as the button (2026-10-23)", () => {
+  it("offers both bookings on a preliminary, each on its own step (2026-10-23; the extra button gone 2026-10-27)", () => {
     const c = customerCopy(quote({ basis: "Preliminary" }), AT);
     const booking = { inStore: "https://book.example/store", inHome: "https://book.example/home" };
     const m = emailMessage(c, to, null, { booking });
@@ -355,8 +355,8 @@ describe("the messages", () => {
     expect(m.html).toContain("Book a showroom visit");
     expect(m.html).toContain('href="https://book.example/home"');
     expect(m.html).toContain("Book a measurement");
-    expect(m.html).toContain("Book an in-store visit");
-    expect(m.html.match(/book\.example\/store/g)?.length).toBe(2); // the step link and the button
+    expect(m.html).not.toContain("Book an in-store visit");
+    expect(m.html.match(/book\.example\/store/g)?.length).toBe(1); // the step link only
     // A measured quote has no bookings in it; without the links a preliminary simply shows none.
     const measured = emailMessage(copy, to, null, { booking });
     expect(measured.type === "Email" && measured.html).not.toContain("book.example");

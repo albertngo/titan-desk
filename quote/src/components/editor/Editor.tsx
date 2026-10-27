@@ -28,6 +28,7 @@ import {
   setAcceptedPrice,
   setDiscountAmount,
   setTerms,
+  showsWaste,
   withCustomerFrom,
   updateLine,
   updateOption,
@@ -317,9 +318,11 @@ export default function Editor({
               <span className="faint uomtxt">{l.uom ?? ""}</span>
             )}
           </div>
-          <div className="wastein">
-            <NumCell value={l.waste === null ? null : Math.round(l.waste * 1000) / 10} label="Waste percent" placeholder="waste %" onCommit={(v) => upd({ waste: v === null ? null : v / 100 })} />
-          </div>
+          {showsWaste(l) && (
+            <div className="wastein">
+              <NumCell value={l.waste === null ? null : Math.round(l.waste * 1000) / 10} label="Waste percent" placeholder="waste %" onCommit={(v) => upd({ waste: v === null ? null : v / 100 })} />
+            </div>
+          )}
         </td>
         {!customer && (
           <td className="r">

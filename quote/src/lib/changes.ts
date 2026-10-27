@@ -23,6 +23,33 @@ export const CHANGES: Change[] = [
   {
     date: "2026-10-27",
     kind: "changed",
+    title: "Add work shows only that section's work",
+    details: [
+      "Install, Stairs, Removal, Disposal, Prep, Materials, Delivery and Other each open on their own items from the rate card, not the whole card.",
+      "Need something from another section? Tick Search the whole rate card in the picker. Private still lists everything.",
+    ],
+  },
+  {
+    date: "2026-10-27",
+    kind: "changed",
+    title: "Waste % on materials only",
+    details: [
+      "Only lines in Materials have a waste % box. Install, removal and other work lines no longer show one, and adding one from the rate card no longer brings a default waste.",
+      "A line saved with waste before today keeps its box so you can see it and clear it.",
+    ],
+  },
+  {
+    date: "2026-10-27",
+    kind: "changed",
+    title: "Preliminary estimate email: clearer header, one booking link",
+    details: [
+      "The email now opens with a solid blue PRELIMINARY ESTIMATE tag, so customers can't mistake it for a measured quote.",
+      "The extra Book an in-store visit button under the steps is gone. Book a showroom visit on step 1 does the same thing.",
+    ],
+  },
+  {
+    date: "2026-10-27",
+    kind: "changed",
     title: "What's new moved to the top bar",
     details: [
       "What's new is now a small link in the top bar, between Customer view and your email, on every page. It's hidden while Customer view is on.",
