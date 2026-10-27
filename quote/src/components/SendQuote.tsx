@@ -75,15 +75,19 @@ export function SendQuote({
   preliminary: boolean;
   /** The address the email goes out from: the signed-in quoter's (2026-10-22); null = GHL's default sender. */
   from: string | null;
-  /** The version's options, for choosing which go to the customer (2026-10-24). */
-  options: { id: string; name: string; price: string; recommended: boolean; problem: string | null }[];
+  /** The version's options, for choosing which go to the customer (2026-10-24); `range` is what a preliminary shows instead of `price` (2026-10-27). */
+  options: { id: string; name: string; price: string; range: string | null; recommended: boolean; problem: string | null }[];
 }) {
   const router = useRouter();
   const [until, setUntil] = useState(defaultUntil);
   const [byEmail, setByEmail] = useState(!!email);
   const [bySms, setBySms] = useState(!!phone);
-  /** What the customer gets: the lump sum, always the default, or the breakdown (Albert, 2026-10-22). */
+  /** What the customer gets: the lump sum, always the default, or the breakdown (Albert, 2026-10-22). A preliminary is always a lump sum (2026-10-27). */
   const [breakdown, setBreakdown] = useState(false);
+  const itemised = !preliminary && breakdown;
+  /** A preliminary's price: the range, always the default, or the exact price (Albert, 2026-10-27). */
+  const [range, setRange] = useState(true);
+  const exact = preliminary && !range;
   /** A preliminary can go out before anyone has been to the house (Albert, 2026-10-24): the generic opening is the default. */
   const [visited, setVisited] = useState(false);
   /** Attach the PDF to the email (Albert, 2026-10-24): off by default, so opens and downloads go through the tracked quote page. */
@@ -98,7 +102,7 @@ export function SendQuote({
   const [error, setError] = useState<{ message: string; problems?: string[] } | null>(null);
   const [done, setDone] = useState<{ link: string; sentTo: string[]; warning: string | null } | null>(null);
   const [sending, startSend] = useTransition();
-  const q = [preliminary ? null : `until=${until}`, breakdown ? "itemised=1" : null, preliminary && visited ? "visited=1" : null, optionIds ? `options=${optionIds.join(",")}` : null].filter(Boolean).join("&");
+  const q = [preliminary ? null : `until=${until}`, itemised ? "itemised=1" : null, preliminary && visited ? "visited=1" : null, optionIds ? `options=${optionIds.join(",")}` : null, exact ? "range=0" : null].filter(Boolean).join("&");
   const preview = `/q/${versionId}/preview${q ? `?${q}` : ""}`;
   const pdf = `/q/${versionId}/pdf${q ? `?${q}` : ""}`;
   const eq = [q, attachPdf ? "pdf=1" : null].filter(Boolean).join("&");
@@ -141,7 +145,7 @@ export function SendQuote({
   function send() {
     setError(null);
     startSend(async () => {
-      const r = await sendQuoteAction(versionId, { base, validUntil: preliminary ? null : until, channels: { email: byEmail, sms: bySms }, itemised: breakdown, visited: preliminary && visited, attachPdf: byEmail && attachPdf, optionIds });
+      const r = await sendQuoteAction(versionId, { base, validUntil: preliminary ? null : until, channels: { email: byEmail, sms: bySms }, itemised, visited: preliminary && visited, attachPdf: byEmail && attachPdf, optionIds, range: !exact });
       setAsking(false);
       if (r.ok) {
         setDone(r);
@@ -201,7 +205,7 @@ export function SendQuote({
                 />
                 <span>
                   <span className="nm">{i + 1}. {o.name}{o.recommended ? <span className="rec"> · Recommended</span> : null}</span>
-                  <span className="sub">{o.problem ?? o.price}</span>
+                  <span className="sub">{o.problem ?? (preliminary && !exact && o.range ? o.range : o.price)}</span>
                 </span>
               </label>
             ))}
@@ -209,6 +213,8 @@ export function SendQuote({
           </fieldset>
         )}
 
+        {/* A preliminary is always a lump sum (Albert, 2026-10-27); only a measured quote can go with the breakdown. */}
+        {!preliminary && (
         <label className="sq-until-in" title="Lump sum: what the work includes and one price; quantities on install, removal, prep and materials, no line prices. Breakdown: every line with its unit price and amount, section totals and the discount.">
           Pricing shown
           <select className="in" value={breakdown ? "breakdown" : "lump"} onChange={(e) => setBreakdown(e.target.value === "breakdown")} disabled={sending || asking}>
@@ -217,6 +223,7 @@ export function SendQuote({
           </select>
           <span className="sub">{breakdown ? "Every line with its unit price and amount, section totals and the discount." : "What the work includes and one price; no line prices."}</span>
         </label>
+        )}
 
         {preliminary ? (
           <>
@@ -228,11 +235,19 @@ export function SendQuote({
               </span>
             </label>
             <p className="note">A preliminary has no good-until date: it is an estimate, not an offer, and its link stays open.</p>
-            {/* 2026-10-27: the customer never sees the preliminary's one price. */}
-            <p className="note">
-              The customer sees a range, not the price: 3% under it to 10% over it (at most $3,000 over), rounded out to a round figure
-              {options.length === 1 ? <>: <b>{options[0].price}</b></> : ", per option above"}.
-            </p>
+            {/* 2026-10-27: a preliminary goes as a range unless the sender picks the exact price. Always a lump sum. */}
+            <label className="sq-until-in">
+              Price shown
+              <select className="in" value={range ? "range" : "exact"} onChange={(e) => setRange(e.target.value === "range")} disabled={sending || asking}>
+                <option value="range">Range</option>
+                <option value="exact">Exact price</option>
+              </select>
+              <span className="sub">
+                {range
+                  ? <>3% under the price to 10% over it (at most $3,000 over), rounded out{options.length === 1 && options[0].range ? <>: <b>{options[0].range}</b></> : ", per option above"}. Always a lump sum.</>
+                  : <>The one price, as a rough total{options.length === 1 ? <>: <b>{options[0].price}</b></> : ""}. Always a lump sum.</>}
+              </span>
+            </label>
           </>
         ) : (
         <label className="sq-until-in">

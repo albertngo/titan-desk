@@ -199,8 +199,14 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   "a rough number" and one passage (`rangeWhy()`): the final price can be expected to fall within it, and
   what the measure confirms decides where in it they land. The text says "$5,250 to $6,000" (an en dash is
   not GSM-7) and stays at two segments. The range is frozen on the copy (`CopyOption.range`), so a
-  preliminary sent before this keeps its one number. The Send card says which range the customer will
-  see; the quote page and the editor still show staff the exact price. Tested in `tests/send.test.ts`.
+  preliminary sent before this keeps its one number. **Price shown** on the Send card picks *Range* (the
+  default, always) or *Exact price* (same day, Albert: "an option to give the customer no range and just
+  the quote"), which sends the one number as a rough total, as before; the edit log says "exact price, no
+  range". The request says `range: false` for that; anything else is the range. **A preliminary is always
+  a lump sum** (same day): the breakdown choice is not offered and `customerCopy()` ignores it, since line
+  prices would add up to the one price. The quote page, its Customer view and the editor still show the
+  exact price; that is fine (Albert: in the store with us, the range is in the past). Tested in
+  `tests/send.test.ts`.
 - **Sent from the person signed in (Albert, 2026-10-22).** The email goes out from the quoter's own
   address through GHL's `emailFrom`: tried as "Albert @ Titan Flooring <albert@…>" (the From-name
   convention GHL's own emails use), then the bare address, then GHL's default sender, so a sender GHL
@@ -282,7 +288,8 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   block shows price before HST, HST and total with the payment schedule and no discount rows (the
   discount is in the price); optional add-ons keep their price, since they are not in it; the
   Private section's roll-up row is not shown at all, its amount being inside the one price. **The
-  choice is made when sending**: the Send card offers *Lump sum only* (default) or *Send breakdown*,
+  choice is made when sending**, on a measured quote only (a preliminary is always a lump sum,
+  2026-10-27): the Send card offers *Lump sum only* (default) or *Send breakdown*,
   the preview and PDF links follow the choice (`?itemised=1`), and the send writes it to Quote
   Versions → **Itemised Pricing** in the same update as the frozen copy (`pricing: "lump" |
   "itemised"` on the copy; one with neither was frozen before and is itemised). The editor has no

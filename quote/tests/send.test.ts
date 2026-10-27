@@ -690,6 +690,36 @@ describe("a preliminary goes as a range (Albert, 2026-10-27)", () => {
     expect(rangeWhy(customerCopy(prelim(), AT))).toContain("the exact square footage and the condition of the subfloor");
   });
 
+  it("is always a lump sum, even when the breakdown is asked for (2026-10-27)", () => {
+    // The fixture asks for the breakdown (itemised: true); a preliminary ignores it, a measured quote keeps it.
+    const c = customerCopy(prelim(), AT);
+    expect(c.pricing).toBe("lump");
+    const items = c.options[0].sections.flatMap((s) => s.lines).filter((l) => l.kind === "item" && !l.optional);
+    expect(items.length).toBeGreaterThan(0);
+    for (const l of items) expect(l).toMatchObject({ unitPrice: null, amount: null });
+    expect(c.options[0].sections.every((s) => s.total === null)).toBe(true);
+    expect(customerCopy(quote(), AT).pricing).toBe("itemised");
+  });
+
+  it("goes as the exact price when the sender picks it, and as the range when nothing is said (2026-10-27)", () => {
+    const exact = customerCopy(prelim(), { ...AT, range: false });
+    expect(exact.options[0].range).toBeUndefined();
+    expect(isRange(exact)).toBe(false);
+    expect(exact.pricing).toBe("lump"); // still a lump sum
+    const m = emailMessage(exact, to);
+    expect(m.type === "Email" && m.html).toContain("Rough total");
+    expect(m.type === "Email" && m.html).toContain("$684.00");
+    expect(m.type === "Email" && m.html).toContain("Here is a rough number based on what you&rsquo;ve described.");
+    const t = smsMessage(exact, to);
+    expect(t.type === "SMS" && t.message).toContain("Your rough flooring estimate is $684 + HST.");
+    expect(prelimNote(exact)).not.toContain("range");
+    // The default, and an explicit true, are the range.
+    expect(customerCopy(prelim(), AT).options[0].range).toBeDefined();
+    expect(customerCopy(prelim(), { ...AT, range: true }).options[0].range).toBeDefined();
+    // A measured quote never has one, whatever is passed.
+    expect(customerCopy(quote(), { ...AT, range: true }).options[0].range).toBeUndefined();
+  });
+
   it("leaves a preliminary frozen before the range as it was sent: one rough number", () => {
     const c = customerCopy(prelim(), AT);
     const old = { ...c, options: c.options.map((o) => ({ ...o, range: undefined })) };

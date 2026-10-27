@@ -187,7 +187,7 @@ function sectionNames(lines: QuoteLine[]): string[] {
   return out;
 }
 
-function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lumpSum = false, preliminary = false): CopyOption {
+function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lumpSum = false, ranged = false): CopyOption {
   let n = 0;
   const sections: CopySection[] = [];
   for (const name of sectionNames(o.lines)) {
@@ -259,11 +259,20 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
       paymentFinal: t.paymentFinal,
     },
     // A preliminary is shown as a range (2026-10-27); the totals stay exact underneath for the record.
-    ...(preliminary && t.subtotal > 0 ? { range: copyRange(t) } : {}),
+    ...(ranged && t.subtotal > 0 ? { range: copyRange(t) } : {}),
   };
 }
 
-export function customerCopy(quote: Quote, at: { sentOn: string; validUntil: string | null; company: Letterhead }): CustomerCopy {
+/**
+ * `at.range`: false when the sender chose the exact price for a preliminary instead of its range
+ * (Albert, 2026-10-27: "an option to give the customer no range and just the quote, but default is
+ * always the range"). Absent = the range. A measured quote never has one.
+ */
+export function customerCopy(quote: Quote, at: { sentOn: string; validUntil: string | null; company: Letterhead; range?: boolean }): CustomerCopy {
+  const prelim = quote.basis === "Preliminary";
+  // A preliminary is always a lump sum (Albert, 2026-10-27): its line prices would add up to the one
+  // price inside the range. Only a measured quote can go with the breakdown.
+  const lump = prelim || quote.itemised !== true;
   const name = clean([quote.link?.firstName, quote.link?.lastName].filter(Boolean).join(" ")) ?? clean(quote.customerName);
   return {
     v: COPY_VERSION,
@@ -276,10 +285,10 @@ export function customerCopy(quote: Quote, at: { sentOn: string; validUntil: str
     ...(quote.link?.projectTiming ? { timing: quote.link.projectTiming } : {}),
     discountRate: quote.discountRate,
     ...(clean(quote.discountReason) ? { discountReason: clean(quote.discountReason)! } : {}),
-    pricing: quote.itemised === true ? "itemised" : "lump",
+    pricing: lump ? "lump" : "itemised",
     showHst: quote.showHst,
     company: at.company,
-    options: quote.options.map((o) => copyOption(o, quote.discountRate, quote.showHst, quote.itemised !== true, quote.basis === "Preliminary")),
+    options: quote.options.map((o) => copyOption(o, quote.discountRate, quote.showHst, lump, prelim && at.range !== false)),
   };
 }
 
