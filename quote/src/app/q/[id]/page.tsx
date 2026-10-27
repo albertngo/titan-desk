@@ -7,6 +7,7 @@ import { CustomerCard } from "@/components/CustomerCard";
 import { Financials } from "@/components/Financials";
 import { LinkJob } from "@/components/LinkJob";
 import { OptionSheet } from "@/components/OptionSheet";
+import { Rooms } from "@/components/Rooms";
 import { SendQuote } from "@/components/SendQuote";
 import { TopBar } from "@/components/TopBar";
 import { airtableRecordUrl, T } from "@/lib/airtable/fields";
@@ -23,6 +24,7 @@ import { sendingReady, sendsFrom, sentLink } from "@/lib/quotes/send";
 import { logEntries } from "@/lib/quotes/history";
 import { addDays, leadPrice, priceRange, rangeText, torontoToday, VALID_DAYS } from "@/lib/send/copy";
 import { optionProblem, sendProblems } from "@/lib/send/plan";
+import { parseRooms } from "@/lib/rooms/log";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Quote" };
@@ -42,7 +44,9 @@ export default async function QuotePage({
   const [quote, customer] = await Promise.all([refreshFromGhl(loaded), customerView()]);
 
   const showAnalysis = opt === "analysis";
-  const option = showAnalysis ? null : (quote.options.find((o) => o.id === opt) ?? quote.options[0] ?? null);
+  // The Rooms tab (2026-10-27): staff only, so Customer view never has it.
+  const showRooms = opt === "rooms" && !customer;
+  const option = showAnalysis || showRooms ? null : (quote.options.find((o) => o.id === opt) ?? quote.options[0] ?? null);
   const totals = option ? optionTotals(option.lines, quote.discountRate, quote.showHst) : null;
   const airtableUrl = airtableRecordUrl(T.versions, quote.id);
   // A quote with no GHL opportunity yet (Needs linking): offer the customer's jobs to link it to.
@@ -87,6 +91,12 @@ export default async function QuotePage({
       options={sendOptions}
     />
   );
+  // The Rooms log lives on the quote (Quotes → Rooms), so every version shows the same rooms.
+  const roomsRaw = quote.link?.rooms ?? "";
+  const roomsLog = parseRooms(roomsRaw);
+  const roomsSaved = roomsLog.by && roomsLog.at
+    ? `Last saved by ${roomsLog.by} · ${new Date(roomsLog.at).toLocaleString("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
+    : null;
   // Who worked on this version (2026-10-22): newest first, from the append-only Edit Log. Staff only.
   const history = logEntries(quote.editLog);
   const historyCard = customer ? null : (
@@ -152,7 +162,7 @@ export default async function QuotePage({
               </p>
             )}
 
-            {quote.options.length > 0 && (
+            {(quote.options.length > 0 || !customer) && (
               <nav className="tabs" aria-label="Options">
                 {quote.options.map((o) => (
                   <Link
@@ -165,13 +175,29 @@ export default async function QuotePage({
                     <span className="t-amt">{money(optionTotals(o.lines, quote.discountRate, quote.showHst).total)}</span>
                   </Link>
                 ))}
-                <Link className="tab anal" href={`/q/${quote.id}?opt=analysis`} aria-current={showAnalysis ? "page" : undefined}>
-                  Analysis
-                </Link>
+                {!customer && (
+                  <Link className="tab rooms" href={`/q/${quote.id}?opt=rooms`} aria-current={showRooms ? "page" : undefined}>
+                    Rooms
+                    {roomsLog.rooms.length > 0 && <span className="t-amt">{roomsLog.rooms.length}</span>}
+                  </Link>
+                )}
+                {quote.options.length > 0 && (
+                  <Link className="tab anal" href={`/q/${quote.id}?opt=analysis`} aria-current={showAnalysis ? "page" : undefined}>
+                    Analysis
+                  </Link>
+                )}
               </nav>
             )}
 
-            {showAnalysis ? (
+            {showRooms ? (
+              quote.link ? (
+                <Rooms quoteRecordId={quote.link.quoteRecordId} quoteNumber={quote.link.quoteNumber} raw={roomsRaw} savedLabel={roomsSaved} />
+              ) : (
+                <section className="card">
+                  <p className="empty">This version isn&apos;t attached to a quote in Airtable, so there is nowhere to keep rooms.</p>
+                </section>
+              )
+            ) : showAnalysis ? (
               <Analysis quote={quote} customer={customer} />
             ) : option && totals ? (
               <OptionSheet

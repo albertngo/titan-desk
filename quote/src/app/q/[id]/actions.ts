@@ -1,8 +1,9 @@
 "use server";
 
 import { confirmAddress, linkToJob } from "@/lib/quotes/link";
+import { saveRooms } from "@/lib/quotes/rooms";
 import { sendQuote } from "@/lib/quotes/send";
-import type { ConfirmAddressResult, LinkJobResult, SendResult } from "@/lib/quotes/types";
+import type { ConfirmAddressResult, LinkJobResult, SaveRoomsResult, SendResult } from "@/lib/quotes/types";
 
 /** Server actions for the quote page. Each checks the quoter allowlist inside. */
 
@@ -16,4 +17,8 @@ export async function confirmAddressAction(quoteRecordId: string, shown: string)
 
 export async function sendQuoteAction(versionId: string, input: unknown): Promise<SendResult> {
   return sendQuote(String(versionId ?? ""), input);
+}
+
+export async function saveRoomsAction(quoteRecordId: string, seen: string, rooms: unknown): Promise<SaveRoomsResult> {
+  return saveRooms(String(quoteRecordId ?? ""), String(seen ?? ""), rooms);
 }
