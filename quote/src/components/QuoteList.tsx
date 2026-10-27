@@ -27,7 +27,7 @@ function Opened({ v }: { v: { status: string | null; openedCount?: number; track
 function Status({ status }: { status: string | null }) {
   if (!status) return null;
   return (
-    <span className={`sb ${status}`}>
+    <span className={`ql-sb ${status}`}>
       <i aria-hidden />
       {status}
     </span>
@@ -126,6 +126,15 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
           <button type="button" className="btn small" onClick={reset}>Show all quotes</button>
         </div>
       ) : (
+        <>
+        {/* Column headings (2026-10-27); the row content stays self-describing, so screen readers skip them. */}
+        <div className="ql-head" aria-hidden>
+          <span className="c-who">Customer</span>
+          <span>Quote</span>
+          <span>Current version</span>
+          <span>Attention</span>
+          <span className="c-when" title="When the current version was created">Created</span>
+        </div>
         <ul className="ql">
           {shown.map((g) => {
             const k = keyOf(g);
@@ -189,6 +198,7 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
             );
           })}
         </ul>
+        </>
       )}
     </section>
   );
