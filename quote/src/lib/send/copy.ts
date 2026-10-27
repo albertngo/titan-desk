@@ -1,5 +1,6 @@
 import { DEFAULT_PRIVATE_LABEL, LUMP_QTY_SECTIONS, PRIVATE_SECTION, SECTIONS, chargesHst, isPriced, lineTotal, optionTotals, priceUsed, privateRollup, round2, sectionOf } from "@/lib/calc";
 import type { Quote, QuoteLine, QuoteOption } from "@/lib/quotes/types";
+import { copyKind } from "./summary";
 
 /**
  * The customer copy: exactly what a customer is sent, frozen on the version at send time
@@ -53,6 +54,9 @@ export type CopyTotals = {
   paymentFinal: number;
 };
 
+/** A preliminary's price as a range (2026-10-27): whole dollars, before HST and with it. */
+export type CopyRange = { low: number; high: number; lowWithHst: number; highWithHst: number };
+
 export type CopyOption = {
   name: string;
   description: string | null;
@@ -60,6 +64,8 @@ export type CopyOption = {
   sections: CopySection[];
   exclusions: string[];
   totals: CopyTotals;
+  /** On a preliminary only (Albert, 2026-10-27): what the customer is shown instead of one price. Absent on a copy frozen before then. */
+  range?: CopyRange;
 };
 
 export type Letterhead = {
@@ -104,6 +110,72 @@ export type CustomerCopy = {
 
 const clean = (s: string | null | undefined) => (s ?? "").replace(/\s+/g, " ").trim() || null;
 
+/* ---------- a preliminary's range ---------- */
+
+/**
+ * A preliminary goes out as a range (Albert, 2026-10-27). Customers took a preliminary's one number
+ * as the price, so a measured quote that came in higher read as a change. A measured quote rarely
+ * comes in lower, and people read a range from its low end, so the calculated price sits just above
+ * the bottom: 3% under it to 10% over it, the top never more than $3,000 over (a big job's range
+ * would otherwise be too wide to mean anything), each end rounded outward to a round figure. It is
+ * frozen on the copy like every other figure: a copy frozen before this has no range and keeps
+ * showing its one price.
+ */
+export const RANGE_BELOW = 0.03;
+export const RANGE_ABOVE = 0.1;
+export const RANGE_ABOVE_CAP = 3000;
+
+/** Round figures for a range's ends: $10 under $1,000, $50 under $10,000, $100 above. */
+const rangeStep = (amount: number) => (amount < 1000 ? 10 : amount < 10000 ? 50 : 100);
+
+/** Low rounded down and high rounded up; round2 first, so 1,000 × 1.1 is 1,100 and not a float a hair over it rounded up a step. */
+const outward = (low: number, high: number, step: number) => ({ low: Math.max(0, Math.floor(round2(low) / step) * step), high: Math.ceil(round2(high) / step) * step });
+
+export function priceRange(amount: number): { low: number; high: number } {
+  return outward(amount * (1 - RANGE_BELOW), amount + Math.min(amount * RANGE_ABOVE, RANGE_ABOVE_CAP), rangeStep(amount));
+}
+
+/**
+ * The range before HST from the price before HST; the range with HST is that range with the quote's
+ * HST on it, so the two always agree (the cap applies to the price, not to the tax on it).
+ */
+export function copyRange(t: Pick<CopyTotals, "subtotal" | "total">): CopyRange {
+  const before = priceRange(t.subtotal);
+  const ratio = t.subtotal > 0 ? t.total / t.subtotal : 1;
+  const after = outward(before.low * ratio, before.high * ratio, rangeStep(t.total));
+  return { low: before.low, high: before.high, lowWithHst: after.low, highWithHst: after.high };
+}
+
+const whole = new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD", minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+/** "$4,400": a range's ends are whole dollars. */
+export const dollars = (n: number) => whole.format(n);
+
+/** "$4,400 – $5,450". The text passes " to ": an en dash is not GSM-7 and would halve each segment. */
+export function rangeText(low: number, high: number, sep = " – "): string {
+  return `${dollars(low)}${sep}${dollars(high)}`;
+}
+
+/** A copy whose prices go as ranges: a preliminary frozen since 2026-10-27. */
+export const isRange = (copy: Pick<CustomerCopy, "options">) => copy.options.some((o) => !!o.range);
+
+/**
+ * What the range means, in the same words on the page, the PDF and the email (Albert, 2026-10-27:
+ * "it can be expected to be within this range"). It says where the price lands is decided at the
+ * measure, never that it may come down: the range barely reaches below the price. A stairs-only
+ * quote names stair things.
+ */
+export function rangeWhy(copy: Pick<CustomerCopy, "options">): string {
+  const what = copyKind(copy) === "stairs" ? "the exact step count and the condition of the stairs" : "the exact square footage and the condition of the subfloor";
+  return `Your final price can be expected to fall within the range below. What we confirm when we measure, like ${what}, decides where in it you land.`;
+}
+
+/** The preliminary note at the top of the page and the PDF. */
+export const prelimNote = (copy: Pick<CustomerCopy, "options">) =>
+  isRange(copy)
+    ? `This is a preliminary estimate, based on what we know so far. ${rangeWhy(copy)} We confirm the final price once we have measured the space.`
+    : "This is a preliminary estimate, based on what we know so far. We confirm the final price once we have measured the space.";
+
 /** Priced sections in work order, as the quote page shows them; exclusions are listed separately. */
 function sectionNames(lines: QuoteLine[]): string[] {
   const present = new Set(lines.filter((l) => isPriced(l) || l.lineType === "Note" || l.lineType === "Section").map(sectionOf));
@@ -115,7 +187,7 @@ function sectionNames(lines: QuoteLine[]): string[] {
   return out;
 }
 
-function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lumpSum = false): CopyOption {
+function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lumpSum = false, ranged = false): CopyOption {
   let n = 0;
   const sections: CopySection[] = [];
   for (const name of sectionNames(o.lines)) {
@@ -186,10 +258,21 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
       payment2: t.payment2,
       paymentFinal: t.paymentFinal,
     },
+    // A preliminary is shown as a range (2026-10-27); the totals stay exact underneath for the record.
+    ...(ranged && t.subtotal > 0 ? { range: copyRange(t) } : {}),
   };
 }
 
-export function customerCopy(quote: Quote, at: { sentOn: string; validUntil: string | null; company: Letterhead }): CustomerCopy {
+/**
+ * `at.range`: false when the sender chose the exact price for a preliminary instead of its range
+ * (Albert, 2026-10-27: "an option to give the customer no range and just the quote, but default is
+ * always the range"). Absent = the range. A measured quote never has one.
+ */
+export function customerCopy(quote: Quote, at: { sentOn: string; validUntil: string | null; company: Letterhead; range?: boolean }): CustomerCopy {
+  const prelim = quote.basis === "Preliminary";
+  // A preliminary is always a lump sum (Albert, 2026-10-27): its line prices would add up to the one
+  // price inside the range. Only a measured quote can go with the breakdown.
+  const lump = prelim || quote.itemised !== true;
   const name = clean([quote.link?.firstName, quote.link?.lastName].filter(Boolean).join(" ")) ?? clean(quote.customerName);
   return {
     v: COPY_VERSION,
@@ -202,10 +285,10 @@ export function customerCopy(quote: Quote, at: { sentOn: string; validUntil: str
     ...(quote.link?.projectTiming ? { timing: quote.link.projectTiming } : {}),
     discountRate: quote.discountRate,
     ...(clean(quote.discountReason) ? { discountReason: clean(quote.discountReason)! } : {}),
-    pricing: quote.itemised === true ? "itemised" : "lump",
+    pricing: lump ? "lump" : "itemised",
     showHst: quote.showHst,
     company: at.company,
-    options: quote.options.map((o) => copyOption(o, quote.discountRate, quote.showHst, quote.itemised !== true)),
+    options: quote.options.map((o) => copyOption(o, quote.discountRate, quote.showHst, lump, prelim && at.range !== false)),
   };
 }
 

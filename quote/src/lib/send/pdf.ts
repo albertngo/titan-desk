@@ -1,5 +1,5 @@
 import { PAGE, PdfDoc, wrap, type Rgb } from "./pdfDoc";
-import { discountLabel, hstRow, isLump, itemHstNote, leadPrice, longDate, type CopyItem, type CopyOption, type CopyText, type CustomerCopy } from "./copy";
+import { discountLabel, hstRow, isLump, itemHstNote, leadPrice, longDate, prelimNote, rangeText, type CopyItem, type CopyOption, type CopyText, type CustomerCopy } from "./copy";
 
 /**
  * The quote as a PDF, drawn from the customer copy only (never from live lines), so the file
@@ -77,7 +77,7 @@ export function quotePdf(copy: CustomerCopy): Uint8Array<ArrayBuffer> {
   y -= 20;
 
   for (const note of [
-    copy.basis === "Preliminary" ? "This is a preliminary estimate, based on what we know so far. We confirm the final price once we have measured the space." : null,
+    copy.basis === "Preliminary" ? prelimNote(copy) : null,
     isLump(copy) ? "Priced as one sum for the project. The items listed show what it includes." : null,
   ]) {
     if (!note) continue;
@@ -197,9 +197,10 @@ export function quotePdf(copy: CustomerCopy): Uint8Array<ArrayBuffer> {
 
   function totals(o: CopyOption) {
     const t = o.totals;
+    const r = o.range;
     const rows: [string, string, boolean][] = [];
-    // Lump sum: no breakdown of the price, so no discount rows either.
-    if (t.discount !== 0 && !isLump(copy)) {
+    // Lump sum: no breakdown of the price, so no discount rows either; nor on a range, which has no exact figure (2026-10-27).
+    if (t.discount !== 0 && !isLump(copy) && !r) {
       rows.push(["Subtotal before discount", money(t.preDiscount), false]);
       rows.push([discountLabel(copy), money(t.discount), false]);
     }
@@ -207,16 +208,24 @@ export function quotePdf(copy: CustomerCopy): Uint8Array<ArrayBuffer> {
     // before HST; the tax and the total with it follow under it.
     const lead = leadPrice(copy, t);
     const h = hstRow(copy, t);
-    const after: [string, string][] = [[h.label, h.amount !== null ? money(h.amount) : "Not included"]];
-    if (lead.addsHst) after.push(["Total with HST", money(t.total)]);
-    const pay: [string, number][] = [
-      ["Deposit (35%)", t.payment1],
-      ["Second payment (35%)", t.payment2],
-      ["Final payment", t.paymentFinal],
-    ];
+    const after: [string, string][] = [[h.label, h.amount === null ? "Not included" : r ? "On the final price" : money(h.amount)]];
+    if (lead.addsHst) after.push([r ? "With HST" : "Total with HST", r ? rangeText(r.lowWithHst, r.highWithHst) : money(t.total)]);
+    // A range's payment schedule is in shares of the final price, which isn't known yet.
+    const pay: [string, string][] = r
+      ? [
+          ["Deposit", "35%"],
+          ["Second payment", "35%"],
+          ["Final payment", "The balance"],
+        ]
+      : [
+          ["Deposit (35%)", money(t.payment1)],
+          ["Second payment (35%)", money(t.payment2)],
+          ["Final payment", money(t.paymentFinal)],
+        ];
     room(rows.length * 15 + 42 + after.length * 15 + pay.length * 13 + 30);
     y -= 6;
-    const x0 = 340;
+    // A range's label and its two figures need a wider bar.
+    const x0 = r ? 300 : 340;
     for (const [k, v] of rows) {
       doc.text(x0, y, k, { size: 9, color: DIM });
       doc.text(COL.amount - 4, y, v, { size: 9, color: INK, align: "right" });
@@ -224,21 +233,21 @@ export function quotePdf(copy: CustomerCopy): Uint8Array<ArrayBuffer> {
     }
     y -= 8;
     doc.rect(x0 - 8, y - 7, RIGHT - x0 + 8, 22, BLUE);
-    doc.text(x0, y, `${isLump(copy) ? "Price" : "Subtotal"} before HST`, { font: "B", size: 11, color: [1, 1, 1] });
-    doc.text(COL.amount - 4, y, money(t.subtotal), { font: "B", size: 11, color: [1, 1, 1], align: "right" });
+    doc.text(x0, y, `${r ? "Estimated range" : isLump(copy) ? "Price" : "Subtotal"} before HST`, { font: "B", size: 11, color: [1, 1, 1] });
+    doc.text(COL.amount - 4, y, r ? rangeText(r.low, r.high) : money(t.subtotal), { font: "B", size: 11, color: [1, 1, 1], align: "right" });
     y -= 22;
     for (const [k, v] of after) {
-      const strong = k === "Total with HST";
+      const strong = k === "Total with HST" || k === "With HST";
       doc.text(x0, y, k, { font: strong ? "B" : "R", size: 9, color: strong ? INK : DIM });
       doc.text(COL.amount - 4, y, v, { font: strong ? "B" : "R", size: 9, color: INK, align: "right" });
       y -= 15;
     }
     y -= 15;
-    doc.text(x0, y, lead.addsHst ? "PAYMENT SCHEDULE, WITH HST" : "PAYMENT SCHEDULE", { font: "B", size: 7.5, color: FAINT });
+    doc.text(x0, y, r ? "PAYMENT SCHEDULE, ON THE FINAL PRICE" : lead.addsHst ? "PAYMENT SCHEDULE, WITH HST" : "PAYMENT SCHEDULE", { font: "B", size: 7.5, color: FAINT });
     y -= 13;
     for (const [k, v] of pay) {
       doc.text(x0, y, k, { size: 9, color: DIM });
-      doc.text(COL.amount - 4, y, money(v), { size: 9, color: INK, align: "right" });
+      doc.text(COL.amount - 4, y, v, { size: 9, color: INK, align: "right" });
       y -= 13;
     }
     y -= 12;
