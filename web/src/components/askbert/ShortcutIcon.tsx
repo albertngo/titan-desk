@@ -1,8 +1,13 @@
 import type { ReactNode } from "react";
 import type { ShortcutIcon as Name } from "@/lib/askbert-shop";
 
-/** askBert's icon set: one 24px grid, one 1.75 stroke, round joins. Decorative (aria-hidden). */
-export function ShortcutIcon({ name, className = "h-5 w-5" }: { name: Name | "send" | "close" | "plus" | "spark"; className?: string }) {
+export type IconName =
+  | Name | "send" | "close" | "plus" | "spark"
+  | "vinyl" | "laminate" | "engineered" | "solid" | "tile" | "carpet" | "tools"
+  | "search" | "filter" | "back" | "external" | "chevron" | "check" | "grid" | "list";
+
+/** The desk's icon set (askBert and the shop): one 24px grid, one 1.75 stroke, round joins. Decorative (aria-hidden). */
+export function ShortcutIcon({ name, className = "h-5 w-5" }: { name: IconName; className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth={1.75}
       strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -24,5 +29,20 @@ const PATHS: Record<string, ReactNode> = {
   send: (<><path d="M12 19.5v-15M5.5 11 12 4.5l6.5 6.5" /></>),
   close: (<><path d="M6 6l12 12M18 6 6 18" /></>),
   plus: (<><path d="M12 5v14M5 12h14" /></>),
+  vinyl: (<><rect x="3.5" y="5" width="17" height="5" rx="1" /><rect x="3.5" y="14" width="17" height="5" rx="1" /><path d="M9 5v5M15 14v5" /></>),
+  laminate: (<><path d="M3.5 9 12 5l8.5 4L12 13z" /><path d="m3.5 13 8.5 4 8.5-4M3.5 17l8.5 4 8.5-4" /></>),
+  engineered: (<><rect x="3.5" y="6" width="17" height="12" rx="1.5" /><path d="M3.5 10h17" /><path d="M7 14c1.5-1 3-1 4.5 0s3 1 4.5 0" /></>),
+  solid: (<><rect x="3.5" y="5" width="17" height="14" rx="1.5" /><path d="M6.5 9c2-1.6 4-1.6 6 0s4 1.6 5 0M6.5 13c2-1.6 4-1.6 6 0s4 1.6 5 0M6.5 17c1.5-1 3-1 4.5 0" /></>),
+  tile: (<><rect x="4" y="4" width="7" height="7" rx="1" /><rect x="13" y="4" width="7" height="7" rx="1" /><rect x="4" y="13" width="7" height="7" rx="1" /><rect x="13" y="13" width="7" height="7" rx="1" /></>),
+  carpet: (<><path d="M4 7c2.7-1.5 5.3-1.5 8 0s5.3 1.5 8 0M4 12c2.7-1.5 5.3-1.5 8 0s5.3 1.5 8 0M4 17c2.7-1.5 5.3-1.5 8 0s5.3 1.5 8 0" /></>),
+  tools: (<><path d="M14.5 4.5a4 4 0 0 0-4.9 5.4L4 15.5V20h4.5l5.6-5.6a4 4 0 0 0 5.4-4.9l-2.6 2.6-2.4-.6-.6-2.4z" /></>),
+  search: (<><circle cx="10.5" cy="10.5" r="6.5" /><path d="m15.5 15.5 5 5" /></>),
+  filter: (<><path d="M4 6.5h16M7 12h10M10 17.5h4" /></>),
+  back: (<><path d="M19.5 12h-15M10.5 6l-6 6 6 6" /></>),
+  external: (<><path d="M13.5 4.5h6v6M19.5 4.5l-8 8M10 5.5H6A1.5 1.5 0 0 0 4.5 7v11A1.5 1.5 0 0 0 6 19.5h11a1.5 1.5 0 0 0 1.5-1.5v-4" /></>),
+  chevron: (<><path d="m9.5 6 6 6-6 6" /></>),
+  check: (<><path d="m5 12.5 4.5 4.5L19 7.5" /></>),
+  grid: (<><rect x="4" y="4" width="7" height="7" rx="1.5" /><rect x="13" y="4" width="7" height="7" rx="1.5" /><rect x="4" y="13" width="7" height="7" rx="1.5" /><rect x="13" y="13" width="7" height="7" rx="1.5" /></>),
+  list: (<><path d="M8.5 6.5h11M8.5 12h11M8.5 17.5h11" /><path d="M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01" /></>),
   spark: (<><path d="M12 3.5v4M12 16.5v4M3.5 12h4M16.5 12h4M6 6l2.5 2.5M15.5 15.5 18 18M6 18l2.5-2.5M15.5 8.5 18 6" /></>),
 };

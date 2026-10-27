@@ -222,6 +222,29 @@ export type LinkJobResult = { ok: true } | { ok: false; message: string };
 
 export type ConfirmAddressResult = { ok: true } | { ok: false; message: string };
 
+/* ---------- Address arrived (src/lib/quotes/address.ts) ---------- */
+
+/**
+ * Why an address in their messages was not filled: two different ones ("several"), no opportunity to
+ * send it through yet ("unlinked"), or the customer has more than one quote waiting for one ("jobs").
+ */
+export type AddressHeldReason = "several" | "unlinked" | "jobs";
+
+export type AddressScanQuote = { quoteNumber: string | null; customer: string | null; /** The newest version, for a link to the quote page. */ versionId: string | null };
+
+export type AddressScanResult =
+  | {
+      ok: true;
+      /** Read from the customer's messages and put on their blank GHL contact; the quote now says Unconfirmed. */
+      filled: (AddressScanQuote & { address: string })[];
+      /** Brought up to date from an address already on the contact. */
+      synced: number;
+      /** An address is in their messages but was not filled, and why. */
+      held: (AddressScanQuote & { reason: AddressHeldReason })[];
+      checked: number;
+    }
+  | { ok: false; message: string };
+
 /* ---------- sending a quote (src/lib/quotes/send.ts) ---------- */
 
 export type SendResult =

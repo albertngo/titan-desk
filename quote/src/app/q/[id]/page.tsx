@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AddressScan } from "@/components/AddressScan";
 import { Analysis } from "@/components/Analysis";
 import { ConversationDrawer } from "@/components/Conversation";
 import { CustomerCard } from "@/components/CustomerCard";
@@ -138,6 +139,9 @@ export default async function QuotePage({
         <div className={`layout${option && totals ? "" : " full"}`}>
           <div className="stack">
             {unlinked && jobs && <LinkJob quoteRecordId={unlinked.quoteRecordId} quoteNumber={unlinked.quoteNumber} jobs={jobs} />}
+
+            {/* Address arrived (2026-10-27): a quote still without an address reads the customer's messages for one. Staff only. */}
+            {!customer && quote.link?.ghlContactId && !quote.link.projectNumber && <AddressScan quoteRecordId={quote.link.quoteRecordId} skip={Boolean(quote.siteAddress)} />}
 
             <CustomerCard quote={quote} />
 

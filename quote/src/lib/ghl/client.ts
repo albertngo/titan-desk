@@ -65,6 +65,7 @@ function toContact(c: Record<string, unknown>): GhlContact {
     phone: s(c.phone),
     address: s(c.address1),
     city: s(c.city),
+    postalCode: s(c.postalCode),
     origin: customValue(c.customFields, CONTACT_ORIGIN_FIELD),
     source: s(c.source),
   };

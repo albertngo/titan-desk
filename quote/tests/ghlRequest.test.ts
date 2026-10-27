@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CONTACT_ORIGIN_FIELD, CONTACT_TIMING_FIELD, GHL_LOCATION_ID, LEAD_STAGE_IDS, LEADS_PIPELINE_ID, MEETING_SCHEDULED_STAGE_ID, OPP_FIELDS, SALES_PIPELINE_ID } from "../src/lib/ghl/ids";
-import { buildBookingOpportunity, buildGhlRequest, CONTACT_ID_SLOT, type GhlRequestInput } from "../src/lib/link/ghlRequest";
+import { buildBookingOpportunity, buildContactAddress, buildGhlRequest, CONTACT_ID_SLOT, type GhlRequestInput } from "../src/lib/link/ghlRequest";
 
 // INVENTED customer and ids only: this repo is public.
 const base: GhlRequestInput = {
@@ -131,5 +131,24 @@ describe("the opportunity the booking step makes when a booked contact has none"
         { id: OPP_FIELDS.projectCity, field_value: "Oakville" },
       ],
     });
+  });
+});
+
+describe("Address arrived (2026-10-27): the address from their messages goes on the blank contact", () => {
+  const address = { line1: "55 Elm Cres #4", city: "Brampton", postalCode: "L6X 0A1" };
+
+  it("fills the contact's street, city and postal code through the link route, and gives the opportunity no site", () => {
+    const r = buildContactAddress({ contactId: "abcDEF123456", opportunityId: "oppXYZ987654", quoteNumber: "Q-1234", address, contact: { city: null, postalCode: null } });
+    expect(r).toMatchObject({ mode: "link", contactId: "abcDEF123456", opportunityId: "oppXYZ987654" });
+    expect(parse(r.contactBody)).toEqual({ address1: "55 Elm Cres #4", city: "Brampton", postalCode: "L6X 0A1" });
+    // Only its own quote number again: the site reaches the opportunity when a person confirms it.
+    expect(parse(r.oppBody)).toEqual({ customFields: [{ id: OPP_FIELDS.quoteNumber, field_value: "Q-1234" }] });
+  });
+
+  it("never replaces a city or postal code the contact has, and never sends a blank", () => {
+    const kept = buildContactAddress({ contactId: "abcDEF123456", opportunityId: "oppXYZ987654", quoteNumber: "Q-1234", address, contact: { city: "Mississauga", postalCode: "L5B 0A1" } });
+    expect(parse(kept.contactBody)).toEqual({ address1: "55 Elm Cres #4" });
+    const bare = buildContactAddress({ contactId: "abcDEF123456", opportunityId: "oppXYZ987654", quoteNumber: "Q-1234", address: { line1: "55 Elm Cres", city: null, postalCode: null }, contact: { city: null } });
+    expect(parse(bare.contactBody)).toEqual({ address1: "55 Elm Cres" });
   });
 });
