@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { CustomerQuote } from "@/components/CustomerQuote";
 import { SeenBeacon } from "@/components/SeenBeacon";
 import { customerQuote } from "@/lib/quotes/customer";
-import { pdfName } from "@/lib/send/copy";
+import { offersPdf, pdfName } from "@/lib/send/copy";
 
 /** A customer's quote, opened from the link in their email or text. Customer deployment only. */
 
@@ -40,7 +40,7 @@ export default async function CustomerQuotePage({ params }: { params: Promise<{ 
       <CustomerQuote
         copy={found.copy}
         state={found.state}
-        pdfHref={`/c/${token}/${pdfName(found.copy)}?d=1`}
+        pdfHref={offersPdf(found.copy) ? `/c/${token}/${pdfName(found.copy)}?d=1` : null}
         newerHref={found.newerToken ? `/c/${found.newerToken}` : null}
       />
     </>

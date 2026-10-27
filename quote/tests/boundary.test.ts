@@ -258,3 +258,14 @@ describe("open tracking (2026-10-27: no sign-in, key-gated, the customer deploym
     expect(all.find((f) => f.rel === "components/SeenBeacon.tsx")!.text).toMatch(/if \(window\.location\.hash === "#staff"\) return;/);
   });
 });
+
+describe("the PDF on the customer's page (2026-10-27: only when the sender offered it, never in the email)", () => {
+  it("the page shows no button and the file answers 404 unless the copy offers it", () => {
+    expect(all.find((f) => f.rel === "app/c/[token]/page.tsx")!.text).toMatch(/pdfHref=\{offersPdf\(found\.copy\) \?/);
+    expect(code(all.find((f) => f.rel === "app/c/[token]/[file]/route.ts")!.text)).toMatch(/if \(!found \|\| !offersPdf\(found\.copy\) \|\|/);
+  });
+
+  it("the email never carries an attachment", () => {
+    expect(code(all.find((f) => f.rel === "lib/send/plan.ts")!.text)).not.toMatch(/attachments/);
+  });
+});

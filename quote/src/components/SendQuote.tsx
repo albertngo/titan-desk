@@ -126,8 +126,8 @@ export function SendQuote({
   /** A preliminary's price: the range, always the default, or the exact price (Albert, 2026-10-27). */
   const [range, setRange] = useState(true);
   const exact = preliminary && !range;
-  /** Attach the PDF to the email (Albert, 2026-10-24): off by default, so opens and downloads go through the tracked quote page. */
-  const [attachPdf, setAttachPdf] = useState(false);
+  /** The quote page offers the PDF (Albert, 2026-10-27): off by default. Never attached to the email. */
+  const [pdf, setPdf] = useState(false);
   /** Which options go to the customer (2026-10-24): all of them unless the sender unticks some. */
   const [chosen, setChosen] = useState<string[]>(() => options.map((o) => o.id));
   const everyOption = chosen.length === options.length;
@@ -138,11 +138,10 @@ export function SendQuote({
   const [error, setError] = useState<{ message: string; problems?: string[] } | null>(null);
   const [done, setDone] = useState<{ link: string; sentTo: string[]; warning: string | null } | null>(null);
   const [sending, startSend] = useTransition();
-  const q = [preliminary ? null : `until=${until}`, itemised ? "itemised=1" : null, optionIds ? `options=${optionIds.join(",")}` : null, exact ? "range=0" : null].filter(Boolean).join("&");
+  const q = [preliminary ? null : `until=${until}`, itemised ? "itemised=1" : null, optionIds ? `options=${optionIds.join(",")}` : null, exact ? "range=0" : null, pdf ? "pdf=1" : null].filter(Boolean).join("&");
   const preview = `/q/${versionId}/preview${q ? `?${q}` : ""}`;
-  const pdf = `/q/${versionId}/pdf${q ? `?${q}` : ""}`;
-  const eq = [q, attachPdf ? "pdf=1" : null].filter(Boolean).join("&");
-  const emailPreview = `/q/${versionId}/preview/email${eq ? `?${eq}` : ""}`;
+  const pdfLink = `/q/${versionId}/pdf${q ? `?${q}` : ""}`;
+  const emailPreview = `/q/${versionId}/preview/email${q ? `?${q}` : ""}`;
 
   if (status !== "Draft" || done) {
     const s = done ? { sentAt: today, sentBy: null, sentTo: done.sentTo.join(", "), validUntil: preliminary ? null : until, link: done.link } : sent;
@@ -182,7 +181,7 @@ export function SendQuote({
   function send() {
     setError(null);
     startSend(async () => {
-      const r = await sendQuoteAction(versionId, { base, validUntil: preliminary ? null : until, channels: { email: byEmail, sms: bySms }, itemised, attachPdf: byEmail && attachPdf, optionIds, range: !exact });
+      const r = await sendQuoteAction(versionId, { base, validUntil: preliminary ? null : until, channels: { email: byEmail, sms: bySms }, itemised, pdf, optionIds, range: !exact });
       setAsking(false);
       if (r.ok) {
         setDone(r);
@@ -209,18 +208,9 @@ export function SendQuote({
             <input type="checkbox" checked={byEmail && !!email} disabled={!email} onChange={(e) => setByEmail(e.target.checked)} />
             <span>
               Email <span className="faint">{email ?? "no email in GHL"}</span>
-              {email && <span className="sub">{attachPdf ? "Link and PDF" : "Link"}{from ? `, from ${from}` : ", from the location's default address"}</span>}
+              {email && <span className="sub">Link{from ? `, from ${from}` : ", from the location's default address"}</span>}
             </span>
           </label>
-          {email && byEmail && (
-            <label className="sq-attach">
-              <input type="checkbox" checked={attachPdf} onChange={(e) => setAttachPdf(e.target.checked)} />
-              <span>
-                Attach PDF
-                <span className="sub">{attachPdf ? "The file goes in the email too. Opening it is never tracked." : "Off: the customer downloads the PDF from the quote page, where it is tracked."}</span>
-              </span>
-            </label>
-          )}
           <label className={phone ? undefined : "off"}>
             <input type="checkbox" checked={bySms && !!phone} disabled={!phone} onChange={(e) => setBySms(e.target.checked)} />
             <span>
@@ -229,6 +219,15 @@ export function SendQuote({
             </span>
           </label>
         </fieldset>
+
+        {/* 2026-10-27: the quote page offers the PDF only when ticked; it is never attached to the email. */}
+        <label className="sq-attach">
+          <input type="checkbox" checked={pdf} onChange={(e) => setPdf(e.target.checked)} disabled={sending || asking} />
+          <span>
+            PDF download on the quote page
+            <span className="sub">{pdf ? "The quote page has a Download PDF button; downloads are tracked." : "Off: no PDF on the quote page. Tick it for a client who needs the file."}</span>
+          </span>
+        </label>
 
         {options.length > 1 && (
           <fieldset className="sq-opts" disabled={sending || asking}>
@@ -289,7 +288,7 @@ export function SendQuote({
         <div className="sq-tools">
           <a href={preview} target="_blank" rel="noreferrer">Preview what the customer sees</a>
           <a href={emailPreview} target="_blank" rel="noreferrer">Preview the email</a>
-          <a href={pdf} target="_blank" rel="noreferrer">PDF</a>
+          <a href={pdfLink} target="_blank" rel="noreferrer">PDF</a>
         </div>
 
         {error && (

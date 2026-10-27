@@ -173,8 +173,8 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   Tags in `src/lib/ghl/ids.ts` (`FOLLOW_UP_TAGS`), bodies in `followUpTagBodies()` in `src/lib/activity/track.ts`.
 - **Open tracking (Albert, 2026-10-27).** The customer's page reports an open once it has been in view
   for a moment (`SeenBeacon`, `/c/<token>/seen`), so a link preview or a mail scanner never counts; a
-  reload within 30 minutes is the same open. Its Download PDF button asks with `?d=1`, so only that
-  counts as a download (GHL fetching the attachment does not). The customer deployment cannot write,
+  reload within 30 minutes is the same open. Its Download PDF button, when the PDF is offered, asks with
+  `?d=1`, so only that counts as a download. The customer deployment cannot write,
   so `src/lib/activity/relay.ts` reports {token, kind, device in words} to the staff app's
   `/api/activity` with `QUOTE_ACTIVITY_KEY`, and `src/lib/quotes/activity.ts` records it on Quote
   Versions (Opened Count, First/Last Opened At, PDF Downloads, an append-only Activity Log). A version's
@@ -194,9 +194,13 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   Charge rates, line totals, the discount, HST and payments stay. Any new screen that shows an
   internal figure must take `customerView()` and leave it out.
 - **Sending (milestone 4, Albert 2026-10-15).** **Send to customer** on a draft's page sends it
-  through GHL (Make 4975508, route `message`): an email with the link, and/or a text with the link (the
-  PDF is downloaded from the quote page; **Attach PDF** on the Send card, off by default since 2026-10-24,
-  also puts it in the email, because an attached copy is never seen opened); good for 30 days unless staff pick another date. **A preliminary has no
+  through GHL (Make 4975508, route `message`): an email with the link, and/or a text with the link; good
+  for 30 days unless staff pick another date. **The PDF is never in the email (Albert, 2026-10-27).** The
+  quote page offers it only when the sender ticks **PDF download on the quote page** on the Send card (off
+  by default): unticked, the page has no Download PDF button and the file's address answers 404. The
+  choice is frozen on the copy (`CustomerCopy.pdf`, `offersPdf()` in `copy.ts`; a copy frozen before it
+  existed keeps its button), the previews follow it (`?pdf=1`), and the email mentions the PDF only when
+  it is offered. This replaces the 2026-10-24 **Attach PDF** tick, which had left the button on every page. **A preliminary has no
   good-until date (Albert, 2026-10-22):** it is an estimate, not an offer, so the Send card shows no
   date, the copy's `validUntil` is null, the page, PDF, email and text say nothing about one, and
   the link never expires; a date sent with one is ignored server-side. What may be sent and the

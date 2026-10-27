@@ -103,6 +103,12 @@ export type CustomerCopy = {
    * for copies frozen before this existed.
    */
   pricing?: "lump" | "itemised";
+  /**
+   * Whether the quote page offers the PDF (Albert, 2026-10-27): the sender's tick on the Send card, off by
+   * default. Off = no Download PDF button and the file's link answers 404. The PDF is never attached to
+   * the email. Absent = offered, for copies frozen before the choice existed.
+   */
+  pdf?: boolean;
   showHst: boolean;
   company: Letterhead;
   options: CopyOption[];
@@ -268,7 +274,7 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
  * (Albert, 2026-10-27: "an option to give the customer no range and just the quote, but default is
  * always the range"). Absent = the range. A measured quote never has one.
  */
-export function customerCopy(quote: Quote, at: { sentOn: string; validUntil: string | null; company: Letterhead; range?: boolean }): CustomerCopy {
+export function customerCopy(quote: Quote, at: { sentOn: string; validUntil: string | null; company: Letterhead; range?: boolean; pdf?: boolean }): CustomerCopy {
   const prelim = quote.basis === "Preliminary";
   // A preliminary is always a lump sum (Albert, 2026-10-27): its line prices would add up to the one
   // price inside the range. Only a measured quote can go with the breakdown.
@@ -286,6 +292,7 @@ export function customerCopy(quote: Quote, at: { sentOn: string; validUntil: str
     discountRate: quote.discountRate,
     ...(clean(quote.discountReason) ? { discountReason: clean(quote.discountReason)! } : {}),
     pricing: lump ? "lump" : "itemised",
+    pdf: at.pdf === true,
     showHst: quote.showHst,
     company: at.company,
     options: quote.options.map((o) => copyOption(o, quote.discountRate, quote.showHst, lump, prelim && at.range !== false)),
@@ -298,6 +305,9 @@ export function hstRow(copy: Pick<CustomerCopy, "showHst">, t: Pick<CopyTotals, 
   if (t.hst !== 0) return { label: "HST (13%) on materials", amount: t.hst };
   return { label: "HST", amount: null };
 }
+
+/** The quote page offers the PDF: ticked when sent, or frozen before the choice existed (2026-10-27). */
+export const offersPdf = (copy: Pick<CustomerCopy, "pdf">) => copy.pdf !== false;
 
 /** A lump-sum copy: descriptions, then the price. A copy with no `pricing` was frozen before the choice existed and is itemised. */
 export const isLump = (copy: Pick<CustomerCopy, "pricing">) => copy.pricing === "lump";
