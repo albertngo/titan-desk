@@ -3,7 +3,7 @@ import { requireQuoter, requireQuoterPerson } from "@/lib/auth";
 import { AirtableError, createRecord, getRecord, updateRecord } from "@/lib/airtable/client";
 import { QUOTE, T } from "@/lib/airtable/fields";
 import { getContact, ghlConfigured, GhlError, GhlNotConfigured, opportunitiesForContact, pipelines, searchContacts, type GhlContact } from "@/lib/ghl/client";
-import { displayPhone, normalizePhone, quoteNumber, sameCustomer } from "@/lib/link/identity";
+import { displayPhone, quoteNumber, sameCustomer } from "@/lib/link/identity";
 import { addressStatus } from "@/lib/link/lead";
 import { buildGhlRequest } from "@/lib/link/ghlRequest";
 import { parseNewQuote, type NewQuoteRequest } from "@/lib/link/newQuote";
@@ -12,6 +12,7 @@ import type { CustomerSearch, FoundCustomer, StartResult } from "./types";
 import { buildPreliminary, parseWork, workIsEmpty, type QuickWork } from "@/lib/quick/plan";
 import { profileOf, stairDescription } from "@/lib/quick/stairs";
 import { getQuickForm, getStairProfiles, quickProducts } from "./load";
+import { alreadyInGhl } from "./duplicates";
 import { firstVersion, quotesByOpportunity } from "./records";
 import { fillVersion } from "./save";
 import { num, str } from "./values";
@@ -71,13 +72,6 @@ export async function findCustomers(query: string): Promise<CustomerSearch> {
   }
 }
 
-/** GHL contacts with the same phone or email as a customer about to be added as new. */
-async function alreadyInGhl(typed: { phone: string | null; email: string | null }): Promise<GhlContact[]> {
-  const queries = [typed.email, normalizePhone(typed.phone)?.slice(-10)].filter((q): q is string => Boolean(q));
-  const found = (await Promise.all(queries.map((q) => searchContacts(q, 10)))).flat();
-  const unique = new Map(found.filter((c) => sameCustomer(c, typed)).map((c) => [c.id, c]));
-  return [...unique.values()];
-}
 
 
 export async function startQuote(raw: unknown): Promise<StartResult> {

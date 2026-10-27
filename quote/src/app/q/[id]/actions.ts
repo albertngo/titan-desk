@@ -1,6 +1,6 @@
 "use server";
 
-import { confirmAddress, linkToJob } from "@/lib/quotes/link";
+import { confirmAddress, createOpportunity, linkToJob } from "@/lib/quotes/link";
 import { saveRooms } from "@/lib/quotes/rooms";
 import { sendQuote } from "@/lib/quotes/send";
 import type { ConfirmAddressResult, LinkJobResult, SaveRoomsResult, SendResult } from "@/lib/quotes/types";
@@ -9,6 +9,10 @@ import type { ConfirmAddressResult, LinkJobResult, SaveRoomsResult, SendResult }
 
 export async function linkToJobAction(quoteRecordId: string, opportunityId: string): Promise<LinkJobResult> {
   return linkToJob(String(quoteRecordId ?? ""), String(opportunityId ?? ""));
+}
+
+export async function createOpportunityAction(quoteRecordId: string): Promise<LinkJobResult> {
+  return createOpportunity(String(quoteRecordId ?? ""));
 }
 
 export async function confirmAddressAction(quoteRecordId: string, shown: string): Promise<ConfirmAddressResult> {

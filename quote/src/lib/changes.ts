@@ -22,6 +22,15 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-10-27",
+    kind: "new",
+    title: "Create a new opportunity from a quote that needs linking",
+    details: [
+      "A quote saved as Needs linking now offers Create a new opportunity under the customer's opportunities, so you no longer have to make it in GHL and reload.",
+      "It makes the same opportunity a new quote would have: in the lead pipeline, named for the quote, with its quote number and timing, and the GHL contact too if the quote has none.",
+    ],
+  },
+  {
+    date: "2026-10-27",
     kind: "changed",
     title: "What's new moved to the top bar",
     details: [

@@ -3,10 +3,12 @@ import { AirtableError, getRecord, updateRecord } from "@/lib/airtable/client";
 import { QUOTE, T } from "@/lib/airtable/fields";
 import { requireQuoter } from "@/lib/auth";
 import { ghlConfigured, opportunitiesForContact, pipelines } from "@/lib/ghl/client";
-import { buildLinkJob } from "@/lib/link/ghlRequest";
+import { buildGhlRequest, buildLinkJob } from "@/lib/link/ghlRequest";
+import { isTiming } from "@/lib/link/lead";
 import { confirmAddressCheck, linkChoices } from "@/lib/link/linkJob";
 import { makeConfigured, sendToGhl } from "@/lib/make/client";
 import { quotesByOpportunity } from "./records";
+import { alreadyInGhl } from "./duplicates";
 import type { ConfirmAddressResult, JobChoices, LinkJobResult } from "./types";
 import { str } from "./values";
 
@@ -38,18 +40,20 @@ async function takenBy(quoteRecordId: string): Promise<Map<string, string | null
 /** The jobs this quote can be linked to, labelled for the quote page. */
 export async function jobChoices(quoteRecordId: string): Promise<JobChoices> {
   await requireQuoter();
+  const canCreate = makeConfigured();
   const quote = await quoteRecord(quoteRecordId);
-  if (!quote) return { ok: false, message: "This quote isn't in Airtable any more." };
+  if (!quote) return { ok: false, canCreate: false, message: "This quote isn't in Airtable any more." };
   const contactId = str(quote.fields[QUOTE.ghlContactId]);
-  if (!contactId) return { ok: false, message: "This quote has no GHL contact yet, so there are no opportunities to pick from." };
-  if (!ghlConfigured()) return { ok: false, message: "GHL reading isn't set up on this deployment." };
+  if (!contactId) return { ok: false, canCreate, message: "This quote has no GHL contact yet, so there are no opportunities to pick from." };
+  if (!ghlConfigured()) return { ok: false, canCreate, message: "GHL reading isn't set up on this deployment." };
   try {
     const [opps, pipes, taken] = await Promise.all([opportunitiesForContact(contactId), pipelines().catch(() => []), takenBy(quote.id)]);
     const stageName = new Map(pipes.flatMap((p) => p.stages.map((s) => [s.id, s.name] as const)));
     const pipeName = new Map(pipes.map((p) => [p.id, p.name] as const));
     return {
       ok: true,
-      canLink: makeConfigured(),
+      canLink: canCreate,
+      canCreate,
       choices: linkChoices(opps, taken, new Date()).map((o) => ({
         id: o.id,
         name: o.name,
@@ -65,7 +69,7 @@ export async function jobChoices(quoteRecordId: string): Promise<JobChoices> {
     };
   } catch (e) {
     console.error("jobChoices", e);
-    return { ok: false, message: "GHL didn't answer, so the opportunities can't be listed. Reload the page to try again." };
+    return { ok: false, canCreate, message: "GHL didn't answer, so the opportunities can't be listed. Reload the page to try again." };
   }
 }
 
@@ -114,6 +118,77 @@ export async function linkToJob(quoteRecordId: string, opportunityId: string): P
     });
   } catch (e) {
     return { ok: false, message: `GHL was updated, but the quote couldn't be marked Linked (${e instanceof Error ? e.message.slice(0, 120) : "error"}). Set its GHL Opportunity ID to ${job.id} in Airtable.` };
+  }
+  return { ok: true };
+}
+
+/**
+ * Create a new GHL opportunity for a quote that says Needs linking (Albert, 2026-10-27), for when
+ * the one made with the quote never happened (Make failed, or was off). The same request a new
+ * quote sends: the opportunity in the lead pipeline with the quote number, the timing on the contact,
+ * and the contact too if the quote has none. Origin isn't kept on the quote, so Source is left alone.
+ */
+export async function createOpportunity(quoteRecordId: string): Promise<LinkJobResult> {
+  const email = await requireQuoter();
+  const quote = await quoteRecord(quoteRecordId);
+  if (!quote) return { ok: false, message: "This quote isn't in Airtable any more." };
+  if (str(quote.fields[QUOTE.ghlOpportunityId])) return { ok: false, message: "This quote is already linked to an opportunity. Reload the page." };
+  if (!makeConfigured()) return { ok: false, message: "Creating opportunities isn't switched on for this deployment." };
+  const quoteNo = str(quote.fields[QUOTE.quoteNumber]);
+  if (!quoteNo) return { ok: false, message: "This quote has no quote number yet." };
+  const timing = quote.fields[QUOTE.projectTiming];
+  if (!isTiming(timing)) return { ok: false, message: "This quote has no project timing, which GHL needs for the lead stage. Set Project Timing in Airtable, then try again." };
+
+  const contactId = str(quote.fields[QUOTE.ghlContactId]);
+  const who = {
+    firstName: str(quote.fields[QUOTE.firstName]),
+    lastName: str(quote.fields[QUOTE.lastName]),
+    phone: str(quote.fields[QUOTE.phone]),
+    email: str(quote.fields[QUOTE.email]),
+    address: str(quote.fields[QUOTE.siteAddress]),
+    city: str(quote.fields[QUOTE.siteCity]),
+  };
+  if (!contactId) {
+    if (!who.phone && !who.email) return { ok: false, message: "This quote has no GHL contact and no phone or email to create one from." };
+    // Someone may have added them in GHL since the quote was made: never create them twice.
+    if (ghlConfigured()) {
+      const matches = await alreadyInGhl({ phone: who.phone, email: who.email });
+      if (matches.length > 0) {
+        return { ok: false, message: "This customer is in GHL now, but the quote has no contact on it. Put their GHL Contact ID on the quote in Airtable, reload, and pick or create the opportunity here." };
+      }
+    }
+  }
+
+  const confirmed = str(quote.fields[QUOTE.addressStatus]) === "Confirmed";
+  let sent: { contactId: string; opportunityId: string };
+  try {
+    sent = await sendToGhl(
+      buildGhlRequest({
+        quoteNumber: quoteNo,
+        opportunityName: str(quote.fields[QUOTE.displayName]) ?? quoteNo,
+        timing,
+        contactId,
+        opportunity: null,
+        newContact: contactId ? null : who,
+        site: confirmed ? { address: who.address, city: who.city } : { address: null, city: null },
+      }),
+    );
+  } catch (e) {
+    return { ok: false, message: `GHL wasn't updated (${e instanceof Error ? e.message.slice(0, 120) : "error"}), so no opportunity was created. Try again.` };
+  }
+
+  try {
+    await updateRecord(T.quotes, quote.id, {
+      [QUOTE.ghlContactId]: sent.contactId,
+      [QUOTE.ghlOpportunityId]: sent.opportunityId,
+      [QUOTE.linkStatus]: "Linked",
+      [QUOTE.notes]: appendNote(quote.fields[QUOTE.notes], `GHL ${contactId ? "opportunity" : "contact and opportunity"} created from the quote page by ${email} (${sent.opportunityId}).`),
+    });
+  } catch (e) {
+    return {
+      ok: false,
+      message: `GHL has the new opportunity, but the quote couldn't be marked Linked (${e instanceof Error ? e.message.slice(0, 120) : "error"}). Set its GHL Opportunity ID to ${sent.opportunityId} in Airtable; don't create another.`,
+    };
   }
   return { ok: true };
 }

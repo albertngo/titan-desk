@@ -2,8 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { linkToJobAction } from "@/app/q/[id]/actions";
+import { createOpportunityAction, linkToJobAction } from "@/app/q/[id]/actions";
 import type { JobChoice, JobChoices } from "@/lib/quotes/types";
+
+/** The picker's value for "create a new opportunity" (never a GHL id: those have no underscores). */
+const NEW = "__new__";
 
 const STATUS_WORD: Record<string, string> = { open: "Open", abandoned: "Abandoned", lost: "Lost" };
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric", year: "numeric" }) : null);
@@ -43,7 +46,8 @@ function Option({ o, picked, onPick }: { o: JobChoice; picked: boolean; onPick: 
 /**
  * Shown on a quote that has no GHL opportunity (Needs linking): pick the customer's opportunity
  * it belongs to and link it. GHL gets the quote number, the confirmed site and the CompanyCam link;
- * a lost or abandoned opportunity is set back to open.
+ * a lost or abandoned opportunity is set back to open. Or create a new one (2026-10-27), for when
+ * the one the quote should have been made with never reached GHL.
  */
 export function LinkJob({ quoteRecordId, quoteNumber, jobs }: { quoteRecordId: string; quoteNumber: string | null; jobs: JobChoices }) {
   const router = useRouter();
@@ -55,14 +59,15 @@ export function LinkJob({ quoteRecordId, quoteNumber, jobs }: { quoteRecordId: s
     if (!picked) return;
     setError(null);
     startLink(async () => {
-      const r = await linkToJobAction(quoteRecordId, picked);
+      const r = picked === NEW ? await createOpportunityAction(quoteRecordId) : await linkToJobAction(quoteRecordId, picked);
       if (r.ok) router.refresh();
       else setError(r.message);
     });
   }
 
   const choice = jobs.ok ? jobs.choices.find((c) => c.id === picked) : undefined;
-  const pickable = jobs.ok && jobs.choices.some((c) => !c.takenBy);
+  const pickable = jobs.canCreate || (jobs.ok && jobs.choices.some((c) => !c.takenBy));
+  const canAct = picked === NEW ? jobs.canCreate : jobs.ok && jobs.canLink;
 
   return (
     <section className="card lj" aria-labelledby="lj-h">
@@ -70,8 +75,7 @@ export function LinkJob({ quoteRecordId, quoteNumber, jobs }: { quoteRecordId: s
         <div>
           <h2 id="lj-h">Link to Opportunity</h2>
           <p>
-            {quoteNumber ?? "This quote"} isn&apos;t on a GHL opportunity yet. Pick the one it belongs to. If it isn&apos;t listed, create it in GHL,
-            then reload this page.
+            {quoteNumber ?? "This quote"} isn&apos;t on a GHL opportunity yet. Pick the one it belongs to{jobs.canCreate ? ", or create a new one" : ". If it isn't listed, create it in GHL, then reload this page"}.
           </p>
         </div>
         <span className="chip bad">Needs linking</span>
@@ -82,10 +86,18 @@ export function LinkJob({ quoteRecordId, quoteNumber, jobs }: { quoteRecordId: s
           <p className="lj-msg warn">{jobs.message}</p>
         ) : jobs.choices.length === 0 ? (
           <p className="lj-msg warn">This customer has no open project opportunities in GHL, and none lost or abandoned in the last 90 days.</p>
-        ) : (
+        ) : null}
+        {((jobs.ok && jobs.choices.length > 0) || jobs.canCreate) && (
           <fieldset className="lj-opps">
             <legend className="sr-only">Which opportunity is {quoteNumber ?? "this quote"} for?</legend>
-            {jobs.choices.map((o) => (
+            {jobs.canCreate && (
+              <label className={`lj-opt${picked === NEW ? " on" : ""}`}>
+                <input type="radio" name="link-opportunity" checked={picked === NEW} onChange={() => { setPicked(NEW); setError(null); }} />
+                <span className="nm">Create a new opportunity</span>
+                <span className="mt">In the lead pipeline, named for this quote, with its quote number and timing{jobs.ok ? "" : ", and the GHL contact too if the quote has none"}.</span>
+              </label>
+            )}
+            {jobs.ok && jobs.choices.map((o) => (
               <Option key={o.id} o={o} picked={picked === o.id} onPick={() => { setPicked(o.id); setError(null); }} />
             ))}
           </fieldset>
@@ -97,10 +109,14 @@ export function LinkJob({ quoteRecordId, quoteNumber, jobs }: { quoteRecordId: s
       {pickable && (
         <div className="lj-foot">
           <span className="faint">
-            {jobs.ok && !jobs.canLink ? "Linking isn't switched on for this deployment." : "GHL gets the quote number, the confirmed site and the CompanyCam link."}
+            {picked === NEW
+              ? "GHL gets a new opportunity with the quote number, the timing and the confirmed site."
+              : jobs.ok && !jobs.canLink
+                ? "Linking isn't switched on for this deployment."
+                : "GHL gets the quote number, the confirmed site and the CompanyCam link."}
           </span>
-          <button className="btn primary" type="button" disabled={!picked || linking || !(jobs.ok && jobs.canLink)} onClick={link}>
-            {linking ? "Linking…" : "Link this quote"}
+          <button className="btn primary" type="button" disabled={!picked || linking || !canAct} onClick={link}>
+            {picked === NEW ? (linking ? "Creating…" : "Create and link") : linking ? "Linking…" : "Link this quote"}
           </button>
         </div>
       )}

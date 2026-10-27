@@ -218,7 +218,8 @@ export type JobChoice = {
   takenBy: string | null;
 };
 
-export type JobChoices = { ok: true; canLink: boolean; choices: JobChoice[] } | { ok: false; message: string };
+/** `canCreate`: a new opportunity can be made for the quote from its page (Make is switched on). */
+export type JobChoices = { ok: true; canLink: boolean; canCreate: boolean; choices: JobChoice[] } | { ok: false; canCreate: boolean; message: string };
 
 export type LinkJobResult = { ok: true } | { ok: false; message: string };
 

@@ -58,7 +58,12 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   (never won, never STORE; one opportunity, one quote). Linking sends the quote number, the
   confirmed site and the CompanyCam link to the opportunity through Make (never over a CompanyCam
   link it already has), sets a lost or abandoned one back to open, and only then marks the quote
-  Linked. Rules: `src/lib/link/linkJob.ts`, tested in `tests/linkJob.test.ts`.
+  Linked. Rules: `src/lib/link/linkJob.ts`, tested in `tests/linkJob.test.ts`. **Create a new
+  opportunity** (Albert, 2026-10-27) sits first in that list, for when the one a new quote makes
+  never reached GHL (Make failed or was off): `createOpportunity` in `src/lib/quotes/link.ts` sends
+  the same `buildGhlRequest` a new quote does (lead pipeline, quote number, timing; the contact too
+  if the quote has none, after the same duplicate check), with no origin because the quote doesn't
+  keep one, and only then marks the quote Linked.
 - **Confirm address (Albert, 2026-10-15).** Linking never confirms an address; booking does, and so
   does **Confirm address** on the quote page, for a site checked with the customer some other way.
   It confirms only the address the person saw (refused if it changed since the page opened), never
