@@ -3,7 +3,7 @@ import type { Quote } from "@/lib/quotes/types";
 import { defaultSchedule, payWords, scheduleProblems } from "@/lib/pricing/schedule";
 import type { Acceptance } from "@/lib/accept/plan";
 import { changeWords as changeLine } from "@/lib/change/diff";
-import { addDays, dollars, hstRow, isIsoDate, isRange, leadPrice, longDate, rangeText, rangeWhy, stageNote, stagesOf, type CopyOption, type CopyStage, type CustomerCopy } from "./copy";
+import { addDays, dollars, hstRow, isIsoDate, isRange, leadPrice, longDate, offersPdf, rangeText, rangeWhy, stageNote, stagesOf, type CopyOption, type CopyStage, type CustomerCopy } from "./copy";
 import { copyKind, flooringSummary, kindPhrase } from "./summary";
 
 /**
@@ -109,7 +109,12 @@ export function sendProblems(quote: Quote, input: SendInput, ctx: { today: strin
 /* ---------- the messages ---------- */
 
 export type GhlMessage =
-  | { type: "Email"; contactId: string; subject: string; html: string; attachments?: string[]; emailFrom?: string }
+  /**
+   * Never an attachment (Albert, 2026-10-27): the PDF, when offered, is downloaded from the quote page only.
+   * The one exception is the acceptance email (Albert, same day: "attach for acceptance only"), which
+   * carries the stamped accepted PDF and the Project Expectations it was accepted under.
+   */
+  | { type: "Email"; contactId: string; subject: string; html: string; emailFrom?: string; attachments?: string[] }
   | { type: "SMS"; contactId: string; message: string }
   /** A note on the customer's conversation that only staff see (2026-10-27, open tracking); `mentions` are GHL user ids. */
   | { type: "InternalComment"; contactId: string; message: string; mentions: string[] };
@@ -375,9 +380,9 @@ export function paymentWords(o: CopyOption): string {
 
 export function emailMessage(
   copy: CustomerCopy,
-  to: { contactId: string; firstName: string | null; link: string; pdfUrl: string },
+  to: { contactId: string; firstName: string | null; link: string },
   sender: Sender | null = null,
-  options: { emailFrom?: string | null; booking?: { inStore: string; inHome: string } | null; attachPdf?: boolean; acceptOnline?: boolean } = {},
+  options: { emailFrom?: string | null; booking?: { inStore: string; inHome: string } | null; acceptOnline?: boolean } = {},
 ): GhlMessage {
   const hi = greetingName(to.firstName);
   const prelim = copy.basis === "Preliminary";
@@ -417,10 +422,10 @@ export function emailMessage(
   // the detail on the quote page, so the email stays short however many options went.
   const compact = copy.options.length >= 3;
   const cards = compact ? row(optionList(copy), "0 40px 16px") : copy.options.map((o) => row(optionCard(o, copy, several), "0 40px 16px")).join("");
-  // No PDF attached by default (Albert, 2026-10-24): an attachment is a copy we can never see opened, while the
-  // quote page's Download PDF is. The sender ticks Attach PDF for a client who needs the file in their inbox.
+  // The PDF is never attached (Albert, 2026-10-27): an attachment is a copy we can never see opened. When the
+  // sender offers it, it is downloaded from the quote page; otherwise the page has no PDF and the email says nothing.
   const under = [
-    options.attachPdf ? "A PDF copy is attached." : "You can download a PDF from the quote page.",
+    offersPdf(copy) ? "You can download a PDF from the quote page." : "",
     copy.validUntil ? `This ${noun} is good until <b style="color:${C.ink};font-weight:600;">${esc(longDate(copy.validUntil))}</b>.` : prelim ? "The link doesn&rsquo;t expire." : "",
   ]
     .filter(Boolean)
@@ -473,7 +478,6 @@ export function emailMessage(
     contactId: to.contactId,
     subject,
     html: frame(copy, subject, preheader, body),
-    ...(options.attachPdf ? { attachments: [to.pdfUrl] } : {}),
     ...(from ? { emailFrom: from } : {}),
   };
 }
@@ -623,7 +627,7 @@ export function acceptedSmsMessage(copy: CustomerCopy, a: Acceptance, to: { cont
  * approve it and no deadline: the Project Expectations say a change agreed in person or by phone is
  * confirmed by this message.
  */
-export function changeEmailMessage(copy: CustomerCopy, to: { contactId: string; firstName: string | null; link: string; pdfUrl: string }, sender: Sender | null = null, options: { emailFrom?: string | null; attachPdf?: boolean } = {}): GhlMessage {
+export function changeEmailMessage(copy: CustomerCopy, to: { contactId: string; firstName: string | null; link: string }, sender: Sender | null = null, options: { emailFrom?: string | null } = {}): GhlMessage {
   const c = copy.change!;
   const o = copy.options[0];
   const hi = greetingName(to.firstName);
@@ -662,7 +666,8 @@ export function changeEmailMessage(copy: CustomerCopy, to: { contactId: string; 
     hairline("22px 40px 28px") +
     row(para("If anything here isn&rsquo;t what we agreed, reply to this email.", 15, C.body, "0 0 4px") + para(signoff, 14, C.muted, "0 0 36px"));
   const from = "emailFrom" in options ? options.emailFrom : emailFromFor(sender, copy.company.email, true);
-  return { type: "Email", contactId: to.contactId, subject, html: frame(copy, subject, preheader, body), ...(options.attachPdf ? { attachments: [to.pdfUrl] } : {}), ...(from ? { emailFrom: from } : {}) };
+  // Never an attachment (2026-10-27): the updated quote is on its page.
+  return { type: "Email", contactId: to.contactId, subject, html: frame(copy, subject, preheader, body), ...(from ? { emailFrom: from } : {}) };
 }
 
 /** The text for a change: who, the new total, the link. GSM-7. */

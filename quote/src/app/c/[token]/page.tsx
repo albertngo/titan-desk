@@ -10,7 +10,7 @@ import { TERMS, termsHref } from "@/lib/accept/terms";
 import { defaultSchedule } from "@/lib/pricing/schedule";
 import { acceptConfigured } from "@/lib/quotes/acceptClient";
 import { customerQuote } from "@/lib/quotes/customer";
-import { acceptedPdfName, pdfName, stagesOf } from "@/lib/send/copy";
+import { acceptedPdfName, offersPdf, pdfName, stagesOf } from "@/lib/send/copy";
 
 /** A customer's quote, opened from the link in their email or text. Customer deployment only. */
 
@@ -79,7 +79,7 @@ export default async function CustomerQuotePage({ params, searchParams }: { para
       <CustomerQuote
         copy={copy}
         state={state}
-        pdfHref={`/c/${token}/${pdfName(copy)}?d=1`}
+        pdfHref={offersPdf(copy) ? `/c/${token}/${pdfName(copy)}?d=1` : null}
         newerHref={found.newerToken ? `/c/${found.newerToken}` : null}
         after={
           canAccept && TERMS ? (

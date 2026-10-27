@@ -308,3 +308,18 @@ describe("open tracking (2026-10-27: no sign-in, key-gated, the customer deploym
     expect(all.find((f) => f.rel === "components/SeenBeacon.tsx")!.text).toMatch(/if \(window\.location\.hash === "#staff"\) return;/);
   });
 });
+
+describe("the PDF on the customer's page (2026-10-27: only when the sender offered it, never in the email)", () => {
+  it("the page shows no button and the file answers 404 unless the copy offers it", () => {
+    expect(all.find((f) => f.rel === "app/c/[token]/page.tsx")!.text).toMatch(/pdfHref=\{offersPdf\(copy\) \?/);
+    // The stamped accepted PDF (2026-10-27) is the record of what was agreed: served whatever the tick, and only on an accepted link.
+    expect(code(all.find((f) => f.rel === "app/c/[token]/[file]/route.ts")!.text)).toMatch(/if \(!accepted && \(!offersPdf\(found\.copy\) \|\|/);
+  });
+
+  it("the email never carries an attachment, except the acceptance email (Albert, 2026-10-27: \"attach for acceptance only\")", () => {
+    const plan = code(all.find((f) => f.rel === "lib/send/plan.ts")!.text);
+    const fns = plan.split(/\nexport function /).slice(1);
+    const attaching = fns.filter((f) => /attachments\s*[:}]|\{ attachments \}/.test(f)).map((f) => f.match(/^\w+/)![0]);
+    expect(attaching).toEqual(["acceptedEmailMessage"]);
+  });
+});

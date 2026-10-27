@@ -134,7 +134,7 @@ export async function sentLink(token: string | null): Promise<string | null> {
  * `range`: false previews a preliminary's exact price instead of its range (2026-10-27). A sent
  * version shows its frozen copy either way.
  */
-export async function previewCopy(versionId: string, validUntil?: string, itemised = false, optionIds: string[] | null = null, range = true): Promise<CustomerCopy | null> {
+export async function previewCopy(versionId: string, validUntil?: string, itemised = false, optionIds: string[] | null = null, range = true, pdf = false): Promise<CustomerCopy | null> {
   await requireQuoter();
   const quote = await getQuote(versionId);
   if (!quote) return null;
@@ -146,31 +146,33 @@ export async function previewCopy(versionId: string, validUntil?: string, itemis
   const today = torontoToday(new Date());
   // A draft previews only the options ticked on the Send card (2026-10-24); none matching = all.
   const chosen = chooseOptions(quote, optionIds);
-  const copy = customerCopy({ ...(chosen.options.length ? chosen : quote), itemised }, { sentOn: quote.sentAt ?? today, validUntil: quote.changeNo ? null : (validUntil ?? quote.validUntil ?? today), company: letterhead(), range });
+  const copy = customerCopy({ ...(chosen.options.length ? chosen : quote), itemised }, { sentOn: quote.sentAt ?? today, validUntil: quote.changeNo ? null : (validUntil ?? quote.validUntil ?? today), company: letterhead(), range, pdf });
   return (await withChange(quote, copy)) ?? copy;
 }
 
 /** The email as it would be sent today, for the staff preview (2026-10-22): placeholder links, the signed-in sender. */
-export async function previewEmail(versionId: string, validUntil?: string, itemised = false, attachPdf = false, optionIds: string[] | null = null, range = true): Promise<string | null> {
+export async function previewEmail(versionId: string, validUntil?: string, itemised = false, pdf = false, optionIds: string[] | null = null, range = true): Promise<string | null> {
   const person = await requireQuoterPerson();
-  const copy = await previewCopy(versionId, validUntil, itemised, optionIds, range);
+  const copy = await previewCopy(versionId, validUntil, itemised, optionIds, range, pdf);
   if (!copy) return null;
   const quote = await getQuote(versionId);
   const base = customerBase() ?? "https://example.invalid";
-  const { link, pdfUrl } = customerLinks(base, isToken(quote?.customerToken) ? quote!.customerToken! : "x".repeat(32), pdfName(copy));
-  const to = { contactId: "preview", firstName: quote?.link?.firstName ?? null, link, pdfUrl };
-  const m = copy.change ? changeEmailMessage(copy, to, senderOf(person), { attachPdf }) : emailMessage(copy, to, senderOf(person), { booking: booking(), attachPdf, acceptOnline: acceptOnline() });
+  const { link } = customerLinks(base, isToken(quote?.customerToken) ? quote!.customerToken! : "x".repeat(32), pdfName(copy));
+  const to = { contactId: "preview", firstName: quote?.link?.firstName ?? null, link };
+  // Never an attachment (Albert, 2026-10-27), a change included; only the acceptance email carries one.
+  const m = copy.change ? changeEmailMessage(copy, to, senderOf(person)) : emailMessage(copy, to, senderOf(person), { booking: booking(), acceptOnline: acceptOnline() });
   return m.type === "Email" ? m.html : null;
 }
 
-function readInput(raw: unknown): { base: string; validUntil: string | null; channels: Channels; itemised: boolean; attachPdf: boolean; optionIds: string[] | null; range: boolean } | null {
+function readInput(raw: unknown): { base: string; validUntil: string | null; channels: Channels; itemised: boolean; pdf: boolean; optionIds: string[] | null; range: boolean } | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
   const ch = (r.channels ?? {}) as Record<string, unknown>;
   if (typeof r.base !== "string" || (typeof r.validUntil !== "string" && r.validUntil !== null)) return null;
   // Lump sum unless the sender chose the breakdown (2026-10-22). A null date is a preliminary's; sendProblems refuses it on anything else.
   // `range` (2026-10-27): a preliminary goes as a range unless the sender says false, so a missing value is the range.
-  return { base: r.base, validUntil: typeof r.validUntil === "string" ? r.validUntil : null, channels: { email: ch.email === true, sms: ch.sms === true }, itemised: r.itemised === true, attachPdf: r.attachPdf === true, optionIds: r.optionIds === undefined || r.optionIds === null ? null : (parseOptionIds(r.optionIds) ?? []), range: r.range !== false };
+  // `pdf` (2026-10-27): the quote page offers the PDF only when the sender ticked it; it is never attached to the email.
+  return { base: r.base, validUntil: typeof r.validUntil === "string" ? r.validUntil : null, channels: { email: ch.email === true, sms: ch.sms === true }, itemised: r.itemised === true, pdf: r.pdf === true, optionIds: r.optionIds === undefined || r.optionIds === null ? null : (parseOptionIds(r.optionIds) ?? []), range: r.range !== false };
 }
 
 export async function sendQuote(versionId: string, raw: unknown): Promise<SendResult> {
@@ -196,7 +198,7 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   const prelim = quote.basis === "Preliminary";
   const itemised = !prelim && input.itemised;
   // Only the options ticked on the Send card go to the customer, everywhere (2026-10-24).
-  const plain = customerCopy({ ...chooseOptions(quote, input.optionIds), itemised }, { sentOn: today, validUntil, company: letterhead(), range: input.range });
+  const plain = customerCopy({ ...chooseOptions(quote, input.optionIds), itemised }, { sentOn: today, validUntil, company: letterhead(), range: input.range, pdf: input.pdf });
   // A change carries what changed since the contract it updates (2026-10-27).
   const copy = await withChange(quote, plain);
   if (!copy) return { ok: false, message: "This change can't be sent: the accepted quote it changes couldn't be read. Open the accepted version and try Make a change again." };
@@ -204,7 +206,7 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   if (text.length > COPY_MAX_CHARS) return { ok: false, message: "This quote is too long to send as one copy. Split it into fewer options." };
   const token = isToken(quote.customerToken) ? quote.customerToken : newToken();
   const contactId = quote.link!.ghlContactId!;
-  const { link, pdfUrl } = customerLinks(base, token, pdfName(copy));
+  const { link } = customerLinks(base, token, pdfName(copy));
 
   // Locked and live before anything leaves: the link works the moment a message lands.
   await updateRecord(T.versions, quote.id, {
@@ -234,8 +236,8 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
       try {
         await sendMessage(
           copy.change
-            ? changeEmailMessage(copy, { contactId, firstName, link, pdfUrl }, from, { emailFrom, attachPdf: input.attachPdf })
-            : emailMessage(copy, { contactId, firstName, link, pdfUrl }, from, { emailFrom, booking: booking(), attachPdf: input.attachPdf, acceptOnline: acceptOnline() }),
+            ? changeEmailMessage(copy, { contactId, firstName, link }, from, { emailFrom })
+            : emailMessage(copy, { contactId, firstName, link }, from, { emailFrom, booking: booking(), acceptOnline: acceptOnline() }),
         );
         sentTo.push("Email");
         sentFrom = emailFrom;
@@ -267,7 +269,7 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   }
 
   try {
-    const how = `sent by ${sentTo.join(" and ").toLowerCase()}${sentFrom ? ` from ${sentFrom}` : sentTo.includes("Email") ? " from the location's default address" : ""}${sentTo.includes("Email") && input.attachPdf ? ", PDF attached" : ""}${chosenWords(quote, input.optionIds) ? `, ${chosenWords(quote, input.optionIds)}` : ""}${prelim && !input.range ? ", exact price, no range" : ""}`;
+    const how = `sent by ${sentTo.join(" and ").toLowerCase()}${sentFrom ? ` from ${sentFrom}` : sentTo.includes("Email") ? " from the location's default address" : ""}${input.pdf ? ", PDF on the quote page" : ""}${chosenWords(quote, input.optionIds) ? `, ${chosenWords(quote, input.optionIds)}` : ""}${prelim && !input.range ? ", exact price, no range" : ""}`;
     await updateRecord(T.versions, quote.id, { [VERSION.sentTo]: sentTo.join(", "), ...authorFields(person, new Date(), how, quote.editLog) });
   } catch {
     notes.push("Airtable didn't record how it was sent.");

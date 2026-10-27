@@ -205,7 +205,8 @@ export function CustomerQuote({
 }: {
   copy: CustomerCopy;
   state: CopyState;
-  pdfHref: string;
+  /** Null when the sender didn't offer the PDF (2026-10-27): no button at all. */
+  pdfHref: string | null;
   newerHref: string | null;
   /** Staff preview only: a line above everything saying what this is. */
   banner?: React.ReactNode;
@@ -227,9 +228,11 @@ export function CustomerQuote({
           <div className="cq-logo">{c.name}</div>
           {c.address && <div>{c.address}</div>}
         </div>
-        <a className="btn cq-dl" href={pdfHref}>
-          {state === "accepted" ? "Download accepted PDF" : "Download PDF"}
-        </a>
+        {pdfHref && (
+          <a className="btn cq-dl" href={pdfHref}>
+            {state === "accepted" ? "Download accepted PDF" : "Download PDF"}
+          </a>
+        )}
       </header>
 
       <main className="cq-main">

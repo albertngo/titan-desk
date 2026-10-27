@@ -750,7 +750,7 @@ a.chip.accent:hover { text-decoration: underline; }
 .sq-opts .rec { color: var(--accent); font-weight: 500; }
 .sq-opts .sub { display: block; font-size: 12px; color: var(--fg-dim); }
 
-/* Send card: Attach PDF under Email (2026-10-24). */
+/* Send card: the PDF-on-the-quote-page tick (2026-10-24; page only since 2026-10-27). */
 .sq-attach { margin: -2px 0 4px 26px; }
 .sq-attach { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; }
 .sq-attach input { margin-top: 3px; }
