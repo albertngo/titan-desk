@@ -132,6 +132,18 @@ export async function opportunitySite(id: string): Promise<GhlSite | null> {
 
 /* ---------- who to tag on a quote's activity comment (2026-10-27) ---------- */
 
+/** The user a contact is assigned to, or null (none, or no such contact). */
+export async function contactOwner(id: string): Promise<string | null> {
+  if (!/^[A-Za-z0-9]+$/.test(id)) return null;
+  try {
+    const data = (await get(`/contacts/${id}`, {})) as { contact?: Record<string, unknown> };
+    return s(data.contact?.assignedTo);
+  } catch (e) {
+    if (e instanceof GhlError && e.status === 404) return null;
+    throw e;
+  }
+}
+
 /** The user an opportunity is assigned to, or null (none, or no such opportunity). */
 export async function opportunityOwner(id: string): Promise<string | null> {
   if (!/^[A-Za-z0-9]+$/.test(id)) return null;

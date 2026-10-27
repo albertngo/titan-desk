@@ -182,8 +182,9 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   `type: "InternalComment"`), and a daily run (`.github/workflows/quote-activity-summaries.yml`) posts
   one **summary three days after sending** (opens, devices, last open, PDF downloads, or "not opened
   yet") for every version still Sent, so a replaced one gets none and the new version gets its own.
-  On a measured quote both comments tag the sender (their GHL user, by email), else the opportunity's
-  assigned user, else Albert; a preliminary's are the same notes with nobody tagged, since its
+  On a measured quote both comments tag the contact's assigned user (else the opportunity's, else
+  Albert), whoever sent it, and also the sender (their GHL user, by email) when that is someone else
+  (Albert, 2026-10-27); a preliminary's are the same notes with nobody tagged, since its
   follow-up is the automation's. Only versions sent since tracking began (Track Activity) get comments.
   The Send card shows the activity once sent, and All quotes has a **Last opened** column (the current version's last open and how many in all) and marks opened versions in each quote's version list (`openedOn()` in `src/lib/quotes/group.ts`); staff opening a
   link from the Send card add `#staff`, which is never counted. Rules in `src/lib/activity/track.ts`,

@@ -11,8 +11,9 @@ import { stamp } from "@/lib/quotes/history";
  * - A PDF download is the page's Download button only. GHL fetching the file to attach it, and the
  *   customer opening a copy they already have, are not seen.
  * - The first open of a sent version, and a summary three days after it was sent, go to the
- *   customer's GHL conversation as internal comments. On a measured quote they tag the sender; a
- *   preliminary's are the same notes with nobody tagged (its follow-up is the automation's).
+ *   customer's GHL conversation as internal comments. On a measured quote they tag the contact's
+ *   assigned user, and the sender too when that is someone else; a preliminary's are the same notes
+ *   with nobody tagged (its follow-up is the automation's).
  */
 
 export const DEVICES = ["iPhone", "iPad", "Android phone", "Android tablet", "Mac", "Windows", "Chromebook", "Linux", "Other"] as const;
@@ -138,10 +139,13 @@ const sentWords = (i: ActivityInfo) =>
 const times = (n: number) => (n === 1 ? "once" : n === 2 ? "twice" : `${n} times`);
 const list = (xs: string[]) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`);
 
-/** The first-open comment. `mention` is the tagged person's name, written in front as GHL's own mentions are. */
-export function firstOpenComment(i: ActivityInfo, at: Date, device: Device, mention: string | null): string {
+/** "@Pat @Sam ": the tagged people's names, written in front as GHL's own mentions are. */
+const tagWords = (names: string[]) => names.map((n) => `@${n} `).join("");
+
+/** The first-open comment. `names` are the tagged people's names (none known: nothing written). */
+export function firstOpenComment(i: ActivityInfo, at: Date, device: Device, names: string[]): string {
   return [
-    `${mention ? `@${mention} ` : ""}Quote opened: ${what(i)} was opened by the customer for the first time, ${whenWords(at)} on ${device === "Other" ? "a device we couldn't name" : `${/^(iP|[AEIOU])/.test(device) ? "an" : "a"} ${device}`}.`,
+    `${tagWords(names)}Quote opened: ${what(i)} was opened by the customer for the first time, ${whenWords(at)} on ${device === "Other" ? "a device we couldn't name" : `${/^(iP|[AEIOU])/.test(device) ? "an" : "a"} ${device}`}.`,
     sentWords(i),
     isMeasured(i.basis) ? "A good moment to follow up." : "",
   ]
@@ -150,8 +154,8 @@ export function firstOpenComment(i: ActivityInfo, at: Date, device: Device, ment
 }
 
 /** The comment three days after sending: opens, devices, downloads, last open, or not opened yet. */
-export function summaryComment(i: ActivityInfo, s: TrackState, mention: string | null): string {
-  const head = `${mention ? `@${mention} ` : ""}Quote summary, ${SUMMARY_AFTER_DAYS} days after sending: ${what(i)}`;
+export function summaryComment(i: ActivityInfo, s: TrackState, names: string[]): string {
+  const head = `${tagWords(names)}Quote summary, ${SUMMARY_AFTER_DAYS} days after sending: ${what(i)}`;
   if (s.openedCount === 0) return `${head} has not been opened yet. ${sentWords(i)}`.trim();
   const devices = devicesSeen(s.activityLog);
   const last = s.lastOpenedAt ? ` Last opened ${whenWords(new Date(s.lastOpenedAt))}.` : "";
@@ -169,23 +173,25 @@ export function summaryDue(sentAt: string | null, today: string): boolean {
 }
 
 /**
- * Who a measured quote's comments tag (Albert, 2026-10-27): the person who sent it, found by email
- * among the location's users; else the user the opportunity is assigned to (usually the same
- * person); else Albert. A preliminary tags nobody.
+ * Who a measured quote's comments tag (Albert, 2026-10-27, revised the same day): the user the
+ * contact is assigned to, whoever sent it, else Albert; and the sender as well when they are a
+ * different person, found by email among the location's users. Assigned first, never twice. A
+ * preliminary tags nobody.
  */
-export function mentionFor(
+export function mentionsFor(
   basis: string | null,
   senderEmail: string | null,
   users: { id: string; email: string | null; name: string | null }[],
-  ownerId: string | null,
+  assignedId: string | null,
   fallbackId: string,
-): { id: string; name: string | null } | null {
-  if (!isMeasured(basis)) return null;
+): { id: string; name: string | null }[] {
+  if (!isMeasured(basis)) return [];
+  const id = assignedId ?? fallbackId;
+  const out = [{ id, name: users.find((u) => u.id === id)?.name ?? null }];
   const email = senderEmail?.trim().toLowerCase();
   const sender = email ? users.find((u) => u.email === email) : undefined;
-  if (sender) return { id: sender.id, name: sender.name };
-  const id = ownerId ?? fallbackId;
-  return { id, name: users.find((u) => u.id === id)?.name ?? null };
+  if (sender && sender.id !== id) out.push({ id: sender.id, name: sender.name });
+  return out;
 }
 
 /**
