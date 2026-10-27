@@ -10,11 +10,12 @@ import { cleanRooms, LEVELS, MAX_ROOMS, METHODS, parseRooms, roomTotals, type Ro
  * quote. Edited here and saved with one button; the save is refused if someone else saved first.
  */
 
-/** As typed: the square footage stays text until it is saved, so "12." can be typed on the way to "12.5". */
-type Draft = Omit<Room, "sqft"> & { sqft: string };
+/** As typed: measurements stay text until they are saved, so "12." can be typed on the way to "12.5". */
+type Draft = Omit<Room, "sqft" | "linearFt"> & { sqft: string; linearFt: string };
 
-const toDraft = (r: Room): Draft => ({ ...r, sqft: r.sqft === null ? "" : String(r.sqft) });
-const blank = (id: string): Draft => ({ id, name: "", level: "", method: "", sqft: "", floor: "", notes: "" });
+const show = (n: number | null) => (n === null ? "" : String(n));
+const toDraft = (r: Room): Draft => ({ ...r, sqft: show(r.sqft), linearFt: show(r.linearFt) });
+const blank = (id: string): Draft => ({ id, name: "", level: "", method: "", sqft: "", linearFt: "", floor: "", notes: "" });
 const sameRooms = (a: Room[], b: Room[]) => JSON.stringify(a) === JSON.stringify(b);
 const one = (n: number) => n.toLocaleString("en-CA", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
@@ -69,6 +70,7 @@ export function Rooms({ quoteRecordId, quoteNumber, raw, savedLabel }: { quoteRe
         <span className="right faint num">
           {totals.count} {totals.count === 1 ? "room" : "rooms"}
           {totals.sqft > 0 && ` · ${one(totals.sqft)} sq ft`}
+          {totals.linearFt > 0 && ` · ${one(totals.linearFt)} linear ft`}
         </span>
       </div>
       <div className="card-b rm-body">
@@ -131,6 +133,10 @@ export function Rooms({ quoteRecordId, quoteNumber, raw, savedLabel }: { quoteRe
                         <input className="in num" inputMode="decimal" autoComplete="off" value={d.sqft} onChange={(e) => update(d.id, { sqft: e.target.value })} />
                       </label>
                       <label className="rm-f">
+                        <span>Linear ft</span>
+                        <input className="in num" inputMode="decimal" autoComplete="off" value={d.linearFt} onChange={(e) => update(d.id, { linearFt: e.target.value })} />
+                      </label>
+                      <label className="rm-f rm-floor">
                         <span>Floor there now</span>
                         <input className="in" placeholder="e.g. carpet, tile" maxLength={80} value={d.floor} onChange={(e) => update(d.id, { floor: e.target.value })} />
                       </label>
@@ -146,7 +152,7 @@ export function Rooms({ quoteRecordId, quoteNumber, raw, savedLabel }: { quoteRe
                       </label>
                     </div>
                     {d.method === "Moasure" && (
-                      <p className="rm-hint faint">Moasure shows the perimeter first and the area in brackets: for 46.0ft (128.5ft²), the total is 128.5 sq ft.</p>
+                      <p className="rm-hint faint">Moasure shows the perimeter first and the area in brackets: 46.0ft (128.5ft²) is 46 linear ft and 128.5 sq ft.</p>
                     )}
                   </li>
                 );
