@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, copyRange, copyState, customerCopy, discountLabel, hstRow, hstWord, isRange, longDate, parseCopy, pdfName, prelimNote, priceRange, rangeText, rangeWhy, serializeCopy, torontoToday, type Letterhead } from "../src/lib/send/copy";
+import { addDays, copyRange, copyState, customerCopy, discountLabel, hstRow, hstWord, isRange, longDate, offersPdf, parseCopy, pdfName, prelimNote, priceRange, rangeText, rangeWhy, serializeCopy, torontoToday, type Letterhead } from "../src/lib/send/copy";
 import { chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, greetingName, isToken, newToken, optionProblem, parseOptionIds, sendProblems, smsMessage, type SendInput } from "../src/lib/send/plan";
 import { encode, textWidth, wrap } from "../src/lib/send/pdfDoc";
 import { quotePdf } from "../src/lib/send/pdf";
@@ -212,16 +212,17 @@ describe("the messages", () => {
   const copy = customerCopy(quote(), AT);
   const to = { contactId: "contactAbc123", firstName: "Pat", ...customerLinks("https://view.example.com/", "A".repeat(32), pdfName(copy)) };
 
-  it("emails the link and attaches the PDF, through the customer's GHL contact", () => {
+  it("emails the link through the customer's GHL contact, never with the PDF attached (2026-10-27)", () => {
     const m = emailMessage(copy, to);
     expect(m).toMatchObject({ type: "Email", contactId: "contactAbc123", subject: "Your flooring quote Q-9001 from Titan Flooring" });
-    // No PDF attached unless the sender ticks Attach PDF (2026-10-24): the page's download is the tracked copy.
+    // The PDF is never attached. Not offered (the default): the email says nothing about one.
+    expect(copy.pdf).toBe(false);
     expect("attachments" in m).toBe(false);
-    expect(m.type === "Email" && m.html).toContain("You can download a PDF from the quote page.");
-    expect(m.type === "Email" && m.html).not.toContain("A PDF copy is attached.");
-    const withPdf = emailMessage(copy, to, null, { attachPdf: true });
-    expect(withPdf).toMatchObject({ attachments: [`https://view.example.com/c/${"A".repeat(32)}/Titan-Flooring-Quote-Q-9001-v1.pdf`] });
-    expect(withPdf.type === "Email" && withPdf.html).toContain("A PDF copy is attached.");
+    expect(m.type === "Email" && m.html).not.toMatch(/PDF/);
+    // Offered: the quote page has it, and the email says so; still no attachment.
+    const offered = emailMessage(customerCopy(quote(), { ...AT, pdf: true }), to);
+    expect("attachments" in offered).toBe(false);
+    expect(offered.type === "Email" && offered.html).toContain("You can download a PDF from the quote page.");
     if (m.type !== "Email") throw new Error();
     expect(m.html).toContain(`href="https://view.example.com/c/${"A".repeat(32)}"`);
     expect(m.html).toContain("Hi Pat,");
@@ -748,7 +749,7 @@ describe("a preliminary has no good-until date (2026-10-22)", () => {
     expect(c.validUntil).toBeNull();
     expect(customerCopy(prelim, NO_DATE).validUntil).toBeNull();
     expect(new TextDecoder("latin1").decode(quotePdf(c))).not.toContain("Valid until");
-    const mail = emailMessage(c, { contactId: "c1", firstName: "Jane", link: "https://example.test/c/x", pdfUrl: "https://example.test/c/x/q.pdf" });
+    const mail = emailMessage(c, { contactId: "c1", firstName: "Jane", link: "https://example.test/c/x" });
     expect(mail.type === "Email" && mail.html).not.toContain("good until");
     expect(mail.type === "Email" && mail.html).toContain("Preliminary estimate");
     expect(mail.type === "Email" && mail.html).toContain("The link doesn&rsquo;t expire.");
@@ -827,5 +828,18 @@ describe("choosing which options go to the customer (2026-10-24)", () => {
     const two = emailMessage(customerCopy(chooseOptions(q, [A, B]), AT), to);
     expect(two.type === "Email" && two.html).not.toContain("Your 2 options");
     expect(two.type === "Email" && two.html.match(/>With HST<\/td>/g)?.length).toBe(2);
+  });
+});
+
+describe("the PDF is offered on the quote page only when ticked (Albert, 2026-10-27)", () => {
+  it("freezes the choice on the copy: off by default, on when ticked, and a copy from before keeps its PDF", () => {
+    const off = customerCopy(quote(), AT);
+    const on = customerCopy(quote(), { ...AT, pdf: true });
+    expect(offersPdf(off)).toBe(false);
+    expect(offersPdf(on)).toBe(true);
+    expect(parseCopy(serializeCopy(off))?.pdf).toBe(false);
+    const before = JSON.parse(serializeCopy(on));
+    delete before.pdf;
+    expect(offersPdf(parseCopy(JSON.stringify(before))!)).toBe(true);
   });
 });

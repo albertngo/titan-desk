@@ -1,6 +1,6 @@
 import { optionTotals, parityDiffs } from "@/lib/calc";
 import type { Quote } from "@/lib/quotes/types";
-import { addDays, dollars, hstRow, isIsoDate, isRange, leadPrice, longDate, rangeText, rangeWhy, type CopyOption, type CustomerCopy } from "./copy";
+import { addDays, dollars, hstRow, isIsoDate, isRange, leadPrice, longDate, offersPdf, rangeText, rangeWhy, type CopyOption, type CustomerCopy } from "./copy";
 import { copyKind, flooringSummary, kindPhrase } from "./summary";
 
 /**
@@ -101,7 +101,8 @@ export function sendProblems(quote: Quote, input: SendInput, ctx: { today: strin
 /* ---------- the messages ---------- */
 
 export type GhlMessage =
-  | { type: "Email"; contactId: string; subject: string; html: string; attachments?: string[]; emailFrom?: string }
+  /** Never an attachment (Albert, 2026-10-27): the PDF, when offered, is downloaded from the quote page only. */
+  | { type: "Email"; contactId: string; subject: string; html: string; emailFrom?: string }
   | { type: "SMS"; contactId: string; message: string }
   /** A note on the customer's conversation that only staff see (2026-10-27, open tracking); `mentions` are GHL user ids. */
   | { type: "InternalComment"; contactId: string; message: string; mentions: string[] };
@@ -348,9 +349,9 @@ function paymentWords(o: CopyOption): string {
 
 export function emailMessage(
   copy: CustomerCopy,
-  to: { contactId: string; firstName: string | null; link: string; pdfUrl: string },
+  to: { contactId: string; firstName: string | null; link: string },
   sender: Sender | null = null,
-  options: { emailFrom?: string | null; booking?: { inStore: string; inHome: string } | null; attachPdf?: boolean } = {},
+  options: { emailFrom?: string | null; booking?: { inStore: string; inHome: string } | null } = {},
 ): GhlMessage {
   const hi = greetingName(to.firstName);
   const prelim = copy.basis === "Preliminary";
@@ -388,10 +389,10 @@ export function emailMessage(
   // the detail on the quote page, so the email stays short however many options went.
   const compact = copy.options.length >= 3;
   const cards = compact ? row(optionList(copy), "0 40px 16px") : copy.options.map((o) => row(optionCard(o, copy, several), "0 40px 16px")).join("");
-  // No PDF attached by default (Albert, 2026-10-24): an attachment is a copy we can never see opened, while the
-  // quote page's Download PDF is. The sender ticks Attach PDF for a client who needs the file in their inbox.
+  // The PDF is never attached (Albert, 2026-10-27): an attachment is a copy we can never see opened. When the
+  // sender offers it, it is downloaded from the quote page; otherwise the page has no PDF and the email says nothing.
   const under = [
-    options.attachPdf ? "A PDF copy is attached." : "You can download a PDF from the quote page.",
+    offersPdf(copy) ? "You can download a PDF from the quote page." : "",
     copy.validUntil ? `This ${noun} is good until <b style="color:${C.ink};font-weight:600;">${esc(longDate(copy.validUntil))}</b>.` : prelim ? "The link doesn&rsquo;t expire." : "",
   ]
     .filter(Boolean)
@@ -438,7 +439,6 @@ export function emailMessage(
     contactId: to.contactId,
     subject,
     html: frame(copy, subject, preheader, body),
-    ...(options.attachPdf ? { attachments: [to.pdfUrl] } : {}),
     ...(from ? { emailFrom: from } : {}),
   };
 }

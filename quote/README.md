@@ -89,5 +89,6 @@ pointing at the desk.
 ## If it is down
 
 Quote in the Excel template. A quote sent from this app is frozen on its version in Airtable
-(Customer Copy) and its PDF went out attached to the email, so what a customer was sent never
-depends on this app being up; only the link needs the customer deployment.
+(Customer Copy), so the record of what a customer was sent never depends on this app being up.
+The link and its PDF need the customer deployment; since 2026-10-27 the PDF is never attached to
+the email, and the quote page offers it only when the sender ticked it.
