@@ -76,10 +76,12 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   review). The request says `kind: "measured"` for the first; anything else is a preliminary
   (`parseNewQuote()` in `src/lib/link/newQuote.ts`).
 - **Where they found us (Albert, 2026-10-27).** A preliminary's customer step asks **Where did they
-  find us?** from a fixed list (`ORIGINS` in `src/lib/link/origin.ts`). The pick fills the GHL
-  contact's **Quote Origin** custom field (`CONTACT_ORIGIN_FIELD`) and its **Source**, each only when
-  blank: an existing contact is read fresh from GHL first and anything it already has is kept, and
-  when it already has an origin the step shows it instead of asking. It rides the same Make request
+  find us?** from a fixed list (`ORIGINS` in `src/lib/link/origin.ts`). The pick is the most
+  trusted answer: it goes into the GHL contact's **Quote Origin** custom field (`CONTACT_ORIGIN_FIELD`),
+  the contact's **Source** and the opportunity's **Source**, replacing what is there, unless that field
+  already holds one of the exact options, which is kept (`replaceable()`). The contact and the linked
+  opportunity are read fresh from GHL first; a contact whose Quote Origin is already an option shows it
+  instead of asking. It rides the same Make request
   that creates the contact or opportunity (`buildGhlRequest()` in `src/lib/link/ghlRequest.ts`), so no
   GHL workflow and no Make change. Optional; a measured quote does not ask. Tested in
   `tests/ghlRequest.test.ts` and `tests/link.test.ts`.

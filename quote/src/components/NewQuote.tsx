@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 import { searchCustomersAction, startQuoteAction } from "@/app/new/actions";
 import { displayPhone } from "@/lib/link/identity";
 import { stageFor, TIMINGS, type Timing } from "@/lib/link/lead";
-import { ORIGINS } from "@/lib/link/origin";
+import { isOrigin, ORIGINS, replaceable } from "@/lib/link/origin";
 import type { NewQuoteKind } from "@/lib/link/newQuote";
 import type { QuickChoice, QuickProfile } from "@/lib/quick/plan";
 import type { CustomerSearch, FoundCustomer } from "@/lib/quotes/types";
@@ -236,7 +236,7 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
           {/* Where they found us (2026-10-27): preliminaries only. GHL's value is kept when it has one. */}
           {prelim && (picked || isNew) && (
             <div className="nq-origin">
-              {picked?.contact.origin ? (
+              {picked && isOrigin(picked.contact.origin) ? (
                 <p className="muted">
                   Found us via <b>{picked.contact.origin}</b>, from GHL. It stays as it is.
                 </p>
@@ -250,9 +250,11 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
                     ))}
                   </select>
                   <span className="sub">
-                    {picked?.contact.source
-                      ? `Fills Quote Origin in GHL. The contact's Source stays “${picked.contact.source}”.`
-                      : "Fills Quote Origin in GHL, and the contact's Source."}
+                    {picked && !replaceable(picked.contact.source)
+                      ? `Goes into Quote Origin and the opportunity's Source in GHL. The contact's Source stays “${picked.contact.source}”.`
+                      : `Goes into Quote Origin and Source in GHL, on the contact and the opportunity${
+                          picked?.contact.source ? `, replacing “${picked.contact.source}”` : ""
+                        }. A source that is already one of these options is kept.`}
                   </span>
                 </label>
               )}

@@ -1,5 +1,6 @@
 import { CONTACT_ORIGIN_FIELD, CONTACT_TIMING_FIELD, GHL_LOCATION_ID, LEAD_STAGE_IDS, LEADS_PIPELINE_ID, MEETING_SCHEDULED_STAGE_ID, OPP_FIELDS, SALES_PIPELINE_ID } from "@/lib/ghl/ids";
 import { normalizeEmail, normalizePhone } from "./identity";
+import { replaceable } from "./origin";
 import { stageToSet, TIMING_IN_GHL, type Timing } from "./lead";
 
 /**
@@ -39,15 +40,16 @@ export type GhlRequestInput = {
   opportunityName: string;
   timing: Timing;
   contactId: string | null;
-  /** An existing opportunity to link, with the pipeline it is in now. */
-  opportunity: { id: string; pipelineId: string | null } | null;
+  /** An existing opportunity to link, with the pipeline it is in now and its Source. */
+  opportunity: { id: string; pipelineId: string | null; source?: string | null } | null;
   /** Only for a brand-new customer. */
   newContact: { firstName: string | null; lastName: string | null; phone: string | null; email: string | null; address: string | null; city: string | null } | null;
   /** Site address, if known, for the opportunity's Project Address / City. */
   site: { address: string | null; city: string | null };
   /**
-   * Where they found us, when picked (2026-10-27), and what an existing contact already has. It goes
-   * into Quote Origin and Source only where those are blank; a new contact gets both.
+   * Where they found us, when picked (2026-10-27), and what the existing contact and opportunity
+   * already have. The pick replaces Quote Origin, the contact's Source and the opportunity's Source,
+   * except where one already holds an exact option from the list (src/lib/link/origin.ts).
    */
   origin?: string | null;
   existing?: { origin: string | null; source: string | null } | null;
@@ -66,9 +68,9 @@ const oppFields = (quoteNumber: string, site: GhlRequestInput["site"]) =>
   ].filter((x) => x !== null);
 
 export function buildGhlRequest(i: GhlRequestInput): GhlRequest {
-  // The origin fills blanks only: an existing contact's Quote Origin or Source is never overwritten (2026-10-27).
-  const fillOrigin = Boolean(i.origin) && !i.existing?.origin;
-  const fillSource = Boolean(i.origin) && !i.existing?.source;
+  // The pick is the truth (2026-10-27): it replaces each field unless that field already holds an exact option.
+  const fillOrigin = Boolean(i.origin) && replaceable(i.existing?.origin);
+  const fillSource = Boolean(i.origin) && replaceable(i.existing?.source);
   const timingField = [
     { id: CONTACT_TIMING_FIELD, value: TIMING_IN_GHL[i.timing] },
     ...(fillOrigin ? [{ id: CONTACT_ORIGIN_FIELD, value: i.origin! }] : []),
@@ -83,7 +85,9 @@ export function buildGhlRequest(i: GhlRequestInput): GhlRequest {
       contactId: i.contactId,
       opportunityId: i.opportunity.id,
       contactBody: JSON.stringify({ ...sourceField, customFields: timingField }),
-      oppBody: JSON.stringify(compact({ pipelineStageId: stage ? LEAD_STAGE_IDS[stage] : null, customFields: oppFields(i.quoteNumber, i.site) })),
+      oppBody: JSON.stringify(
+        compact({ pipelineStageId: stage ? LEAD_STAGE_IDS[stage] : null, source: i.origin && replaceable(i.opportunity.source) ? i.origin : null, customFields: oppFields(i.quoteNumber, i.site) }),
+      ),
     };
   }
 
@@ -95,6 +99,8 @@ export function buildGhlRequest(i: GhlRequestInput): GhlRequest {
     name: i.opportunityName,
     status: "open",
     contactId: i.contactId ?? CONTACT_ID_SLOT,
+    // A new opportunity has no source yet, so a picked origin always goes on it (2026-10-27).
+    ...(i.origin ? { source: i.origin } : {}),
     customFields: oppFields(i.quoteNumber, i.site),
   });
 

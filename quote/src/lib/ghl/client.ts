@@ -104,6 +104,7 @@ export async function opportunitiesForContact(contactId: string): Promise<GhlOpp
       statusChangedAt: s(o.lastStatusChangeAt) ?? s(o.updatedAt) ?? s(o.createdAt),
       companyCamUrl: customValue(o.customFields, OPP_FIELDS.companyCamUrl),
       siteAddress: customValue(o.customFields, OPP_FIELDS.projectAddress),
+      source: s(o.source),
     }));
 }
 

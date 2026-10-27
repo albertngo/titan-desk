@@ -14,31 +14,44 @@ const base: GhlRequestInput = {
 };
 const parse = (s: string) => JSON.parse(s) as Record<string, unknown>;
 
-describe("where they found us (2026-10-27): Quote Origin and Source, blanks only", () => {
+describe("where they found us (2026-10-27): the pick replaces anything that isn't an exact option", () => {
   const timing = { id: CONTACT_TIMING_FIELD, value: "1-3 months" };
   const origin = { id: CONTACT_ORIGIN_FIELD, value: "Referral: Trade" };
   const fresh = { firstName: "Jane", lastName: "Doe", phone: "416-555-0199", email: null, address: null, city: null };
+  const linked = (source: string | null) => ({ id: "oppXYZ987654", pipelineId: LEADS_PIPELINE_ID, source });
 
-  it("a new contact gets both", () => {
-    const body = parse(buildGhlRequest({ ...base, newContact: fresh, origin: "Referral: Trade" }).contactBody);
-    expect(body.source).toBe("Referral: Trade");
-    expect(body.customFields).toEqual([timing, origin]);
+  it("a new contact and its new opportunity get the pick everywhere", () => {
+    const r = buildGhlRequest({ ...base, newContact: fresh, origin: "Referral: Trade" });
+    expect(parse(r.contactBody).source).toBe("Referral: Trade");
+    expect(parse(r.contactBody).customFields).toEqual([timing, origin]);
+    expect(parse(r.oppBody).source).toBe("Referral: Trade");
   });
 
-  it("an existing contact gets only the ones it has blank, on a new or a linked opportunity", () => {
-    const blank = parse(buildGhlRequest({ ...base, contactId: "abcDEF123456", origin: "Referral: Trade", existing: { origin: null, source: null } }).contactBody);
-    expect(blank).toEqual({ source: "Referral: Trade", customFields: [timing, origin] });
-    const hasSource = parse(buildGhlRequest({ ...base, contactId: "abcDEF123456", origin: "Referral: Trade", existing: { origin: null, source: "Website Form" } }).contactBody);
-    expect(hasSource).toEqual({ customFields: [timing, origin] });
-    const hasBoth = parse(
-      buildGhlRequest({ ...base, contactId: "abcDEF123456", opportunity: { id: "oppXYZ987654", pipelineId: LEADS_PIPELINE_ID }, origin: "Referral: Trade", existing: { origin: "Meta Ad", source: "facebook" } }).contactBody,
-    );
-    expect(hasBoth).toEqual({ customFields: [timing] });
+  it("replaces a blank, a GHL default or anything unfamiliar, on the contact and the opportunity", () => {
+    const r = buildGhlRequest({ ...base, contactId: "abcDEF123456", opportunity: linked("facebook"), origin: "Referral: Trade", existing: { origin: "fb ad?", source: "" } });
+    expect(parse(r.contactBody)).toEqual({ source: "Referral: Trade", customFields: [timing, origin] });
+    expect(parse(r.oppBody).source).toBe("Referral: Trade");
+    const newOpp = buildGhlRequest({ ...base, contactId: "abcDEF123456", origin: "Referral: Trade", existing: { origin: null, source: "Website Form" } });
+    expect(parse(newOpp.contactBody)).toEqual({ source: "Referral: Trade", customFields: [timing, origin] });
+    expect(parse(newOpp.oppBody).source).toBe("Referral: Trade");
+  });
+
+  it("keeps any field that already holds an exact option, even a different one", () => {
+    const r = buildGhlRequest({ ...base, contactId: "abcDEF123456", opportunity: linked("Meta Ad"), origin: "Referral: Trade", existing: { origin: "Google Ad", source: "Web: Website Form" } });
+    expect(parse(r.contactBody)).toEqual({ customFields: [timing] });
+    expect(parse(r.oppBody).source).toBeUndefined();
+    // Exact wording only: a near miss is replaced.
+    const near = buildGhlRequest({ ...base, contactId: "abcDEF123456", opportunity: linked("meta ad"), origin: "Referral: Trade", existing: { origin: null, source: "Website Form" } });
+    expect(parse(near.oppBody).source).toBe("Referral: Trade");
   });
 
   it("nothing picked writes nothing new", () => {
-    expect(parse(buildGhlRequest({ ...base, newContact: fresh }).contactBody).source).toBeUndefined();
-    expect(parse(buildGhlRequest({ ...base, contactId: "abcDEF123456", existing: { origin: null, source: null } }).contactBody)).toEqual({ customFields: [timing] });
+    const r = buildGhlRequest({ ...base, newContact: fresh });
+    expect(parse(r.contactBody).source).toBeUndefined();
+    expect(parse(r.oppBody).source).toBeUndefined();
+    const l = buildGhlRequest({ ...base, contactId: "abcDEF123456", opportunity: linked("facebook"), existing: { origin: null, source: null } });
+    expect(parse(l.contactBody)).toEqual({ customFields: [timing] });
+    expect(parse(l.oppBody).source).toBeUndefined();
   });
 });
 

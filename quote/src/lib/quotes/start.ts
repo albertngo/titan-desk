@@ -99,18 +99,18 @@ export async function startQuote(raw: unknown): Promise<StartResult> {
       }
     }
 
-    let linkedOpp: { id: string; pipelineId: string | null } | null = null;
+    let linkedOpp: { id: string; pipelineId: string | null; source?: string | null } | null = null;
     let who: { first: string | null; last: string | null; phone: string | null; email: string | null; address: string | null; city: string | null };
     let existing: { origin: string | null; source: string | null } | null = null;
     if (req.contactId) {
       const contact = await getContact(req.contactId);
       if (!contact) return { ok: false, message: "That contact isn't in GHL any more. Search again." };
-      // Read fresh from GHL, so the origin fills a blank only (2026-10-27).
+      // Read fresh from GHL: a field that already holds an exact option is kept (2026-10-27).
       existing = { origin: contact.origin ?? null, source: contact.source ?? null };
       if (req.opportunityId) {
         const theirs = (await opportunitiesForContact(req.contactId)).find((o) => o.id === req.opportunityId);
         if (!theirs) return { ok: false, message: "That opportunity belongs to a different contact. Search again." };
-        linkedOpp = { id: theirs.id, pipelineId: theirs.pipelineId };
+        linkedOpp = { id: theirs.id, pipelineId: theirs.pipelineId, source: theirs.source ?? null };
       }
       who = { first: contact.firstName, last: contact.lastName, phone: displayPhone(contact.phone), email: contact.email, address: contact.address, city: contact.city };
     } else {
@@ -238,7 +238,7 @@ async function pushToGhl(
   name: string,
   req: NewQuoteRequest,
   who: { first: string | null; last: string | null; phone: string | null; email: string | null; address: string | null; city: string | null },
-  linkedOpp: { id: string; pipelineId: string | null } | null,
+  linkedOpp: { id: string; pipelineId: string | null; source?: string | null } | null,
   today: string,
   existing: { origin: string | null; source: string | null } | null = null,
 ): Promise<void> {
