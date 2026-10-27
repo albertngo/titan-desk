@@ -3,7 +3,7 @@
  * the screen calls these, and tests/editor.test.ts proves them. Money is still computed
  * only by src/lib/calc.ts, from the same LineInput fields Airtable stores.
  */
-import { lineTotal, optionTotals, PRIVATE_SECTION, round2, SECTIONS, type LineInput } from "@/lib/calc";
+import { lineTotal, optionTotals, PRIVATE_SECTION, round2, sectionOf, SECTIONS, type LineInput } from "@/lib/calc";
 import { impliedRate } from "@/lib/pricing/accepted";
 import { levelApplies, levelOf, levelPrice, type ServiceLevel } from "@/lib/pricing/service";
 import type { MaterialRow, Quote, QuoteLine, RateRow, StairRow } from "@/lib/quotes/types";
@@ -98,6 +98,9 @@ export const SECTION_LABOUR: Record<string, string[]> = {
   Removal: ["Remove"],
   Disposal: ["Disposal"],
   Prep: ["Install"],
+  Materials: ["Material"],
+  Delivery: ["Delivery"],
+  Other: ["Other"],
 };
 
 /** Quote Lines.Line Type for a section (Airtable's own select values). */
@@ -167,16 +170,21 @@ export const entryLabel = (e: CardEntry) =>
 export const bestContractor = (e: Extract<CardEntry, { kind: "rate" }>) => e.contractors[0];
 
 /**
- * Picker search: every word must appear; entries that belong to the section rank first. Stair
- * Items are offered in the Stairs section only (Albert, 2026-10-18), never under flooring work.
+ * Picker search: every word must appear. A section shows only its own work (Albert, 2026-10-27:
+ * Install, Stairs, Removal… each open on their own options, not the whole card); `all` searches the
+ * whole Rate Card, the section's own work still first. A section with no labour types of its own
+ * (Private) always shows the whole card. Stair Items are offered in the Stairs section only (Albert,
+ * 2026-10-18), never under flooring work, even with `all`.
  */
-export function searchCatalogue(entries: CardEntry[], query: string, section: string, limit = 40): CardEntry[] {
+export function searchCatalogue(entries: CardEntry[], query: string, section: string, limit = 40, all = false): CardEntry[] {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-  const preferred = SECTION_LABOUR[section] ?? [];
-  const belongs = (e: CardEntry) => (e.kind === "stair" ? section === "Stairs" : preferred.includes(e.labourType));
+  const preferred = SECTION_LABOUR[section];
+  const belongs = (e: CardEntry) => (e.kind === "stair" ? section === "Stairs" : (preferred ?? []).includes(e.labourType));
+  const filtered = !all && preferred !== undefined;
   const rank = (e: CardEntry) => (belongs(e) ? 0 : 1);
   return entries
     .filter((e) => e.kind !== "stair" || section === "Stairs")
+    .filter((e) => !filtered || belongs(e))
     .filter((e) => {
       const hay = entryLabel(e).toLowerCase();
       return words.every((w) => hay.includes(w));
@@ -184,6 +192,12 @@ export function searchCatalogue(entries: CardEntry[], query: string, section: st
     .sort((a, b) => rank(a) - rank(b) || entryLabel(a).localeCompare(entryLabel(b)))
     .slice(0, limit);
 }
+
+/**
+ * Waste is a materials thing (Albert, 2026-10-27): only a Materials line offers it. A line elsewhere
+ * that already carries waste (saved before then) keeps its box so it can be seen and cleared.
+ */
+export const showsWaste = (l: Pick<EditorLine, "section" | "waste">) => sectionOf(l) === "Materials" || (l.waste ?? 0) !== 0;
 
 // ---------- building lines ----------
 
@@ -300,7 +314,8 @@ export function lineFromEntry(entry: CardEntry, section: string, contractorName?
     contractor: c.name,
     materialId: s.material?.id ?? null,
     uom: entry.uom,
-    waste: entry.defaultWaste,
+    // A card row's default waste is taken only in Materials (2026-10-27); see showsWaste.
+    waste: section === "Materials" ? entry.defaultWaste : null,
     unitPriceSnap: s.price,
     unitCostSnap: s.cost,
     minChargeSnap: entry.minCharge,
