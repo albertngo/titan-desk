@@ -3,6 +3,7 @@ import { requireQuoter } from "@/lib/auth";
 import { AirtableError, getRecord, listByIds, listRecords, type AirtableRecord } from "@/lib/airtable/client";
 import { CAT, CATALOGUE_TABLE, LINE, MATERIAL, MATERIAL_TABLE, OPTION, PROFILE, PROFILE_TABLE, QUICK, QUICK_TABLE, QUOTE, RATE, RATE_TABLE, STAIR, STAIR_TABLE, T, VERSION } from "@/lib/airtable/fields";
 import { QUICK_GROUPS, type QuickChoice, type QuickGroup, type QuickPart, type QuickProduct } from "@/lib/quick/plan";
+import { cleanSchedule } from "@/lib/pricing/schedule";
 import { isStairMethod, isStairType } from "@/lib/quick/stairs";
 import { bool, ids, num, str } from "./values";
 import { groupVersions, type QuoteGroup, type QuoteHead } from "./group";
@@ -199,6 +200,7 @@ export async function getQuote(id: string): Promise<Quote | null> {
     discountRate: num(f[VERSION.discountRate]) ?? 0,
     discountReason: str(f[VERSION.discountReason]),
     itemised: bool(f[VERSION.itemised]),
+    schedule: cleanSchedule(str(f[VERSION.paymentSchedule])),
     validUntil: str(f[VERSION.validUntil]),
     sentAt: str(f[VERSION.sentAt]),
     sendBlock: str(f[VERSION.sendBlock]),

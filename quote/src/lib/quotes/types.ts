@@ -1,6 +1,7 @@
 import type { LineInput, OptionTotals } from "@/lib/calc";
 import type { Message } from "@/lib/conversation/thread";
 import type { GhlContact } from "@/lib/ghl/types";
+import type { PaymentSchedule } from "@/lib/pricing/schedule";
 import type { StairMethod, StairType } from "@/lib/quick/stairs";
 
 export type QuoteLine = LineInput & {
@@ -78,6 +79,8 @@ export type Quote = {
   discountReason?: string | null;
   /** Quote Versions → Itemised Pricing (2026-10-22). False or absent = lump sum, the default: one price, no line prices. */
   itemised?: boolean;
+  /** Quote Versions → Payment Schedule (2026-10-27); null or absent = 35 / 35 / balance. */
+  schedule?: PaymentSchedule | null;
   validUntil: string | null;
   sentAt: string | null;
   /** Sending: Airtable's own reason this version must not be sent (a measured version exists), if any. */

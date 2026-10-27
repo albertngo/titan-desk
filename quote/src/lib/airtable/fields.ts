@@ -42,6 +42,11 @@ export const QUOTE = {
   folderUrl: "fldjMRYkmz70JbuJq",
   projectNumber: "fld3RVbHUDHJR7SBp",
   notionProjectUrl: "fldKIMbQCupiXuLvA",
+  /**
+   * The version that is the contract now (2026-10-27): the accepted version, then the newest change
+   * sent after it. Its total is what GHL's value and Notion's Value Approx carry. Written by the app.
+   */
+  contractVersion: "fldQC0eOTE7sZu6OK",
   pipeline: "fldeupuDWQZ0dbXEg",
   notes: "fldnVyjuta6kQjOOf",
   versions: "fldasgos7nsSuqkJh",
@@ -83,6 +88,17 @@ export const VERSION = {
   lastEditedBy: "fldhfKZGSX2R9AiiM",
   lastEditedAt: "fldRCdXB6ehz1Nkqk",
   editLog: "fldvoKc0aiv9xktcg",
+  /** 2026-10-27: the payment schedule as JSON (src/lib/pricing/schedule.ts); blank = 35 / 35 / balance. */
+  paymentSchedule: "fldz0pG0gxLgzIs7p",
+  /**
+   * Acceptance (2026-10-27): the record of the customer's yes, as JSON (src/lib/accept/plan.ts), the
+   * option it was for, and the day. Written once, by the app, when the version becomes Accepted.
+   */
+  acceptance: "fldsqfGVC27KQd4lW",
+  acceptedOption: "fldglEl68TZ2XJdWp",
+  acceptedAt: "fldPf4Ks6UHCdaPTA",
+  /** 2026-10-27: 1, 2, … on a version made with Make a change after acceptance; blank on an ordinary version. */
+  changeNo: "fldZNj3La4y8dJY3Z",
 } as const;
 
 export const OPTION = {

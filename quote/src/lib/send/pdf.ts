@@ -1,5 +1,5 @@
 import { PAGE, PdfDoc, wrap, type Rgb } from "./pdfDoc";
-import { discountLabel, hstRow, isLump, itemHstNote, leadPrice, longDate, prelimNote, rangeText, type CopyItem, type CopyOption, type CopyText, type CustomerCopy } from "./copy";
+import { discountLabel, hstRow, isLump, itemHstNote, leadPrice, longDate, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyText, type CustomerCopy } from "./copy";
 
 /**
  * The quote as a PDF, drawn from the customer copy only (never from live lines), so the file
@@ -210,19 +210,14 @@ export function quotePdf(copy: CustomerCopy): Uint8Array<ArrayBuffer> {
     const h = hstRow(copy, t);
     const after: [string, string][] = [[h.label, h.amount === null ? "Not included" : r ? "On the final price" : money(h.amount)]];
     if (lead.addsHst) after.push([r ? "With HST" : "Total with HST", r ? rangeText(r.lowWithHst, r.highWithHst) : money(t.total)]);
-    // A range's payment schedule is in shares of the final price, which isn't known yet.
-    const pay: [string, string][] = r
-      ? [
-          ["Deposit", "35%"],
-          ["Second payment", "35%"],
-          ["Final payment", "The balance"],
-        ]
-      : [
-          ["Deposit (35%)", money(t.payment1)],
-          ["Second payment (35%)", money(t.payment2)],
-          ["Final payment", money(t.paymentFinal)],
-        ];
-    room(rows.length * 15 + 42 + after.length * 15 + pay.length * 13 + 30);
+    // The schedule as frozen (2026-10-27); a range's is in shares of the final price, which isn't known yet.
+    const x1 = r ? 300 : 340;
+    const pay = stagesOf(o).map((s) => ({
+      k: `${s.label}${s.amount !== null && s.kind === "share" && s.pct !== null ? ` (${s.pct}%)` : ""}`,
+      v: stageFigure(s, money),
+      note: stageNote(s) ? wrap(stageNote(s), "R", 7.5, RIGHT - x1 - 90) : [],
+    }));
+    room(rows.length * 15 + 42 + after.length * 15 + pay.reduce((a, p) => a + 13 + p.note.length * 10, 0) + 30);
     y -= 6;
     // A range's label and its two figures need a wider bar.
     const x0 = r ? 300 : 340;
@@ -245,10 +240,14 @@ export function quotePdf(copy: CustomerCopy): Uint8Array<ArrayBuffer> {
     y -= 15;
     doc.text(x0, y, r ? "PAYMENT SCHEDULE, ON THE FINAL PRICE" : lead.addsHst ? "PAYMENT SCHEDULE, WITH HST" : "PAYMENT SCHEDULE", { font: "B", size: 7.5, color: FAINT });
     y -= 13;
-    for (const [k, v] of pay) {
-      doc.text(x0, y, k, { size: 9, color: DIM });
-      doc.text(COL.amount - 4, y, v, { size: 9, color: INK, align: "right" });
+    for (const p of pay) {
+      doc.text(x0, y, p.k, { size: 9, color: DIM });
+      doc.text(COL.amount - 4, y, p.v, { size: 9, color: INK, align: "right" });
       y -= 13;
+      for (const l of p.note) {
+        doc.text(x0, y + 2, l, { size: 7.5, color: FAINT });
+        y -= 10;
+      }
     }
     y -= 12;
   }

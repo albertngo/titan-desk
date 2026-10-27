@@ -5,6 +5,7 @@
  */
 import { lineTotal, optionTotals, PRIVATE_SECTION, round2, SECTIONS, type LineInput } from "@/lib/calc";
 import { impliedRate } from "@/lib/pricing/accepted";
+import type { PaymentSchedule } from "@/lib/pricing/schedule";
 import { levelApplies, levelOf, levelPrice, type ServiceLevel } from "@/lib/pricing/service";
 import type { MaterialRow, Quote, QuoteLine, RateRow, StairRow } from "@/lib/quotes/types";
 
@@ -60,6 +61,8 @@ export type EditorQuote = {
   discountReason?: string | null;
   /** Itemised pricing for the customer (2026-10-22). False or absent = lump sum, the default: one price, no line prices. */
   itemised?: boolean;
+  /** The payment schedule (2026-10-27); null or absent = 35 / 35 / balance. See src/lib/pricing/schedule.ts. */
+  schedule?: PaymentSchedule | null;
   options: EditorOption[];
 };
 
@@ -532,6 +535,11 @@ export function setTerms(q: EditorQuote, patch: Partial<Pick<EditorQuote, "disco
   return { ...q, ...patch };
 }
 
+/** The payment schedule (2026-10-27): null puts the version back on 35 / 35 / balance. Checked by scheduleProblems() before a save. */
+export function setSchedule(q: EditorQuote, schedule: PaymentSchedule | null): EditorQuote {
+  return { ...q, schedule };
+}
+
 /**
  * The private line the accepted price adds when it is above the list price (2026-10-22). Known by
  * its words: rename it and it is an ordinary private line the accepted price no longer touches.
@@ -611,6 +619,7 @@ export function fromQuote(quote: Quote): EditorQuote {
     showHst: quote.showHst,
     discountReason: quote.discountReason ?? null,
     itemised: quote.itemised ?? false,
+    schedule: quote.schedule ?? null,
     options: quote.options.map((o) => ({
       id: o.id,
       name: o.name,

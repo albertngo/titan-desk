@@ -1,5 +1,5 @@
 import { money, rate } from "@/lib/format";
-import { discountLabel, hstRow, isLump, itemHstNote, leadPrice, longDate, prelimNote, rangeText, type CopyItem, type CopyOption, type CopyState, type CopyText, type CustomerCopy } from "@/lib/send/copy";
+import { discountLabel, hstRow, isLump, itemHstNote, leadPrice, longDate, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyState, type CopyText, type CustomerCopy } from "@/lib/send/copy";
 
 /**
  * The quote as the customer sees it, drawn from the frozen customer copy only. Used by the
@@ -64,12 +64,7 @@ function Totals({ o, copy }: { o: CopyOption; copy: CustomerCopy }) {
           <div><dt>{h.label}</dt><dd>{h.amount !== null ? "On the final price" : "Not included"}</dd></div>
           {lead.addsHst && <div className="with"><dt>With HST</dt><dd>{rangeText(r.lowWithHst, r.highWithHst)}</dd></div>}
         </dl>
-        <div className="cq-pay">
-          <h4>Payment schedule, on the final price</h4>
-          <div><span>Deposit</span><span>35%</span></div>
-          <div><span>Second payment</span><span>35%</span></div>
-          <div><span>Final payment</span><span>The balance</span></div>
-        </div>
+        <Schedule o={o} title="Payment schedule, on the final price" />
       </div>
     );
   }
@@ -88,12 +83,29 @@ function Totals({ o, copy }: { o: CopyOption; copy: CustomerCopy }) {
         <div><dt>{h.label}</dt><dd>{h.amount !== null ? money(h.amount) : "Not included"}</dd></div>
         {lead.addsHst && <div className="with"><dt>Total with HST</dt><dd>{money(t.total)}</dd></div>}
       </dl>
-      <div className="cq-pay">
-        <h4>Payment schedule{lead.addsHst ? ", with HST" : ""}</h4>
-        <div><span>Deposit (35%)</span><span>{money(t.payment1)}</span></div>
-        <div><span>Second payment (35%)</span><span>{money(t.payment2)}</span></div>
-        <div><span>Final payment</span><span>{money(t.paymentFinal)}</span></div>
-      </div>
+      <Schedule o={o} title={`Payment schedule${lead.addsHst ? ", with HST" : ""}`} />
+    </div>
+  );
+}
+
+/** The payment schedule as it was frozen (2026-10-27): each stage, when it is due and how it is paid, and its figure. */
+function Schedule({ o, title }: { o: CopyOption; title: string }) {
+  return (
+    <div className="cq-pay">
+      <h4>{title}</h4>
+      {stagesOf(o).map((s, i) => {
+        const note = stageNote(s);
+        return (
+          <div key={i}>
+            <span>
+              {s.label}
+              {s.amount !== null && s.kind === "share" && s.pct !== null ? ` (${s.pct}%)` : ""}
+              {note && <span className="sub">{note}</span>}
+            </span>
+            <span>{stageFigure(s, money)}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -1,6 +1,7 @@
-import { optionTotals, parityDiffs } from "@/lib/calc";
+import { optionTotals, parityDiffs, stageAmountProblems, stageAmounts } from "@/lib/calc";
 import type { Quote } from "@/lib/quotes/types";
-import { addDays, dollars, hstRow, isIsoDate, isRange, leadPrice, longDate, rangeText, rangeWhy, type CopyOption, type CustomerCopy } from "./copy";
+import { defaultSchedule, payWords, scheduleProblems } from "@/lib/pricing/schedule";
+import { addDays, dollars, hstRow, isIsoDate, isRange, leadPrice, longDate, rangeText, rangeWhy, stagesOf, type CopyOption, type CopyStage, type CustomerCopy } from "./copy";
 import { copyKind, flooringSummary, kindPhrase } from "./summary";
 
 /**
@@ -53,11 +54,13 @@ export function chosenWords(quote: Pick<Quote, "options">, ids: string[] | null 
 }
 
 /** What stops one option going to the customer, or null. */
-export function optionProblem(quote: Pick<Quote, "discountRate" | "showHst">, o: Quote["options"][number]): string | null {
+export function optionProblem(quote: Pick<Quote, "discountRate" | "showHst" | "schedule">, o: Quote["options"][number]): string | null {
   const t = optionTotals(o.lines, quote.discountRate, quote.showHst);
   if (t.total <= 0) return `${o.name} has nothing priced in it.`;
   if (parityDiffs(t, o.airtable).length > 0) return `The app and Airtable disagree on ${o.name}. Fix that before sending.`;
-  return null;
+  // The schedule's own amounts on this option (2026-10-27): nothing negative, and a deposit that is something.
+  const stages = stageAmounts(quote.schedule ?? defaultSchedule(), o.lines, quote.discountRate, quote.showHst, t.total);
+  return stageAmountProblems(stages, o.name)[0] ?? null;
 }
 
 /**
@@ -74,6 +77,7 @@ export function sendProblems(quote: Quote, input: SendInput, ctx: { today: strin
   if (quote.sendBlock) out.push(quote.sendBlock);
   if (quote.legacyLineCount > 0) out.push("Some lines are in the old A/B/C format and on no option. Move them onto an option first.");
   if (quote.options.length === 0) out.push("This version has no options.");
+  if (quote.schedule) out.push(...scheduleProblems(quote.schedule));
   const ids = input.optionIds ?? null;
   if (!ctx.skipOptions) {
     if (ids && quote.options.length > 0) {
@@ -338,10 +342,29 @@ function frame(copy: CustomerCopy, title: string, preheader: string, body: strin
   );
 }
 
-/** The payment schedule in words, from the frozen totals (35 / 35 / balance, calc.ts PAYMENT_SPLIT). */
-function paymentWords(o: CopyOption): string {
-  const pct = (part: number) => `${Math.round((part / o.totals.total) * 100)}%`;
-  return `${pct(o.totals.payment1)} to reserve your dates, ${pct(o.totals.payment2)} when the crew starts, and the balance on completion. No payment is due until you choose a start date.`;
+/**
+ * The payment schedule in words, from the frozen schedule (2026-10-27): each stage, when it is due
+ * and how it is paid, then what the deposit does. Albert, the same day: "Nothing is finalized until a
+ * deposit is made… the date you request is locked in for you" (the PM sets the date).
+ */
+export function paymentWords(o: CopyOption): string {
+  const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
+  const phrase = (s: CopyStage, i: number) => {
+    const what =
+      s.kind === "balance"
+        ? "the balance"
+        : s.kind === "materials"
+          ? `${i === 0 ? "a deposit" : lower(s.label)} of ${s.amount !== null ? cad.format(s.amount) : "the material's price"} for your materials`
+          : s.kind === "amount" && s.amount !== null
+            ? `${cad.format(s.amount)} ${lower(s.label)}`
+            : `${s.pct ?? ""}% ${i === 0 ? "deposit" : lower(s.label)}`;
+    const when = s.when ? ` ${lower(s.when).replace(/, for your materials.*$/, "")}` : "";
+    const how = payWords(s.pay);
+    return `${what}${when}${how ? `, ${how}` : ""}`;
+  };
+  const parts = stagesOf(o).map(phrase);
+  const list = parts.length > 1 ? `${parts.slice(0, -1).join("; ")}; and ${parts.at(-1)}` : parts[0];
+  return `${list.charAt(0).toUpperCase()}${list.slice(1)}. Nothing is final until the deposit is in; once it is, your materials are ordered and your date is locked in.`;
 }
 
 export function emailMessage(

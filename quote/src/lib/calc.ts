@@ -17,7 +17,14 @@
  * Airtable's IF({x}, …) treats blank AND 0 as false; `firstSet` reproduces that.
  */
 
-/** Ontario HST and the 35 / 35 / remainder payment split, as hard-coded in the Airtable formulas. */
+import type { PaymentSchedule, PayHow } from "@/lib/pricing/schedule";
+
+/**
+ * Ontario HST and the 35 / 35 / remainder payment split, as hard-coded in the Airtable formulas.
+ * Since 2026-10-27 a version can carry its own payment schedule (src/lib/pricing/schedule.ts); its
+ * amounts are `stageAmounts` below. Airtable's Payment 1 / 2 / Final stay the default split, so the
+ * parity check still compares like with like.
+ */
 export const HST_RATE = 0.13;
 export const PAYMENT_SPLIT = 0.35;
 
@@ -227,3 +234,53 @@ export function parityDiffs(app: OptionTotals, airtable: Partial<OptionTotals>):
   }
   return out;
 }
+
+/* ---------- the payment schedule (2026-10-27) ---------- */
+
+/** One stage of a schedule with its money: `pct` is its share of the total, whole percent, for the words. */
+export type StageAmount = { label: string; when: string; pay: PayHow; amount: number; pct: number; kind: "share" | "materials" | "amount" | "balance" };
+
+/**
+ * The material a deposit can cover (Albert, 2026-10-27): the material lines billed with HST, after
+ * the quote's discount, with their HST. A quote whose material carries no HST at all uses all of its
+ * material the same way. Zero when there is no material.
+ */
+export function materialsDeposit(lines: LineInput[], discountRate: number, hstOn: boolean): number {
+  const material = lines.filter((l) => isPriced(l) && l.include && sectionOf(l) === "Materials");
+  const taxed = material.filter((l) => chargesHst(l, hstOn));
+  const pool = taxed.length ? taxed : material;
+  return pool.length ? optionTotals(pool, discountRate, hstOn).total : 0;
+}
+
+/**
+ * A schedule's stages in dollars, for an option whose total (with HST) is `total`. Fixed amounts and
+ * the material come first; each share is a percent of what is left after them (of the total, when
+ * there are none); the balance is whatever remains, so the stages always add up to the total. With
+ * the default schedule this is exactly payment1 / payment2 / paymentFinal.
+ */
+export function stageAmounts(schedule: PaymentSchedule, lines: LineInput[], discountRate: number, hstOn: boolean, total: number): StageAmount[] {
+  const fixed = schedule.stages.map((s) =>
+    s.part.kind === "materials" ? Math.min(total, materialsDeposit(lines, discountRate, hstOn)) : s.part.kind === "amount" ? round2(s.part.amount) : null,
+  );
+  const base = round2(total - fixed.reduce<number>((a, b) => a + (b ?? 0), 0));
+  const amounts = schedule.stages.map((s, i) => (fixed[i] !== null ? fixed[i]! : s.part.kind === "share" ? round2(base * (s.part.pct / 100)) : 0));
+  const last = schedule.stages.length - 1;
+  amounts[last] = round2(total - amounts.slice(0, last).reduce((a, b) => a + b, 0));
+  return schedule.stages.map((s, i) => ({
+    label: s.label,
+    when: s.when,
+    pay: s.pay,
+    amount: amounts[i],
+    pct: total > 0 ? Math.round((amounts[i] / total) * 100) : 0,
+    kind: s.part.kind,
+  }));
+}
+
+/** What is wrong with a schedule's amounts on one option: a stage that would be negative. */
+export function stageAmountProblems(stages: StageAmount[], optionName: string): string[] {
+  const below = stages.find((s) => s.amount < 0);
+  if (below) return [`On ${optionName} the ${below.label.toLowerCase()} would be less than nothing. Change the payment schedule.`];
+  if (stages.length > 1 && stages[0].amount <= 0) return [`On ${optionName} the deposit would be nothing. Change the payment schedule.`];
+  return [];
+}
+

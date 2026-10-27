@@ -4,6 +4,7 @@ import { AirtableError, createRecord, createRecords, getRecord, listByIds, updat
 import { LINE, OPTION, QUOTE, T, VERSION } from "@/lib/airtable/fields";
 import { fromQuote, type EditorQuote } from "@/lib/editor/model";
 import { versionLabel } from "@/lib/link/identity";
+import { scheduleProblems } from "@/lib/pricing/schedule";
 import { authorFields, describePlan } from "./history";
 import { getQuote } from "./load";
 import { cleanEditorQuote, fingerprint, isRecordId, planIsEmpty, planSave, type SavePlan } from "./savePlan";
@@ -19,6 +20,12 @@ import { ids, num, str } from "./values";
 export type SaveResult = { ok: true; versionId: string; writes: number } | { ok: false; message: string; conflict?: boolean };
 
 export const BASES = ["Preliminary", "Measured"] as const;
+
+/** A payment schedule that can't be saved (2026-10-27), said to staff; null when it is fine or the default. */
+function scheduleTrouble(q: EditorQuote): string | null {
+  const bad = q.schedule ? scheduleProblems(q.schedule) : [];
+  return bad.length ? `Nothing was saved: ${bad.join(" ")}` : null;
+}
 export type Basis = (typeof BASES)[number];
 
 /** Overwrite a Draft version with what the editor holds. Refused if Airtable changed since the editor opened it. */
@@ -39,6 +46,8 @@ export async function saveVersion(versionId: string, raw: unknown, base: string)
     };
   }
   const edited = cleanEditorQuote(raw);
+  const bad = scheduleTrouble(edited);
+  if (bad) return { ok: false, message: bad };
   const plan = planSave(original, edited);
   if (planIsEmpty(plan)) return { ok: true, versionId, writes: 0 };
   // Who saved, when, and what: in the same update as the version's own fields (2026-10-22).
@@ -63,7 +72,10 @@ export async function saveAsNewVersion(versionId: string, raw: unknown, basis: s
   const n = Math.max(0, ...siblings.map((v) => num(v.fields[VERSION.version]) ?? 0)) + 1;
   const quoteNo = str(quote.fields[QUOTE.quoteNumber]);
 
-  const plan = planSave(null, cleanEditorQuote(raw));
+  const edited = cleanEditorQuote(raw);
+  const bad = scheduleTrouble(edited);
+  if (bad) return { ok: false, message: bad };
+  const plan = planSave(null, edited);
   let created: string;
   try {
     const v = await createRecord(T.versions, {

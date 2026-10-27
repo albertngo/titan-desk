@@ -197,6 +197,7 @@ export default async function QuotePage({
             <div className="stack">
               {send}
               <Financials
+                schedule={quote.schedule ?? null}
                 lines={option.lines}
                 t={totals}
                 discountRate={quote.discountRate}

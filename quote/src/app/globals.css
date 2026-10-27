@@ -602,6 +602,9 @@ a.chip.accent:hover { text-decoration: underline; }
 .cq-pay h4, .cq-excl h4 { margin: 0 0 4px; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--fg-faint); }
 .cq-pay div { display: flex; justify-content: space-between; gap: 12px; color: var(--fg-dim); }
 .cq-pay div span:last-child { color: var(--fg); font-variant-numeric: tabular-nums; }
+.cq-pay div span:first-child { display: grid; }
+.cq-pay .sub { font-size: 12px; color: var(--fg-faint); }
+.cq-pay div span:last-child { white-space: nowrap; }
 .cq-excl { padding: 14px 18px 18px; border-top: 1px solid var(--line); font-size: 14px; }
 .cq-excl ul { margin: 0; padding-left: 18px; color: var(--fg-dim); }
 .cq-legal { padding: 4px 0 0; text-align: center; font-size: 12px; color: var(--fg-faint); }
@@ -753,3 +756,16 @@ a.chip.accent:hover { text-decoration: underline; }
 .nq-origin .k { font-size: 13px; font-weight: 600; }
 .nq-origin .sub { font-size: 12px; color: var(--fg-dim); }
 .nq-origin p { margin: 0; font-size: 13px; }
+
+/* Payment schedule in the editor's terms (2026-10-27). */
+.sched { grid-column: 1 / -1; display: grid; gap: 8px; padding-top: 6px; border-top: 1px solid var(--line, #e5e7eb); }
+.sched-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-weight: 600; }
+.sched-tip { margin: 0; font-size: 13px; color: var(--fg-dim); }
+.sched-l { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.sched-r { display: grid; grid-template-columns: minmax(110px, 1fr) 84px minmax(140px, 2fr) 140px 130px 56px; gap: 8px; align-items: center; }
+.sched-part { display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--fg-dim); }
+.sched-part .cell-in { width: 56px; }
+.sched-amt { font-variant-numeric: tabular-nums; text-align: right; font-size: 13px; }
+.sched-amt.bad, .pay .v.bad { color: var(--bad, #b42318); }
+.sched-bad { margin: 0; padding-left: 18px; color: var(--bad, #b42318); font-size: 13px; }
+@media (max-width: 760px) { .sched-r { grid-template-columns: 1fr 84px; } .sched-when, .sched-r select { grid-column: 1 / -1; } }
