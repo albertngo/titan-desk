@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CustomerQuote } from "@/components/CustomerQuote";
+import { SeenBeacon } from "@/components/SeenBeacon";
 import { customerQuote } from "@/lib/quotes/customer";
 import { pdfName } from "@/lib/send/copy";
 
@@ -32,12 +33,16 @@ export default async function CustomerQuotePage({ params }: { params: Promise<{ 
   const { token } = await params;
   const found = await customerQuote(token);
   if (!found) notFound();
+  // The beacon reports the open once the page is in view (2026-10-27); a link preview never runs it.
   return (
-    <CustomerQuote
-      copy={found.copy}
-      state={found.state}
-      pdfHref={`/c/${token}/${pdfName(found.copy)}`}
-      newerHref={found.newerToken ? `/c/${found.newerToken}` : null}
-    />
+    <>
+      <SeenBeacon path={`/c/${token}/seen`} />
+      <CustomerQuote
+        copy={found.copy}
+        state={found.state}
+        pdfHref={`/c/${token}/${pdfName(found.copy)}?d=1`}
+        newerHref={found.newerToken ? `/c/${found.newerToken}` : null}
+      />
+    </>
   );
 }

@@ -10,6 +10,9 @@ export type VersionRow = {
   status: string | null;
   basis: string | null;
   optionCount: number;
+  /** Open tracking (2026-10-27): customer opens of this version's link, and whether it was sent since tracking began. */
+  openedCount?: number;
+  tracked?: boolean;
   createdTime: string;
 };
 

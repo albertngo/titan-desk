@@ -161,9 +161,33 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   and Sand still fold. Grouping only: no money formula and no Airtable change.
 - **The GHL mobile-quote workflow is retired (Albert, 2026-10-18).** Its form, custom fields
   (`remove_1_sqft`, `staircase_profile_1`, `score_5n31`…) and tags stay in GHL as a manual backup
-  for when this app is down; the app never writes them, and sending adds nothing to GHL beyond the
-  message itself (no tag, note, stage or field). Counts of preliminaries come from Quote Versions
-  (Basis, Status, Sent At/By/To), not from the `mobile quote` tag.
+  for when this app is down; the app never writes them. Since 2026-10-27 sending adds one thing to GHL
+  beyond the message: the follow-up tag (below); no note, stage or field. Counts of preliminaries come
+  from Quote Versions (Basis, Status, Sent At/By/To), not from the `mobile quote` tag.
+- **Follow-up tags (Albert, 2026-10-27).** Every send removes both `quote sent: preliminary` and
+  `quote sent: measured` from the contact, then adds this version's, through Make 4975508's `tags`
+  route (whose filter refuses any other tag). Each tag starts its own GHL workflow, "Quote FU:
+  preliminary" / "Quote FU: measured", built in GHL with the tag's removal as the goal and re-entry
+  allowed, so a new version restarts its sequence and a measured quote ends the preliminary's; Won,
+  Lost and Abandoned end them in GHL. Best effort: a failed tag never stops a send, the result says so.
+  Tags in `src/lib/ghl/ids.ts` (`FOLLOW_UP_TAGS`), bodies in `followUpTagBodies()` in `src/lib/activity/track.ts`.
+- **Open tracking (Albert, 2026-10-27).** The customer's page reports an open once it has been in view
+  for a moment (`SeenBeacon`, `/c/<token>/seen`), so a link preview or a mail scanner never counts; a
+  reload within 30 minutes is the same open. Its Download PDF button asks with `?d=1`, so only that
+  counts as a download (GHL fetching the attachment does not). The customer deployment cannot write,
+  so `src/lib/activity/relay.ts` reports {token, kind, device in words} to the staff app's
+  `/api/activity` with `QUOTE_ACTIVITY_KEY`, and `src/lib/quotes/activity.ts` records it on Quote
+  Versions (Opened Count, First/Last Opened At, PDF Downloads, an append-only Activity Log). A version's
+  **first open** posts an internal comment on the customer's GHL conversation (Make `message` route,
+  `type: "InternalComment"`), and a daily run (`.github/workflows/quote-activity-summaries.yml`) posts
+  one **summary three days after sending** (opens, devices, last open, PDF downloads, or "not opened
+  yet") for every version still Sent, so a replaced one gets none and the new version gets its own.
+  On a measured quote both comments tag the sender (their GHL user, by email), else the opportunity's
+  assigned user, else Albert; a preliminary's are the same notes with nobody tagged, since its
+  follow-up is the automation's. Only versions sent since tracking began (Track Activity) get comments.
+  The Send card shows the activity once sent, and All quotes marks opened versions; staff opening a
+  link from the Send card add `#staff`, which is never counted. Rules in `src/lib/activity/track.ts`,
+  tested in `tests/activity.test.ts`.
 - **Customer view (Albert, 2026-10-15).** A switch in the top bar, kept per device in the
   `quote_view` cookie. While on, the server renders no cost, margin, profit, contractor, card rate,
   flags or checks, on every page including the editor: they are not hidden, they are not sent.
@@ -196,11 +220,10 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   number, puts the link on its own line and stays in GSM-7 (no curly quotes or emoji). **Preview the
   email** on the Send card (`/q/<id>/preview/email`) shows it exactly as GHL will send it. The
   customer page `/c/<token>` carries OpenGraph tags so the link's preview card in a text shows the
-  logo (`public/brand/og.png`), never the customer or the amount. **A preliminary's opening words
-  follow a switch on the Send card (Albert, 2026-10-24):** "Thanks for telling us about your project"
-  by default, because a preliminary can go out before anyone has been to the house (a confirmed site
-  only means an appointment was booked, not that it has happened), and "Thanks for having us over"
-  when the sender ticks **We've already been to the home**. The app never guesses this.
+  logo (`public/brand/og.png`), never the customer or the amount. **A preliminary always opens "Thanks for
+  telling us about your project" (Albert, 2026-10-27):** a preliminary is solely a quote before a
+  visit or measurement; one sent after a measure is sent as a measured quote. The "We've already been
+  to the home" switch (2026-10-24) is gone.
 - **Choosing which options go (Albert, 2026-10-24).** With two or more options, the Send card has a tick
   per option (name, price before HST, any problem), all ticked by default. Only the ticked options go
   into the frozen copy, so the page, PDF, email and text all show the same set, numbered from 1; the
@@ -361,16 +384,18 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
    catalogue, Rate Card or Stair Items from this app.
 2a. **One file talks to GHL, and only reads:** `src/lib/ghl/client.ts`, `server-only`, GET
    only, the only reader of `QUOTE_GHL_TOKEN` (used for contacts.readonly, opportunities.readonly,
-   conversations.readonly and conversations/message.readonly). The token Albert made (2026-10-20)
+   conversations.readonly and conversations/message.readonly; since 2026-10-27 users.readonly, to tag
+   the sender on an open-tracking comment). The token Albert made (2026-10-20)
    also holds write scopes; the app uses none of them, and the boundary test fails on any write
    verb in that file. A reply feature, if it comes, is a reviewed change to this rule.
 2b. **One file sends to Make:** `src/lib/make/client.ts`, `server-only`, the only reader of
-   `QUOTE_MAKE_GHL_HOOK` / `QUOTE_MAKE_GHL_KEY`, called only from `src/lib/quotes/start.ts`, `src/lib/quotes/booking.ts`, `src/lib/quotes/link.ts`, `src/lib/quotes/send.ts`
-   and `src/lib/quotes/address.ts` (Address arrived: the contact's street only, never a site on the opportunity).
+   `QUOTE_MAKE_GHL_HOOK` / `QUOTE_MAKE_GHL_KEY`, called only from `src/lib/quotes/start.ts`, `src/lib/quotes/booking.ts`, `src/lib/quotes/link.ts`, `src/lib/quotes/send.ts`,
+   `src/lib/quotes/address.ts` (Address arrived: the contact's street only, never a site on the opportunity)
+   and `src/lib/quotes/activity.ts` (internal comments only).
    Set those two variables only after the scenario is switched on: a request to a scenario
    that is off waits in Make's queue and would run later.
-2c. **One path without a sign-in on the staff app:** `/api/booking`, called by Make 3453735 when an appointment
-   is confirmed. The proxy lets only that path through (besides signing in); the route and every function in
+2c. **A path without a sign-in on the staff app:** `/api/booking`, called by Make 3453735 when an appointment
+   is confirmed. The proxy lets only it and `/api/activity` (2c') through (besides signing in); the route and every function in
    `src/lib/quotes/booking.ts` check `QUOTE_BOOKING_KEY` first (constant-time; unset = off). Make
    sends only the contact id and, when GHL has one, the opportunity id; the customer is read from
    GHL, never taken from the request. It writes the Quotes table (and a version 1), and creates a
@@ -379,10 +404,16 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
    opportunity GHL sends that isn't open, or isn't in a project pipeline (a STORE order), is ignored.
    It answers `made: true` when the job's folder and CompanyCam project already exist (links on the
    quote, or a CompanyCam URL on the opportunity), and Make then skips making them.
+2c'. **A second path without a sign-in: `/api/activity` (2026-10-27)**, open tracking, called by the
+   customer deployment and the daily summary run. The route and every function in
+   `src/lib/quotes/activity.ts` check `QUOTE_ACTIVITY_KEY` first (constant-time; unset = off). It writes
+   only the tracking fields of Quote Versions and posts only internal comments; the version is found by
+   the link's token, never by anything else in the request.
 2d. **Customer links live on the customer deployment only.** There the proxy serves `/c/<token>`
    and 404s everything else, and `write()` refuses; on the staff app `/c/` is 404.
    `src/lib/quotes/customer.ts` answers only there and only for a well-formed token, returns the
-   frozen copy and nothing live, and is imported only by `src/app/c/`. `tests/boundary.test.ts`
+   frozen copy and nothing live, and is imported only by `src/app/c/`. The only other thing `src/app/c/` may
+   reach is `src/lib/activity/relay.ts`, which reports opens to the staff app and reads no Airtable. `tests/boundary.test.ts`
    pins all of this.
 3. **Staff is not enough.** Only emails on `QUOTE_ALLOWED_EMAILS` get in. The proxy checks
    it and every loader in `src/lib/quotes/load.ts` and `src/lib/quotes/start.ts` checks again

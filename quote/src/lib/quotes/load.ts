@@ -15,7 +15,7 @@ export async function listQuoteGroups(): Promise<QuoteGroup[]> {
   await requireQuoter();
   const [versions, quotes] = await Promise.all([
     listRecords(T.versions, {
-      fields: [VERSION.label, VERSION.version, VERSION.status, VERSION.basis, VERSION.quote, VERSION.options],
+      fields: [VERSION.label, VERSION.version, VERSION.status, VERSION.basis, VERSION.quote, VERSION.options, VERSION.openedCount, VERSION.trackActivity],
     }),
     listRecords(T.quotes, {
       fields: [QUOTE.customerName, QUOTE.lastName, QUOTE.firstName, QUOTE.siteCity, QUOTE.quoteNumber, QUOTE.linkStatus, QUOTE.addressStatus, QUOTE.phone, QUOTE.email, QUOTE.projectNumber],
@@ -46,6 +46,8 @@ export async function listQuoteGroups(): Promise<QuoteGroup[]> {
       status: str(r.fields[VERSION.status]),
       basis: str(r.fields[VERSION.basis]),
       optionCount: ids(r.fields[VERSION.options]).length,
+      openedCount: num(r.fields[VERSION.openedCount]) ?? 0,
+      tracked: bool(r.fields[VERSION.trackActivity]),
       createdTime: r.createdTime,
     })),
     heads,
@@ -209,6 +211,14 @@ export async function getQuote(id: string): Promise<Quote | null> {
     lastEditedBy: str(f[VERSION.lastEditedBy]),
     lastEditedAt: str(f[VERSION.lastEditedAt]),
     editLog: str(f[VERSION.editLog]),
+    activity: {
+      tracked: bool(f[VERSION.trackActivity]),
+      openedCount: num(f[VERSION.openedCount]) ?? 0,
+      firstOpenedAt: str(f[VERSION.firstOpenedAt]),
+      lastOpenedAt: str(f[VERSION.lastOpenedAt]),
+      pdfDownloads: num(f[VERSION.pdfDownloads]) ?? 0,
+      activityLog: str(f[VERSION.activityLog]),
+    },
     notes: str(f[VERSION.notes]),
     customerName: customerOf(family?.fields),
     siteAddress: str(family?.fields[QUOTE.siteAddress]),

@@ -102,7 +102,9 @@ export function sendProblems(quote: Quote, input: SendInput, ctx: { today: strin
 
 export type GhlMessage =
   | { type: "Email"; contactId: string; subject: string; html: string; attachments?: string[]; emailFrom?: string }
-  | { type: "SMS"; contactId: string; message: string };
+  | { type: "SMS"; contactId: string; message: string }
+  /** A note on the customer's conversation that only staff see (2026-10-27, open tracking); `mentions` are GHL user ids. */
+  | { type: "InternalComment"; contactId: string; message: string; mentions: string[] };
 
 /**
  * Who the message comes from (2026-10-22, Albert: "the quote is sent out from the email logged into
@@ -348,7 +350,7 @@ export function emailMessage(
   copy: CustomerCopy,
   to: { contactId: string; firstName: string | null; link: string; pdfUrl: string },
   sender: Sender | null = null,
-  options: { emailFrom?: string | null; booking?: { inStore: string; inHome: string } | null; visited?: boolean; attachPdf?: boolean } = {},
+  options: { emailFrom?: string | null; booking?: { inStore: string; inHome: string } | null; attachPdf?: boolean } = {},
 ): GhlMessage {
   const hi = greetingName(to.firstName);
   const prelim = copy.basis === "Preliminary";
@@ -371,17 +373,13 @@ export function emailMessage(
       : `${prelim ? "Rough total" : "Total"} ${cad.format(leads[0].amount)} ${leads[0].tag}${copy.validUntil ? ` · good until ${longDate(copy.validUntil)}` : ""}`;
 
   const headline = `${hi ? `Hi ${esc(hi)}, your` : "Your"} ${esc(what === "quote" ? "" : what).trim()} ${noun} is ready.`.replace(/\s+/g, " ");
-  // A preliminary can go out before anyone has been to the house (Albert, 2026-10-24), so the generic
-  // opening is the default; the sender ticks "we've been to the home" for the warmer one.
-  // Since 2026-10-27 a preliminary is a range: the same opening, a range instead of "a rough number", and what can move it.
+  // A preliminary always goes before anyone has measured (Albert, 2026-10-27: a preliminary is solely a
+  // quote before a visit or measurement; one sent after a measure is a measured quote), so it opens
+  // generically. The "we've been to the home" switch (2026-10-24) is gone. Since 2026-10-27 it is a range.
   const intro = prelim && ranged
-    ? options.visited
-      ? `Thanks for having us over. Here is a price range for what we talked about, based on what we saw. ${esc(rangeWhy(copy))} Once you&rsquo;ve picked a material and we&rsquo;ve measured, we confirm the final price.`
-      : `Thanks for telling us about your project. Here is a price range based on what you&rsquo;ve described. ${esc(rangeWhy(copy))} Once you&rsquo;ve picked a material and we&rsquo;ve measured, we confirm the final price.`
+    ? `Thanks for telling us about your project. Here is a price range based on what you&rsquo;ve described. ${esc(rangeWhy(copy))} Once you&rsquo;ve picked a material and we&rsquo;ve measured, we confirm the final price.`
     : prelim
-    ? options.visited
-      ? `Thanks for having us over. Here is the rough number we talked about, based on what we saw. Once you&rsquo;ve picked a material and we&rsquo;ve measured, we confirm the final price.`
-      : `Thanks for telling us about your project. Here is a rough number based on what you&rsquo;ve described. Once you&rsquo;ve picked a material and we&rsquo;ve measured, we confirm the final price.`
+    ? `Thanks for telling us about your project. Here is a rough number based on what you&rsquo;ve described. Once you&rsquo;ve picked a material and we&rsquo;ve measured, we confirm the final price.`
     : several
       ? `${copy.options.length} ways to do the work, side by side. Open the quote to see every detail and the payment schedule.`
       : `Everything we talked about is in the quote, with the payment schedule. Open it to see the detail.`;
@@ -450,7 +448,7 @@ export function emailMessage(
  * line, how to reply. Straight apostrophes on purpose: one curly quote or emoji switches the
  * whole message to UCS-2 and halves each segment.
  */
-export function smsMessage(copy: CustomerCopy, to: { contactId: string; firstName: string | null; link: string }, sender: Sender | null = null, options: { visited?: boolean } = {}): GhlMessage {
+export function smsMessage(copy: CustomerCopy, to: { contactId: string; firstName: string | null; link: string }, sender: Sender | null = null): GhlMessage {
   const hi = greetingName(to.firstName);
   const prelim = copy.basis === "Preliminary";
   const several = copy.options.length > 1;
@@ -467,8 +465,8 @@ export function smsMessage(copy: CustomerCopy, to: { contactId: string; firstNam
   const what = prelim
     ? r0
       ? // A range (2026-10-27), with " to ": an en dash is not GSM-7.
-        `${options.visited ? "Thanks for having us over." : "Thanks for telling us about your project."} Your ${kind === "quote" ? "" : `${kind} `}estimate is ${rangeText(r0.low, r0.high, " to ")} ${leads[0].tag}.`
-      : `${options.visited ? "Thanks for having us over." : "Thanks for telling us about your project."} Your rough ${kind === "quote" ? "" : `${kind} `}estimate is ${money(leads[0].amount)} ${leads[0].tag}.`
+        `Thanks for telling us about your project. Your ${kind === "quote" ? "" : `${kind} `}estimate is ${rangeText(r0.low, r0.high, " to ")} ${leads[0].tag}.`
+      : `Thanks for telling us about your project. Your rough ${kind === "quote" ? "" : `${kind} `}estimate is ${money(leads[0].amount)} ${leads[0].tag}.`
     : several
       ? `${copy.options.length} options for your ${kind === "quote" ? "project" : kind} are ready to compare, from ${money(low.amount)} ${low.tag}${copy.validUntil ? `, good until ${shortDate(copy.validUntil)}` : ""}.`
       : `Your ${kind === "quote" ? "" : `${kind} `}quote is ready, ${money(leads[0].amount)} ${leads[0].tag}${copy.validUntil ? `, good until ${shortDate(copy.validUntil)}` : ""}.`;
