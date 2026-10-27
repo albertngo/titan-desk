@@ -304,8 +304,9 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   the server never renders it in Customer view, so cost never reaches that page. Pure maths in
   `src/lib/pricing/accepted.ts` (the same `optionTotals()` as every quote), tested in `tests/accepted.test.ts`.
 - **Rooms (Albert, 2026-10-27).** A **Rooms** tab on the quote page, beside Analysis: a manual log of
-  what was measured on site, room by room (name, level, laser / Moasure / tape, length, width, area,
-  perimeter, the floor there now, notes). It is kept on the quote, **Quotes → Rooms** (`QUOTE.rooms`,
+  what was measured on site, room by room (name, level, laser / Moasure / tape, total square feet, the
+  floor there now, notes). One measurement per room, its total square feet, whichever way it was
+  measured: no length, width or perimeter (Albert, same day). It is kept on the quote, **Quotes → Rooms** (`QUOTE.rooms`,
   JSON written by the app only), so every version shows the same rooms. **A log only:** nothing prices,
   checks or changes a quote from it, and the lines' "Area / room" text is untouched; checking a quote
   against the rooms is a later decision. One **Save rooms** button, `saveRooms()` in

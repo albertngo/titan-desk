@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanRooms, MAX_ROOMS, parseRooms, roomsRaw, roomTotals, serializeRooms, toFeet } from "../src/lib/rooms/log";
+import { cleanRooms, MAX_ROOMS, parseRooms, roomsRaw, roomTotals, serializeRooms, toSqft } from "../src/lib/rooms/log";
 
 /** The Rooms tab's log (2026-10-27). Invented rooms and numbers only. */
 
@@ -8,46 +8,47 @@ const room = (over: Record<string, unknown> = {}) => ({
   name: "Back bedroom",
   level: "Upper",
   method: "Laser",
-  length: "11.5",
-  width: "10",
   sqft: "115",
-  perimeter: "43",
   floor: "Carpet",
   notes: "Squeak by the door",
   ...over,
 });
 
-describe("toFeet", () => {
+describe("toSqft", () => {
   it("takes numbers and plain decimal text", () => {
-    expect(toFeet(12)).toBe(12);
-    expect(toFeet("12.615")).toBe(12.615);
-    expect(toFeet(" 9.5 ")).toBe(9.5);
-    expect(toFeet(".5")).toBe(0.5);
-    expect(toFeet("7.")).toBe(7);
+    expect(toSqft(120)).toBe(120);
+    expect(toSqft("124.38")).toBe(124.38);
+    expect(toSqft(" 9.5 ")).toBe(9.5);
+    expect(toSqft(".5")).toBe(0.5);
+    expect(toSqft("7.")).toBe(7);
   });
 
   it("rounds to three places", () => {
-    expect(toFeet(1.23456)).toBe(1.235);
+    expect(toSqft(1.23456)).toBe(1.235);
   });
 
   it("reads anything else as not measured", () => {
-    for (const v of ["", " ", "12ft", "1,200", "-3", "abc", null, undefined, NaN, Infinity, -1, 100000, {}]) expect(toFeet(v)).toBeNull();
+    for (const v of ["", " ", "12ft", "1,200", "-3", "abc", null, undefined, NaN, Infinity, -1, 100000, {}]) expect(toSqft(v)).toBeNull();
   });
 });
 
 describe("cleanRooms", () => {
-  it("keeps a room as typed, measurements as numbers", () => {
+  it("keeps a room as typed, the square footage as a number", () => {
     expect(cleanRooms([room()])).toEqual([
-      { id: "r1", name: "Back bedroom", level: "Upper", method: "Laser", length: 11.5, width: 10, sqft: 115, perimeter: 43, floor: "Carpet", notes: "Squeak by the door" },
+      { id: "r1", name: "Back bedroom", level: "Upper", method: "Laser", sqft: 115, floor: "Carpet", notes: "Squeak by the door" },
     ]);
   });
 
-  it("blanks a level or method off the lists, and drops bad measurements", () => {
-    const [r] = cleanRooms([room({ level: "Attic", method: "Guess", sqft: "about 100", perimeter: -4 })]);
+  it("keeps only the total square feet: length, width and perimeter are not stored", () => {
+    const [r] = cleanRooms([room({ length: "11.5", width: "10", perimeter: "43" })]);
+    expect(Object.keys(r).sort()).toEqual(["floor", "id", "level", "method", "name", "notes", "sqft"]);
+  });
+
+  it("blanks a level or method off the lists, and drops a bad square footage", () => {
+    const [r] = cleanRooms([room({ level: "Attic", method: "Guess", sqft: "about 100" })]);
     expect(r.level).toBe("");
     expect(r.method).toBe("");
     expect(r.sqft).toBeNull();
-    expect(r.perimeter).toBeNull();
   });
 
   it("trims and caps text, and keeps line breaks in notes only", () => {
@@ -59,14 +60,12 @@ describe("cleanRooms", () => {
   });
 
   it("leaves out rooms with nothing in them", () => {
-    const empty = { id: "r2", name: " ", level: "", method: "", length: "", width: "", sqft: "", perimeter: "", floor: "", notes: "" };
+    const empty = { id: "r2", name: " ", level: "", method: "", sqft: "", floor: "", notes: "" };
     expect(cleanRooms([room(), empty]).map((r) => r.id)).toEqual(["r1"]);
   });
 
-  it("keeps a room with only a measurement", () => {
-    expect(cleanRooms([{ id: "r3", sqft: "80" }])).toEqual([
-      { id: "r3", name: "", level: "", method: "", length: null, width: null, sqft: 80, perimeter: null, floor: "", notes: "" },
-    ]);
+  it("keeps a room with only a square footage", () => {
+    expect(cleanRooms([{ id: "r3", sqft: "80" }])).toEqual([{ id: "r3", name: "", level: "", method: "", sqft: 80, floor: "", notes: "" }]);
   });
 
   it("gives a room with a missing, odd or repeated id a fresh one", () => {
@@ -120,9 +119,9 @@ describe("saving and reading back", () => {
 });
 
 describe("roomTotals", () => {
-  it("adds up what was measured, for display only", () => {
-    const rooms = cleanRooms([room(), room({ id: "r2", sqft: "100.25", perimeter: "" }), room({ id: "r3", sqft: "" })]);
-    expect(roomTotals(rooms)).toEqual({ count: 3, sqft: 215.3, perimeter: 86 });
-    expect(roomTotals([])).toEqual({ count: 0, sqft: 0, perimeter: 0 });
+  it("adds up the square feet measured, for display only", () => {
+    const rooms = cleanRooms([room(), room({ id: "r2", sqft: "100.25" }), room({ id: "r3", sqft: "" })]);
+    expect(roomTotals(rooms)).toEqual({ count: 3, sqft: 215.3 });
+    expect(roomTotals([])).toEqual({ count: 0, sqft: 0 });
   });
 });

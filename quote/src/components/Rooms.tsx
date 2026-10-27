@@ -10,12 +10,11 @@ import { cleanRooms, LEVELS, MAX_ROOMS, METHODS, parseRooms, roomTotals, type Ro
  * quote. Edited here and saved with one button; the save is refused if someone else saved first.
  */
 
-type Draft = Omit<Room, "length" | "width" | "sqft" | "perimeter"> & { length: string; width: string; sqft: string; perimeter: string };
-type NumKey = "length" | "width" | "sqft" | "perimeter";
+/** As typed: the square footage stays text until it is saved, so "12." can be typed on the way to "12.5". */
+type Draft = Omit<Room, "sqft"> & { sqft: string };
 
-const show = (n: number | null) => (n === null ? "" : String(n));
-const toDraft = (r: Room): Draft => ({ ...r, length: show(r.length), width: show(r.width), sqft: show(r.sqft), perimeter: show(r.perimeter) });
-const blank = (id: string): Draft => ({ id, name: "", level: "", method: "", length: "", width: "", sqft: "", perimeter: "", floor: "", notes: "" });
+const toDraft = (r: Room): Draft => ({ ...r, sqft: r.sqft === null ? "" : String(r.sqft) });
+const blank = (id: string): Draft => ({ id, name: "", level: "", method: "", sqft: "", floor: "", notes: "" });
 const sameRooms = (a: Room[], b: Room[]) => JSON.stringify(a) === JSON.stringify(b);
 const one = (n: number) => n.toLocaleString("en-CA", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
@@ -24,13 +23,6 @@ function nextId(drafts: Draft[]): string {
   while (drafts.some((d) => d.id === `r${n}`)) n++;
   return `r${n}`;
 }
-
-const NUMS: { key: NumKey; label: string }[] = [
-  { key: "length", label: "Length (ft)" },
-  { key: "width", label: "Width (ft)" },
-  { key: "sqft", label: "Area (sq ft)" },
-  { key: "perimeter", label: "Perimeter (ft)" },
-];
 
 export function Rooms({ quoteRecordId, quoteNumber, raw, savedLabel }: { quoteRecordId: string; quoteNumber: string | null; raw: string; savedLabel: string | null }) {
   const [seen, setSeen] = useState(raw);
@@ -77,7 +69,6 @@ export function Rooms({ quoteRecordId, quoteNumber, raw, savedLabel }: { quoteRe
         <span className="right faint num">
           {totals.count} {totals.count === 1 ? "room" : "rooms"}
           {totals.sqft > 0 && ` · ${one(totals.sqft)} sq ft`}
-          {totals.perimeter > 0 && ` · ${one(totals.perimeter)} ft perimeter`}
         </span>
       </div>
       <div className="card-b rm-body">
@@ -135,15 +126,13 @@ export function Rooms({ quoteRecordId, quoteNumber, raw, savedLabel }: { quoteRe
                           {METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
                         </select>
                       </label>
-                      {NUMS.map(({ key, label: l }) => (
-                        <label key={key} className="rm-f">
-                          <span>{l}</span>
-                          <input className="in num" inputMode="decimal" autoComplete="off" value={d[key]} onChange={(e) => update(d.id, { [key]: e.target.value } as Partial<Draft>)} />
-                        </label>
-                      ))}
-                      <label className="rm-f rm-wide">
+                      <label className="rm-f">
+                        <span>Total sq ft</span>
+                        <input className="in num" inputMode="decimal" autoComplete="off" value={d.sqft} onChange={(e) => update(d.id, { sqft: e.target.value })} />
+                      </label>
+                      <label className="rm-f">
                         <span>Floor there now</span>
-                        <input className="in" placeholder="e.g. carpet, glue-down vinyl, hardwood" maxLength={80} value={d.floor} onChange={(e) => update(d.id, { floor: e.target.value })} />
+                        <input className="in" placeholder="e.g. carpet, tile" maxLength={80} value={d.floor} onChange={(e) => update(d.id, { floor: e.target.value })} />
                       </label>
                       <label className="rm-f rm-wide">
                         <span>Notes</span>
@@ -157,7 +146,7 @@ export function Rooms({ quoteRecordId, quoteNumber, raw, savedLabel }: { quoteRe
                       </label>
                     </div>
                     {d.method === "Moasure" && (
-                      <p className="rm-hint faint">Moasure shows the perimeter first and the area in brackets: 46.0ft (128.5ft²) is a 46 ft perimeter and 128.5 sq ft.</p>
+                      <p className="rm-hint faint">Moasure shows the perimeter first and the area in brackets: for 46.0ft (128.5ft²), the total is 128.5 sq ft.</p>
                     )}
                   </li>
                 );
