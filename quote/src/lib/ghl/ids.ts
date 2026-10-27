@@ -54,6 +54,9 @@ export const PROJECT_PIPELINE_IDS: readonly string[] = [LEADS_PIPELINE_ID, SALES
 /** Contact custom field "Do You Have A Flooring Project Coming Up? If so, when?" */
 export const CONTACT_TIMING_FIELD = "AqDkCXA2JS0XZ3Hpwy5A";
 
+/** The contact's "Quote Origin" custom field (contact.quote_origin, text): where they found us (2026-10-27). */
+export const CONTACT_ORIGIN_FIELD = "fWIPg1bx2NbQwUXkVRBL";
+
 /** Opportunity custom fields the quote app fills. */
 export const OPP_FIELDS = {
   quoteNumber: "CbDr2iLoiuCtzWBADWNB",

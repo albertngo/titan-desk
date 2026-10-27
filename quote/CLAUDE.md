@@ -75,6 +75,16 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   timeline, with the step numbers counted; v1 is *Preliminary* with one priced option, opened for
   review). The request says `kind: "measured"` for the first; anything else is a preliminary
   (`parseNewQuote()` in `src/lib/link/newQuote.ts`).
+- **Where they found us (Albert, 2026-10-27).** A preliminary's customer step asks **Where did they
+  find us?** from a fixed list (`ORIGINS` in `src/lib/link/origin.ts`). The pick is the most
+  trusted answer: it goes into the GHL contact's **Quote Origin** custom field (`CONTACT_ORIGIN_FIELD`),
+  the contact's **Source** and the opportunity's **Source**, replacing what is there, unless that field
+  already holds one of the exact options, which is kept (`replaceable()`). The contact and the linked
+  opportunity are read fresh from GHL first; a contact whose Quote Origin is already an option shows it
+  instead of asking. It rides the same Make request
+  that creates the contact or opportunity (`buildGhlRequest()` in `src/lib/link/ghlRequest.ts`), so no
+  GHL workflow and no Make change. Optional; a measured quote does not ask. Tested in
+  `tests/ghlRequest.test.ts` and `tests/link.test.ts`.
 - **Quick form = the preliminary (Albert, 2026-10-15; phone layout 2026-10-18).** "Job", step 1
   of a preliminary, replaces the GHL "Preliminary Mobile Quote" form and its workflow: pick flooring
   work from short lists, type square footage, add staircases, see a live estimate. Laid out for a

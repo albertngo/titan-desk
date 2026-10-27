@@ -99,15 +99,18 @@ export async function startQuote(raw: unknown): Promise<StartResult> {
       }
     }
 
-    let linkedOpp: { id: string; pipelineId: string | null } | null = null;
+    let linkedOpp: { id: string; pipelineId: string | null; source?: string | null } | null = null;
     let who: { first: string | null; last: string | null; phone: string | null; email: string | null; address: string | null; city: string | null };
+    let existing: { origin: string | null; source: string | null } | null = null;
     if (req.contactId) {
       const contact = await getContact(req.contactId);
       if (!contact) return { ok: false, message: "That contact isn't in GHL any more. Search again." };
+      // Read fresh from GHL: a field that already holds an exact option is kept (2026-10-27).
+      existing = { origin: contact.origin ?? null, source: contact.source ?? null };
       if (req.opportunityId) {
         const theirs = (await opportunitiesForContact(req.contactId)).find((o) => o.id === req.opportunityId);
         if (!theirs) return { ok: false, message: "That opportunity belongs to a different contact. Search again." };
-        linkedOpp = { id: theirs.id, pipelineId: theirs.pipelineId };
+        linkedOpp = { id: theirs.id, pipelineId: theirs.pipelineId, source: theirs.source ?? null };
       }
       who = { first: contact.firstName, last: contact.lastName, phone: displayPhone(contact.phone), email: contact.email, address: contact.address, city: contact.city };
     } else {
@@ -156,7 +159,7 @@ export async function startQuote(raw: unknown): Promise<StartResult> {
     });
     const quoteNo = str(quote.fields[QUOTE.quoteNumber]) ?? quoteNumber(num(quote.fields[QUOTE.seq]) ?? 0);
     const versionId = await firstVersion(quote.id, quoteNo, req.basis, person);
-    await pushToGhl(quote.id, quoteNo, str(quote.fields[QUOTE.displayName]) ?? quoteNo, req, who, linkedOpp, today);
+    await pushToGhl(quote.id, quoteNo, str(quote.fields[QUOTE.displayName]) ?? quoteNo, req, who, linkedOpp, today, existing);
     // Only a preliminary takes the quick form's work; a full quote opens empty in the editor.
     const filled = req.basis === "Preliminary" && !workIsEmpty(work) ? await fillFromQuickForm(quote.id, versionId, work, today) : false;
     return { ok: true, versionId, reused: false, filled };
@@ -235,8 +238,9 @@ async function pushToGhl(
   name: string,
   req: NewQuoteRequest,
   who: { first: string | null; last: string | null; phone: string | null; email: string | null; address: string | null; city: string | null },
-  linkedOpp: { id: string; pipelineId: string | null } | null,
+  linkedOpp: { id: string; pipelineId: string | null; source?: string | null } | null,
   today: string,
+  existing: { origin: string | null; source: string | null } | null = null,
 ): Promise<void> {
   if (!makeConfigured()) return;
   try {
@@ -251,6 +255,8 @@ async function pushToGhl(
         // Only a confirmed site goes on the opportunity; GHL's own workflow fills a blank one from
         // the contact, and booking confirms it (2026-10-15).
         site: req.addressConfirmed ? { address: who.address, city: who.city } : { address: null, city: null },
+        origin: req.origin,
+        existing,
       }),
     );
     if (!linkedOpp) {

@@ -137,10 +137,21 @@ describe("the New quote form", () => {
     const r = parseNewQuote({ contactId: "abcDEF123456", opportunityId: "oppXYZ987654", timing: "1 to 3 months", addressConfirmed: true });
     expect(r).toEqual({
       ok: true,
-      value: { contactId: "abcDEF123456", opportunityId: "oppXYZ987654", timing: "1 to 3 months", addressConfirmed: true, newCustomer: null, forceNew: false, basis: "Preliminary" },
+      value: { contactId: "abcDEF123456", opportunityId: "oppXYZ987654", timing: "1 to 3 months", addressConfirmed: true, newCustomer: null, forceNew: false, basis: "Preliminary", origin: null },
     });
     const n = parseNewQuote({ contactId: "abcDEF123456", opportunityId: "", timing: "Not sure" });
     expect(n.ok && n.value.opportunityId).toBeNull();
+  });
+
+  it("takes where they found us from the list only (2026-10-27)", () => {
+    const pick = parseNewQuote({ contactId: "abcDEF123456", timing: "Not sure", origin: "Meta Ad" });
+    expect(pick.ok && pick.value.origin).toBe("Meta Ad");
+    const neighbour = parseNewQuote({ contactId: "abcDEF123456", timing: "Not sure", origin: "Neighbour Ad" });
+    expect(neighbour.ok && neighbour.value.origin).toBe("Neighbour Ad");
+    const off = parseNewQuote({ contactId: "abcDEF123456", timing: "Not sure", origin: "Billboard" });
+    expect(off.ok && off.value.origin).toBeNull();
+    const fresh = parseNewQuote({ timing: "Not sure", origin: "Direct: Walk-in", newCustomer: { firstName: "Jane", phone: "416-555-0199" } });
+    expect(fresh.ok && fresh.value.origin).toBe("Direct: Walk-in");
   });
 
   it("makes a preliminary unless asked for a measured quote (2026-10-18)", () => {
@@ -174,6 +185,7 @@ describe("the New quote form", () => {
         newCustomer: { firstName: "Jane", lastName: "Doe", phone: "416-555-0199", email: "jane@example.com", address: null, city: null },
         forceNew: false,
         basis: "Preliminary",
+        origin: null,
       },
     });
   });
