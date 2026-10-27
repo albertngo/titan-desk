@@ -185,7 +185,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   On a measured quote both comments tag the sender (their GHL user, by email), else the opportunity's
   assigned user, else Albert; a preliminary's are the same notes with nobody tagged, since its
   follow-up is the automation's. Only versions sent since tracking began (Track Activity) get comments.
-  The Send card shows the activity once sent, and All quotes marks opened versions with when they were last opened (`openedOn()` in `src/lib/quotes/group.ts`); staff opening a
+  The Send card shows the activity once sent, and All quotes has a **Last opened** column (the current version's last open and how many in all) and marks opened versions in each quote's version list (`openedOn()` in `src/lib/quotes/group.ts`); staff opening a
   link from the Send card add `#staff`, which is never counted. Rules in `src/lib/activity/track.ts`,
   tested in `tests/activity.test.ts`.
 - **Customer view (Albert, 2026-10-15).** A switch in the top bar, kept per device in the

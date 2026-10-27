@@ -16,13 +16,17 @@ const initials = (name: string | null) =>
     .join("")
     .toUpperCase() || "?";
 
+type OpenInfo = Pick<VersionRow, "status" | "openedCount" | "lastOpenedAt" | "tracked">;
+const openTitle = (n: number, lastOpenedAt: string | null | undefined) =>
+  `Customer opened the link ${n === 1 ? "once" : `${n} times`}${lastOpenedAt ? `, last ${whenWords(new Date(lastOpenedAt))}` : ""}`;
+
 /** Open tracking (2026-10-27): how often the customer opened a sent version's link and when last; "Not opened" once it is tracked. */
-function Opened({ v, now }: { v: Pick<VersionRow, "status" | "openedCount" | "lastOpenedAt" | "tracked">; now: Date }) {
+function Opened({ v, now }: { v: OpenInfo; now: Date }) {
   const n = v.openedCount ?? 0;
   if (n > 0) {
     const when = v.lastOpenedAt ? openedOn(v.lastOpenedAt, now) : null;
     return (
-      <span className="ql-open" title={`Customer opened the link ${n === 1 ? "once" : `${n} times`}${v.lastOpenedAt ? `, last ${whenWords(new Date(v.lastOpenedAt))}` : ""}`}>
+      <span className="ql-open" title={openTitle(n, v.lastOpenedAt)}>
         Opened{n > 1 ? ` ×${n}` : ""}
         {when && <span className="ql-open-at">{n > 1 ? `, last ${when}` : ` ${when}`}</span>}
       </span>
@@ -30,6 +34,24 @@ function Opened({ v, now }: { v: Pick<VersionRow, "status" | "openedCount" | "la
   }
   if (v.tracked && v.status === "Sent") return <span className="ql-open none">Not opened</span>;
   return null;
+}
+
+/** The Last opened column (2026-10-27): the current version's last open, how many in all under it. */
+function LastOpened({ v, now }: { v: OpenInfo; now: Date }) {
+  const n = v.openedCount ?? 0;
+  if (n > 0) {
+    const when = v.lastOpenedAt ? openedOn(v.lastOpenedAt, now) : null;
+    return (
+      <div className="ql-seen" title={openTitle(n, v.lastOpenedAt)}>
+        <span className="at">
+          <span className="k">Last opened: </span>
+          {when ? when[0].toUpperCase() + when.slice(1) : "Opened"}
+        </span>
+        <span className="mt">{n === 1 ? "1 open" : `${n} opens`}</span>
+      </div>
+    );
+  }
+  return <div className="ql-seen">{v.tracked && v.status === "Sent" && <span className="none">Not opened</span>}</div>;
 }
 
 /** A version's status as a quiet dot badge; the colour carries the state, the word stays readable. */
@@ -141,6 +163,7 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
           <span className="c-who">Customer</span>
           <span>Quote</span>
           <span>Current version</span>
+          <span>Last opened</span>
           <span>Attention</span>
           <span className="c-when" title="When the current version was created">Created</span>
         </div>
@@ -176,8 +199,8 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
                     <span className="ql-v-n">v{latest.version ?? "?"}</span>
                     <Status status={latest.status} />
                     {latest.basis && <span className={`ql-basis ${latest.basis}`}>{latest.basis}</span>}
-                    <Opened v={latest} now={now} />
                   </div>
+                  <LastOpened v={latest} now={now} />
                   <div className="ql-flags">
                     {g.linkStatus === "Needs linking" && <span className="chip bad">Needs linking</span>}
                     {g.addressStatus === "Unconfirmed" && <span className="chip warn">Address unconfirmed</span>}

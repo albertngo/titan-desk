@@ -214,7 +214,7 @@ table.cmp td:first-child { text-align: left; color: var(--fg-dim); }
 .ql { list-style: none; margin: 0; padding: 0; }
 .ql-q { border-bottom: 1px solid var(--line); }
 .ql-q:last-child { border-bottom: 0; }
-.ql-card { --ql-cols: 28px 32px minmax(0, 1.7fr) minmax(84px, .55fr) minmax(0, 1fr) minmax(0, 1fr) 84px; }
+.ql-card { --ql-cols: 28px 32px minmax(0, 1.6fr) minmax(84px, .5fr) minmax(0, .9fr) minmax(120px, .7fr) minmax(0, 1fr) 84px; }
 /* Column headings: same grid as the rows, held under the page top while the list scrolls. */
 .ql-head { position: sticky; top: 0; z-index: 2; display: grid; grid-template-columns: var(--ql-cols); gap: 12px; padding: 8px 16px 8px 8px; background: var(--head); border-bottom: 1px solid var(--line); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--fg-dim); white-space: nowrap; }
 .ql-head > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
@@ -227,7 +227,11 @@ table.cmp td:first-child { text-align: left; color: var(--fg-dim); }
 .ql-tog .chev { display: block; transition: transform .18s ease; }
 .ql-q.open .ql-tog .chev { transform: rotate(90deg); }
 .ql-av { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); font-size: 11.5px; font-weight: 700; letter-spacing: .02em; }
-.ql-who, .ql-num { display: grid; gap: 2px; min-width: 0; }
+.ql-who, .ql-num, .ql-seen { display: grid; gap: 2px; min-width: 0; }
+.ql-seen .at { font-size: 12.5px; font-weight: 600; color: var(--good); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ql-seen .none { font-size: 12px; color: var(--fg-dim); }
+/* The column heading names it on a wide screen; read aloud there, and shown once the rows stack. */
+.ql-seen .k { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .ql-who .cust { font-weight: 600; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* The whole row opens the quote; the version toggle sits above that link. */
 .ql-who .cust::after { content: ""; position: absolute; inset: 0; }
@@ -258,8 +262,10 @@ table.cmp td:first-child { text-align: left; color: var(--fg-dim); }
 .ql-empty .s { color: var(--fg-dim); font-size: 13px; }
 @media (max-width: 860px) {
   .ql-row { grid-template-columns: 28px 32px minmax(0, 1fr) auto; row-gap: 6px; }
-  .ql-latest, .ql-flags { grid-column: 3 / -1; }
-  .ql-flags:empty { display: none; }
+  .ql-latest, .ql-flags, .ql-seen { grid-column: 3 / -1; }
+  .ql-flags:empty, .ql-seen:empty { display: none; }
+  .ql-seen { display: flex; align-items: baseline; gap: 8px; }
+  .ql-seen .k { position: static; width: auto; height: auto; clip: auto; font-weight: 500; color: var(--fg-dim); }
   .ql-when, .ql-head { display: none; }
   .ql-vs { margin-left: 36px; }
 }
