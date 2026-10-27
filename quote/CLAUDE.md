@@ -188,6 +188,17 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   check live, the send runs everything). The previews and PDF follow the ticks (`?options=`). **The
   email lists three or more options compactly** (names and prices before HST; the detail is on the
   page); one or two get a full card each. Tested in `tests/send.test.ts`.
+- **A preliminary goes as a range (Albert, 2026-10-27).** Customers took a preliminary's one number as
+  the price, so a measured quote that came in higher read as a change. Everything the customer gets
+  (email, text, page, PDF) shows the price before HST as a range instead: 10% either side, rounded
+  outward to a round figure ($10 steps under $1,000, $50 under $10,000, $100 above; `priceRange()` in
+  `src/lib/send/copy.ts`), the range with HST under it, no HST amount, no discount rows, and the payment
+  schedule in shares of the final price. The words stay the same apart from "a price range" for "a rough
+  number" and one passage (`rangeWhy()`): the final price can be expected to fall within it, and what the
+  measure confirms can add to the cost or bring it down. The text says "$4,850 to $6,000" (an en dash is
+  not GSM-7) and stays at two segments. The range is frozen on the copy (`CopyOption.range`), so a
+  preliminary sent before this keeps its one number. The Send card says which range the customer will
+  see; the quote page and the editor still show staff the exact price. Tested in `tests/send.test.ts`.
 - **Sent from the person signed in (Albert, 2026-10-22).** The email goes out from the quoter's own
   address through GHL's `emailFrom`: tried as "Albert @ Titan Flooring <albert@…>" (the From-name
   convention GHL's own emails use), then the bare address, then GHL's default sender, so a sender GHL

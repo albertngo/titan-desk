@@ -590,6 +590,9 @@ a.chip.accent:hover { text-decoration: underline; }
 .cq-totals .total dt { color: var(--accent-ink); }
 .cq-totals .total .tag { font-weight: 500; font-size: 13px; opacity: .85; }
 .cq-totals .total ~ div { padding: 0 12px; }
+/* A preliminary's range (2026-10-27): the label and the two figures wrap as a pair on a phone. */
+.cq-totals .total.range { flex-wrap: wrap; row-gap: 2px; }
+.cq-totals .total.range dd { white-space: nowrap; }
 .cq-totals .with dt, .cq-totals .with dd { font-weight: 600; color: var(--fg); }
 .cq-pay { order: 1; font-size: 13.5px; display: grid; gap: 4px; align-content: start; }
 .cq-pay h4, .cq-excl h4 { margin: 0 0 4px; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--fg-faint); }

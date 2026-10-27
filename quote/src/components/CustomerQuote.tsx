@@ -1,5 +1,5 @@
 import { money, rate } from "@/lib/format";
-import { discountLabel, hstRow, isLump, itemHstNote, leadPrice, longDate, type CopyItem, type CopyOption, type CopyState, type CopyText, type CustomerCopy } from "@/lib/send/copy";
+import { discountLabel, hstRow, isLump, itemHstNote, leadPrice, longDate, prelimNote, rangeText, type CopyItem, type CopyOption, type CopyState, type CopyText, type CustomerCopy } from "@/lib/send/copy";
 
 /**
  * The quote as the customer sees it, drawn from the frozen customer copy only. Used by the
@@ -53,6 +53,26 @@ function Totals({ o, copy }: { o: CopyOption; copy: CustomerCopy }) {
   const t = o.totals;
   const h = hstRow(copy, t);
   const lead = leadPrice(copy, t);
+  const r = o.range;
+  // A preliminary's range (Albert, 2026-10-27): no exact figure anywhere, so no discount rows, no HST amount
+  // and a payment schedule in shares of the final price.
+  if (r) {
+    return (
+      <div className="cq-totals">
+        <dl>
+          <div className="total range"><dt>Estimated range <span className="tag">before HST</span></dt><dd>{rangeText(r.low, r.high)}</dd></div>
+          <div><dt>{h.label}</dt><dd>{h.amount !== null ? "On the final price" : "Not included"}</dd></div>
+          {lead.addsHst && <div className="with"><dt>With HST</dt><dd>{rangeText(r.lowWithHst, r.highWithHst)}</dd></div>}
+        </dl>
+        <div className="cq-pay">
+          <h4>Payment schedule, on the final price</h4>
+          <div><span>Deposit</span><span>35%</span></div>
+          <div><span>Second payment</span><span>35%</span></div>
+          <div><span>Final payment</span><span>The balance</span></div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="cq-totals">
       <dl>
@@ -167,7 +187,7 @@ export function CustomerQuote({
             {copy.validUntil && <div><dt>Good until</dt><dd>{longDate(copy.validUntil)}</dd></div>}
           </dl>
           {copy.basis === "Preliminary" && (
-            <p className="cq-prelim">This is a preliminary estimate, based on what we know so far. We confirm the final price once we have measured the space.</p>
+            <p className="cq-prelim">{prelimNote(copy)}</p>
           )}
           {isLump(copy) && <p className="cq-lump">Priced as one sum for the project. The items below show what it includes.</p>}
         </section>
@@ -178,7 +198,7 @@ export function CustomerQuote({
               <a key={i} href={`#option-${i + 1}`} className={`cq-card cq-pickc${o.recommended ? " rec" : ""}`}>
                 <span className="cq-num">Option {i + 1}{o.recommended && <b> · Recommended</b>}</span>
                 <span className="nm">{o.name}</span>
-                <span className="tot">{money(leadPrice(copy, o.totals).amount)}</span>
+                <span className="tot">{o.range ? rangeText(o.range.low, o.range.high) : money(leadPrice(copy, o.totals).amount)}</span>
                 <span className="faint">{leadPrice(copy, o.totals).tag}</span>
               </a>
             ))}

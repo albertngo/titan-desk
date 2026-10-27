@@ -1,6 +1,6 @@
 import { optionTotals, parityDiffs } from "@/lib/calc";
 import type { Quote } from "@/lib/quotes/types";
-import { addDays, hstRow, isIsoDate, leadPrice, longDate, type CopyOption, type CustomerCopy } from "./copy";
+import { addDays, dollars, hstRow, isIsoDate, isRange, leadPrice, longDate, rangeText, rangeWhy, type CopyOption, type CustomerCopy } from "./copy";
 import { copyKind, flooringSummary, kindPhrase } from "./summary";
 
 /**
@@ -221,29 +221,39 @@ function optionCard(o: CopyOption, copy: CustomerCopy, several: boolean): string
   const prelim = copy.basis === "Preliminary";
   const badge = o.recommended && several ? `<span style="display:inline-block;padding:4px 10px;border-radius:999px;background:${C.cream};font-family:${SANS};font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:${C.accentDeep};font-weight:600;">Recommended</span>` : "";
   const title = several ? esc(o.name) : prelim ? "What&rsquo;s included" : "Your quote";
-  const totalLabel = prelim ? "Rough total" : "Total";
+  const r = o.range;
+  const totalLabel = r ? "Estimated range" : prelim ? "Rough total" : "Total";
   // Before HST, set large, with the HST and the with-HST total as two quiet lines under it (2026-10-24).
   const lead = leadPrice(copy, o.totals);
   const tax = hstRow(copy, o.totals);
   const small = (label: string, amount: string) =>
     `<tr><td style="padding:3px 0 0;font-family:${SANS};font-size:13px;color:${C.muted};">${label}</td><td align="right" style="padding:3px 0 0;font-family:${SANS};font-size:13px;color:${C.muted};white-space:nowrap;">${amount}</td></tr>`;
+  // A range has no exact HST to show (2026-10-27): only the range with HST in it.
+  const after = r ? small("With HST", rangeText(r.lowWithHst, r.highWithHst)) : tax.amount !== null ? small(esc(tax.label), cad.format(tax.amount)) + small("With HST", cad.format(o.totals.total)) : "";
   const breakdown = lead.addsHst && tax.amount !== null
     ? `<tr><td colspan="2" style="padding:10px 0 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid ${C.hair};">` +
       `<tr><td colspan="2" style="height:6px;line-height:6px;font-size:1px;">&nbsp;</td></tr>` +
-      small(esc(tax.label), cad.format(tax.amount)) + small("With HST", cad.format(o.totals.total)) +
+      after +
       `</table></td></tr>`
     : "";
+  // "+ HST" sits beside the number; the line under the label speaks only when it has something to add.
+  const label = `${totalLabel}${lead.addsHst && copy.showHst ? "" : `<br><span style="font-size:12px;letter-spacing:0;text-transform:none;">${lead.addsHst ? "HST on materials only" : "before HST"}</span>`}`;
+  const plus = lead.addsHst ? `<span style="font-family:${SANS};font-size:14px;color:${C.muted};white-space:nowrap;"> + HST</span>` : "";
+  const labelStyle = `font-family:${SANS};font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:${C.muted};`;
+  // A range is two figures, so it sits under its label rather than beside it, and breaks only between the two on a phone.
+  const figure = r
+    ? `<tr><td colspan="2" style="${labelStyle}">${label}</td></tr>` +
+      `<tr><td colspan="2" class="total" style="padding:6px 0 0;font-family:${SERIF};font-size:30px;line-height:1.25;color:${C.ink};"><span style="white-space:nowrap;">${dollars(r.low)} &ndash;</span> <span style="white-space:nowrap;">${dollars(r.high)}</span>${plus}</td></tr>`
+    : `<tr><td style="${labelStyle}">${label}</td>` +
+      `<td align="right" class="total" style="font-family:${SERIF};font-size:30px;color:${C.ink};"><span style="white-space:nowrap;">${cad.format(lead.amount)}</span>${plus}</td></tr>`;
   return (
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.wash};border-radius:18px;"><tr><td style="padding:8px;">` +
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.card};border:1px solid ${C.hair};border-radius:12px;">` +
     `<tr><td style="padding:22px 24px 6px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>` +
     `<td style="font-family:${SERIF};font-size:20px;color:${C.ink};">${title}</td>${badge ? `<td align="right">${badge}</td>` : ""}</tr></table></td></tr>` +
     (items.length ? `<tr><td style="padding:0 24px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${items.join("")}</table></td></tr>` : "") +
-    `<tr><td style="padding:18px 24px 22px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>` +
-    // "+ HST" sits beside the number; the line under the label speaks only when it has something to add.
-    `<td style="font-family:${SANS};font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:${C.muted};">${totalLabel}${lead.addsHst && copy.showHst ? "" : `<br><span style="font-size:12px;letter-spacing:0;text-transform:none;">${lead.addsHst ? "HST on materials only" : "before HST"}</span>`}</td>` +
-    `<td align="right" class="total" style="font-family:${SERIF};font-size:30px;color:${C.ink};"><span style="white-space:nowrap;">${cad.format(lead.amount)}</span>${lead.addsHst ? `<span style="font-family:${SANS};font-size:14px;color:${C.muted};white-space:nowrap;"> + HST</span>` : ""}</td>` +
-    `</tr>${breakdown}</table></td></tr></table></td></tr></table>`
+    `<tr><td style="padding:18px 24px 22px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">` +
+    `${figure}${breakdown}</table></td></tr></table></td></tr></table>`
   );
 }
 
@@ -253,6 +263,7 @@ function optionList(copy: CustomerCopy): string {
   const rows = copy.options
     .map((o, i) => {
       const lead = leadPrice(copy, o.totals);
+      const price = o.range ? `${dollars(o.range.low)} &ndash; ${dollars(o.range.high)}` : cad.format(lead.amount);
       const badge = o.recommended
         ? ` <span style="display:inline-block;margin-left:6px;padding:2px 8px;border-radius:999px;background:${C.cream};font-family:${SANS};font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:${C.accentDeep};font-weight:600;vertical-align:2px;">Recommended</span>`
         : "";
@@ -260,7 +271,7 @@ function optionList(copy: CustomerCopy): string {
         `<tr><td style="padding:13px 0;border-bottom:1px solid ${C.hair};font-family:${SANS};font-size:15px;color:${C.ink};">` +
         `<span style="color:${C.muted};font-size:13px;">Option ${i + 1}</span><br>${esc(o.name)}${badge}</td>` +
         `<td align="right" valign="bottom" style="padding:13px 0;border-bottom:1px solid ${C.hair};white-space:nowrap;">` +
-        `<span style="font-family:${SERIF};font-size:20px;color:${C.ink};">${cad.format(lead.amount)}</span>` +
+        `<span style="font-family:${SERIF};font-size:20px;color:${C.ink};">${price}</span>` +
         `<span style="font-family:${SANS};font-size:12px;color:${C.muted};"> ${esc(lead.tag)}</span></td></tr>`
       );
     })
@@ -270,7 +281,7 @@ function optionList(copy: CustomerCopy): string {
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.card};border:1px solid ${C.hair};border-radius:12px;">` +
     `<tr><td style="padding:22px 24px 4px;font-family:${SERIF};font-size:20px;color:${C.ink};">Your ${copy.options.length} options</td></tr>` +
     `<tr><td style="padding:0 24px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${rows}</table></td></tr>` +
-    `<tr><td style="padding:14px 24px 20px;font-family:${SANS};font-size:13px;line-height:1.5;color:${C.muted};">${prelim ? "Rough prices. " : ""}What each option includes, the HST and the payment schedule are on the quote page.</td></tr>` +
+    `<tr><td style="padding:14px 24px 20px;font-family:${SANS};font-size:13px;line-height:1.5;color:${C.muted};">${isRange(copy) ? "Estimated ranges. " : prelim ? "Rough prices. " : ""}What each option includes, the HST and the payment schedule are on the quote page.</td></tr>` +
     `</table></td></tr></table>`
   );
 }
@@ -349,14 +360,25 @@ export function emailMessage(
   // Every amount leads before HST (2026-10-24); with several options, the lowest.
   const leads = copy.options.map((o) => leadPrice(copy, o.totals));
   const low = leads.reduce((a, b) => (b.amount < a.amount ? b : a));
+  // A preliminary's range (2026-10-27): its low end for "from", the whole range for one option.
+  const ranged = isRange(copy);
+  const r0 = copy.options[0].range;
+  const lowEnd = ranged ? Math.min(...copy.options.map((o) => o.range?.low ?? leadPrice(copy, o.totals).amount)) : low.amount;
   const preheader = several
-    ? `${copy.options.length} options from ${cad.format(low.amount)} ${low.tag}${copy.validUntil ? ` · good until ${longDate(copy.validUntil)}` : ""}`
-    : `${prelim ? "Rough total" : "Total"} ${cad.format(leads[0].amount)} ${leads[0].tag}${copy.validUntil ? ` · good until ${longDate(copy.validUntil)}` : ""}`;
+    ? `${copy.options.length} options from ${ranged ? dollars(lowEnd) : cad.format(lowEnd)} ${low.tag}${copy.validUntil ? ` · good until ${longDate(copy.validUntil)}` : ""}`
+    : r0
+      ? `Estimated range ${rangeText(r0.low, r0.high)} ${leads[0].tag}`
+      : `${prelim ? "Rough total" : "Total"} ${cad.format(leads[0].amount)} ${leads[0].tag}${copy.validUntil ? ` · good until ${longDate(copy.validUntil)}` : ""}`;
 
   const headline = `${hi ? `Hi ${esc(hi)}, your` : "Your"} ${esc(what === "quote" ? "" : what).trim()} ${noun} is ready.`.replace(/\s+/g, " ");
   // A preliminary can go out before anyone has been to the house (Albert, 2026-10-24), so the generic
   // opening is the default; the sender ticks "we've been to the home" for the warmer one.
-  const intro = prelim
+  // Since 2026-10-27 a preliminary is a range: the same opening, a range instead of "a rough number", and what can move it.
+  const intro = prelim && ranged
+    ? options.visited
+      ? `Thanks for having us over. Here is a price range for what we talked about, based on what we saw. ${esc(rangeWhy(copy))} Once you&rsquo;ve picked a material and we&rsquo;ve measured, we confirm the final price.`
+      : `Thanks for telling us about your project. Here is a price range based on what you&rsquo;ve described. ${esc(rangeWhy(copy))} Once you&rsquo;ve picked a material and we&rsquo;ve measured, we confirm the final price.`
+    : prelim
     ? options.visited
       ? `Thanks for having us over. Here is the rough number we talked about, based on what we saw. Once you&rsquo;ve picked a material and we&rsquo;ve measured, we confirm the final price.`
       : `Thanks for telling us about your project. Here is a rough number based on what you&rsquo;ve described. Once you&rsquo;ve picked a material and we&rsquo;ve measured, we confirm the final price.`
@@ -441,13 +463,19 @@ export function smsMessage(copy: CustomerCopy, to: { contactId: string; firstNam
   const first = hi ? `Hi ${hi}, ${whoFrom}.` : `Hi, ${whoFrom}.`;
   // Layout (Albert, 2026-10-24): the news, a blank line, "See the full details here:" with the link on
   // its own line, a blank line, how to reply. No phone number: the reply goes to the same thread.
+  const r0 = copy.options[0].range;
   const what = prelim
-    ? `${options.visited ? "Thanks for having us over." : "Thanks for telling us about your project."} Your rough ${kind === "quote" ? "" : `${kind} `}estimate is ${money(leads[0].amount)} ${leads[0].tag}.`
+    ? r0
+      ? // A range (2026-10-27), with " to ": an en dash is not GSM-7.
+        `${options.visited ? "Thanks for having us over." : "Thanks for telling us about your project."} Your ${kind === "quote" ? "" : `${kind} `}estimate is ${rangeText(r0.low, r0.high, " to ")} ${leads[0].tag}.`
+      : `${options.visited ? "Thanks for having us over." : "Thanks for telling us about your project."} Your rough ${kind === "quote" ? "" : `${kind} `}estimate is ${money(leads[0].amount)} ${leads[0].tag}.`
     : several
       ? `${copy.options.length} options for your ${kind === "quote" ? "project" : kind} are ready to compare, from ${money(low.amount)} ${low.tag}${copy.validUntil ? `, good until ${shortDate(copy.validUntil)}` : ""}.`
       : `Your ${kind === "quote" ? "" : `${kind} `}quote is ready, ${money(leads[0].amount)} ${leads[0].tag}${copy.validUntil ? `, good until ${shortDate(copy.validUntil)}` : ""}.`;
   const close = prelim
-    ? "We confirm the price once we've measured. Any questions, just reply."
+    ? r0
+      ? "The final price should land in that range. Any questions, just reply."
+      : "We confirm the price once we've measured. Any questions, just reply."
     : several
       ? "Reply here with the one you'd like, or with any questions."
       : "Reply here if anything needs changing.";
