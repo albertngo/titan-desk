@@ -134,7 +134,7 @@ export async function opportunitySite(id: string): Promise<GhlSite | null> {
  * The Notion project a won opportunity got (2026-10-27): its PP number and page, which Make 3710214
  * writes back onto the opportunity after it makes the project. Null if GHL has no such opportunity.
  */
-export async function opportunityProject(id: string): Promise<{ projectNumber: string | null; notionUrl: string | null } | null> {
+export async function opportunityProject(id: string): Promise<{ projectNumber: string | null; notionUrl: string | null; companyCamUrl: string | null } | null> {
   if (!/^[A-Za-z0-9]+$/.test(id)) return null;
   try {
     const data = (await get(`/opportunities/${id}`, {})) as { opportunity?: Record<string, unknown> };
@@ -143,6 +143,7 @@ export async function opportunityProject(id: string): Promise<{ projectNumber: s
     return {
       projectNumber: customValue(o.customFields, OPP_FIELDS.projectNumber),
       notionUrl: ACCEPT_FIELDS.notionProjectUrl ? customValue(o.customFields, ACCEPT_FIELDS.notionProjectUrl) : null,
+      companyCamUrl: customValue(o.customFields, OPP_FIELDS.companyCamUrl),
     };
   } catch (e) {
     if (e instanceof GhlError && e.status === 404) return null;

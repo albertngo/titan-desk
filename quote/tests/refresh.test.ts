@@ -74,6 +74,12 @@ describe("an accepted quote picks up its Notion project (2026-10-27)", () => {
   it("copies the PP number and the Notion page Make wrote back onto the opportunity", () => {
     expect(projectPickup(blank, { projectNumber: "PP-412", notionUrl: "https://www.notion.so/Titan-Project-abc123" })).toEqual({ projectNumber: "PP-412", notionProjectUrl: "https://www.notion.so/Titan-Project-abc123" });
     expect(projectPickup(blank, { projectNumber: "pp 77", notionUrl: null })).toEqual({ projectNumber: "PP-77" });
+    // Notion's 2026 page links (app.notion.com/p/…), once the PP number is already there.
+    expect(projectPickup({ projectNumber: "PP-77", notionProjectUrl: null }, { projectNumber: "PP-77", notionUrl: "https://app.notion.com/p/abc123" })).toEqual({ notionProjectUrl: "https://app.notion.com/p/abc123" });
+    // The job's CompanyCam link, when the quote has none; never over one it has, never a look-alike.
+    expect(projectPickup(blank, { projectNumber: null, notionUrl: null, companyCamUrl: "https://app.companycam.com/projects/123" })).toEqual({ companyCamUrl: "https://app.companycam.com/projects/123" });
+    expect(projectPickup({ ...blank, companyCamUrl: "https://app.companycam.com/projects/9" }, { projectNumber: null, notionUrl: null, companyCamUrl: "https://app.companycam.com/projects/123" })).toEqual({});
+    expect(projectPickup(blank, { projectNumber: null, notionUrl: "https://app.notion.com.evil.example/p/x", companyCamUrl: "https://evil.example/app.companycam.com/" })).toEqual({});
   });
 
   it("fills blanks only, and takes only what looks right", () => {

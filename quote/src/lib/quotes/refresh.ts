@@ -33,9 +33,10 @@ export async function refreshFromGhl(quote: Quote): Promise<Quote> {
   if (!link?.ghlContactId || !ghlConfigured()) return quote;
 
   const confirmed = link.addressStatus === "Confirmed";
-  // An accepted quote waits for its Notion project (2026-10-27): the PP number Make writes back onto the opportunity.
+  // An accepted quote waits for its Notion project (2026-10-27): the PP number and page Make writes back
+  // onto the opportunity, until it has both. Any linked quote without a CompanyCam link also looks there.
   const accepted = Boolean(link.contractVersionId || (quote.acceptance && !quote.acceptance.cancelled));
-  const awaitingProject = accepted && Boolean(link.ghlOpportunityId) && !link.projectNumber;
+  const awaitingProject = Boolean(link.ghlOpportunityId) && ((accepted && (!link.projectNumber || !link.notionProjectUrl)) || !link.companyCamUrl);
   let patch: CustomerPatch;
   let project: Record<string, string> = {};
   try {
@@ -52,10 +53,12 @@ export async function refreshFromGhl(quote: Quote): Promise<Quote> {
       contact,
       site,
     );
-    const pp = projectPickup(link, live);
+    // The PP number and Notion page belong to an accepted quote only; the CompanyCam link to any linked one.
+    const pp = projectPickup(link, live && !accepted ? { projectNumber: null, notionUrl: null, companyCamUrl: live.companyCamUrl } : live);
     project = {
       ...(pp.projectNumber ? { [QUOTE.projectNumber]: pp.projectNumber } : {}),
       ...(pp.notionProjectUrl ? { [QUOTE.notionProjectUrl]: pp.notionProjectUrl } : {}),
+      ...(pp.companyCamUrl ? { [QUOTE.companyCamUrl]: pp.companyCamUrl } : {}),
     };
   } catch {
     return quote;

@@ -442,7 +442,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
 - **Won (2026-10-27).** When an accepted quote opens, it reads its opportunity for the PP number and the
   Notion page Make 3710214 writes back after making the project (opportunity fields
   `OPP_FIELDS.projectNumber` and `ACCEPT_FIELDS.notionProjectUrl`), fills them in (blanks only; a PP
-  number is never overwritten) and the accepted version becomes **Won**. All quotes files a quote under
+  number is never overwritten) and the accepted version becomes **Won**. It keeps looking until it has both (Notion page links are notion.so, notion.site or app.notion.com). Any linked quote without a CompanyCam link copies the opportunity's (2026-10-27: a quote started in the app and never booked has none of its own). All quotes files a quote under
   **Accepted** (yes, no PP number yet) or **Won** (has one). Rule: `projectPickup()` in `src/lib/link/refresh.ts`.
 - **Changes after acceptance (Albert, 2026-10-27: "verbal, sent for record").** The accepted version
   stays frozen. **Make a change** on the contract version starts a new version of the same quote,

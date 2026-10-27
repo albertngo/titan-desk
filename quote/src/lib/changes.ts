@@ -22,6 +22,15 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-10-27",
+    kind: "fixed",
+    title: "Won quotes link their Notion project, and quotes pick up the job's CompanyCam",
+    details: [
+      "Notion's new page links (app.notion.com) were being ignored, so a won quote showed its PP number but no Notion project link. They're taken now, including on quotes that already have their PP number.",
+      "A linked quote with no CompanyCam link copies the one on its GHL opportunity, for example from an earlier booking.",
+    ],
+  },
+  {
+    date: "2026-10-27",
     kind: "removed",
     title: "No HST number on quotes",
     details: [
