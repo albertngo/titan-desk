@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { optionTotals } from "@/lib/calc";
-import { bestContractor, entryLabel, lineFromEntry, manualLine, rateSnap, searchCatalogue, type CardEntry, type EditorLine } from "@/lib/editor/model";
+import { bestContractor, entryLabel, lineFromEntry, manualLine, rateSnap, searchCatalogue, SECTION_LABOUR, type CardEntry, type EditorLine } from "@/lib/editor/model";
 import { defaultInput, expandProfile, type BuilderInput } from "@/lib/editor/stairBuilder";
 import { money } from "@/lib/format";
 import { levelPrice, type ServiceLevel } from "@/lib/pricing/service";
@@ -24,7 +24,8 @@ const COUNTS: [keyof BuilderInput, string][] = [
  * Add a line: search the rate card and stair items, or type the line in by hand. In the Stairs
  * section, pick a Stair Profile and the builder (2026-10-20) turns it into Stair Item lines from
  * a few counts, replacing the preliminary's preset line if there is one. Customer view shows the
- * charge rate only.
+ * charge rate only. Each section lists only its own work (2026-10-27); "Search the whole rate card"
+ * widens it.
  */
 export function Picker({
   section,
@@ -58,7 +59,11 @@ export function Picker({
   const [building, setBuilding] = useState<StairProfileRow | null>(null);
   const [input, setInput] = useState<BuilderInput>({ steps: 0, openSideSteps: 0, handrailFt: 0, spindles: 0, posts: 0 });
   const [replace, setReplace] = useState(true);
-  const results = searchCatalogue(catalogue, q, section);
+  const [all, setAll] = useState(false);
+  const results = searchCatalogue(catalogue, q, section, 40, all);
+  // Only a section with work of its own is filtered, so only there is widening offered.
+  const filterable = SECTION_LABOUR[section] !== undefined;
+  const elsewhere = filterable && !all ? searchCatalogue(catalogue, q, section, Infinity, true).length - searchCatalogue(catalogue, q, section, Infinity).length : 0;
   const words = q.toLowerCase().split(/\s+/).filter(Boolean);
   const rows = section === "Stairs" ? (profiles ?? []).filter((p) => words.every((w) => p.name.toLowerCase().includes(w))) : [];
   const codeProfiles = section === "Stairs" && (profiles ?? []).length === 0 ? CODE_PROFILES.filter((p) => words.every((w) => profileName(p).toLowerCase().includes(w))) : [];
@@ -87,6 +92,12 @@ export function Picker({
             onChange={(e) => setQ(e.target.value)}
             aria-label="Search the rate card"
           />
+          {filterable && (
+            <label className="check-in pick-all">
+              <input type="checkbox" checked={all} onChange={(e) => setAll(e.target.checked)} />
+              Search the whole rate card{!all && elsewhere > 0 ? ` · ${elsewhere} more in other sections` : ""}
+            </label>
+          )}
         </div>
         {building && built && (
           <div className="sb" role="group" aria-label={`Build ${building.name}`}>
@@ -167,7 +178,7 @@ export function Picker({
               </li>
             );
           })}
-          {results.length === 0 && rows.length === 0 && codeProfiles.length === 0 && <li className="empty">Nothing on the rate card matches “{q}”.</li>}
+          {results.length === 0 && rows.length === 0 && codeProfiles.length === 0 && <li className="empty">{filterable && !all ? `Nothing in ${section} matches “${q}”.` : `Nothing on the rate card matches “${q}”.`}</li>}
           <li>
             <button className="pick manual" onClick={() => onPick(manualLine(section, q.trim()))}>
               <span className="nm">Type it in yourself{q.trim() ? `: “${q.trim()}”` : ""}</span>

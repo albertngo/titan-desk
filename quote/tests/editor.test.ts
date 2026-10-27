@@ -21,6 +21,7 @@ import {
   removeLine,
   revertLine,
   searchCatalogue,
+  showsWaste,
   PRICE_ADJUSTMENT,
   setAcceptedPrice,
   setDiscountAmount,
@@ -72,11 +73,33 @@ describe("catalogue", () => {
     expect(searchCatalogue(cat, "", "Removal")[0].key).toBe("Remove|OLD CARPET");
     // Install is the main work: install and refinish entries both rank ahead of removal and disposal.
     expect(searchCatalogue(cat, "", "Install").slice(0, 2).map((e) => e.key).sort()).toEqual(["Install|CLICK PLANK", "Refinish|SAND AND COAT"]);
-    expect(searchCatalogue(cat, "click plank", "Removal").map((e) => e.key)).toEqual(["Install|CLICK PLANK"]);
+    expect(searchCatalogue(cat, "click plank", "Removal", 40, true).map((e) => e.key)).toEqual(["Install|CLICK PLANK"]);
     expect(searchCatalogue(cat, "click carpet", "Install")).toEqual([]);
     // Stair items are offered in the Stairs section only (2026-10-18).
     expect(searchCatalogue(cat, "", "Install").some((e) => e.kind === "stair")).toBe(false);
     expect(searchCatalogue(cat, "", "Stairs").some((e) => e.kind === "stair")).toBe(true);
+  });
+
+  it("shows only the section's own work unless the whole card is asked for (2026-10-27)", () => {
+    expect(searchCatalogue(cat, "", "Removal").map((e) => e.key)).toEqual(["Remove|OLD CARPET"]);
+    expect(searchCatalogue(cat, "", "Disposal").map((e) => e.key)).toEqual(["Disposal|SMALL BIN"]);
+    expect(searchCatalogue(cat, "", "Install").map((e) => e.key).sort()).toEqual(["Install|CLICK PLANK", "Refinish|SAND AND COAT"]);
+    expect(searchCatalogue(cat, "", "Stairs").every((e) => e.kind === "stair")).toBe(true);
+    expect(searchCatalogue(cat, "click plank", "Removal")).toEqual([]);
+    // The whole card: the section's own work still first, stair items still only under Stairs.
+    const wide = searchCatalogue(cat, "", "Removal", 40, true);
+    expect(wide[0].key).toBe("Remove|OLD CARPET");
+    expect(wide).toHaveLength(4);
+    // Private has no work of its own, so it always lists the whole card.
+    expect(searchCatalogue(cat, "", "Private")).toHaveLength(4);
+  });
+
+  it("offers waste on Materials lines only (2026-10-27)", () => {
+    expect(showsWaste({ section: "Materials", waste: null })).toBe(true);
+    expect(showsWaste({ section: "Install", waste: null })).toBe(false);
+    // A line saved with waste before then keeps its box, so it can be cleared.
+    expect(showsWaste({ section: "Install", waste: 0.1 })).toBe(true);
+    expect(lineFromEntry(click, "Install").waste).toBeNull();
   });
 });
 

@@ -185,6 +185,14 @@ const SANS = "-apple-system, 'Segoe UI', 'Helvetica Neue', sans-serif";
 const row = (inner: string, pad = "0 40px") => `<tr><td class="pad" style="padding:${pad};">${inner}</td></tr>`;
 const eyebrow = (text: string) =>
   `<p style="margin:0 0 8px;font-family:${SANS};font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:${C.accent};font-weight:600;">${text}</p>`;
+/**
+ * A preliminary's header (Albert, 2026-10-27: "Preliminary should be more apparent as a header"): a
+ * solid blue tag in place of the small eyebrow, so nobody reads the estimate as a measured quote.
+ */
+const prelimTag = (text: string) =>
+  `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 14px;border-collapse:separate;"><tr>` +
+  `<td bgcolor="${C.accent}" style="border-radius:8px;padding:9px 16px;mso-padding-alt:9px 16px;font-family:${SANS};font-size:15px;line-height:1.2;letter-spacing:.16em;text-transform:uppercase;color:#ffffff;font-weight:700;">${text}</td>` +
+  `</tr></table>`;
 const para = (text: string, size = 16, color: string = C.body, margin = "0 0 16px", extra = "") =>
   `<p style="margin:${margin};font-family:${SANS};font-size:${size}px;line-height:1.6;color:${color};${extra}">${text}</p>`;
 const hairline = (pad = "28px 40px") => row(`<div style="height:1px;line-height:1px;font-size:1px;background:${C.hair};">&nbsp;</div>`, pad);
@@ -455,7 +463,7 @@ export function emailMessage(
 
   const body =
     row(
-      eyebrow(prelim ? "Preliminary estimate" : `Quote${copy.version !== null ? ` &middot; version ${copy.version}` : ""}`) +
+      (prelim ? prelimTag("Preliminary estimate") : eyebrow(`Quote${copy.version !== null ? ` &middot; version ${copy.version}` : ""}`)) +
         `<p style="margin:-2px 0 14px;font-family:${SANS};font-size:12px;color:${C.muted};letter-spacing:.04em;">${esc(copy.quoteNumber)} &middot; ${esc(longDate(copy.sentOn))}</p>` +
         `<h1 class="h1" style="margin:0 0 16px;font-family:${SERIF};font-weight:400;font-size:30px;line-height:1.2;color:${C.ink};letter-spacing:-.01em;">${headline}</h1>` +
         para(intro),
@@ -467,7 +475,8 @@ export function emailMessage(
     (prelim ? "" : hairline() + row(eyebrow("How payment works") + para(esc(paymentWords(copy.options[0])), 15, C.body, "0 0 6px"))) +
     hairline(prelim ? "28px 40px" : "22px 40px 28px") +
     row(eyebrow("What happens next") + steps(next), "0 40px 6px") +
-    (prelim && options.booking ? row(button("Book an in-store visit", options.booking.inStore, false), "0 40px 30px") : "") +
+    // The step's own "Book a showroom visit" link is the one way to book (2026-10-27): the separate
+    // "Book an in-store visit" button under the steps said the same thing twice and is gone.
     hairline("0 40px 28px") +
     row(para(`Questions? Reply to this email${phone}.${ask}`, 15, C.body, "0 0 4px") + para(signoff, 14, C.muted, "0 0 36px"));
 

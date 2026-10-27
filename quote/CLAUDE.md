@@ -182,8 +182,9 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   `type: "InternalComment"`), and a daily run (`.github/workflows/quote-activity-summaries.yml`) posts
   one **summary three days after sending** (opens, devices, last open, PDF downloads, or "not opened
   yet") for every version still Sent, so a replaced one gets none and the new version gets its own.
-  On a measured quote both comments tag the sender (their GHL user, by email), else the opportunity's
-  assigned user, else Albert; a preliminary's are the same notes with nobody tagged, since its
+  On a measured quote both comments tag the contact's assigned user (else the opportunity's, else
+  Albert), whoever sent it, and also the sender (their GHL user, by email) when that is someone else
+  (Albert, 2026-10-27); a preliminary's are the same notes with nobody tagged, since its
   follow-up is the automation's. Only versions sent since tracking began (Track Activity) get comments.
   The Send card shows the activity once sent, and All quotes has a **Last opened** column (the current version's last open and how many in all) and marks opened versions in each quote's version list (`openedOn()` in `src/lib/quotes/group.ts`); staff opening a
   link from the Send card add `#staff`, which is never counted. Rules in `src/lib/activity/track.ts`,
@@ -216,7 +217,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   through without a sign-in; `QUOTE_LOGO_URL` overrides it; with neither, the company name as a
   wordmark), a serif headline, one card per option (what's included with quantities, the total set
   large, Recommended badge), a pill button, the payment schedule in words on a measured quote, three
-  "what happens next" steps (a preliminary links the in-store calendar on its showroom step and as the button, and the
+  "what happens next" steps (a preliminary links the in-store calendar on its showroom step (the separate in-store button went 2026-10-27, it said the same thing twice) and the
   in-home measurement calendar on its measure step; both GHL calendar ids in `src/lib/ghl/ids.ts`),
   and a transactional footer from the letterhead: no carousel, no click tracking, no unsubscribe. The
   accent is the logo's blue (`#283890`), not the old template's terracotta. Tables and inline styles
@@ -523,6 +524,14 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
    shared folder comes when a third app needs it.
 6. **The Excel template stays the fallback.** If Airtable or this app is down, Albert
    quotes in Excel. Nothing here may make that harder.
+7. **Every change gets a What's new entry (Albert, 2026-10-27).** Any work that changes what
+   staff or customers see, or what the app does, adds one entry at the **top** of `CHANGES` in
+   `src/lib/changes.ts`, in the same commit: today's date (Toronto), `new` / `changed` / `fixed` /
+   `removed`, a short title, and a line or two of details in plain words for the person using the
+   app (what it does, where to find it), never code. Append only: an earlier entry is never
+   rewritten; a reversal is its own new entry. The **What's new** button on the Quotes page opens
+   it at `/changes`. Pure refactors, tests and lint fixes need none. `tests/changes.test.ts` keeps
+   it dated and newest first.
 
 ## Commands
 

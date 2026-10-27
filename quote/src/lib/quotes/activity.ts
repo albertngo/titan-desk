@@ -2,8 +2,8 @@ import "server-only";
 import { timingSafeEqual } from "node:crypto";
 import { listByIds, listRecords, updateRecord } from "@/lib/airtable/client";
 import { QUOTE, T, VERSION } from "@/lib/airtable/fields";
-import { applyActivity, firstOpenComment, mentionFor, parseActivity, summaryComment, summaryDue, type ActivityInfo, type TrackState } from "@/lib/activity/track";
-import { ghlConfigured, locationUsers, opportunityOwner } from "@/lib/ghl/client";
+import { applyActivity, firstOpenComment, mentionsFor, parseActivity, summaryComment, summaryDue, type ActivityInfo, type TrackState } from "@/lib/activity/track";
+import { contactOwner, ghlConfigured, locationUsers, opportunityOwner } from "@/lib/ghl/client";
 import { FALLBACK_MENTION_USER_ID } from "@/lib/ghl/ids";
 import { makeConfigured, sendMessage } from "@/lib/make/client";
 import { torontoToday } from "@/lib/send/copy";
@@ -22,7 +22,7 @@ import { bool, ids, num, str } from "./values";
  *
  * A comment's "noted" stamp is written before the comment goes and taken back if it fails, so a
  * comment goes at most once and a failed one is tried again. A measured quote's comments tag the
- * sender; a preliminary's tag nobody.
+ * contact's assigned user, and the sender too when that is someone else; a preliminary's tag nobody.
  */
 
 /** Constant-time check of the key the customer deployment and the daily run send. No key configured means tracking is off. */
@@ -87,7 +87,7 @@ export async function recordActivity(key: string | null, raw: unknown, now = new
     ...(note ? { [VERSION.firstOpenNotedAt]: now.toISOString() } : {}),
   });
   if (!note) return { ok: true, counted, noted: false };
-  const posted = await comment(row, (info, mention) => firstOpenComment(info, now, report.device, mention));
+  const posted = await comment(row, (info, names) => firstOpenComment(info, now, report.device, names));
   if (!posted) await updateRecord(T.versions, row.id, { [VERSION.firstOpenNotedAt]: null }).catch(() => undefined);
   return { ok: true, counted, noted: posted };
 }
@@ -110,7 +110,7 @@ export async function noteSummaries(key: string | null, now = new Date()): Promi
   const people = await users();
   for (const row of due.filter((r) => summaryDue(str(r.fields[VERSION.sentAt]), today)).slice(0, SUMMARIES_PER_RUN)) {
     await updateRecord(T.versions, row.id, { [VERSION.summaryNotedAt]: now.toISOString() });
-    const posted = await comment(row, (info, mention) => summaryComment(info, stateOf(row.fields), mention), people);
+    const posted = await comment(row, (info, names) => summaryComment(info, stateOf(row.fields), names), people);
     if (posted) noted++;
     else {
       failed++;
@@ -121,7 +121,7 @@ export async function noteSummaries(key: string | null, now = new Date()): Promi
 }
 
 /** Post one internal comment on the version's customer conversation. False when it could not go. */
-async function comment(row: Row, words: (info: ActivityInfo, mention: string | null) => string, people?: Awaited<ReturnType<typeof users>>): Promise<boolean> {
+async function comment(row: Row, words: (info: ActivityInfo, names: string[]) => string, people?: Awaited<ReturnType<typeof users>>): Promise<boolean> {
   if (!makeConfigured()) return false;
   const f = row.fields;
   const quoteId = ids(f[VERSION.quote])[0];
@@ -140,9 +140,10 @@ async function comment(row: Row, words: (info: ActivityInfo, mention: string | n
     senderName: sentBy ? firstNameOf({ email: sentBy, name: null }) : null,
     sentTo: str(f[VERSION.sentTo]),
   };
-  const mention = mentionFor(basis, sentBy, people ?? (await users()), await owner(str(quote?.fields[QUOTE.ghlOpportunityId]), basis), FALLBACK_MENTION_USER_ID);
+  const tagged = mentionsFor(basis, sentBy, people ?? (await users()), await assigned(contactId, str(quote?.fields[QUOTE.ghlOpportunityId]), basis), FALLBACK_MENTION_USER_ID);
   try {
-    await sendMessage({ type: "InternalComment", contactId, message: words(info, mention?.name ?? null), mentions: mention ? [mention.id] : [] });
+    const names = tagged.flatMap((t) => (t.name ? [t.name] : []));
+    await sendMessage({ type: "InternalComment", contactId, message: words(info, names), mentions: tagged.map((t) => t.id) });
     return true;
   } catch (e) {
     console.error("activity comment", e);
@@ -150,13 +151,16 @@ async function comment(row: Row, words: (info: ActivityInfo, mention: string | n
   }
 }
 
-/** The location's users, or none when the token can't list them (the opportunity's owner is the fallback). */
+/** The location's users, or none when the token can't list them (then only the assigned user is tagged). */
 async function users() {
   if (!ghlConfigured()) return [];
   return locationUsers().catch(() => []);
 }
 
-async function owner(opportunityId: string | null, basis: string | null): Promise<string | null> {
-  if (basis === "Preliminary" || !opportunityId || !ghlConfigured()) return null;
+/** The user the contact is assigned to, else the opportunity's (usually the same person); null for a preliminary or neither. */
+async function assigned(contactId: string, opportunityId: string | null, basis: string | null): Promise<string | null> {
+  if (basis === "Preliminary" || !ghlConfigured()) return null;
+  const fromContact = await contactOwner(contactId).catch(() => null);
+  if (fromContact || !opportunityId) return fromContact;
   return opportunityOwner(opportunityId).catch(() => null);
 }
