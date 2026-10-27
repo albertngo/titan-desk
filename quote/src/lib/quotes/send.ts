@@ -4,7 +4,8 @@ import { QUOTE, T, VERSION } from "@/lib/airtable/fields";
 import { requireQuoter, requireQuoterPerson } from "@/lib/auth";
 import { fromQuote } from "@/lib/editor/model";
 import { BOOKING_URLS } from "@/lib/ghl/ids";
-import { makeConfigured, sendMessage } from "@/lib/make/client";
+import { followUpTagBodies } from "@/lib/activity/track";
+import { makeConfigured, sendMessage, setFollowUpTags } from "@/lib/make/client";
 import { COPY_MAX_CHARS, customerCopy, parseCopy, pdfName, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "@/lib/send/copy";
 import { chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, isToken, newToken, parseOptionIds, sendProblems, smsMessage, type Channels, type Sender } from "@/lib/send/plan";
 import { authorFields, firstNameOf, type Person } from "./history";
@@ -27,7 +28,9 @@ import { ids, str } from "./values";
  *      first as "Albert @ Titan Flooring <albert@…>", then as the bare address, then the location
  *      default, so a sender GHL won't accept never stops a quote going out — the warning says so;
  *   4. if neither went, puts the version back to Draft; if one did, it stays Sent and says which
- *      failed. Older sent versions of the same quote become Superseded, so their links say so.
+ *      failed. Older sent versions of the same quote become Superseded, so their links say so;
+ *   5. sets the follow-up tag (2026-10-27) and marks the version tracked, so its first open and a
+ *      three-day summary are noted in GHL (src/lib/quotes/activity.ts).
  */
 
 
@@ -97,8 +100,12 @@ export async function sentLink(token: string | null): Promise<string | null> {
  * What the customer gets: for a version already sent, the copy frozen on it; for a draft, the
  * copy it would get if sent today. The preview page and PDF show this.
  */
-/** `itemised`: preview the breakdown; false, the default, previews the lump sum (Albert, 2026-10-22). A sent version shows its frozen copy either way. */
-export async function previewCopy(versionId: string, validUntil?: string, itemised = false, optionIds: string[] | null = null): Promise<CustomerCopy | null> {
+/**
+ * `itemised`: preview the breakdown; false, the default, previews the lump sum (Albert, 2026-10-22).
+ * `range`: false previews a preliminary's exact price instead of its range (2026-10-27). A sent
+ * version shows its frozen copy either way.
+ */
+export async function previewCopy(versionId: string, validUntil?: string, itemised = false, optionIds: string[] | null = null, range = true): Promise<CustomerCopy | null> {
   await requireQuoter();
   const quote = await getQuote(versionId);
   if (!quote) return null;
@@ -110,29 +117,29 @@ export async function previewCopy(versionId: string, validUntil?: string, itemis
   const today = torontoToday(new Date());
   // A draft previews only the options ticked on the Send card (2026-10-24); none matching = all.
   const chosen = chooseOptions(quote, optionIds);
-  return customerCopy({ ...(chosen.options.length ? chosen : quote), itemised }, { sentOn: quote.sentAt ?? today, validUntil: validUntil ?? quote.validUntil ?? today, company: letterhead() });
+  return customerCopy({ ...(chosen.options.length ? chosen : quote), itemised }, { sentOn: quote.sentAt ?? today, validUntil: validUntil ?? quote.validUntil ?? today, company: letterhead(), range });
 }
 
 /** The email as it would be sent today, for the staff preview (2026-10-22): placeholder links, the signed-in sender. */
-export async function previewEmail(versionId: string, validUntil?: string, itemised = false, visited = false, attachPdf = false, optionIds: string[] | null = null): Promise<string | null> {
+export async function previewEmail(versionId: string, validUntil?: string, itemised = false, attachPdf = false, optionIds: string[] | null = null, range = true): Promise<string | null> {
   const person = await requireQuoterPerson();
-  const copy = await previewCopy(versionId, validUntil, itemised, optionIds);
+  const copy = await previewCopy(versionId, validUntil, itemised, optionIds, range);
   if (!copy) return null;
   const quote = await getQuote(versionId);
   const base = customerBase() ?? "https://example.invalid";
   const { link, pdfUrl } = customerLinks(base, isToken(quote?.customerToken) ? quote!.customerToken! : "x".repeat(32), pdfName(copy));
-  const m = emailMessage(copy, { contactId: "preview", firstName: quote?.link?.firstName ?? null, link, pdfUrl }, senderOf(person), { booking: booking(), visited, attachPdf });
+  const m = emailMessage(copy, { contactId: "preview", firstName: quote?.link?.firstName ?? null, link, pdfUrl }, senderOf(person), { booking: booking(), attachPdf });
   return m.type === "Email" ? m.html : null;
 }
 
-function readInput(raw: unknown): { base: string; validUntil: string | null; channels: Channels; itemised: boolean; visited: boolean; attachPdf: boolean; optionIds: string[] | null } | null {
+function readInput(raw: unknown): { base: string; validUntil: string | null; channels: Channels; itemised: boolean; attachPdf: boolean; optionIds: string[] | null; range: boolean } | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
   const ch = (r.channels ?? {}) as Record<string, unknown>;
   if (typeof r.base !== "string" || (typeof r.validUntil !== "string" && r.validUntil !== null)) return null;
   // Lump sum unless the sender chose the breakdown (2026-10-22). A null date is a preliminary's; sendProblems refuses it on anything else.
-  // `visited` (2026-10-24): the sender says whether we have been to the home; a preliminary's opening words follow it.
-  return { base: r.base, validUntil: typeof r.validUntil === "string" ? r.validUntil : null, channels: { email: ch.email === true, sms: ch.sms === true }, itemised: r.itemised === true, visited: r.visited === true, attachPdf: r.attachPdf === true, optionIds: r.optionIds === undefined || r.optionIds === null ? null : (parseOptionIds(r.optionIds) ?? []) };
+  // `range` (2026-10-27): a preliminary goes as a range unless the sender says false, so a missing value is the range.
+  return { base: r.base, validUntil: typeof r.validUntil === "string" ? r.validUntil : null, channels: { email: ch.email === true, sms: ch.sms === true }, itemised: r.itemised === true, attachPdf: r.attachPdf === true, optionIds: r.optionIds === undefined || r.optionIds === null ? null : (parseOptionIds(r.optionIds) ?? []), range: r.range !== false };
 }
 
 export async function sendQuote(versionId: string, raw: unknown): Promise<SendResult> {
@@ -154,8 +161,11 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
 
   // A preliminary has no good-until date whatever was sent (Albert, 2026-10-22); its link never expires.
   const validUntil = quote.basis === "Preliminary" ? null : input.validUntil;
+  // A preliminary is always a lump sum and goes as a range unless the sender chose the exact price (2026-10-27).
+  const prelim = quote.basis === "Preliminary";
+  const itemised = !prelim && input.itemised;
   // Only the options ticked on the Send card go to the customer, everywhere (2026-10-24).
-  const copy = customerCopy({ ...chooseOptions(quote, input.optionIds), itemised: input.itemised }, { sentOn: today, validUntil, company: letterhead() });
+  const copy = customerCopy({ ...chooseOptions(quote, input.optionIds), itemised }, { sentOn: today, validUntil, company: letterhead(), range: input.range });
   const text = serializeCopy(copy);
   if (text.length > COPY_MAX_CHARS) return { ok: false, message: "This quote is too long to send as one copy. Split it into fewer options." };
   const token = isToken(quote.customerToken) ? quote.customerToken : newToken();
@@ -166,12 +176,14 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   await updateRecord(T.versions, quote.id, {
     [VERSION.customerToken]: token,
     [VERSION.customerCopy]: text,
-    [VERSION.itemised]: input.itemised,
+    [VERSION.itemised]: itemised,
     [VERSION.validUntil]: validUntil,
     [VERSION.status]: "Sent",
     [VERSION.sentAt]: today,
     [VERSION.sentBy]: sender,
     [VERSION.sentTo]: null,
+    // Open tracking (2026-10-27): this version's first open and its three-day summary go to GHL.
+    [VERSION.trackActivity]: true,
   });
 
   const sentTo: string[] = [];
@@ -186,7 +198,7 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
     let last: unknown = null;
     for (const emailFrom of attempts) {
       try {
-        await sendMessage(emailMessage(copy, { contactId, firstName, link, pdfUrl }, from, { emailFrom, booking: booking(), visited: input.visited, attachPdf: input.attachPdf }));
+        await sendMessage(emailMessage(copy, { contactId, firstName, link, pdfUrl }, from, { emailFrom, booking: booking(), attachPdf: input.attachPdf }));
         sentTo.push("Email");
         sentFrom = emailFrom;
         if (emailFrom === null && attempts[0] !== null) notes.push(`GHL would not send from ${from.email}, so the email went out from the location's default address.`);
@@ -200,7 +212,7 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   }
   if (input.channels.sms) {
     try {
-      await sendMessage(smsMessage(copy, { contactId, firstName, link }, from, { visited: input.visited }));
+      await sendMessage(smsMessage(copy, { contactId, firstName, link }, from));
       sentTo.push("Text");
     } catch (e) {
       failed.push(`Text: ${e instanceof Error ? e.message : String(e)}`);
@@ -217,10 +229,17 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   }
 
   try {
-    const how = `sent by ${sentTo.join(" and ").toLowerCase()}${sentFrom ? ` from ${sentFrom}` : sentTo.includes("Email") ? " from the location's default address" : ""}${sentTo.includes("Email") && input.attachPdf ? ", PDF attached" : ""}${chosenWords(quote, input.optionIds) ? `, ${chosenWords(quote, input.optionIds)}` : ""}`;
+    const how = `sent by ${sentTo.join(" and ").toLowerCase()}${sentFrom ? ` from ${sentFrom}` : sentTo.includes("Email") ? " from the location's default address" : ""}${sentTo.includes("Email") && input.attachPdf ? ", PDF attached" : ""}${chosenWords(quote, input.optionIds) ? `, ${chosenWords(quote, input.optionIds)}` : ""}${prelim && !input.range ? ", exact price, no range" : ""}`;
     await updateRecord(T.versions, quote.id, { [VERSION.sentTo]: sentTo.join(", "), ...authorFields(person, new Date(), how, quote.editLog) });
   } catch {
     notes.push("Airtable didn't record how it was sent.");
+  }
+  // The follow-up sequence (2026-10-27): both quote-sent tags off, this one's on, so a new version
+  // restarts its sequence and a measured quote ends the preliminary's. Never stops a send.
+  try {
+    await setFollowUpTags(contactId, followUpTagBodies(quote.basis));
+  } catch {
+    notes.push("The follow-up tag couldn't be set in GHL, so no follow-up sequence started; add the quote-sent tag by hand.");
   }
   try {
     await supersedeOlder(quote.link!.quoteRecordId, quote.id);

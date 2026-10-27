@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, copyState, customerCopy, discountLabel, hstRow, hstWord, longDate, parseCopy, pdfName, serializeCopy, torontoToday, type Letterhead } from "../src/lib/send/copy";
+import { addDays, copyRange, copyState, customerCopy, discountLabel, hstRow, hstWord, isRange, longDate, parseCopy, pdfName, prelimNote, priceRange, rangeText, rangeWhy, serializeCopy, torontoToday, type Letterhead } from "../src/lib/send/copy";
 import { chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, greetingName, isToken, newToken, optionProblem, parseOptionIds, sendProblems, smsMessage, type SendInput } from "../src/lib/send/plan";
 import { encode, textWidth, wrap } from "../src/lib/send/pdfDoc";
 import { quotePdf } from "../src/lib/send/pdf";
@@ -258,9 +258,10 @@ describe("the messages", () => {
     expect(m.html).toContain("Townhome – Vinyl treads We&#39;ll install waterproof vinyl treads. The handrails will be sanded and refinished to match, and up to 50 spindles are included.</td>");
     expect(m.html).toContain(">Timing</td>");
     expect(m.html).toContain(">Within 1 month</td>");
-    expect(m.html).toContain("Rough total");
+    // A preliminary goes as a range since 2026-10-27.
+    expect(m.html).toContain("Estimated range");
     const t = smsMessage(c, to);
-    expect(t.type === "SMS" ? t.message : "").toContain("Your rough flooring and stairs estimate is $");
+    expect(t.type === "SMS" ? t.message : "").toMatch(/Your flooring and stairs estimate is \$[\d,]+ to \$[\d,]+ \+ HST\./);
     // The link sits alone on its line, after the label, with a blank line before the reply line; no phone number (2026-10-24).
     expect(t.type === "SMS" ? t.message : "").toMatch(/\n\nSee the full details here:\nhttps:\/\/\S+\n\n/);
     expect(t.type === "SMS" ? t.message : "").not.toMatch(/call|555-000-0000/);
@@ -333,15 +334,14 @@ describe("the messages", () => {
     expect(two.type === "SMS" && two.message).toContain("from $684 + HST");
   });
 
-  it("opens a preliminary generically unless the sender says we have been to the home (2026-10-24)", () => {
+  it("always opens a preliminary generically: a preliminary is before any visit (2026-10-27)", () => {
     const c = customerCopy(quote({ basis: "Preliminary" }), AT);
-    const before = emailMessage(c, to);
-    expect(before.type === "Email" && before.html).toContain("Thanks for telling us about your project. Here is a rough number based on what you&rsquo;ve described.");
-    expect(before.type === "Email" && before.html).not.toContain("having us over");
-    const after = emailMessage(c, to, null, { visited: true });
-    expect(after.type === "Email" && after.html).toContain("Thanks for having us over. Here is the rough number we talked about, based on what we saw.");
-    // A measured quote never says either.
-    const measured = emailMessage(copy, to, null, { visited: true });
+    const m = emailMessage(c, to);
+    // Since 2026-10-27 a preliminary is a range: "a price range" where it said "a rough number".
+    expect(m.type === "Email" && m.html).toContain("Thanks for telling us about your project. Here is a price range based on what you&rsquo;ve described.");
+    expect(m.type === "Email" && m.html).not.toContain("having us over");
+    // A measured quote says neither.
+    const measured = emailMessage(copy, to);
     expect(measured.type === "Email" && measured.html).not.toMatch(/having us over|telling us about/);
   });
 
@@ -381,11 +381,10 @@ describe("the messages", () => {
     expect(m).toEqual({
       type: "SMS",
       contactId: "contactAbc123",
-      // A preliminary carries no good-until date (2026-10-22), and opens generically unless the sender says we have visited (2026-10-24).
-      message: `Hi Pat, it's Albert from Titan Flooring. Thanks for telling us about your project. Your rough flooring estimate is $684 + HST.\n\nSee the full details here:\nhttps://view.example.com/c/${"A".repeat(32)}\n\nWe confirm the price once we've measured. Any questions, just reply.`,
+      // A preliminary carries no good-until date (2026-10-22), and always opens generically (2026-10-27).
+      // Since 2026-10-27, as a range: $684 less 3% is $663.48, down to $660; plus 10% is $752.40, up to $760.
+      message: `Hi Pat, it's Albert from Titan Flooring. Thanks for telling us about your project. Your flooring estimate is $660 to $760 + HST.\n\nSee the full details here:\nhttps://view.example.com/c/${"A".repeat(32)}\n\nThe final price should land in that range. Any questions, just reply.`,
     });
-    const after = smsMessage(customerCopy(quote({ basis: "Preliminary" }), AT), to, me, { visited: true });
-    expect(after.type === "SMS" && after.message).toContain("Thanks for having us over. Your rough flooring estimate is $684 + HST.\n\nSee the full details here:");
     const measured = smsMessage(customerCopy(quote(), AT), to, me);
     expect(measured.type === "SMS" && measured.message).toBe(
       `Hi Pat, it's Albert from Titan Flooring. Your flooring quote is ready, $684 + HST, good until Nov 14.\n\nSee the full details here:\nhttps://view.example.com/c/${"A".repeat(32)}\n\nReply here if anything needs changing.`,
@@ -579,6 +578,155 @@ describe("lump sum (2026-10-22)", () => {
     expect(itemised.options[0].sections.map((s) => s.name)).toEqual(["Install", "Other"]);
     // Nothing said = the default = lump sum.
     expect(customerCopy({ ...quote(), itemised: undefined }, AT).pricing).toBe("lump");
+  });
+});
+
+describe("a preliminary goes as a range (Albert, 2026-10-27)", () => {
+  const to = { contactId: "contactAbc123", firstName: "Pat", link: "https://view.example.com/c/x", pdfUrl: "https://view.example.com/c/x/q.pdf" };
+  const prelim = () => quote({ basis: "Preliminary" });
+  const pdfText = (c: ReturnType<typeof customerCopy>) => new TextDecoder("latin1").decode(quotePdf(c));
+
+  it("runs from 3% under the price to 10% over it, the top at most $3,000 over, rounded outward", () => {
+    // $10 steps under $1,000, $50 under $10,000, $100 above.
+    expect(priceRange(684)).toEqual({ low: 660, high: 760 });
+    expect(priceRange(2000)).toEqual({ low: 1900, high: 2200 });
+    expect(priceRange(4930)).toEqual({ low: 4750, high: 5450 });
+    expect(priceRange(6000)).toEqual({ low: 5800, high: 6600 });
+    expect(priceRange(12345)).toEqual({ low: 11900, high: 13600 });
+    expect(priceRange(15000)).toEqual({ low: 14500, high: 16500 });
+    // The cap starts at $30,000, where 10% is $3,000.
+    expect(priceRange(30000)).toEqual({ low: 29100, high: 33000 });
+    expect(priceRange(60000)).toEqual({ low: 58200, high: 63000 });
+    // A round price stays round: 1,000 × 1.1 is 1,100, not a float a hair over it rounded up a step.
+    expect(priceRange(1000)).toEqual({ low: 950, high: 1100 });
+    expect(priceRange(0)).toEqual({ low: 0, high: 0 });
+    for (const n of [99.99, 684, 999, 1234.56, 9999, 25000, 31000, 250000]) {
+      const r = priceRange(n);
+      expect(r.low).toBeLessThan(n);
+      expect(r.low).toBeLessThanOrEqual(Math.round(n * 97) / 100);
+      expect(r.high).toBeGreaterThanOrEqual(Math.round((n + Math.min(n * 0.1, 3000)) * 100) / 100);
+    }
+    expect(rangeText(4400, 5450)).toBe("$4,400 – $5,450");
+    expect(rangeText(610, 760, " to ")).toBe("$610 to $760");
+  });
+
+  it("puts the HST on the range itself, so the two ranges agree even where the cap applies", () => {
+    // $60,000 + 13%: the range with HST is $58,200 × 1.13 to $63,000 × 1.13, rounded outward.
+    expect(copyRange({ subtotal: 60000, total: 67800 })).toEqual({ low: 58200, high: 63000, lowWithHst: 65700, highWithHst: 71200 });
+    // No HST at all: the same range twice.
+    expect(copyRange({ subtotal: 6000, total: 6000 })).toEqual({ low: 5800, high: 6600, lowWithHst: 5800, highWithHst: 6600 });
+  });
+
+  it("freezes the range on a preliminary's copy, before HST and with it, and keeps the exact totals underneath", () => {
+    const c = customerCopy(prelim(), AT);
+    // $684 before HST, $772.92 with it (the fixture's numbers).
+    expect(c.options[0].range).toEqual({ low: 660, high: 760, lowWithHst: 740, highWithHst: 860 });
+    expect(c.options[0].totals.subtotal).toBe(684);
+    expect(isRange(c)).toBe(true);
+    expect(parseCopy(serializeCopy(c))?.options[0].range).toEqual(c.options[0].range);
+    // A measured quote is never a range.
+    const m = customerCopy(quote(), AT);
+    expect(m.options[0].range).toBeUndefined();
+    expect(isRange(m)).toBe(false);
+  });
+
+  it("emails the range and no exact figure: not the price, the HST or the total", () => {
+    const m = emailMessage(customerCopy(prelim(), AT), to);
+    if (m.type !== "Email") throw new Error();
+    expect(m.html).toContain("Estimated range");
+    expect(m.html).toContain("$660 &ndash;</span> <span style=\"white-space:nowrap;\">$760</span>");
+    expect(m.html).toContain(">With HST</td>");
+    expect(m.html).toContain("$740 – $860");
+    expect(m.html).toContain("Estimated range $660 – $760 + HST"); // the preheader
+    for (const exact of ["$684", "$88.92", "$772.92", "Rough total"]) expect(m.html).not.toContain(exact);
+    // What the range means, in Albert's words; it never promises the price may come down.
+    expect(m.html).toContain("Your final price can be expected to fall within the range below.");
+    expect(m.html).toContain("decides where in it you land.");
+    expect(m.html).not.toContain("bring it down");
+  });
+
+  it("lists several options' ranges, and says from where the lowest starts", () => {
+    const lines = quote().options[0].lines;
+    const three = customerCopy(quote({ basis: "Preliminary", options: [option("A", lines), option("B", lines), option("C", lines)] }), AT);
+    const m = emailMessage(three, to);
+    if (m.type !== "Email") throw new Error();
+    expect(m.html).toContain("$660 &ndash; $760");
+    expect(m.html).toContain("Estimated ranges. What each option includes");
+    expect(m.html).toContain("3 options from $660 + HST");
+  });
+
+  it("texts the range in GSM-7, with \"to\" instead of a dash", () => {
+    const t = smsMessage(customerCopy(prelim(), AT), to);
+    if (t.type !== "SMS") throw new Error();
+    expect(t.message).toContain("Your flooring estimate is $660 to $760 + HST.");
+    expect(t.message).not.toContain("$684");
+    expect(/^[\x20-\x7e\n]*$/.test(t.message)).toBe(true);
+    // Still two segments (2026-10-24) with a full-length link and a longer name than the fixture's.
+    const long = smsMessage(customerCopy(prelim(), AT), { ...to, firstName: "Jordan", link: `https://quote.titanfloors.example/c/${"A".repeat(32)}` }, { email: "albert@example.com", firstName: "Albert" });
+    expect(long.type === "SMS" && long.message.length).toBeLessThanOrEqual(306);
+  });
+
+  it("draws the range in the PDF, with the payment schedule in shares and no discount rows", () => {
+    // The fixtures are itemised with a 10% discount: a measured PDF shows the discount, a preliminary's does not.
+    const pdf = pdfText(customerCopy(prelim(), AT));
+    expect(pdf).toContain("Estimated range before HST");
+    expect(pdf).toContain("On the final price");
+    expect(pdf).toContain("PAYMENT SCHEDULE, ON THE FINAL PRICE");
+    expect(pdf).toContain("The balance");
+    expect(pdf).toContain("can be expected to fall"); // the note wraps, so only its opening is on one line
+    expect(pdf).not.toContain("Subtotal before discount");
+    expect(pdf).not.toContain("772.92");
+    expect(pdfText(customerCopy(quote(), AT))).toContain("Subtotal before discount");
+  });
+
+  it("names stair things on a stairs-only preliminary", () => {
+    const stairs = option("Stairs", [line({ section: "Stairs", lineType: "Stairs", sourceKind: "manual", sourceId: null, hasSource: false, description: "Main stairs – Sand & stain", uom: "flat", qty: 1, unitPrice: 2000, unitPriceSnap: null, unitCostSnap: null, contractor: null })]);
+    const c = customerCopy(quote({ basis: "Preliminary", options: [stairs] }), AT);
+    expect(rangeWhy(c)).toContain("the exact step count and the condition of the stairs");
+    expect(rangeWhy(customerCopy(prelim(), AT))).toContain("the exact square footage and the condition of the subfloor");
+  });
+
+  it("is always a lump sum, even when the breakdown is asked for (2026-10-27)", () => {
+    // The fixture asks for the breakdown (itemised: true); a preliminary ignores it, a measured quote keeps it.
+    const c = customerCopy(prelim(), AT);
+    expect(c.pricing).toBe("lump");
+    const items = c.options[0].sections.flatMap((s) => s.lines).filter((l) => l.kind === "item" && !l.optional);
+    expect(items.length).toBeGreaterThan(0);
+    for (const l of items) expect(l).toMatchObject({ unitPrice: null, amount: null });
+    expect(c.options[0].sections.every((s) => s.total === null)).toBe(true);
+    expect(customerCopy(quote(), AT).pricing).toBe("itemised");
+  });
+
+  it("goes as the exact price when the sender picks it, and as the range when nothing is said (2026-10-27)", () => {
+    const exact = customerCopy(prelim(), { ...AT, range: false });
+    expect(exact.options[0].range).toBeUndefined();
+    expect(isRange(exact)).toBe(false);
+    expect(exact.pricing).toBe("lump"); // still a lump sum
+    const m = emailMessage(exact, to);
+    expect(m.type === "Email" && m.html).toContain("Rough total");
+    expect(m.type === "Email" && m.html).toContain("$684.00");
+    expect(m.type === "Email" && m.html).toContain("Here is a rough number based on what you&rsquo;ve described.");
+    const t = smsMessage(exact, to);
+    expect(t.type === "SMS" && t.message).toContain("Your rough flooring estimate is $684 + HST.");
+    expect(prelimNote(exact)).not.toContain("range");
+    // The default, and an explicit true, are the range.
+    expect(customerCopy(prelim(), AT).options[0].range).toBeDefined();
+    expect(customerCopy(prelim(), { ...AT, range: true }).options[0].range).toBeDefined();
+    // A measured quote never has one, whatever is passed.
+    expect(customerCopy(quote(), { ...AT, range: true }).options[0].range).toBeUndefined();
+  });
+
+  it("leaves a preliminary frozen before the range as it was sent: one rough number", () => {
+    const c = customerCopy(prelim(), AT);
+    const old = { ...c, options: c.options.map((o) => ({ ...o, range: undefined })) };
+    expect(isRange(old)).toBe(false);
+    expect(prelimNote(old)).toBe("This is a preliminary estimate, based on what we know so far. We confirm the final price once we have measured the space.");
+    const m = emailMessage(old, to);
+    expect(m.type === "Email" && m.html).toContain("Rough total");
+    expect(m.type === "Email" && m.html).toContain("$684.00");
+    const t = smsMessage(old, to);
+    expect(t.type === "SMS" && t.message).toContain("Your rough flooring estimate is $684 + HST.");
+    expect(pdfText(old)).not.toContain("Estimated range");
   });
 });
 

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BlurImage } from "@/components/BlurImage";
-import { StockBadge } from "@/components/ResultCard";
+import { StockBadge } from "@/components/StockBadge";
 import type { PickRole, Scored } from "@/lib/design/types";
 import { priceLabel } from "@/lib/format";
 

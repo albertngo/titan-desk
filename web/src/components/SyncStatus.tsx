@@ -9,7 +9,7 @@ import { supabaseBrowser } from "@/lib/supabase/client";
 const STALE_HOURS = 2;
 const COOLDOWN_MS = 5 * 60 * 1000;
 
-/** "data as of 14:32" (red when the last successful sync is older than 2 h) + "Sync now". */
+/** "Data as of 14:32" (Campfire when the last successful sync is older than 2 h) + "Sync now", on the denim bar. */
 export function SyncStatus() {
   const [status, setStatus] = useState<SyncStatusRow | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -20,7 +20,7 @@ export function SyncStatus() {
     getSyncStatus(supabase).then(setStatus).catch(() => setStatus(null));
   }, []);
 
-  const stale = hoursSince(status?.last_success_at ?? null) > STALE_HOURS;
+  const stale = status !== null && hoursSince(status.last_success_at) > STALE_HOURS;
   const running = status?.last_status === "running";
 
   async function syncNow() {
@@ -43,21 +43,25 @@ export function SyncStatus() {
 
   return (
     <div className="flex items-center gap-2 text-xs">
-      <span className={stale ? "rounded bg-red-100 px-1.5 py-0.5 text-red-800" : "text-zinc-500"} title={status?.last_status ?? undefined}>
-        {status ? `data as of ${timeShort(status.last_success_at)}` : "…"}
+      <span
+        className={stale ? "rounded-full bg-campfire px-2.5 py-1 font-medium text-cream" : "hidden text-cream/70 md:inline"}
+        title={status?.last_status ?? undefined}
+      >
+        {status ? `Data as of ${timeShort(status.last_success_at)}` : "…"}
         {running ? " · syncing" : ""}
       </span>
       <button
         type="button"
         onClick={syncNow}
         disabled={busy}
-        className="rounded border border-zinc-300 bg-white px-2 py-0.5 disabled:opacity-50"
+        className="whitespace-nowrap rounded-full border border-cream/30 px-3 py-1.5 font-medium text-cream transition-colors hover:bg-cream/10 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cream"
       >
-        Sync now
+        <span className="sm:hidden">Sync</span>
+        <span className="hidden sm:inline">Sync now</span>
       </button>
-      {msg && <span className="text-zinc-600">{msg}</span>}
+      {msg && <span className="hidden text-cream/80 lg:inline" role="status">{msg}</span>}
       <form action="/auth/signout" method="post">
-        <button type="submit" className="text-zinc-400">Sign out</button>
+        <button type="submit" className="hidden rounded-full px-2 py-1.5 text-cream/60 transition-colors hover:text-cream sm:inline">Sign out</button>
       </form>
     </div>
   );

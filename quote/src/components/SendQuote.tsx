@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { sendQuoteAction } from "@/app/q/[id]/actions";
+import { activityEntries, devicesSeen, whenWords } from "@/lib/activity/track";
+import type { QuoteActivity } from "@/lib/quotes/types";
 
 /**
  * Send this version to the customer through GHL: email (link + PDF) and/or text (link). Two
@@ -10,7 +12,42 @@ import { sendQuoteAction } from "@/app/q/[id]/actions";
  * is locked. Once sent, the card shows how and when, and the customer's link to copy.
  */
 
-export type SentInfo = { sentAt: string | null; sentBy: string | null; sentTo: string | null; validUntil: string | null; link: string | null };
+export type SentInfo = { sentAt: string | null; sentBy: string | null; sentTo: string | null; validUntil: string | null; link: string | null; activity?: QuoteActivity | null };
+
+const times = (n: number) => (n === 1 ? "once" : n === 2 ? "twice" : `${n} times`);
+
+/**
+ * What the customer did with the link (2026-10-27): opens, devices, PDF downloads, the last few
+ * entries. A version sent before tracking began shows only what was seen since.
+ */
+function Activity({ a }: { a: QuoteActivity }) {
+  if (!a.tracked && a.openedCount === 0 && a.pdfDownloads === 0) return null;
+  const devices = devicesSeen(a.activityLog);
+  const recent = activityEntries(a.activityLog).slice(-5).reverse();
+  return (
+    <div className="sq-act">
+      {a.openedCount === 0 ? (
+        <p className="sq-act-h">Not opened yet</p>
+      ) : (
+        <p className="sq-act-h">
+          Opened {times(a.openedCount)}
+          {devices.length > 0 && <span> on {devices.join(", ")}</span>}
+          {a.lastOpenedAt && <span className="faint"> · last {whenWords(new Date(a.lastOpenedAt))}</span>}
+        </p>
+      )}
+      <p className="faint sq-act-sub">{a.pdfDownloads ? `PDF downloaded ${times(a.pdfDownloads)}` : "PDF not downloaded"}</p>
+      {recent.length > 0 && (
+        <ul className="sq-act-log">
+          {recent.map((e, i) => (
+            <li key={i}>
+              <span className="faint">{e.when}</span> {e.what} · {e.device}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 const day = (iso: string | null) =>
   iso ? new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-CA", { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" }) : null;
@@ -35,7 +72,8 @@ function CopyLink({ link }: { link: string }) {
       >
         {copied ? "Copied" : "Copy"}
       </button>
-      <a className="btn small" href={link} target="_blank" rel="noreferrer">Open</a>
+      {/* #staff: opening it from here is never counted as the customer's open (2026-10-27). */}
+      <a className="btn small" href={`${link}#staff`} target="_blank" rel="noreferrer">Open</a>
     </div>
   );
 }
@@ -75,17 +113,19 @@ export function SendQuote({
   preliminary: boolean;
   /** The address the email goes out from: the signed-in quoter's (2026-10-22); null = GHL's default sender. */
   from: string | null;
-  /** The version's options, for choosing which go to the customer (2026-10-24). */
-  options: { id: string; name: string; price: string; recommended: boolean; problem: string | null }[];
+  /** The version's options, for choosing which go to the customer (2026-10-24); `range` is what a preliminary shows instead of `price` (2026-10-27). */
+  options: { id: string; name: string; price: string; range: string | null; recommended: boolean; problem: string | null }[];
 }) {
   const router = useRouter();
   const [until, setUntil] = useState(defaultUntil);
   const [byEmail, setByEmail] = useState(!!email);
   const [bySms, setBySms] = useState(!!phone);
-  /** What the customer gets: the lump sum, always the default, or the breakdown (Albert, 2026-10-22). */
+  /** What the customer gets: the lump sum, always the default, or the breakdown (Albert, 2026-10-22). A preliminary is always a lump sum (2026-10-27). */
   const [breakdown, setBreakdown] = useState(false);
-  /** A preliminary can go out before anyone has been to the house (Albert, 2026-10-24): the generic opening is the default. */
-  const [visited, setVisited] = useState(false);
+  const itemised = !preliminary && breakdown;
+  /** A preliminary's price: the range, always the default, or the exact price (Albert, 2026-10-27). */
+  const [range, setRange] = useState(true);
+  const exact = preliminary && !range;
   /** Attach the PDF to the email (Albert, 2026-10-24): off by default, so opens and downloads go through the tracked quote page. */
   const [attachPdf, setAttachPdf] = useState(false);
   /** Which options go to the customer (2026-10-24): all of them unless the sender unticks some. */
@@ -98,7 +138,7 @@ export function SendQuote({
   const [error, setError] = useState<{ message: string; problems?: string[] } | null>(null);
   const [done, setDone] = useState<{ link: string; sentTo: string[]; warning: string | null } | null>(null);
   const [sending, startSend] = useTransition();
-  const q = [preliminary ? null : `until=${until}`, breakdown ? "itemised=1" : null, preliminary && visited ? "visited=1" : null, optionIds ? `options=${optionIds.join(",")}` : null].filter(Boolean).join("&");
+  const q = [preliminary ? null : `until=${until}`, itemised ? "itemised=1" : null, optionIds ? `options=${optionIds.join(",")}` : null, exact ? "range=0" : null].filter(Boolean).join("&");
   const preview = `/q/${versionId}/preview${q ? `?${q}` : ""}`;
   const pdf = `/q/${versionId}/pdf${q ? `?${q}` : ""}`;
   const eq = [q, attachPdf ? "pdf=1" : null].filter(Boolean).join("&");
@@ -124,6 +164,7 @@ export function SendQuote({
             <p className="faint">This version is {status ?? "not a draft"}. To send changes, save them as a new version.</p>
           )}
           {done?.warning && <p className="sq-msg warn" role="status">{done.warning}</p>}
+          {!done && sent?.activity && <Activity a={sent.activity} />}
           {s?.link && <CopyLink link={s.link} />}
           <div className="sq-tools">
             <a href={`/q/${versionId}/preview`} target="_blank" rel="noreferrer">What the customer sees</a>
@@ -141,7 +182,7 @@ export function SendQuote({
   function send() {
     setError(null);
     startSend(async () => {
-      const r = await sendQuoteAction(versionId, { base, validUntil: preliminary ? null : until, channels: { email: byEmail, sms: bySms }, itemised: breakdown, visited: preliminary && visited, attachPdf: byEmail && attachPdf, optionIds });
+      const r = await sendQuoteAction(versionId, { base, validUntil: preliminary ? null : until, channels: { email: byEmail, sms: bySms }, itemised, attachPdf: byEmail && attachPdf, optionIds, range: !exact });
       setAsking(false);
       if (r.ok) {
         setDone(r);
@@ -201,7 +242,7 @@ export function SendQuote({
                 />
                 <span>
                   <span className="nm">{i + 1}. {o.name}{o.recommended ? <span className="rec"> · Recommended</span> : null}</span>
-                  <span className="sub">{o.problem ?? o.price}</span>
+                  <span className="sub">{o.problem ?? (preliminary && !exact && o.range ? o.range : o.price)}</span>
                 </span>
               </label>
             ))}
@@ -209,6 +250,8 @@ export function SendQuote({
           </fieldset>
         )}
 
+        {/* A preliminary is always a lump sum (Albert, 2026-10-27); only a measured quote can go with the breakdown. */}
+        {!preliminary && (
         <label className="sq-until-in" title="Lump sum: what the work includes and one price; quantities on install, removal, prep and materials, no line prices. Breakdown: every line with its unit price and amount, section totals and the discount.">
           Pricing shown
           <select className="in" value={breakdown ? "breakdown" : "lump"} onChange={(e) => setBreakdown(e.target.value === "breakdown")} disabled={sending || asking}>
@@ -217,17 +260,24 @@ export function SendQuote({
           </select>
           <span className="sub">{breakdown ? "Every line with its unit price and amount, section totals and the discount." : "What the work includes and one price; no line prices."}</span>
         </label>
+        )}
 
         {preliminary ? (
           <>
-            <label className="sq-visited">
-              <input type="checkbox" checked={visited} onChange={(e) => setVisited(e.target.checked)} disabled={sending || asking} />
-              <span>
-                We&rsquo;ve already been to the home
-                <span className="sub">{visited ? "Opens with “Thanks for having us over” and the number we talked about." : "Opens with “Thanks for telling us about your project”; tick this if the visit has happened."}</span>
+            <p className="note">A preliminary has no good-until date: it is an estimate, not an offer, and its link stays open.</p>
+            {/* 2026-10-27: a preliminary goes as a range unless the sender picks the exact price. Always a lump sum. */}
+            <label className="sq-until-in">
+              Price shown
+              <select className="in" value={range ? "range" : "exact"} onChange={(e) => setRange(e.target.value === "range")} disabled={sending || asking}>
+                <option value="range">Range</option>
+                <option value="exact">Exact price</option>
+              </select>
+              <span className="sub">
+                {range
+                  ? <>3% under the price to 10% over it (at most $3,000 over), rounded out{options.length === 1 && options[0].range ? <>: <b>{options[0].range}</b></> : ", per option above"}. Always a lump sum.</>
+                  : <>The one price, as a rough total{options.length === 1 ? <>: <b>{options[0].price}</b></> : ""}. Always a lump sum.</>}
               </span>
             </label>
-            <p className="note">A preliminary has no good-until date: it is an estimate, not an offer, and its link stays open.</p>
           </>
         ) : (
         <label className="sq-until-in">

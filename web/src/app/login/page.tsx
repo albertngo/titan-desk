@@ -28,20 +28,24 @@ function LoginInner() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
-      <h1 className="text-2xl font-semibold">askBert</h1>
-      <p className="mt-1 text-zinc-600">Catalogue lookup for Titan Flooring staff.</p>
-      {error && <p className="mt-4 rounded bg-red-50 p-3 text-sm text-red-700">{error}</p>}
-      <button
-        onClick={signIn}
-        disabled={busy}
-        className="mt-8 rounded-lg bg-zinc-900 px-4 py-3 text-white disabled:opacity-60"
-      >
-        {busy ? "Opening Microsoft sign-in…" : "Sign in with Microsoft 365"}
-      </button>
-      <p className="mt-6 text-xs text-zinc-500">
-        Install the app first (Share → Add to Home Screen on iPhone), then sign in inside it.
-      </p>
+    <main className="flex min-h-screen flex-col items-center justify-center bg-cream px-6 text-ink">
+      <div className="w-full max-w-sm text-center">
+        {/* eslint-disable-next-line @next/next/no-img-element -- static brand asset */}
+        <img src="/brand/titan-mascot-blue.png" alt="" className="mx-auto h-28 w-28 object-contain" />
+        <h1 className="mt-4 font-display text-[34px] font-bold leading-tight text-denim">askBert</h1>
+        <p className="mt-1 text-ink/65">The Titan Flooring catalogue, for staff.</p>
+        {error && <p className="mt-5 rounded-xl bg-peach px-4 py-3 text-left text-sm text-campfire-dark">{error}</p>}
+        <button
+          onClick={signIn}
+          disabled={busy}
+          className="mt-8 h-12 w-full rounded-full bg-denim px-5 font-semibold text-cream transition hover:bg-denim-dark active:scale-[0.98] disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-denim"
+        >
+          {busy ? "Opening Microsoft sign-in…" : "Sign in with Microsoft 365"}
+        </button>
+        <p className="mt-6 text-xs leading-relaxed text-ink/55">
+          Install the app first (Share → Add to Home Screen on iPhone), then sign in inside it.
+        </p>
+      </div>
     </main>
   );
 }

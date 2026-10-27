@@ -10,9 +10,9 @@ function Checks({ label, facet, values, selected, onToggle }: {
 }) {
   if (!values.length) return null;
   return (
-    <fieldset className="mt-4">
-      <legend className="text-sm font-medium">{label}</legend>
-      <div className="mt-1 flex flex-wrap gap-1.5">
+    <fieldset className="mt-6">
+      <legend className="text-sm font-semibold text-ink">{label}</legend>
+      <div className="mt-2 flex flex-wrap gap-1.5">
         {values.map(({ value, n }) => {
           const on = selected.includes(value);
           return (
@@ -20,7 +20,7 @@ function Checks({ label, facet, values, selected, onToggle }: {
               key={value}
               type="button"
               onClick={() => onToggle(facet, value)}
-              className={`rounded-full border px-2.5 py-1 text-xs ${on ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-300 bg-white"}`}
+              className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-denim ${on ? "bg-denim text-cream" : "bg-white text-ink ring-1 ring-denim/15 hover:ring-denim/40"}`}
             >
               {value} <span className="opacity-60">{n}</span>
             </button>
@@ -39,8 +39,8 @@ export function FilterSheet({ filters, facets, onChange, onClose }: {
     onChange({ ...filters, [k]: cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v] });
   };
   const bool = (k: "waterproof" | "radiant" | "pet" | "hide") => (
-    <label className="flex items-center gap-2 py-1 text-sm">
-      <input type="checkbox" checked={filters[k]} onChange={(e) => onChange({ ...filters, [k]: e.target.checked })} />
+    <label className="flex items-center gap-2.5 py-1.5 text-sm">
+      <input type="checkbox" className="h-4 w-4 accent-denim" checked={filters[k]} onChange={(e) => onChange({ ...filters, [k]: e.target.checked })} />
       {{ waterproof: "Waterproof", radiant: "Radiant heat compatible", pet: "Pet friendly", hide: "Hide special order / discontinued / coming soon" }[k]}
     </label>
   );
@@ -52,39 +52,39 @@ export function FilterSheet({ filters, facets, onChange, onClose }: {
       placeholder={placeholder}
       value={filters[k] ?? ""}
       onChange={(e) => onChange({ ...filters, [k]: e.target.value === "" ? null : Number(e.target.value) })}
-      className="w-24 rounded border border-zinc-300 px-2 py-1 text-sm"
+      className="w-24 rounded-xl bg-white px-3 py-2 text-sm ring-1 ring-denim/15 outline-none focus:ring-2 focus:ring-denim"
     />
   );
 
   return (
-    <div className="fixed inset-0 z-30 flex items-end bg-black/40" onClick={onClose} role="dialog" aria-modal="true">
-      <div className="max-h-[85vh] w-full overflow-y-auto rounded-t-2xl bg-white p-4 pb-8" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-30 flex items-end justify-center bg-ink/40 md:items-stretch md:justify-end" onClick={onClose} role="dialog" aria-modal="true" aria-label="Filters">
+      <div className="max-h-[85vh] w-full overflow-y-auto rounded-t-3xl bg-cream p-5 pb-10 md:max-h-none md:w-[440px] md:rounded-none md:p-7" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold">Filters</h2>
+          <h2 className="font-display text-2xl font-bold text-denim">Filters</h2>
           <div className="flex gap-2">
-            <button type="button" className="text-sm text-zinc-600" onClick={() => onChange({ ...EMPTY_FILTERS, q: filters.q })}>Clear</button>
-            <button type="button" className="rounded-lg bg-zinc-900 px-3 py-1.5 text-sm text-white" onClick={onClose}>Done</button>
+            <button type="button" className="rounded-full px-3 py-2 text-sm font-medium text-denim hover:bg-white" onClick={() => onChange({ ...EMPTY_FILTERS, q: filters.q, by: filters.by })}>Clear all</button>
+            <button type="button" className="rounded-full bg-denim px-5 py-2 text-sm font-semibold text-cream hover:bg-denim-dark" onClick={onClose}>Done</button>
           </div>
         </div>
 
         <Checks label="Supplier" facet="supplier" values={facets?.supplier ?? []} selected={filters.supplier} onToggle={toggle} />
         <Checks label="Category" facet="category" values={facets?.category ?? []} selected={filters.category} onToggle={toggle} />
 
-        <fieldset className="mt-4">
-          <legend className="text-sm font-medium">Price per sq ft</legend>
-          <div className="mt-1 flex items-center gap-2">{numInput("min", "min")} <span className="text-zinc-400">to</span> {numInput("max", "max")}</div>
-          <p className="mt-1 text-xs text-zinc-500">Per-piece items (accessories, stone) are excluded when a range is set.</p>
+        <fieldset className="mt-6">
+          <legend className="text-sm font-semibold text-ink">Price per sq ft</legend>
+          <div className="mt-1 flex items-center gap-2">{numInput("min", "min")} <span className="text-ink/40">to</span> {numInput("max", "max")}</div>
+          <p className="mt-1 text-xs text-ink/55">Per-piece items (accessories, stone) are excluded when a range is set.</p>
         </fieldset>
 
-        <fieldset className="mt-4">
-          <legend className="text-sm font-medium">Suitability</legend>
+        <fieldset className="mt-6">
+          <legend className="text-sm font-semibold text-ink">Suitability</legend>
           {bool("waterproof")}{bool("radiant")}{bool("pet")}{bool("hide")}
         </fieldset>
 
         <Checks label="Undertone" facet="undertone" values={facets?.undertone ?? []} selected={filters.undertone} onToggle={toggle} />
-        <fieldset className="mt-4">
-          <legend className="text-sm font-medium">Tone depth (1 very light – 5 very dark)</legend>
-          <div className="mt-1 flex items-center gap-2">{numInput("tone_min", "1", "1")} <span className="text-zinc-400">to</span> {numInput("tone_max", "5", "1")}</div>
+        <fieldset className="mt-6">
+          <legend className="text-sm font-semibold text-ink">Tone depth (1 very light – 5 very dark)</legend>
+          <div className="mt-1 flex items-center gap-2">{numInput("tone_min", "1", "1")} <span className="text-ink/40">to</span> {numInput("tone_max", "5", "1")}</div>
         </fieldset>
         <Checks label="Texture" facet="texture" values={facets?.texture ?? []} selected={filters.texture} onToggle={toggle} />
         <Checks label="Style" facet="style" values={facets?.style ?? []} selected={filters.style} onToggle={toggle} />

@@ -63,6 +63,15 @@ export type QuoteLink = {
   rooms?: string;
 };
 
+export type QuoteActivity = {
+  tracked: boolean;
+  openedCount: number;
+  firstOpenedAt: string | null;
+  lastOpenedAt: string | null;
+  pdfDownloads: number;
+  activityLog: string | null;
+};
+
 /**
  * One VERSION of a quote, as its page shows it (the id is the Quote Versions record). The quote
  * it belongs to, with its number and links, is `link`.
@@ -93,6 +102,8 @@ export type Quote = {
   /** ISO timestamp. */
   lastEditedAt?: string | null;
   editLog?: string | null;
+  /** Open tracking (2026-10-27): what the customer did with the link. `tracked` = sent since tracking began, so its GHL comments go. */
+  activity?: QuoteActivity;
   sentTo: string | null;
   notes: string | null;
   customerName: string | null;
@@ -217,6 +228,29 @@ export type ConfirmAddressResult = { ok: true } | { ok: false; message: string }
 
 /** `saved` is the field's new text, so the page carries on from it without reloading. */
 export type SaveRoomsResult = { ok: true; saved: string } | { ok: false; message: string };
+
+/* ---------- Address arrived (src/lib/quotes/address.ts) ---------- */
+
+/**
+ * Why an address in their messages was not filled: two different ones ("several"), no opportunity to
+ * send it through yet ("unlinked"), or the customer has more than one quote waiting for one ("jobs").
+ */
+export type AddressHeldReason = "several" | "unlinked" | "jobs";
+
+export type AddressScanQuote = { quoteNumber: string | null; customer: string | null; /** The newest version, for a link to the quote page. */ versionId: string | null };
+
+export type AddressScanResult =
+  | {
+      ok: true;
+      /** Read from the customer's messages and put on their blank GHL contact; the quote now says Unconfirmed. */
+      filled: (AddressScanQuote & { address: string })[];
+      /** Brought up to date from an address already on the contact. */
+      synced: number;
+      /** An address is in their messages but was not filled, and why. */
+      held: (AddressScanQuote & { reason: AddressHeldReason })[];
+      checked: number;
+    }
+  | { ok: false; message: string };
 
 /* ---------- sending a quote (src/lib/quotes/send.ts) ---------- */
 

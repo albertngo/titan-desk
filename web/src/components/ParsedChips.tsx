@@ -16,12 +16,12 @@ export function ParsedChips({ parsed }: { parsed: ParsedQuery }) {
   if (parsed.price_max !== null) chips.push(`≤ $${parsed.price_max}`);
   if (!chips.length) return null;
   return (
-    <div className="mt-1.5 flex flex-wrap items-center gap-1 text-xs text-zinc-600">
+    <div className="mt-2 flex flex-wrap items-center gap-1.5 px-1 text-xs text-ink/60">
       <span>Understood:</span>
       {chips.map((c) => (
-        <span key={c} className="rounded-full bg-zinc-200 px-2 py-0.5">{c}</span>
+        <span key={c} className="rounded-full bg-sky px-2.5 py-1 font-medium text-denim">{c}</span>
       ))}
-      {parsed.free_text && <span className="rounded-full bg-white px-2 py-0.5 ring-1 ring-zinc-300">“{parsed.free_text}”</span>}
+      {parsed.free_text && <span className="rounded-full bg-white px-2.5 py-1 ring-1 ring-denim/15">“{parsed.free_text}”</span>}
     </div>
   );
 }

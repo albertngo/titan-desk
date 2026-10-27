@@ -65,6 +65,7 @@ function toContact(c: Record<string, unknown>): GhlContact {
     phone: s(c.phone),
     address: s(c.address1),
     city: s(c.city),
+    postalCode: s(c.postalCode),
     origin: customValue(c.customFields, CONTACT_ORIGIN_FIELD),
     source: s(c.source),
   };
@@ -127,6 +128,28 @@ export async function opportunitySite(id: string): Promise<GhlSite | null> {
     if (e instanceof GhlError && e.status === 404) return null;
     throw e;
   }
+}
+
+/* ---------- who to tag on a quote's activity comment (2026-10-27) ---------- */
+
+/** The user an opportunity is assigned to, or null (none, or no such opportunity). */
+export async function opportunityOwner(id: string): Promise<string | null> {
+  if (!/^[A-Za-z0-9]+$/.test(id)) return null;
+  try {
+    const data = (await get(`/opportunities/${id}`, {})) as { opportunity?: Record<string, unknown> };
+    return s(data.opportunity?.assignedTo);
+  } catch (e) {
+    if (e instanceof GhlError && e.status === 404) return null;
+    throw e;
+  }
+}
+
+/** The location's users (id, email, name), to tag the person who sent a quote. Needs users.readonly on the token. */
+export async function locationUsers(): Promise<{ id: string; email: string | null; name: string | null }[]> {
+  const data = (await get("/users/", { locationId: GHL_LOCATION_ID })) as { users?: Record<string, unknown>[] };
+  return (data.users ?? [])
+    .filter((u) => typeof u.id === "string" && u.deleted !== true)
+    .map((u) => ({ id: String(u.id), email: s(u.email)?.toLowerCase() ?? null, name: s(u.name) }));
 }
 
 /* ---------- the customer's conversation (Albert, 2026-10-20): read only ---------- */

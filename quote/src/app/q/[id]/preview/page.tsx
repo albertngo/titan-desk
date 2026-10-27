@@ -10,13 +10,14 @@ import { parseOptionIds } from "@/lib/send/plan";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Customer preview" };
 
-export default async function PreviewPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ until?: string; itemised?: string; options?: string }> }) {
+export default async function PreviewPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ until?: string; itemised?: string; options?: string; range?: string }> }) {
   const { id } = await params;
-  const { until, itemised, options } = await searchParams;
+  const { until, itemised, options, range } = await searchParams;
   // `itemised=1` previews the breakdown; otherwise the lump sum, the default (Albert, 2026-10-22).
-  const copy = await previewCopy(id, isIsoDate(until) ? until : undefined, itemised === "1", parseOptionIds(options ?? null));
+  // `range=0` previews a preliminary's exact price instead of its range (2026-10-27).
+  const copy = await previewCopy(id, isIsoDate(until) ? until : undefined, itemised === "1", parseOptionIds(options ?? null), range !== "0");
   if (!copy) notFound();
-  const q = [isIsoDate(until) ? `until=${until}` : null, itemised === "1" ? "itemised=1" : null, options ? `options=${encodeURIComponent(options)}` : null].filter(Boolean).join("&");
+  const q = [isIsoDate(until) ? `until=${until}` : null, itemised === "1" ? "itemised=1" : null, options ? `options=${encodeURIComponent(options)}` : null, range === "0" ? "range=0" : null].filter(Boolean).join("&");
   const pdf = `/q/${id}/pdf${q ? `?${q}` : ""}`;
   return (
     <CustomerQuote

@@ -110,6 +110,10 @@ h1, h2, h3, p { margin: 0; }
 .banner.warn { background: var(--warn-soft); color: var(--warn); }
 .banner table { margin-top: 6px; border-collapse: collapse; font-size: 12px; }
 .banner td { padding: 1px 14px 1px 0; }
+/* Address arrived (2026-10-27): what the scan filled or held, above the list or the customer card. */
+.addr-scan { display: grid; gap: 6px; margin: 0 0 12px; }
+.addr-scan .banner { margin: 0; border: 1px solid var(--line); border-radius: var(--radius); }
+.addr-scan a { color: inherit; }
 
 /* ---------- line items table ---------- */
 .tbl-wrap { overflow-x: auto; }
@@ -592,6 +596,9 @@ a.chip.accent:hover { text-decoration: underline; }
 .cq-totals .total dt { color: var(--accent-ink); }
 .cq-totals .total .tag { font-weight: 500; font-size: 13px; opacity: .85; }
 .cq-totals .total ~ div { padding: 0 12px; }
+/* A preliminary's range (2026-10-27): the label and the two figures wrap as a pair on a phone. */
+.cq-totals .total.range { flex-wrap: wrap; row-gap: 2px; }
+.cq-totals .total.range dd { white-space: nowrap; }
 .cq-totals .with dt, .cq-totals .with dd { font-weight: 600; color: var(--fg); }
 .cq-pay { order: 1; font-size: 13.5px; display: grid; gap: 4px; align-content: start; }
 .cq-pay h4, .cq-excl h4 { margin: 0 0 4px; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--fg-faint); }
@@ -728,11 +735,11 @@ a.chip.accent:hover { text-decoration: underline; }
 .sq-opts .rec { color: var(--accent); font-weight: 500; }
 .sq-opts .sub { display: block; font-size: 12px; color: var(--fg-dim); }
 
-/* Send card: the visited switch on a preliminary, and Attach PDF under Email (2026-10-24). */
+/* Send card: Attach PDF under Email (2026-10-24). */
 .sq-attach { margin: -2px 0 4px 26px; }
-.sq-visited, .sq-attach { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; }
-.sq-visited input, .sq-attach input { margin-top: 3px; }
-.sq-visited .sub, .sq-attach .sub { display: block; font-size: 12px; color: var(--fg-dim); }
+.sq-attach { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; }
+.sq-attach input { margin-top: 3px; }
+.sq-attach .sub { display: block; font-size: 12px; color: var(--fg-dim); }
 
 /* History card (2026-10-22): who saved or sent a version, newest first. */
 .hist summary { cursor: pointer; font-size: 12.5px; color: var(--fg-dim); }
@@ -771,3 +778,12 @@ a.chip.accent:hover { text-decoration: underline; }
 @media (max-width: 860px) { .rm-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 560px) { .rm-foot .btn { width: 100%; justify-content: center; } .rm-state { margin-left: 0; } }
 @media (pointer: coarse) { .rm .in { min-height: 40px; font-size: 16px; } .rm-foot .btn, .rm-foot .chip-btn { min-height: 44px; } .rm .iconbtn { width: 36px; height: 36px; } }
+
+/* Send card: what the customer did with the link (2026-10-27). */
+.sq-act { margin: 10px 0 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
+.sq-act-h { margin: 0; font-weight: 600; font-size: 14px; }
+.sq-act-sub { margin: 2px 0 0; font-size: 12.5px; }
+.sq-act-log { list-style: none; margin: 8px 0 0; padding: 0; font-size: 12.5px; display: grid; gap: 2px; }
+/* All quotes: the open marker beside a sent version (2026-10-27). */
+.ql-open { font-size: 11.5px; font-weight: 600; color: var(--good, #1a7f4b); white-space: nowrap; }
+.ql-open.none { color: var(--fg-dim); font-weight: 500; }

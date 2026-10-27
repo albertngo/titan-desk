@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AddressScan } from "@/components/AddressScan";
 import { Analysis } from "@/components/Analysis";
 import { ConversationDrawer } from "@/components/Conversation";
 import { CustomerCard } from "@/components/CustomerCard";
@@ -21,7 +22,7 @@ import { fromQuote } from "@/lib/editor/model";
 import { fingerprint } from "@/lib/quotes/savePlan";
 import { sendingReady, sendsFrom, sentLink } from "@/lib/quotes/send";
 import { logEntries } from "@/lib/quotes/history";
-import { addDays, leadPrice, torontoToday, VALID_DAYS } from "@/lib/send/copy";
+import { addDays, leadPrice, priceRange, rangeText, torontoToday, VALID_DAYS } from "@/lib/send/copy";
 import { optionProblem, sendProblems } from "@/lib/send/plan";
 import { parseRooms } from "@/lib/rooms/log";
 
@@ -62,9 +63,13 @@ export default async function QuotePage({
     ? sendProblems(quote, { base, validUntil: defaultUntil, channels: { email: !!quote.link?.email, sms: !!quote.link?.phone } }, { today, fingerprint: base, skipOptions: true })
     : [];
   // Which options go to the customer (2026-10-24): one tick each on the Send card, with its price before HST and any problem.
+  // A preliminary goes as a range unless the sender picks the exact price (2026-10-27): the card shows whichever will go.
+  const preliminary = quote.basis === "Preliminary";
   const sendOptions = quote.options.map((o) => {
     const lead = leadPrice(quote, optionTotals(o.lines, quote.discountRate, quote.showHst));
-    return { id: o.id, name: o.name, price: `${money(lead.amount)} ${lead.tag}`, recommended: o.recommended, problem: optionProblem(quote, o) };
+    const r = priceRange(lead.amount);
+    const range = preliminary && lead.amount > 0 ? `${rangeText(r.low, r.high)} ${lead.tag}` : null;
+    return { id: o.id, name: o.name, price: `${money(lead.amount)} ${lead.tag}`, range, recommended: o.recommended, problem: optionProblem(quote, o) };
   });
   const send = customer ? null : (
     <SendQuote
@@ -80,8 +85,8 @@ export default async function QuotePage({
       phone={quote.link?.phone ?? null}
       problems={problems}
       ready={ready}
-      sent={draft ? null : { sentAt: quote.sentAt, sentBy: quote.sentBy, sentTo: quote.sentTo, validUntil: quote.validUntil, link }}
-      preliminary={quote.basis === "Preliminary"}
+      sent={draft ? null : { sentAt: quote.sentAt, sentBy: quote.sentBy, sentTo: quote.sentTo, validUntil: quote.validUntil, link, activity: quote.activity ?? null }}
+      preliminary={preliminary}
       from={from}
       options={sendOptions}
     />
@@ -144,6 +149,9 @@ export default async function QuotePage({
         <div className={`layout${option && totals ? "" : " full"}`}>
           <div className="stack">
             {unlinked && jobs && <LinkJob quoteRecordId={unlinked.quoteRecordId} quoteNumber={unlinked.quoteNumber} jobs={jobs} />}
+
+            {/* Address arrived (2026-10-27): a quote still without an address reads the customer's messages for one. Staff only. */}
+            {!customer && quote.link?.ghlContactId && !quote.link.projectNumber && <AddressScan quoteRecordId={quote.link.quoteRecordId} skip={Boolean(quote.siteAddress)} />}
 
             <CustomerCard quote={quote} />
 
