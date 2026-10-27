@@ -22,6 +22,14 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-10-27",
+    kind: "changed",
+    title: "What's new moved to the top bar",
+    details: [
+      "What's new is now a small link in the top bar, between Customer view and your email, on every page. It's hidden while Customer view is on.",
+    ],
+  },
+  {
+    date: "2026-10-27",
     kind: "new",
     title: "What's new",
     details: [
