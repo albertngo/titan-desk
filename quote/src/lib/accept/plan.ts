@@ -118,6 +118,7 @@ export function notAcceptable(copy: CustomerCopy, state: CopyState, terms: Terms
   if (state === "expired") return "This quote is past its good-until date. Get in touch and we'll confirm the prices and send a fresh one.";
   if (state === "replaced") return "We've sent you a newer version of this quote. Accept that one instead.";
   if (state !== "open") return "This quote is no longer open.";
+  if (copy.change) return "This is your updated quote, for your records. There's nothing to accept.";
   if (copy.basis !== "Measured") return "A preliminary estimate can't be accepted. We'll measure and send you a quote to accept.";
   return null;
 }

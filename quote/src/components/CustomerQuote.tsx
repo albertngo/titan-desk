@@ -1,3 +1,4 @@
+import { changeWords, itemDifference, signedMoney, type CopyChange } from "@/lib/change/diff";
 import { money, rate } from "@/lib/format";
 import { discountLabel, hstRow, isLump, itemHstNote, leadPrice, longDate, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyState, type CopyText, type CustomerCopy } from "@/lib/send/copy";
 
@@ -110,6 +111,54 @@ function Schedule({ o, title }: { o: CopyOption; title: string }) {
   );
 }
 
+/** A change after acceptance (2026-10-27): what changed, the difference, and the schedule before and after. */
+function ChangeBox({ c, o, lump }: { c: CopyChange; o: CopyOption; lump: boolean }) {
+  const after = stagesOf(o);
+  return (
+    <section className="cq-card cq-change" aria-labelledby="chg-h">
+      <h2 id="chg-h">What changed since {longDate(c.sinceOn)}</h2>
+      {c.items.length > 0 ? (
+        <ul>
+          {c.items.map((it, i) => {
+            const d = lump ? null : itemDifference(it);
+            return (
+              <li key={i} className={it.kind}>
+                <span>{changeWords(it)}</span>
+                {d !== null && <span className="amt">{signedMoney(d, money)}</span>}
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="faint">The scope is the same; the price changed.</p>
+      )}
+      <dl>
+        <div className="diff"><dt>Change, before HST</dt><dd>{signedMoney(c.difference, money)}</dd></div>
+        <div><dt>Total was</dt><dd>{money(c.before.total)}</dd></div>
+        <div className="now"><dt>Total now</dt><dd>{money(o.totals.total)}</dd></div>
+      </dl>
+      {c.before.stages.length > 0 && (
+        <div className="cq-pay">
+          <h4>Payment schedule, before and after</h4>
+          {after.map((s, i) => {
+            const was = c.before.stages[i]?.amount ?? null;
+            const moved = was !== null && s.amount !== null && Math.abs(was - s.amount) > 0.004;
+            return (
+              <div key={i}>
+                <span>{s.label}</span>
+                <span>
+                  {moved && <s className="was">{money(was)}</s>} {s.amount !== null ? money(s.amount) : ""}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <p className="faint">This updated quote is the record of the change we agreed. The full quote follows.</p>
+    </section>
+  );
+}
+
 function OptionBlock({ o, i, copy }: { o: CopyOption; i: number | null; copy: CustomerCopy }) {
   return (
     <section className="cq-card cq-opt" id={i ? `option-${i}` : undefined} aria-labelledby={`opt-h-${i ?? 0}`}>
@@ -198,7 +247,7 @@ export function CustomerQuote({
         )}
 
         <section className="cq-hero">
-          <p className="cq-kicker">{copy.basis === "Preliminary" ? "Preliminary quote" : "Quote"} {copy.quoteNumber}{copy.version !== null ? ` · v${copy.version}` : ""}</p>
+          <p className="cq-kicker">{copy.change ? `Updated quote · change ${copy.change.no} ·` : copy.basis === "Preliminary" ? "Preliminary quote" : "Quote"} {copy.quoteNumber}{copy.version !== null ? ` · v${copy.version}` : ""}</p>
           <h1>{copy.customer.name ? `Prepared for ${copy.customer.name}` : "Your flooring quote"}</h1>
           {site && <p className="cq-site">{site}</p>}
           <dl className="cq-meta">
@@ -223,6 +272,8 @@ export function CustomerQuote({
             ))}
           </nav>
         )}
+
+        {copy.change && copy.options[0] && <ChangeBox c={copy.change} o={copy.options[0]} lump={isLump(copy)} />}
 
         {copy.options.map((o, i) => (
           <OptionBlock key={i} o={o} i={several ? i + 1 : null} copy={copy} />

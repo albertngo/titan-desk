@@ -51,7 +51,7 @@ export default async function CustomerQuotePage({ params, searchParams }: { para
         state={state}
         pdfHref={pdfHref}
         newerHref={null}
-        note={<AcceptedNote a={acceptance} quoteNumber={copy.quoteNumber} etransfer={etransferEmail()} pdfHref={pdfHref} />}
+        note={<AcceptedNote a={acceptance} quoteNumber={copy.quoteNumber} etransfer={etransferEmail()} pdfHref={pdfHref} newerHref={found.newerToken ? `/c/${found.newerToken}` : null} />}
       />
     );
   }

@@ -2,6 +2,7 @@
 
 import { acceptForCustomer, cancelAcceptance, retryHandoff, type CancelResult, type StaffAcceptResult } from "@/lib/accept/staff";
 import { confirmAddress, linkToJob } from "@/lib/quotes/link";
+import { makeChange, type SaveResult } from "@/lib/quotes/save";
 import { sendQuote } from "@/lib/quotes/send";
 import type { ConfirmAddressResult, LinkJobResult, SendResult } from "@/lib/quotes/types";
 
@@ -31,4 +32,9 @@ export async function retryHandoffAction(versionId: string): Promise<StaffAccept
 
 export async function cancelAcceptanceAction(versionId: string, reason: string): Promise<CancelResult> {
   return cancelAcceptance(String(versionId ?? ""), String(reason ?? ""));
+}
+
+/** Make a change after acceptance (2026-10-27): a new version, from the contract as it stands, opened in the editor. */
+export async function makeChangeAction(versionId: string): Promise<SaveResult> {
+  return makeChange(String(versionId ?? ""));
 }

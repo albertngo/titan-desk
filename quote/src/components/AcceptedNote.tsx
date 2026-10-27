@@ -8,12 +8,17 @@ import { depositHow } from "@/lib/send/plan";
  * The top of an accepted quote's page (2026-10-27): when it was accepted and by whom, the deposit and
  * how to pay it, and what happens next. Drawn from the frozen acceptance record only.
  */
-export function AcceptedNote({ a, quoteNumber, etransfer, pdfHref }: { a: Acceptance; quoteNumber: string; etransfer: string | null; pdfHref: string }) {
+export function AcceptedNote({ a, quoteNumber, etransfer, pdfHref, newerHref = null }: { a: Acceptance; quoteNumber: string; etransfer: string | null; pdfHref: string; newerHref?: string | null }) {
   const deposit = depositOf(a);
   const first = a.name.split(" ")[0];
   return (
     <section className="cq-card cq-accepted" role="status" aria-labelledby="accd-h">
       <p className="cq-kicker">Accepted</p>
+      {newerHref && (
+        <p className="cq-state replaced">
+          We&apos;ve updated this quote since, as we discussed. <a href={newerHref}>See your updated quote</a>
+        </p>
+      )}
       <h2 id="accd-h">
         Thank you{first ? `, ${first}` : ""}. You accepted {a.option.name} on {acceptedWhen(a.at)}.
       </h2>

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { acceptForCustomerAction, cancelAcceptanceAction, retryHandoffAction } from "@/app/q/[id]/actions";
+import { acceptForCustomerAction, cancelAcceptanceAction, makeChangeAction, retryHandoffAction } from "@/app/q/[id]/actions";
 import type { Acceptance } from "@/lib/accept/plan";
 import { money } from "@/lib/format";
 
@@ -141,7 +141,7 @@ export function AcceptedCard({
   when,
   projectNumber,
   links,
-  changeHref,
+  canChange,
   current,
 }: {
   versionId: string;
@@ -150,8 +150,8 @@ export function AcceptedCard({
   when: string;
   projectNumber: string | null;
   links: { label: string; href: string }[];
-  /** Make a change (milestone 5): null when this version isn't the contract any more. */
-  changeHref: string | null;
+  /** Make a change can start from this version: it is the contract now. */
+  canChange: boolean;
   /** This version is still the contract. */
   current: boolean;
 }) {
@@ -224,10 +224,22 @@ export function AcceptedCard({
         )}
         {!a.cancelled && current && (
           <p className="acc-actions">
-            {changeHref && (
-              <a className="btn" href={changeHref}>
+            {canChange && (
+              <button
+                type="button"
+                className="btn primary"
+                disabled={busy}
+                title="A new version from the contract as it stands. Edit it, then send it: the customer gets the updated quote with what changed at the top, for their records."
+                onClick={() =>
+                  start(async () => {
+                    const r = await makeChangeAction(versionId);
+                    if (r.ok) router.push(`/q/${r.versionId}/edit`);
+                    else setMsg({ text: r.message, bad: true });
+                  })
+                }
+              >
                 Make a change
-              </a>
+              </button>
             )}
             {(h?.ghl !== "done" || !h?.told.length) && (
               <button type="button" className="btn" disabled={busy} onClick={retry}>
@@ -244,6 +256,48 @@ export function AcceptedCard({
             {msg.text}
           </p>
         )}
+      </div>
+    </section>
+  );
+}
+
+/** A change after acceptance (2026-10-27), on its own page: what it is, and Make a change once it is the contract. */
+export function ChangeCard({ versionId, changeNo, status, sentAt, current }: { versionId: string; changeNo: number; status: string | null; sentAt: string | null; current: boolean }) {
+  const router = useRouter();
+  const [busy, start] = useTransition();
+  const [msg, setMsg] = useState<string | null>(null);
+  return (
+    <section className="card accept-card" aria-labelledby="chg-staff-h">
+      <div className="card-h" id="chg-staff-h">
+        Change {changeNo} to the accepted quote
+      </div>
+      <div className="card-b">
+        {status === "Draft" ? (
+          <p>Edit it, then send it from the Send card. The customer gets the updated quote with what changed at the top, for their records; GHL&apos;s value follows the new total. The difference goes on the final payment.</p>
+        ) : current ? (
+          <p>Sent{sentAt ? ` ${sentAt}` : ""}. This is the contract now: GHL&apos;s value and the Notion project follow its total.</p>
+        ) : (
+          <p className="faint">A later change replaced this one.</p>
+        )}
+        {current && status !== "Draft" && (
+          <p className="acc-actions">
+            <button
+              type="button"
+              className="btn primary"
+              disabled={busy}
+              onClick={() =>
+                start(async () => {
+                  const r = await makeChangeAction(versionId);
+                  if (r.ok) router.push(`/q/${r.versionId}/edit`);
+                  else setMsg(r.message);
+                })
+              }
+            >
+              Make another change
+            </button>
+          </p>
+        )}
+        {msg && <p className="banner warn">{msg}</p>}
       </div>
     </section>
   );

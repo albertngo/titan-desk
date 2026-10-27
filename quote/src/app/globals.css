@@ -825,3 +825,21 @@ a.chip.accent:hover { text-decoration: underline; }
 .handoff li.faint { color: var(--fg-faint); }
 .acc-links { font-size: 13px; margin: 8px 0; }
 .linkbtn.danger:hover { color: var(--bad); }
+
+/* A change after acceptance (2026-10-27): what changed, at the top of the updated quote. */
+.cq-change { padding: 18px; display: grid; gap: 12px; border-color: var(--accent); }
+.cq-change h2 { margin: 0; font-size: 19px; }
+.cq-change ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.cq-change li { display: flex; justify-content: space-between; gap: 12px; padding-left: 14px; position: relative; }
+.cq-change li::before { position: absolute; left: 0; font-weight: 700; }
+.cq-change li.added::before { content: "+"; color: var(--good); }
+.cq-change li.removed::before { content: "−"; color: var(--bad); }
+.cq-change li.changed::before { content: "~"; color: var(--accent); }
+.cq-change .amt { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cq-change dl { margin: 0; display: grid; gap: 3px; padding: 10px 12px; background: var(--card-2); border-radius: 8px; }
+.cq-change dl div { display: flex; justify-content: space-between; gap: 12px; }
+.cq-change dd { margin: 0; font-variant-numeric: tabular-nums; }
+.cq-change .diff, .cq-change .now { font-weight: 700; }
+.cq-change .was { color: var(--fg-faint); margin-right: 6px; }
+.cq-change > .faint { margin: 0; font-size: 13px; color: var(--fg-dim); }
+.change-note { margin: 6px 0 0; font-size: 13px; color: var(--fg-dim); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }

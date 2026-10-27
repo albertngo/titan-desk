@@ -181,3 +181,17 @@ export const sameSchedule = (a: PaymentSchedule | null | undefined, b: PaymentSc
 
 /** The deposit's share, for words like "35% deposit"; null when the deposit is the material or a fixed amount. */
 export const depositPct = (s: PaymentSchedule): number | null => (s.stages[0]?.part.kind === "share" ? s.stages[0].part.pct : null);
+
+/**
+ * The schedule of a change after acceptance (Albert, 2026-10-27: the difference goes into the final
+ * payment): every stage already agreed keeps its dollars, and the last stage is the balance, so a
+ * change up or down lands on the final payment only. Staff can still edit it before sending.
+ */
+export function fixedSchedule(stages: { label: string; when: string; pay: PayHow; amount: number | null }[]): PaymentSchedule {
+  const last = stages.length - 1;
+  return {
+    preset: "custom",
+    stages: stages.map((s, i) => ({ label: s.label, when: s.when, pay: s.pay, part: i === last ? { kind: "balance" as const } : { kind: "amount" as const, amount: s.amount ?? 0 } })),
+  };
+}
+

@@ -36,7 +36,9 @@ export async function customerQuote(token: string): Promise<CustomerQuote | null
   if (state === "hidden" || !copy) return null;
   const newerToken = state === "replaced" ? await newestSent(ids(f[VERSION.quote])[0], found[0].id) : null;
   const acceptance = state === "accepted" ? parseAcceptance(str(f[VERSION.acceptance])) : null;
-  return { copy, state, today, newerToken, acceptance };
+  // An accepted quote changed since (2026-10-27): its page points at the change that is the contract now.
+  const changedTo = acceptance ? await contractToken(ids(f[VERSION.quote])[0], found[0].id) : null;
+  return { copy, state, today, newerToken: newerToken ?? changedTo, acceptance };
 }
 
 /** For a replaced version: the link of the quote's newest version that is out with the customer. */
@@ -51,3 +53,15 @@ async function newestSent(quoteRecordId: string | undefined, self: string): Prom
     .sort((a, b) => (num(b.fields[VERSION.version]) ?? 0) - (num(a.fields[VERSION.version]) ?? 0));
   return live.length ? str(live[0].fields[VERSION.customerToken]) : null;
 }
+
+/** For an accepted version: the link of the change that is the quote's contract now, when it isn't this version. */
+async function contractToken(quoteRecordId: string | undefined, self: string): Promise<string | null> {
+  if (!quoteRecordId) return null;
+  const quote = await listByIds(T.quotes, [quoteRecordId], [QUOTE.contractVersion]);
+  const contract = ids(quote[0]?.fields[QUOTE.contractVersion])[0];
+  if (!contract || contract === self) return null;
+  const v = await listByIds(T.versions, [contract], [VERSION.customerToken]);
+  const token = str(v[0]?.fields[VERSION.customerToken]);
+  return isToken(token) ? token : null;
+}
+

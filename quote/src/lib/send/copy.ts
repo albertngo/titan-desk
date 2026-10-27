@@ -1,4 +1,5 @@
 import { DEFAULT_PRIVATE_LABEL, LUMP_QTY_SECTIONS, PRIVATE_SECTION, SECTIONS, chargesHst, isPriced, lineTotal, optionTotals, priceUsed, privateRollup, round2, sectionOf, stageAmounts } from "@/lib/calc";
+import type { CopyChange } from "@/lib/change/diff";
 import { defaultSchedule, payWords, type PayHow, type PaymentSchedule } from "@/lib/pricing/schedule";
 import type { Quote, QuoteLine, QuoteOption } from "@/lib/quotes/types";
 import { copyKind } from "./summary";
@@ -121,6 +122,11 @@ export type CustomerCopy = {
   company: Letterhead;
   /** The payment schedule it was sent with (2026-10-27), so ticked add-ons can be scheduled the same way. Absent = 35 / 35 / balance. */
   paymentSchedule?: PaymentSchedule;
+  /**
+   * A change after acceptance (2026-10-27): what changed since the contract it updates. Sent for the
+   * customer's records; there is nothing to accept. Absent on every other copy.
+   */
+  change?: CopyChange;
   options: CopyOption[];
 };
 

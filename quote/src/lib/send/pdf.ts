@@ -1,4 +1,5 @@
 import { parseSignature, type Acceptance } from "@/lib/accept/plan";
+import { changeWords, signedMoney } from "@/lib/change/diff";
 import { PAGE, PdfDoc, wrap, type Rgb } from "./pdfDoc";
 import { discountLabel, hstRow, isLump, itemHstNote, leadPrice, longDate, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyText, type CustomerCopy } from "./copy";
 
@@ -111,6 +112,22 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null)
       doc.line(x0, top - 56, x0 + 170, top - 56, RULE, 0.5);
       doc.text(x0, top - 66, "Signature", { size: 7, color: FAINT });
     }
+    y -= h + 10;
+  }
+
+  /* ---------- a change after acceptance (2026-10-27): what changed, before the full quote ---------- */
+  if (copy.change && copy.options[0]) {
+    const ch = copy.change;
+    const lines = [
+      ...ch.items.flatMap((it) => wrap(changeWords(it), "R", 9, RIGHT - M - 24)),
+      `Change, before HST: ${signedMoney(ch.difference, money)}`,
+      `Total was ${money(ch.before.total)}, now ${money(copy.options[0].totals.total)}. The difference is on the final payment.`,
+    ];
+    const h = lines.length * 12 + 30;
+    room(h + 10);
+    doc.rect(M, y - h + 8, RIGHT - M, h, SOFT);
+    doc.text(M + 12, y - 8, `UPDATED QUOTE, CHANGE ${ch.no}: WHAT CHANGED SINCE ${longDate(ch.sinceOn).toUpperCase()}`, { font: "B", size: 9, color: BLUE });
+    lines.forEach((l, i) => doc.text(M + 12, y - 22 - i * 12, l, { size: 9, color: INK, font: i >= lines.length - 2 ? "B" : "R" }));
     y -= h + 10;
   }
 

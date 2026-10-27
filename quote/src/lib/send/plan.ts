@@ -2,6 +2,7 @@ import { optionTotals, parityDiffs, stageAmountProblems, stageAmounts } from "@/
 import type { Quote } from "@/lib/quotes/types";
 import { defaultSchedule, payWords, scheduleProblems } from "@/lib/pricing/schedule";
 import type { Acceptance } from "@/lib/accept/plan";
+import { changeWords as changeLine } from "@/lib/change/diff";
 import { addDays, dollars, hstRow, isIsoDate, isRange, leadPrice, longDate, rangeText, rangeWhy, stageNote, stagesOf, type CopyOption, type CopyStage, type CustomerCopy } from "./copy";
 import { copyKind, flooringSummary, kindPhrase } from "./summary";
 
@@ -79,6 +80,8 @@ export function sendProblems(quote: Quote, input: SendInput, ctx: { today: strin
   if (quote.legacyLineCount > 0) out.push("Some lines are in the old A/B/C format and on no option. Move them onto an option first.");
   if (quote.options.length === 0) out.push("This version has no options.");
   if (quote.schedule) out.push(...scheduleProblems(quote.schedule));
+  // A change after acceptance (2026-10-27) is the accepted option, updated: one option, no good-until date.
+  if (quote.changeNo && quote.options.length !== 1) out.push("A change has one option: the one the customer accepted. Remove the others.");
   const ids = input.optionIds ?? null;
   if (!ctx.skipOptions) {
     if (ids && quote.options.length > 0) {
@@ -91,8 +94,8 @@ export function sendProblems(quote: Quote, input: SendInput, ctx: { today: strin
       if (p) out.push(p);
     }
   }
-  // A preliminary carries no good-until date (Albert, 2026-10-22); any date sent with one is ignored.
-  if (quote.basis !== "Preliminary") {
+  // A preliminary carries no good-until date (Albert, 2026-10-22), nor does a change, which is for the record; any date sent with one is ignored.
+  if (quote.basis !== "Preliminary" && !quote.changeNo) {
     if (!isIsoDate(input.validUntil)) out.push("Choose the date the quote is good until.");
     else if (input.validUntil < ctx.today) out.push("The valid-until date is in the past.");
     else if (input.validUntil > addDays(ctx.today, 365)) out.push("The valid-until date is more than a year away.");
@@ -611,6 +614,69 @@ export function acceptedSmsMessage(copy: CustomerCopy, a: Acceptance, to: { cont
     type: "SMS",
     contactId: to.contactId,
     message: `${hi ? `Hi ${hi}, ${whoFrom}.` : `Hi, ${whoFrom}.`} Thank you for accepting quote ${copy.quoteNumber}! Your deposit is ${amount}. ${how} Once it's in, your date is locked in.\n\nYour accepted quote:\n${to.link}`,
+  };
+}
+
+/* ---------- a change after acceptance (2026-10-27) ---------- */
+
+/**
+ * The email for a change (Albert, 2026-10-27: "verbal, sent for record"): the updated quote, with what
+ * changed since they accepted at the top, the new total and the new schedule. There is no button to
+ * approve it and no deadline: the Project Expectations say a change agreed in person or by phone is
+ * confirmed by this message.
+ */
+export function changeEmailMessage(copy: CustomerCopy, to: { contactId: string; firstName: string | null; link: string; pdfUrl: string }, sender: Sender | null = null, options: { emailFrom?: string | null; attachPdf?: boolean } = {}): GhlMessage {
+  const c = copy.change!;
+  const o = copy.options[0];
+  const hi = greetingName(to.firstName);
+  const subject = `Your updated quote ${copy.quoteNumber} (change ${c.no}) from ${copy.company.name}`;
+  const preheader = `As we discussed: the new total is ${cad.format(o.totals.total)}${o.totals.hst ? " with HST" : ""}.`;
+  const cell = (t: string, right = false, strong = false) =>
+    `<td${right ? ' align="right"' : ""} style="padding:9px 0;border-bottom:1px solid ${C.hair};font-family:${SANS};font-size:15px;color:${strong ? C.ink : C.body};${strong ? "font-weight:600;" : ""}${right ? "white-space:nowrap;" : ""}">${t}</td>`;
+  const signed = (n: number) => (Math.abs(n) < 0.005 ? "no change" : `${n > 0 ? "+" : "&minus;"}${cad.format(Math.abs(n))}`);
+  const rows = [
+    ...c.items.map((it) => `<tr>${cell(esc(changeLine(it)))}${cell("", true)}</tr>`),
+    `<tr>${cell("Change, before HST", false, true)}${cell(signed(c.difference), true, true)}</tr>`,
+    `<tr>${cell(`Total was ${cad.format(c.before.total)}, now`)}${cell(cad.format(o.totals.total), true, true)}</tr>`,
+  ].join("");
+  const stages = stagesOf(o)
+    .map((s, i) => `<tr>${cell(`${esc(s.label)}${stageNote(s) ? `<br><span style="font-size:13px;color:${C.muted};">${esc(stageNote(s))}</span>` : ""}`)}${cell(s.amount !== null ? `${c.before.stages[i]?.amount != null && Math.abs((c.before.stages[i].amount ?? 0) - s.amount) > 0.004 ? `<span style="color:${C.muted};text-decoration:line-through;">${cad.format(c.before.stages[i].amount!)}</span> ` : ""}${cad.format(s.amount)}` : "", true)}</tr>`)
+    .join("");
+  const signoff = sender?.firstName ? `${esc(sender.firstName)} &middot; ${esc(copy.company.name)}` : `The ${esc(copy.company.name)} team`;
+  const body =
+    row(
+      eyebrow(`Updated quote &middot; change ${c.no}`) +
+        `<p style="margin:-2px 0 14px;font-family:${SANS};font-size:12px;color:${C.muted};letter-spacing:.04em;">${esc(copy.quoteNumber)} &middot; ${esc(longDate(copy.sentOn))}</p>` +
+        `<h1 class="h1" style="margin:0 0 16px;font-family:${SERIF};font-weight:400;font-size:30px;line-height:1.2;color:${C.ink};">${hi ? `Hi ${esc(hi)}, here` : "Here"} is your updated quote.</h1>` +
+        para(`As we discussed, here is what changed since ${esc(longDate(c.sinceOn))}. This is the record of the change; the full updated quote is on the page.`),
+      "40px 40px 20px",
+    ) +
+    row(
+      `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.wash};border-radius:18px;"><tr><td style="padding:8px;">` +
+        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.card};border:1px solid ${C.hair};border-radius:12px;"><tr><td style="padding:20px 24px;">` +
+        `<p style="margin:0 0 6px;font-family:${SERIF};font-size:20px;color:${C.ink};">What changed</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${rows}</table>` +
+        `</td></tr></table></td></tr></table>`,
+      "0 40px 16px",
+    ) +
+    row(button("View your updated quote", to.link), "12px 40px 10px") +
+    hairline() +
+    row(eyebrow("Your payment schedule") + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${stages}</table>` + para("The difference is on the final payment.", 13, C.muted, "10px 0 0")) +
+    hairline("22px 40px 28px") +
+    row(para("If anything here isn&rsquo;t what we agreed, reply to this email.", 15, C.body, "0 0 4px") + para(signoff, 14, C.muted, "0 0 36px"));
+  const from = "emailFrom" in options ? options.emailFrom : emailFromFor(sender, copy.company.email, true);
+  return { type: "Email", contactId: to.contactId, subject, html: frame(copy, subject, preheader, body), ...(options.attachPdf ? { attachments: [to.pdfUrl] } : {}), ...(from ? { emailFrom: from } : {}) };
+}
+
+/** The text for a change: who, the new total, the link. GSM-7. */
+export function changeSmsMessage(copy: CustomerCopy, to: { contactId: string; firstName: string | null; link: string }, sender: Sender | null = null): GhlMessage {
+  const c = copy.change!;
+  const hi = greetingName(to.firstName);
+  const whoFrom = sender?.firstName ? `it's ${sender.firstName} from ${copy.company.name}` : `it's ${copy.company.name}`;
+  const total = cad.format(copy.options[0].totals.total);
+  return {
+    type: "SMS",
+    contactId: to.contactId,
+    message: `${hi ? `Hi ${hi}, ${whoFrom}.` : `Hi, ${whoFrom}.`} As we discussed, here is your updated quote ${copy.quoteNumber} (change ${c.no}). The new total is ${total}${copy.options[0].totals.hst ? " with HST" : ""}; the difference is on the final payment.\n\nSee what changed:\n${to.link}\n\nIf anything isn't what we agreed, just reply.`,
   };
 }
 

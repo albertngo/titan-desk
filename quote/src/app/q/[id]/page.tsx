@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AcceptedCard, AcceptForCustomer } from "@/components/AcceptStaff";
+import { AcceptedCard, AcceptForCustomer, ChangeCard } from "@/components/AcceptStaff";
 import { AddressScan } from "@/components/AddressScan";
 import { Analysis } from "@/components/Analysis";
 import { ConversationDrawer } from "@/components/Conversation";
@@ -88,6 +88,7 @@ export default async function QuotePage({
       ready={ready}
       sent={draft ? null : { sentAt: quote.sentAt, sentBy: quote.sentBy, sentTo: quote.sentTo, validUntil: quote.validUntil, link }}
       preliminary={preliminary}
+      change={quote.changeNo ?? null}
       from={from}
       options={sendOptions}
     />
@@ -121,9 +122,14 @@ export default async function QuotePage({
           ...(quote.link?.companyCamUrl ? [{ label: "CompanyCam", href: quote.link.companyCamUrl }] : []),
           ...(link ? [{ label: "Customer's accepted page", href: link }] : []),
         ]}
-        changeHref={null}
+        canChange={quote.link?.contractVersionId === quote.id}
         current={quote.link?.contractVersionId === quote.id}
       />
+    ) : null;
+
+  const changeCard =
+    !customer && quote.changeNo ? (
+      <ChangeCard versionId={quote.id} changeNo={quote.changeNo} status={quote.status} sentAt={quote.sentAt} current={quote.link?.contractVersionId === quote.id} />
     ) : null;
 
   // Who worked on this version (2026-10-22): newest first, from the append-only Edit Log. Staff only.
@@ -228,6 +234,7 @@ export default async function QuotePage({
                 <p className="empty">This quote has no options yet.</p>
               </section>
             )}
+            {!(option && totals) && changeCard}
             {!(option && totals) && acceptedCard}
             {!(option && totals) && acceptCard}
             {!(option && totals) && send}
@@ -236,6 +243,7 @@ export default async function QuotePage({
 
           {option && totals && (
             <div className="stack">
+              {changeCard}
               {acceptedCard}
               {acceptCard}
               {send}

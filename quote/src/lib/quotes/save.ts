@@ -4,7 +4,8 @@ import { AirtableError, createRecord, createRecords, getRecord, listByIds, updat
 import { LINE, OPTION, QUOTE, T, VERSION } from "@/lib/airtable/fields";
 import { fromQuote, type EditorQuote } from "@/lib/editor/model";
 import { versionLabel } from "@/lib/link/identity";
-import { scheduleProblems } from "@/lib/pricing/schedule";
+import { fixedSchedule, scheduleProblems } from "@/lib/pricing/schedule";
+import { parseCopy, stagesOf } from "@/lib/send/copy";
 import { authorFields, describePlan } from "./history";
 import { getQuote } from "./load";
 import { cleanEditorQuote, fingerprint, isRecordId, planIsEmpty, planSave, type SavePlan } from "./savePlan";
@@ -97,6 +98,64 @@ export async function saveAsNewVersion(versionId: string, raw: unknown, basis: s
   // A draft that has been replaced is no longer the one to work on; a sent one stays as sent.
   if (str(from.fields[VERSION.status]) === "Draft") await updateRecord(T.versions, versionId, { [VERSION.status]: "Superseded" });
   return { ok: true, versionId: created, writes: r.writes + 1 };
+}
+
+/**
+ * Make a change after acceptance (Albert, 2026-10-27). The accepted version stays frozen; the change
+ * is a new version of the same quote, numbered (Change No 1, 2, …), that starts as the contract
+ * stands: only the accepted option, its ticked add-ons now part of the work and the others gone, and
+ * a schedule where every stage already agreed keeps its dollars and the balance takes the difference.
+ * Staff then edit it like any version and send it for the customer's records.
+ */
+export async function makeChange(versionId: string): Promise<SaveResult> {
+  const person = await requireQuoterPerson();
+  if (!isRecordId(versionId)) return { ok: false, message: "That isn't a quote version." };
+  const from = await getQuote(versionId);
+  if (!from?.link) return { ok: false, message: "This version isn't linked to a quote." };
+  if (from.link.contractVersionId !== from.id) return { ok: false, message: "Only the version that is the contract now can be changed. Open the newest one." };
+  const accepted = from.acceptance && !from.acceptance.cancelled ? from.acceptance : null;
+  if (!accepted && !from.changeNo) return { ok: false, message: "This version hasn't been accepted, so there is nothing to change yet." };
+
+  // The option the contract stands on, and its stages as agreed.
+  const option = accepted ? from.options.find((o) => o.id === accepted.option.ref) : from.options.length === 1 ? from.options[0] : undefined;
+  if (!option) return { ok: false, message: "The accepted option isn't on this version any more, so a change can't start from it." };
+  let stages = accepted?.stages;
+  if (!stages) {
+    const frozen = parseCopy(str((await listByIds(T.versions, [from.id], [VERSION.customerCopy]))[0]?.fields[VERSION.customerCopy]));
+    stages = frozen?.options[0] ? stagesOf(frozen.options[0]) : undefined;
+  }
+  if (!stages?.length) return { ok: false, message: "This version has no payment schedule to carry over." };
+
+  // Ticked add-ons are part of the work now; the ones the customer didn't take are gone.
+  const took = new Set((accepted?.addOns ?? []).map((a) => a.description.replace(/\s+/g, " ").trim().toLowerCase()));
+  const lines = option.lines.flatMap((l) => (l.include ? [l] : took.has((l.description ?? "").replace(/\s+/g, " ").trim().toLowerCase()) ? [{ ...l, include: true }] : []));
+  const edited = cleanEditorQuote({ ...fromQuote({ ...from, options: [{ ...option, lines }] }), schedule: fixedSchedule(stages) });
+
+  const quote = await getRecord(T.quotes, from.link.quoteRecordId);
+  const siblings = await listByIds(T.versions, ids(quote.fields[QUOTE.versions]), [VERSION.version, VERSION.changeNo]);
+  const n = Math.max(0, ...siblings.map((v) => num(v.fields[VERSION.version]) ?? 0)) + 1;
+  const change = Math.max(0, ...siblings.map((v) => num(v.fields[VERSION.changeNo]) ?? 0)) + 1;
+  const quoteNo = str(quote.fields[QUOTE.quoteNumber]);
+  const plan = planSave(null, edited);
+  let created: string;
+  try {
+    const v = await createRecord(T.versions, {
+      ...plan.version,
+      [VERSION.label]: quoteNo ? versionLabel(quoteNo, n) : `v${n}`,
+      [VERSION.version]: n,
+      [VERSION.status]: "Draft",
+      [VERSION.basis]: "Measured",
+      [VERSION.quote]: [from.link.quoteRecordId],
+      [VERSION.supersedes]: [from.id],
+      [VERSION.changeNo]: change,
+      ...authorFields(person, new Date(), `created v${n} as change ${change} to v${from.version ?? "?"}: ${describePlan(plan)}`, null, true),
+    });
+    created = v.id;
+  } catch (e) {
+    return { ok: false, message: `Nothing was saved: Airtable refused the change (${message(e)}).` };
+  }
+  const r = await carryOut(created, { ...plan, version: {} });
+  return r.ok ? { ok: true, versionId: created, writes: r.writes + 1 } : r;
 }
 
 /**
