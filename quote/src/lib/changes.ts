@@ -22,6 +22,44 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-10-27",
+    kind: "new",
+    title: "Customers can accept a quote",
+    details: [
+      "A measured quote's link has an Accept panel: the customer picks the option, ticks any add-ons, agrees to the Project Expectations and types their name.",
+      "In store, press Accept with customer on the quote page to open it on the tablet, where they also sign. Or Record acceptance for them, with where their written yes is.",
+      "On acceptance GHL moves to Project Won at the total with HST, and the customer gets the accepted PDF, the Project Expectations and the deposit request.",
+      "Switched on and off in Airtable: Quote Settings → Online Acceptance.",
+    ],
+  },
+  {
+    date: "2026-10-27",
+    kind: "new",
+    title: "Payment schedule you can edit",
+    details: [
+      "Each quote has a payment schedule in the editor: 35/35/30 by default, 25/25/25/25, 50/50, or your own shares.",
+      "When some work carries no HST, it suggests a material deposit by e-transfer, with the rest handed to the project manager on site.",
+    ],
+  },
+  {
+    date: "2026-10-27",
+    kind: "new",
+    title: "Change an accepted quote",
+    details: [
+      "Make a change on an accepted quote starts Change 1, 2, …, keeping the agreed stages; the difference goes on the final payment.",
+      "Sending it gives the customer the full updated quote with a What changed box at the top. Nothing for them to approve.",
+      "Cancel acceptance (with a reason) sets the quote and the GHL opportunity to lost.",
+    ],
+  },
+  {
+    date: "2026-10-27",
+    kind: "changed",
+    title: "Won and the PP number are picked up",
+    details: [
+      "Once the Notion project exists, opening an accepted quote fills in its PP number and Notion link and shows it as Won. All quotes files it under Accepted or Won.",
+    ],
+  },
+  {
+    date: "2026-10-27",
     kind: "changed",
     title: "Add work shows only that section's work",
     details: [
