@@ -12,6 +12,8 @@ export type VersionRow = {
   optionCount: number;
   /** Open tracking (2026-10-27): customer opens of this version's link, and whether it was sent since tracking began. */
   openedCount?: number;
+  /** When the customer last had the link open (a reload within 30 minutes moves it too). */
+  lastOpenedAt?: string | null;
   tracked?: boolean;
   createdTime: string;
 };
@@ -106,13 +108,33 @@ export function inFilter(g: QuoteGroup, f: QuoteFilter): boolean {
   }
 }
 
+const TZ = "America/Toronto";
+/** Calendar days from `then` to `now`, in Toronto time. */
+const daysBetween = (then: Date, now: Date) => {
+  const day = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: TZ });
+  return Math.round((Date.parse(day(now)) - Date.parse(day(then))) / 86_400_000);
+};
+const dateWords = (then: Date, days: number) =>
+  then.toLocaleDateString("en-CA", { timeZone: TZ, month: "short", day: "numeric", ...(days > 300 ? { year: "numeric" } : {}) }).replace(/\./g, "");
+
 /** "Today", "Yesterday", "3 days ago", then a date: when a quote last had a new version, in Toronto time. */
 export function ago(iso: string, now: Date): string {
-  const day = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
   const then = new Date(iso);
-  const days = Math.round((Date.parse(day(now)) - Date.parse(day(then))) / 86_400_000);
+  const days = daysBetween(then, now);
   if (days <= 0) return "Today";
   if (days === 1) return "Yesterday";
   if (days < 7) return `${days} days ago`;
-  return then.toLocaleDateString("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric", ...(days > 300 ? { year: "numeric" } : {}) });
+  return dateWords(then, days);
+}
+
+/** When the customer last opened a version (2026-10-27): "today 2:14 pm", "yesterday 9:05 am", then the date, in Toronto time. */
+export function openedOn(iso: string, now: Date): string {
+  const then = new Date(iso);
+  const days = daysBetween(then, now);
+  if (days > 1) return dateWords(then, days);
+  const time = then
+    .toLocaleTimeString("en-CA", { timeZone: TZ, hour: "numeric", minute: "2-digit", hour12: true })
+    .replace(/\s*a\.?m\.?/i, " am")
+    .replace(/\s*p\.?m\.?/i, " pm");
+  return `${days <= 0 ? "today" : "yesterday"} ${time}`;
 }
