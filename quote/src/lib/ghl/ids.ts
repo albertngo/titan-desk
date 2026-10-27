@@ -46,6 +46,14 @@ export const SALES_PIPELINE_ID = "ZxYBFNifUNNxU7xgQclg";
 export const MEETING_SCHEDULED_STAGE_ID = "eb038acb-82cd-494a-864b-4643d7e90a32";
 
 /**
+ * The Sales pipeline's won stage, "2. *Project Won* " (trailing space and all). Its id is opaque and
+ * isn't recorded anywhere, so accepting a quote finds it by name in GHL's own pipeline list when it
+ * needs it (`wonStageId()` in src/lib/link/ghlRequest.ts). GHL's "Project Won" workflow fires on this
+ * stage OR on status won (Albert, 2026-10-27); accepting sets both, in one request.
+ */
+export const PROJECT_WON_STAGE_NAME = /project won/i;
+
+/**
  * The pipelines a job (a quote, a folder, a CompanyCam project) lives in. "STORE: Material
  * Pipeline" (ySvXh8g1u1TSjUB5A1Zg) holds counter sales and is never a job.
  */
@@ -66,6 +74,19 @@ export const OPP_FIELDS = {
   /** Per job: set once the job has its CompanyCam project (read through Make's GHL connection, 2026-10-15). */
   companyCamUrl: "fEZdUNuN9TWKjIOD6fBo",
 } as const;
+
+/**
+ * Opportunity fields for acceptance (2026-10-27), made in GHL by Albert the same day (ids read from
+ * GHL's custom field list). Nothing is written to a field set to null here.
+ * - acceptedQuote: the customer's link to the accepted quote (then the newest change). Make 3710214
+ *   puts it in the Notion project's Quote Link.
+ * - notionProjectUrl: the Notion project's page, written back by Make 3710214 with the PP number
+ *   (OPP_FIELDS.projectNumber), so the quote picks both up the next time it opens.
+ */
+export const ACCEPT_FIELDS: { acceptedQuote: string | null; notionProjectUrl: string | null } = {
+  acceptedQuote: "NSaXdQWlPFMvihL3LKjF",
+  notionProjectUrl: "blsXznbxF6YoZ88ZeD94",
+};
 
 /**
  * Who a measured quote's activity comment tags when neither the sender nor the opportunity's assigned

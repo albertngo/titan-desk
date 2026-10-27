@@ -1,5 +1,8 @@
+import { parseSignature, type Acceptance } from "@/lib/accept/plan";
+import { termsLabel } from "@/lib/accept/terms";
+import { changeWords, signedMoney } from "@/lib/change/diff";
 import { PAGE, PdfDoc, wrap, type Rgb } from "./pdfDoc";
-import { discountLabel, hstRow, isLump, itemHstNote, leadPrice, longDate, prelimNote, rangeText, type CopyItem, type CopyOption, type CopyText, type CustomerCopy } from "./copy";
+import { discountLabel, hstRow, isLump, itemHstNote, leadPrice, longDate, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyText, type CustomerCopy } from "./copy";
 
 /**
  * The quote as a PDF, drawn from the customer copy only (never from live lines), so the file
@@ -26,7 +29,19 @@ const money = (n: number) => cad.format(n);
 /* Item table columns. */
 const COL = { n: M, item: M + 22, itemW: 268, qty: 412, unit: 482, amount: RIGHT };
 
-export function quotePdf(copy: CustomerCopy): Uint8Array<ArrayBuffer> {
+/** What the accepted stamp says (2026-10-27): drawn on the accepted PDF, whose copy is acceptedCopy(). */
+export type AcceptedStamp = { acceptance: Acceptance; when: string };
+
+const GREEN: Rgb = [0.09, 0.42, 0.27];
+const MINT: Rgb = [0.92, 0.97, 0.94];
+
+export function methodWords(a: Acceptance): string {
+  if (a.method === "store") return "In our store, signed below.";
+  if (a.method === "staff") return `Recorded by ${a.recordedBy ?? "staff"} on the customer's behalf: ${a.reason ?? ""}`;
+  return "Online, from the link we sent.";
+}
+
+export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null): Uint8Array<ArrayBuffer> {
   const doc = new PdfDoc(`Titan Flooring quote ${copy.quoteNumber}`);
   let y = TOP;
 
@@ -75,6 +90,47 @@ export function quotePdf(copy: CustomerCopy): Uint8Array<ArrayBuffer> {
     doc.text(M, y, site, { size: 9.5, color: DIM });
   }
   y -= 20;
+
+  /* ---------- the accepted stamp (2026-10-27) ---------- */
+  if (stamp) {
+    const a = stamp.acceptance;
+    const sig = parseSignature(a.signature);
+    const lines = [
+      `Accepted by ${a.name} on ${stamp.when}.`,
+      `Option: ${a.option.name}${a.addOns.length ? `, with ${a.addOns.map((x) => x.description).join(", ")}` : ""}.`,
+      ...wrap(methodWords(a), "R", 9, RIGHT - M - (sig ? 200 : 24)),
+      `Agreed to the Project Expectations, ${termsLabel(a.terms)}.`,
+    ];
+    const h = Math.max(lines.length * 12 + 28, sig ? 84 : 0);
+    doc.rect(M, y - h + 8, RIGHT - M, h, MINT);
+    doc.text(M + 12, y - 8, "ACCEPTED", { font: "B", size: 10, color: GREEN });
+    lines.forEach((l, i) => doc.text(M + 12, y - 22 - i * 12, l, { size: 9, color: INK }));
+    if (sig) {
+      // The 1000 × 300 drawing box, scaled into 170 × 51 points at the right of the stamp, y flipped.
+      const x0 = RIGHT - 182;
+      const top = y - 6;
+      doc.strokes(sig.map((st) => st.map(([x, yy]) => [x0 + (x / 1000) * 170, top - (yy / 300) * 51] as [number, number])), INK, 1);
+      doc.line(x0, top - 56, x0 + 170, top - 56, RULE, 0.5);
+      doc.text(x0, top - 66, "Signature", { size: 7, color: FAINT });
+    }
+    y -= h + 10;
+  }
+
+  /* ---------- a change after acceptance (2026-10-27): what changed, before the full quote ---------- */
+  if (copy.change && copy.options[0]) {
+    const ch = copy.change;
+    const lines = [
+      ...ch.items.flatMap((it) => wrap(changeWords(it), "R", 9, RIGHT - M - 24)),
+      `Change, before HST: ${signedMoney(ch.difference, money)}`,
+      `Total was ${money(ch.before.total)}, now ${money(copy.options[0].totals.total)}. The difference is on the final payment.`,
+    ];
+    const h = lines.length * 12 + 30;
+    room(h + 10);
+    doc.rect(M, y - h + 8, RIGHT - M, h, SOFT);
+    doc.text(M + 12, y - 8, `UPDATED QUOTE, CHANGE ${ch.no}: WHAT CHANGED SINCE ${longDate(ch.sinceOn).toUpperCase()}`, { font: "B", size: 9, color: BLUE });
+    lines.forEach((l, i) => doc.text(M + 12, y - 22 - i * 12, l, { size: 9, color: INK, font: i >= lines.length - 2 ? "B" : "R" }));
+    y -= h + 10;
+  }
 
   for (const note of [
     copy.basis === "Preliminary" ? prelimNote(copy) : null,
@@ -185,7 +241,7 @@ export function quotePdf(copy: CustomerCopy): Uint8Array<ArrayBuffer> {
     lines.forEach((t, k) => doc.text(COL.item, y - k * 12, t, { size: 9, color }));
     if (l.qty !== null) doc.text(COL.qty, y, `${plain.format(l.qty)}${l.uom ? ` ${l.uom}` : ""}`, { size: 9, color, align: "right" });
     if (l.unitPrice !== null) doc.text(COL.unit, y, money(l.unitPrice), { size: 9, color, align: "right" });
-    if (l.amount !== null) doc.text(COL.amount - 4, y, l.optional ? `Optional · ${money(l.amount)}` : money(l.amount), { size: 9, font: l.optional ? "R" : "B", color, align: "right" });
+    if (l.amount !== null) doc.text(COL.amount - 4, y, l.optional ? `Optional · ${money(l.amount)}` : l.added ? `Added · ${money(l.amount)}` : money(l.amount), { size: 9, font: l.optional ? "R" : "B", color, align: "right" });
     y -= lines.length * 12;
     for (const t of notes) {
       doc.text(COL.item, y + 1, t, { size: 8, color: FAINT });
@@ -210,19 +266,14 @@ export function quotePdf(copy: CustomerCopy): Uint8Array<ArrayBuffer> {
     const h = hstRow(copy, t);
     const after: [string, string][] = [[h.label, h.amount === null ? "Not included" : r ? "On the final price" : money(h.amount)]];
     if (lead.addsHst) after.push([r ? "With HST" : "Total with HST", r ? rangeText(r.lowWithHst, r.highWithHst) : money(t.total)]);
-    // A range's payment schedule is in shares of the final price, which isn't known yet.
-    const pay: [string, string][] = r
-      ? [
-          ["Deposit", "35%"],
-          ["Second payment", "35%"],
-          ["Final payment", "The balance"],
-        ]
-      : [
-          ["Deposit (35%)", money(t.payment1)],
-          ["Second payment (35%)", money(t.payment2)],
-          ["Final payment", money(t.paymentFinal)],
-        ];
-    room(rows.length * 15 + 42 + after.length * 15 + pay.length * 13 + 30);
+    // The schedule as frozen (2026-10-27); a range's is in shares of the final price, which isn't known yet.
+    const x1 = r ? 300 : 340;
+    const pay = stagesOf(o).map((s) => ({
+      k: `${s.label}${s.amount !== null && s.kind === "share" && s.pct !== null ? ` (${s.pct}%)` : ""}`,
+      v: stageFigure(s, money),
+      note: stageNote(s) ? wrap(stageNote(s), "R", 7.5, RIGHT - x1 - 90) : [],
+    }));
+    room(rows.length * 15 + 42 + after.length * 15 + pay.reduce((a, p) => a + 13 + p.note.length * 10, 0) + 30);
     y -= 6;
     // A range's label and its two figures need a wider bar.
     const x0 = r ? 300 : 340;
@@ -245,10 +296,14 @@ export function quotePdf(copy: CustomerCopy): Uint8Array<ArrayBuffer> {
     y -= 15;
     doc.text(x0, y, r ? "PAYMENT SCHEDULE, ON THE FINAL PRICE" : lead.addsHst ? "PAYMENT SCHEDULE, WITH HST" : "PAYMENT SCHEDULE", { font: "B", size: 7.5, color: FAINT });
     y -= 13;
-    for (const [k, v] of pay) {
-      doc.text(x0, y, k, { size: 9, color: DIM });
-      doc.text(COL.amount - 4, y, v, { size: 9, color: INK, align: "right" });
+    for (const p of pay) {
+      doc.text(x0, y, p.k, { size: 9, color: DIM });
+      doc.text(COL.amount - 4, y, p.v, { size: 9, color: INK, align: "right" });
       y -= 13;
+      for (const l of p.note) {
+        doc.text(x0, y + 2, l, { size: 7.5, color: FAINT });
+        y -= 10;
+      }
     }
     y -= 12;
   }

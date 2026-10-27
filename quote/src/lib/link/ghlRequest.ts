@@ -1,4 +1,5 @@
-import { CONTACT_ORIGIN_FIELD, CONTACT_TIMING_FIELD, GHL_LOCATION_ID, LEAD_STAGE_IDS, LEADS_PIPELINE_ID, MEETING_SCHEDULED_STAGE_ID, OPP_FIELDS, SALES_PIPELINE_ID } from "@/lib/ghl/ids";
+import { ACCEPT_FIELDS, CONTACT_ORIGIN_FIELD, CONTACT_TIMING_FIELD, GHL_LOCATION_ID, LEAD_STAGE_IDS, LEADS_PIPELINE_ID, MEETING_SCHEDULED_STAGE_ID, OPP_FIELDS, PROJECT_WON_STAGE_NAME, SALES_PIPELINE_ID } from "@/lib/ghl/ids";
+import type { GhlPipeline } from "@/lib/ghl/types";
 import { normalizeEmail, normalizePhone } from "./identity";
 import { replaceable } from "./origin";
 import { stageToSet, TIMING_IN_GHL, type Timing } from "./lead";
@@ -196,4 +197,59 @@ export function buildContactAddress(i: {
     ),
     oppBody: JSON.stringify({ customFields: oppFields(i.quoteNumber, { address: null, city: null }) }),
   };
+}
+
+/* ---------- acceptance (Albert, 2026-10-27) ---------- */
+
+/** The Sales pipeline's "2. *Project Won* " stage, found by name in GHL's pipeline list; null when it isn't there. */
+export function wonStageId(list: GhlPipeline[]): string | null {
+  const sales = list.find((p) => p.id === SALES_PIPELINE_ID);
+  const won = sales?.stages.filter((s) => PROJECT_WON_STAGE_NAME.test(s.name)) ?? [];
+  return won.length === 1 ? won[0].id : null;
+}
+
+const acceptedQuoteField = (link: string | null) => (ACCEPT_FIELDS.acceptedQuote && link ? [{ id: ACCEPT_FIELDS.acceptedQuote, field_value: link }] : []);
+
+/**
+ * Accepting a quote moves its opportunity to won: the value is the accepted total WITH HST (Albert:
+ * Notion's Value Approx and the balance owing are tracked against it), the accepted quote's link goes
+ * on it first, and the stage and the status change in the same request, because GHL's "Project Won"
+ * workflow (and so Make 3710214, the Notion project and the WhatsApp post) fires on either. Same
+ * "link" route through Make as linking a job, with the contact left as it is, so Make needs no new
+ * route for this.
+ */
+export function buildWon(i: { contactId: string; opportunityId: string; wonStageId: string; total: number; acceptedLink: string | null }): GhlRequest {
+  return {
+    mode: "link",
+    contactId: i.contactId,
+    opportunityId: i.opportunityId,
+    contactBody: JSON.stringify({}),
+    oppBody: JSON.stringify({
+      pipelineId: SALES_PIPELINE_ID,
+      pipelineStageId: i.wonStageId,
+      status: "won",
+      monetaryValue: i.total,
+      ...(acceptedQuoteField(i.acceptedLink).length ? { customFields: acceptedQuoteField(i.acceptedLink) } : {}),
+    }),
+  };
+}
+
+/**
+ * A change after acceptance (2026-10-27): the opportunity's value follows the new contract total,
+ * with HST, and the accepted-quote link points at the change. Stage and status are left alone, so
+ * GHL's won workflow does not fire again.
+ */
+export function buildContract(i: { contactId: string; opportunityId: string; total: number; link: string | null }): GhlRequest {
+  return {
+    mode: "link",
+    contactId: i.contactId,
+    opportunityId: i.opportunityId,
+    contactBody: JSON.stringify({}),
+    oppBody: JSON.stringify({ monetaryValue: i.total, ...(acceptedQuoteField(i.link).length ? { customFields: acceptedQuoteField(i.link) } : {}) }),
+  };
+}
+
+/** Cancelling an acceptance (staff, with a reason): the opportunity is lost. The Notion project is left to a person. */
+export function buildLost(i: { contactId: string; opportunityId: string }): GhlRequest {
+  return { mode: "link", contactId: i.contactId, opportunityId: i.opportunityId, contactBody: JSON.stringify({}), oppBody: JSON.stringify({ status: "lost" }) };
 }

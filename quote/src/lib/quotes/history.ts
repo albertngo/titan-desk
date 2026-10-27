@@ -69,8 +69,9 @@ export function describePlan(plan: SavePlan): string {
     ...n(plan.createOptions.length, "option", "added"),
     ...n(plan.detachOptions.length, "option", "removed"),
   ];
-  const terms = Object.keys(plan.version).length;
-  if (terms) parts.push("terms changed");
+  const { [VERSION.paymentSchedule]: schedule, ...terms } = plan.version;
+  if (Object.keys(terms).length) parts.push("terms changed");
+  if (schedule !== undefined) parts.push("payment schedule changed");
   return parts.join(", ") || "nothing changed";
 }
 

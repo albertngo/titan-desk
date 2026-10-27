@@ -42,6 +42,11 @@ export const QUOTE = {
   folderUrl: "fldjMRYkmz70JbuJq",
   projectNumber: "fld3RVbHUDHJR7SBp",
   notionProjectUrl: "fldKIMbQCupiXuLvA",
+  /**
+   * The version that is the contract now (2026-10-27): the accepted version, then the newest change
+   * sent after it. Its total is what GHL's value and Notion's Value Approx carry. Written by the app.
+   */
+  contractVersion: "fldQC0eOTE7sZu6OK",
   pipeline: "fldeupuDWQZ0dbXEg",
   notes: "fldnVyjuta6kQjOOf",
   versions: "fldasgos7nsSuqkJh",
@@ -85,6 +90,17 @@ export const VERSION = {
   lastEditedBy: "fldhfKZGSX2R9AiiM",
   lastEditedAt: "fldRCdXB6ehz1Nkqk",
   editLog: "fldvoKc0aiv9xktcg",
+  /** 2026-10-27: the payment schedule as JSON (src/lib/pricing/schedule.ts); blank = 35 / 35 / balance. */
+  paymentSchedule: "fldz0pG0gxLgzIs7p",
+  /**
+   * Acceptance (2026-10-27): the record of the customer's yes, as JSON (src/lib/accept/plan.ts), the
+   * option it was for, and the day. Written once, by the app, when the version becomes Accepted.
+   */
+  acceptance: "fldsqfGVC27KQd4lW",
+  acceptedOption: "fldglEl68TZ2XJdWp",
+  acceptedAt: "fldPf4Ks6UHCdaPTA",
+  /** 2026-10-27: 1, 2, … on a version made with Make a change after acceptance; blank on an ordinary version. */
+  changeNo: "fldZNj3La4y8dJY3Z",
   /**
    * Open tracking (Albert, 2026-10-27): the customer's link reports each open and each PDF download
    * from its page, through the staff app's /api/activity (src/lib/quotes/activity.ts). Counts, first
@@ -173,6 +189,28 @@ export const LINE = {
 
 export const airtableRecordUrl = (table: string, record: string) =>
   `https://airtable.com/${BASE_ID}/${table}/${record}`;
+
+/**
+ * Quote Settings: one row, read only. Online Acceptance is the switch for accepting quotes (Albert,
+ * 2026-10-27): ticked = on, unticked = off everywhere at once, with no redeploy.
+ */
+export const SETTINGS_TABLE = "tbl87nxBec8uKta8V";
+export const SETTINGS = {
+  onlineAcceptance: "fldTFU2lpwpqrWTrv",
+} as const;
+
+/**
+ * Terms Versions, read only: one row per saved version of the Project Expectations Word doc, made by
+ * Make ("Project Expectations → PDF", 2026-10-27) and never edited, so what a customer agreed to
+ * never changes underneath them. The newest by Modified At is the one a customer agrees to today.
+ */
+export const TERMS_TABLE = "tblYN4djj4SmQWvkJ";
+export const TERMS = {
+  name: "fldGtf9hRLteG4H4i",
+  modifiedAt: "fldLwcbjCbaPEvJqC",
+  pdf: "fldLT70qt6VSG54Iq",
+  sourceFileId: "fld0DByOwla08481v",
+} as const;
 
 export const RATE_TABLE = "tblGBGezZfBWhEgmu";
 export const RATE = {

@@ -87,13 +87,19 @@ export const QUOTE_FILTERS = [
   { key: "linking", label: "Needs linking" },
   { key: "draft", label: "Drafts" },
   { key: "sent", label: "Sent" },
+  { key: "accepted", label: "Accepted" },
   { key: "won", label: "Won" },
 ] as const;
 export type QuoteFilter = (typeof QUOTE_FILTERS)[number]["key"];
 
-/** Which quick filter a quote falls under. Drafts and Sent go by its newest version; Won by a project number or an accepted version. */
+/**
+ * Which quick filter a quote falls under. Drafts and Sent go by its newest version. Since 2026-10-27
+ * Accepted is a quote the customer said yes to whose Notion project has no PP number yet, and Won one
+ * that has it; a change sent after the yes keeps the quote under those, not under Sent.
+ */
 export function inFilter(g: QuoteGroup, f: QuoteFilter): boolean {
   const s = g.versions[0]?.status ?? null;
+  const accepted = g.versions.some((v) => v.status === "Accepted" || v.status === "Won");
   switch (f) {
     case "all":
       return true;
@@ -102,9 +108,11 @@ export function inFilter(g: QuoteGroup, f: QuoteFilter): boolean {
     case "draft":
       return s === "Draft";
     case "sent":
-      return s === "Sent";
+      return s === "Sent" && !accepted && !g.projectNumber;
+    case "accepted":
+      return accepted && !g.projectNumber;
     case "won":
-      return Boolean(g.projectNumber) || s === "Accepted" || s === "Won";
+      return Boolean(g.projectNumber);
   }
 }
 

@@ -209,7 +209,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   contractor, card rate or internal note, in `src/lib/send/copy.ts`; tested in `tests/send.test.ts`.
   The copy is **frozen on the version** (Customer Copy) and the version is marked Sent, so locked,
   before anything leaves; if neither message goes it returns to Draft. Sending a newer version marks
-  older sent ones Superseded, and their links say so. Online acceptance is not built yet.
+  older sent ones Superseded, and their links say so. Accepting it is below (Acceptance, 2026-10-27).
 - **The email and the text (Albert, 2026-10-22: recreate the GHL "Rough quote is ready" template and
   improve on it).** `emailMessage()` in `src/lib/send/plan.ts` builds a complete, email-safe document:
   warm paper, the cream header band with the logo (the brand kit's horizontal lockup, Secondary
@@ -386,6 +386,78 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   Text in the field the app didn't write is shown, never guessed at, and saving replaces it. Staff only:
   Customer view has no tab and the customer deployment never reads it. Pure rules in
   `src/lib/rooms/log.ts`, tested in `tests/rooms.test.ts`.
+- **The payment schedule (Albert, 2026-10-27: "update the payment structure to be editable").** One
+  per version, in the editor's terms: presets **35 / 35 / 30** (the default, stored as nothing, so an
+  untouched version's Quote Versions → Payment Schedule stays blank), **25 / 25 / 25 / 25**, **50 / 50**,
+  and the **material deposit**; then any stage's name, share, "when" and how it is paid (by e-transfer,
+  handed to the PM on site, or not said) can be changed, which makes it Custom. The first stage is the
+  deposit; the last is always **the balance**, so a schedule always comes to 100%. A share is a percent
+  of the total, or of what is left after a material deposit or a fixed amount. **The material deposit**
+  is suggested when some priced work carries no HST and there is material: the HST-bearing material
+  with its HST (all the material if none carries HST) by e-transfer, the rest 50 / 50 on the first day
+  and within 48 hours of completion, handed to the PM on site. The customer's words give the amount and
+  how to pay, never why (Albert, same day). Frozen on the copy (`CopyOption.schedule`, `CustomerCopy.paymentSchedule`)
+  and drawn on the page, the PDF, the email ("Nothing is final until the deposit is in…") and the staff
+  sidebar. Stage amounts are money, so they are in `calc.ts` (`stageAmounts()` / `restageAmounts()` /
+  `materialsDeposit()`); the default gives exactly payment1 / payment2 / paymentFinal, and Airtable's
+  Payment 1 / 2 / Final stay the default split, so the parity check is unchanged. A send is refused when a
+  stage would be negative or the deposit nothing. Rules: `src/lib/pricing/schedule.ts`, tested in
+  `tests/schedule.test.ts`.
+- **Acceptance (Albert, 2026-10-27: "it is always best to have an accept step").** Only a **measured**
+  version out with the customer and still good (Sent, not past Valid Until, not superseded, not a change)
+  can be accepted; a preliminary is an estimate. **On the customer's link** an Accept panel under the
+  quote: pick the option, tick any optional add-ons (they join at exactly the price shown, HST on the
+  ones that carry it), see the total and deposit follow, tick the **Project Expectations**, type their name.
+  The Project Expectations come from Albert's Word doc ("pull from the file every turn to create the
+  PDF"): Make's "Project Expectations → PDF" saves each new version of it as a row of **Terms Versions**
+  (Name, Modified At, PDF, Source File Id; read only, never edited), and the newest row is the one a
+  customer agrees to today, named by the day it was saved ("updated October 27, 2026"). The customer's
+  link serves it at `/c/<token>/Titan-Flooring-Project-Expectations.pdf`, fetched fresh from Airtable's
+  file host (the attachment address expires): once accepted, the version agreed to. The Accept carries the
+  row it showed, and a newer one since means "reload and review them" (`src/lib/accept/live.ts`,
+  `src/lib/accept/terms.ts`). **In
+  store**, staff press **Accept with customer** on the quote page, which opens the same link with
+  `?store=1` on the tablet, where a drawn signature is also taken (an SVG path in a 1000 × 300 box,
+  printed on the PDF). **For them**, staff may record a yes in writing (a signed paper, an email) with a
+  reason saying where it is. The record (Quote Versions → **Acceptance**, JSON; **Accepted Option**;
+  **Accepted At**) holds who, when, how, the option, the add-ons, the totals, the schedule on the accepted
+  total, the Project Expectations row and its date, and the signature; the version becomes **Accepted** and the quote's
+  **Contract Version** points at it; other sent versions are Superseded. Then the **hand-off**: the GHL
+  opportunity to **2. Project Won** and status **won** in one request (GHL's won workflow fires on either:
+  Make 3710214 makes the Notion project and posts to WhatsApp), valued at the **accepted total with HST**
+  (Notion's Value Approx and balance owing are tracked against it), through Make 4975508's `link` route
+  (`buildWon()` in `src/lib/link/ghlRequest.ts`; the stage is found by name, `wonStageId()`); then the
+  **acceptance email** (the stamped accepted PDF and the Project Expectations attached; the one deposit
+  request: the amount, "e-transfer to `QUOTE_ETRANSFER_EMAIL` and put Q-1234 in the message"; the PM sets
+  the date) and the text, by the channels the quote went out by. GHL's own on-win deposit text is switched
+  off when this goes live. The yes is written first and stands whatever happens after: a failed hand-off
+  is kept on the record and staff **Retry** it; **Cancel acceptance** (with a reason) sets the version
+  Lost and the opportunity lost and leaves the Notion project to a person. The customer's link then shows
+  the accepted copy (`acceptedCopy()`: the one option, ticked add-ons as Added), the deposit and how to
+  pay, and the stamped PDF. **One switch:** Quote Settings → **Online Acceptance**. Ticked is the go-live;
+  unticked turns the Accept panel, the "press Accept" line in the email and the staff Accept card off at
+  once, with no redeploy (read within a minute; anything that can't be read reads as off). Also off until
+  Terms Versions has a PDF and `QUOTE_ETRANSFER_EMAIL`, `QUOTE_ACCEPT_KEY` and `QUOTE_STAFF_URL` are set. Rules: `src/lib/accept/plan.ts`; carried out by
+  `src/lib/accept/record.ts`; tested in `tests/accept.test.ts`.
+- **Won (2026-10-27).** When an accepted quote opens, it reads its opportunity for the PP number and the
+  Notion page Make 3710214 writes back after making the project (opportunity fields
+  `OPP_FIELDS.projectNumber` and `ACCEPT_FIELDS.notionProjectUrl`), fills them in (blanks only; a PP
+  number is never overwritten) and the accepted version becomes **Won**. All quotes files a quote under
+  **Accepted** (yes, no PP number yet) or **Won** (has one). Rule: `projectPickup()` in `src/lib/link/refresh.ts`.
+- **Changes after acceptance (Albert, 2026-10-27: "verbal, sent for record").** The accepted version
+  stays frozen. **Make a change** on the contract version starts a new version of the same quote,
+  numbered (Quote Versions → **Change No** 1, 2, …): only the accepted option, its ticked add-ons now part
+  of the work, the others gone, and a schedule where every agreed stage keeps its dollars and the final
+  payment takes the difference (`fixedSchedule()`). Staff edit it as usual; the editor shows how far it
+  moves the contract's total. Sending it freezes a **What changed since <date>** block on its copy
+  (`src/lib/change/diff.ts`: lines added, removed and changed, matched by section and wording; line amounts
+  only on an itemised quote) and the customer gets the full updated quote with that box at the top, on
+  the page, the PDF, the email and the text: no good-until date, nothing to accept or approve, no
+  follow-up tag. It becomes the quote's Contract Version, older changes are superseded, the accepted link
+  points at it, and GHL's value follows the new total with HST (`buildContract()`). The Project
+  Expectations are to say (Albert rewords the doc before go-live) that a change agreed in person or by
+  phone is confirmed by this updated quote.
+  Tested in `tests/change.test.ts`.
 - **All quotes (2026-10-15).** One row per quote, its versions folded under it (newest first),
   and a search over name, quote and project number, city, email and phone digits. Grouping and
   search are pure, in `src/lib/quotes/group.ts`, tested in `tests/group.test.ts`.
@@ -408,8 +480,9 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
    verb in that file. A reply feature, if it comes, is a reviewed change to this rule.
 2b. **One file sends to Make:** `src/lib/make/client.ts`, `server-only`, the only reader of
    `QUOTE_MAKE_GHL_HOOK` / `QUOTE_MAKE_GHL_KEY`, called only from `src/lib/quotes/start.ts`, `src/lib/quotes/booking.ts`, `src/lib/quotes/link.ts`, `src/lib/quotes/send.ts`,
-   `src/lib/quotes/address.ts` (Address arrived: the contact's street only, never a site on the opportunity)
-   and `src/lib/quotes/activity.ts` (internal comments only).
+   `src/lib/quotes/address.ts` (Address arrived: the contact's street only, never a site on the opportunity),
+   `src/lib/quotes/activity.ts` (internal comments only) and `src/lib/accept/record.ts` (acceptance: Won,
+   cancel, and the acceptance messages).
    Set those two variables only after the scenario is switched on: a request to a scenario
    that is off waits in Make's queue and would run later.
 2c. **A path without a sign-in on the staff app:** `/api/booking`, called by Make 3453735 when an appointment
@@ -427,12 +500,21 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
    `src/lib/quotes/activity.ts` check `QUOTE_ACTIVITY_KEY` first (constant-time; unset = off). It writes
    only the tracking fields of Quote Versions and posts only internal comments; the version is found by
    the link's token, never by anything else in the request.
+2c''. **A third path without a sign-in: `/api/accept` (2026-10-27)**, the customer's Accept, called by
+   the customer deployment's server, never by a browser. The route and every function in
+   `src/lib/accept/accept.ts` check `QUOTE_ACCEPT_KEY` first (constant-time; unset = off). The version is
+   found by the link's token and the acceptance is built from its frozen copy: nothing the request says
+   about prices or totals is used. All the writes are in `src/lib/accept/record.ts`, reached only from
+   `accept.ts` and from `src/lib/accept/staff.ts` (a signed-in quoter: on their behalf, retry, cancel).
+   On the customer deployment `src/lib/quotes/acceptClient.ts` is the only reader of the key; it reads no
+   Airtable and is reached only from `src/app/c/`.
 2d. **Customer links live on the customer deployment only.** There the proxy serves `/c/<token>`
    and 404s everything else, and `write()` refuses; on the staff app `/c/` is 404.
    `src/lib/quotes/customer.ts` answers only there and only for a well-formed token, returns the
    frozen copy and nothing live, and is imported only by `src/app/c/`. The only other thing `src/app/c/` may
-   reach is `src/lib/activity/relay.ts`, which reports opens to the staff app and reads no Airtable. `tests/boundary.test.ts`
-   pins all of this.
+   reach is `src/lib/activity/relay.ts`, which reports opens to the staff app and reads no Airtable, and, for
+   acceptance, `src/lib/quotes/acceptClient.ts` and the pure rules it needs (accept plan, terms, settings,
+   schedule). `tests/boundary.test.ts` pins all of this.
 3. **Staff is not enough.** Only emails on `QUOTE_ALLOWED_EMAILS` get in. The proxy checks
    it and every loader in `src/lib/quotes/load.ts` and `src/lib/quotes/start.ts` checks again
    (`requireQuoter()`). An empty list lets nobody in.

@@ -1,4 +1,6 @@
-import { DEFAULT_PRIVATE_LABEL, LUMP_QTY_SECTIONS, PRIVATE_SECTION, SECTIONS, chargesHst, isPriced, lineTotal, optionTotals, priceUsed, privateRollup, round2, sectionOf } from "@/lib/calc";
+import { DEFAULT_PRIVATE_LABEL, LUMP_QTY_SECTIONS, PRIVATE_SECTION, SECTIONS, chargesHst, isPriced, lineTotal, optionTotals, priceUsed, privateRollup, round2, sectionOf, stageAmounts } from "@/lib/calc";
+import type { CopyChange } from "@/lib/change/diff";
+import { defaultSchedule, payWords, type PayHow, type PaymentSchedule } from "@/lib/pricing/schedule";
 import type { Quote, QuoteLine, QuoteOption } from "@/lib/quotes/types";
 import { copyKind } from "./summary";
 
@@ -33,6 +35,8 @@ export type CopyItem = {
   amount: number | null;
   /** An add-on the customer can choose: priced, not in the total. */
   optional: boolean;
+  /** An add-on the customer ticked when accepting (2026-10-27): now part of the work, at the price shown. Only on an accepted copy. */
+  added?: boolean;
   /**
    * Only where a material's HST differs from the rest of the quote (2026-10-16): "none" = no HST on
    * it while the quote charges HST; "plus" = HST on it while the quote does not. Absent otherwise.
@@ -54,10 +58,19 @@ export type CopyTotals = {
   paymentFinal: number;
 };
 
+/**
+ * One stage of the payment schedule as the customer was sent it (2026-10-27). `amount` is null on a
+ * preliminary's range, where the final price isn't known: a share then says its percent, the balance
+ * says "the balance", and a material deposit says it is for the material.
+ */
+export type CopyStage = { label: string; when: string; pay: PayHow; amount: number | null; pct: number | null; kind: "share" | "materials" | "amount" | "balance" };
+
 /** A preliminary's price as a range (2026-10-27): whole dollars, before HST and with it. */
 export type CopyRange = { low: number; high: number; lowWithHst: number; highWithHst: number };
 
 export type CopyOption = {
+  /** The Quote Options record it was made from (2026-10-27), so an acceptance can name it. Never shown. Absent on older copies. */
+  ref?: string;
   name: string;
   description: string | null;
   recommended: boolean;
@@ -66,6 +79,8 @@ export type CopyOption = {
   totals: CopyTotals;
   /** On a preliminary only (Albert, 2026-10-27): what the customer is shown instead of one price. Absent on a copy frozen before then. */
   range?: CopyRange;
+  /** The payment schedule (2026-10-27). Absent on a copy frozen before then: 35 / 35 / balance from `totals`. */
+  schedule?: CopyStage[];
 };
 
 export type Letterhead = {
@@ -111,6 +126,13 @@ export type CustomerCopy = {
   pdf?: boolean;
   showHst: boolean;
   company: Letterhead;
+  /** The payment schedule it was sent with (2026-10-27), so ticked add-ons can be scheduled the same way. Absent = 35 / 35 / balance. */
+  paymentSchedule?: PaymentSchedule;
+  /**
+   * A change after acceptance (2026-10-27): what changed since the contract it updates. Sent for the
+   * customer's records; there is nothing to accept. Absent on every other copy.
+   */
+  change?: CopyChange;
   options: CopyOption[];
 };
 
@@ -193,7 +215,47 @@ function sectionNames(lines: QuoteLine[]): string[] {
   return out;
 }
 
-function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lumpSum = false, ranged = false): CopyOption {
+/** The schedule as the customer sees it: exact amounts, or on a range shares of the final price. */
+function copyStages(schedule: PaymentSchedule, o: QuoteOption, discountRate: number, showHst: boolean, total: number, ranged: boolean): CopyStage[] {
+  const stages = stageAmounts(schedule, o.lines, discountRate, showHst, total);
+  return stages.map((s, i) => {
+    const part = schedule.stages[i].part;
+    return {
+      label: s.label,
+      when: s.when,
+      pay: s.pay,
+      amount: ranged ? null : s.amount,
+      pct: ranged ? (part.kind === "share" ? part.pct : null) : s.pct,
+      kind: s.kind,
+    };
+  });
+}
+
+/** "35%", "$4,898.00", "the balance": a stage's figure on the page, the PDF and the email. */
+export function stageFigure(s: CopyStage, money: (n: number) => string): string {
+  if (s.amount !== null) return money(s.amount);
+  if (s.kind === "balance") return "The balance";
+  if (s.kind === "materials") return "Your materials";
+  return s.pct !== null ? `${s.pct}%` : "";
+}
+
+/** The line under a stage's name: when it is due, and how it is paid when that is said. */
+export const stageNote = (s: Pick<CopyStage, "when" | "pay">) => [s.when, payWords(s.pay)].filter(Boolean).join(", ");
+
+/** A copy frozen before schedules existed reads as the old 35 / 35 / balance, from its own totals. */
+export function stagesOf(o: CopyOption): CopyStage[] {
+  if (o.schedule?.length) return o.schedule;
+  const t = o.totals;
+  const share = (part: number) => (t.total > 0 ? Math.round((part / t.total) * 100) : 35);
+  const range = Boolean(o.range);
+  return [
+    { label: "Deposit", when: "", pay: null, amount: range ? null : t.payment1, pct: range ? 35 : share(t.payment1), kind: "share" },
+    { label: "Second payment", when: "", pay: null, amount: range ? null : t.payment2, pct: range ? 35 : share(t.payment2), kind: "share" },
+    { label: "Final payment", when: "", pay: null, amount: range ? null : t.paymentFinal, pct: null, kind: "balance" },
+  ];
+}
+
+function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lumpSum = false, ranged = false, schedule: PaymentSchedule = defaultSchedule()): CopyOption {
   let n = 0;
   const sections: CopySection[] = [];
   for (const name of sectionNames(o.lines)) {
@@ -249,6 +311,7 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
   }
   const t = optionTotals(o.lines, discountRate, showHst);
   return {
+    ref: o.id,
     name: clean(o.name) ?? "Option",
     description: o.description?.trim() || null,
     recommended: o.recommended,
@@ -266,6 +329,7 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
     },
     // A preliminary is shown as a range (2026-10-27); the totals stay exact underneath for the record.
     ...(ranged && t.subtotal > 0 ? { range: copyRange(t) } : {}),
+    schedule: copyStages(schedule, o, discountRate, showHst, t.total, ranged && t.subtotal > 0),
   };
 }
 
@@ -295,7 +359,8 @@ export function customerCopy(quote: Quote, at: { sentOn: string; validUntil: str
     pdf: at.pdf === true,
     showHst: quote.showHst,
     company: at.company,
-    options: quote.options.map((o) => copyOption(o, quote.discountRate, quote.showHst, lump, prelim && at.range !== false)),
+    ...(quote.schedule ? { paymentSchedule: quote.schedule } : {}),
+    options: quote.options.map((o) => copyOption(o, quote.discountRate, quote.showHst, lump, prelim && at.range !== false, quote.schedule ?? defaultSchedule())),
   };
 }
 
@@ -409,3 +474,6 @@ export function pdfName(copy: Pick<CustomerCopy, "quoteNumber" | "version">): st
   const q = copy.quoteNumber.replace(/[^A-Za-z0-9-]+/g, "-").replace(/^-+|-+$/g, "") || "Quote";
   return `Titan-Flooring-Quote-${q}${copy.version !== null ? `-v${copy.version}` : ""}.pdf`;
 }
+
+/** The stamped accepted PDF's name (2026-10-27), served beside the quote's own on the same link. */
+export const acceptedPdfName = (copy: Pick<CustomerCopy, "quoteNumber" | "version">) => pdfName(copy).replace(/\.pdf$/, "-accepted.pdf");

@@ -1,6 +1,6 @@
 import "server-only";
 import { hasMore, htmlToText, parseMessages, type Message } from "@/lib/conversation/thread";
-import { CONTACT_ORIGIN_FIELD, GHL_LOCATION_ID, OPP_FIELDS } from "./ids";
+import { ACCEPT_FIELDS, CONTACT_ORIGIN_FIELD, GHL_LOCATION_ID, OPP_FIELDS } from "./ids";
 import type { GhlContact, GhlConversation, GhlOpportunity, GhlPipeline, GhlSite } from "./types";
 
 export type { GhlContact, GhlConversation, GhlOpportunity, GhlPipeline, GhlSite };
@@ -124,6 +124,26 @@ export async function opportunitySite(id: string): Promise<GhlSite | null> {
     const o = data.opportunity;
     if (!o) return null;
     return { address: customValue(o.customFields, OPP_FIELDS.projectAddress), city: customValue(o.customFields, OPP_FIELDS.projectCity) };
+  } catch (e) {
+    if (e instanceof GhlError && e.status === 404) return null;
+    throw e;
+  }
+}
+
+/**
+ * The Notion project a won opportunity got (2026-10-27): its PP number and page, which Make 3710214
+ * writes back onto the opportunity after it makes the project. Null if GHL has no such opportunity.
+ */
+export async function opportunityProject(id: string): Promise<{ projectNumber: string | null; notionUrl: string | null } | null> {
+  if (!/^[A-Za-z0-9]+$/.test(id)) return null;
+  try {
+    const data = (await get(`/opportunities/${id}`, {})) as { opportunity?: Record<string, unknown> };
+    const o = data.opportunity;
+    if (!o) return null;
+    return {
+      projectNumber: customValue(o.customFields, OPP_FIELDS.projectNumber),
+      notionUrl: ACCEPT_FIELDS.notionProjectUrl ? customValue(o.customFields, ACCEPT_FIELDS.notionProjectUrl) : null,
+    };
   } catch (e) {
     if (e instanceof GhlError && e.status === 404) return null;
     throw e;

@@ -1,6 +1,9 @@
-import { optionTotals, parityDiffs } from "@/lib/calc";
+import { optionTotals, parityDiffs, stageAmountProblems, stageAmounts } from "@/lib/calc";
 import type { Quote } from "@/lib/quotes/types";
-import { addDays, dollars, hstRow, isIsoDate, isRange, leadPrice, longDate, offersPdf, rangeText, rangeWhy, type CopyOption, type CustomerCopy } from "./copy";
+import { defaultSchedule, payWords, scheduleProblems } from "@/lib/pricing/schedule";
+import type { Acceptance } from "@/lib/accept/plan";
+import { changeWords as changeLine } from "@/lib/change/diff";
+import { addDays, dollars, hstRow, isIsoDate, isRange, leadPrice, longDate, offersPdf, rangeText, rangeWhy, stageNote, stagesOf, type CopyOption, type CopyStage, type CustomerCopy } from "./copy";
 import { copyKind, flooringSummary, kindPhrase } from "./summary";
 
 /**
@@ -53,11 +56,13 @@ export function chosenWords(quote: Pick<Quote, "options">, ids: string[] | null 
 }
 
 /** What stops one option going to the customer, or null. */
-export function optionProblem(quote: Pick<Quote, "discountRate" | "showHst">, o: Quote["options"][number]): string | null {
+export function optionProblem(quote: Pick<Quote, "discountRate" | "showHst" | "schedule">, o: Quote["options"][number]): string | null {
   const t = optionTotals(o.lines, quote.discountRate, quote.showHst);
   if (t.total <= 0) return `${o.name} has nothing priced in it.`;
   if (parityDiffs(t, o.airtable).length > 0) return `The app and Airtable disagree on ${o.name}. Fix that before sending.`;
-  return null;
+  // The schedule's own amounts on this option (2026-10-27): nothing negative, and a deposit that is something.
+  const stages = stageAmounts(quote.schedule ?? defaultSchedule(), o.lines, quote.discountRate, quote.showHst, t.total);
+  return stageAmountProblems(stages, o.name)[0] ?? null;
 }
 
 /**
@@ -74,6 +79,9 @@ export function sendProblems(quote: Quote, input: SendInput, ctx: { today: strin
   if (quote.sendBlock) out.push(quote.sendBlock);
   if (quote.legacyLineCount > 0) out.push("Some lines are in the old A/B/C format and on no option. Move them onto an option first.");
   if (quote.options.length === 0) out.push("This version has no options.");
+  if (quote.schedule) out.push(...scheduleProblems(quote.schedule));
+  // A change after acceptance (2026-10-27) is the accepted option, updated: one option, no good-until date.
+  if (quote.changeNo && quote.options.length !== 1) out.push("A change has one option: the one the customer accepted. Remove the others.");
   const ids = input.optionIds ?? null;
   if (!ctx.skipOptions) {
     if (ids && quote.options.length > 0) {
@@ -86,8 +94,8 @@ export function sendProblems(quote: Quote, input: SendInput, ctx: { today: strin
       if (p) out.push(p);
     }
   }
-  // A preliminary carries no good-until date (Albert, 2026-10-22); any date sent with one is ignored.
-  if (quote.basis !== "Preliminary") {
+  // A preliminary carries no good-until date (Albert, 2026-10-22), nor does a change, which is for the record; any date sent with one is ignored.
+  if (quote.basis !== "Preliminary" && !quote.changeNo) {
     if (!isIsoDate(input.validUntil)) out.push("Choose the date the quote is good until.");
     else if (input.validUntil < ctx.today) out.push("The valid-until date is in the past.");
     else if (input.validUntil > addDays(ctx.today, 365)) out.push("The valid-until date is more than a year away.");
@@ -101,8 +109,12 @@ export function sendProblems(quote: Quote, input: SendInput, ctx: { today: strin
 /* ---------- the messages ---------- */
 
 export type GhlMessage =
-  /** Never an attachment (Albert, 2026-10-27): the PDF, when offered, is downloaded from the quote page only. */
-  | { type: "Email"; contactId: string; subject: string; html: string; emailFrom?: string }
+  /**
+   * Never an attachment (Albert, 2026-10-27): the PDF, when offered, is downloaded from the quote page only.
+   * The one exception is the acceptance email (Albert, same day: "attach for acceptance only"), which
+   * carries the stamped accepted PDF and the Project Expectations it was accepted under.
+   */
+  | { type: "Email"; contactId: string; subject: string; html: string; emailFrom?: string; attachments?: string[] }
   | { type: "SMS"; contactId: string; message: string }
   /** A note on the customer's conversation that only staff see (2026-10-27, open tracking); `mentions` are GHL user ids. */
   | { type: "InternalComment"; contactId: string; message: string; mentions: string[] };
@@ -349,20 +361,41 @@ function frame(copy: CustomerCopy, title: string, preheader: string, body: strin
   );
 }
 
-/** The payment schedule in words, from the frozen totals (35 / 35 / balance, calc.ts PAYMENT_SPLIT). */
-function paymentWords(o: CopyOption): string {
-  const pct = (part: number) => `${Math.round((part / o.totals.total) * 100)}%`;
-  return `${pct(o.totals.payment1)} to reserve your dates, ${pct(o.totals.payment2)} when the crew starts, and the balance on completion. No payment is due until you choose a start date.`;
+/**
+ * The payment schedule in words, from the frozen schedule (2026-10-27): each stage, when it is due
+ * and how it is paid, then what the deposit does. Albert, the same day: "Nothing is finalized until a
+ * deposit is made… the date you request is locked in for you" (the PM sets the date).
+ */
+export function paymentWords(o: CopyOption): string {
+  const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
+  const phrase = (s: CopyStage, i: number) => {
+    const what =
+      s.kind === "balance"
+        ? "the balance"
+        : s.kind === "materials"
+          ? `${i === 0 ? "a deposit" : lower(s.label)} of ${s.amount !== null ? cad.format(s.amount) : "the material's price"} for your materials`
+          : s.kind === "amount" && s.amount !== null
+            ? `${cad.format(s.amount)} ${lower(s.label)}`
+            : `${s.pct ?? ""}% ${i === 0 ? "deposit" : lower(s.label)}`;
+    const when = s.when ? ` ${lower(s.when).replace(/, for your materials.*$/, "")}` : "";
+    const how = payWords(s.pay);
+    return `${what}${when}${how ? `, ${how}` : ""}`;
+  };
+  const parts = stagesOf(o).map(phrase);
+  const list = parts.length > 1 ? `${parts.slice(0, -1).join("; ")}; and ${parts.at(-1)}` : parts[0];
+  return `${list.charAt(0).toUpperCase()}${list.slice(1)}. Nothing is final until the deposit is in; once it is, your materials are ordered and your date is locked in.`;
 }
 
 export function emailMessage(
   copy: CustomerCopy,
   to: { contactId: string; firstName: string | null; link: string },
   sender: Sender | null = null,
-  options: { emailFrom?: string | null; booking?: { inStore: string; inHome: string } | null } = {},
+  options: { emailFrom?: string | null; booking?: { inStore: string; inHome: string } | null; acceptOnline?: boolean } = {},
 ): GhlMessage {
   const hi = greetingName(to.firstName);
   const prelim = copy.basis === "Preliminary";
+  // Online acceptance (2026-10-27): a measured quote says to accept it on the page once it is switched on.
+  const online = !prelim && options.acceptOnline === true;
   const several = copy.options.length > 1;
   const phrase = kindPhrase(copyKind(copy), false); // "flooring and stairs quote"
   const what = phrase.replace(/ quote$/, "");
@@ -413,11 +446,17 @@ export function emailMessage(
         ["We measure and confirm", `A measured quote replaces this estimate, with the exact ${what.includes("stair") && !what.includes("flooring") ? "scope" : "square footage"} and your chosen material.${stepLink(options.booking?.inHome, "Book a measurement")}`],
         ["Pick a date", "Most projects start within two to three weeks of a confirmed quote."],
       ]
-    : [
-        [several ? "Choose an option" : "Say yes", several ? "Reply with the one you want, or tell us if you&rsquo;d like a mix." : "Reply to this email, or call us, and we hold your dates."],
-        ["We hold your dates", "Once the deposit is in, your start date is yours and the material is ordered."],
-        ["Install", "We confirm the crew&rsquo;s arrival the day before they start."],
-      ];
+    : online
+      ? [
+          ["Accept online", `${several ? "Open the quote, pick your option" : "Open the quote"} and press Accept. You&rsquo;ll get the accepted quote and the deposit details straight away.`],
+          ["Send the deposit", "Nothing is final until it&rsquo;s in. Once it is, your materials are ordered and your date is locked in."],
+          ["Install", "We confirm the crew&rsquo;s arrival the day before they start."],
+        ]
+      : [
+          [several ? "Choose an option" : "Say yes", several ? "Reply with the one you want, or tell us if you&rsquo;d like a mix." : "Reply to this email, or call us, and we hold your dates."],
+          ["We hold your dates", "Once the deposit is in, your start date is yours and the material is ordered."],
+          ["Install", "We confirm the crew&rsquo;s arrival the day before they start."],
+        ];
   const signoff = sender?.firstName ? `${esc(sender.firstName)} &middot; ${esc(copy.company.name)}` : `The ${esc(copy.company.name)} team`;
   const ask = sender?.firstName ? ` Ask for ${esc(sender.firstName)}.` : "";
   const phone = copy.company.phone ? ` or call <a href="tel:${esc(copy.company.phone.replace(/[^\d+]/g, ""))}" style="color:${C.ink};">${esc(copy.company.phone)}</a>` : "";
@@ -431,7 +470,7 @@ export function emailMessage(
       "40px 40px 24px",
     ) +
     cards +
-    row(button(several ? `View and compare your ${noun}` : `View your ${noun}`, to.link), "12px 40px 10px") +
+    row(button(online ? (several ? "Compare and accept" : `View and accept your ${noun}`) : several ? `View and compare your ${noun}` : `View your ${noun}`, to.link), "12px 40px 10px") +
     row(para(under, 13, C.muted, "0", "text-align:center;"), "0 40px 8px") +
     (prelim ? "" : hairline() + row(eyebrow("How payment works") + para(esc(paymentWords(copy.options[0])), 15, C.body, "0 0 6px"))) +
     hairline(prelim ? "28px 40px" : "22px 40px 28px") +
@@ -492,6 +531,165 @@ export function smsMessage(copy: CustomerCopy, to: { contactId: string; firstNam
 /** "Nov 21" for a text. */
 function shortDate(iso: string): string {
   return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-CA", { timeZone: "UTC", month: "short", day: "numeric" });
+}
+
+/* ---------- after the yes (2026-10-27) ---------- */
+
+/** Where the deposit goes and how, in the customer's words; never says why a stage is paid the way it is. */
+export function depositHow(deposit: Pick<CopyStage, "pay">, ctx: { etransfer: string; quoteNumber: string }): string {
+  if (deposit.pay === "onsite") return "Hand it to your project manager on site.";
+  return `Send it by e-transfer to ${ctx.etransfer} and put ${ctx.quoteNumber} in the message.`;
+}
+
+/**
+ * The email that goes out the moment a quote is accepted (Albert, 2026-10-27): it locks the deal in.
+ * The stamped accepted PDF and the Project Expectations they ticked are attached; it is also the one
+ * deposit request (GHL's own deposit text is switched off when this goes live), with the amount and
+ * how to pay, and the rest of the schedule. The PM sets the date.
+ */
+export function acceptedEmailMessage(
+  copy: CustomerCopy,
+  a: Acceptance,
+  to: { contactId: string; firstName: string | null; link: string; pdfUrl: string; termsUrl: string | null },
+  ctx: { etransfer: string; acceptedWhen: string },
+  sender: Sender | null = null,
+  options: { emailFrom?: string | null } = {},
+): GhlMessage {
+  const hi = greetingName(to.firstName);
+  const subject = `Accepted: your quote ${copy.quoteNumber} from ${copy.company.name}`;
+  const deposit = a.stages[0];
+  const preheader = `Your deposit is ${cad.format(deposit.amount ?? 0)}. ${depositHow(deposit, { etransfer: ctx.etransfer, quoteNumber: copy.quoteNumber })}`;
+  const cell = (t: string, right = false, strong = false) =>
+    `<td${right ? ' align="right"' : ""} style="padding:9px 0;border-bottom:1px solid ${C.hair};font-family:${SANS};font-size:15px;color:${strong ? C.ink : C.body};${strong ? "font-weight:600;" : ""}${right ? "white-space:nowrap;" : ""}">${t}</td>`;
+  const what = [
+    `<tr>${cell(esc(a.option.name), false, true)}${cell("", true)}</tr>`,
+    ...a.addOns.map((x) => `<tr>${cell(`Added: ${esc(x.description)}`)}${cell(cad.format(x.amount), true)}</tr>`),
+    `<tr>${cell("Price before HST")}${cell(cad.format(a.totals.subtotal), true)}</tr>`,
+    `<tr>${cell(a.totals.hst ? "HST" : "HST not included")}${cell(a.totals.hst ? cad.format(a.totals.hst) : "", true)}</tr>`,
+    `<tr>${cell("Total", false, true)}${cell(cad.format(a.totals.total), true, true)}</tr>`,
+  ].join("");
+  const card = (inner: string) =>
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.wash};border-radius:18px;"><tr><td style="padding:8px;">` +
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.card};border:1px solid ${C.hair};border-radius:12px;"><tr><td style="padding:20px 24px;">${inner}</td></tr></table></td></tr></table>`;
+  const stageRows = a.stages
+    .map((s, i) => `<tr>${cell(`${esc(s.label)}${stageNote(s) ? `<br><span style="font-size:13px;font-weight:400;color:${C.muted};">${esc(stageNote(s))}</span>` : ""}`, false, i === 0)}${cell(s.amount !== null ? cad.format(s.amount) : "", true, i === 0)}</tr>`)
+    .join("");
+  const attached = [to.pdfUrl ? "your accepted quote" : null, to.termsUrl ? "our Project Expectations" : null].filter(Boolean).join(" and ");
+  const signoff = sender?.firstName ? `${esc(sender.firstName)} &middot; ${esc(copy.company.name)}` : `The ${esc(copy.company.name)} team`;
+  const who = sender?.firstName ? esc(sender.firstName) : "We";
+  const body =
+    row(
+      eyebrow(`Accepted &middot; ${esc(copy.quoteNumber)}`) +
+        `<h1 class="h1" style="margin:0 0 16px;font-family:${SERIF};font-weight:400;font-size:30px;line-height:1.2;color:${C.ink};">${hi ? `Thank you, ${esc(hi)}.` : "Thank you."} Your quote is accepted.</h1>` +
+        para(`You accepted on ${esc(ctx.acceptedWhen)}.${attached ? ` ${attached.charAt(0).toUpperCase()}${attached.slice(1)} ${attached.includes(" and ") ? "are" : "is"} attached.` : ""}`),
+      "40px 40px 20px",
+    ) +
+    row(card(`<p style="margin:0 0 6px;font-family:${SERIF};font-size:20px;color:${C.ink};">What you accepted</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${what}</table>`), "0 40px 16px") +
+    row(
+      card(
+        `<p style="margin:0 0 4px;font-family:${SANS};font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:${C.muted};">Your deposit</p>` +
+          `<p class="total" style="margin:0 0 10px;font-family:${SERIF};font-size:30px;color:${C.ink};">${cad.format(deposit.amount ?? 0)}</p>` +
+          para(esc(depositHow(deposit, { etransfer: ctx.etransfer, quoteNumber: copy.quoteNumber })), 15, C.ink, "0 0 8px") +
+          para("Nothing is final until the deposit is in. Once it is, your materials are ordered and your date is locked in.", 14, C.body, "0"),
+      ),
+      "0 40px 16px",
+    ) +
+    row(button("View your accepted quote", to.link), "12px 40px 10px") +
+    hairline() +
+    row(eyebrow("Your payment schedule") + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${stageRows}</table>`) +
+    hairline("22px 40px 28px") +
+    row(
+      eyebrow("What happens next") +
+        steps([
+          ["Send the deposit", "It secures your materials, so they don&rsquo;t go out of stock, and your dates."],
+          ["We set your date", `${who} will call you to set your start date. Once the deposit is in, it&rsquo;s locked in.`],
+          ["Install", "We confirm the crew&rsquo;s arrival the day before they start."],
+        ]),
+      "0 40px 6px",
+    ) +
+    hairline("0 40px 28px") +
+    row(para("Questions? Reply to this email.", 15, C.body, "0 0 4px") + para(signoff, 14, C.muted, "0 0 36px"));
+  const from = "emailFrom" in options ? options.emailFrom : emailFromFor(sender, copy.company.email, true);
+  const attachments = [to.pdfUrl, to.termsUrl].filter((u): u is string => Boolean(u));
+  return { type: "Email", contactId: to.contactId, subject, html: frame(copy, subject, preheader, body), ...(attachments.length ? { attachments } : {}), ...(from ? { emailFrom: from } : {}) };
+}
+
+/** The text after the yes: thanks, the deposit and how to pay it, the link. GSM-7 only, like every quote text. */
+export function acceptedSmsMessage(copy: CustomerCopy, a: Acceptance, to: { contactId: string; firstName: string | null; link: string }, ctx: { etransfer: string }, sender: Sender | null = null): GhlMessage {
+  const hi = greetingName(to.firstName);
+  const whoFrom = sender?.firstName ? `it's ${sender.firstName} from ${copy.company.name}` : `it's ${copy.company.name}`;
+  const deposit = a.stages[0];
+  const amount = cad.format(deposit.amount ?? 0);
+  const how = deposit.pay === "onsite" ? "Please hand it to your project manager on site." : `Please e-transfer it to ${ctx.etransfer} and put ${copy.quoteNumber} in the message.`;
+  return {
+    type: "SMS",
+    contactId: to.contactId,
+    message: `${hi ? `Hi ${hi}, ${whoFrom}.` : `Hi, ${whoFrom}.`} Thank you for accepting quote ${copy.quoteNumber}! Your deposit is ${amount}. ${how} Once it's in, your date is locked in.\n\nYour accepted quote:\n${to.link}`,
+  };
+}
+
+/* ---------- a change after acceptance (2026-10-27) ---------- */
+
+/**
+ * The email for a change (Albert, 2026-10-27: "verbal, sent for record"): the updated quote, with what
+ * changed since they accepted at the top, the new total and the new schedule. There is no button to
+ * approve it and no deadline: the Project Expectations say a change agreed in person or by phone is
+ * confirmed by this message.
+ */
+export function changeEmailMessage(copy: CustomerCopy, to: { contactId: string; firstName: string | null; link: string }, sender: Sender | null = null, options: { emailFrom?: string | null } = {}): GhlMessage {
+  const c = copy.change!;
+  const o = copy.options[0];
+  const hi = greetingName(to.firstName);
+  const subject = `Your updated quote ${copy.quoteNumber} (change ${c.no}) from ${copy.company.name}`;
+  const preheader = `As we discussed: the new total is ${cad.format(o.totals.total)}${o.totals.hst ? " with HST" : ""}.`;
+  const cell = (t: string, right = false, strong = false) =>
+    `<td${right ? ' align="right"' : ""} style="padding:9px 0;border-bottom:1px solid ${C.hair};font-family:${SANS};font-size:15px;color:${strong ? C.ink : C.body};${strong ? "font-weight:600;" : ""}${right ? "white-space:nowrap;" : ""}">${t}</td>`;
+  const signed = (n: number) => (Math.abs(n) < 0.005 ? "no change" : `${n > 0 ? "+" : "&minus;"}${cad.format(Math.abs(n))}`);
+  const rows = [
+    ...c.items.map((it) => `<tr>${cell(esc(changeLine(it)))}${cell("", true)}</tr>`),
+    `<tr>${cell("Change, before HST", false, true)}${cell(signed(c.difference), true, true)}</tr>`,
+    `<tr>${cell(`Total was ${cad.format(c.before.total)}, now`)}${cell(cad.format(o.totals.total), true, true)}</tr>`,
+  ].join("");
+  const stages = stagesOf(o)
+    .map((s, i) => `<tr>${cell(`${esc(s.label)}${stageNote(s) ? `<br><span style="font-size:13px;font-weight:400;color:${C.muted};">${esc(stageNote(s))}</span>` : ""}`)}${cell(s.amount !== null ? `${c.before.stages[i]?.amount != null && Math.abs((c.before.stages[i].amount ?? 0) - s.amount) > 0.004 ? `<span style="color:${C.muted};text-decoration:line-through;">${cad.format(c.before.stages[i].amount!)}</span> ` : ""}${cad.format(s.amount)}` : "", true)}</tr>`)
+    .join("");
+  const signoff = sender?.firstName ? `${esc(sender.firstName)} &middot; ${esc(copy.company.name)}` : `The ${esc(copy.company.name)} team`;
+  const body =
+    row(
+      eyebrow(`Updated quote &middot; change ${c.no}`) +
+        `<p style="margin:-2px 0 14px;font-family:${SANS};font-size:12px;color:${C.muted};letter-spacing:.04em;">${esc(copy.quoteNumber)} &middot; ${esc(longDate(copy.sentOn))}</p>` +
+        `<h1 class="h1" style="margin:0 0 16px;font-family:${SERIF};font-weight:400;font-size:30px;line-height:1.2;color:${C.ink};">${hi ? `Hi ${esc(hi)}, here` : "Here"} is your updated quote.</h1>` +
+        para(`As we discussed, here is what changed since ${esc(longDate(c.sinceOn))}. This is the record of the change; the full updated quote is on the page.`),
+      "40px 40px 20px",
+    ) +
+    row(
+      `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.wash};border-radius:18px;"><tr><td style="padding:8px;">` +
+        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.card};border:1px solid ${C.hair};border-radius:12px;"><tr><td style="padding:20px 24px;">` +
+        `<p style="margin:0 0 6px;font-family:${SERIF};font-size:20px;color:${C.ink};">What changed</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${rows}</table>` +
+        `</td></tr></table></td></tr></table>`,
+      "0 40px 16px",
+    ) +
+    row(button("View your updated quote", to.link), "12px 40px 10px") +
+    hairline() +
+    row(eyebrow("Your payment schedule") + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${stages}</table>` + para("The difference is on the final payment.", 13, C.muted, "10px 0 0")) +
+    hairline("22px 40px 28px") +
+    row(para("If anything here isn&rsquo;t what we agreed, reply to this email.", 15, C.body, "0 0 4px") + para(signoff, 14, C.muted, "0 0 36px"));
+  const from = "emailFrom" in options ? options.emailFrom : emailFromFor(sender, copy.company.email, true);
+  // Never an attachment (2026-10-27): the updated quote is on its page.
+  return { type: "Email", contactId: to.contactId, subject, html: frame(copy, subject, preheader, body), ...(from ? { emailFrom: from } : {}) };
+}
+
+/** The text for a change: who, the new total, the link. GSM-7. */
+export function changeSmsMessage(copy: CustomerCopy, to: { contactId: string; firstName: string | null; link: string }, sender: Sender | null = null): GhlMessage {
+  const c = copy.change!;
+  const hi = greetingName(to.firstName);
+  const whoFrom = sender?.firstName ? `it's ${sender.firstName} from ${copy.company.name}` : `it's ${copy.company.name}`;
+  const total = cad.format(copy.options[0].totals.total);
+  return {
+    type: "SMS",
+    contactId: to.contactId,
+    message: `${hi ? `Hi ${hi}, ${whoFrom}.` : `Hi, ${whoFrom}.`} As we discussed, here is your updated quote ${copy.quoteNumber} (change ${c.no}). The new total is ${total}${copy.options[0].totals.hst ? " with HST" : ""}; the difference is on the final payment.\n\nSee what changed:\n${to.link}\n\nIf anything isn't what we agreed, just reply.`,
+  };
 }
 
 /* ---------- the link ---------- */

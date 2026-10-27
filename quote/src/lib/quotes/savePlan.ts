@@ -1,5 +1,6 @@
 import { LINE, OPTION, VERSION } from "@/lib/airtable/fields";
 import { sectionOf } from "@/lib/calc";
+import { cleanSchedule, sameSchedule, scheduleField } from "@/lib/pricing/schedule";
 import { levelOf } from "@/lib/pricing/service";
 import type { EditorLine, EditorOption, EditorQuote } from "@/lib/editor/model";
 
@@ -113,6 +114,7 @@ export function cleanEditorQuote(raw: unknown): EditorQuote {
     discountReason: nullableText(r.discountReason, 120),
     itemised: r.itemised === true,
     showHst: r.showHst !== false,
+    schedule: cleanSchedule(r.schedule),
     options,
   };
 }
@@ -182,6 +184,8 @@ export function planSave(original: EditorQuote | null, edited: EditorQuote): Sav
   if (!original || original.showHst !== edited.showHst) plan.version[VERSION.showHst] = edited.showHst;
   if (!original || (original.discountReason ?? null) !== (edited.discountReason ?? null)) plan.version[VERSION.discountReason] = edited.discountReason ?? null;
   if (!original || !!original.itemised !== !!edited.itemised) plan.version[VERSION.itemised] = !!edited.itemised;
+  // The default schedule is saved blank, so a quote nobody changed the schedule on stays blank (2026-10-27).
+  if (original ? !sameSchedule(original.schedule, edited.schedule) : scheduleField(edited.schedule) !== null) plan.version[VERSION.paymentSchedule] = scheduleField(edited.schedule);
 
   const oldOptions = new Map((original?.options ?? []).map((o, i) => [o.id, { o, i }]));
   const oldLines = new Map((original?.options ?? []).flatMap((o) => o.lines.map((l, i) => [l.id, { l, i, option: o.id }] as const)));
@@ -229,7 +233,9 @@ export const planIsEmpty = (p: SavePlan) =>
  * a save is refused if Airtable no longer matches it, so nobody's newer work is overwritten.
  */
 export function fingerprint(q: EditorQuote): string {
-  const s = JSON.stringify({ d: q.discountRate, h: q.showHst, r: q.discountReason ?? null, i: !!q.itemised, o: q.options });
+  // A schedule joins the fingerprint only when it isn't the default, so versions saved before it existed keep theirs (2026-10-27).
+  const sched = scheduleField(q.schedule);
+  const s = JSON.stringify({ d: q.discountRate, h: q.showHst, r: q.discountReason ?? null, i: !!q.itemised, ...(sched ? { s: sched } : {}), o: q.options });
   let h = 0x811c9dc5;
   for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i);

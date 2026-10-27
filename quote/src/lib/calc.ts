@@ -17,7 +17,14 @@
  * Airtable's IF({x}, …) treats blank AND 0 as false; `firstSet` reproduces that.
  */
 
-/** Ontario HST and the 35 / 35 / remainder payment split, as hard-coded in the Airtable formulas. */
+import type { PaymentSchedule, PayHow } from "@/lib/pricing/schedule";
+
+/**
+ * Ontario HST and the 35 / 35 / remainder payment split, as hard-coded in the Airtable formulas.
+ * Since 2026-10-27 a version can carry its own payment schedule (src/lib/pricing/schedule.ts); its
+ * amounts are `stageAmounts` below. Airtable's Payment 1 / 2 / Final stay the default split, so the
+ * parity check still compares like with like.
+ */
 export const HST_RATE = 0.13;
 export const PAYMENT_SPLIT = 0.35;
 
@@ -226,4 +233,77 @@ export function parityDiffs(app: OptionTotals, airtable: Partial<OptionTotals>):
     if (!same) out.push({ key, app: a, airtable: b });
   }
   return out;
+}
+
+/* ---------- the payment schedule (2026-10-27) ---------- */
+
+/** One stage of a schedule with its money: `pct` is its share of the total, whole percent, for the words. */
+export type StageAmount = { label: string; when: string; pay: PayHow; amount: number; pct: number; kind: "share" | "materials" | "amount" | "balance" };
+
+/**
+ * The material a deposit can cover (Albert, 2026-10-27): the material lines billed with HST, after
+ * the quote's discount, with their HST. A quote whose material carries no HST at all uses all of its
+ * material the same way. Zero when there is no material.
+ */
+export function materialsDeposit(lines: LineInput[], discountRate: number, hstOn: boolean): number {
+  const material = lines.filter((l) => isPriced(l) && l.include && sectionOf(l) === "Materials");
+  const taxed = material.filter((l) => chargesHst(l, hstOn));
+  const pool = taxed.length ? taxed : material;
+  return pool.length ? optionTotals(pool, discountRate, hstOn).total : 0;
+}
+
+/**
+ * A schedule's stages in dollars, for an option whose total (with HST) is `total`. Fixed amounts and
+ * the material come first; each share is a percent of what is left after them (of the total, when
+ * there are none); the balance is whatever remains, so the stages always add up to the total. With
+ * the default schedule this is exactly payment1 / payment2 / paymentFinal.
+ */
+export function stageAmounts(schedule: PaymentSchedule, lines: LineInput[], discountRate: number, hstOn: boolean, total: number): StageAmount[] {
+  const material = schedule.stages.some((s) => s.part.kind === "materials") ? materialsDeposit(lines, discountRate, hstOn) : 0;
+  return restageAmounts(schedule, schedule.stages.map((s) => ({ amount: s.part.kind === "materials" ? material : null })), total);
+}
+
+/** What is wrong with a schedule's amounts on one option: a stage that would be negative. */
+export function stageAmountProblems(stages: StageAmount[], optionName: string): string[] {
+  const below = stages.find((s) => s.amount < 0);
+  if (below) return [`On ${optionName} the ${below.label.toLowerCase()} would be less than nothing. Change the payment schedule.`];
+  if (stages.length > 1 && stages[0].amount <= 0) return [`On ${optionName} the deposit would be nothing. Change the payment schedule.`];
+  return [];
+}
+
+
+/* ---------- acceptance (2026-10-27) ---------- */
+
+/** An add-on the customer ticks when accepting: the price it was shown at (before HST) and whether HST is charged on it. */
+export type AddOnInput = { amount: number; taxed: boolean };
+
+export type AcceptedTotals = { subtotal: number; hst: number; total: number };
+
+/**
+ * What the customer agrees to when accepting an option (Albert, 2026-10-27: "tick to add"): the
+ * option as it was sent, plus each ticked add-on at exactly the price they were shown, with HST on
+ * the ones that carry it. Nothing else is recomputed, so the accepted figures are the sent figures
+ * when nothing is ticked.
+ */
+export function acceptedTotals(t: { subtotal: number; hst: number }, addOns: AddOnInput[]): AcceptedTotals {
+  const extra = round2(addOns.reduce((a, x) => a + x.amount, 0));
+  const taxed = round2(addOns.filter((x) => x.taxed).reduce((a, x) => a + x.amount, 0));
+  const subtotal = round2(t.subtotal + extra);
+  const hst = round2(t.hst + round2(taxed * HST_RATE));
+  return { subtotal, hst, total: round2(subtotal + hst) };
+}
+
+/**
+ * A frozen schedule applied to a new total: the stages already in dollars (a material deposit, a
+ * fixed amount) keep the amount they were frozen at, the shares are taken again of what is left, and
+ * the balance takes the rest. Used when add-ons are ticked at acceptance, and for a change after it
+ * (where every stage but the balance is fixed). With the same total it gives the frozen amounts back.
+ */
+export function restageAmounts(schedule: PaymentSchedule, frozen: { amount: number | null }[], total: number): StageAmount[] {
+  const fixed = schedule.stages.map((s, i) => (s.part.kind === "materials" ? Math.min(total, frozen[i]?.amount ?? 0) : s.part.kind === "amount" ? round2(s.part.amount) : null));
+  const base = round2(total - fixed.reduce<number>((a, b) => a + (b ?? 0), 0));
+  const amounts = schedule.stages.map((s, i) => (fixed[i] !== null ? fixed[i]! : s.part.kind === "share" ? round2(base * (s.part.pct / 100)) : 0));
+  const last = schedule.stages.length - 1;
+  amounts[last] = round2(total - amounts.slice(0, last).reduce((a, b) => a + b, 0));
+  return schedule.stages.map((s, i) => ({ label: s.label, when: s.when, pay: s.pay, amount: amounts[i], pct: total > 0 ? Math.round((amounts[i] / total) * 100) : 0, kind: s.part.kind }));
 }

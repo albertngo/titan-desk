@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { customerRefresh, type CustomerCopy, type LiveContact } from "../src/lib/link/refresh";
+import { customerRefresh, type CustomerCopy, type LiveContact, projectPickup } from "../src/lib/link/refresh";
 
 // INVENTED people and addresses only: this repo is public.
 const copy = (o: Partial<CustomerCopy> = {}): CustomerCopy => ({
@@ -65,5 +65,21 @@ describe("bringing a quote's customer copy up to date from GHL", () => {
   it("never blanks a value GHL is missing, and does nothing without GHL", () => {
     expect(customerRefresh(copy(), contact({ firstName: null, phone: null, email: null, address: null, city: null }), null)).toEqual({});
     expect(customerRefresh(copy({ addressStatus: "Confirmed" }), null, null)).toEqual({});
+  });
+});
+
+describe("an accepted quote picks up its Notion project (2026-10-27)", () => {
+  const blank = { projectNumber: null, notionProjectUrl: null };
+
+  it("copies the PP number and the Notion page Make wrote back onto the opportunity", () => {
+    expect(projectPickup(blank, { projectNumber: "PP-412", notionUrl: "https://www.notion.so/Titan-Project-abc123" })).toEqual({ projectNumber: "PP-412", notionProjectUrl: "https://www.notion.so/Titan-Project-abc123" });
+    expect(projectPickup(blank, { projectNumber: "pp 77", notionUrl: null })).toEqual({ projectNumber: "PP-77" });
+  });
+
+  it("fills blanks only, and takes only what looks right", () => {
+    expect(projectPickup({ projectNumber: "PP-400", notionProjectUrl: null }, { projectNumber: "PP-412", notionUrl: null })).toEqual({});
+    expect(projectPickup(blank, { projectNumber: "412", notionUrl: "http://example.com/x" })).toEqual({});
+    expect(projectPickup(blank, { projectNumber: "Q-1234", notionUrl: "https://evil.example/notion.so/" })).toEqual({});
+    expect(projectPickup(blank, null)).toEqual({});
   });
 });

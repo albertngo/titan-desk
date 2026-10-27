@@ -93,6 +93,7 @@ export function SendQuote({
   ready,
   sent,
   preliminary,
+  change = null,
   from,
   options,
 }: {
@@ -111,6 +112,8 @@ export function SendQuote({
   sent: SentInfo | null;
   /** A preliminary has no good-until date (Albert, 2026-10-22): the field is not shown and none is sent. */
   preliminary: boolean;
+  /** A change after acceptance (2026-10-27): sent for the record, with no good-until date and nothing to accept. */
+  change?: number | null;
   /** The address the email goes out from: the signed-in quoter's (2026-10-22); null = GHL's default sender. */
   from: string | null;
   /** The version's options, for choosing which go to the customer (2026-10-24); `range` is what a preliminary shows instead of `price` (2026-10-27). */
@@ -138,13 +141,14 @@ export function SendQuote({
   const [error, setError] = useState<{ message: string; problems?: string[] } | null>(null);
   const [done, setDone] = useState<{ link: string; sentTo: string[]; warning: string | null } | null>(null);
   const [sending, startSend] = useTransition();
-  const q = [preliminary ? null : `until=${until}`, itemised ? "itemised=1" : null, optionIds ? `options=${optionIds.join(",")}` : null, exact ? "range=0" : null, pdf ? "pdf=1" : null].filter(Boolean).join("&");
+  const undated = preliminary || Boolean(change);
+  const q = [undated ? null : `until=${until}`, itemised ? "itemised=1" : null, optionIds ? `options=${optionIds.join(",")}` : null, exact ? "range=0" : null, pdf ? "pdf=1" : null].filter(Boolean).join("&");
   const preview = `/q/${versionId}/preview${q ? `?${q}` : ""}`;
   const pdfLink = `/q/${versionId}/pdf${q ? `?${q}` : ""}`;
   const emailPreview = `/q/${versionId}/preview/email${q ? `?${q}` : ""}`;
 
   if (status !== "Draft" || done) {
-    const s = done ? { sentAt: today, sentBy: null, sentTo: done.sentTo.join(", "), validUntil: preliminary ? null : until, link: done.link } : sent;
+    const s = done ? { sentAt: today, sentBy: null, sentTo: done.sentTo.join(", "), validUntil: undated ? null : until, link: done.link } : sent;
     return (
       <section className="card sq" id="send" aria-labelledby="sq-h">
         <div className="card-h" id="sq-h">
@@ -181,7 +185,7 @@ export function SendQuote({
   function send() {
     setError(null);
     startSend(async () => {
-      const r = await sendQuoteAction(versionId, { base, validUntil: preliminary ? null : until, channels: { email: byEmail, sms: bySms }, itemised, pdf, optionIds, range: !exact });
+      const r = await sendQuoteAction(versionId, { base, validUntil: undated ? null : until, channels: { email: byEmail, sms: bySms }, itemised, pdf, optionIds, range: !exact });
       setAsking(false);
       if (r.ok) {
         setDone(r);
@@ -278,6 +282,8 @@ export function SendQuote({
               </span>
             </label>
           </>
+        ) : change ? (
+          <p className="note">Change {change} goes out as the updated quote, with what changed at the top, for the customer&rsquo;s records: no good-until date and nothing to accept. GHL&rsquo;s value follows the new total.</p>
         ) : (
         <label className="sq-until-in">
           Good until
@@ -312,7 +318,7 @@ export function SendQuote({
             </div>
           </div>
         ) : (
-          <button type="button" className="btn primary sq-go" disabled={blocked || channels.length === 0 || (!preliminary && !until)} onClick={() => setAsking(true)}>
+          <button type="button" className="btn primary sq-go" disabled={blocked || channels.length === 0 || (!undated && !until)} onClick={() => setAsking(true)}>
             Send quote
           </button>
         )}

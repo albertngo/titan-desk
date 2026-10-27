@@ -1,4 +1,5 @@
-import { lineFlags, type LineInput, type OptionTotals } from "@/lib/calc";
+import { lineFlags, stageAmounts, type LineInput, type OptionTotals } from "@/lib/calc";
+import { defaultSchedule, payWords, type PaymentSchedule } from "@/lib/pricing/schedule";
 import { money, pct } from "@/lib/format";
 import { Ring } from "./Ring";
 
@@ -14,7 +15,10 @@ export function Financials({
   showHst,
   agrees,
   customer,
+  schedule = null,
 }: {
+  /** The version's payment schedule (2026-10-27); null = 35 / 35 / balance. */
+  schedule?: PaymentSchedule | null;
   lines: LineInput[];
   t: OptionTotals;
   discountRate: number;
@@ -69,9 +73,14 @@ export function Financials({
 
       <section className="card">
         <div className="card-h">Payment schedule <span className="right">{showHst ? "incl. HST" : t.hst ? "HST on materials" : "HST off"}</span></div>
-        <div className="pay"><span>Deposit · 35%</span><span className="v">{money(t.payment1)}</span></div>
-        <div className="pay"><span>Second · 35%</span><span className="v">{money(t.payment2)}</span></div>
-        <div className="pay"><span>Final</span><span className="v">{money(t.paymentFinal)}</span></div>
+        {stageAmounts(schedule ?? defaultSchedule(), lines, discountRate, showHst, t.total).map((s, i) => (
+          <div className="pay" key={i} title={[s.when, payWords(s.pay)].filter(Boolean).join(", ")}>
+            <span>
+              {s.label} · {s.pct}%{s.pay === "onsite" ? " · on site" : ""}
+            </span>
+            <span className={`v${s.amount < 0 ? " bad" : ""}`}>{money(s.amount)}</span>
+          </div>
+        ))}
       </section>
 
       {!customer && (

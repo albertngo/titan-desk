@@ -4,10 +4,11 @@ import { isQuoter, quoterAllowlist } from "@/lib/access";
 import { isCustomerDeployment } from "@/lib/mode";
 
 /**
- * Pages a staff member reaches before signing in, the booking step Make calls, and open tracking
- * (2026-10-27), which the customer deployment and the daily run call. Both check their own key.
+ * Pages a staff member reaches before signing in, the booking step Make calls, open tracking
+ * (2026-10-27), which the customer deployment and the daily run call, and the accept step the customer
+ * deployment calls (2026-10-27). Each checks its own key.
  */
-const OPEN_ON_STAFF = /^\/(login|auth\/|denied|api\/booking|api\/activity)/;
+const OPEN_ON_STAFF = /^\/(login|auth\/|denied|api\/booking|api\/activity|api\/accept)/;
 /** The only pages the customer deployment serves: customer links. */
 const CUSTOMER_PAGES = /^\/c\/[A-Za-z0-9]+(\/[^/]+)?$/;
 
@@ -60,6 +61,7 @@ export async function proxy(request: NextRequest) {
 export const config = {
   // Everything except static assets. Which paths need no sign-in is decided above, in code,
   // because it depends on which deployment this is. /brand/ holds the logo the quote email and
-  // the link preview card load (2026-10-23): public by nature, served by both deployments.
+  // the link preview card load (2026-10-23): public by nature, served by both deployments. The
+  // Project Expectations are served by the customer's own link, not as a public file (2026-10-27).
   matcher: ["/((?!_next/|brand/|favicon\\.ico|robots\\.txt).*)"],
 };

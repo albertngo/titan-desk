@@ -1,5 +1,6 @@
+import { changeWords, itemDifference, signedMoney, type CopyChange } from "@/lib/change/diff";
 import { money, rate } from "@/lib/format";
-import { discountLabel, hstRow, isLump, itemHstNote, leadPrice, longDate, prelimNote, rangeText, type CopyItem, type CopyOption, type CopyState, type CopyText, type CustomerCopy } from "@/lib/send/copy";
+import { discountLabel, hstRow, isLump, itemHstNote, leadPrice, longDate, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyState, type CopyText, type CustomerCopy } from "@/lib/send/copy";
 
 /**
  * The quote as the customer sees it, drawn from the frozen customer copy only. Used by the
@@ -37,9 +38,9 @@ function Line({ l }: { l: CopyItem | CopyText }) {
         {qty && l.unitPrice !== null && <span className="x"> × {money(l.unitPrice)}</span>}
       </span>
       <span className="a">
-        {l.optional ? (
+        {l.optional || l.added ? (
           <>
-            <span className="tag">Optional</span> {money(l.amount)}
+            <span className="tag">{l.added ? "Added" : "Optional"}</span> {money(l.amount)}
           </>
         ) : l.amount !== null ? (
           money(l.amount)
@@ -64,12 +65,7 @@ function Totals({ o, copy }: { o: CopyOption; copy: CustomerCopy }) {
           <div><dt>{h.label}</dt><dd>{h.amount !== null ? "On the final price" : "Not included"}</dd></div>
           {lead.addsHst && <div className="with"><dt>With HST</dt><dd>{rangeText(r.lowWithHst, r.highWithHst)}</dd></div>}
         </dl>
-        <div className="cq-pay">
-          <h4>Payment schedule, on the final price</h4>
-          <div><span>Deposit</span><span>35%</span></div>
-          <div><span>Second payment</span><span>35%</span></div>
-          <div><span>Final payment</span><span>The balance</span></div>
-        </div>
+        <Schedule o={o} title="Payment schedule, on the final price" />
       </div>
     );
   }
@@ -88,13 +84,78 @@ function Totals({ o, copy }: { o: CopyOption; copy: CustomerCopy }) {
         <div><dt>{h.label}</dt><dd>{h.amount !== null ? money(h.amount) : "Not included"}</dd></div>
         {lead.addsHst && <div className="with"><dt>Total with HST</dt><dd>{money(t.total)}</dd></div>}
       </dl>
-      <div className="cq-pay">
-        <h4>Payment schedule{lead.addsHst ? ", with HST" : ""}</h4>
-        <div><span>Deposit (35%)</span><span>{money(t.payment1)}</span></div>
-        <div><span>Second payment (35%)</span><span>{money(t.payment2)}</span></div>
-        <div><span>Final payment</span><span>{money(t.paymentFinal)}</span></div>
-      </div>
+      <Schedule o={o} title={`Payment schedule${lead.addsHst ? ", with HST" : ""}`} />
     </div>
+  );
+}
+
+/** The payment schedule as it was frozen (2026-10-27): each stage, when it is due and how it is paid, and its figure. */
+function Schedule({ o, title }: { o: CopyOption; title: string }) {
+  return (
+    <div className="cq-pay">
+      <h4>{title}</h4>
+      {stagesOf(o).map((s, i) => {
+        const note = stageNote(s);
+        return (
+          <div key={i}>
+            <span>
+              {s.label}
+              {s.amount !== null && s.kind === "share" && s.pct !== null ? ` (${s.pct}%)` : ""}
+              {note && <span className="sub">{note}</span>}
+            </span>
+            <span>{stageFigure(s, money)}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** A change after acceptance (2026-10-27): what changed, the difference, and the schedule before and after. */
+function ChangeBox({ c, o, lump }: { c: CopyChange; o: CopyOption; lump: boolean }) {
+  const after = stagesOf(o);
+  return (
+    <section className="cq-card cq-change" aria-labelledby="chg-h">
+      <h2 id="chg-h">What changed since {longDate(c.sinceOn)}</h2>
+      {c.items.length > 0 ? (
+        <ul>
+          {c.items.map((it, i) => {
+            const d = lump ? null : itemDifference(it);
+            return (
+              <li key={i} className={it.kind}>
+                <span>{changeWords(it)}</span>
+                {d !== null && <span className="amt">{signedMoney(d, money)}</span>}
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="faint">The scope is the same; the price changed.</p>
+      )}
+      <dl>
+        <div className="diff"><dt>Change, before HST</dt><dd>{signedMoney(c.difference, money)}</dd></div>
+        <div><dt>Total was</dt><dd>{money(c.before.total)}</dd></div>
+        <div className="now"><dt>Total now</dt><dd>{money(o.totals.total)}</dd></div>
+      </dl>
+      {c.before.stages.length > 0 && (
+        <div className="cq-pay">
+          <h4>Payment schedule, before and after</h4>
+          {after.map((s, i) => {
+            const was = c.before.stages[i]?.amount ?? null;
+            const moved = was !== null && s.amount !== null && Math.abs(was - s.amount) > 0.004;
+            return (
+              <div key={i}>
+                <span>{s.label}</span>
+                <span>
+                  {moved && <s className="was">{money(was)}</s>} {s.amount !== null ? money(s.amount) : ""}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      <p className="faint">This updated quote is the record of the change we agreed. The full quote follows.</p>
+    </section>
   );
 }
 
@@ -139,6 +200,8 @@ export function CustomerQuote({
   pdfHref,
   newerHref,
   banner,
+  note: noteSlot,
+  after,
 }: {
   copy: CustomerCopy;
   state: CopyState;
@@ -147,6 +210,10 @@ export function CustomerQuote({
   newerHref: string | null;
   /** Staff preview only: a line above everything saying what this is. */
   banner?: React.ReactNode;
+  /** Above the quote: what an accepted quote's customer does next (2026-10-27). Replaces the state line. */
+  note?: React.ReactNode;
+  /** Under the options: the Accept panel (2026-10-27). */
+  after?: React.ReactNode;
 }) {
   const c = copy.company;
   const several = copy.options.length > 1;
@@ -163,13 +230,14 @@ export function CustomerQuote({
         </div>
         {pdfHref && (
           <a className="btn cq-dl" href={pdfHref}>
-            Download PDF
+            {state === "accepted" ? "Download accepted PDF" : "Download PDF"}
           </a>
         )}
       </header>
 
       <main className="cq-main">
-        {note && (
+        {noteSlot}
+        {!noteSlot && note && (
           <p className={`cq-state ${state}`} role="status">
             {note}
             {newerHref && (
@@ -182,7 +250,7 @@ export function CustomerQuote({
         )}
 
         <section className="cq-hero">
-          <p className="cq-kicker">{copy.basis === "Preliminary" ? "Preliminary quote" : "Quote"} {copy.quoteNumber}{copy.version !== null ? ` · v${copy.version}` : ""}</p>
+          <p className="cq-kicker">{copy.change ? `Updated quote · change ${copy.change.no} ·` : copy.basis === "Preliminary" ? "Preliminary quote" : "Quote"} {copy.quoteNumber}{copy.version !== null ? ` · v${copy.version}` : ""}</p>
           <h1>{copy.customer.name ? `Prepared for ${copy.customer.name}` : "Your flooring quote"}</h1>
           {site && <p className="cq-site">{site}</p>}
           <dl className="cq-meta">
@@ -208,9 +276,13 @@ export function CustomerQuote({
           </nav>
         )}
 
+        {copy.change && copy.options[0] && <ChangeBox c={copy.change} o={copy.options[0]} lump={isLump(copy)} />}
+
         {copy.options.map((o, i) => (
           <OptionBlock key={i} o={o} i={several ? i + 1 : null} copy={copy} />
         ))}
+
+        {after}
 
         {/* The "Questions?" card with Call / Email buttons is gone (Albert, 2026-10-24): replies go to the
             message the quote came in. The website and HST number stay, as one quiet line. */}

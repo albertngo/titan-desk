@@ -4,6 +4,7 @@ import { EditorClient } from "@/components/editor/EditorClient";
 import { TopBar } from "@/components/TopBar";
 import { requireQuoter } from "@/lib/auth";
 import { fromQuote } from "@/lib/editor/model";
+import { previewCopy } from "@/lib/quotes/send";
 import { getQuote, getRateCard } from "@/lib/quotes/load";
 import { refreshFromGhl } from "@/lib/quotes/refresh";
 import { fingerprint } from "@/lib/quotes/savePlan";
@@ -19,7 +20,10 @@ export default async function EditQuotePage({ params }: { params: Promise<{ id: 
   if (!loaded) notFound();
   const quote = await refreshFromGhl(loaded);
   const initial = fromQuote(quote);
-  const version = { id: quote.id, label: quote.quoteId, version: quote.version, status: quote.status, basis: quote.basis, base: fingerprint(initial) };
+  // A change after acceptance (2026-10-27): the editor shows how far it moves the contract's total.
+  const contract = quote.changeNo ? (await previewCopy(quote.id))?.change ?? null : null;
+  const change = quote.changeNo ? { no: quote.changeNo, contractTotal: contract?.before.total ?? null } : null;
+  const version = { id: quote.id, label: quote.quoteId, version: quote.version, status: quote.status, basis: quote.basis, base: fingerprint(initial), change };
   return (
     <>
       <TopBar email={email} />

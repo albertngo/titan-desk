@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AcceptedCard, AcceptForCustomer, ChangeCard } from "@/components/AcceptStaff";
 import { AddressScan } from "@/components/AddressScan";
 import { Analysis } from "@/components/Analysis";
 import { ConversationDrawer } from "@/components/Conversation";
@@ -20,7 +21,11 @@ import { refreshFromGhl } from "@/lib/quotes/refresh";
 import { customerView } from "@/lib/view";
 import { fromQuote } from "@/lib/editor/model";
 import { fingerprint } from "@/lib/quotes/savePlan";
-import { sendingReady, sendsFrom, sentLink } from "@/lib/quotes/send";
+import { previewCopy, sendingReady, sendsFrom, sentLink } from "@/lib/quotes/send";
+import { acceptedWhen, addOnsOf } from "@/lib/accept/plan";
+import { acceptReadiness } from "@/lib/accept/staff";
+import { termsLabel } from "@/lib/accept/terms";
+import { ghlOpportunityUrl } from "@/lib/ghl/ids";
 import { logEntries } from "@/lib/quotes/history";
 import { addDays, leadPrice, priceRange, rangeText, torontoToday, VALID_DAYS } from "@/lib/send/copy";
 import { optionProblem, sendProblems } from "@/lib/send/plan";
@@ -87,6 +92,7 @@ export default async function QuotePage({
       ready={ready}
       sent={draft ? null : { sentAt: quote.sentAt, sentBy: quote.sentBy, sentTo: quote.sentTo, validUntil: quote.validUntil, link, activity: quote.activity ?? null }}
       preliminary={preliminary}
+      change={quote.changeNo ?? null}
       from={from}
       options={sendOptions}
     />
@@ -97,6 +103,46 @@ export default async function QuotePage({
   const roomsSaved = roomsLog.by && roomsLog.at
     ? `Last saved by ${roomsLog.by} · ${new Date(roomsLog.at).toLocaleString("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
     : null;
+
+  // Acceptance (2026-10-27): on a measured version out with the customer, accept with them or for them;
+  // once accepted, what was agreed and where the hand-off to GHL and Notion stands. Staff only.
+  const acceptable = !customer && quote.status === "Sent" && quote.basis === "Measured" && !quote.changeNo && !quote.acceptance;
+  const [acceptGate, sentCopy] = acceptable ? await Promise.all([acceptReadiness(), previewCopy(quote.id)]) : [null, null];
+  const acceptCard =
+    acceptable && sentCopy ? (
+      <AcceptForCustomer
+        versionId={quote.id}
+        link={link}
+        options={sentCopy.options.map((o, index) => ({ index, name: o.name, subtotal: o.totals.subtotal, addOns: addOnsOf(sentCopy, o) }))}
+        customerName={[quote.link?.firstName, quote.link?.lastName].filter(Boolean).join(" ") || quote.customerName}
+        terms={acceptGate?.terms ? { id: acceptGate.terms.id, label: termsLabel(acceptGate.terms.on) } : null}
+        off={acceptGate?.off ?? null}
+      />
+    ) : null;
+  const acceptedCard =
+    !customer && quote.acceptance ? (
+      <AcceptedCard
+        versionId={quote.id}
+        a={quote.acceptance}
+        when={acceptedWhen(quote.acceptance.at)}
+        projectNumber={quote.link?.projectNumber ?? null}
+        links={[
+          ...(quote.link?.ghlOpportunityId ? [{ label: "GHL opportunity", href: ghlOpportunityUrl(quote.link.ghlOpportunityId) }] : []),
+          ...(quote.link?.notionProjectUrl ? [{ label: "Notion project", href: quote.link.notionProjectUrl }] : []),
+          ...(quote.link?.folderUrl ? [{ label: "Job folder", href: quote.link.folderUrl }] : []),
+          ...(quote.link?.companyCamUrl ? [{ label: "CompanyCam", href: quote.link.companyCamUrl }] : []),
+          ...(link ? [{ label: "Customer's accepted page", href: link }] : []),
+        ]}
+        canChange={quote.link?.contractVersionId === quote.id}
+        current={quote.link?.contractVersionId === quote.id}
+      />
+    ) : null;
+
+  const changeCard =
+    !customer && quote.changeNo ? (
+      <ChangeCard versionId={quote.id} changeNo={quote.changeNo} status={quote.status} sentAt={quote.sentAt} current={quote.link?.contractVersionId === quote.id} />
+    ) : null;
+
   // Who worked on this version (2026-10-22): newest first, from the append-only Edit Log. Staff only.
   const history = logEntries(quote.editLog);
   const historyCard = customer ? null : (
@@ -215,14 +261,21 @@ export default async function QuotePage({
                 <p className="empty">This quote has no options yet.</p>
               </section>
             )}
+            {!(option && totals) && changeCard}
+            {!(option && totals) && acceptedCard}
+            {!(option && totals) && acceptCard}
             {!(option && totals) && send}
             {!(option && totals) && historyCard}
           </div>
 
           {option && totals && (
             <div className="stack">
+              {changeCard}
+              {acceptedCard}
+              {acceptCard}
               {send}
               <Financials
+                schedule={quote.schedule ?? null}
                 lines={option.lines}
                 t={totals}
                 discountRate={quote.discountRate}

@@ -3,16 +3,21 @@ import { listByIds, updateRecord, updateRecords } from "@/lib/airtable/client";
 import { QUOTE, T, VERSION } from "@/lib/airtable/fields";
 import { requireQuoter, requireQuoterPerson } from "@/lib/auth";
 import { fromQuote } from "@/lib/editor/model";
+import { etransferEmail } from "@/lib/accept/settings";
+import { acceptTerms } from "@/lib/accept/live";
 import { BOOKING_URLS } from "@/lib/ghl/ids";
 import { followUpTagBodies } from "@/lib/activity/track";
-import { makeConfigured, sendMessage, setFollowUpTags } from "@/lib/make/client";
+import { acceptedCopy, parseAcceptance } from "@/lib/accept/plan";
+import { changeSummary } from "@/lib/change/diff";
+import { buildContract } from "@/lib/link/ghlRequest";
+import { makeConfigured, sendMessage, sendToGhl, setFollowUpTags } from "@/lib/make/client";
 import { COPY_MAX_CHARS, customerCopy, parseCopy, pdfName, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "@/lib/send/copy";
-import { chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, isToken, newToken, parseOptionIds, sendProblems, smsMessage, type Channels, type Sender } from "@/lib/send/plan";
+import { changeEmailMessage, changeSmsMessage, chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, isToken, newToken, parseOptionIds, sendProblems, smsMessage, type Channels, type Sender } from "@/lib/send/plan";
 import { authorFields, firstNameOf, type Person } from "./history";
 import { getQuote } from "./load";
 import { refreshFromGhl } from "./refresh";
 import { fingerprint } from "./savePlan";
-import type { SendResult } from "./types";
+import type { Quote, SendResult } from "./types";
 import { ids, str } from "./values";
 
 /**
@@ -68,6 +73,31 @@ function logoUrl(): string | null {
   return base ? `${base.replace(/\/+$/, "")}/brand/titan-flooring-logo.png` : null;
 }
 
+/**
+ * Whether the email should say "press Accept" (2026-10-27): the terms are in the app and the deposit
+ * address is set. The keys on both deployments go in on the same day the terms PDF does (go-live).
+ */
+/** Whether the email may say "press Accept": the Online Acceptance switch, a Project Expectations PDF, and the deposit address. */
+const acceptOnline = async () => (await acceptTerms()) !== null && etransferEmail() !== null;
+
+/**
+ * A change after acceptance (2026-10-27): its copy carries what changed since the contract it updates,
+ * read from that version's own frozen copy (and its acceptance, for the accepted one). Null when the
+ * contract can't be read, which stops the send.
+ */
+async function withChange(quote: Quote, copy: CustomerCopy): Promise<CustomerCopy | null> {
+  if (!quote.changeNo) return copy;
+  const contractId = quote.link?.contractVersionId;
+  if (!contractId || contractId === quote.id) return null;
+  const rec = (await listByIds(T.versions, [contractId], [VERSION.customerCopy, VERSION.acceptance]))[0];
+  const frozen = parseCopy(str(rec?.fields[VERSION.customerCopy]));
+  if (!frozen) return null;
+  const a = parseAcceptance(str(rec?.fields[VERSION.acceptance]));
+  const before = a && !a.cancelled ? acceptedCopy(frozen, a) : frozen;
+  if (!before.options[0] || !copy.options[0]) return null;
+  return { ...copy, change: changeSummary(quote.changeNo, a?.on ?? before.sentOn, before.options[0], copy.options[0]) };
+}
+
 /** The in-store and in-home booking pages a preliminary's email offers: the GHL calendars in src/lib/ghl/ids.ts. */
 const booking = () => BOOKING_URLS;
 
@@ -117,7 +147,8 @@ export async function previewCopy(versionId: string, validUntil?: string, itemis
   const today = torontoToday(new Date());
   // A draft previews only the options ticked on the Send card (2026-10-24); none matching = all.
   const chosen = chooseOptions(quote, optionIds);
-  return customerCopy({ ...(chosen.options.length ? chosen : quote), itemised }, { sentOn: quote.sentAt ?? today, validUntil: validUntil ?? quote.validUntil ?? today, company: letterhead(), range, pdf });
+  const copy = customerCopy({ ...(chosen.options.length ? chosen : quote), itemised }, { sentOn: quote.sentAt ?? today, validUntil: quote.changeNo ? null : (validUntil ?? quote.validUntil ?? today), company: letterhead(), range, pdf });
+  return (await withChange(quote, copy)) ?? copy;
 }
 
 /** The email as it would be sent today, for the staff preview (2026-10-22): placeholder links, the signed-in sender. */
@@ -128,7 +159,9 @@ export async function previewEmail(versionId: string, validUntil?: string, itemi
   const quote = await getQuote(versionId);
   const base = customerBase() ?? "https://example.invalid";
   const { link } = customerLinks(base, isToken(quote?.customerToken) ? quote!.customerToken! : "x".repeat(32), pdfName(copy));
-  const m = emailMessage(copy, { contactId: "preview", firstName: quote?.link?.firstName ?? null, link }, senderOf(person), { booking: booking() });
+  const to = { contactId: "preview", firstName: quote?.link?.firstName ?? null, link };
+  // Never an attachment (Albert, 2026-10-27), a change included; only the acceptance email carries one.
+  const m = copy.change ? changeEmailMessage(copy, to, senderOf(person)) : emailMessage(copy, to, senderOf(person), { booking: booking(), acceptOnline: await acceptOnline() });
   return m.type === "Email" ? m.html : null;
 }
 
@@ -160,13 +193,16 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   const problems = sendProblems(quote, input, { today, fingerprint: fingerprint(fromQuote(quote)) });
   if (problems.length) return { ok: false, message: "Not sent.", problems };
 
-  // A preliminary has no good-until date whatever was sent (Albert, 2026-10-22); its link never expires.
-  const validUntil = quote.basis === "Preliminary" ? null : input.validUntil;
+  // A preliminary has no good-until date whatever was sent (Albert, 2026-10-22); its link never expires. Nor does a change (2026-10-27).
+  const validUntil = quote.basis === "Preliminary" || quote.changeNo ? null : input.validUntil;
   // A preliminary is always a lump sum and goes as a range unless the sender chose the exact price (2026-10-27).
   const prelim = quote.basis === "Preliminary";
   const itemised = !prelim && input.itemised;
   // Only the options ticked on the Send card go to the customer, everywhere (2026-10-24).
-  const copy = customerCopy({ ...chooseOptions(quote, input.optionIds), itemised }, { sentOn: today, validUntil, company: letterhead(), range: input.range, pdf: input.pdf });
+  const plain = customerCopy({ ...chooseOptions(quote, input.optionIds), itemised }, { sentOn: today, validUntil, company: letterhead(), range: input.range, pdf: input.pdf });
+  // A change carries what changed since the contract it updates (2026-10-27).
+  const copy = await withChange(quote, plain);
+  if (!copy) return { ok: false, message: "This change can't be sent: the accepted quote it changes couldn't be read. Open the accepted version and try Make a change again." };
   const text = serializeCopy(copy);
   if (text.length > COPY_MAX_CHARS) return { ok: false, message: "This quote is too long to send as one copy. Split it into fewer options." };
   const token = isToken(quote.customerToken) ? quote.customerToken : newToken();
@@ -194,12 +230,17 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   const from = senderOf(person);
   let sentFrom: string | null = null;
   if (input.channels.email) {
+    const online = await acceptOnline();
     // From the quoter, named, then bare, then GHL's default: a refused sender costs a retry, never the send.
     const attempts = [...new Set([emailFromFor(from, copy.company.email, true), emailFromFor(from, copy.company.email, false), null])];
     let last: unknown = null;
     for (const emailFrom of attempts) {
       try {
-        await sendMessage(emailMessage(copy, { contactId, firstName, link }, from, { emailFrom, booking: booking() }));
+        await sendMessage(
+          copy.change
+            ? changeEmailMessage(copy, { contactId, firstName, link }, from, { emailFrom })
+            : emailMessage(copy, { contactId, firstName, link }, from, { emailFrom, booking: booking(), acceptOnline: online }),
+        );
         sentTo.push("Email");
         sentFrom = emailFrom;
         if (emailFrom === null && attempts[0] !== null) notes.push(`GHL would not send from ${from.email}, so the email went out from the location's default address.`);
@@ -213,7 +254,7 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   }
   if (input.channels.sms) {
     try {
-      await sendMessage(smsMessage(copy, { contactId, firstName, link }, from));
+      await sendMessage(copy.change ? changeSmsMessage(copy, { contactId, firstName, link }, from) : smsMessage(copy, { contactId, firstName, link }, from));
       sentTo.push("Text");
     } catch (e) {
       failed.push(`Text: ${e instanceof Error ? e.message : String(e)}`);
@@ -236,17 +277,22 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
     notes.push("Airtable didn't record how it was sent.");
   }
   // The follow-up sequence (2026-10-27): both quote-sent tags off, this one's on, so a new version
-  // restarts its sequence and a measured quote ends the preliminary's. Never stops a send.
-  try {
-    await setFollowUpTags(contactId, followUpTagBodies(quote.basis));
-  } catch {
-    notes.push("The follow-up tag couldn't be set in GHL, so no follow-up sequence started; add the quote-sent tag by hand.");
+  // restarts its sequence and a measured quote ends the preliminary's. Never stops a send. A change
+  // after acceptance starts no follow-up: the customer already said yes (Won ends the sequences in GHL).
+  if (!copy.change) {
+    try {
+      await setFollowUpTags(contactId, followUpTagBodies(quote.basis));
+    } catch {
+      notes.push("The follow-up tag couldn't be set in GHL, so no follow-up sequence started; add the quote-sent tag by hand.");
+    }
   }
   try {
     await supersedeOlder(quote.link!.quoteRecordId, quote.id);
   } catch {
     notes.push("Older sent versions could not be marked Superseded; do that in Airtable.");
   }
+  // A change is the contract now (2026-10-27): the quote points at it, and GHL's value (and, through Make, Notion's) follows it.
+  if (copy.change) notes.push(...(await recordContract(quote, copy, link)));
   const warning = [...failed.map((f) => `Not sent by ${f}`), ...notes].join(" ") || null;
   return { ok: true, link, sentTo, warning };
 }
@@ -260,3 +306,23 @@ async function supersedeOlder(quoteRecordId: string, keep: string): Promise<void
   const older = versions.filter((v) => str(v.fields[VERSION.status]) === "Sent");
   if (older.length) await updateRecords(T.versions, older.map((v) => ({ id: v.id, fields: { [VERSION.status]: "Superseded" } })));
 }
+
+/** After a change is sent: it is the contract; the opportunity's value is its total with HST. Returns what didn't happen, for the warning. */
+async function recordContract(quote: Quote, copy: CustomerCopy, link: string): Promise<string[]> {
+  const notes: string[] = [];
+  try {
+    await updateRecord(T.quotes, quote.link!.quoteRecordId, { [QUOTE.contractVersion]: [quote.id] });
+  } catch {
+    notes.push("The quote couldn't be pointed at this change as its contract; set Contract Version in Airtable.");
+  }
+  const contactId = quote.link?.ghlContactId;
+  const opportunityId = quote.link?.ghlOpportunityId;
+  if (!contactId || !opportunityId) return [...notes, "GHL's value wasn't updated: the quote isn't linked to an opportunity."];
+  try {
+    await sendToGhl(buildContract({ contactId, opportunityId, total: copy.options[0].totals.total, link }));
+  } catch (e) {
+    notes.push(`GHL's value wasn't updated (${e instanceof Error ? e.message : String(e)}). Set it to ${copy.options[0].totals.total.toFixed(2)} on the opportunity.`);
+  }
+  return notes;
+}
+

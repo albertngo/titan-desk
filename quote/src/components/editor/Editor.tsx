@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { saveAsNewVersionAction, saveVersionAction } from "@/app/q/[id]/edit/actions";
 import { Financials } from "@/components/Financials";
-import { DEFAULT_PRIVATE_LABEL, PRIVATE_SECTION, SECTIONS, isPriced, lineCost, lineFlags, lineTotal, optionTotals, privateRollup, sectionOf } from "@/lib/calc";
+import { DEFAULT_PRIVATE_LABEL, PRIVATE_SECTION, SECTIONS, isPriced, lineCost, lineFlags, lineTotal, optionTotals, privateRollup, sectionOf, stageAmounts } from "@/lib/calc";
 import {
   UOMS,
   addLine,
@@ -27,6 +27,7 @@ import {
   setServiceLevel,
   setAcceptedPrice,
   setDiscountAmount,
+  setSchedule,
   setTerms,
   showsWaste,
   withCustomerFrom,
@@ -40,6 +41,8 @@ import { fixAddressLink } from "@/lib/link/linkJob";
 import { money, pct, rate } from "@/lib/format";
 import type { RateCard } from "@/lib/quotes/types";
 import { Picker } from "./Picker";
+import { ScheduleEditor } from "./ScheduleEditor";
+import { defaultSchedule, suggestsMaterialDeposit } from "@/lib/pricing/schedule";
 import { levelApplies, levelOf, PREMIUM_MARKUP, SERVICE_LEVELS } from "@/lib/pricing/service";
 
 const WORK_SECTIONS = SECTIONS.filter((s) => s !== "Exclusions");
@@ -48,7 +51,16 @@ const WORK_SECTIONS = SECTIONS.filter((s) => s !== "Exclusions");
 type Draft = { savedAt: string; quote: EditorQuote; base?: string };
 
 /** The version being edited, as the edit page read it from Airtable. */
-export type EditorVersion = { id: string; label: string | null; version: number | null; status: string | null; basis: string | null; base: string };
+export type EditorVersion = {
+  id: string;
+  label: string | null;
+  version: number | null;
+  status: string | null;
+  basis: string | null;
+  base: string;
+  /** A change after acceptance (2026-10-27): its number and the total (with HST) of the contract it changes. */
+  change?: { no: number; contractTotal: number | null } | null;
+};
 
 const BASES = ["Preliminary", "Measured"] as const;
 
@@ -366,6 +378,17 @@ export default function Editor({
             {" · "}
             {isDraft ? "Changes are kept on this device until you save." : `This version is ${version.status ?? "locked"}: changes save as a new version.`}
           </p>
+          {version.change && (
+            <p className="change-note">
+              Change {version.change.no} to the accepted quote. Edit the work as usual; the customer gets it as an updated quote, for their records, and the difference goes on the final payment.
+              {version.change.contractTotal !== null && option && t && quote.options.length === 1 && (
+                <span className={`chip ${t.total >= version.change.contractTotal ? "accent" : "warn"}`}>
+                  vs contract: {t.total - version.change.contractTotal >= 0 ? "+" : "−"}
+                  {money(Math.abs(t.total - version.change.contractTotal))} with HST
+                </span>
+              )}
+            </p>
+          )}
         </div>
         <span className={`status ${changed ? "Sent" : "Draft"}`}>
           {changed ? `Unsaved changes${savedAt ? ` · kept ${new Date(savedAt).toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit" })}` : ""}` : "No changes"}
@@ -427,6 +450,13 @@ export default function Editor({
               <label className="check-in" title="Labour and everything else. Each material line has its own HST box, which this never changes.">
                 <input type="checkbox" checked={quote.showHst} onChange={(e) => apply(setTerms(quote, { showHst: e.target.checked }))} /> Charge HST (13%)
               </label>
+              {/* The payment schedule (Albert, 2026-10-27): one per version, frozen when it is sent. */}
+              <ScheduleEditor
+                schedule={quote.schedule ?? null}
+                onChange={(next) => apply(setSchedule(quote, next))}
+                suggestMaterials={quote.options.some((o) => suggestsMaterialDeposit(o.lines, quote.showHst))}
+                amounts={option && t ? stageAmounts(quote.schedule ?? defaultSchedule(), option.lines, quote.discountRate, quote.showHst, t.total) : []}
+              />
             </div>
           </section>
 
@@ -715,7 +745,7 @@ export default function Editor({
           )}
         </div>
 
-        {option && t && <Financials lines={option.lines} t={t} discountRate={quote.discountRate} showHst={quote.showHst} agrees={null} customer={customer} />}
+        {option && t && <Financials schedule={quote.schedule ?? null} lines={option.lines} t={t} discountRate={quote.discountRate} showHst={quote.showHst} agrees={null} customer={customer} />}
       </div>
 
       {picking && option && (
