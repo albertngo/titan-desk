@@ -32,6 +32,15 @@ export const CHANGES: Change[] = [
   {
     date: "2026-10-27",
     kind: "changed",
+    title: "Open notes tag the contact's assigned person",
+    details: [
+      "On a measured quote, the GHL notes for a first open and the three-day summary tag whoever is assigned to the contact (else the opportunity's, else Albert), whoever sent it.",
+      "When someone else sent the quote, the sender is tagged too.",
+    ],
+  },
+  {
+    date: "2026-10-27",
+    kind: "changed",
     title: "The PDF stays out of the email",
     details: [
       "The email never carries the PDF; the customer page offers Download PDF only when it is ticked on the Send card.",
