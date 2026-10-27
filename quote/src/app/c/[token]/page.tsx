@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AcceptedNote } from "@/components/AcceptedNote";
 import { AcceptPanel, type AcceptOption } from "@/components/AcceptPanel";
 import { CustomerQuote } from "@/components/CustomerQuote";
+import { SeenBeacon } from "@/components/SeenBeacon";
 import { acceptedCopy, addOnsOf, notAcceptable } from "@/lib/accept/plan";
 import { etransferEmail } from "@/lib/accept/settings";
 import { TERMS, termsHref } from "@/lib/accept/terms";
@@ -41,18 +42,23 @@ export default async function CustomerQuotePage({ params, searchParams }: { para
   const found = await customerQuote(token);
   if (!found) notFound();
   const { copy, state, acceptance } = found;
+  // The beacon reports the open once the page is in view (2026-10-27); a link preview never runs it.
+  const beacon = <SeenBeacon path={`/c/${token}/seen`} />;
 
   // Accepted (2026-10-27): the page shows what was agreed, the stamped PDF, and the deposit.
   if (state === "accepted" && acceptance) {
-    const pdfHref = `/c/${token}/${acceptedPdfName(copy)}`;
+    const pdfHref = `/c/${token}/${acceptedPdfName(copy)}?d=1`;
     return (
-      <CustomerQuote
-        copy={acceptedCopy(copy, acceptance)}
-        state={state}
-        pdfHref={pdfHref}
-        newerHref={null}
-        note={<AcceptedNote a={acceptance} quoteNumber={copy.quoteNumber} etransfer={etransferEmail()} pdfHref={pdfHref} newerHref={found.newerToken ? `/c/${found.newerToken}` : null} />}
-      />
+      <>
+        {beacon}
+        <CustomerQuote
+          copy={acceptedCopy(copy, acceptance)}
+          state={state}
+          pdfHref={pdfHref}
+          newerHref={null}
+          note={<AcceptedNote a={acceptance} quoteNumber={copy.quoteNumber} etransfer={etransferEmail()} pdfHref={pdfHref} newerHref={found.newerToken ? `/c/${found.newerToken}` : null} />}
+        />
+      </>
     );
   }
 
@@ -68,23 +74,26 @@ export default async function CustomerQuotePage({ params, searchParams }: { para
   }));
   const recommended = copy.options.findIndex((o) => o.recommended);
   return (
-    <CustomerQuote
-      copy={copy}
-      state={state}
-      pdfHref={`/c/${token}/${pdfName(copy)}`}
-      newerHref={found.newerToken ? `/c/${found.newerToken}` : null}
-      after={
-        canAccept && TERMS ? (
-          <AcceptPanel
-            token={token}
-            store={store === "1"}
-            options={options}
-            schedule={copy.paymentSchedule ?? defaultSchedule()}
-            terms={{ version: TERMS.version, href: termsHref(TERMS) }}
-            defaultIndex={recommended >= 0 ? recommended : 0}
-          />
-        ) : null
-      }
-    />
+    <>
+      {beacon}
+      <CustomerQuote
+        copy={copy}
+        state={state}
+        pdfHref={`/c/${token}/${pdfName(copy)}?d=1`}
+        newerHref={found.newerToken ? `/c/${found.newerToken}` : null}
+        after={
+          canAccept && TERMS ? (
+            <AcceptPanel
+              token={token}
+              store={store === "1"}
+              options={options}
+              schedule={copy.paymentSchedule ?? defaultSchedule()}
+              terms={{ version: TERMS.version, href: termsHref(TERMS) }}
+              defaultIndex={recommended >= 0 ? recommended : 0}
+            />
+          ) : null
+        }
+      />
+    </>
   );
 }

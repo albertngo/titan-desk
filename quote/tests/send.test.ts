@@ -334,16 +334,14 @@ describe("the messages", () => {
     expect(two.type === "SMS" && two.message).toContain("from $684 + HST");
   });
 
-  it("opens a preliminary generically unless the sender says we have been to the home (2026-10-24)", () => {
+  it("always opens a preliminary generically: a preliminary is before any visit (2026-10-27)", () => {
     const c = customerCopy(quote({ basis: "Preliminary" }), AT);
-    const before = emailMessage(c, to);
+    const m = emailMessage(c, to);
     // Since 2026-10-27 a preliminary is a range: "a price range" where it said "a rough number".
-    expect(before.type === "Email" && before.html).toContain("Thanks for telling us about your project. Here is a price range based on what you&rsquo;ve described.");
-    expect(before.type === "Email" && before.html).not.toContain("having us over");
-    const after = emailMessage(c, to, null, { visited: true });
-    expect(after.type === "Email" && after.html).toContain("Thanks for having us over. Here is a price range for what we talked about, based on what we saw.");
-    // A measured quote never says either.
-    const measured = emailMessage(copy, to, null, { visited: true });
+    expect(m.type === "Email" && m.html).toContain("Thanks for telling us about your project. Here is a price range based on what you&rsquo;ve described.");
+    expect(m.type === "Email" && m.html).not.toContain("having us over");
+    // A measured quote says neither.
+    const measured = emailMessage(copy, to);
     expect(measured.type === "Email" && measured.html).not.toMatch(/having us over|telling us about/);
   });
 
@@ -383,12 +381,10 @@ describe("the messages", () => {
     expect(m).toEqual({
       type: "SMS",
       contactId: "contactAbc123",
-      // A preliminary carries no good-until date (2026-10-22), and opens generically unless the sender says we have visited (2026-10-24).
+      // A preliminary carries no good-until date (2026-10-22), and always opens generically (2026-10-27).
       // Since 2026-10-27, as a range: $684 less 3% is $663.48, down to $660; plus 10% is $752.40, up to $760.
       message: `Hi Pat, it's Albert from Titan Flooring. Thanks for telling us about your project. Your flooring estimate is $660 to $760 + HST.\n\nSee the full details here:\nhttps://view.example.com/c/${"A".repeat(32)}\n\nThe final price should land in that range. Any questions, just reply.`,
     });
-    const after = smsMessage(customerCopy(quote({ basis: "Preliminary" }), AT), to, me, { visited: true });
-    expect(after.type === "SMS" && after.message).toContain("Thanks for having us over. Your flooring estimate is $660 to $760 + HST.\n\nSee the full details here:");
     const measured = smsMessage(customerCopy(quote(), AT), to, me);
     expect(measured.type === "SMS" && measured.message).toBe(
       `Hi Pat, it's Albert from Titan Flooring. Your flooring quote is ready, $684 + HST, good until Nov 14.\n\nSee the full details here:\nhttps://view.example.com/c/${"A".repeat(32)}\n\nReply here if anything needs changing.`,

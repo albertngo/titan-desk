@@ -96,6 +96,8 @@ h1, h2, h3, p { margin: 0; }
 .tab[aria-current="page"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .tab[aria-current="page"] .t-amt { color: rgba(255, 255, 255, .8); }
 .tab.anal { margin-left: auto; }
+.tab.rooms { margin-left: auto; }
+.tab.rooms + .tab.anal { margin-left: 0; }
 
 /* option heading */
 .ohead { padding: 14px 16px; border-bottom: 1px solid var(--line); display: grid; gap: 6px; }
@@ -212,14 +214,24 @@ table.cmp td:first-child { text-align: left; color: var(--fg-dim); }
 .ql { list-style: none; margin: 0; padding: 0; }
 .ql-q { border-bottom: 1px solid var(--line); }
 .ql-q:last-child { border-bottom: 0; }
-.ql-row { position: relative; display: grid; grid-template-columns: 28px 32px minmax(0, 1.7fr) minmax(84px, .55fr) minmax(0, 1fr) minmax(0, 1fr) 84px; align-items: center; gap: 12px; padding: 10px 16px 10px 8px; font-size: 13px; transition: background .12s; }
+.ql-card { --ql-cols: 28px 32px minmax(0, 1.6fr) minmax(84px, .5fr) minmax(0, .9fr) minmax(120px, .7fr) minmax(0, 1fr) 84px; }
+/* Column headings: same grid as the rows, held under the page top while the list scrolls. */
+.ql-head { position: sticky; top: 0; z-index: 2; display: grid; grid-template-columns: var(--ql-cols); gap: 12px; padding: 8px 16px 8px 8px; background: var(--head); border-bottom: 1px solid var(--line); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--fg-dim); white-space: nowrap; }
+.ql-head > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.ql-head .c-who { grid-column: 3; }
+.ql-head .c-when { text-align: right; }
+.ql-row { position: relative; display: grid; grid-template-columns: var(--ql-cols); align-items: center; gap: 12px; padding: 10px 16px 10px 8px; font-size: 13px; transition: background .12s; }
 .ql-row:hover { background: var(--card-2); }
 .ql-tog { position: relative; z-index: 1; width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--fg-faint); cursor: pointer; }
 .ql-tog:hover { background: var(--accent-soft); color: var(--accent); }
 .ql-tog .chev { display: block; transition: transform .18s ease; }
 .ql-q.open .ql-tog .chev { transform: rotate(90deg); }
 .ql-av { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); font-size: 11.5px; font-weight: 700; letter-spacing: .02em; }
-.ql-who, .ql-num { display: grid; gap: 2px; min-width: 0; }
+.ql-who, .ql-num, .ql-seen { display: grid; gap: 2px; min-width: 0; }
+.ql-seen .at { font-size: 12.5px; font-weight: 600; color: var(--good); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ql-seen .none { font-size: 12px; color: var(--fg-dim); }
+/* The column heading names it on a wide screen; read aloud there, and shown once the rows stack. */
+.ql-seen .k { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .ql-who .cust { font-weight: 600; color: var(--fg); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* The whole row opens the quote; the version toggle sits above that link. */
 .ql-who .cust::after { content: ""; position: absolute; inset: 0; }
@@ -232,14 +244,14 @@ table.cmp td:first-child { text-align: left; color: var(--fg-dim); }
 .ql-v-n { font-family: var(--mono); font-size: 12px; color: var(--fg-faint); }
 .ql-basis { font-size: 12px; color: var(--fg-faint); }
 .ql-when { text-align: right; font-size: 12px; color: var(--fg-faint); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.sb { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: var(--fg-dim); white-space: nowrap; }
-.sb i { width: 7px; height: 7px; border-radius: 50%; background: var(--fg-faint); }
-.sb.Draft i { background: var(--warn); }
-.sb.Sent i { background: var(--accent); }
-.sb.Accepted i, .sb.Won i { background: var(--good); }
-.sb.Lost i, .sb.Expired i { background: var(--bad); }
-.sb.Superseded { color: var(--fg-faint); }
-.sb.Superseded i { background: transparent; box-shadow: inset 0 0 0 1.5px var(--fg-faint); }
+.ql-sb { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: var(--fg-dim); white-space: nowrap; }
+.ql-sb i { width: 7px; height: 7px; border-radius: 50%; background: var(--fg-faint); }
+.ql-sb.Draft i { background: var(--warn); }
+.ql-sb.Sent i { background: var(--accent); }
+.ql-sb.Accepted i, .ql-sb.Won i { background: var(--good); }
+.ql-sb.Lost i, .ql-sb.Expired i { background: var(--bad); }
+.ql-sb.Superseded { color: var(--fg-faint); }
+.ql-sb.Superseded i { background: transparent; box-shadow: inset 0 0 0 1.5px var(--fg-faint); }
 .ql-vs { list-style: none; margin: 0 16px 12px 56px; padding: 0; border-left: 1px solid var(--line-strong); }
 .ql-v { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 12px; color: var(--fg); font-size: 13px; border-radius: 0 6px 6px 0; transition: background .12s; }
 .ql-v:hover { background: var(--accent-soft); }
@@ -250,9 +262,11 @@ table.cmp td:first-child { text-align: left; color: var(--fg-dim); }
 .ql-empty .s { color: var(--fg-dim); font-size: 13px; }
 @media (max-width: 860px) {
   .ql-row { grid-template-columns: 28px 32px minmax(0, 1fr) auto; row-gap: 6px; }
-  .ql-latest, .ql-flags { grid-column: 3 / -1; }
-  .ql-flags:empty { display: none; }
-  .ql-when { display: none; }
+  .ql-latest, .ql-flags, .ql-seen { grid-column: 3 / -1; }
+  .ql-flags:empty, .ql-seen:empty { display: none; }
+  .ql-seen { display: flex; align-items: baseline; gap: 8px; }
+  .ql-seen .k { position: static; width: auto; height: auto; clip: auto; font-weight: 500; color: var(--fg-dim); }
+  .ql-when, .ql-head { display: none; }
   .ql-vs { margin-left: 36px; }
 }
 @media (pointer: coarse) {
@@ -736,11 +750,11 @@ a.chip.accent:hover { text-decoration: underline; }
 .sq-opts .rec { color: var(--accent); font-weight: 500; }
 .sq-opts .sub { display: block; font-size: 12px; color: var(--fg-dim); }
 
-/* Send card: the visited switch on a preliminary, and Attach PDF under Email (2026-10-24). */
+/* Send card: Attach PDF under Email (2026-10-24). */
 .sq-attach { margin: -2px 0 4px 26px; }
-.sq-visited, .sq-attach { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; }
-.sq-visited input, .sq-attach input { margin-top: 3px; }
-.sq-visited .sub, .sq-attach .sub { display: block; font-size: 12px; color: var(--fg-dim); }
+.sq-attach { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; }
+.sq-attach input { margin-top: 3px; }
+.sq-attach .sub { display: block; font-size: 12px; color: var(--fg-dim); }
 
 /* History card (2026-10-22): who saved or sent a version, newest first. */
 .hist summary { cursor: pointer; font-size: 12.5px; color: var(--fg-dim); }
@@ -843,3 +857,36 @@ a.chip.accent:hover { text-decoration: underline; }
 .cq-change .was { color: var(--fg-faint); margin-right: 6px; }
 .cq-change > .faint { margin: 0; font-size: 13px; color: var(--fg-dim); }
 .change-note { margin: 6px 0 0; font-size: 13px; color: var(--fg-dim); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+/* the Rooms tab: a manual measurement log, room by room (2026-10-27) */
+.rm-body { display: grid; gap: 14px; }
+.rm-intro { font-size: 12.5px; line-height: 1.5; }
+.rm-odd { padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--warn) 35%, var(--line)); border-radius: 8px; background: var(--warn-soft); color: var(--warn); font-size: 12.5px; }
+.rm-odd pre { margin: 6px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--mono); font-size: 11.5px; color: var(--fg-dim); }
+.rm-set { border: 0; margin: 0; padding: 0; min-width: 0; }
+.rm-empty { padding: 12px 0; }
+.rm-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.rm { border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: var(--card-2); display: grid; gap: 10px; min-width: 0; }
+.rm-top { display: flex; align-items: center; gap: 8px; }
+.rm-n { flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--head); color: var(--fg-dim); font-size: 12px; font-weight: 600; display: grid; place-items: center; }
+.rm-name { font-weight: 600; flex: 1 1 auto; min-width: 0; }
+.rm-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)) minmax(0, 2fr); gap: 8px 10px; }
+.rm-f { display: grid; gap: 3px; min-width: 0; align-content: start; }
+.rm-f > span { font-size: 11.5px; color: var(--fg-faint); }
+.rm-wide { grid-column: 1 / -1; }
+.rm-hint { font-size: 12px; }
+.rm-err { font-size: 13px; }
+.rm-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.rm-state { margin-left: auto; font-size: 12.5px; }
+@media (max-width: 860px) { .rm-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .rm-floor { grid-column: 1 / -1; } }
+@media (max-width: 560px) { .rm-foot .btn { width: 100%; justify-content: center; } .rm-state { margin-left: 0; } }
+@media (pointer: coarse) { .rm .in { min-height: 40px; font-size: 16px; } .rm-foot .btn, .rm-foot .chip-btn { min-height: 44px; } .rm .iconbtn { width: 36px; height: 36px; } }
+
+/* Send card: what the customer did with the link (2026-10-27). */
+.sq-act { margin: 10px 0 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
+.sq-act-h { margin: 0; font-weight: 600; font-size: 14px; }
+.sq-act-sub { margin: 2px 0 0; font-size: 12.5px; }
+.sq-act-log { list-style: none; margin: 8px 0 0; padding: 0; font-size: 12.5px; display: grid; gap: 2px; }
+/* All quotes: the open marker beside a sent version (2026-10-27). */
+.ql-open { font-size: 11.5px; font-weight: 600; color: var(--good, #1a7f4b); white-space: nowrap; }
+.ql-open.none { color: var(--fg-dim); font-weight: 500; }
+.ql-open-at { font-weight: 500; }

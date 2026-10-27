@@ -6,6 +6,7 @@ import { QUICK_GROUPS, type QuickChoice, type QuickGroup, type QuickPart, type Q
 import { parseAcceptance } from "@/lib/accept/plan";
 import { cleanSchedule } from "@/lib/pricing/schedule";
 import { isStairMethod, isStairType } from "@/lib/quick/stairs";
+import { roomsRaw } from "@/lib/rooms/log";
 import { bool, ids, num, str } from "./values";
 import { groupVersions, type QuoteGroup, type QuoteHead } from "./group";
 import type { MaterialRow, Quote, QuoteLine, QuoteLink, QuoteOption, RateCard, RateRow, StairProfileRow, StairRow } from "./types";
@@ -17,7 +18,7 @@ export async function listQuoteGroups(): Promise<QuoteGroup[]> {
   await requireQuoter();
   const [versions, quotes] = await Promise.all([
     listRecords(T.versions, {
-      fields: [VERSION.label, VERSION.version, VERSION.status, VERSION.basis, VERSION.quote, VERSION.options],
+      fields: [VERSION.label, VERSION.version, VERSION.status, VERSION.basis, VERSION.quote, VERSION.options, VERSION.openedCount, VERSION.lastOpenedAt, VERSION.trackActivity],
     }),
     listRecords(T.quotes, {
       fields: [QUOTE.customerName, QUOTE.lastName, QUOTE.firstName, QUOTE.siteCity, QUOTE.quoteNumber, QUOTE.linkStatus, QUOTE.addressStatus, QUOTE.phone, QUOTE.email, QUOTE.projectNumber],
@@ -48,6 +49,9 @@ export async function listQuoteGroups(): Promise<QuoteGroup[]> {
       status: str(r.fields[VERSION.status]),
       basis: str(r.fields[VERSION.basis]),
       optionCount: ids(r.fields[VERSION.options]).length,
+      openedCount: num(r.fields[VERSION.openedCount]) ?? 0,
+      lastOpenedAt: str(r.fields[VERSION.lastOpenedAt]),
+      tracked: bool(r.fields[VERSION.trackActivity]),
       createdTime: r.createdTime,
     })),
     heads,
@@ -154,6 +158,7 @@ function linkOf(r: AirtableRecord): QuoteLink {
     projectNumber: str(f[QUOTE.projectNumber]),
     notionProjectUrl: str(f[QUOTE.notionProjectUrl]),
     contractVersionId: ids(f[QUOTE.contractVersion])[0] ?? null,
+    rooms: roomsRaw(f[QUOTE.rooms]),
   };
 }
 
@@ -215,6 +220,14 @@ export async function getQuote(id: string): Promise<Quote | null> {
     lastEditedBy: str(f[VERSION.lastEditedBy]),
     lastEditedAt: str(f[VERSION.lastEditedAt]),
     editLog: str(f[VERSION.editLog]),
+    activity: {
+      tracked: bool(f[VERSION.trackActivity]),
+      openedCount: num(f[VERSION.openedCount]) ?? 0,
+      firstOpenedAt: str(f[VERSION.firstOpenedAt]),
+      lastOpenedAt: str(f[VERSION.lastOpenedAt]),
+      pdfDownloads: num(f[VERSION.pdfDownloads]) ?? 0,
+      activityLog: str(f[VERSION.activityLog]),
+    },
     notes: str(f[VERSION.notes]),
     customerName: customerOf(family?.fields),
     siteAddress: str(family?.fields[QUOTE.siteAddress]),

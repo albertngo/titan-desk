@@ -50,6 +50,8 @@ export const QUOTE = {
   pipeline: "fldeupuDWQZ0dbXEg",
   notes: "fldnVyjuta6kQjOOf",
   versions: "fldasgos7nsSuqkJh",
+  /** 2026-10-27: the Rooms tab's log, JSON written by the app only (src/lib/rooms/log.ts). Nothing prices or checks from it. */
+  rooms: "fldSzknHoePiGjWoU",
 } as const;
 
 /** Quote Versions table: one row per version of a quote. */
@@ -99,6 +101,21 @@ export const VERSION = {
   acceptedAt: "fldPf4Ks6UHCdaPTA",
   /** 2026-10-27: 1, 2, … on a version made with Make a change after acceptance; blank on an ordinary version. */
   changeNo: "fldZNj3La4y8dJY3Z",
+  /**
+   * Open tracking (Albert, 2026-10-27): the customer's link reports each open and each PDF download
+   * from its page, through the staff app's /api/activity (src/lib/quotes/activity.ts). Counts, first
+   * and last open, and an append-only Activity Log ("2026-10-27 14:03 · opened · iPhone"). First Open
+   * Noted At and Summary Noted At stamp the two GHL comments so each goes once; Track Activity is set
+   * on send, so versions sent before tracking never get a summary.
+   */
+  openedCount: "fldDukIf4PJI1jdSu",
+  firstOpenedAt: "fld7KIM7LSXLP8zQA",
+  lastOpenedAt: "fldQrz6iQ0xlkh2rt",
+  pdfDownloads: "fldXZ5JYXO0H90Kn6",
+  activityLog: "fldoCliOvKWW3FlQL",
+  firstOpenNotedAt: "fldnYRsV8IQiqaJMJ",
+  summaryNotedAt: "fldsrd6yHGpXCYHlf",
+  trackActivity: "fldOXliSwNNIRRALZ",
 } as const;
 
 export const OPTION = {

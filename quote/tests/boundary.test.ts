@@ -12,7 +12,7 @@ const SRC = path.resolve(__dirname, "../src");
 const CLIENT = "lib/airtable/client.ts";
 const GHL = "lib/ghl/client.ts";
 /** The only files allowed to create or update Airtable records. Adding one is a reviewed decision. */
-const WRITERS = ["lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/address.ts", "lib/accept/record.ts"];
+const WRITERS = ["lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/accept/record.ts"];
 const CATALOGUE = "tblfLXD3zkSdNQGbS";
 
 function files(dir: string): string[] {
@@ -62,7 +62,7 @@ describe("Airtable boundary", () => {
   });
 
   it("keeps the client, the loaders and the auth check server-only", () => {
-    for (const rel of [CLIENT, GHL, "lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/customer.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/acceptClient.ts", "lib/accept/record.ts", "lib/accept/accept.ts", "lib/accept/staff.ts", "lib/auth.ts"]) {
+    for (const rel of [CLIENT, GHL, "lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/customer.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/activity/relay.ts", "lib/quotes/acceptClient.ts", "lib/accept/record.ts", "lib/accept/accept.ts", "lib/accept/staff.ts", "lib/auth.ts"]) {
       expect(all.find((f) => f.rel === rel)!.text).toMatch(/^import "server-only";/m);
     }
   });
@@ -70,7 +70,7 @@ describe("Airtable boundary", () => {
   it("never imports Airtable code into a browser component", () => {
     const leaks = all
       .filter((f) => /^["']use client["'];?/m.test(f.text))
-      .filter((f) => /^import (?!type )[^;]*from ["']@\/lib\/(airtable|quotes\/load|quotes\/start|quotes\/save|quotes\/refresh|quotes\/records|quotes\/booking|quotes\/link|quotes\/send|quotes\/customer|quotes\/conversation|quotes\/address|quotes\/acceptClient|accept\/record|accept\/accept|accept\/staff|ghl\/client|make\/client|auth)/m.test(f.text))
+      .filter((f) => /^import (?!type )[^;]*from ["']@\/lib\/(airtable|quotes\/load|quotes\/start|quotes\/save|quotes\/refresh|quotes\/records|quotes\/booking|quotes\/link|quotes\/send|quotes\/rooms|quotes\/customer|quotes\/conversation|quotes\/address|quotes\/activity|activity\/relay|quotes\/acceptClient|accept\/record|accept\/accept|accept\/staff|ghl\/client|make\/client|auth)/m.test(f.text))
       .map((f) => f.rel);
     expect(leaks).toEqual([]);
   });
@@ -81,7 +81,7 @@ describe("Airtable boundary", () => {
 
   it("checks the quoter allowlist in both the proxy and every loader", () => {
     expect(all.find((f) => f.rel === "proxy.ts")!.text).toContain("isQuoter(");
-    for (const rel of ["lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts"]) {
+    for (const rel of ["lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts"]) {
       const text = all.find((f) => f.rel === rel)!.text;
       const exported = text.match(/export async function \w+/g) ?? [];
       const guarded = text.match(/export async function \w+[^{]*\{\s*(const \w+ = )?await requireQuoter(Person)?\(\);/g) ?? [];
@@ -107,11 +107,12 @@ describe("booking step (Make, no sign-in)", () => {
     expect(text).toMatch(/if \(!want \|\| !given\) return false;/);
   });
 
-  it("is, with the accept step (2026-10-27), the only path the staff app lets through without a sign-in, besides signing in", () => {
+  it("is one of the three paths the staff app lets through without a sign-in, besides signing in", () => {
     const proxy = all.find((f) => f.rel === "proxy.ts")!.text;
     expect(proxy).toContain('matcher: ["/((?!_next/|brand/|docs/|favicon\\\\.ico|robots\\\\.txt).*)"]');
-    expect(proxy).toContain("const OPEN_ON_STAFF = /^\\/(login|auth\\/|denied|api\\/booking|api\\/accept)/;");
-    expect(all.filter((f) => f.rel.startsWith("app/api/")).map((f) => f.rel).sort()).toEqual(["app/api/accept/route.ts", ROUTE]);
+    expect(proxy).toContain("const OPEN_ON_STAFF = /^\\/(login|auth\\/|denied|api\\/booking|api\\/activity|api\\/accept)/;");
+    // Open tracking and acceptance (2026-10-27) are the other two key-gated routes; see their own blocks below.
+    expect(all.filter((f) => f.rel.startsWith("app/api/")).map((f) => f.rel).sort()).toEqual(["app/api/accept/route.ts", "app/api/activity/route.ts", ROUTE]);
   });
 
   it("keeps the shared quote helpers away from pages and actions", () => {
@@ -162,10 +163,10 @@ describe("Make boundary", () => {
     expect(all.filter((f) => /hook\.[a-z0-9]+\.make\.com|make\.com\//.test(code(f.text))).map((f) => f.rel)).toEqual([]);
   });
 
-  it("is server-only and only reached from starting, booking, linking and sending a quote, Address arrived, and acceptance", () => {
+  it("is server-only and only reached from starting, booking, linking, sending and tracking a quote, Address arrived, and acceptance", () => {
     expect(all.find((f) => f.rel === "lib/make/client.ts")!.text).toMatch(/^import "server-only";/m);
     const callers = all.filter((f) => f.rel !== "lib/make/client.ts" && /from ["']@\/lib\/make\/client["']/.test(f.text)).map((f) => f.rel);
-    expect(callers.sort()).toEqual(["lib/accept/record.ts", "lib/quotes/address.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/start.ts"]);
+    expect(callers.sort()).toEqual(["lib/accept/record.ts", "lib/quotes/activity.ts", "lib/quotes/address.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/start.ts"]);
   });
 
   it("Address arrived fills only the contact in GHL and only the Quotes table in Airtable", () => {
@@ -202,7 +203,7 @@ describe("customer links (no sign-in, customer deployment only)", () => {
     const importers = all.filter((f) => /from ["']@\/lib\/quotes\/customer["']/.test(f.text)).map((f) => f.rel).sort();
     expect(importers).toEqual(["app/c/[token]/[file]/route.ts", "app/c/[token]/page.tsx"]);
     // Acceptance (2026-10-27) adds pure rules and settings, and the one keyed client to the staff app; nothing that reads Airtable.
-    const allowed = ["quotes/customer", "send/copy", "send/pdf", "accept/plan", "accept/terms", "accept/settings", "pricing/schedule", "quotes/acceptClient"];
+    const allowed = ["quotes/customer", "send/copy", "send/pdf", "activity/relay", "accept/plan", "accept/terms", "accept/settings", "pricing/schedule", "quotes/acceptClient"];
     for (const f of all.filter((x) => x.rel.startsWith("app/c/"))) {
       const lib = [...f.text.matchAll(/from ["']@\/lib\/([^"']+)["']/g)].map((m) => m[1]);
       expect(lib.filter((l) => !allowed.includes(l))).toEqual([]);
@@ -259,5 +260,51 @@ describe("acceptance (2026-10-27): the one write path from a customer link", () 
     const loader = text("lib/quotes/customer.ts");
     expect(loader).not.toMatch(/\b(createRecords?|updateRecords?)\(/);
     expect(loader).toMatch(/parseAcceptance\(/);
+  });
+});
+
+describe("open tracking (2026-10-27: no sign-in, key-gated, the customer deployment still never writes)", () => {
+  const ROUTE = "app/api/activity/route.ts";
+  const TRACK = "lib/quotes/activity.ts";
+  const RELAY = "lib/activity/relay.ts";
+
+  it("checks the shared key before anything else, in the route and in every function it calls", () => {
+    const route = code(all.find((f) => f.rel === ROUTE)!.text);
+    expect(route).toMatch(/export async function POST\(req: Request\) \{\s*const key = req\.headers\.get\("x-quote-key"\);\s*if \(!activityKeyOk\(key\)\) return/);
+    const text = code(all.find((f) => f.rel === TRACK)!.text);
+    const exported = text.match(/export async function \w+/g) ?? [];
+    const guarded = text.match(/export async function \w+[^{]*\{\s*if \(!activityKeyOk\(key\)\) return/g) ?? [];
+    expect(exported.length).toBeGreaterThan(0);
+    expect(guarded.length).toBe(exported.length);
+    // A missing key turns tracking off; it never opens it.
+    expect(text).toMatch(/if \(!want \|\| !given\) return false;/);
+    expect(all.filter((f) => /from ["']@\/lib\/quotes\/activity["']/.test(f.text)).map((f) => f.rel)).toEqual([ROUTE]);
+  });
+
+  it("writes only the tracking fields on Quote Versions, and posts only internal comments", () => {
+    const text = code(all.find((f) => f.rel === TRACK)!.text);
+    expect(text).not.toMatch(/createRecords?\(|updateRecords\(/);
+    for (const m of text.matchAll(/updateRecord\(T\.(\w+)/g)) expect(m[1]).toBe("versions");
+    const written = [...text.matchAll(/\[VERSION\.(\w+)\]:/g)].map((m) => m[1]);
+    const tracking = ["openedCount", "firstOpenedAt", "lastOpenedAt", "pdfDownloads", "activityLog", "firstOpenNotedAt", "summaryNotedAt"];
+    expect(written.every((w) => tracking.includes(w))).toBe(true);
+    expect(text.match(/sendMessage\(\{ type: "(\w+)"/g)).toEqual(['sendMessage({ type: "InternalComment"']);
+    expect(text).not.toMatch(/setFollowUpTags|sendToGhl/);
+  });
+
+  it("the customer deployment only reports: the relay reads no Airtable and runs only there", () => {
+    const relay = code(all.find((f) => f.rel === RELAY)!.text);
+    expect(relay).not.toMatch(/airtable|createRecord|updateRecord|make\/client|ghl\/client/);
+    expect(relay).toMatch(/if \(!isCustomerDeployment\(\) \|\|/);
+    // The staff app's address is read on the customer deployment by the relay and, since 2026-10-27, by the accept client.
+    expect(all.filter((f) => /QUOTE_STAFF_URL/.test(code(f.text))).map((f) => f.rel).sort()).toEqual(["lib/quotes/acceptClient.ts", RELAY].sort());
+    expect(all.filter((f) => /QUOTE_ACTIVITY_KEY/.test(code(f.text))).map((f) => f.rel).sort()).toEqual([RELAY, TRACK].sort());
+    const importers = all.filter((f) => /from ["']@\/lib\/activity\/relay["']/.test(f.text)).map((f) => f.rel).sort();
+    expect(importers).toEqual(["app/c/[token]/[file]/route.ts", "app/c/[token]/seen/route.ts"]);
+  });
+
+  it("staff opening a customer link from the Send card are never counted", () => {
+    expect(all.find((f) => f.rel === "components/SendQuote.tsx")!.text).toContain("href={`${link}#staff`}");
+    expect(all.find((f) => f.rel === "components/SeenBeacon.tsx")!.text).toMatch(/if \(window\.location\.hash === "#staff"\) return;/);
   });
 });

@@ -4,10 +4,11 @@ import { isQuoter, quoterAllowlist } from "@/lib/access";
 import { isCustomerDeployment } from "@/lib/mode";
 
 /**
- * Pages a staff member reaches before signing in, the booking step Make calls, and the accept step
- * the customer deployment calls (2026-10-27). Both steps check their own key.
+ * Pages a staff member reaches before signing in, the booking step Make calls, open tracking
+ * (2026-10-27), which the customer deployment and the daily run call, and the accept step the customer
+ * deployment calls (2026-10-27). Each checks its own key.
  */
-const OPEN_ON_STAFF = /^\/(login|auth\/|denied|api\/booking|api\/accept)/;
+const OPEN_ON_STAFF = /^\/(login|auth\/|denied|api\/booking|api\/activity|api\/accept)/;
 /** The only pages the customer deployment serves: customer links. */
 const CUSTOMER_PAGES = /^\/c\/[A-Za-z0-9]+(\/[^/]+)?$/;
 

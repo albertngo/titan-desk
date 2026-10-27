@@ -63,6 +63,17 @@ export type QuoteLink = {
   notionProjectUrl: string | null;
   /** Quotes → Contract Version (2026-10-27): the version that is the contract now; null before acceptance. */
   contractVersionId?: string | null;
+  /** Quotes → Rooms (2026-10-27), exactly as stored: the Rooms tab's log, read with parseRooms(). Absent reads as empty. */
+  rooms?: string;
+};
+
+export type QuoteActivity = {
+  tracked: boolean;
+  openedCount: number;
+  firstOpenedAt: string | null;
+  lastOpenedAt: string | null;
+  pdfDownloads: number;
+  activityLog: string | null;
 };
 
 /**
@@ -101,6 +112,8 @@ export type Quote = {
   /** ISO timestamp. */
   lastEditedAt?: string | null;
   editLog?: string | null;
+  /** Open tracking (2026-10-27): what the customer did with the link. `tracked` = sent since tracking began, so its GHL comments go. */
+  activity?: QuoteActivity;
   sentTo: string | null;
   notes: string | null;
   customerName: string | null;
@@ -220,6 +233,11 @@ export type JobChoices = { ok: true; canLink: boolean; choices: JobChoice[] } | 
 export type LinkJobResult = { ok: true } | { ok: false; message: string };
 
 export type ConfirmAddressResult = { ok: true } | { ok: false; message: string };
+
+/* ---------- the Rooms tab (src/lib/quotes/rooms.ts) ---------- */
+
+/** `saved` is the field's new text, so the page carries on from it without reloading. */
+export type SaveRoomsResult = { ok: true; saved: string } | { ok: false; message: string };
 
 /* ---------- Address arrived (src/lib/quotes/address.ts) ---------- */
 

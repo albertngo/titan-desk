@@ -3,8 +3,9 @@
 import { acceptForCustomer, cancelAcceptance, retryHandoff, type CancelResult, type StaffAcceptResult } from "@/lib/accept/staff";
 import { confirmAddress, linkToJob } from "@/lib/quotes/link";
 import { makeChange, type SaveResult } from "@/lib/quotes/save";
+import { saveRooms } from "@/lib/quotes/rooms";
 import { sendQuote } from "@/lib/quotes/send";
-import type { ConfirmAddressResult, LinkJobResult, SendResult } from "@/lib/quotes/types";
+import type { ConfirmAddressResult, LinkJobResult, SaveRoomsResult, SendResult } from "@/lib/quotes/types";
 
 /** Server actions for the quote page. Each checks the quoter allowlist inside. */
 
@@ -37,4 +38,8 @@ export async function cancelAcceptanceAction(versionId: string, reason: string):
 /** Make a change after acceptance (2026-10-27): a new version, from the contract as it stands, opened in the editor. */
 export async function makeChangeAction(versionId: string): Promise<SaveResult> {
   return makeChange(String(versionId ?? ""));
+}
+
+export async function saveRoomsAction(quoteRecordId: string, seen: string, rooms: unknown): Promise<SaveRoomsResult> {
+  return saveRooms(String(quoteRecordId ?? ""), String(seen ?? ""), rooms);
 }

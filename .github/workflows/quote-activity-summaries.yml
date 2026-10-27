@@ -1,0 +1,35 @@
+name: Quote activity summaries
+
+# Open tracking (Albert, 2026-10-27): once a day, every quote version sent three or more days ago
+# and still Sent gets one summary comment in its GHL conversation (opens, devices, PDF downloads,
+# last open, or "not opened yet"). The staff quote app does the work at /api/activity; this only
+# calls it. Off until both secrets are set.
+
+on:
+  schedule:
+    # 10:23 Toronto in summer (EDT), 9:23 in winter: after the morning's first opens, before noon.
+    - cron: "23 14 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: quote-activity-summaries
+  cancel-in-progress: false
+
+jobs:
+  summaries:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Post due summaries
+        env:
+          QUOTE_STAFF_URL: ${{ secrets.QUOTE_STAFF_URL }}
+          QUOTE_ACTIVITY_KEY: ${{ secrets.QUOTE_ACTIVITY_KEY }}
+        run: |
+          if [ -z "$QUOTE_STAFF_URL" ] || [ -z "$QUOTE_ACTIVITY_KEY" ]; then
+            echo "QUOTE_STAFF_URL or QUOTE_ACTIVITY_KEY is not set; open-tracking summaries are off."
+            exit 0
+          fi
+          curl -fsS --max-time 240 -X POST "${QUOTE_STAFF_URL%/}/api/activity" \
+            -H "Content-Type: application/json" \
+            -H "x-quote-key: $QUOTE_ACTIVITY_KEY" \
+            -d '{"step":"summaries"}'
