@@ -108,6 +108,10 @@ h1, h2, h3, p { margin: 0; }
 .banner.warn { background: var(--warn-soft); color: var(--warn); }
 .banner table { margin-top: 6px; border-collapse: collapse; font-size: 12px; }
 .banner td { padding: 1px 14px 1px 0; }
+/* Address arrived (2026-10-27): what the scan filled or held, above the list or the customer card. */
+.addr-scan { display: grid; gap: 6px; margin: 0 0 12px; }
+.addr-scan .banner { margin: 0; border: 1px solid var(--line); border-radius: var(--radius); }
+.addr-scan a { color: inherit; }
 
 /* ---------- line items table ---------- */
 .tbl-wrap { overflow-x: auto; }

@@ -172,3 +172,28 @@ export function buildBookingOpportunity(i: { contactId: string; quoteNumber: str
     }),
   };
 }
+
+/**
+ * Address arrived (Albert, 2026-10-27: "filled auto"): the site address read from the customer's own
+ * messages goes onto their GHL contact, whose address was blank. The same "link" route through Make
+ * as linking a job, so nothing changes in Make: the contact gets the street, and the city and postal
+ * code only where the contact has none; the opportunity gets nothing new, only its own quote number
+ * again, because the app writes a site onto an opportunity only once a person confirms it.
+ */
+export function buildContactAddress(i: {
+  contactId: string;
+  opportunityId: string;
+  quoteNumber: string;
+  address: { line1: string; city: string | null; postalCode: string | null };
+  contact: { city: string | null; postalCode?: string | null };
+}): GhlRequest {
+  return {
+    mode: "link",
+    contactId: i.contactId,
+    opportunityId: i.opportunityId,
+    contactBody: JSON.stringify(
+      compact({ address1: i.address.line1, city: i.contact.city ? null : i.address.city, postalCode: i.contact.postalCode ? null : i.address.postalCode }),
+    ),
+    oppBody: JSON.stringify({ customFields: oppFields(i.quoteNumber, { address: null, city: null }) }),
+  };
+}

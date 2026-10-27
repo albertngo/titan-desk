@@ -9,6 +9,8 @@ export type GhlContact = {
   phone: string | null;
   address: string | null;
   city: string | null;
+  /** Read for Address arrived (2026-10-27): a postal code they texted fills only a blank one. */
+  postalCode?: string | null;
   /** Quote Origin and the contact's own Source (2026-10-27): replaced by the pick unless already an exact option. */
   origin?: string | null;
   source?: string | null;

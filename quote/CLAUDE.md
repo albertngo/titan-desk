@@ -27,11 +27,12 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   no address change once won (Notion owns it). Nothing is blanked. Rules: `src/lib/link/refresh.ts`,
   tested in `tests/refresh.test.ts`. GHL being down never stops a quote opening.
 - **Where the site address comes from (Albert, 2026-10-15).** Staff type it on the GHL contact,
-  nowhere else: the contact's address is where the next appointment is (the booking texts read
-  it too). It reaches the job's opportunity at three moments only: GHL's own workflow fills a
+  nowhere else, except that a blank contact is filled from the customer's own message (Address
+  arrived, 2026-10-27, below): the contact's address is where the next appointment is (the booking
+  texts read it too). It reaches the job's opportunity at three moments only: GHL's own workflow fills a
   blank Project Address when an opportunity is created (unconfirmed); booking (`/api/booking`)
-  copies the contact's address onto that job as the confirmed site; "Address arrived" fills a
-  booked job's site that is still blank. A confirmed site never changes because the contact did;
+  copies the contact's address onto that job as the confirmed site; **Confirm address** on a quote
+  that Address arrived (or anything else) left Unconfirmed. A confirmed site never changes because the contact did;
   fixing one is done on the opportunity's Project Address. The app writes a site onto an
   opportunity only when it is confirmed.
 - **One shared name:** `First Surname - MMYY - Q-1234`, then ` - PP-412` once won. First name
@@ -69,6 +70,27 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   changes it); a won job's on the Notion project. **Fix address** beside the address chip on the quote
   page, and in the editor's customer strip, opens the right one, and the quote follows it the next
   time it opens. Rule: `fixAddressLink()` in `src/lib/link/linkJob.ts`, tested in `tests/linkJob.test.ts`.
+- **Address arrived (Albert, 2026-10-27: "filled auto").** A quote booked before anyone had the
+  address says No address yet; the booking workflow then texts "Just to make sure we have the right
+  address, could you send it to me here if you haven't already?" (`ADDRESS_ASK`), a person asks in
+  their own words, or the customer just texts it. When the quote list or a quote page opens, after it
+  has drawn, `src/components/AddressScan.tsx` asks `scanAddresses()` (`src/lib/quotes/address.ts`) to
+  read the messages of quotes still without an address (not won, with a GHL contact; the list takes
+  the newest ten started in the last 60 days, at most once a minute). A contact that already has an
+  address is copied onto the quote, as opening it would. Otherwise, when exactly one address can be
+  read (`findAddress()` in `src/lib/link/addressReply.ts`, tested in `tests/addressReply.test.ts`), it goes on the blank
+  GHL contact through Make's link route (`buildContactAddress()`: the street as staff type it,
+  "55 Elm Cres #4", and a city or postal code only where the contact has none) and on the quote as
+  **Unconfirmed**, with a dated note saying which message it came from. A banner says what was filled;
+  staff check it and press **Confirm address**, which is what puts it on the opportunity. Reading rules:
+  messages from 30 days before the quote started; a text or chat any time, an email only after we
+  asked and only its top lines (a reply once carried our newsletter footer and old showroom address);
+  an address we sent them first is ours, never the site (plus `QUOTE_COMPANY_ADDRESS`); the reply to
+  our latest ask wins; two different addresses, a street with no number, or a customer with two quotes
+  waiting is held for a person and nothing is written; a unit, city or postal code is kept only when
+  typed. Both the contact and the quote are read again right before the write, so only a blank is
+  ever filled. An unlinked quote waits until it is linked (the link route needs the opportunity). The
+  Excel INQ/QE sheets made at booking are left as they are (Albert, 2026-10-27).
 - **Two ways to start a quote (Albert, 2026-10-18).** The front page has **+ New quote** (`/new`:
   customer with the site address folded in, then timeline; v1 is *Measured* and opens empty in the
   editor) and **+ Preliminary quote** (`/new?kind=preliminary`: the job first, then customer, then
@@ -271,7 +293,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   quote is priced from what the customer actually said. Read live
   from GHL each time (`src/lib/quotes/conversation.ts`, a quoter only; the pure reading of GHL's
   message list is `src/lib/conversation/thread.ts`, tested in `tests/conversation.test.ts`),
-  stored nowhere, and **read-only: replying stays in GHL** ("Reply in GHL" in the header). A reply
+  stored nowhere (Address arrived reads it too and keeps only the one address it found and a note line), and **read-only: replying stays in GHL** ("Reply in GHL" in the header). A reply
   box would mean the app writing to GHL with a token of its own; if it is wanted, it is its own
   decision, and the natural route is Make 4975508, like sending. The whole thread is shown (Albert,
   2026-10-20): workflow, campaign and activity entries too, drawn lighter and labelled Automated,
@@ -343,7 +365,8 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
    also holds write scopes; the app uses none of them, and the boundary test fails on any write
    verb in that file. A reply feature, if it comes, is a reviewed change to this rule.
 2b. **One file sends to Make:** `src/lib/make/client.ts`, `server-only`, the only reader of
-   `QUOTE_MAKE_GHL_HOOK` / `QUOTE_MAKE_GHL_KEY`, called only from `src/lib/quotes/start.ts`, `src/lib/quotes/booking.ts`, `src/lib/quotes/link.ts` and `src/lib/quotes/send.ts`.
+   `QUOTE_MAKE_GHL_HOOK` / `QUOTE_MAKE_GHL_KEY`, called only from `src/lib/quotes/start.ts`, `src/lib/quotes/booking.ts`, `src/lib/quotes/link.ts`, `src/lib/quotes/send.ts`
+   and `src/lib/quotes/address.ts` (Address arrived: the contact's street only, never a site on the opportunity).
    Set those two variables only after the scenario is switched on: a request to a scenario
    that is off waits in Make's queue and would run later.
 2c. **One path without a sign-in on the staff app:** `/api/booking`, called by Make 3453735 when an appointment

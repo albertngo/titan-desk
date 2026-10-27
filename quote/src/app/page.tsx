@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AddressScan } from "@/components/AddressScan";
 import { QuoteList } from "@/components/QuoteList";
 import { TopBar } from "@/components/TopBar";
 import { requireQuoter } from "@/lib/auth";
@@ -23,6 +24,8 @@ export default async function QuotesPage() {
             <Link className="btn primary" href="/new">+ New quote</Link>
           </div>
         </div>
+        {/* Address arrived (2026-10-27): quotes still without an address read the customers' messages for one, after the list has drawn. */}
+        <AddressScan />
         <QuoteList groups={groups} />
       </div>
     </>
