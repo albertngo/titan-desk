@@ -50,7 +50,8 @@ export function diffOptions(before: CopyOption, after: CopyOption): ChangeItem[]
     const k = `${key(l.section)}|${key(l.description)}`;
     const match = pool.get(k)?.shift();
     if (!match) out.push({ kind: "added", after: l });
-    else if (differs(match.qty, l.qty) || differs(match.amount, l.amount) || (match.qty === null) !== (l.qty === null)) out.push({ kind: "changed", before: match, after: l });
+    // A quantity or amount one copy doesn't show (a lump sum hides some) is not a change.
+    else if (differs(match.qty, l.qty) || differs(match.amount, l.amount)) out.push({ kind: "changed", before: match, after: l });
   }
   for (const rest of pool.values()) for (const l of rest) out.push({ kind: "removed", before: l });
   return out;

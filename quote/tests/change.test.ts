@@ -102,6 +102,15 @@ describe("what changed", () => {
     expect(items.map(itemDifference)).toEqual([70, 100, -120]);
   });
 
+  it("an add-on the customer ticked, now an ordinary line, is not a change because a lump sum hides its quantity", () => {
+    const lump = (ls: QuoteLine[]) => customerCopy(quote(ls, { itemised: false }), at).options[0];
+    const extra = line({ section: "Other", description: "Quarter-round", qty: 210, uom: "linear ft", unitPriceSnap: 2.5 });
+    const shownAsAddOn = lump([install, { ...extra, include: false }]);
+    // As accepted: the add-on's line carries its quantity and price; in the change it is counted, so a lump sum shows neither.
+    const accepted = { ...shownAsAddOn, sections: shownAsAddOn.sections.map((s) => ({ ...s, lines: s.lines.map((l) => (l.kind === "item" && l.optional ? { ...l, optional: false, added: true } : l)) })) };
+    expect(diffOptions(accepted, lump([install, extra]))).toEqual([]);
+  });
+
   it("a line added under a new name is added; nothing changed is nothing", () => {
     const more = customerCopy(quote([install, stairs, baseRemoval, line({ section: "Other", description: "Move the piano", qty: 1, uom: "flat", unitPriceSnap: 150 })]), at).options[0];
     expect(diffOptions(before, more).map(changeWords)).toEqual(["Added: Move the piano, 1 flat"]);

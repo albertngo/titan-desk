@@ -559,7 +559,7 @@ export function acceptedEmailMessage(
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.wash};border-radius:18px;"><tr><td style="padding:8px;">` +
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.card};border:1px solid ${C.hair};border-radius:12px;"><tr><td style="padding:20px 24px;">${inner}</td></tr></table></td></tr></table>`;
   const stageRows = a.stages
-    .map((s, i) => `<tr>${cell(`${esc(s.label)}${stageNote(s) ? `<br><span style="font-size:13px;color:${C.muted};">${esc(stageNote(s))}</span>` : ""}`, false, i === 0)}${cell(s.amount !== null ? cad.format(s.amount) : "", true, i === 0)}</tr>`)
+    .map((s, i) => `<tr>${cell(`${esc(s.label)}${stageNote(s) ? `<br><span style="font-size:13px;font-weight:400;color:${C.muted};">${esc(stageNote(s))}</span>` : ""}`, false, i === 0)}${cell(s.amount !== null ? cad.format(s.amount) : "", true, i === 0)}</tr>`)
     .join("");
   const attached = [to.pdfUrl ? "your accepted quote" : null, to.termsUrl ? "our Project Expectations" : null].filter(Boolean).join(" and ");
   const signoff = sender?.firstName ? `${esc(sender.firstName)} &middot; ${esc(copy.company.name)}` : `The ${esc(copy.company.name)} team`;
@@ -638,7 +638,7 @@ export function changeEmailMessage(copy: CustomerCopy, to: { contactId: string; 
     `<tr>${cell(`Total was ${cad.format(c.before.total)}, now`)}${cell(cad.format(o.totals.total), true, true)}</tr>`,
   ].join("");
   const stages = stagesOf(o)
-    .map((s, i) => `<tr>${cell(`${esc(s.label)}${stageNote(s) ? `<br><span style="font-size:13px;color:${C.muted};">${esc(stageNote(s))}</span>` : ""}`)}${cell(s.amount !== null ? `${c.before.stages[i]?.amount != null && Math.abs((c.before.stages[i].amount ?? 0) - s.amount) > 0.004 ? `<span style="color:${C.muted};text-decoration:line-through;">${cad.format(c.before.stages[i].amount!)}</span> ` : ""}${cad.format(s.amount)}` : "", true)}</tr>`)
+    .map((s, i) => `<tr>${cell(`${esc(s.label)}${stageNote(s) ? `<br><span style="font-size:13px;font-weight:400;color:${C.muted};">${esc(stageNote(s))}</span>` : ""}`)}${cell(s.amount !== null ? `${c.before.stages[i]?.amount != null && Math.abs((c.before.stages[i].amount ?? 0) - s.amount) > 0.004 ? `<span style="color:${C.muted};text-decoration:line-through;">${cad.format(c.before.stages[i].amount!)}</span> ` : ""}${cad.format(s.amount)}` : "", true)}</tr>`)
     .join("");
   const signoff = sender?.firstName ? `${esc(sender.firstName)} &middot; ${esc(copy.company.name)}` : `The ${esc(copy.company.name)} team`;
   const body =
