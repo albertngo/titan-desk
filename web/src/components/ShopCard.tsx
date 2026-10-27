@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ShopItem } from "@/lib/askbert-shop";
+import type { ShopItem } from "@/lib/shop";
 
 /**
  * One product tile in askBert's shop: photo first (square, soft 14px corners), a Campfire promo

@@ -18,18 +18,18 @@ export function CollectionTiles({ members, total, current, supplier }: {
   if (supplier) q.append("supplier", supplier);
 
   return (
-    <section className="mt-6">
-      <div className="mb-2 flex items-baseline justify-between gap-2">
-        <h2 className="min-w-0 truncate text-xs font-semibold uppercase tracking-wide text-zinc-500">
-          {count} colours in {title}
+    <section className="mt-14">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="min-w-0 font-display text-2xl font-bold tracking-[-0.01em] text-denim">
+          More colours in {title} <span className="text-base font-normal text-ink/45">{count}</span>
         </h2>
         {count > members.length && (
-          <Link href={`/?${q}`} className="shrink-0 text-xs text-zinc-600 underline underline-offset-2">
+          <Link href={`/?${q}`} className="shrink-0 text-sm font-medium text-denim underline underline-offset-4">
             See all {count}
           </Link>
         )}
       </div>
-      <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6">
+      <ul className="mt-5 grid grid-cols-3 gap-x-3 gap-y-5 sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-8">
         {members.map((m) => <Tile key={m.sku} m={m} isCurrent={m.sku === current} />)}
       </ul>
     </section>
@@ -45,23 +45,22 @@ function Tile({ m, isCurrent }: { m: CollectionMember; isCurrent: boolean }) {
       <Link
         href={`/p/${encodeURIComponent(m.sku)}`}
         aria-current={isCurrent ? "page" : undefined}
-        className={`block h-full overflow-hidden rounded-lg border bg-white active:bg-zinc-50 ${isCurrent ? "border-zinc-900 ring-1 ring-zinc-900" : "border-zinc-200"}`}
+        className="group block focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-denim"
       >
-        <div className="relative aspect-square bg-zinc-100">
+        <div className={`relative aspect-square overflow-hidden rounded-[14px] bg-peach ${isCurrent ? "ring-[3px] ring-denim ring-offset-2 ring-offset-cream" : ""}`}>
           {photo?.thumb ? (
-            <BlurImage src={photo.thumb} blurhash={photo.blurhash} alt={name.title} sizes="(min-width: 768px) 120px, 33vw" />
+            <BlurImage src={photo.thumb} blurhash={photo.blurhash} alt={name.title} sizes="(min-width: 1280px) 160px, (min-width: 768px) 16vw, 33vw"
+              className="object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
           ) : (
-            <div className="flex h-full items-center justify-center p-2 text-center text-[11px] text-zinc-400">No photo</div>
+            <div className="flex h-full items-center justify-center p-2 text-center text-[11px] text-ink/40">No photo</div>
           )}
-          {isCurrent && <span className="absolute left-1 top-1 rounded bg-zinc-900 px-1.5 py-0.5 text-[10px] font-medium text-white">Viewing</span>}
-          {m.promo_active && <span className="absolute right-1 top-1 rounded bg-rose-600 px-1.5 py-0.5 text-[10px] font-medium text-white">PROMO</span>}
+          {isCurrent && <span className="absolute left-1.5 top-1.5 rounded-md bg-denim px-1.5 py-0.5 text-[10px] font-semibold text-cream">Viewing</span>}
+          {m.promo_active && <span className="absolute right-1.5 top-1.5 rounded-md bg-campfire-dark px-1.5 py-0.5 text-[10px] font-semibold text-cream">Promo</span>}
         </div>
-        <div className="p-1.5">
-          <p className="truncate text-xs font-medium">{name.title}</p>
-          {sub && <p className="truncate text-[11px] text-zinc-500">{sub}</p>}
-          <p className="truncate text-[11px] text-zinc-700">{priceLabel(m.retail_price, m.price_unit, m.price_on_request)}</p>
-          {m.stock_status && m.stock_status !== "In stock" && <p className="truncate text-[10px] text-zinc-500">{m.stock_status}</p>}
-        </div>
+        <p className={`mt-2 truncate text-[13px] font-semibold ${isCurrent ? "text-denim" : "text-ink"}`}>{name.title}</p>
+        {sub && <p className="truncate text-[11px] text-ink/55">{sub}</p>}
+        <p className={`truncate text-[12px] tabular-nums ${m.promo_active ? "text-campfire-dark" : "text-ink/75"}`}>{priceLabel(m.retail_price, m.price_unit, m.price_on_request)}</p>
+        {m.stock_status && m.stock_status !== "In stock" && <p className="truncate text-[11px] text-ink/50">{m.stock_status}</p>}
       </Link>
     </li>
   );

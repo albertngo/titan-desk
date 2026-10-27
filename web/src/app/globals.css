@@ -29,7 +29,7 @@ html, body {
 }
 
 body {
-  @apply bg-zinc-50 text-zinc-900 antialiased;
+  @apply bg-cream text-ink font-brand antialiased;
   padding-bottom: env(safe-area-inset-bottom);
 }
 
