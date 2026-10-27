@@ -442,6 +442,14 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
    shared folder comes when a third app needs it.
 6. **The Excel template stays the fallback.** If Airtable or this app is down, Albert
    quotes in Excel. Nothing here may make that harder.
+7. **Every change gets a What's new entry (Albert, 2026-10-27).** Any work that changes what
+   staff or customers see, or what the app does, adds one entry at the **top** of `CHANGES` in
+   `src/lib/changes.ts`, in the same commit: today's date (Toronto), `new` / `changed` / `fixed` /
+   `removed`, a short title, and a line or two of details in plain words for the person using the
+   app (what it does, where to find it), never code. Append only: an earlier entry is never
+   rewritten; a reversal is its own new entry. The **What's new** button on the Quotes page opens
+   it at `/changes`. Pure refactors, tests and lint fixes need none. `tests/changes.test.ts` keeps
+   it dated and newest first.
 
 ## Commands
 
