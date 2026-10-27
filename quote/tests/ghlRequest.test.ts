@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CONTACT_TIMING_FIELD, GHL_LOCATION_ID, LEAD_STAGE_IDS, LEADS_PIPELINE_ID, MEETING_SCHEDULED_STAGE_ID, OPP_FIELDS, SALES_PIPELINE_ID } from "../src/lib/ghl/ids";
+import { CONTACT_ORIGIN_FIELD, CONTACT_TIMING_FIELD, GHL_LOCATION_ID, LEAD_STAGE_IDS, LEADS_PIPELINE_ID, MEETING_SCHEDULED_STAGE_ID, OPP_FIELDS, SALES_PIPELINE_ID } from "../src/lib/ghl/ids";
 import { buildBookingOpportunity, buildGhlRequest, CONTACT_ID_SLOT, type GhlRequestInput } from "../src/lib/link/ghlRequest";
 
 // INVENTED customer and ids only: this repo is public.
@@ -13,6 +13,34 @@ const base: GhlRequestInput = {
   site: { address: null, city: null },
 };
 const parse = (s: string) => JSON.parse(s) as Record<string, unknown>;
+
+describe("where they found us (2026-10-27): Quote Origin and Source, blanks only", () => {
+  const timing = { id: CONTACT_TIMING_FIELD, value: "1-3 months" };
+  const origin = { id: CONTACT_ORIGIN_FIELD, value: "Referral: Trade" };
+  const fresh = { firstName: "Jane", lastName: "Doe", phone: "416-555-0199", email: null, address: null, city: null };
+
+  it("a new contact gets both", () => {
+    const body = parse(buildGhlRequest({ ...base, newContact: fresh, origin: "Referral: Trade" }).contactBody);
+    expect(body.source).toBe("Referral: Trade");
+    expect(body.customFields).toEqual([timing, origin]);
+  });
+
+  it("an existing contact gets only the ones it has blank, on a new or a linked opportunity", () => {
+    const blank = parse(buildGhlRequest({ ...base, contactId: "abcDEF123456", origin: "Referral: Trade", existing: { origin: null, source: null } }).contactBody);
+    expect(blank).toEqual({ source: "Referral: Trade", customFields: [timing, origin] });
+    const hasSource = parse(buildGhlRequest({ ...base, contactId: "abcDEF123456", origin: "Referral: Trade", existing: { origin: null, source: "Website Form" } }).contactBody);
+    expect(hasSource).toEqual({ customFields: [timing, origin] });
+    const hasBoth = parse(
+      buildGhlRequest({ ...base, contactId: "abcDEF123456", opportunity: { id: "oppXYZ987654", pipelineId: LEADS_PIPELINE_ID }, origin: "Referral: Trade", existing: { origin: "Meta Ad", source: "facebook" } }).contactBody,
+    );
+    expect(hasBoth).toEqual({ customFields: [timing] });
+  });
+
+  it("nothing picked writes nothing new", () => {
+    expect(parse(buildGhlRequest({ ...base, newContact: fresh }).contactBody).source).toBeUndefined();
+    expect(parse(buildGhlRequest({ ...base, contactId: "abcDEF123456", existing: { origin: null, source: null } }).contactBody)).toEqual({ customFields: [timing] });
+  });
+});
 
 describe("the request the app sends to Make for GHL", () => {
   it("new customer: creates the contact with only what was typed, then opens an opportunity in the lead pipeline", () => {

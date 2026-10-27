@@ -1,6 +1,6 @@
 import "server-only";
 import { hasMore, htmlToText, parseMessages, type Message } from "@/lib/conversation/thread";
-import { GHL_LOCATION_ID, OPP_FIELDS } from "./ids";
+import { CONTACT_ORIGIN_FIELD, GHL_LOCATION_ID, OPP_FIELDS } from "./ids";
 import type { GhlContact, GhlConversation, GhlOpportunity, GhlPipeline, GhlSite } from "./types";
 
 export type { GhlContact, GhlConversation, GhlOpportunity, GhlPipeline, GhlSite };
@@ -65,6 +65,8 @@ function toContact(c: Record<string, unknown>): GhlContact {
     phone: s(c.phone),
     address: s(c.address1),
     city: s(c.city),
+    origin: customValue(c.customFields, CONTACT_ORIGIN_FIELD),
+    source: s(c.source),
   };
 }
 

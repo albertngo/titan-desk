@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { searchCustomersAction, startQuoteAction } from "@/app/new/actions";
 import { displayPhone } from "@/lib/link/identity";
 import { stageFor, TIMINGS, type Timing } from "@/lib/link/lead";
+import { ORIGINS } from "@/lib/link/origin";
 import type { NewQuoteKind } from "@/lib/link/newQuote";
 import type { QuickChoice, QuickProfile } from "@/lib/quick/plan";
 import type { CustomerSearch, FoundCustomer } from "@/lib/quotes/types";
@@ -33,6 +34,8 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
   const [nc, setNc] = useState(blankCustomer);
   const [timing, setTiming] = useState<Timing | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+  /** Where they found us (2026-10-27): preliminaries only; fills Quote Origin and Source in GHL where blank. */
+  const [origin, setOrigin] = useState("");
   const [error, setError] = useState<string | null>(null);
   /** Set when a "new" customer turned out to be in GHL already; the matches are in `result`. */
   const [dupeNote, setDupeNote] = useState<string | null>(null);
@@ -40,6 +43,7 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
 
   function choose(next: Choice) {
     setChoice(next);
+    setOrigin("");
     setError(null);
     setDupeNote(null);
   }
@@ -62,7 +66,7 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
 
   function create(forceNew = false) {
     setError(null);
-    const shared = { timing, kind: prelim ? "preliminary" : "measured", work: prelim ? workInput(work) : undefined };
+    const shared = { timing, kind: prelim ? "preliminary" : "measured", work: prelim ? workInput(work) : undefined, origin: prelim && origin ? origin : undefined };
     const input = picked
       ? { ...shared, contactId: picked.contact.id, opportunityId: (choice as { opportunityId: string | null }).opportunityId, addressConfirmed: confirmed }
       : { ...shared, newCustomer: nc, forceNew };
@@ -226,6 +230,31 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
                 </>
               ) : (
                 <p className="muted">No address on the contact. That&apos;s fine for a preliminary: type it on the GHL contact when you get it, or the booking automation will ask them.</p>
+              )}
+            </div>
+          )}
+          {/* Where they found us (2026-10-27): preliminaries only. GHL's value is kept when it has one. */}
+          {prelim && (picked || isNew) && (
+            <div className="nq-origin">
+              {picked?.contact.origin ? (
+                <p className="muted">
+                  Found us via <b>{picked.contact.origin}</b>, from GHL. It stays as it is.
+                </p>
+              ) : (
+                <label>
+                  <span className="k">Where did they find us?</span>
+                  <select className="in" value={origin} onChange={(e) => setOrigin(e.target.value)} disabled={creating}>
+                    <option value="">Choose…</option>
+                    {ORIGINS.map((o) => (
+                      <option key={o} value={o}>{o}</option>
+                    ))}
+                  </select>
+                  <span className="sub">
+                    {picked?.contact.source
+                      ? `Fills Quote Origin in GHL. The contact's Source stays “${picked.contact.source}”.`
+                      : "Fills Quote Origin in GHL, and the contact's Source."}
+                  </span>
+                </label>
               )}
             </div>
           )}

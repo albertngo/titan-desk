@@ -1,4 +1,4 @@
-import { CONTACT_TIMING_FIELD, GHL_LOCATION_ID, LEAD_STAGE_IDS, LEADS_PIPELINE_ID, MEETING_SCHEDULED_STAGE_ID, OPP_FIELDS, SALES_PIPELINE_ID } from "@/lib/ghl/ids";
+import { CONTACT_ORIGIN_FIELD, CONTACT_TIMING_FIELD, GHL_LOCATION_ID, LEAD_STAGE_IDS, LEADS_PIPELINE_ID, MEETING_SCHEDULED_STAGE_ID, OPP_FIELDS, SALES_PIPELINE_ID } from "@/lib/ghl/ids";
 import { normalizeEmail, normalizePhone } from "./identity";
 import { stageToSet, TIMING_IN_GHL, type Timing } from "./lead";
 
@@ -45,6 +45,12 @@ export type GhlRequestInput = {
   newContact: { firstName: string | null; lastName: string | null; phone: string | null; email: string | null; address: string | null; city: string | null } | null;
   /** Site address, if known, for the opportunity's Project Address / City. */
   site: { address: string | null; city: string | null };
+  /**
+   * Where they found us, when picked (2026-10-27), and what an existing contact already has. It goes
+   * into Quote Origin and Source only where those are blank; a new contact gets both.
+   */
+  origin?: string | null;
+  existing?: { origin: string | null; source: string | null } | null;
 };
 
 /** Drops empty values so GHL never receives a blank that overwrites something. */
@@ -60,7 +66,14 @@ const oppFields = (quoteNumber: string, site: GhlRequestInput["site"]) =>
   ].filter((x) => x !== null);
 
 export function buildGhlRequest(i: GhlRequestInput): GhlRequest {
-  const timingField = [{ id: CONTACT_TIMING_FIELD, value: TIMING_IN_GHL[i.timing] }];
+  // The origin fills blanks only: an existing contact's Quote Origin or Source is never overwritten (2026-10-27).
+  const fillOrigin = Boolean(i.origin) && !i.existing?.origin;
+  const fillSource = Boolean(i.origin) && !i.existing?.source;
+  const timingField = [
+    { id: CONTACT_TIMING_FIELD, value: TIMING_IN_GHL[i.timing] },
+    ...(fillOrigin ? [{ id: CONTACT_ORIGIN_FIELD, value: i.origin! }] : []),
+  ];
+  const sourceField = fillSource ? { source: i.origin! } : {};
 
   if (i.opportunity) {
     if (!i.contactId) throw new Error("An opportunity is always linked through its contact.");
@@ -69,7 +82,7 @@ export function buildGhlRequest(i: GhlRequestInput): GhlRequest {
       mode: "link",
       contactId: i.contactId,
       opportunityId: i.opportunity.id,
-      contactBody: JSON.stringify({ customFields: timingField }),
+      contactBody: JSON.stringify({ ...sourceField, customFields: timingField }),
       oppBody: JSON.stringify(compact({ pipelineStageId: stage ? LEAD_STAGE_IDS[stage] : null, customFields: oppFields(i.quoteNumber, i.site) })),
     };
   }
@@ -86,7 +99,7 @@ export function buildGhlRequest(i: GhlRequestInput): GhlRequest {
   });
 
   if (i.contactId) {
-    return { mode: "new-opportunity", contactId: i.contactId, opportunityId: null, contactBody: JSON.stringify({ customFields: timingField }), oppBody };
+    return { mode: "new-opportunity", contactId: i.contactId, opportunityId: null, contactBody: JSON.stringify({ ...sourceField, customFields: timingField }), oppBody };
   }
 
   const c = i.newContact;
@@ -97,7 +110,7 @@ export function buildGhlRequest(i: GhlRequestInput): GhlRequest {
     opportunityId: null,
     contactBody: JSON.stringify(
       // GHL matches and stores phones in E.164 (+14165550199), so that's how they're sent.
-      compact({ locationId: GHL_LOCATION_ID, firstName: c.firstName, lastName: c.lastName, phone: normalizePhone(c.phone), email: normalizeEmail(c.email), address1: c.address, city: c.city, customFields: timingField }),
+      compact({ locationId: GHL_LOCATION_ID, firstName: c.firstName, lastName: c.lastName, phone: normalizePhone(c.phone), email: normalizeEmail(c.email), address1: c.address, city: c.city, ...sourceField, customFields: timingField }),
     ),
     oppBody,
   };

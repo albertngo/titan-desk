@@ -9,6 +9,9 @@ export type GhlContact = {
   phone: string | null;
   address: string | null;
   city: string | null;
+  /** Quote Origin and the contact's own Source (2026-10-27): the app fills either only when blank. */
+  origin?: string | null;
+  source?: string | null;
 };
 
 export type GhlOpportunity = {

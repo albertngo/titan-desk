@@ -1,5 +1,6 @@
 import { displayPhone, normalizeEmail, normalizePhone } from "./identity";
 import { isTiming, type Timing } from "./lead";
+import { isOrigin, type Origin } from "./origin";
 
 /**
  * What the New quote screen sends, checked before anything is written. Pure, no I/O.
@@ -38,6 +39,8 @@ export type NewQuoteRequest = {
   forceNew: boolean;
   /** Version 1's basis: Preliminary from the quick form, Measured for a full quote. */
   basis: Basis;
+  /** Where they found us (2026-10-27), or null when not picked; anything off the list reads as not picked. */
+  origin: Origin | null;
 };
 
 export type Parsed<T> = { ok: true; value: T } | { ok: false; message: string };
@@ -60,8 +63,9 @@ export function parseNewQuote(raw: unknown): Parsed<NewQuoteRequest> {
   if (opportunityId && !GHL_ID.test(opportunityId)) return { ok: false, message: "That GHL opportunity id isn't valid." };
 
   const basis: Basis = r.kind === "measured" ? "Measured" : "Preliminary";
+  const origin = isOrigin(r.origin) ? r.origin : null;
   if (contactId) {
-    return { ok: true, value: { contactId, opportunityId, timing: r.timing, addressConfirmed: r.addressConfirmed === true, newCustomer: null, forceNew: false, basis } };
+    return { ok: true, value: { contactId, opportunityId, timing: r.timing, addressConfirmed: r.addressConfirmed === true, newCustomer: null, forceNew: false, basis, origin } };
   }
   if (opportunityId) return { ok: false, message: "Pick the customer before their opportunity." };
 
@@ -87,6 +91,7 @@ export function parseNewQuote(raw: unknown): Parsed<NewQuoteRequest> {
       newCustomer: { firstName, lastName, phone: phoneRaw ? displayPhone(phoneRaw) : null, email: normalizeEmail(emailRaw), address, city },
       forceNew: r.forceNew === true,
       basis,
+      origin,
     },
   };
 }
