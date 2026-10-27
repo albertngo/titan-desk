@@ -3,6 +3,7 @@ import { AddressScan } from "@/components/AddressScan";
 import { QuoteList } from "@/components/QuoteList";
 import { TopBar } from "@/components/TopBar";
 import { requireQuoter } from "@/lib/auth";
+import { CHANGES } from "@/lib/changes";
 import { listQuoteGroups } from "@/lib/quotes/load";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +21,7 @@ export default async function QuotesPage() {
             <p>Every quote, newest first. Open a row to see its versions.</p>
           </div>
           <div className="pageacts">
+            <Link className="btn" href="/changes" title={`Last change ${CHANGES[0]?.date ?? ""}: ${CHANGES[0]?.title ?? ""}`}>What&apos;s new</Link>
             <Link className="btn" href="/new?kind=preliminary">+ Preliminary quote</Link>
             <Link className="btn primary" href="/new">+ New quote</Link>
           </div>
