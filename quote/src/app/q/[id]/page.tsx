@@ -80,7 +80,7 @@ export default async function QuotePage({
       phone={quote.link?.phone ?? null}
       problems={problems}
       ready={ready}
-      sent={draft ? null : { sentAt: quote.sentAt, sentBy: quote.sentBy, sentTo: quote.sentTo, validUntil: quote.validUntil, link }}
+      sent={draft ? null : { sentAt: quote.sentAt, sentBy: quote.sentBy, sentTo: quote.sentTo, validUntil: quote.validUntil, link, activity: quote.activity ?? null }}
       preliminary={preliminary}
       from={from}
       options={sendOptions}

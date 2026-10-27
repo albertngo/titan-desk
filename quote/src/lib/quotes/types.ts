@@ -61,6 +61,15 @@ export type QuoteLink = {
   notionProjectUrl: string | null;
 };
 
+export type QuoteActivity = {
+  tracked: boolean;
+  openedCount: number;
+  firstOpenedAt: string | null;
+  lastOpenedAt: string | null;
+  pdfDownloads: number;
+  activityLog: string | null;
+};
+
 /**
  * One VERSION of a quote, as its page shows it (the id is the Quote Versions record). The quote
  * it belongs to, with its number and links, is `link`.
@@ -91,6 +100,8 @@ export type Quote = {
   /** ISO timestamp. */
   lastEditedAt?: string | null;
   editLog?: string | null;
+  /** Open tracking (2026-10-27): what the customer did with the link. `tracked` = sent since tracking began, so its GHL comments go. */
+  activity?: QuoteActivity;
   sentTo: string | null;
   notes: string | null;
   customerName: string | null;

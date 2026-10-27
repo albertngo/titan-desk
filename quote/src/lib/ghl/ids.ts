@@ -66,3 +66,17 @@ export const OPP_FIELDS = {
   /** Per job: set once the job has its CompanyCam project (read through Make's GHL connection, 2026-10-15). */
   companyCamUrl: "fEZdUNuN9TWKjIOD6fBo",
 } as const;
+
+/**
+ * Who a measured quote's activity comment tags when neither the sender nor the opportunity's assigned
+ * user can be found in GHL (Albert, 2026-10-27): Albert's GHL user. An id, not a secret.
+ */
+export const FALLBACK_MENTION_USER_ID = "ooPNab06Ka04uZ1yQ4w6";
+
+/**
+ * The follow-up tags (Albert, 2026-10-27). Each starts its own GHL workflow ("Quote FU: preliminary",
+ * "Quote FU: measured"), whose goal is the tag being removed. Every send removes both and adds the
+ * current one, so a new version restarts the sequence and a measured quote ends the preliminary's.
+ * Make 4975508's `tags` route refuses any other tag.
+ */
+export const FOLLOW_UP_TAGS = { preliminary: "quote sent: preliminary", measured: "quote sent: measured" } as const;

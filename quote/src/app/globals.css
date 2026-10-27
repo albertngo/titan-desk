@@ -729,11 +729,11 @@ a.chip.accent:hover { text-decoration: underline; }
 .sq-opts .rec { color: var(--accent); font-weight: 500; }
 .sq-opts .sub { display: block; font-size: 12px; color: var(--fg-dim); }
 
-/* Send card: the visited switch on a preliminary, and Attach PDF under Email (2026-10-24). */
+/* Send card: Attach PDF under Email (2026-10-24). */
 .sq-attach { margin: -2px 0 4px 26px; }
-.sq-visited, .sq-attach { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; }
-.sq-visited input, .sq-attach input { margin-top: 3px; }
-.sq-visited .sub, .sq-attach .sub { display: block; font-size: 12px; color: var(--fg-dim); }
+.sq-attach { display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; }
+.sq-attach input { margin-top: 3px; }
+.sq-attach .sub { display: block; font-size: 12px; color: var(--fg-dim); }
 
 /* History card (2026-10-22): who saved or sent a version, newest first. */
 .hist summary { cursor: pointer; font-size: 12.5px; color: var(--fg-dim); }
@@ -749,3 +749,12 @@ a.chip.accent:hover { text-decoration: underline; }
 .nq-origin .k { font-size: 13px; font-weight: 600; }
 .nq-origin .sub { font-size: 12px; color: var(--fg-dim); }
 .nq-origin p { margin: 0; font-size: 13px; }
+
+/* Send card: what the customer did with the link (2026-10-27). */
+.sq-act { margin: 10px 0 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
+.sq-act-h { margin: 0; font-weight: 600; font-size: 14px; }
+.sq-act-sub { margin: 2px 0 0; font-size: 12.5px; }
+.sq-act-log { list-style: none; margin: 8px 0 0; padding: 0; font-size: 12.5px; display: grid; gap: 2px; }
+/* All quotes: the open marker beside a sent version (2026-10-27). */
+.ql-open { font-size: 11.5px; font-weight: 600; color: var(--good, #1a7f4b); white-space: nowrap; }
+.ql-open.none { color: var(--fg-dim); font-weight: 500; }

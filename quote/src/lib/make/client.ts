@@ -8,7 +8,8 @@ import type { GhlMessage } from "@/lib/send/plan";
  * "Quote app → GHL" scenario, which makes the GHL changes with Make's own GHL connection; the
  * app never holds a GHL write token. Sending a quote (2026-10-15) uses the same scenario's
  * `message` route: one GHL message per request, email or text, whose exact body the app builds
- * in src/lib/send/plan.ts.
+ * in src/lib/send/plan.ts. Since 2026-10-27 the `message` route also carries the open-tracking
+ * internal comments (src/lib/quotes/activity.ts), and a `tags` route sets the follow-up tags on send.
  *
  * Switched off until both variables are set, and they are set only after the scenario is
  * switched on: a request to a scenario that is off would wait in Make's queue and run later.
@@ -65,7 +66,18 @@ export async function sendMessage(message: GhlMessage): Promise<string> {
   const { res, text, d } = await post({ mode: "message", contactId: message.contactId, messageBody: JSON.stringify(message) });
   const messageId = typeof d.messageId === "string" ? d.messageId : "";
   if (!res.ok || d.ok !== true || !GHL_ID.test(messageId)) {
-    throw new MakeError(`Make didn't confirm the ${message.type === "SMS" ? "text" : "email"} (${res.status}: ${text.slice(0, 120)})`);
+    throw new MakeError(`Make didn't confirm the ${message.type === "SMS" ? "text" : message.type === "Email" ? "email" : "comment"} (${res.status}: ${text.slice(0, 120)})`);
   }
   return messageId;
+}
+
+/**
+ * The follow-up tags on a send (2026-10-27): the same scenario's `tags` route removes the tags in
+ * `removeBody` from the contact, then adds the one in `addBody`. Make's filter refuses any tag but
+ * the two quote-sent ones (src/lib/ghl/ids.ts). Throws MakeError unless Make confirms both.
+ */
+export async function setFollowUpTags(contactId: string, bodies: { removeBody: string; addBody: string }): Promise<void> {
+  if (!GHL_ID.test(contactId)) throw new MakeError("No GHL contact to tag.");
+  const { res, text, d } = await post({ mode: "tags", contactId, ...bodies });
+  if (!res.ok || d.ok !== true) throw new MakeError(`Make didn't confirm the follow-up tags (${res.status}: ${text.slice(0, 120)})`);
 }

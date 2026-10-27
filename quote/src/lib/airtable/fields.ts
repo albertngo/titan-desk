@@ -83,6 +83,21 @@ export const VERSION = {
   lastEditedBy: "fldhfKZGSX2R9AiiM",
   lastEditedAt: "fldRCdXB6ehz1Nkqk",
   editLog: "fldvoKc0aiv9xktcg",
+  /**
+   * Open tracking (Albert, 2026-10-27): the customer's link reports each open and each PDF download
+   * from its page, through the staff app's /api/activity (src/lib/quotes/activity.ts). Counts, first
+   * and last open, and an append-only Activity Log ("2026-10-27 14:03 · opened · iPhone"). First Open
+   * Noted At and Summary Noted At stamp the two GHL comments so each goes once; Track Activity is set
+   * on send, so versions sent before tracking never get a summary.
+   */
+  openedCount: "fldDukIf4PJI1jdSu",
+  firstOpenedAt: "fld7KIM7LSXLP8zQA",
+  lastOpenedAt: "fldQrz6iQ0xlkh2rt",
+  pdfDownloads: "fldXZ5JYXO0H90Kn6",
+  activityLog: "fldoCliOvKWW3FlQL",
+  firstOpenNotedAt: "fldnYRsV8IQiqaJMJ",
+  summaryNotedAt: "fldsrd6yHGpXCYHlf",
+  trackActivity: "fldOXliSwNNIRRALZ",
 } as const;
 
 export const OPTION = {

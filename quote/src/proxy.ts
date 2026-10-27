@@ -3,8 +3,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { isQuoter, quoterAllowlist } from "@/lib/access";
 import { isCustomerDeployment } from "@/lib/mode";
 
-/** Pages a staff member reaches before signing in, and the booking step Make calls (it checks its own key). */
-const OPEN_ON_STAFF = /^\/(login|auth\/|denied|api\/booking)/;
+/**
+ * Pages a staff member reaches before signing in, the booking step Make calls, and open tracking
+ * (2026-10-27), which the customer deployment and the daily run call. Both check their own key.
+ */
+const OPEN_ON_STAFF = /^\/(login|auth\/|denied|api\/booking|api\/activity)/;
 /** The only pages the customer deployment serves: customer links. */
 const CUSTOMER_PAGES = /^\/c\/[A-Za-z0-9]+(\/[^/]+)?$/;
 
