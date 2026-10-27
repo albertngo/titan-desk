@@ -59,6 +59,8 @@ export type QuoteLink = {
   companyCamUrl: string | null;
   projectNumber: string | null;
   notionProjectUrl: string | null;
+  /** Quotes → Rooms (2026-10-27), exactly as stored: the Rooms tab's log, read with parseRooms(). Absent reads as empty. */
+  rooms?: string;
 };
 
 /**
@@ -210,6 +212,11 @@ export type JobChoices = { ok: true; canLink: boolean; choices: JobChoice[] } | 
 export type LinkJobResult = { ok: true } | { ok: false; message: string };
 
 export type ConfirmAddressResult = { ok: true } | { ok: false; message: string };
+
+/* ---------- the Rooms tab (src/lib/quotes/rooms.ts) ---------- */
+
+/** `saved` is the field's new text, so the page carries on from it without reloading. */
+export type SaveRoomsResult = { ok: true; saved: string } | { ok: false; message: string };
 
 /* ---------- sending a quote (src/lib/quotes/send.ts) ---------- */
 

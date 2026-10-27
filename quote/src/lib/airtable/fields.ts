@@ -45,6 +45,8 @@ export const QUOTE = {
   pipeline: "fldeupuDWQZ0dbXEg",
   notes: "fldnVyjuta6kQjOOf",
   versions: "fldasgos7nsSuqkJh",
+  /** 2026-10-27: the Rooms tab's log, JSON written by the app only (src/lib/rooms/log.ts). Nothing prices or checks from it. */
+  rooms: "fldSzknHoePiGjWoU",
 } as const;
 
 /** Quote Versions table: one row per version of a quote. */

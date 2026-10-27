@@ -35,6 +35,7 @@ repo with Root Directory `quote`. Rules for changing it: `CLAUDE.md` in this fol
 | `src/lib/calc.ts` | all quote maths, mirroring the Airtable formulas |
 | `src/components/OptionSheet.tsx` | one option: sections, lines, flags, totals, parity banner |
 | `src/components/Analysis.tsx` | options side by side and where they differ |
+| `src/components/Rooms.tsx`, `src/lib/rooms/log.ts`, `src/lib/quotes/rooms.ts` | the Rooms tab (2026-10-27): a manual, room-by-room measurement log kept on the quote (Quotes → Rooms); no checks, nothing priced from it |
 | `src/lib/editor/model.ts` | every editor change as a pure function (tested in `tests/editor.test.ts`) |
 | `src/components/editor/` | the editor screen (browser-only), the add-a-line picker |
 | `tests/` | maths to the cent (invented numbers), allowlist, structural boundary |
