@@ -56,13 +56,15 @@ repo with Root Directory `quote`. Rules for changing it: `CLAUDE.md` in this fol
 | `QUOTE_LOGO_URL` | optional override for the email header logo and link preview image; unset = `public/brand/` served by the customer deployment |
 | `QUOTE_CUSTOMER_URL` | the customer deployment's address (below), e.g. `https://titan-desk-quote-view.vercel.app`. Unset = sending is off |
 | `QUOTE_COMPANY_NAME` · `_ADDRESS` · `_PHONE` · `_EMAIL` · `_WEBSITE` · `_HST` | the letterhead on every quote sent (name defaults to Titan Flooring; a blank one is left off). Frozen into each quote when it is sent |
+| `QUOTE_ACCEPT_KEY` | acceptance (2026-10-27): the key the customer deployment sends to `/api/accept` in the `x-quote-key` header. Same value on both deployments. Unset = online acceptance is off |
+| `QUOTE_ETRANSFER_EMAIL` | where an e-transfer deposit goes, printed in the acceptance email, text and page (Albert: the company email). Same value on both deployments. Unset = acceptance is off |
 | `QUOTE_ACTIVITY_KEY` | open tracking (2026-10-27): the key the customer deployment and the daily summary run send to `/api/activity` in the `x-quote-key` header. Same value on both deployments and in the GitHub secret. Unset = tracking is off. For the summaries' tags, `QUOTE_GHL_TOKEN` also needs `users.readonly`; without it they tag the opportunity's assigned user |
 
 ## The customer deployment (sending quotes)
 
 Customer links (`/c/<token>`) and their PDFs are served by a **second Vercel project built from
 this same folder**, because a public page never shares a deployment with a write token (root
-CLAUDE.md). It holds these variables and nothing else (the last two only for open tracking):
+CLAUDE.md). It holds these variables and nothing else (the staff address and the keys only for open tracking and acceptance):
 
 | Variable | Value |
 |---|---|
@@ -70,9 +72,12 @@ CLAUDE.md). It holds these variables and nothing else (the last two only for ope
 | `QUOTE_AIRTABLE_TOKEN` | a **read-only** Airtable token: Bert base only, `data.records:read` |
 | `QUOTE_STAFF_URL` | the staff app's address, e.g. `https://titan-desk-quote.vercel.app`: where opens and PDF downloads are reported (2026-10-27). Unset = tracking is off |
 | `QUOTE_ACTIVITY_KEY` | the same key as the staff app's |
+| `QUOTE_ACCEPT_KEY` | the same key as the staff app's: the customer's Accept is handed to the staff app's `/api/accept` (2026-10-27). Unset = no Accept button |
+| `QUOTE_ETRANSFER_EMAIL` | the same address as the staff app's, for the accepted page's deposit box |
 
-On that deployment every path except `/c/<token>` answers 404 and the Airtable client refuses
-to write. Opens and downloads are reported to the staff app, which records them.
+On that deployment every path except `/c/<token>` (and the static `/brand/` and `/docs/`) answers 404 and the
+Airtable client refuses to write. Opens, downloads and a customer's Accept are handed to the staff app, which
+checks and records them.
 
 The three-day summaries run from `.github/workflows/quote-activity-summaries.yml` once a day; it needs
 the repo secrets `QUOTE_STAFF_URL` and `QUOTE_ACTIVITY_KEY` and does nothing until both are set. On the staff app, `/c/` answers 404. Staff check what the customer will get with
