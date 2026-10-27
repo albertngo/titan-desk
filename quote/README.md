@@ -75,9 +75,13 @@ CLAUDE.md). It holds these variables and nothing else (the staff address and the
 | `QUOTE_ACCEPT_KEY` | the same key as the staff app's: the customer's Accept is handed to the staff app's `/api/accept` (2026-10-27). Unset = no Accept button |
 | `QUOTE_ETRANSFER_EMAIL` | the same address as the staff app's, for the accepted page's deposit box |
 
-On that deployment every path except `/c/<token>` (and the static `/brand/` and `/docs/`) answers 404 and the
+On that deployment every path except `/c/<token>` (and the static `/brand/`) answers 404 and the
 Airtable client refuses to write. Opens, downloads and a customer's Accept are handed to the staff app, which
 checks and records them.
+
+Acceptance is switched on in Airtable, not here: **Quote Settings → Online Acceptance** (ticked = on, on both
+deployments within a minute), with the Project Expectations PDF read from **Terms Versions** (newest row).
+Both tables are read only; the customer deployment's read-only token reads them too.
 
 The three-day summaries run from `.github/workflows/quote-activity-summaries.yml` once a day; it needs
 the repo secrets `QUOTE_STAFF_URL` and `QUOTE_ACTIVITY_KEY` and does nothing until both are set. On the staff app, `/c/` answers 404. Staff check what the customer will get with

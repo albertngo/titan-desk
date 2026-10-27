@@ -61,7 +61,7 @@ export async function proxy(request: NextRequest) {
 export const config = {
   // Everything except static assets. Which paths need no sign-in is decided above, in code,
   // because it depends on which deployment this is. /brand/ holds the logo the quote email and
-  // the link preview card load (2026-10-23): public by nature, served by both deployments. /docs/
-  // holds the Project Expectations PDFs a customer agrees to when accepting (2026-10-27): public too.
-  matcher: ["/((?!_next/|brand/|docs/|favicon\\.ico|robots\\.txt).*)"],
+  // the link preview card load (2026-10-23): public by nature, served by both deployments. The
+  // Project Expectations are served by the customer's own link, not as a public file (2026-10-27).
+  matcher: ["/((?!_next/|brand/|favicon\\.ico|robots\\.txt).*)"],
 };

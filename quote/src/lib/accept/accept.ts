@@ -1,8 +1,7 @@
 import "server-only";
 import { timingSafeEqual } from "node:crypto";
 import { acceptProblems, buildAcceptance, readAcceptInput, type Acceptance } from "./plan";
-import { acceptOff, recordAcceptance, stateOf, targetByToken } from "./record";
-import { TERMS } from "./terms";
+import { acceptGate, recordAcceptance, stateOf, targetByToken } from "./record";
 
 /**
  * The customer's Accept button (Albert, 2026-10-27), reached through /api/accept on the staff app
@@ -29,14 +28,14 @@ export async function acceptByLink(key: string | null, raw: unknown): Promise<Ac
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   const input = readAcceptInput(r.input);
   if (typeof r.token !== "string" || !input) return { ok: false, status: 400, message: "That request didn't make sense." };
-  const off = acceptOff();
-  if (off) return { ok: false, status: 503, message: "Online acceptance isn't switched on yet. Reply to the message this link came in, or call us." };
+  const { off, terms } = await acceptGate();
+  if (off || !terms) return { ok: false, status: 503, message: "Online acceptance isn't switched on yet. Reply to the message this link came in, or call us." };
   const target = await targetByToken(r.token);
   if (!target?.copy) return { ok: false, status: 404, message: "This quote can't be found." };
   const method = r.store === true ? "store" : "link";
-  const problems = acceptProblems(target.copy, stateOf(target), input, { terms: TERMS, method });
+  const problems = acceptProblems(target.copy, stateOf(target), input, { terms, method });
   if (problems.length) return { ok: false, status: 422, message: problems[0], problems };
-  const a = buildAcceptance(target.copy, input, { now: new Date(), terms: TERMS!, method, recordedBy: null, userAgent: typeof r.userAgent === "string" ? r.userAgent : null });
+  const a = buildAcceptance(target.copy, input, { now: new Date(), terms, method, recordedBy: null, userAgent: typeof r.userAgent === "string" ? r.userAgent : null });
   const done = await recordAcceptance(target, a, method === "store" ? "customer (in store)" : "customer (their link)");
   return done.ok ? { ok: true, acceptance: done.acceptance } : done;
 }

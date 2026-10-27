@@ -24,7 +24,7 @@ import { fingerprint } from "@/lib/quotes/savePlan";
 import { previewCopy, sendingReady, sendsFrom, sentLink } from "@/lib/quotes/send";
 import { acceptedWhen, addOnsOf } from "@/lib/accept/plan";
 import { acceptReadiness } from "@/lib/accept/staff";
-import { TERMS } from "@/lib/accept/terms";
+import { termsLabel } from "@/lib/accept/terms";
 import { ghlOpportunityUrl } from "@/lib/ghl/ids";
 import { logEntries } from "@/lib/quotes/history";
 import { addDays, leadPrice, priceRange, rangeText, torontoToday, VALID_DAYS } from "@/lib/send/copy";
@@ -107,7 +107,7 @@ export default async function QuotePage({
   // Acceptance (2026-10-27): on a measured version out with the customer, accept with them or for them;
   // once accepted, what was agreed and where the hand-off to GHL and Notion stands. Staff only.
   const acceptable = !customer && quote.status === "Sent" && quote.basis === "Measured" && !quote.changeNo && !quote.acceptance;
-  const [off, sentCopy] = acceptable ? await Promise.all([acceptReadiness(), previewCopy(quote.id)]) : [null, null];
+  const [acceptGate, sentCopy] = acceptable ? await Promise.all([acceptReadiness(), previewCopy(quote.id)]) : [null, null];
   const acceptCard =
     acceptable && sentCopy ? (
       <AcceptForCustomer
@@ -115,8 +115,8 @@ export default async function QuotePage({
         link={link}
         options={sentCopy.options.map((o, index) => ({ index, name: o.name, subtotal: o.totals.subtotal, addOns: addOnsOf(sentCopy, o) }))}
         customerName={[quote.link?.firstName, quote.link?.lastName].filter(Boolean).join(" ") || quote.customerName}
-        termsVersion={TERMS?.version ?? null}
-        off={off}
+        terms={acceptGate?.terms ? { id: acceptGate.terms.id, label: termsLabel(acceptGate.terms.on) } : null}
+        off={acceptGate?.off ?? null}
       />
     ) : null;
   const acceptedCard =

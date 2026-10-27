@@ -406,14 +406,21 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   version out with the customer and still good (Sent, not past Valid Until, not superseded, not a change)
   can be accepted; a preliminary is an estimate. **On the customer's link** an Accept panel under the
   quote: pick the option, tick any optional add-ons (they join at exactly the price shown, HST on the
-  ones that carry it), see the total and deposit follow, tick the **Project Expectations** (the version
-  in `src/lib/accept/terms.ts`, a PDF in `public/docs/` per version, never replaced), type their name. **In
+  ones that carry it), see the total and deposit follow, tick the **Project Expectations**, type their name.
+  The Project Expectations come from Albert's Word doc ("pull from the file every turn to create the
+  PDF"): Make's "Project Expectations → PDF" saves each new version of it as a row of **Terms Versions**
+  (Name, Modified At, PDF, Source File Id; read only, never edited), and the newest row is the one a
+  customer agrees to today, named by the day it was saved ("updated October 27, 2026"). The customer's
+  link serves it at `/c/<token>/Titan-Flooring-Project-Expectations.pdf`, fetched fresh from Airtable's
+  file host (the attachment address expires): once accepted, the version agreed to. The Accept carries the
+  row it showed, and a newer one since means "reload and review them" (`src/lib/accept/live.ts`,
+  `src/lib/accept/terms.ts`). **In
   store**, staff press **Accept with customer** on the quote page, which opens the same link with
   `?store=1` on the tablet, where a drawn signature is also taken (an SVG path in a 1000 × 300 box,
   printed on the PDF). **For them**, staff may record a yes in writing (a signed paper, an email) with a
   reason saying where it is. The record (Quote Versions → **Acceptance**, JSON; **Accepted Option**;
   **Accepted At**) holds who, when, how, the option, the add-ons, the totals, the schedule on the accepted
-  total, the terms version and the signature; the version becomes **Accepted** and the quote's
+  total, the Project Expectations row and its date, and the signature; the version becomes **Accepted** and the quote's
   **Contract Version** points at it; other sent versions are Superseded. Then the **hand-off**: the GHL
   opportunity to **2. Project Won** and status **won** in one request (GHL's won workflow fires on either:
   Make 3710214 makes the Notion project and posts to WhatsApp), valued at the **accepted total with HST**
@@ -426,8 +433,10 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   is kept on the record and staff **Retry** it; **Cancel acceptance** (with a reason) sets the version
   Lost and the opportunity lost and leaves the Notion project to a person. The customer's link then shows
   the accepted copy (`acceptedCopy()`: the one option, ticked add-ons as Added), the deposit and how to
-  pay, and the stamped PDF. Off until the terms PDF is in and `QUOTE_ETRANSFER_EMAIL`, `QUOTE_ACCEPT_KEY`
-  and `QUOTE_STAFF_URL` are set. Rules: `src/lib/accept/plan.ts`; carried out by
+  pay, and the stamped PDF. **One switch:** Quote Settings → **Online Acceptance**. Ticked is the go-live;
+  unticked turns the Accept panel, the "press Accept" line in the email and the staff Accept card off at
+  once, with no redeploy (read within a minute; anything that can't be read reads as off). Also off until
+  Terms Versions has a PDF and `QUOTE_ETRANSFER_EMAIL`, `QUOTE_ACCEPT_KEY` and `QUOTE_STAFF_URL` are set. Rules: `src/lib/accept/plan.ts`; carried out by
   `src/lib/accept/record.ts`; tested in `tests/accept.test.ts`.
 - **Won (2026-10-27).** When an accepted quote opens, it reads its opportunity for the PP number and the
   Notion page Make 3710214 writes back after making the project (opportunity fields
@@ -445,7 +454,8 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   the page, the PDF, the email and the text: no good-until date, nothing to accept or approve, no
   follow-up tag. It becomes the quote's Contract Version, older changes are superseded, the accepted link
   points at it, and GHL's value follows the new total with HST (`buildContract()`). The Project
-  Expectations v2.2 say a change agreed in person or by phone is confirmed by this updated quote.
+  Expectations are to say (Albert rewords the doc before go-live) that a change agreed in person or by
+  phone is confirmed by this updated quote.
   Tested in `tests/change.test.ts`.
 - **All quotes (2026-10-15).** One row per quote, its versions folded under it (newest first),
   and a search over name, quote and project number, city, email and phone digits. Grouping and

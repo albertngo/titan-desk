@@ -190,6 +190,28 @@ export const LINE = {
 export const airtableRecordUrl = (table: string, record: string) =>
   `https://airtable.com/${BASE_ID}/${table}/${record}`;
 
+/**
+ * Quote Settings: one row, read only. Online Acceptance is the switch for accepting quotes (Albert,
+ * 2026-10-27): ticked = on, unticked = off everywhere at once, with no redeploy.
+ */
+export const SETTINGS_TABLE = "tbl87nxBec8uKta8V";
+export const SETTINGS = {
+  onlineAcceptance: "fldTFU2lpwpqrWTrv",
+} as const;
+
+/**
+ * Terms Versions, read only: one row per saved version of the Project Expectations Word doc, made by
+ * Make ("Project Expectations → PDF", 2026-10-27) and never edited, so what a customer agreed to
+ * never changes underneath them. The newest by Modified At is the one a customer agrees to today.
+ */
+export const TERMS_TABLE = "tblYN4djj4SmQWvkJ";
+export const TERMS = {
+  name: "fldGtf9hRLteG4H4i",
+  modifiedAt: "fldLwcbjCbaPEvJqC",
+  pdf: "fldLT70qt6VSG54Iq",
+  sourceFileId: "fld0DByOwla08481v",
+} as const;
+
 export const RATE_TABLE = "tblGBGezZfBWhEgmu";
 export const RATE = {
   laborType: "fldawNJcW3bbKnCp8",

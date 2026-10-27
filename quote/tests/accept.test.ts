@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { acceptedCopy, acceptProblems, addOnsOf, buildAcceptance, notAcceptable, parseAcceptance, parseSignature, readAcceptInput, serializeAcceptance, type AcceptInput } from "../src/lib/accept/plan";
-import type { Terms } from "../src/lib/accept/terms";
-import { termsHref } from "../src/lib/accept/terms";
+import { termsHref, termsLabel, type Terms } from "../src/lib/accept/terms";
 import { optionTotals } from "../src/lib/calc";
 import { ACCEPT_FIELDS, SALES_PIPELINE_ID } from "../src/lib/ghl/ids";
 import { buildContract, buildLost, buildWon, wonStageId } from "../src/lib/link/ghlRequest";
@@ -91,8 +90,8 @@ const quote = (p: Partial<Quote> = {}): Quote => ({
 });
 const COMPANY: Letterhead = { name: "Titan Flooring", address: null, phone: null, email: "hello@example.com", website: null, hstNumber: null };
 const copyOf = (q = quote()) => customerCopy(q, { sentOn: "2026-10-27", validUntil: "2026-11-30", company: COMPANY });
-const TERMS: Terms = { version: "2.2", title: "Project Expectations", file: "project-expectations-v2.2.pdf" };
-const input = (p: Partial<AcceptInput> = {}): AcceptInput => ({ optionIndex: 0, addOns: [], name: "Sam Sample", terms: true, signature: null, reason: null, ...p });
+const TERMS: Terms = { id: "recTermsAAAAAAAAA", on: "2026-10-27" };
+const input = (p: Partial<AcceptInput> = {}): AcceptInput => ({ optionIndex: 0, addOns: [], name: "Sam Sample", terms: true, termsId: TERMS.id, signature: null, reason: null, ...p });
 const NOW = new Date("2026-11-03T19:14:00Z"); // 2:14 pm in Toronto
 const SIG = "M10 10 L200 120 L400 40 M500 200 L800 250";
 
@@ -135,9 +134,28 @@ describe("what may be accepted", () => {
       addOns: ["0.1"],
       name: "Sam Sample",
       terms: true,
+      termsId: null,
       signature: null,
       reason: null,
     });
+    expect(readAcceptInput({ optionIndex: 0, termsId: "recTermsAAAAAAAAA" })?.termsId).toBe("recTermsAAAAAAAAA");
+    expect(readAcceptInput({ optionIndex: 0, termsId: "'; DROP" })?.termsId).toBeNull();
+  });
+
+  it("refuses an Accept made against Project Expectations that have been replaced since the page opened", () => {
+    const copy = copyOf();
+    const p = (termsId: string | null) => acceptProblems(copy, "open", input({ termsId }), { terms: TERMS, method: "link" }).join(" ");
+    expect(p(TERMS.id)).toBe("");
+    expect(p("recOlderAAAAAAAAA")).toMatch(/just updated\. Reload the page/);
+    expect(p(null)).toMatch(/just updated/);
+  });
+});
+
+describe("the Project Expectations' label", () => {
+  it("names the version by the day the doc was saved", () => {
+    expect(termsLabel("2026-10-27")).toBe("updated October 27, 2026");
+    expect(termsLabel("nonsense")).toBe("current version");
+    expect(termsHref("abc")).toBe("/c/abc/Titan-Flooring-Project-Expectations.pdf");
   });
 });
 
@@ -154,7 +172,7 @@ describe("the acceptance record", () => {
     // 1,000 + 100 = 1,100; HST 143; 1,243. 35% = 435.05, 35% = 435.05, balance 372.90.
     expect(a.totals).toEqual({ subtotal: 1100, hst: 143, total: 1243 });
     expect(a.stages.map((s) => s.amount)).toEqual([435.05, 435.05, 372.9]);
-    expect(a).toMatchObject({ on: "2026-11-03", method: "link", name: "Sam Sample", terms: "2.2", option: { index: 0, name: "Oak", ref: copy.options[0].ref }, addOns: [{ description: "Stair nosing", amount: 100 }], recordedBy: null, reason: null, signature: null });
+    expect(a).toMatchObject({ on: "2026-11-03", method: "link", name: "Sam Sample", terms: "2026-10-27", termsId: TERMS.id, option: { index: 0, name: "Oak", ref: copy.options[0].ref }, addOns: [{ description: "Stair nosing", amount: 100 }], recordedBy: null, reason: null, signature: null });
   });
 
   it("with nothing ticked the accepted figures are the sent figures exactly", () => {
@@ -228,7 +246,7 @@ describe("the accepted copy, page and PDF", () => {
     expect(pdf).toContain("ACCEPTED");
     expect(pdf).toContain("Accepted by Sam Sample on Tuesday, November 3, 2026 at 2:14 pm.");
     expect(pdf).toContain("In our store, signed below.");
-    expect(pdf).toContain("Project Expectations, version 2.2");
+    expect(pdf).toContain("Project Expectations, updated October 27, 2026");
     expect(pdf).toMatch(/1 J 1 j [\d. ]+ m [\d. ]+ l/);
     expect(acceptedPdfName(copy)).toBe(pdfName(copy).replace(".pdf", "-accepted.pdf"));
   });
@@ -237,7 +255,7 @@ describe("the accepted copy, page and PDF", () => {
 describe("the acceptance email and text", () => {
   const copy = copyOf();
   const a = buildAcceptance(copy, input(), { now: NOW, terms: TERMS, method: "link", recordedBy: null, userAgent: null });
-  const to = { contactId: "ctc1", firstName: "Sam", link: "https://quote.example/c/x", pdfUrl: "https://quote.example/c/x/accepted.pdf", termsUrl: `https://quote.example${termsHref(TERMS)}` };
+  const to = { contactId: "ctc1", firstName: "Sam", link: "https://quote.example/c/x", pdfUrl: "https://quote.example/c/x/accepted.pdf", termsUrl: `https://quote.example${termsHref("x")}` };
 
   it("the email is the one deposit request: the amount, e-transfer with the quote number, the schedule, both PDFs attached", () => {
     const m = acceptedEmailMessage(copy, a, to, { etransfer: "deposits@example.com", acceptedWhen: "Tuesday, November 3, 2026 at 2:14 pm" }, { email: "pat.quoter@example.com", firstName: "Pat" });

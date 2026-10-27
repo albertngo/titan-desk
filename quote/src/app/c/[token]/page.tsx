@@ -6,7 +6,7 @@ import { CustomerQuote } from "@/components/CustomerQuote";
 import { SeenBeacon } from "@/components/SeenBeacon";
 import { acceptedCopy, addOnsOf, notAcceptable } from "@/lib/accept/plan";
 import { etransferEmail } from "@/lib/accept/settings";
-import { TERMS, termsHref } from "@/lib/accept/terms";
+import { termsHref, termsLabel } from "@/lib/accept/terms";
 import { defaultSchedule } from "@/lib/pricing/schedule";
 import { acceptConfigured } from "@/lib/quotes/acceptClient";
 import { customerQuote } from "@/lib/quotes/customer";
@@ -41,7 +41,7 @@ export default async function CustomerQuotePage({ params, searchParams }: { para
   const { store } = await searchParams;
   const found = await customerQuote(token);
   if (!found) notFound();
-  const { copy, state, acceptance } = found;
+  const { copy, state, acceptance, terms } = found;
   // The beacon reports the open once the page is in view (2026-10-27); a link preview never runs it.
   const beacon = <SeenBeacon path={`/c/${token}/seen`} />;
 
@@ -56,14 +56,14 @@ export default async function CustomerQuotePage({ params, searchParams }: { para
           state={state}
           pdfHref={pdfHref}
           newerHref={null}
-          note={<AcceptedNote a={acceptance} quoteNumber={copy.quoteNumber} etransfer={etransferEmail()} pdfHref={pdfHref} newerHref={found.newerToken ? `/c/${found.newerToken}` : null} />}
+          note={<AcceptedNote a={acceptance} quoteNumber={copy.quoteNumber} etransfer={etransferEmail()} pdfHref={pdfHref} termsHref={terms ? termsHref(token) : null} newerHref={found.newerToken ? `/c/${found.newerToken}` : null} />}
         />
       </>
     );
   }
 
-  // Open to accept: a measured quote, still good, with acceptance switched on for this deployment.
-  const canAccept = acceptConfigured() && Boolean(etransferEmail()) && TERMS !== null && notAcceptable(copy, state, TERMS) === null;
+  // Open to accept: a measured quote, still good, with Online Acceptance switched on and a Project Expectations PDF.
+  const canAccept = acceptConfigured() && Boolean(etransferEmail()) && terms !== null && notAcceptable(copy, state, terms) === null;
   const options: AcceptOption[] = copy.options.map((o, index) => ({
     index,
     name: o.name,
@@ -82,13 +82,13 @@ export default async function CustomerQuotePage({ params, searchParams }: { para
         pdfHref={offersPdf(copy) ? `/c/${token}/${pdfName(copy)}?d=1` : null}
         newerHref={found.newerToken ? `/c/${found.newerToken}` : null}
         after={
-          canAccept && TERMS ? (
+          canAccept && terms ? (
             <AcceptPanel
               token={token}
               store={store === "1"}
               options={options}
               schedule={copy.paymentSchedule ?? defaultSchedule()}
-              terms={{ version: TERMS.version, href: termsHref(TERMS) }}
+              terms={{ id: terms.id, label: termsLabel(terms.on), href: termsHref(token) }}
               defaultIndex={recommended >= 0 ? recommended : 0}
             />
           ) : null

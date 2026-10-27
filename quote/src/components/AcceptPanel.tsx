@@ -38,7 +38,8 @@ export function AcceptPanel({
   store: boolean;
   options: AcceptOption[];
   schedule: PaymentSchedule;
-  terms: { version: string; href: string };
+  /** The Project Expectations shown: its Terms Versions row goes back with the Accept, so a newer one since is caught. */
+  terms: { id: string; label: string; href: string };
   defaultIndex: number;
 }) {
   const router = useRouter();
@@ -58,7 +59,7 @@ export function AcceptPanel({
   const accept = () => {
     setError(null);
     start(async () => {
-      const r = await acceptAction(token, { optionIndex: o.index, addOns: ticked, name: name.trim(), terms: agreed, signature }, store);
+      const r = await acceptAction(token, { optionIndex: o.index, addOns: ticked, name: name.trim(), terms: agreed, termsId: terms.id, signature }, store);
       if (r.ok) router.refresh();
       else setError(r.message);
     });
@@ -130,7 +131,7 @@ export function AcceptPanel({
         <span>
           I&apos;ve read and agree to the{" "}
           <a href={terms.href} target="_blank" rel="noreferrer">
-            Project Expectations (version {terms.version})
+            Project Expectations ({terms.label})
           </a>
           .
         </span>

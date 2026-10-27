@@ -4,7 +4,7 @@ import { QUOTE, T, VERSION } from "@/lib/airtable/fields";
 import { requireQuoter, requireQuoterPerson } from "@/lib/auth";
 import { fromQuote } from "@/lib/editor/model";
 import { etransferEmail } from "@/lib/accept/settings";
-import { TERMS } from "@/lib/accept/terms";
+import { acceptTerms } from "@/lib/accept/live";
 import { BOOKING_URLS } from "@/lib/ghl/ids";
 import { followUpTagBodies } from "@/lib/activity/track";
 import { acceptedCopy, parseAcceptance } from "@/lib/accept/plan";
@@ -77,7 +77,8 @@ function logoUrl(): string | null {
  * Whether the email should say "press Accept" (2026-10-27): the terms are in the app and the deposit
  * address is set. The keys on both deployments go in on the same day the terms PDF does (go-live).
  */
-const acceptOnline = () => TERMS !== null && etransferEmail() !== null;
+/** Whether the email may say "press Accept": the Online Acceptance switch, a Project Expectations PDF, and the deposit address. */
+const acceptOnline = async () => (await acceptTerms()) !== null && etransferEmail() !== null;
 
 /**
  * A change after acceptance (2026-10-27): its copy carries what changed since the contract it updates,
@@ -160,7 +161,7 @@ export async function previewEmail(versionId: string, validUntil?: string, itemi
   const { link } = customerLinks(base, isToken(quote?.customerToken) ? quote!.customerToken! : "x".repeat(32), pdfName(copy));
   const to = { contactId: "preview", firstName: quote?.link?.firstName ?? null, link };
   // Never an attachment (Albert, 2026-10-27), a change included; only the acceptance email carries one.
-  const m = copy.change ? changeEmailMessage(copy, to, senderOf(person)) : emailMessage(copy, to, senderOf(person), { booking: booking(), acceptOnline: acceptOnline() });
+  const m = copy.change ? changeEmailMessage(copy, to, senderOf(person)) : emailMessage(copy, to, senderOf(person), { booking: booking(), acceptOnline: await acceptOnline() });
   return m.type === "Email" ? m.html : null;
 }
 
@@ -229,6 +230,7 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   const from = senderOf(person);
   let sentFrom: string | null = null;
   if (input.channels.email) {
+    const online = await acceptOnline();
     // From the quoter, named, then bare, then GHL's default: a refused sender costs a retry, never the send.
     const attempts = [...new Set([emailFromFor(from, copy.company.email, true), emailFromFor(from, copy.company.email, false), null])];
     let last: unknown = null;
@@ -237,7 +239,7 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
         await sendMessage(
           copy.change
             ? changeEmailMessage(copy, { contactId, firstName, link }, from, { emailFrom })
-            : emailMessage(copy, { contactId, firstName, link }, from, { emailFrom, booking: booking(), acceptOnline: acceptOnline() }),
+            : emailMessage(copy, { contactId, firstName, link }, from, { emailFrom, booking: booking(), acceptOnline: online }),
         );
         sentTo.push("Email");
         sentFrom = emailFrom;

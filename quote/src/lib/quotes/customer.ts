@@ -1,4 +1,5 @@
 import "server-only";
+import { acceptTerms, termsById, type LiveTerms } from "@/lib/accept/live";
 import { parseAcceptance, type Acceptance } from "@/lib/accept/plan";
 import { listByIds, listRecords } from "@/lib/airtable/client";
 import { QUOTE, T, VERSION } from "@/lib/airtable/fields";
@@ -19,8 +20,12 @@ import { ids, num, str } from "./values";
  * tests/boundary.test.ts pins all three, and that only app/c/ imports this file.
  */
 
-/** `acceptance`: the record of the customer's yes (2026-10-27), frozen like the copy; only on an accepted version. */
-export type CustomerQuote = { copy: CustomerCopy; state: CopyState; today: string; newerToken: string | null; acceptance: Acceptance | null };
+/**
+ * `acceptance`: the record of the customer's yes (2026-10-27), frozen like the copy; only on an accepted version.
+ * `terms`: the Project Expectations this link shows: the version agreed to, once accepted; on an open
+ * quote, today's, and only while Online Acceptance is switched on (null = no Accept button).
+ */
+export type CustomerQuote = { copy: CustomerCopy; state: CopyState; today: string; newerToken: string | null; acceptance: Acceptance | null; terms: LiveTerms | null };
 
 export async function customerQuote(token: string): Promise<CustomerQuote | null> {
   if (!isCustomerDeployment() || !isToken(token)) return null;
@@ -38,7 +43,8 @@ export async function customerQuote(token: string): Promise<CustomerQuote | null
   const acceptance = state === "accepted" ? parseAcceptance(str(f[VERSION.acceptance])) : null;
   // An accepted quote changed since (2026-10-27): its page points at the change that is the contract now.
   const changedTo = acceptance ? await contractToken(ids(f[VERSION.quote])[0], found[0].id) : null;
-  return { copy, state, today, newerToken: newerToken ?? changedTo, acceptance };
+  const terms = acceptance ? await termsById(acceptance.termsId) : state === "open" ? await acceptTerms() : null;
+  return { copy, state, today, newerToken: newerToken ?? changedTo, acceptance, terms };
 }
 
 /** For a replaced version: the link of the quote's newest version that is out with the customer. */

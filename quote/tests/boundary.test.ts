@@ -62,7 +62,7 @@ describe("Airtable boundary", () => {
   });
 
   it("keeps the client, the loaders and the auth check server-only", () => {
-    for (const rel of [CLIENT, GHL, "lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/customer.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/activity/relay.ts", "lib/quotes/acceptClient.ts", "lib/accept/record.ts", "lib/accept/accept.ts", "lib/accept/staff.ts", "lib/auth.ts"]) {
+    for (const rel of [CLIENT, GHL, "lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/customer.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/activity/relay.ts", "lib/quotes/acceptClient.ts", "lib/accept/record.ts", "lib/accept/accept.ts", "lib/accept/staff.ts", "lib/accept/live.ts", "lib/auth.ts"]) {
       expect(all.find((f) => f.rel === rel)!.text).toMatch(/^import "server-only";/m);
     }
   });
@@ -70,7 +70,7 @@ describe("Airtable boundary", () => {
   it("never imports Airtable code into a browser component", () => {
     const leaks = all
       .filter((f) => /^["']use client["'];?/m.test(f.text))
-      .filter((f) => /^import (?!type )[^;]*from ["']@\/lib\/(airtable|quotes\/load|quotes\/start|quotes\/save|quotes\/refresh|quotes\/records|quotes\/booking|quotes\/link|quotes\/send|quotes\/rooms|quotes\/customer|quotes\/conversation|quotes\/address|quotes\/activity|activity\/relay|quotes\/acceptClient|accept\/record|accept\/accept|accept\/staff|ghl\/client|make\/client|auth)/m.test(f.text))
+      .filter((f) => /^import (?!type )[^;]*from ["']@\/lib\/(airtable|quotes\/load|quotes\/start|quotes\/save|quotes\/refresh|quotes\/records|quotes\/booking|quotes\/link|quotes\/send|quotes\/rooms|quotes\/customer|quotes\/conversation|quotes\/address|quotes\/activity|activity\/relay|quotes\/acceptClient|accept\/record|accept\/accept|accept\/staff|accept\/live|ghl\/client|make\/client|auth)/m.test(f.text))
       .map((f) => f.rel);
     expect(leaks).toEqual([]);
   });
@@ -109,7 +109,7 @@ describe("booking step (Make, no sign-in)", () => {
 
   it("is one of the three paths the staff app lets through without a sign-in, besides signing in", () => {
     const proxy = all.find((f) => f.rel === "proxy.ts")!.text;
-    expect(proxy).toContain('matcher: ["/((?!_next/|brand/|docs/|favicon\\\\.ico|robots\\\\.txt).*)"]');
+    expect(proxy).toContain('matcher: ["/((?!_next/|brand/|favicon\\\\.ico|robots\\\\.txt).*)"]');
     expect(proxy).toContain("const OPEN_ON_STAFF = /^\\/(login|auth\\/|denied|api\\/booking|api\\/activity|api\\/accept)/;");
     // Open tracking and acceptance (2026-10-27) are the other two key-gated routes; see their own blocks below.
     expect(all.filter((f) => f.rel.startsWith("app/api/")).map((f) => f.rel).sort()).toEqual(["app/api/accept/route.ts", "app/api/activity/route.ts", ROUTE]);
@@ -254,6 +254,25 @@ describe("acceptance (2026-10-27): the one write path from a customer link", () 
     expect(text(CLIENTSIDE)).not.toMatch(/airtable|createRecord|updateRecord|make\/client/);
     expect(text(CLIENTSIDE)).toMatch(/isCustomerDeployment\(\)/);
     expect(importers("quotes/acceptClient")).toEqual(["app/c/[token]/actions.ts", "app/c/[token]/page.tsx"]);
+  });
+
+  it("the switch and the Project Expectations are read in one file, which never writes, and fail closed", () => {
+    const live = text("lib/accept/live.ts");
+    expect(live).not.toMatch(/\b(createRecords?|updateRecords?)\(/);
+    expect(all.filter((f) => /SETTINGS\.onlineAcceptance|TERMS\.pdf/.test(code(f.text))).map((f) => f.rel)).toEqual(["lib/accept/live.ts"]);
+    expect(importers("accept/live").sort()).toEqual(["lib/accept/record.ts", "lib/quotes/customer.ts", "lib/quotes/send.ts"]);
+    // Anything that can't be read reads as off.
+    expect(live).toMatch(/acceptanceSwitchedOn\(\): Promise<boolean> \{\s*return remembered\([\s\S]*?,\s*false,\s*\);/);
+    // Neither is ever written: Quote Settings and Terms Versions are not quote tables.
+    expect(WRITABLE_TABLES).not.toContain("tbl87nxBec8uKta8V");
+    expect(WRITABLE_TABLES).not.toContain("tblYN4djj4SmQWvkJ");
+  });
+
+  it("the Project Expectations PDF is served by the customer's link, fetched only from Airtable's file host", () => {
+    const route = text("app/c/[token]/[file]/route.ts");
+    expect(route).toMatch(/if \(file === TERMS_PDF\) return projectExpectations\(found\.terms\?\.pdfUrl \?\? null\);/);
+    expect(route).toMatch(/if \(!url \|\| !isAirtableFile\(url\)\) return new Response\("Not found", \{ status: 404 \}\);/);
+    expect(route.match(/\bfetch\(/g)?.length).toBe(1);
   });
 
   it("the customer loader still only reads, and returns the frozen acceptance with the frozen copy", () => {

@@ -15,7 +15,8 @@ import type { Terms } from "./terms";
  * - only a measured version that is out with the customer and still good can be accepted: a
  *   preliminary is an estimate, and a change after acceptance is sent for the record;
  * - one option, and any of its add-ons ticked, at exactly the prices shown;
- * - they tick that they have read the Project Expectations, and the version is recorded;
+ * - they tick that they have read the Project Expectations, and the version they saw is recorded
+ *   (a newer one saved since they opened the page means they reload and look again);
  * - the accepted copy is frozen like the sent one: nothing live is ever read to show it again.
  */
 
@@ -41,8 +42,9 @@ export type Acceptance = {
   totals: AcceptedTotals;
   /** The payment schedule on the accepted total, in dollars. The first stage is the deposit. */
   stages: CopyStage[];
-  /** The Project Expectations version they ticked. */
+  /** The Project Expectations they ticked: the day that version was saved (YYYY-MM-DD) and its Terms Versions row. */
   terms: string;
+  termsId: string | null;
   /** Drawn on the store tablet: an SVG path (M and L only) in a 1000 × 300 box. */
   signature: string | null;
   /** The staff member signed in, for an acceptance in store or on the customer's behalf. */
@@ -59,6 +61,8 @@ export type AcceptInput = {
   addOns: string[];
   name: string;
   terms: boolean;
+  /** The Terms Versions row the page showed them; a newer one since means they reload and look again. */
+  termsId: string | null;
   signature: string | null;
   reason: string | null;
 };
@@ -75,7 +79,8 @@ export function readAcceptInput(raw: unknown): AcceptInput | null {
   if (optionIndex === null) return null;
   const addOns = Array.isArray(r.addOns) ? [...new Set(r.addOns.filter((k): k is string => typeof k === "string" && /^\d{1,3}\.\d{1,3}$/.test(k)))].slice(0, 50) : [];
   const signature = typeof r.signature === "string" && r.signature.trim() ? r.signature.trim() : null;
-  return { optionIndex, addOns, name: text(r.name, 120), terms: r.terms === true, signature, reason: text(r.reason, 500) || null };
+  const termsId = typeof r.termsId === "string" && /^rec[A-Za-z0-9]{14}$/.test(r.termsId) ? r.termsId : null;
+  return { optionIndex, addOns, name: text(r.name, 120), terms: r.terms === true, termsId, signature, reason: text(r.reason, 500) || null };
 }
 
 /** "2.3": the add-on at line 3 of section 2 of the option, as the copy has it. */
@@ -134,6 +139,7 @@ export function acceptProblems(copy: CustomerCopy, state: CopyState, input: Acce
   if (input.addOns.some((k) => !offered.has(k))) out.push("An add-on you ticked isn't on that option. Reload the page and try again.");
   if (input.name.length < 2 || !/\p{L}/u.test(input.name)) out.push("Type your full name.");
   if (!input.terms) out.push("Tick that you've read and agree to the Project Expectations.");
+  else if (input.termsId !== ctx.terms!.id) out.push("The Project Expectations were just updated. Reload the page and review them, then accept.");
   if (ctx.method === "store" && !parseSignature(input.signature)) out.push("Sign in the box.");
   if (ctx.method !== "store" && input.signature && !parseSignature(input.signature)) out.push("That signature couldn't be read. Clear it and sign again.");
   if (ctx.method === "staff" && !input.reason) out.push("Say how the customer said yes and where the written yes is (a signed paper, an email).");
@@ -175,7 +181,8 @@ export function buildAcceptance(
     addOns: chosen.map(({ key, description, amount }) => ({ key, description, amount })),
     totals,
     stages,
-    terms: ctx.terms.version,
+    terms: ctx.terms.on,
+    termsId: ctx.terms.id,
     signature: ctx.method === "store" || parseSignature(input.signature) ? input.signature : null,
     recordedBy: ctx.method === "link" ? null : ctx.recordedBy,
     reason: ctx.method === "staff" ? input.reason : null,

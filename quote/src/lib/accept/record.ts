@@ -10,7 +10,8 @@ import { acceptedPdfName, copyState, parseCopy, torontoToday, type CopyState, ty
 import { acceptedEmailMessage, acceptedSmsMessage, customerLinks, emailFromFor, isToken, type Sender } from "@/lib/send/plan";
 import { acceptedWhen, parseAcceptance, serializeAcceptance, type Acceptance, type Handoff } from "./plan";
 import { customerUrl, etransferEmail } from "./settings";
-import { TERMS, termsHref } from "./terms";
+import { acceptTerms, type LiveTerms } from "./live";
+import { TERMS_PDF } from "./terms";
 
 /**
  * Carrying out an acceptance (Albert, 2026-10-27). Reached only from src/lib/accept/accept.ts (the
@@ -102,13 +103,22 @@ export async function targetById(versionId: string): Promise<AcceptTarget | null
 /** What the customer link shows for this version today. */
 export const stateOf = (t: Pick<AcceptTarget, "status" | "validUntil">, now = new Date()): CopyState => copyState(t.status, t.validUntil, torontoToday(now));
 
-/** Why this deployment can't take an acceptance yet, said to staff; null when it can. */
-export function acceptOff(): string | null {
-  if (!TERMS) return "The Project Expectations PDF (v2.2) isn't in the app yet, so acceptance is off.";
-  if (!etransferEmail()) return "The e-transfer address (QUOTE_ETRANSFER_EMAIL) isn't set for this deployment.";
-  if (!customerUrl()) return "The customer link address (QUOTE_CUSTOMER_URL) isn't set for this deployment.";
-  if (!makeConfigured()) return "The Make step isn't switched on for this deployment.";
-  return null;
+/**
+ * Whether this deployment can take an acceptance now, and the Project Expectations it is taken
+ * against. `off` is said to staff; null when acceptance is on.
+ */
+export async function acceptGate(): Promise<{ off: string | null; terms: LiveTerms | null }> {
+  const terms = await acceptTerms();
+  const off = !terms
+    ? "Online acceptance is switched off (Quote Settings → Online Acceptance), or there is no Project Expectations PDF in Terms Versions yet."
+    : !etransferEmail()
+      ? "The e-transfer address (QUOTE_ETRANSFER_EMAIL) isn't set for this deployment."
+      : !customerUrl()
+        ? "The customer link address (QUOTE_CUSTOMER_URL) isn't set for this deployment."
+        : !makeConfigured()
+          ? "The Make step isn't switched on for this deployment."
+          : null;
+  return { off, terms: off ? null : terms };
 }
 
 export type RecordResult = { ok: true; acceptance: Acceptance; handoff: Handoff } | { ok: false; status: number; message: string };
@@ -195,7 +205,8 @@ export async function handOff(versionId: string): Promise<Handoff> {
   } else {
     const sender: Sender | null = t.sentBy ? { email: t.sentBy, firstName: firstNameOf({ email: t.sentBy, name: null }) } : null;
     const channels = (t.sentTo ?? "Email").split(",").map((x) => x.trim());
-    const termsUrl = TERMS ? `${base}${termsHref(TERMS)}` : null;
+    // The version they agreed to, served by their own link (src/app/c/[token]/[file]/route.ts).
+    const termsUrl = a.termsId ? `${links.link}/${TERMS_PDF}` : null;
     if (channels.includes("Email") && t.quote?.email && !told.includes("Email")) {
       const attempts = [...new Set([emailFromFor(sender, t.copy.company.email, true), emailFromFor(sender, t.copy.company.email, false), null])];
       let last: unknown = null;

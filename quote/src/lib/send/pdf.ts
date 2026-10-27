@@ -1,4 +1,5 @@
 import { parseSignature, type Acceptance } from "@/lib/accept/plan";
+import { termsLabel } from "@/lib/accept/terms";
 import { changeWords, signedMoney } from "@/lib/change/diff";
 import { PAGE, PdfDoc, wrap, type Rgb } from "./pdfDoc";
 import { discountLabel, hstRow, isLump, itemHstNote, leadPrice, longDate, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyText, type CustomerCopy } from "./copy";
@@ -98,7 +99,7 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null)
       `Accepted by ${a.name} on ${stamp.when}.`,
       `Option: ${a.option.name}${a.addOns.length ? `, with ${a.addOns.map((x) => x.description).join(", ")}` : ""}.`,
       ...wrap(methodWords(a), "R", 9, RIGHT - M - (sig ? 200 : 24)),
-      `Agreed to the Project Expectations, version ${a.terms}.`,
+      `Agreed to the Project Expectations, ${termsLabel(a.terms)}.`,
     ];
     const h = Math.max(lines.length * 12 + 28, sig ? 84 : 0);
     doc.rect(M, y - h + 8, RIGHT - M, h, MINT);

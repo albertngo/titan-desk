@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { acceptForCustomerAction, cancelAcceptanceAction, makeChangeAction, retryHandoffAction } from "@/app/q/[id]/actions";
 import type { Acceptance } from "@/lib/accept/plan";
+import { termsLabel } from "@/lib/accept/terms";
 import { money } from "@/lib/format";
 
 /**
@@ -22,7 +23,7 @@ export function AcceptForCustomer({
   link,
   options,
   customerName,
-  termsVersion,
+  terms,
   off,
 }: {
   versionId: string;
@@ -30,7 +31,8 @@ export function AcceptForCustomer({
   link: string | null;
   options: StaffAcceptOption[];
   customerName: string | null;
-  termsVersion: string | null;
+  /** The Project Expectations the customer agrees to today; null while acceptance is off. */
+  terms: { id: string; label: string } | null;
   /** Why acceptance is off on this deployment; null when it is on. */
   off: string | null;
 }) {
@@ -49,7 +51,7 @@ export function AcceptForCustomer({
     if (!o) return;
     setMsg(null);
     start(async () => {
-      const r = await acceptForCustomerAction(versionId, { optionIndex: o.index, addOns: ticked, name, terms: agreed, signature: null, reason });
+      const r = await acceptForCustomerAction(versionId, { optionIndex: o.index, addOns: ticked, name, terms: agreed, termsId: terms?.id ?? null, signature: null, reason });
       if (r.ok) {
         setMsg({ text: r.warning ? `Recorded. ${r.warning}` : "Recorded. GHL is at Project Won and the customer has the accepted quote.", bad: Boolean(r.warning) });
         router.refresh();
@@ -107,7 +109,7 @@ export function AcceptForCustomer({
                   <textarea value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} rows={2} placeholder="e.g. Signed the printed quote in store; scan in the job folder" />
                 </label>
                 <label className="check-in">
-                  <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} /> They have the Project Expectations{termsVersion ? ` (version ${termsVersion})` : ""} and agree to them
+                  <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} /> They have the Project Expectations{terms ? ` (${terms.label})` : ""} and agree to them
                 </label>
                 <button type="button" className="btn primary" disabled={busy || !o || !agreed || !reason.trim() || name.trim().length < 2} onClick={submit}>
                   {busy ? "Recording…" : "Record acceptance"}
@@ -194,7 +196,7 @@ export function AcceptedCard({
           {a.stages.map((s, i) => (
             <div key={i}><dt>{s.label}</dt><dd>{money(s.amount)}</dd></div>
           ))}
-          <div><dt>Project Expectations</dt><dd>version {a.terms}</dd></div>
+          <div><dt>Project Expectations</dt><dd>{termsLabel(a.terms)}</dd></div>
         </dl>
         {a.signature && (
           <svg className="acc-sig" viewBox="0 0 1000 300" role="img" aria-label={`${a.name}'s signature`}>

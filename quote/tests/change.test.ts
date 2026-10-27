@@ -159,7 +159,7 @@ describe("sending a change", () => {
 
   it("can never be accepted: it is sent for the record", () => {
     const copy: CustomerCopy = { ...customerCopy(quote([install]), at), change: changeSummary(1, "2026-11-03", before, after) };
-    expect(notAcceptable(copy, "open", { version: "2.2", title: "x", file: "x.pdf" })).toMatch(/nothing to accept/);
+    expect(notAcceptable(copy, "open", { id: "recTermsAAAAAAAAA", on: "2026-10-27" })).toMatch(/nothing to accept/);
   });
 
   const copy: CustomerCopy = { ...customerCopy(quote([{ ...install, qty: 107 }, { ...stairs, qty: 14 }]), at), change: changeSummary(1, "2026-11-03", before, after) };
