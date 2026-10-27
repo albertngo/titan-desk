@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { whenWords } from "@/lib/activity/track";
 import { displayPhone } from "@/lib/link/identity";
-import { ago, inFilter, matchesSearch, QUOTE_FILTERS, type QuoteFilter, type QuoteGroup } from "@/lib/quotes/group";
+import { ago, inFilter, matchesSearch, openedOn, QUOTE_FILTERS, type QuoteFilter, type QuoteGroup, type VersionRow } from "@/lib/quotes/group";
 
 const dateOf = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric", year: "numeric" });
 const initials = (name: string | null) =>
@@ -15,10 +16,18 @@ const initials = (name: string | null) =>
     .join("")
     .toUpperCase() || "?";
 
-/** Open tracking (2026-10-27): how often the customer opened a sent version's link; "Not opened" once it is tracked. */
-function Opened({ v }: { v: { status: string | null; openedCount?: number; tracked?: boolean } }) {
+/** Open tracking (2026-10-27): how often the customer opened a sent version's link and when last; "Not opened" once it is tracked. */
+function Opened({ v, now }: { v: Pick<VersionRow, "status" | "openedCount" | "lastOpenedAt" | "tracked">; now: Date }) {
   const n = v.openedCount ?? 0;
-  if (n > 0) return <span className="ql-open" title="Customer opens of the link">Opened{n > 1 ? ` ×${n}` : ""}</span>;
+  if (n > 0) {
+    const when = v.lastOpenedAt ? openedOn(v.lastOpenedAt, now) : null;
+    return (
+      <span className="ql-open" title={`Customer opened the link ${n === 1 ? "once" : `${n} times`}${v.lastOpenedAt ? `, last ${whenWords(new Date(v.lastOpenedAt))}` : ""}`}>
+        Opened{n > 1 ? ` ×${n}` : ""}
+        {when && <span className="ql-open-at">{n > 1 ? `, last ${when}` : ` ${when}`}</span>}
+      </span>
+    );
+  }
   if (v.tracked && v.status === "Sent") return <span className="ql-open none">Not opened</span>;
   return null;
 }
@@ -167,7 +176,7 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
                     <span className="ql-v-n">v{latest.version ?? "?"}</span>
                     <Status status={latest.status} />
                     {latest.basis && <span className={`ql-basis ${latest.basis}`}>{latest.basis}</span>}
-                    <Opened v={latest} />
+                    <Opened v={latest} now={now} />
                   </div>
                   <div className="ql-flags">
                     {g.linkStatus === "Needs linking" && <span className="chip bad">Needs linking</span>}
@@ -185,7 +194,7 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
                           {i === 0 && <span className="ql-cur">Current</span>}
                           <Status status={v.status} />
                           {v.basis && <span className={`ql-basis ${v.basis}`}>{v.basis}</span>}
-                          <Opened v={v} />
+                          <Opened v={v} now={now} />
                           <span className="mt">
                             {v.optionCount > 0 ? `${v.optionCount} option${v.optionCount === 1 ? "" : "s"}` : "old A/B/C format"} · {dateOf(v.createdTime)}
                           </span>

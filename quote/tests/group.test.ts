@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ago, groupVersions, inFilter, matchesSearch, type QuoteHead, type VersionRow } from "../src/lib/quotes/group";
+import { ago, groupVersions, inFilter, matchesSearch, openedOn, type QuoteHead, type VersionRow } from "../src/lib/quotes/group";
 
 // INVENTED people and numbers only: this repo is public.
 const V = (o: Partial<VersionRow> & { id: string; quoteRecordId: string | null }): VersionRow & { quoteRecordId: string | null } => ({ label: null, version: 1, status: "Draft", basis: "Preliminary", optionCount: 1, createdTime: "2026-10-01T00:00:00Z", ...o });
@@ -66,5 +66,14 @@ describe("All quotes: quick filters and dates", () => {
     expect(ago("2026-10-14T20:00:00Z", now)).toBe("Yesterday");
     expect(ago("2026-10-12T20:00:00Z", now)).toBe("3 days ago");
     expect(ago("2026-09-01T16:00:00Z", now)).toBe("Sep 1");
+  });
+
+  it("says when the customer last opened a version: the time today or yesterday, then the date", () => {
+    const now = new Date("2026-10-15T16:00:00Z"); // 12:00 pm in Toronto
+    expect(openedOn("2026-10-15T18:14:00Z", now)).toBe("today 2:14 pm");
+    expect(openedOn("2026-10-15T03:30:00Z", now)).toBe("yesterday 11:30 pm"); // late evening in Toronto, already the 15th in UTC
+    expect(openedOn("2026-10-14T13:05:00Z", now)).toBe("yesterday 9:05 am");
+    expect(openedOn("2026-10-12T20:00:00Z", now)).toBe("Oct 12");
+    expect(openedOn("2025-09-01T16:00:00Z", now)).toBe("Sep 1, 2025");
   });
 });

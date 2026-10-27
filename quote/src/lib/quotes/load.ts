@@ -16,7 +16,7 @@ export async function listQuoteGroups(): Promise<QuoteGroup[]> {
   await requireQuoter();
   const [versions, quotes] = await Promise.all([
     listRecords(T.versions, {
-      fields: [VERSION.label, VERSION.version, VERSION.status, VERSION.basis, VERSION.quote, VERSION.options, VERSION.openedCount, VERSION.trackActivity],
+      fields: [VERSION.label, VERSION.version, VERSION.status, VERSION.basis, VERSION.quote, VERSION.options, VERSION.openedCount, VERSION.lastOpenedAt, VERSION.trackActivity],
     }),
     listRecords(T.quotes, {
       fields: [QUOTE.customerName, QUOTE.lastName, QUOTE.firstName, QUOTE.siteCity, QUOTE.quoteNumber, QUOTE.linkStatus, QUOTE.addressStatus, QUOTE.phone, QUOTE.email, QUOTE.projectNumber],
@@ -48,6 +48,7 @@ export async function listQuoteGroups(): Promise<QuoteGroup[]> {
       basis: str(r.fields[VERSION.basis]),
       optionCount: ids(r.fields[VERSION.options]).length,
       openedCount: num(r.fields[VERSION.openedCount]) ?? 0,
+      lastOpenedAt: str(r.fields[VERSION.lastOpenedAt]),
       tracked: bool(r.fields[VERSION.trackActivity]),
       createdTime: r.createdTime,
     })),
