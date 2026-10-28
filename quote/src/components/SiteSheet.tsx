@@ -65,7 +65,13 @@ export function SiteSheetTab({
   const [photos, setPhotos] = useState<Photo[]>(photos0);
   const [files, setFiles] = useState<File[]>([]);
   // Picks add up (2026-10-28: only one photo could be attached): take page 1, then page 2, or choose several.
-  const addFiles = (list: FileList | null) => setFiles((f) => [...f, ...Array.from(list ?? []).filter((x) => !x.type || x.type.startsWith("image/"))].slice(0, MAX_PHOTOS));
+  // The input's FileList is live: clearing the input (so the same photo can be picked again) empties it, so it
+  // is copied here, before the clear, never read later inside the state update (2026-10-28: a second photo was lost).
+  const addFiles = (input: HTMLInputElement) => {
+    const picked = Array.from(input.files ?? []).filter((x) => !x.type || x.type.startsWith("image/"));
+    input.value = "";
+    setFiles((f) => [...f, ...picked].slice(0, MAX_PHOTOS));
+  };
   const previews = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files]);
   useEffect(() => () => previews.forEach((u) => URL.revokeObjectURL(u)), [previews]);
   const [message, setMessage] = useState<{ text: string; bad: boolean } | null>(null);
@@ -218,11 +224,11 @@ export function SiteSheetTab({
             {/* The camera takes one shot at a time; the library allows several. Both add to the list. */}
             <label className={`btn${files.length >= MAX_PHOTOS ? " disabled" : ""}`}>
               Take a photo
-              <input type="file" accept="image/*" capture="environment" hidden disabled={files.length >= MAX_PHOTOS} aria-label="Take a photo of a page" onChange={(e) => (addFiles(e.target.files), (e.target.value = ""))} />
+              <input type="file" accept="image/*" capture="environment" hidden disabled={files.length >= MAX_PHOTOS} aria-label="Take a photo of a page" onChange={(e) => addFiles(e.currentTarget)} />
             </label>
             <label className={`btn${files.length >= MAX_PHOTOS ? " disabled" : ""}`}>
               Choose photos
-              <input type="file" accept="image/*" multiple hidden disabled={files.length >= MAX_PHOTOS} aria-label="Choose photos of the site sheet" onChange={(e) => (addFiles(e.target.files), (e.target.value = ""))} />
+              <input type="file" accept="image/*" multiple hidden disabled={files.length >= MAX_PHOTOS} aria-label="Choose photos of the site sheet" onChange={(e) => addFiles(e.currentTarget)} />
             </label>
             <button type="button" className="btn primary" disabled={files.length === 0 || reading} onClick={read}>
               {reading ? "Reading… about a minute" : files.length ? `Read ${files.length} photo${files.length === 1 ? "" : "s"}` : stored ? "Read new photos" : "Read the sheet"}

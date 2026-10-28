@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-10-28",
     kind: "fixed",
+    title: "Site sheet: a second photo now adds on",
+    details: ["Taking or choosing another photo adds it beside the ones already there (up to 4), instead of replacing them."],
+  },
+  {
+    date: "2026-10-28",
+    kind: "fixed",
     title: "Site sheet: both pages at once, and a clear message when reading isn't set up right",
     details: [
       "Take a photo adds one page at a time; Choose photos picks several from the library. Each one shows as a thumbnail (Page 1, Page 2) with a × to remove it, then Read reads them all together.",
