@@ -11,7 +11,6 @@ import { boxPrice, collectionMembers, splitName, type CollectionMember } from "@
 import { EMPTY_FILTERS, filtersToSearchParams } from "@/lib/db/filters";
 import type { CatalogueStaffRow } from "@/lib/db/types";
 import { dateShort, money, num, priceLabel } from "@/lib/format";
-import { LIFT } from "@/lib/ui";
 
 /** Catalogue checkboxes are unticked when nobody recorded them: "not confirmed", never "no". */
 const confirmed = (v: boolean) => (v ? "Yes" : "Not confirmed");
@@ -19,7 +18,7 @@ const confirmed = (v: boolean) => (v ? "Yes" : "Not confirmed");
 function Row({ label, value }: { label: string; value: ReactNode }) {
   if (value === null || value === undefined || value === "" || value === "—") return null;
   return (
-    <div className="flex justify-between gap-4 border-b border-cream-deep py-2.5 text-sm last:border-0">
+    <div className="flex justify-between gap-4 border-b border-cream-deep py-1.5 text-sm last:border-0">
       <dt className="text-ink/55">{label}</dt>
       <dd className="text-right font-medium text-ink">{value}</dd>
     </div>
@@ -28,9 +27,9 @@ function Row({ label, value }: { label: string; value: ReactNode }) {
 
 function Card({ title, children, className = "" }: { title: string; children: ReactNode; className?: string }) {
   return (
-    <section className={`rounded-[20px] bg-white p-5 sm:p-6 ${LIFT} ${className}`}>
-      <h2 className="font-display text-lg font-bold text-denim">{title}</h2>
-      <div className="mt-2">{children}</div>
+    <section className={`rounded-xl bg-white px-4 py-3 ring-1 ring-denim/10 ${className}`}>
+      <h2 className="text-sm font-semibold text-denim">{title}</h2>
+      <div className="mt-1">{children}</div>
     </section>
   );
 }
@@ -87,98 +86,96 @@ export function ProductDetail({ product: p, collection }: {
 
   return (
     <article>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <BackLink />
         <Trail p={p} />
       </div>
 
-      <div className="mt-5 grid gap-8 lg:grid-cols-[minmax(0,7fr)_minmax(360px,5fr)] lg:gap-12">
+      <header className="mt-3">
+        {name.line && <p className="text-sm text-ink/60">{name.line}</p>}
+        <h1 className="font-display text-2xl font-bold leading-tight text-denim [text-wrap:balance] sm:text-[28px]">
+          {name.title}
+          {name.badge && <span className="ml-2 align-middle text-sm font-semibold text-ink/50">({name.badge})</span>}
+        </h1>
+        <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-ink/55">
+          <span className="font-mono">{p.sku}</span>
+          {p.supplier && <span>· {titleCase(p.supplier)}{p.supplier_sku ? ` ${p.supplier_sku}` : ""}</span>}
+          {(name.size || name.detail) && <span>· {[name.size, name.detail].filter(Boolean).join(" · ")}</span>}
+          {p.promo_active && <span className="rounded-md bg-campfire-dark px-1.5 py-0.5 text-[11px] font-semibold text-cream">On promo{p.promo_end_date ? ` to ${dateShort(p.promo_end_date)}` : ""}</span>}
+          <StockBadge status={p.stock_status} comingSoon={p.coming_soon} />
+          {!p.active && <span className="rounded-md bg-ink px-1.5 py-0.5 text-[11px] font-semibold text-cream">Archived</span>}
+        </p>
+      </header>
+
+      <div className="mt-3 grid gap-4 md:grid-cols-2 md:gap-6">
         <div className="min-w-0">
           <ImageGallery images={p.images ?? []} alt={p.product_name ?? p.sku} />
           {p.supplier_product_page && (
-            <p className="mt-2 text-xs text-ink/55">
+            <p className="mt-1.5 text-xs text-ink/55">
               Photos from{" "}
               <a href={p.supplier_product_page} target="_blank" rel="noreferrer" className="font-medium text-denim underline underline-offset-2">
-                {host(p.supplier_product_page)}
+                {host(p.supplier_product_page)} ↗
               </a>
             </p>
           )}
         </div>
 
-        <aside className="min-w-0 lg:sticky lg:top-24 lg:self-start">
-          {name.line && <p className="text-sm font-medium text-ink/60">{name.line}</p>}
-          <h1 className="mt-1 font-display text-[32px] font-bold leading-[1.08] tracking-[-0.015em] text-denim [text-wrap:balance] sm:text-[40px]">
-            {name.title}
-            {name.badge && <span className="ml-2 align-middle text-base font-semibold text-ink/50">({name.badge})</span>}
-          </h1>
-          <p className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-ink/55">
-            <span className="font-mono">{p.sku}</span>
-            {p.supplier && <span>· {titleCase(p.supplier)}{p.supplier_sku ? ` ${p.supplier_sku}` : ""}</span>}
-            {(name.size || name.detail) && <span>· {[name.size, name.detail].filter(Boolean).join(" · ")}</span>}
-          </p>
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {p.promo_active && <span className="rounded-md bg-campfire-dark px-2 py-0.5 text-[11px] font-semibold text-cream">On promo{p.promo_end_date ? ` to ${dateShort(p.promo_end_date)}` : ""}</span>}
-            <StockBadge status={p.stock_status} comingSoon={p.coming_soon} />
-            {!p.active && <span className="rounded-md bg-ink px-2 py-0.5 text-[11px] font-semibold text-cream">Archived</span>}
-          </div>
-
-          <div className="mt-6 flex items-baseline gap-3">
-            <p className={`text-[40px] font-bold leading-none tracking-[-0.02em] tabular-nums ${p.promo_active ? "text-campfire-dark" : "text-denim"}`}>
-              {priceLabel(p.retail_price, p.price_unit, p.price_on_request)}
+        <div className="min-w-0">
+          <div className="rounded-xl bg-white px-4 py-3 ring-1 ring-denim/10">
+            <p className="flex flex-wrap items-baseline gap-x-3">
+              <span className={`text-[28px] font-bold leading-none tabular-nums ${p.promo_active ? "text-campfire-dark" : "text-denim"}`}>
+                {priceLabel(p.retail_price, p.price_unit, p.price_on_request)}
+              </span>
+              {box !== null && p.box_size_sf !== null && (
+                <span className="text-sm tabular-nums text-ink/60">{money(box)} per box of {num(p.box_size_sf)} sf</span>
+              )}
             </p>
-          </div>
-          {box !== null && p.box_size_sf !== null && (
-            <p className="mt-1.5 text-sm text-ink/60">{money(box)} per box of {num(p.box_size_sf)} sf</p>
-          )}
-
-          {quick.length > 0 && (
-            <ul className="mt-4 flex flex-wrap gap-1.5">
-              {quick.map((q) => (
-                <li key={q} className="flex items-center gap-1 rounded-full bg-white px-3 py-1 text-[13px] font-medium text-ink ring-1 ring-denim/10">
-                  <ShortcutIcon name="check" className="h-3.5 w-3.5 text-denim" />
-                  {q}
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <div className="mt-6 flex flex-col gap-2.5 sm:flex-row lg:flex-col xl:flex-row">
-            {p.price_list_url ? (
-              <a href={p.price_list_url} target="_blank" rel="noreferrer"
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-denim sm:flex-1 lg:flex-none xl:flex-1 px-5 text-sm font-semibold text-cream transition hover:bg-denim-dark active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-denim">
-                Supplier price list{p.last_price_update ? ` · ${dateShort(p.last_price_update)}` : ""}
-                <ShortcutIcon name="external" className="h-4 w-4" />
-              </a>
-            ) : (
-              <p className="flex h-12 items-center justify-center rounded-full bg-cream-deep sm:flex-1 lg:flex-none xl:flex-1 px-5 text-sm text-ink/60">No supplier price list linked yet</p>
+            {quick.length > 0 && (
+              <ul className="mt-2.5 flex flex-wrap gap-1">
+                {quick.map((q) => (
+                  <li key={q} className="flex items-center gap-1 rounded-full bg-cream px-2 py-0.5 text-xs font-medium text-ink ring-1 ring-denim/10">
+                    <ShortcutIcon name="check" className="h-3 w-3 text-denim" />
+                    {q}
+                  </li>
+                ))}
+              </ul>
             )}
-            <AskBertButton sku={p.sku} />
+            <div className="mt-3 flex flex-wrap gap-2">
+              {p.price_list_url ? (
+                <a href={p.price_list_url} target="_blank" rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-denim px-3 py-2 text-sm font-semibold text-cream transition hover:bg-denim-dark active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-denim">
+                  Supplier price list{p.last_price_update ? ` · ${dateShort(p.last_price_update)}` : ""}
+                  <ShortcutIcon name="external" className="h-3.5 w-3.5" />
+                </a>
+              ) : (
+                <span className="inline-flex items-center rounded-lg bg-cream-deep px-3 py-2 text-sm text-ink/60">No supplier price list linked yet</span>
+              )}
+              <AskBertButton sku={p.sku} />
+            </div>
           </div>
 
           <PriceBlock product={p} />
 
-          <p className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+          <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm">
             {p.promo_list_url && (
-              <a href={p.promo_list_url} target="_blank" rel="noreferrer" className="font-medium text-denim underline underline-offset-4">Promo list</a>
+              <a href={p.promo_list_url} target="_blank" rel="noreferrer" className="font-medium text-denim underline underline-offset-4">Promo list ↗</a>
             )}
             <a href={p.airtable_url} target="_blank" rel="noreferrer" className="font-medium text-denim underline underline-offset-4">
-              Report an issue in Airtable
+              Report an issue in Airtable ↗
             </a>
           </p>
-        </aside>
+        </div>
       </div>
 
-      <CollectionTiles members={colours} total={collection?.total ?? 0} current={p.sku} supplier={p.supplier} />
-
       {p.variants?.length ? (
-        <section className="mt-12">
-          <h2 className="font-display text-xl font-bold text-denim">Also in</h2>
-          <div className="mt-3 flex flex-wrap gap-2">
+        <section className="mt-5">
+          <h2 className="text-sm font-semibold text-denim">Also in</h2>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
             {p.variants.map((v) => (
               <Link
                 key={v.sku}
                 href={`/p/${encodeURIComponent(v.sku)}`}
-                className={`rounded-full px-4 py-2 text-sm font-medium transition ${v.active === false ? "text-ink/40 ring-1 ring-dashed ring-ink/20" : "bg-white text-denim ring-1 ring-denim/15 hover:ring-denim/40"}`}
+                className={`rounded-full px-3 py-1 text-xs font-medium transition ${v.active === false ? "text-ink/40 ring-1 ring-dashed ring-ink/20" : "bg-white text-denim ring-1 ring-denim/15 hover:ring-denim/40"}`}
               >
                 {v.variant_label ?? v.sku}
               </Link>
@@ -187,7 +184,9 @@ export function ProductDetail({ product: p, collection }: {
         </section>
       ) : null}
 
-      <div className="mt-12 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+      <CollectionTiles members={colours} total={collection?.total ?? 0} current={p.sku} supplier={p.supplier} />
+
+      <div className="mt-5 grid items-start gap-3 md:grid-cols-2">
         <Card title="Specs">
           <dl>
             <Row label="Size" value={dims || null} />
@@ -219,16 +218,16 @@ export function ProductDetail({ product: p, collection }: {
             <Row label="Warranty" value={p.residential_warranty_yrs !== null || p.commercial_warranty_yrs !== null ? `${num(p.residential_warranty_yrs)} yr residential · ${num(p.commercial_warranty_yrs)} yr commercial` : null} />
           </dl>
           {(p.undertone || p.tone_depth || p.texture || p.style.length || p.busyness) ? (
-            <div className="mt-4">
-              <h3 className="text-[13px] font-semibold text-ink/60">Design</h3>
-              <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
-                {p.undertone && <span className="rounded-full bg-sky px-2.5 py-1 font-medium text-denim">{p.undertone}</span>}
-                {p.tone_depth && <span className="rounded-full bg-sky px-2.5 py-1 font-medium text-denim">Tone {p.tone_depth}/5</span>}
-                {p.texture && <span className="rounded-full bg-sky px-2.5 py-1 font-medium text-denim">{p.texture}</span>}
-                {p.style.map((s) => <span key={s} className="rounded-full bg-sky px-2.5 py-1 font-medium text-denim">{s}</span>)}
-                {p.busyness && <span className="rounded-full bg-sky px-2.5 py-1 font-medium text-denim">{p.busyness}</span>}
+            <div className="mt-2 border-t border-cream-deep pt-2">
+              <h3 className="text-xs font-semibold text-ink/60">Design</h3>
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
+                {p.undertone && <span className="rounded-full bg-sky px-2 py-0.5 font-medium text-denim">{p.undertone}</span>}
+                {p.tone_depth && <span className="rounded-full bg-sky px-2 py-0.5 font-medium text-denim">Tone {p.tone_depth}/5</span>}
+                {p.texture && <span className="rounded-full bg-sky px-2 py-0.5 font-medium text-denim">{p.texture}</span>}
+                {p.style.map((s) => <span key={s} className="rounded-full bg-sky px-2 py-0.5 font-medium text-denim">{s}</span>)}
+                {p.busyness && <span className="rounded-full bg-sky px-2 py-0.5 font-medium text-denim">{p.busyness}</span>}
                 {p.style_tags_status && (
-                  <span className={`rounded-full px-2.5 py-1 font-medium ${p.style_tags_status === "Staff confirmed" ? "bg-denim text-cream" : "bg-peach text-campfire-dark"}`}>
+                  <span className={`rounded-full px-2 py-0.5 font-medium ${p.style_tags_status === "Staff confirmed" ? "bg-denim text-cream" : "bg-peach text-campfire-dark"}`}>
                     {p.style_tags_status}
                   </span>
                 )}
@@ -247,7 +246,7 @@ export function ProductDetail({ product: p, collection }: {
         </Card>
 
         {p.salesperson_notes && (
-          <Card title="Salesperson notes" className="md:col-span-2 xl:col-span-1">
+          <Card title="Salesperson notes">
             <p className="whitespace-pre-wrap text-sm leading-relaxed">{p.salesperson_notes}</p>
           </Card>
         )}
@@ -261,7 +260,7 @@ export function ProductDetail({ product: p, collection }: {
             <ul className="divide-y divide-cream-deep">
               {p.pairs_well_with.map((x) => (
                 <li key={x.sku}>
-                  <Link href={`/p/${encodeURIComponent(x.sku)}`} className="flex items-center justify-between gap-3 py-2.5 text-sm text-ink hover:text-denim">
+                  <Link href={`/p/${encodeURIComponent(x.sku)}`} className="flex items-center justify-between gap-3 py-1.5 text-sm text-ink hover:text-denim">
                     <span className="min-w-0 truncate">{x.product_name ?? x.sku}{x.active === false && <span className="ml-1 text-ink/40">(archived)</span>}</span>
                     <ShortcutIcon name="chevron" className="h-4 w-4 shrink-0 text-denim/40" />
                   </Link>

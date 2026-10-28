@@ -15,12 +15,12 @@ export function SiteHeader({ bugReports = false }: { bugReports?: boolean }) {
   const path = usePathname() ?? "/";
   return (
     <header className="pt-safe sticky top-0 z-20 bg-denim text-cream">
-      <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-3 px-4 sm:gap-5 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-14 max-w-5xl items-center gap-3 px-4 sm:gap-4 sm:px-6">
         <Link href="/" className="flex shrink-0 items-center gap-2.5 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cream">
           {/* eslint-disable-next-line @next/next/no-img-element -- static brand asset */}
-          <img src="/brand/titan-mascot-cream.png" alt="" className="h-10 w-10 object-contain" />
+          <img src="/brand/titan-mascot-cream.png" alt="" className="h-8 w-8 object-contain" />
           <span className="leading-none">
-            <span className="hidden font-display text-[19px] font-bold min-[400px]:block">askBert</span>
+            <span className="hidden font-display text-[17px] font-bold min-[400px]:block">askBert</span>
             <span className="mt-0.5 hidden text-[11px] tracking-wide text-sky sm:block">Titan Flooring desk</span>
           </span>
         </Link>
