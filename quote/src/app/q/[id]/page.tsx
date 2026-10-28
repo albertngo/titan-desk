@@ -9,6 +9,7 @@ import { Financials } from "@/components/Financials";
 import { LinkJob } from "@/components/LinkJob";
 import { OptionSheet } from "@/components/OptionSheet";
 import { Rooms } from "@/components/Rooms";
+import { SiteSheetTab } from "@/components/SiteSheet";
 import { SendQuote } from "@/components/SendQuote";
 import { TopBar } from "@/components/TopBar";
 import { airtableRecordUrl, T } from "@/lib/airtable/fields";
@@ -17,7 +18,9 @@ import { optionTotals, parityDiffs } from "@/lib/calc";
 import { money } from "@/lib/format";
 import { jobChoices } from "@/lib/quotes/link";
 import { fromWords } from "@/lib/quotes/group";
-import { getQuote } from "@/lib/quotes/load";
+import { getQuote, getRateCard } from "@/lib/quotes/load";
+import { sheetReaderOn } from "@/lib/quotes/sitesheet";
+import { parseStored } from "@/lib/sitesheet/sheet";
 import { refreshFromGhl } from "@/lib/quotes/refresh";
 import { customerView } from "@/lib/view";
 import { fromQuote } from "@/lib/editor/model";
@@ -52,7 +55,9 @@ export default async function QuotePage({
   const showAnalysis = opt === "analysis";
   // The Rooms tab (2026-10-27): staff only, so Customer view never has it.
   const showRooms = opt === "rooms" && !customer;
-  const option = showAnalysis || showRooms ? null : (quote.options.find((o) => o.id === opt) ?? quote.options[0] ?? null);
+  // The Site sheet tab (2026-10-28): staff only, like Rooms.
+  const showSheet = opt === "sheet" && !customer;
+  const option = showAnalysis || showRooms || showSheet ? null : (quote.options.find((o) => o.id === opt) ?? quote.options[0] ?? null);
   const totals = option ? optionTotals(option.lines, quote.discountRate, quote.showHst) : null;
   const madeFrom = fromWords(quote.changeNo, quote.fromVersion);
   const airtableUrl = airtableRecordUrl(T.versions, quote.id);
@@ -105,6 +110,11 @@ export default async function QuotePage({
   const roomsSaved = roomsLog.by && roomsLog.at
     ? `Last saved by ${roomsLog.by} · ${new Date(roomsLog.at).toLocaleString("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
     : null;
+
+  // The stair site sheet (2026-10-28) lives on the quote too (Quotes → Site Sheet); the card is read only when the tab is open.
+  const sheetRaw = quote.link?.siteSheet ?? "";
+  const sheetStored = parseStored(sheetRaw);
+  const [sheetCard, sheetOn] = showSheet && quote.link ? await Promise.all([getRateCard(), sheetReaderOn()]) : [null, false];
 
   // Acceptance (2026-10-27): on a measured version out with the customer, accept with them or for them;
   // once accepted, what was agreed and where the hand-off to GHL and Notion stands. Staff only.
@@ -231,6 +241,12 @@ export default async function QuotePage({
                     {roomsLog.rooms.length > 0 && <span className="t-amt">{roomsLog.rooms.length}</span>}
                   </Link>
                 )}
+                {!customer && (
+                  <Link className="tab sheet" href={`/q/${quote.id}?opt=sheet`} aria-current={showSheet ? "page" : undefined}>
+                    Site sheet
+                    {sheetStored && <span className="t-amt">{sheetStored.checked ? "checked" : "to check"}</span>}
+                  </Link>
+                )}
                 {quote.options.length > 0 && (
                   <Link className="tab anal" href={`/q/${quote.id}?opt=analysis`} aria-current={showAnalysis ? "page" : undefined}>
                     Analysis
@@ -239,7 +255,24 @@ export default async function QuotePage({
               </nav>
             )}
 
-            {showRooms ? (
+            {showSheet ? (
+              quote.link && sheetCard ? (
+                <SiteSheetTab
+                  quoteRecordId={quote.link.quoteRecordId}
+                  versionId={quote.id}
+                  raw={sheetRaw}
+                  photos={quote.link.siteSheetPhotos ?? []}
+                  initial={fromQuote(quote)}
+                  base={base}
+                  card={sheetCard}
+                  enabled={sheetOn}
+                />
+              ) : (
+                <section className="card">
+                  <p className="empty">This version isn&apos;t attached to a quote in Airtable, so there is nowhere to keep a site sheet.</p>
+                </section>
+              )
+            ) : showRooms ? (
               quote.link ? (
                 <Rooms quoteRecordId={quote.link.quoteRecordId} quoteNumber={quote.link.quoteNumber} raw={roomsRaw} savedLabel={roomsSaved} />
               ) : (

@@ -65,6 +65,10 @@ export type QuoteLink = {
   contractVersionId?: string | null;
   /** Quotes → Rooms (2026-10-27), exactly as stored: the Rooms tab's log, read with parseRooms(). Absent reads as empty. */
   rooms?: string;
+  /** Quotes → Site Sheet (2026-10-28), exactly as stored; read with parseStored(). Absent reads as empty. */
+  siteSheet?: string;
+  /** Quotes → Site Sheet Photos, with addresses fresh from this read. */
+  siteSheetPhotos?: { url: string; name: string }[];
 };
 
 export type QuoteActivity = {
@@ -240,6 +244,11 @@ export type ConfirmAddressResult = { ok: true } | { ok: false; message: string }
 
 /** `saved` is the field's new text, so the page carries on from it without reloading. */
 export type SaveRoomsResult = { ok: true; saved: string } | { ok: false; message: string };
+
+/* ---------- the Site sheet tab (src/lib/quotes/sitesheet.ts) ---------- */
+
+/** `saved` is the field's new text; `photos` the attachments as they now are. */
+export type SiteSheetResult = { ok: true; saved: string; photos?: { url: string; name: string }[]; note?: string } | { ok: false; message: string };
 
 /* ---------- Address arrived (src/lib/quotes/address.ts) ---------- */
 

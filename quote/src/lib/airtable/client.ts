@@ -14,6 +14,8 @@ import { BASE_ID, WRITABLE_TABLES } from "./fields";
  */
 
 const API = "https://api.airtable.com/v0";
+/** Airtable's file-upload host (2026-10-28), used only by uploadAttachment(). */
+const UPLOAD = "https://content.airtable.com/v0";
 
 export type AirtableRecord = { id: string; createdTime: string; fields: Record<string, unknown> };
 
@@ -61,6 +63,27 @@ async function write(method: "POST" | "PATCH", table: string, path: string, body
     throw new AirtableError(`Airtable ${res.status} on ${method} ${table}: ${text.slice(0, 200)}`, res.status);
   }
   return res.json();
+}
+
+/**
+ * Attach one file to an attachment field of a record in a quote table (2026-10-28: the stair site sheet's
+ * photos on Quotes). Airtable's upload host takes the file itself (base64, under 5 MB) and appends it to
+ * the field; the same table and deployment checks as write() run first.
+ */
+export async function uploadAttachment(table: string, id: string, fieldId: string, file: { contentType: string; filename: string; base64: string }): Promise<void> {
+  if (!WRITABLE_TABLES.includes(table)) throw new AirtableError(`Refused: the quote app never writes to ${table}`, 403);
+  if (isCustomerDeployment()) throw new AirtableError("Refused: the customer deployment never writes", 403);
+  if (!/^rec[A-Za-z0-9]{14}$/.test(id) || !/^fld[A-Za-z0-9]{14}$/.test(fieldId)) throw new AirtableError("Not a record or field id", 404);
+  const res = await fetch(`${UPLOAD}/${BASE_ID}/${id}/${fieldId}/uploadAttachment`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token()}`, "Content-Type": "application/json" },
+    body: JSON.stringify(file),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new AirtableError(`Airtable ${res.status} on upload to ${table}: ${text.slice(0, 200)}`, res.status);
+  }
 }
 
 /** Create one record in a quote table. Select options are matched by name (typecast). Returns it with computed fields. */

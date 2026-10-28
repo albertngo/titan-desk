@@ -12,7 +12,7 @@ const SRC = path.resolve(__dirname, "../src");
 const CLIENT = "lib/airtable/client.ts";
 const GHL = "lib/ghl/client.ts";
 /** The only files allowed to create or update Airtable records. Adding one is a reviewed decision. */
-const WRITERS = ["lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/accept/record.ts"];
+const WRITERS = ["lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/accept/record.ts", "lib/quotes/sitesheet.ts"];
 const CATALOGUE = "tblfLXD3zkSdNQGbS";
 
 function files(dir: string): string[] {
@@ -43,8 +43,12 @@ describe("Airtable boundary", () => {
     expect(client).toMatch(/if \(!WRITABLE_TABLES\.includes\(table\)\) throw/);
     // The customer deployment never writes, whatever its token allows.
     expect(client).toMatch(/if \(isCustomerDeployment\(\)\) throw/);
-    // Two requests in the whole file: get() and write(). A third fetch would bypass the table check.
-    expect(client.match(/\bfetch\(/g)?.length).toBe(2);
+    // Three requests in the whole file: get(), write() and, since 2026-10-28, uploadAttachment() (the site
+    // sheet's photos), which runs the same table and deployment checks first. A fourth would bypass them.
+    expect(client.match(/\bfetch\(/g)?.length).toBe(3);
+    expect(client).toMatch(/export async function uploadAttachment\([^)]*\)[^{]*\{\s*if \(!WRITABLE_TABLES\.includes\(table\)\) throw[^\n]*\n\s*if \(isCustomerDeployment\(\)\) throw/);
+    // Airtable's upload host is named in the client only.
+    expect(all.filter((f) => code(f.text).includes("content.airtable.com")).map((f) => f.rel)).toEqual([CLIENT]);
   });
 
   it("writes to the four quote tables only, never the catalogue, Rate Card or Stair Items", () => {
@@ -62,7 +66,7 @@ describe("Airtable boundary", () => {
   });
 
   it("keeps the client, the loaders and the auth check server-only", () => {
-    for (const rel of [CLIENT, GHL, "lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/customer.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/activity/relay.ts", "lib/quotes/acceptClient.ts", "lib/accept/record.ts", "lib/accept/accept.ts", "lib/accept/staff.ts", "lib/accept/live.ts", "lib/auth.ts"]) {
+    for (const rel of [CLIENT, GHL, "lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/customer.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/activity/relay.ts", "lib/quotes/acceptClient.ts", "lib/accept/record.ts", "lib/accept/accept.ts", "lib/accept/staff.ts", "lib/accept/live.ts", "lib/quotes/sitesheet.ts", "lib/anthropic/client.ts", "lib/auth.ts"]) {
       expect(all.find((f) => f.rel === rel)!.text).toMatch(/^import "server-only";/m);
     }
   });
@@ -70,18 +74,18 @@ describe("Airtable boundary", () => {
   it("never imports Airtable code into a browser component", () => {
     const leaks = all
       .filter((f) => /^["']use client["'];?/m.test(f.text))
-      .filter((f) => /^import (?!type )[^;]*from ["']@\/lib\/(airtable|quotes\/load|quotes\/start|quotes\/save|quotes\/refresh|quotes\/records|quotes\/booking|quotes\/link|quotes\/send|quotes\/rooms|quotes\/customer|quotes\/conversation|quotes\/address|quotes\/activity|activity\/relay|quotes\/acceptClient|accept\/record|accept\/accept|accept\/staff|accept\/live|ghl\/client|make\/client|auth)/m.test(f.text))
+      .filter((f) => /^import (?!type )[^;]*from ["']@\/lib\/(airtable|quotes\/load|quotes\/start|quotes\/save|quotes\/refresh|quotes\/records|quotes\/booking|quotes\/link|quotes\/send|quotes\/rooms|quotes\/customer|quotes\/conversation|quotes\/address|quotes\/activity|activity\/relay|quotes\/acceptClient|accept\/record|accept\/accept|accept\/staff|accept\/live|quotes\/sitesheet|anthropic\/client|ghl\/client|make\/client|auth)/m.test(f.text))
       .map((f) => f.rel);
     expect(leaks).toEqual([]);
   });
 
   it("never exposes an Airtable setting to the browser", () => {
-    expect(all.filter((f) => /NEXT_PUBLIC_[A-Z_]*(AIRTABLE|GHL|MAKE)/.test(f.text)).map((f) => f.rel)).toEqual([]);
+    expect(all.filter((f) => /NEXT_PUBLIC_[A-Z_]*(AIRTABLE|GHL|MAKE|ANTHROPIC)/.test(f.text)).map((f) => f.rel)).toEqual([]);
   });
 
   it("checks the quoter allowlist in both the proxy and every loader", () => {
     expect(all.find((f) => f.rel === "proxy.ts")!.text).toContain("isQuoter(");
-    for (const rel of ["lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts"]) {
+    for (const rel of ["lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/sitesheet.ts"]) {
       const text = all.find((f) => f.rel === rel)!.text;
       const exported = text.match(/export async function \w+/g) ?? [];
       const guarded = text.match(/export async function \w+[^{]*\{\s*(const \w+ = )?await requireQuoter(Person)?\(\);/g) ?? [];
@@ -112,14 +116,36 @@ describe("booking step (Make, no sign-in)", () => {
     expect(proxy).toContain('matcher: ["/((?!_next/|brand/|favicon\\\\.ico|robots\\\\.txt).*)"]');
     expect(proxy).toContain("const OPEN_ON_STAFF = /^\\/(login|auth\\/|denied|api\\/booking|api\\/activity|api\\/accept)/;");
     // Open tracking and acceptance (2026-10-27) are the other two key-gated routes; see their own blocks below.
-    // Report a bug (2026-10-28) is the one API route that is NOT open: the proxy signs people in first (tests/bug.test.ts).
-    expect(all.filter((f) => f.rel.startsWith("app/api/")).map((f) => f.rel).sort()).toEqual(["app/api/accept/route.ts", "app/api/activity/route.ts", ROUTE, "app/api/bug/route.ts"]);
+    // Report a bug and Upload site sheet (2026-10-28) are the API routes that are NOT open: the proxy signs people in first.
+    expect(all.filter((f) => f.rel.startsWith("app/api/")).map((f) => f.rel).sort()).toEqual(["app/api/accept/route.ts", "app/api/activity/route.ts", ROUTE, "app/api/bug/route.ts", "app/api/sitesheet/route.ts"]);
   });
 
   it("keeps the shared quote helpers away from pages and actions", () => {
     const importers = all.filter((f) => /from ["']\.\/records["']|from ["']@\/lib\/quotes\/records["']/.test(f.text)).map((f) => f.rel).sort();
     expect(importers).toEqual([BOOKING, "lib/quotes/link.ts", "lib/quotes/start.ts"]);
     expect(all.filter((f) => /from ["']@\/lib\/quotes\/booking["']/.test(f.text)).map((f) => f.rel)).toEqual([ROUTE]);
+  });
+});
+
+describe("Claude boundary (2026-10-28: reading the stair site sheet)", () => {
+  const CLAUDE = "lib/anthropic/client.ts";
+  it("has exactly one file that talks to Claude, and it alone reads the key", () => {
+    expect(all.filter((f) => code(f.text).includes("api.anthropic.com")).map((f) => f.rel)).toEqual([CLAUDE]);
+    expect(all.filter((f) => code(f.text).includes("QUOTE_ANTHROPIC_KEY")).map((f) => f.rel)).toEqual([CLAUDE]);
+    expect(code(all.find((f) => f.rel === CLAUDE)!.text).match(/\bfetch\(/g)?.length).toBe(1);
+  });
+
+  it("is reached only from the site sheet writer, which writes the Quotes table only", () => {
+    expect(all.filter((f) => /from ["']@\/lib\/anthropic\/client["']/.test(f.text)).map((f) => f.rel)).toEqual(["lib/quotes/sitesheet.ts"]);
+    const text = code(all.find((f) => f.rel === "lib/quotes/sitesheet.ts")!.text);
+    for (const m of text.matchAll(/\b(?:updateRecord|uploadAttachment)\((T\.\w+)/g)) expect(m[1]).toBe("T.quotes");
+    expect(text).not.toMatch(/\bcreateRecords?\(|updateRecords\(/);
+    expect(all.filter((f) => /from ["']@\/lib\/quotes\/sitesheet["']/.test(f.text)).map((f) => f.rel).sort()).toEqual(["app/api/sitesheet/route.ts", "app/q/[id]/actions.ts", "app/q/[id]/page.tsx"]);
+  });
+
+  it("never runs on the customer deployment: the route answers 404 there and the client refuses", () => {
+    expect(code(all.find((f) => f.rel === "app/api/sitesheet/route.ts")!.text)).toMatch(/export async function POST\(request: NextRequest\) \{\s*if \(isCustomerDeployment\(\)\) return/);
+    expect(code(all.find((f) => f.rel === CLAUDE)!.text)).toMatch(/if \(!key \|\| isCustomerDeployment\(\)\) throw/);
   });
 });
 

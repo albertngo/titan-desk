@@ -391,6 +391,29 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   Text in the field the app didn't write is shown, never guessed at, and saving replaces it. Staff only:
   Customer view has no tab and the customer deployment never reads it. Pure rules in
   `src/lib/rooms/log.ts`, tested in `tests/rooms.test.ts`.
+- **Site sheet (Albert, 2026-10-28).** A **Site sheet** tab on the quote page, beside Rooms, staff only. The PM
+  fills the two-page paper **Stair Site Sheet** (v3) on site: what is there (staircases, shape, what is on the
+  steps, a tread grid of RSO / LSO / Boxed / 2 side open by 36 / 42 / 48", pie / pizza set / bullnose by open
+  side, landings by size, half moons, stringers, nosing pieces with full and picket-hole lengths, railing,
+  spindles, picket heights, posts) and box G, what the customer wants. Staff photograph both pages into the
+  tab (`/api/sitesheet`, signed in; photos shrunk in the browser); **Claude reads them** (`src/lib/anthropic/client.ts`,
+  model `claude-opus-5-5`, one forced tool call, instructions and schema in `src/lib/sitesheet/prompt.ts`), the
+  photos go on **Quotes → Site Sheet Photos** and what was read on **Quotes → Site Sheet** (JSON, app-written,
+  compare-and-swap like Rooms; `src/lib/quotes/sitesheet.ts`). A person checks every field beside the photos
+  (uncertain ones are marked) and presses **Save check**. The app works out, never asks: risers = treads + one
+  per landing (a half moon counts) + one for the top floor; open sides from the grid; spindles at 2 a step (pie
+  and pizza pieces too), 3 a 2-side-open step, 3 a foot of picket-hole nosing, where a written count higher
+  wins and a lower one is flagged; picket heights 36 / 39 alternating on the steps, 36 on the flat top; oak at
+  about 20 sq ft a box (`src/lib/sitesheet/derive.ts`). **Build stair options** puts one option per viable G1
+  tick into the editor's draft for the quote (`buildOptions()` in `src/lib/sitesheet/options.ts`, Stair Items
+  found by name in `ITEM_NAMES`): sanding only over wood caps (never under carpet; painted wood red-flagged;
+  the piano look, white risers and stringers), new caps always with new risers and recommended on a curved or
+  spiral stair, no vinyl treads on a curve, stringers white → paint / oak on solid → sand & stain / oak on
+  veneer or unknown → oak skin, new spindles and posts replace all plus the ones to add, a pizza set one price
+  per turn, the half moon the card's all-in flat rate. An answer with no Stair Item becomes a Stairs line with
+  no price and a note, never a guess. Staff review and **Save as new version** in the editor as usual; the
+  tab writes no quote line. Tested in `tests/sitesheet.test.ts`. Requote threshold (±5% or $300) is a starting
+  point to check against real jobs, not built.
 - **The payment schedule (Albert, 2026-10-27: "update the payment structure to be editable").** One
   per version, in the editor's terms: presets **35 / 35 / 30** (the default, stored as nothing, so an
   untouched version's Quote Versions → Payment Schedule stays blank), **25 / 25 / 25 / 25**, **50 / 50**,
@@ -533,6 +556,11 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
    reach is `src/lib/activity/relay.ts`, which reports opens to the staff app and reads no Airtable, and, for
    acceptance, `src/lib/quotes/acceptClient.ts` and the pure rules it needs (accept plan, terms, settings,
    schedule). `tests/boundary.test.ts` pins all of this.
+2e. **One file talks to Claude (2026-10-28):** `src/lib/anthropic/client.ts`, `server-only`, the only reader of
+   `QUOTE_ANTHROPIC_KEY` (staff deployment only) and the only file naming `api.anthropic.com`; one request,
+   called only from `src/lib/quotes/sitesheet.ts`, which writes the Quotes table only (the Site Sheet field and,
+   through `uploadAttachment()` in the Airtable client, the Site Sheet Photos field). The Airtable client's
+   third request, `uploadAttachment()`, runs the same table and deployment checks as `write()`.
 3. **Staff is not enough.** Only emails on `QUOTE_ALLOWED_EMAILS` get in. The proxy checks
    it and every loader in `src/lib/quotes/load.ts` and `src/lib/quotes/start.ts` checks again
    (`requireQuoter()`). An empty list lets nobody in.

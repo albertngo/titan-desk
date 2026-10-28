@@ -22,6 +22,18 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-10-28",
+    kind: "new",
+    title: "Site sheet: upload the stair sheet and get priced stair options",
+    details: [
+      "A quote has a Site sheet tab. Photograph both pages of the paper stair site sheet and press Read the sheet; about a minute later every box is filled in beside the photos.",
+      "Check each field against the photo (anything it wasn't sure of is marked in yellow), fix what's wrong, and press Save check.",
+      "It works out risers, spindles, picket heights and oak boxes, and warns when something doesn't add up, like a spindle count lower than the steps suggest.",
+      "Build stair options adds one option per tread choice the customer ticked (new caps, sand and refinish, vinyl) to the editor, priced from the Stair Items card. Sanding isn't offered over carpet. Anything with no rate on the card comes in with no price and a note.",
+      "The photos stay on the quote in Airtable, so the sheet can always be checked again.",
+    ],
+  },
+  {
+    date: "2026-10-28",
     kind: "fixed",
     title: "Glue and other install materials are now added to the price",
     details: [
