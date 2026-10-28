@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ago, fromLabel, fromWords, groupVersions, inFilter, matchesSearch, openedOn, type QuoteHead, type VersionRow } from "../src/lib/quotes/group";
+import { ago, fromLabel, fromWords, groupVersions, inFilter, matchesSearch, openedOn, versionTree, type QuoteHead, type VersionRow } from "../src/lib/quotes/group";
 
 // INVENTED people and numbers only: this repo is public.
 const V = (o: Partial<VersionRow> & { id: string; quoteRecordId: string | null }): VersionRow & { quoteRecordId: string | null } => ({ label: null, version: 1, status: "Draft", basis: "Preliminary", optionCount: 1, createdTime: "2026-10-01T00:00:00Z", ...o });
@@ -106,5 +106,21 @@ describe("fromLabel", () => {
     expect(fromWords(1, 4)).toBe("Change 1 · from v4");
     expect(fromWords(null, 8)).toBe("from v8");
     expect(fromWords(null, null)).toBeNull();
+  });
+});
+
+describe("versionTree", () => {
+  const T = (id: string, version: number, supersedes: string | null = null) => ({ id, version, supersedes, createdTime: `2026-10-${String(version).padStart(2, "0")}T00:00:00Z` });
+  // Newest first, as All quotes holds them: v4 accepted, changes 5, 6, 8 from it, v9 branched from v8, v7 from v4.
+  const vs = [T("v9", 9, "v8"), T("v8", 8, "v4"), T("v7", 7, "v4"), T("v6", 6, "v4"), T("v5", 5, "v4"), T("v4", 4, "v3"), T("v3", 3, "v1"), T("v1", 1)];
+  it("puts each version under its source, oldest first", () => {
+    expect(versionTree(vs).map(({ v, depth }) => `${v.id}:${depth}`)).toEqual(["v1:0", "v3:1", "v4:2", "v5:3", "v6:3", "v7:3", "v8:3", "v9:4"]);
+  });
+  it("treats a version whose source is elsewhere or missing as a root", () => {
+    expect(versionTree([T("b", 2, "recGone"), T("a", 1)]).map(({ v, depth }) => `${v.id}:${depth}`)).toEqual(["a:0", "b:0"]);
+  });
+  it("shows every version once even if the links loop", () => {
+    const out = versionTree([T("x", 1, "y"), T("y", 2, "x"), T("z", 3, "z")]);
+    expect(out.map(({ v }) => v.id).sort()).toEqual(["x", "y", "z"]);
   });
 });

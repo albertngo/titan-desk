@@ -27,6 +27,7 @@ export const CHANGES: Change[] = [
     details: [
       "In All quotes, the versions under a quote say which one they were made from (\"from v8\"), and a change after acceptance says its number too (\"Change 2 · from v4\").",
       "The quote page says the same under the customer's name, and no longer shows the version number twice.",
+      "Versions: Newest first or By origin, above the list. By origin puts each version under the one it was made from, like sub-pages. This device remembers the choice.",
     ],
   },
   {

@@ -465,7 +465,9 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   and a search over name, quote and project number, city, email and phone digits. Grouping and
   search are pure, in `src/lib/quotes/group.ts`, tested in `tests/group.test.ts`. Since 2026-10-28
   each version says where it came from ("Change 2 · from v4", `fromLabel()`), read from Quote
-  Versions → Supersedes, and the quote page header says the same.
+  Versions → Supersedes, and the quote page header says the same. A **Versions** toggle switches the
+  fold-out between Newest first (the default) and By origin, each version nested under its source
+  (`versionTree()`); the choice is kept in localStorage on that device only.
 
 ## Hard rules
 

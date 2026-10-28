@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { whenWords } from "@/lib/activity/track";
 import { displayPhone } from "@/lib/link/identity";
-import { ago, fromLabel, inFilter, matchesSearch, openedOn, QUOTE_FILTERS, type QuoteFilter, type QuoteGroup, type VersionRow } from "@/lib/quotes/group";
+import { ago, fromLabel, fromWords, inFilter, matchesSearch, openedOn, QUOTE_FILTERS, versionTree, type QuoteFilter, type QuoteGroup, type VersionRow } from "@/lib/quotes/group";
 
 const dateOf = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric", year: "numeric" });
 const initials = (name: string | null) =>
@@ -73,11 +73,39 @@ function Chevron() {
   );
 }
 
+/** How the versions under a quote are laid out (2026-10-28): newest first, or each under the one it was made from. */
+type VersionView = "newest" | "origin";
+const VIEW_KEY = "ql-version-view";
+// Remembered on this device. Storage can be missing or blocked, and then it is just Newest first.
+const readView = (): VersionView => {
+  try {
+    return window.localStorage.getItem(VIEW_KEY) === "origin" ? "origin" : "newest";
+  } catch {
+    return "newest";
+  }
+};
+const viewListeners = new Set<() => void>();
+const subscribeView = (fn: () => void) => {
+  viewListeners.add(fn);
+  window.addEventListener("storage", fn);
+  return () => {
+    viewListeners.delete(fn);
+    window.removeEventListener("storage", fn);
+  };
+};
+const saveView = (v: VersionView) => {
+  try {
+    window.localStorage.setItem(VIEW_KEY, v);
+  } catch {}
+  viewListeners.forEach((fn) => fn());
+};
+
 /** The All quotes list: quick filters, a search, one row per quote, and its versions folded under it. */
 export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<QuoteFilter>("all");
   const [open, setOpen] = useState<Set<string>>(() => new Set());
+  const view = useSyncExternalStore(subscribeView, readView, () => "newest" as VersionView);
   const search = useRef<HTMLInputElement>(null);
   const now = useMemo(() => new Date(), []);
 
@@ -143,6 +171,11 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
               <span className="n">{counts[f.key]}</span>
             </button>
           ))}
+        </div>
+        <div className="ql-view" role="group" aria-label="Versions">
+          <span className="k">Versions</span>
+          <button type="button" className="ql-f" aria-pressed={view === "newest"} onClick={() => saveView("newest")}>Newest first</button>
+          <button type="button" className="ql-f" aria-pressed={view === "origin"} onClick={() => saveView("origin")}>By origin</button>
         </div>
       </div>
 
@@ -210,14 +243,15 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
                 </div>
                 {expanded && (
                   <ul className="ql-vs" id={`v-${k}`}>
-                    {g.versions.map((v, i) => {
-                      const from = fromLabel(v, g.versions);
+                    {(view === "origin" ? versionTree(g.versions) : g.versions.map((v) => ({ v, depth: 0 }))).map(({ v, depth }) => {
+                      // Nested, the indent already shows the source, so only a change keeps its number.
+                      const from = view === "origin" ? fromWords(v.changeNo, null) : fromLabel(v, g.versions);
                       return (
-                      <li key={v.id}>
+                      <li key={v.id} style={depth ? ({ "--d": depth } as CSSProperties) : undefined} className={depth ? "sub" : undefined}>
                         <Link href={`/q/${v.id}`} className="ql-v">
                           <span className="nm">{v.label ?? `v${v.version ?? "?"}`}</span>
                           {from && <span className="ql-from">{from}</span>}
-                          {i === 0 && <span className="ql-cur">Current</span>}
+                          {v.id === latest.id && <span className="ql-cur">Current</span>}
                           <Status status={v.status} />
                           {v.basis && <span className={`ql-basis ${v.basis}`}>{v.basis}</span>}
                           <Opened v={v} now={now} />
