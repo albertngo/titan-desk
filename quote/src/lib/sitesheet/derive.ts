@@ -9,6 +9,9 @@ import { TREAD_TYPES, type SiteSheet, type TreadType, type WidthCounts } from ".
  *   written at all, an open staircase still gets the per-step estimate. More is always fine: a written
  *   count higher than this wins, and a written count lower than this is used but flagged to confirm;
  * - holed nosings: one per flat run with pickets, as long as its picket feet;
+ * - custom pieces (sheet v5): a 2-piece pizza set, or a 3-piece one that is 2-side open; every 2-side-open
+ *   bullnose (LSO and RSO bullnoses are standard);
+ * - wall-rail brackets: the first 1 ft in, then one every 2 ft, so floor((ft − 1) / 2) + 1 a wall run;
  * - picket heights: on the steps they alternate 36" and 39" (more 36s), the flat top is all 36";
  * - oak for landings at about 20 sq ft a box (3 × 3 when the size isn't written).
  * Pure; tested in tests/sitesheet.test.ts.
@@ -34,47 +37,60 @@ export type Derived = {
   rail: { straightFt: number; curvedFt: number; wallFt: number; flatPicketFt: number; totalFt: number };
   nosing: { pieces: number; newPieces: number; holedPieces: number; sandPieces: number; feet: number; holedFt: number };
   oakBoxes: number;
+  /** Pizza sets and bullnoses that need a custom piece (sheet v5). */
+  custom: { pizzaSets: number; bullnoses: number };
+  /** Brackets for the wall runs. */
+  brackets: number;
+  /** Things for the job, not the price: hardware and the like. */
+  notes: string[];
   /** Things a person must look at before the quote is trusted. */
   flags: string[];
 };
 
 const n = (v: number | null | undefined) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
 const sumW = (w: WidthCounts) => n(w.w36) + n(w.w42) + n(w.w48) + n(w.other);
-const pieceCount = (s: SiteSheet) => s.pizzaPieces ?? 3;
+/** Pizza-set treads: each set is 2 or 3 pieces (3 when not marked). */
+export const pizzaTreads = (s: SiteSheet) => n(s.pizza.sets) * (s.pizza.pieces ?? 3);
 
-/** Treads of each open-side type, across the grid and the special rows (pizza sets counted in pieces). */
+/** Treads of each open-side type across the grid, pie steps and bullnoses. Pizza sets have no open side; see pizzaTreads. */
 export function treadsBySide(s: SiteSheet): Record<TreadType, number> {
   const out = { rso: 0, lso: 0, boxed: 0, two: 0 } as Record<TreadType, number>;
   for (const t of TREAD_TYPES) {
     out[t] += sumW(s.treads[t]);
     out[t] += n(s.pie[t]);
-    out[t] += n(s.pizza[t]) * pieceCount(s);
     out[t] += n(s.bullnose[t]);
   }
   return out;
 }
 
+/** Wall-rail brackets for one run: the first 1 ft in, then one every 2 ft. */
+export const bracketsFor = (ft: number) => (ft >= 1 ? Math.floor((ft - 1) / 2) + 1 : ft > 0 ? 1 : 0);
+
 export function derive(s: SiteSheet): Derived {
   const by = treadsBySide(s);
-  const treads = by.rso + by.lso + by.boxed + by.two;
+  const pizza = pizzaTreads(s);
+  const treads = by.rso + by.lso + by.boxed + by.two + pizza;
   const sideTreads = n(s.side.steps);
   const halfMoons = n(s.halfMoons.count);
   const landings = n(s.landings.s3x3) + n(s.landings.s3x6) + n(s.landings.other);
   const flags: string[] = [];
 
-  const open = { left: by.lso + by.two > 0, right: by.rso + by.two > 0 };
+  const twoSidePizza = s.pizza.twoSide && pizza > 0;
+  const open = { left: by.lso + by.two > 0 || twoSidePizza, right: by.rso + by.two > 0 || twoSidePizza };
   const openSides = ((open.left ? 1 : 0) + (open.right ? 1 : 0)) as 0 | 1 | 2;
 
   // Risers: one more than the steps, with every landing (and a half moon) counted as a step.
   const risers = treads > 0 ? treads + landings + halfMoons + 1 : 0;
 
   // Spindles on the steps: 2 on a one-side-open tread (pie and pizza pieces too), 3 on a 2-side-open one.
-  const regular = by.rso + by.lso;
+  // A pizza set's pieces take spindles like a one-side-open step, or a 2-side-open one when ticked so.
+  const regular = by.rso + by.lso + (s.pizza.twoSide ? 0 : pizza);
+  const twoSided = by.two + (s.pizza.twoSide ? pizza : 0);
   const picketFt = (x: SiteSheet["runs"][number]) => (x.pickets ? (x.picketFt ?? x.ft ?? 0) : n(x.picketFt));
   const stepRuns = s.runs.filter((x) => x.where === "S");
   const flatPicketRuns = s.runs.filter((x) => x.where === "F" && picketFt(x) > 0);
   const stepsHavePickets = s.runs.length === 0 ? openSides > 0 : stepRuns.some((x) => picketFt(x) > 0);
-  const stepEstimate = stepsHavePickets ? regular * 2 + by.two * 3 : 0;
+  const stepEstimate = stepsHavePickets ? regular * 2 + twoSided * 3 : 0;
   const holedFt = flatPicketRuns.reduce((t, x) => t + picketFt(x), 0);
   const flatEstimate = Math.ceil(holedFt * 3);
   const estimate = stepEstimate + flatEstimate;
@@ -133,6 +149,14 @@ export function derive(s: SiteSheet): Derived {
   if (s.onSteps === null) flags.push("What is on the steps now (A3) is blank, so sanding can't be offered.");
   if (s.unclear.length) flags.push(`Couldn't be read with confidence: ${s.unclear.join(", ")}. Check them against the photo.`);
 
+  const sets = n(s.pizza.sets);
+  const custom = { pizzaSets: s.pizza.pieces === 2 || s.pizza.twoSide ? sets : 0, bullnoses: n(s.bullnose.two) };
+  const brackets = s.runs.filter((x) => x.where === "W").reduce((t, x) => t + bracketsFor(n(x.ft)), 0);
+  const notes: string[] = [];
+  if (s.metalBar) notes.push("Metal bar under the handrail: bring the hardware for it.");
+  if (custom.pizzaSets) notes.push(`${custom.pizzaSets} custom pizza set${custom.pizzaSets === 1 ? "" : "s"} (${s.pizza.pieces === 2 ? "2-piece" : "2-side open"}).`);
+  if (custom.bullnoses) notes.push(`${custom.bullnoses} custom bullnose${custom.bullnoses === 1 ? "" : "s"} (2-side open).`);
+
   return {
     treads,
     sideTreads,
@@ -147,6 +171,9 @@ export function derive(s: SiteSheet): Derived {
     rail,
     nosing,
     oakBoxes,
+    custom,
+    brackets,
+    notes,
     flags,
   };
 }

@@ -1,7 +1,7 @@
 /**
  * The stair site sheet (Albert, 2026-10-28): the two-page paper form a PM fills in on site, photographed
  * into the quote and read by Claude into these fields. Its codes (A1…G8) are printed on the paper, so the
- * shape here follows the sheet box for box; sheet v3 is the reference. Pure, no I/O: cleanSheet() is the
+ * shape here follows the sheet box for box; sheet v5 (2026-10-28) is the reference. Pure, no I/O: cleanSheet() is the
  * only way anything (the model's answer, the browser's edits) becomes a SiteSheet, and it never invents a
  * value: what it can't read is null. Tested in tests/sitesheet.test.ts.
  */
@@ -13,19 +13,17 @@ export const WHERE = ["Main", "Basement", "Townhome", "Side"] as const;
 export const TREAD_TYPES = ["rso", "lso", "boxed", "two"] as const;
 export type TreadType = (typeof TREAD_TYPES)[number];
 export const TREAD_NAME: Record<TreadType, string> = { rso: "RSO", lso: "LSO", boxed: "Boxed", two: "2 side open" };
-export const WANT_TREADS = ["sand", "caps", "vinyl", "unsure"] as const;
+export const WANT_TREADS = ["sand", "caps", "vinylTreads", "vinylSteps", "unsure"] as const;
 export type WantTread = (typeof WANT_TREADS)[number];
 
 /** How many treads of one type, by width (36" / 42" / 48" / one other width the PM writes). */
 export type WidthCounts = { w36: number | null; w42: number | null; w48: number | null; other: number | null; otherWidth: number | null };
 /** How many special treads, by which side is open (the columns of B6–B8). */
 export type SideCounts = { boxed: number | null; lso: number | null; rso: number | null; two: number | null };
-export const NOSING_TYPES = ["Hardwood", "Laminate", "Vinyl", "Carpet"] as const;
-export type NosingType = (typeof NOSING_TYPES)[number];
 export const THICKNESSES = ["1/2", "3/4", "unsure"] as const;
 export type Thickness = (typeof THICKNESSES)[number];
-/** E3 (v4): one nosing piece. A blank type or thickness means the staircase default (E1). */
-export type NosingPiece = { ft: number | null; type: NosingType | null; thickness: Thickness | null; sand: boolean };
+/** E2 (v5): one nosing piece. A blank depth or thickness means the staircase default (E1). */
+export type NosingPiece = { ft: number | null; depth: number | null; thickness: Thickness | null; sand: boolean };
 /** F1 (v4): one run of handrail. S on steps, F flat (a landing or upstairs), W along a wall. */
 export type RailRun = { ft: number | null; where: "S" | "F" | "W" | null; curved: boolean; pickets: boolean; picketFt: number | null };
 
@@ -39,23 +37,20 @@ export type SiteSheet = {
   /** A3 */ onSteps: (typeof ON_STEPS)[number] | null;
   /** B1–B4 */ treads: Record<TreadType, WidthCounts>;
   /** B5: null = not marked, 0 = standard 10-5/8", else the custom inches. */ treadDepth: number | null;
-  /** B6 */ pie: SideCounts;
-  pieTurn: "L" | "R" | null;
-  /** B7: sets, one 90° turn each */ pizza: SideCounts;
-  pizzaTurn: "L" | "R" | null;
-  pizzaPieces: 2 | 3 | null;
-  /** B8 (a bullnose is never boxed) */ bullnose: SideCounts;
-  bullnoseCustom: boolean | null;
+  /** B6 (never boxed; the open side gives the turn) */ pie: SideCounts;
+  /** B7: sets, one 90° turn each. A 2-piece set, or a 3-piece set that is 2-side open, is custom. */
+  pizza: { sets: number | null; twoSide: boolean; pieces: 2 | 3 | null };
+  /** B8 (never boxed). LSO and RSO are standard; 2 side open is always custom. */ bullnose: SideCounts;
   /** B9 */ totalTreads: number | null;
   /** B10: the side / half staircase */ side: { steps: number | null; type: TreadType | null; width: number | null };
   /** C1 */ landings: { s3x3: number | null; s3x6: number | null; other: number | null };
   /** C2 */ halfMoons: { count: number | null; nosingFt: number | null; solid: boolean };
-  /** D1, D2 (v4: Oak became Coloured; a blank Made of reads as veneer) */ stringers: { now: "White" | "Coloured" | "Other" | null; made: "Veneer" | "Solid" | "Don't know" | null };
+  /** D1, D2 (v5: White / Stained; a blank Made of reads as veneer) */ stringers: { now: "White" | "Stained" | "Other" | null; made: "Veneer" | "Solid" | "Don't know" | null };
   /** E1: the staircase default every piece follows unless its column says otherwise. depth null = standard 4.5" (with overlap). */
-  nosingDefault: { type: NosingType | null; thickness: Thickness | null; depth: number | null };
+  nosingDefault: { carpet: boolean; thickness: Thickness | null; depth: number | null };
   /** E2: up to 10 pieces, one column each */ nosings: NosingPiece[];
   /** F1: up to 8 runs, one column each */ runs: RailRun[];
-  /** F1 brackets on wall runs */ brackets: number | null;
+  /** F2: a metal bar under the handrail (hardware for the job) */ metalBar: boolean;
   /** F2 */ spindles: { onSteps: number | null; flatTop: number | null };
   /** F3 */ heights: { h36: number | null; h39: number | null; h42: number | null };
   /** F4 */ posts: { now: number | null; add: number | null };
@@ -63,10 +58,12 @@ export type SiteSheet = {
   want: {
     treads: WantTread[];
     riser: "white" | "stain" | "unsure" | null;
-    stringer: "white" | "coloured" | "unsure" | null;
+    stringer: "white" | "stain" | "unsure" | null;
+    /** G1: square off the bullnose (an extra cost on top). */
+    squareBullnose: boolean;
     stain: string | null;
     matchFloors: boolean;
-    handrail: "refinish" | "new" | "complex" | null;
+    handrail: "refinish" | "new" | null;
     wallRailFt: number | null;
     spindles: "keep" | "iron" | "wood" | null;
     posts: "keep" | "refinish" | "new" | null;
@@ -104,13 +101,12 @@ function pick<T extends string>(v: unknown, list: readonly T[]): T | null {
   return typeof v === "string" && (list as readonly string[]).includes(v) ? (v as T) : null;
 }
 const bool = (v: unknown) => v === true;
-const boolOrNull = (v: unknown) => (v === true ? true : v === false ? false : null);
 
 function widths(v: unknown): WidthCounts {
   const o = obj(v);
   return { w36: num(o.w36), w42: num(o.w42), w48: num(o.w48), other: num(o.other), otherWidth: num(o.otherWidth) };
 }
-function sides(v: unknown, boxed = true): SideCounts {
+function sides(v: unknown, boxed = false): SideCounts {
   const o = obj(v);
   return { boxed: boxed ? num(o.boxed) : null, lso: num(o.lso), rso: num(o.rso), two: num(o.two) };
 }
@@ -130,12 +126,13 @@ export function cleanSheet(input: unknown): SiteSheet {
   const where = Array.isArray(o.where) ? [...new Set(o.where.map((x) => pick(x, WHERE)).filter((x): x is (typeof WHERE)[number] => !!x))] : [];
   const wantTreads = Array.isArray(w.treads) ? [...new Set(w.treads.map((x) => pick(x, WANT_TREADS)).filter((x): x is WantTread => !!x))] : [];
   const pieces: NosingPiece[] = Array.isArray(o.nosings)
-    ? o.nosings.slice(0, MAX_NOSINGS).map((p) => ({ ft: num(obj(p).ft), type: pick(obj(p).type, NOSING_TYPES), thickness: pick(obj(p).thickness, THICKNESSES), sand: bool(obj(p).sand) }))
+    ? o.nosings.slice(0, MAX_NOSINGS).map((p) => ({ ft: num(obj(p).ft), depth: num(obj(p).depth), thickness: pick(obj(p).thickness, THICKNESSES), sand: bool(obj(p).sand) }))
     : [];
   const runs: RailRun[] = Array.isArray(o.runs)
     ? o.runs.slice(0, MAX_RUNS).map((x) => ({ ft: num(obj(x).ft), where: pick(obj(x).where, ["S", "F", "W"] as const), curved: bool(obj(x).curved), pickets: bool(obj(x).pickets), picketFt: num(obj(x).picketFt) }))
     : [];
-  const pizzaPieces = num(o.pizzaPieces);
+  const pz = obj(o.pizza);
+  const pizzaPieces = num(pz.pieces);
   return {
     quoteNumber: text(o.quoteNumber, 20),
     customer: text(o.customer, 80),
@@ -147,31 +144,28 @@ export function cleanSheet(input: unknown): SiteSheet {
     treads: { rso: widths(treads.rso), lso: widths(treads.lso), boxed: widths(treads.boxed), two: widths(treads.two) },
     treadDepth: num(o.treadDepth),
     pie: sides(o.pie),
-    pieTurn: pick(o.pieTurn, ["L", "R"] as const),
-    pizza: sides(o.pizza),
-    pizzaTurn: pick(o.pizzaTurn, ["L", "R"] as const),
-    pizzaPieces: pizzaPieces === 2 || pizzaPieces === 3 ? pizzaPieces : null,
-    bullnose: sides(o.bullnose, false),
-    bullnoseCustom: boolOrNull(o.bullnoseCustom),
+    pizza: { sets: num(pz.sets), twoSide: bool(pz.twoSide), pieces: pizzaPieces === 2 || pizzaPieces === 3 ? pizzaPieces : null },
+    bullnose: sides(o.bullnose),
     totalTreads: num(o.totalTreads),
     side: { steps: num(side.steps), type: pick(side.type, TREAD_TYPES), width: num(side.width) },
     landings: { s3x3: num(land.s3x3), s3x6: num(land.s3x6), other: num(land.other) },
     halfMoons: { count: num(hm.count), nosingFt: num(hm.nosingFt), solid: bool(hm.solid) },
-    stringers: { now: pick(str.now, ["White", "Coloured", "Other"] as const), made: pick(str.made, ["Veneer", "Solid", "Don't know"] as const) },
-    nosingDefault: { type: pick(nd.type, NOSING_TYPES), thickness: pick(nd.thickness, THICKNESSES), depth: num(nd.depth) },
-    nosings: pieces.filter((p) => p.ft !== null || p.type !== null || p.thickness !== null || p.sand),
+    stringers: { now: pick(str.now, ["White", "Stained", "Other"] as const), made: pick(str.made, ["Veneer", "Solid", "Don't know"] as const) },
+    nosingDefault: { carpet: bool(nd.carpet), thickness: pick(nd.thickness, THICKNESSES), depth: num(nd.depth) },
+    nosings: pieces.filter((p) => p.ft !== null || p.depth !== null || p.thickness !== null || p.sand),
     runs: runs.filter((x) => x.ft !== null || x.where !== null || x.curved || x.pickets || x.picketFt !== null),
-    brackets: num(o.brackets),
+    metalBar: bool(o.metalBar),
     spindles: { onSteps: num(sp.onSteps), flatTop: num(sp.flatTop) },
     heights: { h36: num(h.h36), h39: num(h.h39), h42: num(h.h42) },
     posts: { now: num(posts.now), add: num(posts.add) },
     want: {
       treads: wantTreads,
       riser: pick(w.riser, ["white", "stain", "unsure"] as const),
-      stringer: pick(w.stringer, ["white", "coloured", "unsure"] as const),
+      stringer: pick(w.stringer, ["white", "stain", "unsure"] as const),
+      squareBullnose: bool(w.squareBullnose),
       stain: text(w.stain, 80),
       matchFloors: bool(w.matchFloors),
-      handrail: pick(w.handrail, ["refinish", "new", "complex"] as const),
+      handrail: pick(w.handrail, ["refinish", "new"] as const),
       wallRailFt: num(w.wallRailFt),
       spindles: pick(w.spindles, ["keep", "iron", "wood"] as const),
       posts: pick(w.posts, ["keep", "refinish", "new"] as const),

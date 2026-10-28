@@ -23,6 +23,18 @@ export const CHANGES: Change[] = [
   {
     date: "2026-10-28",
     kind: "changed",
+    title: "Site sheet v5: fewer choices for the PM",
+    details: [
+      "Pie steps and bullnoses are counted by open side only (LSO, RSO, 2 side open). The open side gives a pie step's turn. A 2-side-open bullnose is priced as custom.",
+      "Pizza sets: how many, 2-pc or 3-pc, and one 2-side-open tick. A 2-piece set, or a 3-piece set that is 2 side open, adds the custom corner turn upcharge.",
+      "Nosings: the default says whether carpet is on them now, plus thickness and depth. A piece only gets its own depth or thickness when it differs.",
+      "Railing: brackets are worked out from the wall runs (the first 1 ft in, then one every 2 ft). There's a new tick for a metal bar under the handrail. The complex handrail choice is gone.",
+      "What the customer wants: vinyl treads and vinyl steps are separate options. There's a Square off bullnose tick, and riser and stringer colours are White, Stain or Not sure.",
+    ],
+  },
+  {
+    date: "2026-10-28",
+    kind: "changed",
     title: "Site sheet v4: simpler nosings and railing",
     details: [
       "Nosings: one default line for the staircase (what it is now, thickness, depth), then just a length per piece. A piece only says more when it differs, and Sand is ticked only for a piece being kept.",

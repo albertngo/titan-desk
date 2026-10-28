@@ -10,7 +10,7 @@ import { money } from "@/lib/format";
 import type { RateCard, SiteSheetResult } from "@/lib/quotes/types";
 import { derive } from "@/lib/sitesheet/derive";
 import { buildOptions } from "@/lib/sitesheet/options";
-import { cleanSheet, emptySheet, MAX_NOSINGS, MAX_RUNS, NOSING_TYPES, THICKNESSES, type NosingPiece, type RailRun, ON_STEPS, parseStored, SHAPES, TREAD_NAME, TREAD_TYPES, WANT_TREADS, WHERE, type SiteSheet } from "@/lib/sitesheet/sheet";
+import { cleanSheet, emptySheet, MAX_NOSINGS, MAX_RUNS, THICKNESSES, type NosingPiece, type RailRun, ON_STEPS, parseStored, SHAPES, TREAD_NAME, TREAD_TYPES, WANT_TREADS, WHERE, type SiteSheet } from "@/lib/sitesheet/sheet";
 
 /**
  * The Site sheet tab (Albert, 2026-10-28). Upload photos of the stair site sheet; Claude reads them into
@@ -34,7 +34,7 @@ function set(s: SiteSheet, path: Path, value: unknown): SiteSheet {
   return out as unknown as SiteSheet;
 }
 
-const WANT_LABEL: Record<string, string> = { sand: "Sand & refinish caps", caps: "New wood caps", vinyl: "Vinyl", unsure: "Not sure" };
+const WANT_LABEL: Record<string, string> = { sand: "Sand & refinish caps", caps: "New wood caps", vinylTreads: "Vinyl treads", vinylSteps: "Vinyl steps", unsure: "Not sure" };
 const THICK_LABEL: Record<string, string> = { "1/2": "½\"", "3/4": "¾\"", unsure: "not sure" };
 const WHERE_LABEL: Record<string, string> = { Main: "Main", Basement: "Basement", Townhome: "Townhome", Side: "Side / half" };
 
@@ -267,39 +267,32 @@ export function SiteSheetTab({
               <div className="ss-tbl">
                 <table>
                   <thead>
-                    <tr><th></th><th>Boxed</th><th>LSO</th><th>RSO</th><th>2 side</th><th></th></tr>
+                    <tr><th></th><th>LSO</th><th>RSO</th><th>2 side</th></tr>
                   </thead>
                   <tbody>
                     <tr className={unclear.has("B6") ? "unclear" : ""}>
                       <th>{code("B6")} Pie</th>
-                      {(["boxed", "lso", "rso", "two"] as const).map((k) => <td key={k}>{num(`pie.${k}`, `pie ${k}`, 52)}</td>)}
-                      <td>{choice("pieTurn", ["L", "R"])}</td>
-                    </tr>
-                    <tr className={unclear.has("B7") ? "unclear" : ""}>
-                      <th>{code("B7")} Pizza sets</th>
-                      {(["boxed", "lso", "rso", "two"] as const).map((k) => <td key={k}>{num(`pizza.${k}`, `pizza ${k}`, 52)}</td>)}
-                      <td>{choice("pizzaTurn", ["L", "R"])} {choice("pizzaPieces", [2, 3], { "2": "2-pc", "3": "3-pc" })}</td>
+                      {(["lso", "rso", "two"] as const).map((k) => <td key={k}>{num(`pie.${k}`, `pie ${k}`, 52)}</td>)}
                     </tr>
                     <tr className={unclear.has("B8") ? "unclear" : ""}>
                       <th>{code("B8")} Bullnose</th>
-                      <td className="faint">—</td>
                       {(["lso", "rso", "two"] as const).map((k) => <td key={k}>{num(`bullnose.${k}`, `bullnose ${k}`, 52)}</td>)}
-                      <td>{tick("bullnoseCustom", "custom")}</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
+              {row("B7", "Pizza sets: how many, 2 side open, pieces", <>{num("pizza.sets", "pizza sets")} {tick("pizza.twoSide", "2 side open")} {choice("pizza.pieces", [2, 3], { "2": "2-pc", "3": "3-pc" })}{d.custom.pizzaSets > 0 && <span className="faint"> custom</span>}</>)}
               {row("B9", "Total treads", <>{num("totalTreads")} <span className="faint">boxes add up to {d.treads}</span></>)}
               {row("B10", "Side / half staircase", <>{num("side.steps", "side steps")} steps {choice("side.type", TREAD_TYPES, TREAD_NAME)} {num("side.width", "side width")}&quot;</>)}
 
               <h4>Landings, half moons, stringers</h4>
               {row("C1", "Landings 3×3 / 3×6 / other", <>{num("landings.s3x3", "3x3")} {num("landings.s3x6", "3x6")} {num("landings.other", "other")}</>)}
               {row("C2", "Half moons, nosing ft", <>{num("halfMoons.count", "half moons")} {num("halfMoons.nosingFt", "half moon nosing")} {tick("halfMoons.solid", "solid one-piece")}</>)}
-              {row("D1", "Stringers now", choice("stringers.now", ["White", "Coloured", "Other"]))}
+              {row("D1", "Stringers now", choice("stringers.now", ["White", "Stained", "Other"]))}
               {row("D2", "Stringers made of", choice("stringers.made", ["Veneer", "Solid", "Don't know"]))}
 
               <h4>Nosings</h4>
-              {row("E1", "Default: now / thickness / depth (blank = 4.5\")", <>{choice("nosingDefault.type", NOSING_TYPES)} {choice("nosingDefault.thickness", THICKNESSES, THICK_LABEL)} {num("nosingDefault.depth", "nosing depth")}</>)}
+              {row("E1", "Default: thickness / depth (blank = 4.5\")", <>{tick("nosingDefault.carpet", "carpet on now")} {choice("nosingDefault.thickness", THICKNESSES, THICK_LABEL)} {num("nosingDefault.depth", "nosing depth")}</>)}
               <div className={`ss-tbl${unclear.has("E2") ? " unclear" : ""}`}>
                 <table>
                   <thead>
@@ -307,15 +300,12 @@ export function SiteSheetTab({
                   </thead>
                   <tbody>
                     <tr><th>Length ft</th>{pieces.map((p, i) => <td key={i}><input className="in ss-num" style={{ width: 46 }} inputMode="decimal" aria-label={`nosing ${i + 1} length`} value={p.ft ?? ""} onChange={(e) => setPiece(i, { ft: e.target.value === "" ? null : (e.target.value as unknown as number) })} /></td>)}</tr>
-                    <tr><th>If different</th>{pieces.map((p, i) => (
+                    <tr><th>Depth if diff.</th>{pieces.map((p, i) => <td key={i}><input className="in ss-num" style={{ width: 46 }} inputMode="decimal" aria-label={`nosing ${i + 1} depth`} value={p.depth ?? ""} onChange={(e) => setPiece(i, { depth: e.target.value === "" ? null : (e.target.value as unknown as number) })} /></td>)}</tr>
+                    <tr><th>Thick if diff.</th>{pieces.map((p, i) => (
                       <td key={i}>
-                        <select className="in ss-sel" aria-label={`nosing ${i + 1} type`} value={p.type ?? ""} onChange={(e) => setPiece(i, { type: (e.target.value || null) as NosingPiece["type"] })}>
-                          <option value="">—</option>
-                          {NOSING_TYPES.map((t) => <option key={t} value={t}>{t.slice(0, 4)}</option>)}
-                        </select>
                         <select className="in ss-sel" aria-label={`nosing ${i + 1} thickness`} value={p.thickness ?? ""} onChange={(e) => setPiece(i, { thickness: (e.target.value || null) as NosingPiece["thickness"] })}>
                           <option value="">—</option>
-                          {THICKNESSES.map((t) => <option key={t} value={t}>{THICK_LABEL[t]}</option>)}
+                          {THICKNESSES.filter((t) => t !== "unsure").map((t) => <option key={t} value={t}>{THICK_LABEL[t]}</option>)}
                         </select>
                       </td>
                     ))}</tr>
@@ -348,17 +338,17 @@ export function SiteSheetTab({
                   </tbody>
                 </table>
               </div>
-              {row("F1", "Wall rail brackets", num("brackets"))}
+              {row("F2", "Metal bar under the handrail", <>{tick("metalBar", "yes")} <span className="faint">brackets worked out: {d.brackets}</span></>)}
               {row("F2", "Spindles counted (optional): steps / flat top", <>{num("spindles.onSteps", "on steps")} {num("spindles.flatTop", "flat top")}</>)}
               {row("F3", "Picket heights (optional) 36 / 39 / 42", <>{num("heights.h36", "36")} {num("heights.h39", "39")} {num("heights.h42", "42")}</>)}
               {row("F4", "Posts there now / to add", <>{num("posts.now", "posts now")} {num("posts.add", "posts to add")}</>)}
 
               <h4>What the customer wants</h4>
-              {row("G1", "Treads", multi("want.treads", WANT_TREADS, WANT_LABEL))}
+              {row("G1", "Treads", <>{multi("want.treads", WANT_TREADS, WANT_LABEL)} {tick("want.squareBullnose", "square off bullnose")}</>)}
               {row("G2", "Riser colour", choice("want.riser", ["white", "stain", "unsure"]))}
-              {row("G3", "Stringer colour", choice("want.stringer", ["white", "coloured", "unsure"]))}
+              {row("G3", "Stringer colour", choice("want.stringer", ["white", "stain", "unsure"]))}
               {row("G4", "Stain colour", <><input className="in" style={{ width: 160 }} value={sheet.want.stain ?? ""} onChange={(e) => edit("want.stain", e.target.value || null)} /> {tick("want.matchFloors", "match floors")}</>)}
-              {row("G5", "Handrail, add wall rail ft", <>{choice("want.handrail", ["refinish", "new", "complex"])} {num("want.wallRailFt", "wall rail ft")}</>)}
+              {row("G5", "Handrail, add wall rail ft", <>{choice("want.handrail", ["refinish", "new"])} {num("want.wallRailFt", "wall rail ft")}</>)}
               {row("G6", "Spindles", choice("want.spindles", ["keep", "iron", "wood"]))}
               {row("G7", "Posts", choice("want.posts", ["keep", "refinish", "new"]))}
               {row("G8", "Covers", choice("want.covers", ["main", "both"]))}
@@ -379,6 +369,7 @@ export function SiteSheetTab({
                 <div><dt>Handrail</dt><dd>{d.rail.straightFt} ft straight{d.rail.curvedFt ? `, ${d.rail.curvedFt} ft curved` : ""}</dd></div>
                 <div><dt>Oak for landings</dt><dd>{d.oakBoxes} box{d.oakBoxes === 1 ? "" : "es"}</dd></div>
               </dl>
+              {d.notes.length > 0 && <ul>{d.notes.map((x) => <li key={x}>{x}</li>)}</ul>}
               {d.flags.length > 0 && (
                 <ul className="ss-flags">
                   {d.flags.map((f) => <li key={f}>{f}</li>)}
@@ -392,7 +383,7 @@ export function SiteSheetTab({
                     <b>{o.name}</b>
                     <span>{money(optionTotals(o.lines, 0, false).subtotal)} <span className="faint">before HST · {o.lines.length} lines</span></span>
                   </div>
-                  {o.notes.length > 0 && <ul>{o.notes.map((n) => <li key={n}>{n}</li>)}</ul>}
+                  {o.notes.some((n) => !d.notes.includes(n)) && <ul>{o.notes.filter((n) => !d.notes.includes(n)).map((n) => <li key={n}>{n}</li>)}</ul>}
                 </div>
               ))}
               {built.dropped.map((x) => (
