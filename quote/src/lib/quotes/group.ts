@@ -15,6 +15,9 @@ export type VersionRow = {
   /** When the customer last had the link open (a reload within 30 minutes moves it too). */
   lastOpenedAt?: string | null;
   tracked?: boolean;
+  /** The version this one was made from (Quote Versions → Supersedes), and its change number if it is a change. */
+  supersedes?: string | null;
+  changeNo?: number | null;
   createdTime: string;
 };
 
@@ -37,6 +40,42 @@ export type QuoteGroup = QuoteHead & {
   /** When its newest version was made: groups sort on it, newest first. */
   latestAt: string;
 };
+
+/** "Change 2 · from v4", "from v8", or null for a version made from nothing (v1, or one made before Supersedes was kept). */
+export function fromWords(changeNo: number | null | undefined, fromVersion: number | null | undefined): string | null {
+  const parts = [changeNo ? `Change ${changeNo}` : null, fromVersion != null ? `from v${fromVersion}` : null].filter(Boolean);
+  return parts.length ? parts.join(" · ") : null;
+}
+
+/** Where a version came from (2026-10-28), looked up among its own quote's versions: an id from elsewhere shows nothing. */
+export function fromLabel(v: Pick<VersionRow, "supersedes" | "changeNo">, versions: Pick<VersionRow, "id" | "version">[]): string | null {
+  const src = v.supersedes ? versions.find((x) => x.id === v.supersedes) : undefined;
+  return fromWords(v.changeNo, src?.version);
+}
+
+/**
+ * The By origin view (2026-10-28): each version under the one it was made from, oldest first, with
+ * its depth. A version whose source is not in the list (v1, or made before Supersedes was kept) is
+ * a root. Every version appears exactly once, even if the links ever loop.
+ */
+export function versionTree<V extends Pick<VersionRow, "id" | "version" | "supersedes" | "createdTime">>(versions: V[]): { v: V; depth: number }[] {
+  const ids = new Set(versions.map((v) => v.id));
+  const byOldest = (a: V, b: V) => (a.version ?? 0) - (b.version ?? 0) || a.createdTime.localeCompare(b.createdTime);
+  const kids = new Map<string, V[]>();
+  for (const v of versions) if (v.supersedes && ids.has(v.supersedes) && v.supersedes !== v.id) kids.set(v.supersedes, [...(kids.get(v.supersedes) ?? []), v]);
+  const out: { v: V; depth: number }[] = [];
+  const seen = new Set<string>();
+  const walk = (v: V, depth: number) => {
+    if (seen.has(v.id)) return;
+    seen.add(v.id);
+    out.push({ v, depth });
+    for (const k of (kids.get(v.id) ?? []).sort(byOldest)) walk(k, depth + 1);
+  };
+  const isRoot = (v: V) => !v.supersedes || !ids.has(v.supersedes) || v.supersedes === v.id;
+  for (const v of [...versions].sort(byOldest)) if (isRoot(v)) walk(v, 0);
+  for (const v of [...versions].sort(byOldest)) walk(v, 0); // a loop has no root: show it flat rather than lose it
+  return out;
+}
 
 const byNewest = (a: VersionRow, b: VersionRow) => (b.version ?? 0) - (a.version ?? 0) || b.createdTime.localeCompare(a.createdTime);
 

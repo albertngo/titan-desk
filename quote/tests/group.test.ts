@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ago, groupVersions, inFilter, matchesSearch, openedOn, type QuoteHead, type VersionRow } from "../src/lib/quotes/group";
+import { ago, fromLabel, fromWords, groupVersions, inFilter, matchesSearch, openedOn, versionTree, type QuoteHead, type VersionRow } from "../src/lib/quotes/group";
 
 // INVENTED people and numbers only: this repo is public.
 const V = (o: Partial<VersionRow> & { id: string; quoteRecordId: string | null }): VersionRow & { quoteRecordId: string | null } => ({ label: null, version: 1, status: "Draft", basis: "Preliminary", optionCount: 1, createdTime: "2026-10-01T00:00:00Z", ...o });
@@ -79,5 +79,48 @@ describe("All quotes: quick filters and dates", () => {
     expect(openedOn("2026-10-14T13:05:00Z", now)).toBe("yesterday 9:05 am");
     expect(openedOn("2026-10-12T20:00:00Z", now)).toBe("Oct 12");
     expect(openedOn("2025-09-01T16:00:00Z", now)).toBe("Sep 1, 2025");
+  });
+});
+
+describe("fromLabel", () => {
+  const vs = [
+    { id: "v9", version: 9 },
+    { id: "v8", version: 8 },
+    { id: "v4", version: 4 },
+    { id: "v1", version: 1 },
+  ];
+  it("names the older version a draft was branched from", () => {
+    expect(fromLabel({ supersedes: "v4" }, vs)).toBe("from v4");
+  });
+  it("puts the change number first on a change", () => {
+    expect(fromLabel({ supersedes: "v4", changeNo: 3 }, vs)).toBe("Change 3 · from v4");
+  });
+  it("says nothing for version 1", () => {
+    expect(fromLabel({ supersedes: null, changeNo: null }, vs)).toBeNull();
+  });
+  it("ignores a source id that is not one of this quote's versions", () => {
+    expect(fromLabel({ supersedes: "recElsewhere" }, vs)).toBeNull();
+    expect(fromLabel({ supersedes: "recElsewhere", changeNo: 2 }, vs)).toBe("Change 2");
+  });
+  it("fromWords builds the header words", () => {
+    expect(fromWords(1, 4)).toBe("Change 1 · from v4");
+    expect(fromWords(null, 8)).toBe("from v8");
+    expect(fromWords(null, null)).toBeNull();
+  });
+});
+
+describe("versionTree", () => {
+  const T = (id: string, version: number, supersedes: string | null = null) => ({ id, version, supersedes, createdTime: `2026-10-${String(version).padStart(2, "0")}T00:00:00Z` });
+  // Newest first, as All quotes holds them: v4 accepted, changes 5, 6, 8 from it, v9 branched from v8, v7 from v4.
+  const vs = [T("v9", 9, "v8"), T("v8", 8, "v4"), T("v7", 7, "v4"), T("v6", 6, "v4"), T("v5", 5, "v4"), T("v4", 4, "v3"), T("v3", 3, "v1"), T("v1", 1)];
+  it("puts each version under its source, oldest first", () => {
+    expect(versionTree(vs).map(({ v, depth }) => `${v.id}:${depth}`)).toEqual(["v1:0", "v3:1", "v4:2", "v5:3", "v6:3", "v7:3", "v8:3", "v9:4"]);
+  });
+  it("treats a version whose source is elsewhere or missing as a root", () => {
+    expect(versionTree([T("b", 2, "recGone"), T("a", 1)]).map(({ v, depth }) => `${v.id}:${depth}`)).toEqual(["a:0", "b:0"]);
+  });
+  it("shows every version once even if the links loop", () => {
+    const out = versionTree([T("x", 1, "y"), T("y", 2, "x"), T("z", 3, "z")]);
+    expect(out.map(({ v }) => v.id).sort()).toEqual(["x", "y", "z"]);
   });
 });

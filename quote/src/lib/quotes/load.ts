@@ -18,7 +18,7 @@ export async function listQuoteGroups(): Promise<QuoteGroup[]> {
   await requireQuoter();
   const [versions, quotes] = await Promise.all([
     listRecords(T.versions, {
-      fields: [VERSION.label, VERSION.version, VERSION.status, VERSION.basis, VERSION.quote, VERSION.options, VERSION.openedCount, VERSION.lastOpenedAt, VERSION.trackActivity],
+      fields: [VERSION.label, VERSION.version, VERSION.status, VERSION.basis, VERSION.quote, VERSION.options, VERSION.openedCount, VERSION.lastOpenedAt, VERSION.trackActivity, VERSION.supersedes, VERSION.changeNo],
     }),
     listRecords(T.quotes, {
       fields: [QUOTE.customerName, QUOTE.lastName, QUOTE.firstName, QUOTE.siteCity, QUOTE.quoteNumber, QUOTE.linkStatus, QUOTE.addressStatus, QUOTE.phone, QUOTE.email, QUOTE.projectNumber],
@@ -52,6 +52,8 @@ export async function listQuoteGroups(): Promise<QuoteGroup[]> {
       openedCount: num(r.fields[VERSION.openedCount]) ?? 0,
       lastOpenedAt: str(r.fields[VERSION.lastOpenedAt]),
       tracked: bool(r.fields[VERSION.trackActivity]),
+      supersedes: ids(r.fields[VERSION.supersedes])[0] ?? null,
+      changeNo: num(r.fields[VERSION.changeNo]),
       createdTime: r.createdTime,
     })),
     heads,
@@ -176,10 +178,13 @@ export async function getQuote(id: string): Promise<Quote | null> {
   }
   const f = q.fields;
   const familyId = ids(f[VERSION.quote])[0];
-  const [family, optionRecs, lineRecs] = await Promise.all([
+  const sourceId = ids(f[VERSION.supersedes])[0];
+  const [family, optionRecs, lineRecs, source] = await Promise.all([
     familyId ? getRecord(T.quotes, familyId) : Promise.resolve(null),
     listByIds(T.options, ids(f[VERSION.options])),
     listByIds(T.lines, ids(f[VERSION.lines])),
+    // Only for the header's "from v8": a failed lookup just leaves it out.
+    sourceId ? listByIds(T.versions, [sourceId], [VERSION.version]).catch(() => []) : Promise.resolve([]),
   ]);
 
   const byOption = new Map<string, QuoteLine[]>();
@@ -210,6 +215,7 @@ export async function getQuote(id: string): Promise<Quote | null> {
     schedule: cleanSchedule(str(f[VERSION.paymentSchedule])),
     acceptance: parseAcceptance(str(f[VERSION.acceptance])),
     changeNo: num(f[VERSION.changeNo]),
+    fromVersion: source[0] ? num(source[0].fields[VERSION.version]) : null,
     validUntil: str(f[VERSION.validUntil]),
     sentAt: str(f[VERSION.sentAt]),
     sendBlock: str(f[VERSION.sendBlock]),

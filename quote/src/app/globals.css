@@ -243,6 +243,12 @@ table.cmp td:first-child { text-align: left; color: var(--fg-dim); }
 .ql-latest, .ql-flags { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
 .ql-v-n { font-family: var(--mono); font-size: 12px; color: var(--fg-faint); }
 .ql-basis { font-size: 12px; color: var(--fg-faint); }
+.ql-from { font-size: 12px; color: var(--fg-faint); }
+.ql-view { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ql-view .k { font-size: 12px; color: var(--fg-faint); margin-right: 2px; }
+/* By origin: each level indents, capped so a long chain of edits stays readable on a phone. */
+.ql-vs li.sub { position: relative; padding-left: calc(min(var(--d), 5) * 18px); }
+.ql-vs li.sub::before { content: ""; position: absolute; left: calc(min(var(--d), 5) * 18px - 10px); top: 0; height: 18px; width: 8px; border-left: 1px solid var(--line-strong); border-bottom: 1px solid var(--line-strong); border-bottom-left-radius: 4px; }
 .ql-when { text-align: right; font-size: 12px; color: var(--fg-faint); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .ql-sb { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: var(--fg-dim); white-space: nowrap; }
 .ql-sb i { width: 7px; height: 7px; border-radius: 50%; background: var(--fg-faint); }
@@ -268,6 +274,8 @@ table.cmp td:first-child { text-align: left; color: var(--fg-dim); }
   .ql-seen .k { position: static; width: auto; height: auto; clip: auto; font-weight: 500; color: var(--fg-dim); }
   .ql-when, .ql-head { display: none; }
   .ql-vs { margin-left: 36px; }
+  .ql-vs li.sub { padding-left: calc(min(var(--d), 3) * 14px); }
+  .ql-vs li.sub::before { left: calc(min(var(--d), 3) * 14px - 9px); }
 }
 @media (pointer: coarse) {
   .ql-search input { min-height: 44px; font-size: 16px; }
