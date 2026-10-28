@@ -22,6 +22,15 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-10-28",
+    kind: "changed",
+    title: "Site sheet: spindles at 3 a foot, and the rail check on the total",
+    details: [
+      "Spindles are worked out as 3 for every foot of handrail with pickets, on the steps and flat alike. A count written on the sheet still wins when it's higher.",
+      "The rail on the steps is checked as the runs added together, not run by run, so a staircase railed in two pieces isn't flagged twice.",
+    ],
+  },
+  {
+    date: "2026-10-28",
     kind: "fixed",
     title: "Site sheet: reading no longer trips over Claude's limits on the field list",
     details: ["Read stopped with \"too many parameters with union types\". The field list now goes to Claude as part of the instructions, and the app checks every value it gets back, as before."],
