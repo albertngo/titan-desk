@@ -25,9 +25,9 @@ export function ImageGallery({ images, alt }: { images: ImageVariant[]; alt: str
 
   if (!images.length) {
     return (
-      <div className="flex aspect-[4/3] flex-col items-center justify-center gap-3 rounded-[20px] bg-peach lg:aspect-square">
+      <div className="flex aspect-[4/3] flex-col items-center justify-center gap-2 rounded-xl bg-peach">
         {/* eslint-disable-next-line @next/next/no-img-element -- static brand asset */}
-        <img src="/brand/titan-mascot-blue.png" alt="" className="h-28 w-28 object-contain opacity-30" />
+        <img src="/brand/titan-mascot-blue.png" alt="" className="h-16 w-16 object-contain opacity-30" />
         <p className="text-sm text-ink/55">No photos yet</p>
       </div>
     );
@@ -36,9 +36,9 @@ export function ImageGallery({ images, alt }: { images: ImageVariant[]; alt: str
   return (
     <div>
       <button type="button" aria-label={`Open ${KIND[cur.kind] ?? cur.kind} full screen`}
-        className="group relative block aspect-[4/3] w-full overflow-hidden rounded-[20px] bg-peach focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-denim lg:aspect-square"
+        className="group relative block aspect-[4/3] w-full overflow-hidden rounded-xl bg-peach focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-denim"
         onClick={() => setOpen(true)}>
-        {cur.card && <BlurImage src={cur.full ?? cur.card} blurhash={cur.blurhash} alt={alt} sizes="(min-width: 1024px) 58vw, 100vw" priority
+        {cur.card && <BlurImage src={cur.full ?? cur.card} blurhash={cur.blurhash} alt={alt} sizes="(min-width: 768px) 480px, 100vw" priority
           className="object-cover transition-transform duration-500 group-hover:scale-[1.02]" />}
         <span className="absolute bottom-3 left-3 rounded-md bg-ink/70 px-2 py-1 text-[11px] font-medium text-cream backdrop-blur">
           {KIND[cur.kind] ?? cur.kind}{cur.low_res ? " · low-res" : ""}
@@ -50,7 +50,7 @@ export function ImageGallery({ images, alt }: { images: ImageVariant[]; alt: str
         )}
       </button>
       {images.length > 1 && (
-        <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+        <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1">
           {images.map((im, idx) => (
             <button
               key={`${im.kind}-${im.sort}-${idx}`}
@@ -58,10 +58,10 @@ export function ImageGallery({ images, alt }: { images: ImageVariant[]; alt: str
               onClick={() => setI(idx)}
               aria-label={`${KIND[im.kind] ?? im.kind} ${idx + 1}`}
               aria-current={idx === i ? "true" : undefined}
-              className={`relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-peach transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-denim ${
-                idx === i ? "ring-[3px] ring-denim ring-offset-2 ring-offset-cream" : "opacity-80 hover:opacity-100"}`}
+              className={`relative h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-peach transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-denim ${
+                idx === i ? "ring-2 ring-denim ring-offset-1 ring-offset-cream" : "opacity-80 hover:opacity-100"}`}
             >
-              {im.thumb && <BlurImage src={im.thumb} blurhash={im.blurhash} alt="" sizes="80px" />}
+              {im.thumb && <BlurImage src={im.thumb} blurhash={im.blurhash} alt="" sizes="56px" />}
             </button>
           ))}
         </div>

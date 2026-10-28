@@ -6,21 +6,20 @@ import { Browse, Crumbs } from "@/components/Browse";
 import { FilterSheet } from "@/components/FilterSheet";
 import { ShortcutIcon } from "@/components/askbert/ShortcutIcon";
 import { ParsedChips } from "@/components/ParsedChips";
-import { ShopCard, ShopCardSkeleton } from "@/components/ShopCard";
+import { GroupCard } from "@/components/GroupCard";
+import { ResultCard, ResultCardSkeleton } from "@/components/ResultCard";
 import { askBert } from "@/lib/askbert-bridge";
 import { browseLevel, crumbs } from "@/lib/browse";
 import { activeFilterCount, EMPTY_FILTERS, filtersFromSearchParams, filtersToArgs, filtersToSearchParams, type Filters } from "@/lib/db/filters";
 import { getBrowse, getFacets, logSearch, searchStaff, searchStaffGrouped, type Facets } from "@/lib/db/queries";
 import type { BrowseRow, SearchGroup, SearchHit } from "@/lib/db/types";
-import { fromGroup, fromHit, type ShopItem } from "@/lib/shop";
 import { supabaseBrowser } from "@/lib/supabase/client";
-import { LIFT } from "@/lib/ui";
 
 const PAGE = 30;        // products per page in the all-products view
 const GROUP_PAGE = 20;  // collections per page in the grouped view
 const DEBOUNCE_MS = 150;
 const CACHE_MAX = 50;
-const PROMO_SHELF = 10; // collections on the home page's "On promo now" shelf
+const PROMO_SHELF = 6;  // collections in the home page's "On promo now" list
 
 type Results = { kind: "flat"; hits: SearchHit[] } | { kind: "grouped"; groups: SearchGroup[] };
 
@@ -56,8 +55,8 @@ export function SearchView() {
   const [sheetOpen, setSheetOpen] = useState(false);
   // browse counts: undefined while loading, null if unavailable (then the page lists collections as before)
   const [browse, setBrowse] = useState<BrowseRow[] | null | undefined>(undefined);
-  // the home page's promo shelf: undefined loading · null failed · [] nothing on promo
-  const [promos, setPromos] = useState<ShopItem[] | null | undefined>(undefined);
+  // the home page's promo list: undefined loading · null failed · [] nothing on promo
+  const [promos, setPromos] = useState<SearchGroup[] | null | undefined>(undefined);
 
   const cache = useRef(new Map<string, Results>());
   const abort = useRef<AbortController | null>(null);
@@ -67,7 +66,7 @@ export function SearchView() {
     getFacets(supabase).then(setFacets).catch(() => setFacets(null));
     getBrowse(supabase).then(setBrowse).catch(() => setBrowse(null));
     searchStaffGrouped(supabase, filtersToArgs({ ...EMPTY_FILTERS, q: "on promo" }, 0, PROMO_SHELF))
-      .then((groups) => setPromos(groups.filter((g) => g.any_promo).map(fromGroup)))
+      .then((groups) => setPromos(groups.filter((g) => g.any_promo)))
       .catch(() => setPromos(null));
   }, [supabase]);
 
@@ -145,46 +144,38 @@ export function SearchView() {
   const nFilters = activeFilterCount(filters);
 
   const home = level?.level === "home";
-  const tiles: ShopItem[] = results.kind === "grouped" ? results.groups.map(fromGroup) : results.hits.map(fromHit);
+  const shownCount = results.kind === "grouped" ? results.groups.length : results.hits.length;
   const query = filters.q.trim();
 
   return (
     <div>
-      {home && (
-        <div className="pb-2 pt-4 sm:pt-8">
-          <h1 className="max-w-[18ch] font-display text-[32px] font-bold leading-[1.05] tracking-[-0.015em] text-denim [text-wrap:balance] sm:text-[44px]">
-            Find the right floor, fast.
-          </h1>
-          <p className="mt-3 max-w-[56ch] text-[15px] leading-relaxed text-ink/70">
-            Search the whole Titan catalogue by name, SKU or what you need, like &ldquo;6in click on promo&rdquo;. Or browse by type and supplier below.
-          </p>
-        </div>
-      )}
-
-      <div className="sticky top-[calc(4rem+env(safe-area-inset-top))] z-10 -mx-4 bg-cream/95 px-4 pb-3 pt-3 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-        <div className={`flex items-center gap-2 rounded-full bg-white py-1.5 pl-5 pr-1.5 ring-1 ring-denim/15 transition focus-within:ring-2 focus-within:ring-denim ${LIFT}`}>
-          <ShortcutIcon name="search" className="h-5 w-5 shrink-0 text-denim/60" />
-          <input
-            type="search"
-            inputMode="search"
-            autoFocus={!home}
-            enterKeyHint="search"
-            aria-label="Search the catalogue"
-            placeholder="Search products, SKUs, “6in click on promo”"
-            value={filters.q}
-            onChange={(e) => applyFilters({ ...filters, q: e.target.value })}
-            className="h-11 min-w-0 flex-1 bg-transparent text-base text-ink outline-none placeholder:text-ink/40"
-          />
+      <div className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-10 -mx-4 bg-cream/95 px-4 pb-2 pt-2 backdrop-blur sm:-mx-6 sm:px-6">
+        <div className="flex gap-2">
+          <label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl bg-white px-3 ring-1 ring-denim/15 transition focus-within:ring-2 focus-within:ring-denim">
+            <ShortcutIcon name="search" className="h-[18px] w-[18px] shrink-0 text-denim/60" />
+            <input
+              type="search"
+              inputMode="search"
+              autoFocus={!home}
+              enterKeyHint="search"
+              aria-label="Search the catalogue"
+              placeholder="Search products, SKUs, “6in click on promo”…"
+              value={filters.q}
+              onChange={(e) => applyFilters({ ...filters, q: e.target.value })}
+              className="h-10 min-w-0 flex-1 bg-transparent text-base text-ink outline-none placeholder:text-ink/40"
+            />
+          </label>
           <button
             type="button"
             onClick={() => setSheetOpen(true)}
-            className={`flex h-11 shrink-0 items-center gap-1.5 rounded-full px-4 text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-denim ${
-              nFilters ? "bg-denim text-cream hover:bg-denim-dark" : "bg-cream text-denim hover:bg-cream-deep"}`}
+            className={`flex shrink-0 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold ring-1 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-denim ${
+              nFilters ? "bg-denim text-cream ring-denim hover:bg-denim-dark" : "bg-white text-denim ring-denim/15 hover:bg-cream"}`}
           >
             <ShortcutIcon name="filter" className="h-4 w-4" />
-            Filters{nFilters ? ` · ${nFilters}` : ""}
+            Filters{nFilters ? ` (${nFilters})` : ""}
           </button>
         </div>
+        <QuickFilters filters={filters} onChange={applyFilters} />
         {parsed && <ParsedChips parsed={parsed} />}
       </div>
 
@@ -193,77 +184,72 @@ export function SearchView() {
       {browsing ? (
         <>
           <Browse level={level} rows={browse ?? undefined} filters={filters} onGo={applyFilters} />
-          {home && <PromoShelf promos={promos} />}
+          {home && <PromoList promos={promos} onSeeAll={() => applyFilters({ ...EMPTY_FILTERS, q: "on promo" })} />}
         </>
       ) : (
-        <section aria-label="Results" className="mt-5">
-          {error && <p className="mb-4 rounded-xl bg-peach px-4 py-3 text-sm text-campfire-dark">Search failed: {error}</p>}
+        <section aria-label="Results">
+          {error && <p className="mt-3 rounded-xl bg-peach px-3 py-2 text-sm text-campfire-dark">Search failed: {error}</p>}
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p aria-live="polite" className="text-sm text-ink/70">
+          <div className="mt-2 flex items-center justify-between gap-2 text-xs text-ink/60">
+            <p aria-live="polite">
               {loading
                 ? "Searching…"
                 : results.kind === "grouped"
-                  ? <><strong className="font-semibold text-ink">{collections}</strong> collection{collections === 1 ? "" : "s"} · {products} product{products === 1 ? "" : "s"}</>
-                  : <><strong className="font-semibold text-ink">{products}</strong> product{products === 1 ? "" : "s"}</>}
+                  ? <><strong className="font-semibold text-ink">{products}</strong> product{products === 1 ? "" : "s"} in {collections} collection{collections === 1 ? "" : "s"}</>
+                  : <><strong className="font-semibold text-ink">{products}</strong> result{products === 1 ? "" : "s"}</>}
             </p>
-            <div role="group" aria-label="Show results as" className="inline-flex rounded-full bg-white p-1 text-[13px] ring-1 ring-denim/10">
+            <div role="group" aria-label="Show results as" className="inline-flex shrink-0 rounded-lg bg-white p-0.5 ring-1 ring-denim/10">
               {([false, true] as const).map((all) => {
                 const on = filters.all === all;
                 return (
                   <button key={String(all)} type="button" aria-pressed={on} onClick={() => applyFilters({ ...filters, all })}
-                    className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-denim ${
+                    className={`whitespace-nowrap rounded-md px-2.5 py-1 font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-denim ${
                       on ? "bg-denim text-cream" : "text-denim hover:bg-cream"}`}>
-                    <ShortcutIcon name={all ? "list" : "grid"} className="h-4 w-4" />
-                    {all ? "Every colour" : "Collections"}
+                    {all ? "All products" : "Collections"}
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {loading && tiles.length === 0 ? (
-            <ul className="mt-5 grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5" aria-hidden>
-              {Array.from({ length: 10 }, (_, i) => <li key={i}><ShopCardSkeleton /></li>)}
+          {loading && shownCount === 0 ? (
+            <ul className="mt-2 space-y-2">
+              {Array.from({ length: 6 }, (_, i) => <li key={i}><ResultCardSkeleton /></li>)}
             </ul>
-          ) : tiles.length === 0 && !loading && !error ? (
-            <div className="mx-auto mt-10 flex max-w-md flex-col items-center text-center">
+          ) : shownCount === 0 && !loading && !error ? (
+            <div className="mt-6 flex flex-col items-center rounded-xl bg-white px-4 py-8 text-center ring-1 ring-denim/10">
               {/* eslint-disable-next-line @next/next/no-img-element -- static brand asset */}
-              <img src="/brand/titan-mascot-blue.png" alt="" className="h-24 w-24 object-contain opacity-80" />
-              <p className="mt-4 font-display text-xl font-bold text-denim">Nothing in the catalogue matches.</p>
-              <p className="mt-1 text-sm text-ink/65">Try fewer words or clear a filter. Or ask Bert, who can loosen the search for you.</p>
+              <img src="/brand/titan-mascot-blue.png" alt="" className="h-14 w-14 object-contain opacity-80" />
+              <p className="mt-2 font-semibold text-denim">Nothing in the catalogue matches.</p>
+              <p className="mt-1 text-sm text-ink/60">Try fewer words or clear a filter, or ask Bert to loosen the search.</p>
               {query && (
                 <button type="button" onClick={() => askBert(`Find me: ${query}`)}
-                  className="mt-5 rounded-full bg-denim px-5 py-2.5 text-sm font-semibold text-cream transition-colors hover:bg-denim-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-denim">
+                  className="mt-4 rounded-lg bg-denim px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-denim-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-denim">
                   Ask Bert about &ldquo;{query}&rdquo;
                 </button>
               )}
             </div>
           ) : (
-            <ul className="mt-5 grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-              {tiles.map((t) => (
-                <li key={t.key}>
-                  <ShopCard item={t} onAsk={askBert} />
-                </li>
-              ))}
+            <ul className="mt-2 space-y-2">
+              {results.kind === "grouped"
+                ? results.groups.map((g) => <li key={g.group_key}><GroupCard group={g} /></li>)
+                : results.hits.map((h) => <li key={h.sku}><ResultCard hit={h} /></li>)}
             </ul>
           )}
 
           {shown < total && (
-            <div className="mt-10 flex justify-center">
-              <button
-                type="button"
-                disabled={loading}
-                onClick={() => {
-                  const next = page + 1;
-                  setPage(next);
-                  void run(filters, next, true);
-                }}
-                className="rounded-full bg-white px-6 py-3 text-sm font-semibold text-denim ring-1 ring-denim/20 transition hover:ring-denim/50 active:scale-[0.98] disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-denim"
-              >
-                {loading ? "Loading…" : `Show more · ${total - shown} ${results.kind === "grouped" ? "collections" : "products"} left`}
-              </button>
-            </div>
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => {
+                const next = page + 1;
+                setPage(next);
+                void run(filters, next, true);
+              }}
+              className="mt-4 w-full rounded-xl bg-white py-2.5 text-sm font-semibold text-denim ring-1 ring-denim/15 transition hover:ring-denim/40 active:bg-cream disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-denim"
+            >
+              {loading ? "Loading…" : `Show more (${total - shown} ${results.kind === "grouped" ? "collections" : "products"} left)`}
+            </button>
           )}
         </section>
       )}
@@ -280,20 +266,49 @@ export function SearchView() {
   );
 }
 
-/** Home page shelf: collections with a live promo, straight from the catalogue. */
-function PromoShelf({ promos }: { promos: ShopItem[] | null | undefined }) {
+const QUICK = [
+  { key: "waterproof", label: "Waterproof" },
+  { key: "radiant", label: "Radiant heat" },
+  { key: "pet", label: "Pet friendly" },
+  { key: "hide", label: "Available only" },
+] as const;
+
+/** The yes/no filters as one-tap chips under the search box; the rest stay in Filters. */
+function QuickFilters({ filters, onChange }: { filters: Filters; onChange: (f: Filters) => void }) {
+  return (
+    <div className="-mx-1 mt-2 flex gap-1.5 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none]">
+      {QUICK.map(({ key, label }) => {
+        const on = filters[key];
+        return (
+          <button key={key} type="button" aria-pressed={on} onClick={() => onChange({ ...filters, [key]: !on })}
+            className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-denim ${
+              on ? "bg-denim text-cream" : "bg-white text-ink ring-1 ring-denim/15 hover:ring-denim/40"}`}>
+            {on && <span aria-hidden>✓ </span>}{label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Home page: collections with a live promo, straight from the catalogue, as the same list rows. */
+function PromoList({ promos, onSeeAll }: { promos: SearchGroup[] | null | undefined; onSeeAll: () => void }) {
   if (promos === null || (promos && promos.length === 0)) return null;
   return (
-    <section aria-labelledby="promo-title" className="mt-14">
-      <div className="flex items-baseline gap-3">
-        <h2 id="promo-title" className="font-display text-2xl font-bold tracking-[-0.01em] text-denim">On promo now</h2>
-        <span className="rounded-md bg-campfire-dark px-2 py-0.5 text-[11px] font-semibold text-cream">Live</span>
+    <section aria-labelledby="promo-title" className="mt-6">
+      <div className="flex items-baseline justify-between gap-2">
+        <h2 id="promo-title" className="flex items-center gap-2 font-display text-lg font-bold text-denim">
+          On promo now
+          <span className="rounded-md bg-campfire-dark px-1.5 py-0.5 font-brand text-[11px] font-semibold text-cream">Live</span>
+        </h2>
+        <button type="button" onClick={onSeeAll} className="text-sm font-medium text-denim underline-offset-4 hover:underline">
+          See all promos
+        </button>
       </div>
-      <p className="mt-1 text-sm text-ink/60">Collections with a promo running today. Tap one for its colours and prices.</p>
-      <ul className="mt-5 grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      <ul className="mt-2 space-y-2">
         {promos === undefined
-          ? Array.from({ length: 5 }, (_, i) => <li key={i}><ShopCardSkeleton /></li>)
-          : promos.map((t) => <li key={t.key}><ShopCard item={t} onAsk={askBert} /></li>)}
+          ? Array.from({ length: 3 }, (_, i) => <li key={i}><ResultCardSkeleton /></li>)
+          : promos.map((g) => <li key={g.group_key}><GroupCard group={g} /></li>)}
       </ul>
     </section>
   );
