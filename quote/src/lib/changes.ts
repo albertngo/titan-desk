@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-10-28",
     kind: "fixed",
+    title: "Site sheet: the sheet's field list is accepted by Claude",
+    details: ["Read stopped with \"Invalid schema: Enum value 'Straight'…\". Fields that can be left blank are now described the way Claude accepts."],
+  },
+  {
+    date: "2026-10-28",
+    kind: "fixed",
     title: "Site sheet: reading the photos works with the current Claude model",
     details: ["Read stopped with \"tool_choice … not supported for this model\". The sheet is now read as one JSON answer held to the sheet's fields, which this model supports."],
   },

@@ -54,7 +54,8 @@ const choice = (values: string[]) => ({ type: ["string", "null"], enum: [...valu
 /**
  * Structured outputs want every object closed (`additionalProperties: false`) and take no array-length
  * limits, so the schema below is written plainly and made strict here: every object closed, every key
- * required (a blank box is null, never missing), `maxItems` dropped (cleanSheet() caps the lists).
+ * required (a blank box is null, never missing), `maxItems` dropped (cleanSheet() caps the lists), and a
+ * nullable value written as anyOf.
  */
 type Json = { [k: string]: unknown };
 export function strictSchema(node: unknown): unknown {
@@ -65,6 +66,17 @@ export function strictSchema(node: unknown): unknown {
   if (out.properties && typeof out.properties === "object") {
     out.required = Object.keys(out.properties as Json);
     out.additionalProperties = false;
+  }
+  // A list of types (["string", "null"]) is written as anyOf, one branch per type, each holding only its own
+  // enum values: the API refused `enum: ["Straight", …, null]` beside `type: ["string", "null"]` (2026-10-28).
+  if (Array.isArray(out.type)) {
+    const { type, enum: values, ...rest } = out;
+    const branches = (type as string[]).map((t) => {
+      if (t === "null") return { type: "null" };
+      const mine = Array.isArray(values) ? values.filter((v) => v !== null) : null;
+      return { ...rest, type: t, ...(mine ? { enum: mine } : {}) };
+    });
+    return { anyOf: branches };
   }
   return out;
 }
