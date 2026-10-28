@@ -1,10 +1,10 @@
 /**
- * What Claude is told when it reads photos of the stair site sheet (v5), and the one tool it must answer
- * with. Pure data: src/lib/quotes/sitesheet.ts sends it, src/lib/sitesheet/sheet.ts cleans the answer.
- * The schema mirrors SiteSheet; cleanSheet() still checks every value, so a wrong answer can't get in.
+ * What Claude is told when it reads photos of the stair site sheet (v5), and the JSON schema its answer
+ * must follow (structured outputs, 2026-10-28: the model refuses a forced tool call, so the answer comes
+ * back as JSON held to this schema instead). Pure data: src/lib/quotes/sitesheet.ts sends it,
+ * src/lib/sitesheet/sheet.ts cleans the answer. The schema mirrors SiteSheet; cleanSheet() still checks
+ * every value, so a wrong answer can't get in.
  */
-
-export const SHEET_TOOL = "record_sheet";
 
 export const SHEET_PROMPT = `You are reading photos of Titan Flooring's "Stair Site Sheet" (v5, two Letter pages), filled in by hand on site by a project manager. Read exactly what is written or marked. Never guess and never fill in a typical value: a box left blank is null.
 
@@ -43,7 +43,7 @@ Page 2:
   - G6 Spindles: keep / iron / wood. G7 Posts: keep / refinish / new. G8 Covers: main / both.
 - N1 Notes: copy the handwriting as written.
 
-If you are not confident about a value (smudged, ambiguous, two marks), give your best reading and add its code (like "B6" or "F1") to "unclear". If a whole page is missing from the photos, leave its fields null and add "page 1 missing" or "page 2 missing" to notes. Call ${SHEET_TOOL} exactly once.`;
+If you are not confident about a value (smudged, ambiguous, two marks), give your best reading and add its code (like "B6" or "F1") to "unclear". If a whole page is missing from the photos, leave its fields null and add "page 1 missing" or "page 2 missing" to notes. Answer with the one JSON object only.`;
 
 const N = { type: ["number", "null"] };
 const S = { type: ["string", "null"] };
@@ -51,7 +51,25 @@ const widths = { type: "object", properties: { w36: N, w42: N, w48: N, other: N,
 const sides = { type: "object", properties: { lso: N, rso: N, two: N } };
 const choice = (values: string[]) => ({ type: ["string", "null"], enum: [...values, null] });
 
-export const SHEET_SCHEMA = {
+/**
+ * Structured outputs want every object closed (`additionalProperties: false`) and take no array-length
+ * limits, so the schema below is written plainly and made strict here: every object closed, every key
+ * required (a blank box is null, never missing), `maxItems` dropped (cleanSheet() caps the lists).
+ */
+type Json = { [k: string]: unknown };
+export function strictSchema(node: unknown): unknown {
+  if (Array.isArray(node)) return node.map(strictSchema);
+  if (!node || typeof node !== "object") return node;
+  const out: Json = {};
+  for (const [k, v] of Object.entries(node as Json)) if (k !== "maxItems" && k !== "required") out[k] = k === "enum" ? v : strictSchema(v);
+  if (out.properties && typeof out.properties === "object") {
+    out.required = Object.keys(out.properties as Json);
+    out.additionalProperties = false;
+  }
+  return out;
+}
+
+const PLAIN_SCHEMA = {
   type: "object",
   properties: {
     quoteNumber: S,
@@ -97,5 +115,6 @@ export const SHEET_SCHEMA = {
     notes: S,
     unclear: { type: "array", items: { type: "string" } },
   },
-  required: ["where", "treads", "want", "unclear"],
-} as const;
+};
+
+export const SHEET_SCHEMA = strictSchema(PLAIN_SCHEMA) as Json;
