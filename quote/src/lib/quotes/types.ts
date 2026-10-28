@@ -26,6 +26,10 @@ export type QuoteLine = LineInput & {
   airtableCost: number | null;
 };
 
+/** What an option quotes (Albert, 2026-10-28): stairs are quoted apart from flooring, and a customer takes one of each. */
+export type Scope = "Flooring" | "Stairs";
+export const SCOPES: Scope[] = ["Flooring", "Stairs"];
+
 export type QuoteOption = {
   id: string;
   name: string;
@@ -38,6 +42,8 @@ export type QuoteOption = {
   crew: string | null;
   /** Quote Options → Private Line Name (2026-10-22): the customer's one row for the Private section; null = "Additional work". */
   privateLabel?: string | null;
+  /** Quote Options → Scope (2026-10-28): "Flooring" or "Stairs"; null = worked out from the lines (see optionScope). */
+  scope?: Scope | null;
   lines: QuoteLine[];
   /** Airtable's own option rollups, for the parity check. */
   airtable: Partial<OptionTotals>;

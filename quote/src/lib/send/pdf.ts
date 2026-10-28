@@ -2,7 +2,7 @@ import { parseSignature, type Acceptance } from "@/lib/accept/plan";
 import { termsLabel } from "@/lib/accept/terms";
 import { changeWords, signedMoney } from "@/lib/change/diff";
 import { PAGE, PdfDoc, wrap, type Rgb } from "./pdfDoc";
-import { discountLabel, hstRow, isLump, itemHstNote, leadPrice, longDate, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyText, type CustomerCopy } from "./copy";
+import { discountLabel, hstRow, isLump, isSplit, scopeOf, itemHstNote, leadPrice, longDate, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyText, type CustomerCopy } from "./copy";
 
 /**
  * The quote as a PDF, drawn from the customer copy only (never from live lines), so the file
@@ -97,7 +97,7 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null)
     const sig = parseSignature(a.signature);
     const lines = [
       `Accepted by ${a.name} on ${stamp.when}.`,
-      `Option: ${a.option.name}${a.addOns.length ? `, with ${a.addOns.map((x) => x.description).join(", ")}` : ""}.`,
+      `${(a.picks?.length ?? 1) > 1 ? "Options" : "Option"}: ${a.option.name}${a.addOns.length ? `, with ${a.addOns.map((x) => x.description).join(", ")}` : ""}.`,
       ...wrap(methodWords(a), "R", 9, RIGHT - M - (sig ? 200 : 24)),
       `Agreed to the Project Expectations, ${termsLabel(a.terms)}.`,
     ];
@@ -174,7 +174,8 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null)
   }
 
   function option(o: CopyOption, number: number | null) {
-    const title = number ? `Option ${number}: ${o.name}` : o.name;
+    // With flooring and stairs options (2026-10-28) the title says which: "Stairs · Option 3: Red oak caps".
+    const title = number ? `${isSplit(copy) ? `${scopeOf(o)} · ` : ""}Option ${number}: ${o.name}` : o.name;
     const titleLines = wrap(title, "B", 14, RIGHT - M - (o.recommended ? 90 : 0));
     titleLines.forEach((l, k) => {
       doc.text(M, y - 4, l, { font: "B", size: 14, color: INK });

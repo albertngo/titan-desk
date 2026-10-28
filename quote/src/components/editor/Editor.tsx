@@ -42,6 +42,7 @@ import { ghlContactUrl } from "@/lib/ghl/ids";
 import { fixAddressLink } from "@/lib/link/linkJob";
 import { money, pct, rate } from "@/lib/format";
 import type { RateCard } from "@/lib/quotes/types";
+import { optionScope } from "@/lib/quotes/scope";
 import { Picker } from "./Picker";
 import { ScheduleEditor } from "./ScheduleEditor";
 import { defaultSchedule, suggestsMaterialDeposit } from "@/lib/pricing/schedule";
@@ -486,6 +487,7 @@ export default function Editor({
             {quote.options.map((o) => (
               <button key={o.id} className="tab" aria-current={option?.id === o.id ? "page" : undefined} onClick={() => setActiveId(o.id)}>
                 {o.name || "Untitled"}
+                {quote.options.some((x) => optionScope(x) === "Stairs") && quote.options.some((x) => optionScope(x) === "Flooring") && <span className="t-scope"> · {optionScope(o)}</span>}
                 <span className="t-amt">{money(optionTotals(o.lines, quote.discountRate, quote.showHst).total)}</span>
               </button>
             ))}
@@ -521,6 +523,20 @@ export default function Editor({
                   <div className="obar">
                     <label className="check-in">
                       <input type="checkbox" checked={option.recommended} onChange={(e) => apply(updateOption(quote, option.id, { recommended: e.target.checked }))} /> Recommended
+                    </label>
+                    {/* Flooring or stairs (2026-10-28): the customer takes up to one option of each. Auto reads the lines. */}
+                    <label className="check-in" title="A customer accepts at most one option of each scope. Auto: Stairs when every priced line is a stair line.">
+                      Scope{" "}
+                      <select
+                        className="in"
+                        aria-label="Scope"
+                        value={option.scope ?? ""}
+                        onChange={(e) => apply(updateOption(quote, option.id, { scope: e.target.value === "Flooring" || e.target.value === "Stairs" ? e.target.value : null }))}
+                      >
+                        <option value="">Auto ({optionScope({ ...option, scope: null })})</option>
+                        <option value="Flooring">Flooring</option>
+                        <option value="Stairs">Stairs</option>
+                      </select>
                     </label>
                     {!customer && (
                       <div className="lvl" role="radiogroup" aria-label="Service level">

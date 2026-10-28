@@ -1,0 +1,188 @@
+import { describe, expect, it } from "vitest";
+import { acceptedCopy, acceptProblems, addOnsOf, buildAcceptance, picksOf, type AcceptInput } from "../src/lib/accept/plan";
+import type { Terms } from "../src/lib/accept/terms";
+import { optionTotals, round2 } from "../src/lib/calc";
+import { fromQuote, updateOption } from "../src/lib/editor/model";
+import { optionScope } from "../src/lib/quotes/scope";
+import type { Quote, QuoteLine, QuoteOption } from "../src/lib/quotes/types";
+import { customerCopy, isSplit, scopeLeads, scopesOf, type Letterhead } from "../src/lib/send/copy";
+import { emailMessage, smsMessage, type GhlMessage } from "../src/lib/send/plan";
+
+const body = (m: GhlMessage) => (m.type === "Email" ? m.html : m.message);
+
+/* Scopes (Albert, 2026-10-28): flooring and stairs options on one quote, one of each accepted. Invented numbers only. */
+
+let seq = 0;
+const line = (p: Partial<QuoteLine>): QuoteLine => ({
+  id: `recLINE${String(++seq).padStart(10, "0")}`,
+  lineType: "Install",
+  section: "Install",
+  include: true,
+  qty: 100,
+  waste: null,
+  unitPrice: null,
+  unitPriceSnap: 10,
+  unitCostSnap: 5,
+  costOverride: null,
+  manualCost: null,
+  minChargeSnap: null,
+  hasSource: true,
+  sourceKind: "rate",
+  sourceId: "recRATE0000000001",
+  labourType: "Click install",
+  spec: "Standard",
+  description: "Click install",
+  area: null,
+  uom: "sqft",
+  contractor: "Crew Alpha",
+  clientNote: null,
+  sortOrder: seq,
+  airtableTotal: null,
+  airtableCost: null,
+  ...p,
+});
+
+function option(name: string, lines: QuoteLine[], p: Partial<QuoteOption> = {}): QuoteOption {
+  return { id: `recOPT${name.replace(/\W/g, "").padEnd(11, "0").slice(0, 11)}`, name, description: null, sortOrder: 1, recommended: false, serviceLevel: null, crew: null, lines, airtable: { ...optionTotals(lines, 0, true) }, ...p };
+}
+
+const addOn = line({ section: "Other", description: "Stair nosing", include: false, qty: 4, unitPriceSnap: 25 }); // 100, taxed
+const quote = (p: Partial<Quote> = {}): Quote => ({
+  id: "recVERSION0000001",
+  quoteId: "Q-9001 v2",
+  version: 2,
+  status: "Sent",
+  basis: "Measured",
+  showHst: true,
+  itemised: false,
+  discountRate: 0,
+  validUntil: "2026-11-30",
+  sentAt: "2026-10-27",
+  sendBlock: null,
+  customerToken: "a".repeat(32),
+  sentBy: "pat.quoter@example.com",
+  sentTo: "Email, Text",
+  notes: null,
+  customerName: "Sam Sample",
+  siteAddress: "1 Sample Street",
+  siteCity: "Testville",
+  link: {
+    quoteRecordId: "recQUOTE000000001",
+    quoteNumber: "Q-9001",
+    displayName: "Sam Sample - 1026 - Q-9001",
+    firstName: "Sam",
+    lastName: "Sample",
+    phone: "+15550000000",
+    email: "sam@example.com",
+    addressStatus: "Confirmed",
+    linkStatus: "Linked",
+    projectTiming: null,
+    ghlContactId: "ctc0000001",
+    ghlOpportunityId: "opp0000001",
+    folderUrl: null,
+    companyCamUrl: null,
+    projectNumber: null,
+    notionProjectUrl: null,
+  },
+  options: [option("Oak", [line({}), addOn]), option("Vinyl", [line({ unitPriceSnap: 8 })])],
+  legacyLineCount: 0,
+  ...p,
+});
+const COMPANY: Letterhead = { name: "Titan Flooring", address: null, phone: null, email: "hello@example.com", website: null };
+const copyOf = (q = quote()) => customerCopy(q, { sentOn: "2026-10-27", validUntil: "2026-11-30", company: COMPANY });
+const stair = (p: Partial<QuoteLine> = {}) => line({ lineType: "Stairs", section: "Stairs", sourceKind: "stair", sourceId: "recSTAIR000000001", description: "Step (Right Side Open)", qty: 13, uom: "each", unitPriceSnap: 100, ...p });
+const split = (p: Partial<Quote> = {}) =>
+  quote({ options: [option("Red oak caps", [stair()]), option("Oak", [line({}), addOn]), option("Vinyl", [line({ unitPriceSnap: 8 })])], ...p });
+const TERMS: Terms = { id: "recTermsAAAAAAAAA", on: "2026-10-27" };
+const input = (p: Partial<AcceptInput> = {}): AcceptInput => ({ optionIndexes: [0], addOns: [], name: "Sam Sample", terms: true, termsId: TERMS.id, signature: null, reason: null, ...p });
+const NOW = new Date("2026-11-03T19:14:00Z");
+const ctx = { now: NOW, terms: TERMS, method: "link" as const, recordedBy: null, userAgent: null };
+const TO = { contactId: "ctc0000001", firstName: "Sam", link: "https://example.com/c/x" };
+
+describe("an option's scope", () => {
+  it("is what was set, else Stairs when every priced line is a stair line", () => {
+    expect(optionScope(option("A", [stair()]))).toBe("Stairs");
+    expect(optionScope(option("B", [stair(), line({})]))).toBe("Flooring");
+    expect(optionScope(option("C", [line({})], { scope: "Stairs" }))).toBe("Stairs");
+    expect(optionScope(option("D", [stair()], { scope: "Flooring" }))).toBe("Flooring");
+  });
+
+  it("is frozen on the copy, flooring options first, so each scope reads as one group", () => {
+    const c = copyOf(split());
+    expect(c.options.map((o) => [o.name, o.scope ?? "Flooring"])).toEqual([["Oak", "Flooring"], ["Vinyl", "Flooring"], ["Red oak caps", "Stairs"]]);
+    expect(isSplit(c)).toBe(true);
+    expect(scopesOf(c)).toEqual(["Flooring", "Stairs"]);
+    expect(isSplit(copyOf())).toBe(false);
+  });
+
+  it("keeps one recommended option per scope in the editor", () => {
+    let q = fromQuote(split());
+    const [caps, oak, vinyl] = q.options;
+    q = updateOption(q, caps.id, { recommended: true });
+    q = updateOption(q, oak.id, { recommended: true });
+    expect(q.options.map((o) => o.recommended)).toEqual([true, true, false]);
+    q = updateOption(q, vinyl.id, { recommended: true });
+    expect(q.options.map((o) => o.recommended)).toEqual([true, false, true]);
+  });
+});
+
+describe("accepting one option of each scope", () => {
+  const c = copyOf(split()); // 0 Oak, 1 Vinyl, 2 Red oak caps
+
+  it("takes a flooring option and a stairs option, or either alone, never two of one scope", () => {
+    expect(acceptProblems(c, "open", input({ optionIndexes: [0, 2] }), { terms: TERMS, method: "link" })).toEqual([]);
+    expect(acceptProblems(c, "open", input({ optionIndexes: [2] }), { terms: TERMS, method: "link" })).toEqual([]);
+    expect(acceptProblems(c, "open", input({ optionIndexes: [0, 1] }), { terms: TERMS, method: "link" })).toEqual(["Choose one flooring option, not two."]);
+  });
+
+  it("makes one contract: the totals added, one schedule on the whole, every pick named", () => {
+    const key = addOnsOf(c, 0)[0].key;
+    const a = buildAcceptance(c, input({ optionIndexes: [2, 0], addOns: [key] }), ctx);
+    const sub = round2(c.options[0].totals.subtotal + c.options[2].totals.subtotal + 100);
+    expect(a.totals.subtotal).toBe(sub);
+    expect(a.option).toEqual({ index: 0, name: "Oak + Red oak caps", ref: c.options[0].ref });
+    expect(picksOf(a).map((p) => [p.name, p.scope])).toEqual([["Oak", "Flooring"], ["Red oak caps", "Stairs"]]);
+    expect(round2(a.stages.reduce((t, s) => t + (s.amount ?? 0), 0))).toBe(a.totals.total);
+
+    const accepted = acceptedCopy(c, a);
+    expect(accepted.options).toHaveLength(1);
+    const o = accepted.options[0];
+    expect(o.name).toBe("Oak + Red oak caps");
+    expect(o.sections.map((s) => s.name)).toEqual(["Install", "Other", "Stairs"]);
+    expect(o.sections.find((s) => s.name === "Other")?.lines[0]).toMatchObject({ description: "Stair nosing", added: true, optional: false });
+    expect(o.totals.total).toBe(a.totals.total);
+    expect(o.scope).toBeUndefined();
+  });
+
+  it("reads a record from before scopes as its one option", () => {
+    const one = copyOf();
+    const a = buildAcceptance(one, input({ optionIndexes: [0] }), ctx);
+    const old = { ...a, picks: undefined, addOns: [{ key: "1.0", description: "Stair nosing", amount: 100 }] };
+    expect(picksOf(old)).toEqual([{ index: 0, name: "Oak", ref: one.options[0].ref, scope: "Flooring" }]);
+    expect(acceptedCopy(one, old).options[0].sections.flatMap((s) => s.lines).some((l) => l.kind === "item" && l.added)).toBe(true);
+  });
+});
+
+describe("each scope's price on its own", () => {
+  it("a preliminary shows a range per scope in the text, the email and its preheader", () => {
+    const q = split({ basis: "Preliminary", options: [option("Oak", [line({})]), option("Red oak caps", [stair()])] });
+    const c = customerCopy(q, { sentOn: "2026-10-27", validUntil: null, company: COMPANY });
+    const leads = scopeLeads(c, (n) => `$${n}`, " to ");
+    expect(leads.map((x) => x.scope)).toEqual(["Flooring", "Stairs"]);
+    expect(leads[0].phrase).toMatch(/^\$[\d,]+ to \$[\d,]+ \+ HST$/);
+    const sms = body(smsMessage(c, TO));
+    expect(sms).toMatch(/Your estimate: flooring \$[\d,]+ to \$[\d,]+ \+ HST, stairs \$[\d,]+ to \$[\d,]+ \+ HST\./);
+    const mail = emailMessage(c, TO);
+    expect(body(mail)).toMatch(/Flooring \$[\d,]+ – \$[\d,]+ \+ HST · Stairs/);
+  });
+
+  it("several options in a scope read from the lowest; a measured text names both", () => {
+    const c = copyOf(split());
+    const leads = scopeLeads(c, (n) => `$${n}`);
+    expect(leads).toEqual([
+      { scope: "Flooring", count: 2, phrase: `from $${Math.min(c.options[0].totals.subtotal, c.options[1].totals.subtotal)} + HST` },
+      { scope: "Stairs", count: 1, phrase: `$${c.options[2].totals.subtotal} + HST` },
+    ]);
+    expect(body(smsMessage(c, TO))).toMatch(/Your quote is ready: flooring from .*, stairs .*, good until/);
+  });
+});

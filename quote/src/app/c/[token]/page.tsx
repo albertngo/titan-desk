@@ -10,7 +10,7 @@ import { termsHref, termsLabel } from "@/lib/accept/terms";
 import { defaultSchedule } from "@/lib/pricing/schedule";
 import { acceptConfigured } from "@/lib/quotes/acceptClient";
 import { customerQuote } from "@/lib/quotes/customer";
-import { acceptedPdfName, offersPdf, pdfName, stagesOf } from "@/lib/send/copy";
+import { acceptedPdfName, isSplit, offersPdf, pdfName, scopeOf, scopesOf, stagesOf } from "@/lib/send/copy";
 
 /** A customer's quote, opened from the link in their email or text. Customer deployment only. */
 
@@ -69,10 +69,17 @@ export default async function CustomerQuotePage({ params, searchParams }: { para
     name: o.name,
     subtotal: o.totals.subtotal,
     hst: o.totals.hst,
-    addOns: addOnsOf(copy, o),
+    scope: scopeOf(o),
+    addOns: addOnsOf(copy, index),
     frozen: stagesOf(o).map((s) => ({ amount: s.amount })),
   }));
-  const recommended = copy.options.findIndex((o) => o.recommended);
+  // What starts ticked: the recommended option of each scope. With one scope only, the first when none is recommended.
+  const split = isSplit(copy);
+  const defaults = scopesOf(copy).flatMap((scope) => {
+    const mine = options.filter((o) => o.scope === scope);
+    const rec = mine.find((o) => copy.options[o.index].recommended);
+    return rec ? [rec.index] : !split && mine[0] ? [mine[0].index] : [];
+  });
   return (
     <>
       {beacon}
@@ -89,7 +96,7 @@ export default async function CustomerQuotePage({ params, searchParams }: { para
               options={options}
               schedule={copy.paymentSchedule ?? defaultSchedule()}
               terms={{ id: terms.id, label: termsLabel(terms.on), href: termsHref(token) }}
-              defaultIndex={recommended >= 0 ? recommended : 0}
+              defaultPicks={defaults}
             />
           ) : null
         }

@@ -133,6 +133,8 @@ export const OPTION = {
   crew: "fldAclqYwusXAlizF",
   /** 2026-10-22: what the customer sees in place of the option's Private section (one rolled-up row); blank = "Additional work". */
   privateLabel: "fldBYBPfe6bcSdsQD",
+  /** Flooring / Stairs (2026-10-28): a customer accepts at most one option of each. Blank = from the lines. */
+  scope: "fldSJma4kK5YZn8P0",
   lines: "fldYmOczi2hNUldJU",
   /** The version this option belongs to; emptied, never deleted, when the option is removed. */
   version: "flduprOIp2Z5Z6JcG",

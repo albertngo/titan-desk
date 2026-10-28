@@ -1,7 +1,8 @@
 import { DEFAULT_PRIVATE_LABEL, LUMP_QTY_SECTIONS, PRIVATE_SECTION, SECTIONS, chargesHst, isPriced, lineTotal, optionTotals, priceUsed, privateRollup, round2, sectionOf, stageAmounts } from "@/lib/calc";
 import type { CopyChange } from "@/lib/change/diff";
 import { defaultSchedule, payWords, type PayHow, type PaymentSchedule } from "@/lib/pricing/schedule";
-import type { Quote, QuoteLine, QuoteOption } from "@/lib/quotes/types";
+import { optionScope } from "@/lib/quotes/scope";
+import type { Quote, QuoteLine, QuoteOption, Scope } from "@/lib/quotes/types";
 import { copyKind } from "./summary";
 
 /**
@@ -81,6 +82,8 @@ export type CopyOption = {
   range?: CopyRange;
   /** The payment schedule (2026-10-27). Absent on a copy frozen before then: 35 / 35 / balance from `totals`. */
   schedule?: CopyStage[];
+  /** "Stairs" on a stairs option (2026-10-28); absent = Flooring, which every copy frozen before then is. */
+  scope?: "Stairs";
 };
 
 export type Letterhead = {
@@ -329,8 +332,39 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
     // A preliminary is shown as a range (2026-10-27); the totals stay exact underneath for the record.
     ...(ranged && t.subtotal > 0 ? { range: copyRange(t) } : {}),
     schedule: copyStages(schedule, o, discountRate, showHst, t.total, ranged && t.subtotal > 0),
+    ...(optionScope(o) === "Stairs" ? { scope: "Stairs" as const } : {}),
   };
 }
+
+/* ---------- scopes (2026-10-28) ---------- */
+
+/** The scope a frozen option counts as. */
+export const scopeOf = (o: Pick<CopyOption, "scope">): Scope => (o.scope === "Stairs" ? "Stairs" : "Flooring");
+
+/** The scopes a copy offers, flooring first. */
+export const scopesOf = (copy: Pick<CustomerCopy, "options">): Scope[] => (["Flooring", "Stairs"] as Scope[]).filter((s) => copy.options.some((o) => scopeOf(o) === s));
+
+/** A copy with both flooring and stairs options: the customer takes up to one of each, and the page groups them. */
+export const isSplit = (copy: Pick<CustomerCopy, "options">) => scopesOf(copy).length > 1;
+
+/**
+ * Each scope's price on its own (Albert, 2026-10-28: "The preliminary price should show separately for
+ * each scope"), for the email and the text: one option's range or price, or the lowest of several as
+ * "from". `phrase` is "$5,800 – $6,600 + HST" or "from $2,100 + HST"; the text passes " to ".
+ */
+export function scopeLeads(copy: Pick<CustomerCopy, "options" | "showHst">, money: (n: number) => string, sep = " – "): { scope: Scope; count: number; phrase: string }[] {
+  return scopesOf(copy).map((scope) => {
+    const mine = copy.options.filter((o) => scopeOf(o) === scope);
+    const leads = mine.map((o) => leadPrice(copy, o.totals));
+    const tag = leads[0].tag;
+    if (mine.length === 1) return { scope, count: 1, phrase: `${mine[0].range ? rangeText(mine[0].range.low, mine[0].range.high, sep) : money(leads[0].amount)} ${tag}` };
+    const low = Math.min(...mine.map((o, i) => o.range?.low ?? leads[i].amount));
+    return { scope, count: mine.length, phrase: `from ${mine.some((o) => o.range) ? dollars(low) : money(low)} ${tag}` };
+  });
+}
+
+/** "Flooring options", "Stairs option": the heading over a scope's options. */
+export const scopeHeading = (scope: Scope, count: number) => `${scope} option${count === 1 ? "" : "s"}`;
 
 /**
  * `at.range`: false when the sender chose the exact price for a preliminary instead of its range
@@ -359,7 +393,10 @@ export function customerCopy(quote: Quote, at: { sentOn: string; validUntil: str
     showHst: quote.showHst,
     company: at.company,
     ...(quote.schedule ? { paymentSchedule: quote.schedule } : {}),
-    options: quote.options.map((o) => copyOption(o, quote.discountRate, quote.showHst, lump, prelim && at.range !== false, quote.schedule ?? defaultSchedule())),
+    // Flooring options first, then stairs (2026-10-28), so each scope reads as one group; order within a scope is kept.
+    options: [...quote.options]
+      .sort((a, b) => (optionScope(a) === optionScope(b) ? 0 : optionScope(a) === "Flooring" ? -1 : 1))
+      .map((o) => copyOption(o, quote.discountRate, quote.showHst, lump, prelim && at.range !== false, quote.schedule ?? defaultSchedule())),
   };
 }
 

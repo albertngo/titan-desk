@@ -91,7 +91,7 @@ const quote = (p: Partial<Quote> = {}): Quote => ({
 const COMPANY: Letterhead = { name: "Titan Flooring", address: null, phone: null, email: "hello@example.com", website: null };
 const copyOf = (q = quote()) => customerCopy(q, { sentOn: "2026-10-27", validUntil: "2026-11-30", company: COMPANY });
 const TERMS: Terms = { id: "recTermsAAAAAAAAA", on: "2026-10-27" };
-const input = (p: Partial<AcceptInput> = {}): AcceptInput => ({ optionIndex: 0, addOns: [], name: "Sam Sample", terms: true, termsId: TERMS.id, signature: null, reason: null, ...p });
+const input = (p: Partial<AcceptInput> = {}): AcceptInput => ({ optionIndexes: [0], addOns: [], name: "Sam Sample", terms: true, termsId: TERMS.id, signature: null, reason: null, ...p });
 const NOW = new Date("2026-11-03T19:14:00Z"); // 2:14 pm in Toronto
 const SIG = "M10 10 L200 120 L400 40 M500 200 L800 250";
 
@@ -114,7 +114,7 @@ describe("what may be accepted", () => {
 
   it("needs an option, a name, the terms ticked; a signature in store; a reason from staff; only offered add-ons", () => {
     const p = (i: Partial<AcceptInput>, method: "link" | "store" | "staff" = "link") => acceptProblems(copy, "open", input(i), { terms: TERMS, method }).join(" ");
-    expect(p({ optionIndex: 5 })).toMatch(/Choose the option/);
+    expect(p({ optionIndexes: [5] })).toMatch(/Choose the option/);
     expect(p({ name: "x" })).toMatch(/full name/);
     expect(p({ name: "12345" })).toMatch(/full name/);
     expect(p({ terms: false })).toMatch(/Project Expectations/);
@@ -122,16 +122,17 @@ describe("what may be accepted", () => {
     expect(p({ signature: SIG }, "store")).toBe("");
     expect(p({}, "staff")).toMatch(/where the written yes is/);
     expect(p({ reason: "Signed paper, scanned to the job folder" }, "staff")).toBe("");
-    expect(p({ addOns: ["9.9"] })).toMatch(/isn't on that option/);
-    expect(p({ optionIndex: 1, addOns: addOnsOf(copy, copy.options[0]).map((a) => a.key) })).toMatch(/isn't on that option/);
+    expect(p({ addOns: ["0.9.9"] })).toMatch(/isn't on the options you chose/);
+    expect(p({ optionIndexes: [1], addOns: addOnsOf(copy, 0).map((a) => a.key) })).toMatch(/isn't on the options you chose/);
   });
 
   it("reads only what it expects from the request", () => {
     expect(readAcceptInput(null)).toBeNull();
     expect(readAcceptInput({ optionIndex: "0" })).toBeNull();
     expect(readAcceptInput({ optionIndex: 1, addOns: ["0.1", "0.1", "bad", 3], name: "  Sam   Sample ", terms: true, signature: " ", total: 1, extra: "x" })).toEqual({
-      optionIndex: 1,
-      addOns: ["0.1"],
+      optionIndexes: [1],
+      // A page opened before 2026-10-28 sends "section.line" for its one option.
+      addOns: ["1.0.1"],
       name: "Sam Sample",
       terms: true,
       termsId: null,
@@ -140,6 +141,8 @@ describe("what may be accepted", () => {
     });
     expect(readAcceptInput({ optionIndex: 0, termsId: "recTermsAAAAAAAAA" })?.termsId).toBe("recTermsAAAAAAAAA");
     expect(readAcceptInput({ optionIndex: 0, termsId: "'; DROP" })?.termsId).toBeNull();
+    expect(readAcceptInput({ optionIndexes: [0, 2, 2, "x", -1], addOns: ["2.0.1"] })).toMatchObject({ optionIndexes: [0, 2], addOns: ["2.0.1"] });
+    expect(readAcceptInput({ optionIndexes: [] })).toBeNull();
   });
 
   it("refuses an Accept made against Project Expectations that have been replaced since the page opened", () => {
@@ -161,10 +164,10 @@ describe("the Project Expectations' label", () => {
 
 describe("the acceptance record", () => {
   const copy = copyOf();
-  const keys = addOnsOf(copy, copy.options[0]);
+  const keys = addOnsOf(copy, 0);
 
   it("offers each add-on with its shown price and whether it carries HST", () => {
-    expect(keys).toEqual([{ key: expect.stringMatching(/^\d+\.\d+$/), description: "Stair nosing", amount: 100, taxed: true }]);
+    expect(keys).toEqual([{ key: expect.stringMatching(/^0\.\d+\.\d+$/), description: "Stair nosing", amount: 100, taxed: true }]);
   });
 
   it("the accepted total is the option plus the ticked add-ons at their shown price, with HST; the deposit follows", () => {
@@ -189,7 +192,7 @@ describe("the acceptance record", () => {
     expect(c.paymentSchedule?.preset).toBe("materials");
     const deposit = c.options[0].schedule![0].amount;
     expect(deposit).toBe(452); // the material, 400, with its HST
-    const a = buildAcceptance(c, input({ addOns: addOnsOf(c, c.options[0]).map((x) => x.key) }), { now: NOW, terms: TERMS, method: "link", recordedBy: null, userAgent: null });
+    const a = buildAcceptance(c, input({ addOns: addOnsOf(c, 0).map((x) => x.key) }), { now: NOW, terms: TERMS, method: "link", recordedBy: null, userAgent: null });
     expect(a.stages[0].amount).toBe(452);
     expect(a.stages.reduce((s, x) => s + (x.amount ?? 0), 0)).toBeCloseTo(a.totals.total, 2);
   });
@@ -224,7 +227,7 @@ describe("the acceptance record", () => {
 
 describe("the accepted copy, page and PDF", () => {
   const copy = copyOf();
-  const key = addOnsOf(copy, copy.options[0])[0].key;
+  const key = addOnsOf(copy, 0)[0].key;
   const a = buildAcceptance(copy, input({ addOns: [key], signature: SIG }), { now: NOW, terms: TERMS, method: "store", recordedBy: null, userAgent: null });
   const accepted = acceptedCopy(copy, a);
 

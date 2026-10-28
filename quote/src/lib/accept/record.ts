@@ -8,7 +8,7 @@ import { appendLog, firstNameOf, logLine } from "@/lib/quotes/history";
 import { ids, str } from "@/lib/quotes/values";
 import { acceptedPdfName, copyState, parseCopy, torontoToday, type CopyState, type CustomerCopy } from "@/lib/send/copy";
 import { acceptedEmailMessage, acceptedSmsMessage, customerLinks, emailFromFor, isToken, type Sender } from "@/lib/send/plan";
-import { acceptedWhen, parseAcceptance, serializeAcceptance, type Acceptance, type Handoff } from "./plan";
+import { acceptedWhen, parseAcceptance, picksOf, serializeAcceptance, type Acceptance, type Handoff } from "./plan";
 import { customerUrl, etransferEmail, staffQuoteLink } from "./settings";
 import { acceptTerms, type LiveTerms } from "./live";
 import { TERMS_PDF } from "./terms";
@@ -137,7 +137,7 @@ export async function recordAcceptance(target: AcceptTarget, a: Acceptance, who:
   await updateRecord(T.versions, fresh.versionId, {
     [VERSION.status]: "Accepted",
     [VERSION.acceptance]: serializeAcceptance(a),
-    [VERSION.acceptedOption]: a.option.ref ? [a.option.ref] : [],
+    [VERSION.acceptedOption]: picksOf(a).flatMap((p) => (p.ref ? [p.ref] : [])),
     [VERSION.acceptedAt]: a.on,
     [VERSION.editLog]: appendLog(fresh.editLog, logLine(now, who, `accepted ${HOW[a.method]} by ${a.name}: ${a.option.name}${added}, ${a.totals.total.toFixed(2)} with HST`)),
   });

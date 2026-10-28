@@ -31,7 +31,7 @@ import { acceptReadiness } from "@/lib/accept/staff";
 import { termsLabel } from "@/lib/accept/terms";
 import { ghlOpportunityUrl } from "@/lib/ghl/ids";
 import { logEntries } from "@/lib/quotes/history";
-import { addDays, leadPrice, priceRange, rangeText, torontoToday, VALID_DAYS } from "@/lib/send/copy";
+import { addDays, leadPrice, priceRange, rangeText, scopeOf, torontoToday, VALID_DAYS } from "@/lib/send/copy";
 import { optionProblem, sendProblems } from "@/lib/send/plan";
 import { parseRooms } from "@/lib/rooms/log";
 
@@ -125,7 +125,7 @@ export default async function QuotePage({
       <AcceptForCustomer
         versionId={quote.id}
         link={link}
-        options={sentCopy.options.map((o, index) => ({ index, name: o.name, subtotal: o.totals.subtotal, addOns: addOnsOf(sentCopy, o) }))}
+        options={sentCopy.options.map((o, index) => ({ index, name: o.name, subtotal: o.totals.subtotal, scope: scopeOf(o), addOns: addOnsOf(sentCopy, index) }))}
         customerName={[quote.link?.firstName, quote.link?.lastName].filter(Boolean).join(" ") || quote.customerName}
         terms={acceptGate?.terms ? { id: acceptGate.terms.id, label: termsLabel(acceptGate.terms.on) } : null}
         off={acceptGate?.off ?? null}
