@@ -303,13 +303,18 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   mirrors it: Quote Lines → HST Base Own / HST Base Quote, rolled up on Quote Options, feeding HST.
   The customer page and PDF say "no HST" / "plus HST" on a material that differs from the quote,
   and "HST (13%) on materials" when only materials are taxed. `chargesHst()` in `src/lib/calc.ts`.
-- **Swappable material (Albert, 2026-10-16).** A Rate Card row can name a Material Group and the
-  Default Material its Titan Rate and Total Cost already include (table Install Materials: Name,
-  Group, Cost, Price per unit of the job, Active; read only). On the line the material can be swapped
-  for any priced material in the group: one line for the customer, named "work · material". Labour =
-  the row less its default; the line = labour (at the service level, so Premium marks up labour only)
-  + the chosen material, so the default at Standard is exactly the row. A row whose default has no
-  price, or costs more than the row, offers no swap. Contractor and crew changes keep the material.
+- **Swappable material (Albert, 2026-10-16; corrected 2026-10-28).** A Rate Card row can name a
+  Material Group and a Default Material (table Install Materials: Name, Group, Cost, Price per unit
+  of the job, Active; read only). On the line the material can be swapped for any priced material in
+  the group: one line for the customer, named "work · material". **The row's Titan Rate and Total Cost
+  are labour only** (2026-10-28, Albert: the picked glue "does not update the unit cost and unit price,
+  so it's still showing just the labor"; the 2026-10-16 reading that the row already included the
+  default had been subtracting it back out). The line = the row (at the service level, so Premium
+  marks up labour only) + the chosen material. A row whose default has no price offers no material.
+  Contractor and crew changes keep the material. **The material's own unit cost and price are editable**
+  (same day, Albert) in small boxes under the line's: a typed figure is stored as the line's Unit Price /
+  Cost Override (labour from the card + the typed material), so Airtable and `calc.ts` are unchanged;
+  `materialSplit()` / `setMaterialFigures()`.
   Rules: `rateSnap()` / `setMaterial()` in `src/lib/editor/model.ts`; tested in `tests/editor.test.ts`.
 - **The customer's conversation (Albert, 2026-10-20).** On the quote page and the editor it is a
   **drawer docked to the right edge**: a tab with the message and photo counts, a click opens a

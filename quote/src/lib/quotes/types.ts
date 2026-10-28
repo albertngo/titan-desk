@@ -140,7 +140,7 @@ export type RateRow = {
   defaultWaste: number | null;
   /** Install Materials group the job's material can be swapped within (2026-10-16); absent = no swap. */
   materialGroup?: string | null;
-  /** The Install Material `rate` and `cost` already include. */
+  /** The Install Material a line starts with; its price and cost are added to `rate` and `cost` (labour only). */
   defaultMaterialId?: string | null;
 };
 

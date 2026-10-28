@@ -22,6 +22,16 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-10-28",
+    kind: "fixed",
+    title: "Glue and other install materials are now added to the price",
+    details: [
+      "A Rate Card line with a Material picker (glue-down installs, cork, glue assist) now adds the picked material's price and cost on top of the labour rate. Before, the line showed labour only.",
+      "Lines already on a quote keep their old figures until you pick the material again (or remove and re-add the line).",
+      "The material has its own small Unit cost and Unit price boxes under the line's, with the labour shown beside them. Type one to change just the material; clear it to go back to the card.",
+    ],
+  },
+  {
+    date: "2026-10-28",
     kind: "changed",
     title: "A tidier top bar",
     details: [

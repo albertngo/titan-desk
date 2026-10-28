@@ -225,7 +225,7 @@ export const RATE = {
   active: "fld2ZHDbhu8PYIJFe",
   /** 2026-10-16: the Install Materials group this job's material swaps within; blank = no swap. */
   materialGroup: "fldskxNatiyqheLSd",
-  /** 2026-10-16: the Install Material the Titan Rate and Total Cost already include. */
+  /** 2026-10-16: the Install Material a line starts with, added on top of the Titan Rate and Total Cost (labour only, 2026-10-28). */
   defaultMaterial: "fldKoeawws0YkMo78",
 } as const;
 
