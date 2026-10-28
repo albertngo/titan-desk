@@ -280,7 +280,8 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
       const qty = l.qty === null ? null : round2(extent);
       if (l.include) total += amount;
       // Lump sum: a counted line shows what it is, never what it costs; how much only for the scope sections. An add-on must still say its price.
-      const lump = lumpSum && l.include;
+      // Stairs are always one price (Albert, 2026-10-28): a breakdown itemises the flooring only.
+      const lump = (lumpSum || name === "Stairs") && l.include;
       const showQty = !lump || LUMP_QTY_SECTIONS.has(name);
       lines.push({
         kind: "item",
@@ -297,7 +298,7 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
         ...(chargesHst(l, showHst) !== showHst ? { hst: showHst ? ("none" as const) : ("plus" as const) } : {}),
       });
     }
-    if (lines.length) sections.push({ name: name === "Unsorted" ? "Other" : name, total: lumpSum ? null : round2(total), lines });
+    if (lines.length) sections.push({ name: name === "Unsorted" ? "Other" : name, total: lumpSum || name === "Stairs" ? null : round2(total), lines });
   }
   // The Private section as the customer sees it (2026-10-22): one row in Other, the option's name for it, the total, nothing else.
   // On a lump sum there is no row at all (Albert, 2026-10-22): the amount is already inside the one price.

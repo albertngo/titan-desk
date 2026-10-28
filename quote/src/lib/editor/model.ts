@@ -22,6 +22,8 @@ export type EditorLine = LineInput & {
   contractor: string | null;
   /** The Install Material picked for a Rate Card line (2026-10-16); null/absent = none. See `rateSnap`. */
   materialId?: string | null;
+  /** The Stair Item's Category (2026-10-28), for grouping the Stairs section; display only, never saved. */
+  stairCategory?: string | null;
   area: string;
   uom: string | null;
   clientNote: string;
@@ -339,6 +341,7 @@ export function lineFromEntry(entry: CardEntry, section: string, contractorName?
       ...baseLine(section),
       sourceKind: "stair",
       sourceId: entry.recordId,
+      stairCategory: entry.category,
       description: entryLabel(entry),
       uom: "piece",
       unitPriceSnap: levelPrice(entry.rate, level, true),
@@ -707,6 +710,7 @@ export function fromQuote(quote: Quote): EditorQuote {
         description: l.description ?? "",
         contractor: l.contractor,
         materialId: l.materialId ?? null,
+        stairCategory: l.stairCategory ?? null,
         area: l.area ?? "",
         uom: l.uom,
         clientNote: l.clientNote ?? "",

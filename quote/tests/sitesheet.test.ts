@@ -207,8 +207,7 @@ describe("building options from what the customer wants", () => {
       "Task: New Curved Handrail + Stain": 15,
       "Iron Spindles (w/material)": 38,
       "New Post": 2,
-      "Accents: Nosing": 1,
-      "Accents: Nosing (w/Picket Holes)": 1,
+      "Accents: Nosing": 18,
       "Task: 2 Side Paint (White)": 1,
     });
     expect(caps.lines.every((l) => l.section === "Stairs")).toBe(true);
@@ -218,7 +217,7 @@ describe("building options from what the customer wants", () => {
     expect(carpet.sourceKind).toBe("manual");
     expect(carpet.unitPrice ?? null).toBeNull();
     expect(caps.notes.some((x) => x.startsWith("Carpet removed from the stairs: no rate"))).toBe(true);
-    expect(optionTotals(caps.lines, 0, false).subtotal).toBe(5 * 120 + 200 + 7 * 130 + 14 * 10 + 8 * 20 + 15 * 35 + 38 * 20 + 2 * 150 + 20 + 25 + 100);
+    expect(optionTotals(caps.lines, 0, false).subtotal).toBe(5 * 120 + 200 + 7 * 130 + 14 * 10 + 8 * 20 + 15 * 35 + 38 * 20 + 2 * 150 + 18 * 20 + 100);
   });
 
   it("vinyl treads and vinyl steps are separate options; a curved stair gets vinyl steps only", () => {

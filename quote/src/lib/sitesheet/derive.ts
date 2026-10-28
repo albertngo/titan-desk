@@ -38,7 +38,7 @@ export type Derived = {
   posts: { now: number; add: number };
   /** Handrail feet by kind (sheet v4 runs): new straight and curved rail are priced apart. */
   rail: { straightFt: number; curvedFt: number; wallFt: number; flatPicketFt: number; totalFt: number };
-  nosing: { pieces: number; newPieces: number; holedPieces: number; sandPieces: number; feet: number; holedFt: number };
+  nosing: { pieces: number; newPieces: number; holedPieces: number; sandPieces: number; feet: number; newFt: number; holedFt: number };
   oakBoxes: number;
   /** Pizza sets and bullnoses that need a custom piece (sheet v5). */
   custom: { pizzaSets: number; bullnoses: number };
@@ -124,6 +124,7 @@ export function derive(s: SiteSheet): Derived {
     holedPieces: flatPicketRuns.length,
     sandPieces: pieces.filter((p) => p.sand).length,
     feet: pieces.reduce((t, p) => t + n(p.ft), 0),
+    newFt: pieces.filter((p) => !p.sand).reduce((t, p) => t + n(p.ft), 0),
     holedFt,
   };
   const rail = {

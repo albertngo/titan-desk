@@ -188,6 +188,8 @@ export const LINE = {
   installMaterial: "fldLHVDiQWa3lOIcq",
   /** 2026-10-20: the Stair Profiles row a preliminary's staircase line was priced from. */
   stairProfile: "fldx3bE8kRnoGRRwu",
+  /** 2026-10-28: lookup of the Stair Item's Category, for grouping the Stairs section. Read only. */
+  stairCategory: "fldSFOxH6jcSqDxLL",
   // Airtable's own per-line results — read only for the parity check.
   lineTotal: "fldtr6qmdjmWc1YFM",
   lineCost: "fld64HUgwqcRso3Br",

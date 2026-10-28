@@ -149,6 +149,7 @@ table.items .amt { font-weight: 600; }
 table.items .sub { display: block; font-size: 11.5px; color: var(--fg-faint); margin-top: 2px; }
 table.items tr.sect td { background: var(--head) !important; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--fg-dim); padding: 7px 12px; }
 table.items tr.sect .r { letter-spacing: 0; font-size: 12px; }
+table.items tr.subsect td { font-size: 11px; font-weight: 600; color: var(--fg-dim); padding: 8px 12px 3px 28px; border-bottom: 1px solid var(--line, #e5e7eb); }
 table.items tr.off td { color: var(--fg-faint); }
 .chgd { color: var(--warn); font-weight: 600; }
 .flag { display: inline-block; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; background: var(--warn-soft); color: var(--warn); margin: 4px 4px 0 0; }

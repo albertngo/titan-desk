@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { sectionLinesInOrder, stairGroupLabel, stairGroups } from "@/lib/editor/stairGroups";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { saveAsNewVersionAction, saveVersionAction } from "@/app/q/[id]/edit/actions";
 import { Financials } from "@/components/Financials";
@@ -234,7 +235,7 @@ export default function Editor({
 
   let n = 0;
   const numberOf = new Map<string, number>();
-  if (option) for (const s of sectionsShown) for (const l of option.lines) if (sectionOf(l) === s && isPriced(l) && l.include) numberOf.set(l.id, ++n);
+  if (option) for (const s of sectionsShown) for (const l of sectionLinesInOrder(s, option.lines.filter((x) => sectionOf(x) === s))) if (isPriced(l) && l.include) numberOf.set(l.id, ++n);
 
   // How a line stands against the option's crew: set by hand (with a way back), or not theirs to do.
   const crewMark = (l: EditorLine) => {
@@ -666,7 +667,19 @@ export default function Editor({
                             </td>
                             <td className="r">{money(sum)}</td>
                           </tr>,
-                          ...lines.map(row),
+                          // Stairs grouped by the Stair Item's Category (2026-10-28), a small heading over each group.
+                          ...(s === "Stairs"
+                            ? stairGroups(lines).flatMap((g) => [
+                                ...(g.heading
+                                  ? [
+                                      <tr className="subsect" key={`g-${g.group ?? "other"}`}>
+                                        <td colSpan={customer ? 5 : 8}>{stairGroupLabel(g.group)}</td>
+                                      </tr>,
+                                    ]
+                                  : []),
+                                ...g.lines.map(row),
+                              ])
+                            : lines.map(row)),
                           ...(rollup > 0
                             ? [
                                 <tr key="private-rollup">

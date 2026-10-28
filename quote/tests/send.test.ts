@@ -587,6 +587,16 @@ describe("lump sum (2026-10-22)", () => {
     // Nothing said = the default = lump sum.
     expect(customerCopy({ ...quote(), itemised: undefined }, AT).pricing).toBe("lump");
   });
+
+  it("keeps stairs one price on a breakdown: only the flooring is itemised (Albert, 2026-10-28)", () => {
+    const step = line({ section: "Stairs", lineType: "Stairs", sourceKind: "stair", description: "Step", qty: 12, uom: "piece", unitPriceSnap: 100 });
+    const c = customerCopy(quote({ itemised: true, options: [option("A", [line({}), step], 0, true)] }), AT);
+    const [install, stairs] = c.options[0].sections;
+    expect(install.total).not.toBeNull();
+    expect(install.lines[0]).toMatchObject({ kind: "item", amount: expect.any(Number) });
+    expect(stairs).toMatchObject({ name: "Stairs", total: null });
+    expect(stairs.lines[0]).toMatchObject({ kind: "item", description: "Step", qty: null, unitPrice: null, amount: null });
+  });
 });
 
 describe("a preliminary goes as a range (Albert, 2026-10-27)", () => {

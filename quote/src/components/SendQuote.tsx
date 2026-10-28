@@ -255,13 +255,13 @@ export function SendQuote({
 
         {/* A preliminary is always a lump sum (Albert, 2026-10-27); only a measured quote can go with the breakdown. */}
         {!preliminary && (
-        <label className="sq-until-in" title="Lump sum: what the work includes and one price; quantities on install, removal, prep and materials, no line prices. Breakdown: every line with its unit price and amount, section totals and the discount.">
+        <label className="sq-until-in" title="Lump sum: what the work includes and one price; quantities on install, removal, prep and materials, no line prices. Breakdown: every flooring line with its unit price and amount, section totals and the discount; stairs are always one price.">
           Pricing shown
           <select className="in" value={breakdown ? "breakdown" : "lump"} onChange={(e) => setBreakdown(e.target.value === "breakdown")} disabled={sending || asking}>
             <option value="lump">Lump sum only</option>
             <option value="breakdown">Send breakdown</option>
           </select>
-          <span className="sub">{breakdown ? "Every line with its unit price and amount, section totals and the discount." : "What the work includes and one price; no line prices."}</span>
+          <span className="sub">{breakdown ? "Every flooring line with its unit price and amount, section totals and the discount. Stairs stay one price." : "What the work includes and one price; no line prices."}</span>
         </label>
         )}
 
