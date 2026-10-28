@@ -21,6 +21,15 @@ export type Change = {
 
 export const CHANGES: Change[] = [
   {
+    date: "2026-10-28",
+    kind: "fixed",
+    title: "One change at a time on an accepted quote",
+    details: [
+      "Make a change opens the change you already started instead of starting another, and changes are numbered by the ones actually sent.",
+      "Save as new version is gone from a change and from the accepted quote: either would have gone out as a fresh quote to accept. A change is saved with Save, and the next one starts from Make a change.",
+    ],
+  },
+  {
     date: "2026-10-27",
     kind: "fixed",
     title: "Won quotes link their Notion project, and quotes pick up the job's CompanyCam",

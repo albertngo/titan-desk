@@ -6,9 +6,10 @@ import { fromQuote, type EditorQuote } from "@/lib/editor/model";
 import { versionLabel } from "@/lib/link/identity";
 import { fixedSchedule, scheduleProblems } from "@/lib/pricing/schedule";
 import { parseCopy, stagesOf } from "@/lib/send/copy";
+import { parseAcceptance } from "@/lib/accept/plan";
 import { authorFields, describePlan } from "./history";
 import { getQuote } from "./load";
-import { cleanEditorQuote, fingerprint, isRecordId, planIsEmpty, planSave, type SavePlan } from "./savePlan";
+import { changeSlot, cleanEditorQuote, fingerprint, isRecordId, newVersionRefusal, planIsEmpty, planSave, type SavePlan } from "./savePlan";
 import { ids, num, str } from "./values";
 
 /**
@@ -67,6 +68,10 @@ export async function saveAsNewVersion(versionId: string, raw: unknown, basis: s
   });
   const quoteId = from ? ids(from.fields[VERSION.quote])[0] : undefined;
   if (!from || !quoteId) return { ok: false, message: "This version isn't linked to a quote, so a new version has nowhere to go." };
+
+  const acceptance = parseAcceptance(str(from.fields[VERSION.acceptance]));
+  const refused = newVersionRefusal({ changeNo: num(from.fields[VERSION.changeNo]), agreed: Boolean(acceptance && !acceptance.cancelled) });
+  if (refused) return { ok: false, message: refused };
 
   const quote = await getRecord(T.quotes, quoteId);
   const siblings = await listByIds(T.versions, ids(quote.fields[QUOTE.versions]), [VERSION.version]);
@@ -132,9 +137,12 @@ export async function makeChange(versionId: string): Promise<SaveResult> {
   const edited = cleanEditorQuote({ ...fromQuote({ ...from, options: [{ ...option, lines }] }), schedule: fixedSchedule(stages) });
 
   const quote = await getRecord(T.quotes, from.link.quoteRecordId);
-  const siblings = await listByIds(T.versions, ids(quote.fields[QUOTE.versions]), [VERSION.version, VERSION.changeNo]);
+  const siblings = await listByIds(T.versions, ids(quote.fields[QUOTE.versions]), [VERSION.version, VERSION.changeNo, VERSION.status, VERSION.sentAt]);
+  // A change already open is reopened, not duplicated; only changes that were sent take a number.
+  const slot = changeSlot(siblings.map((v) => ({ id: v.id, status: str(v.fields[VERSION.status]), changeNo: num(v.fields[VERSION.changeNo]), sentAt: str(v.fields[VERSION.sentAt]) })));
+  if (slot.open) return { ok: true, versionId: slot.open, writes: 0 };
   const n = Math.max(0, ...siblings.map((v) => num(v.fields[VERSION.version]) ?? 0)) + 1;
-  const change = Math.max(0, ...siblings.map((v) => num(v.fields[VERSION.changeNo]) ?? 0)) + 1;
+  const change = slot.next;
   const quoteNo = str(quote.fields[QUOTE.quoteNumber]);
   const plan = planSave(null, edited);
   let created: string;

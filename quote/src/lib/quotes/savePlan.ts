@@ -243,3 +243,26 @@ export function fingerprint(q: EditorQuote): string {
   }
   return `${(h >>> 0).toString(16).padStart(8, "0")}-${s.length.toString(16)}`;
 }
+
+/**
+ * Changes after acceptance (2026-10-27, from Albert's test: pressing Make a change twice gave Change 1
+ * and Change 2 with nothing sent). One change is open at a time: a draft change is reopened, never
+ * duplicated. Numbers count only the changes the customer was sent, so a draft that was replaced or
+ * thrown away leaves no gap.
+ */
+export function changeSlot(versions: { id: string; status: string | null; changeNo: number | null; sentAt: string | null }[]): { open: string | null; next: number } {
+  const open = versions.find((v) => v.status === "Draft" && (v.changeNo ?? 0) > 0)?.id ?? null;
+  const sent = versions.filter((v) => (v.changeNo ?? 0) > 0 && v.sentAt).map((v) => v.changeNo as number);
+  return { open, next: Math.max(0, ...sent) + 1 };
+}
+
+/**
+ * Why Save as new version is refused, or null. The agreed quote (accepted or won) and a change are
+ * never copied into an ordinary version: a copy would go out as a fresh quote to accept, not as a
+ * change for the record. They change only through Make a change.
+ */
+export function newVersionRefusal(from: { changeNo: number | null; agreed: boolean }): string | null {
+  if (from.agreed) return "This is the accepted quote. To change it, use Make a change on the quote page.";
+  if ((from.changeNo ?? 0) > 0) return "This is a change to the accepted quote. Save it here, or use Make a change on the quote page for the next one.";
+  return null;
+}
