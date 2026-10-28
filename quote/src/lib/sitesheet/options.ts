@@ -16,7 +16,7 @@ import { TREAD_NAME, type SiteSheet, type TreadType, type WantTread } from "./sh
  *   Sanding means the piano look: risers and stringers painted white.
  * - New wood caps always come with new risers. Recommended for curved and spiral stairs.
  * - Vinyl: vinyl treads, or vinyl flooring on the steps. A curved stair gets no vinyl treads.
- * - Stringers: white → paint; oak on solid → sand & stain; oak on veneer or don't know → oak skin.
+ * - Stringers: white → paint; coloured on solid → sand & stain; coloured on veneer, don't know or blank → oak skin.
  * - New spindles or posts replace every existing one, plus the posts to add.
  * - Add wall rail = new rail along a wall with brackets, only where there is none today.
  * - Pizza set: one price per 90° turn, left or right, 2- or 3-piece. Half moon: the card's flat rate
@@ -36,6 +36,7 @@ export const ITEM_NAMES = {
   sandSteps: ["Task: Sand Steps"],
   railRefinish: ["Task: Sand + Stain Handrail"],
   railNew: ["Task: New Handrail + Stain"],
+  railCurved: ["Task: New Curved Handrail + Stain"],
   railComplex: ["New Handrail Design (Complex)"],
   spindle: ["Iron Spindles (w/material)"],
   post: ["New Post"],
@@ -155,20 +156,24 @@ function build(kind: BuiltOption["kind"], s: SiteSheet, d: Derived, find: (names
 
   // Nosings: every piece new unless the PM ticked Sand instead; picket holes on the pieces that have them.
   if (kind !== "vinyl") {
-    const plain = s.nosings.filter((p) => !p.sand && n(p.full) > 0 && !(n(p.holed) > 0)).length;
+    // Every piece is new unless ticked sand; the ones under a flat run with pickets are ordered holed.
+    const plain = Math.max(0, d.nosing.newPieces - d.nosing.holedPieces);
     add(ITEM_NAMES.nosing, kind === "sand" ? 0 : plain, "Nosing");
     add(ITEM_NAMES.nosingPicket, kind === "sand" ? 0 : d.nosing.holedPieces, "Nosing with picket holes");
     add(ITEM_NAMES.nosingSand, kind === "sand" ? d.nosing.pieces : d.nosing.sandPieces, "Sand & stain nosing");
   }
 
   // Railing, as the customer wants it.
-  const railFt = Math.ceil(d.railFt);
-  if (s.want.handrail === "refinish") add(ITEM_NAMES.railRefinish, railFt, "Sand & stain handrail");
-  if (s.want.handrail === "new" || s.want.handrail === "complex") add(ITEM_NAMES.railNew, railFt, "New handrail");
+  if (s.want.handrail === "refinish") add(ITEM_NAMES.railRefinish, Math.ceil(d.rail.totalFt), "Sand & stain handrail");
+  if (s.want.handrail === "new" || s.want.handrail === "complex") {
+    add(ITEM_NAMES.railNew, Math.ceil(d.rail.straightFt), "New handrail");
+    add(ITEM_NAMES.railCurved, Math.ceil(d.rail.curvedFt), "New curved handrail");
+    if (d.rail.wallFt > 0) add(ITEM_NAMES.wallBracket, n(s.brackets) || Math.ceil(d.rail.wallFt / 4), "Wall rail brackets", "Wall rail");
+  }
   if (s.want.handrail === "complex") add(ITEM_NAMES.railComplex, 1, "Complex handrail design");
   if (n(s.want.wallRailFt) > 0) {
     add(ITEM_NAMES.railNew, Math.ceil(n(s.want.wallRailFt)), "New wall rail", "Wall rail");
-    add(ITEM_NAMES.wallBracket, Math.max(n(s.rail.brackets), Math.ceil(n(s.want.wallRailFt) / 4)), "Wall rail brackets", "Wall rail");
+    add(ITEM_NAMES.wallBracket, Math.ceil(n(s.want.wallRailFt) / 4), "Wall rail brackets", "Wall rail");
   }
   if (s.want.spindles === "iron" || s.want.spindles === "wood") {
     add(ITEM_NAMES.spindle, d.spindles.value, "New spindles");
@@ -183,7 +188,8 @@ function build(kind: BuiltOption["kind"], s: SiteSheet, d: Derived, find: (names
   if (d.openSides > 0) {
     const colour = kind === "sand" ? "white" : s.want.stringer;
     if (colour === "white" || colour === "unsure") add(ITEM_NAMES.stringPaint, 1, "Paint stringers white");
-    else if (colour === "oak") add(s.stringers.made === "Solid" ? ITEM_NAMES.stringSand : ITEM_NAMES.stringSkin, 1, "Oak stringers");
+    // Coloured on solid stringers is a sand & stain; on veneer, or when nobody knows, they're skinned in oak.
+    else if (colour === "coloured") add(s.stringers.made === "Solid" ? ITEM_NAMES.stringSand : ITEM_NAMES.stringSkin, 1, "Coloured stringers");
     if (colour === "unsure") notes.push("Stringer colour not decided: priced as painted white.");
   }
 

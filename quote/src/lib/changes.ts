@@ -23,6 +23,16 @@ export const CHANGES: Change[] = [
   {
     date: "2026-10-28",
     kind: "changed",
+    title: "Site sheet v4: simpler nosings and railing",
+    details: [
+      "Nosings: one default line for the staircase (what it is now, thickness, depth), then just a length per piece. A piece only says more when it differs, and Sand is ticked only for a piece being kept.",
+      "Railing: one column per run, with its length, whether it's on the steps, flat or along a wall, curved or not, and pickets. Spindles and holed nosings are now worked out from these runs.",
+      "Curved handrail is priced from its own new Stair Item (left blank for its price). Stringers say White or Coloured instead of White or Oak.",
+    ],
+  },
+  {
+    date: "2026-10-28",
+    kind: "changed",
     title: "New stair items, waiting for their prices",
     details: [
       "Ten items the Site sheet needs are now in Airtable's Stair Items with blank prices, among them carpet off the stairs, vinyl treads, vinyl flooring on steps, painting risers white and refinishing posts.",

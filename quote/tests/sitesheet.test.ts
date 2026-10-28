@@ -25,6 +25,7 @@ const CARD = buildCatalogue(
     item("Riser", 10),
     item("Task: Sand Steps", 90),
     item("Task: New Handrail + Stain", 20),
+    item("Task: New Curved Handrail + Stain", 35),
     item("Task: Sand + Stain Handrail", 8),
     item("Iron Spindles (w/material)", 20),
     item("New Post", 150),
@@ -49,8 +50,12 @@ const curved = (over: Partial<Record<string, unknown>> = {}): SiteSheet =>
     pieTurn: "R",
     bullnose: { rso: 1 },
     totalTreads: 13,
-    nosings: [{ full: 12, holed: 8 }, { full: 6 }],
-    rail: { stairsFt: 20 },
+    nosingDefault: { type: "Hardwood", thickness: "3/4" },
+    nosings: [{ ft: 12 }, { ft: 6 }],
+    runs: [
+      { ft: 15, where: "S", curved: true, pickets: true },
+      { ft: 8, where: "F", pickets: true },
+    ],
     spindles: { onSteps: 35, flatTop: 3 },
     posts: { now: 2 },
     stringers: { now: "White", made: "Solid" },
@@ -87,18 +92,40 @@ describe("what the app works out", () => {
     expect(d.open).toEqual({ left: false, right: true });
   });
 
-  it("estimates spindles at 2 a step, 3 a 2-side-open step and 3 a foot of picket holes", () => {
+  it("estimates spindles from the railing: 2 a step on a run with pickets, 3 a 2-side-open step, 3 a foot of flat pickets", () => {
     const d = derive(curved({ spindles: {} }));
     expect(d.spindles).toEqual({ value: 13 * 2 + 8 * 3, how: "calculated", estimate: 50 });
+    // A flat run with pickets on only part of it counts only those feet.
+    expect(derive(curved({ spindles: {}, runs: [{ ft: 15, where: "S", pickets: true }, { ft: 10, where: "F", picketFt: 4 }] })).spindles.value).toBe(26 + 12);
+    // Stair runs with no pickets give no step spindles.
+    expect(derive(curved({ spindles: {}, runs: [{ ft: 15, where: "S" }] })).spindles.value).toBe(0);
     const two = derive(cleanSheet({ treads: { two: { w42: 2 }, rso: { w42: 4 } } }));
     expect(two.spindles.value).toBe(2 * 3 + 4 * 2);
   });
 
+  it("splits handrail into straight and curved, and makes one holed nosing per flat run with pickets", () => {
+    const d = derive(curved());
+    expect(d.rail).toMatchObject({ straightFt: 8, curvedFt: 15, flatPicketFt: 8, totalFt: 23 });
+    expect(d.nosing).toMatchObject({ pieces: 2, newPieces: 2, holedPieces: 1, feet: 18 });
+  });
+
+  it("flags a run on the steps far from about 1.1 ft a tread", () => {
+    expect(derive(curved()).flags.some((f) => f.startsWith("Railing run"))).toBe(false);
+    expect(derive(curved({ runs: [{ ft: 5, where: "S", pickets: true }] })).flags.some((f) => f.startsWith("Railing run 1 is 5 ft"))).toBe(true);
+  });
+
+  it("a nosing piece follows the default unless its own column says otherwise", () => {
+    const s = curved({ nosings: [{ ft: 4 }, { ft: 4, type: "Laminate", thickness: "1/2" }] });
+    expect(s.nosingDefault).toEqual({ type: "Hardwood", thickness: "3/4", depth: null });
+    expect(s.nosings[0]).toMatchObject({ type: null, thickness: null });
+    expect(s.nosings[1]).toMatchObject({ type: "Laminate", thickness: "1/2" });
+  });
+
   it("a written count higher than the estimate wins quietly; a lower one is flagged to confirm", () => {
-    const higher = derive(curved({ nosings: [], spindles: { onSteps: 35, flatTop: 3 } }));
+    const higher = derive(curved({ runs: [{ ft: 15, where: "S", pickets: true }], spindles: { onSteps: 35, flatTop: 3 } }));
     expect(higher.spindles).toMatchObject({ value: 38, how: "written" });
     expect(higher.flags.some((f) => f.startsWith("Spindles"))).toBe(false);
-    const lower = derive(curved({ nosings: [], spindles: { onSteps: 10 } }));
+    const lower = derive(curved({ runs: [{ ft: 15, where: "S", pickets: true }], spindles: { onSteps: 10 } }));
     expect(lower.spindles.value).toBe(10);
     expect(lower.flags.some((f) => f.startsWith("Spindles: the sheet says 10"))).toBe(true);
   });
@@ -145,7 +172,8 @@ describe("building options from what the customer wants", () => {
       "Bullnose (Right Side Open)": 1,
       "Pie Shape Step (Right)": 7,
       Riser: 14,
-      "Task: New Handrail + Stain": 20,
+      "Task: New Handrail + Stain": 8,
+      "Task: New Curved Handrail + Stain": 15,
       "Iron Spindles (w/material)": 38,
       "New Post": 2,
       "Accents: Nosing": 1,
@@ -159,7 +187,7 @@ describe("building options from what the customer wants", () => {
     expect(carpet.sourceKind).toBe("manual");
     expect(carpet.unitPrice ?? null).toBeNull();
     expect(caps.notes.some((x) => x.startsWith("Carpet removed from the stairs: no rate"))).toBe(true);
-    expect(optionTotals(caps.lines, 0, false).subtotal).toBe(5 * 120 + 200 + 7 * 130 + 14 * 10 + 20 * 20 + 38 * 20 + 2 * 150 + 20 + 25 + 100);
+    expect(optionTotals(caps.lines, 0, false).subtotal).toBe(5 * 120 + 200 + 7 * 130 + 14 * 10 + 8 * 20 + 15 * 35 + 38 * 20 + 2 * 150 + 20 + 25 + 100);
   });
 
   it("a curved stair gets vinyl flooring, never vinyl treads", () => {
@@ -169,21 +197,24 @@ describe("building options from what the customer wants", () => {
   });
 
   it("sanding only on wood caps; painted wood is a red flag; it's the piano look", () => {
-    const wood = buildOptions(curved({ shape: "Straight", onSteps: "Wood caps", want: { treads: ["sand"], stringer: "oak", handrail: "refinish" } }), CARD).options[0];
+    const wood = buildOptions(curved({ shape: "Straight", onSteps: "Wood caps", want: { treads: ["sand"], stringer: "coloured", handrail: "refinish" } }), CARD).options[0];
     expect(wood.kind).toBe("sand");
     expect(wood.lines.find((l) => l.description === "Task: Sand Steps")?.qty).toBe(13);
     expect(wood.lines.find((l) => l.description === "Task: 2 Side Paint (White)")).toBeTruthy();
     expect(wood.lines.find((l) => l.description === "Task: Sand + Stain Nosing")?.qty).toBe(2);
+    expect(wood.lines.find((l) => l.description === "Task: Sand + Stain Handrail")?.qty).toBe(23);
     expect(wood.lines.some((l) => l.description === "Carpet removed from the stairs")).toBe(false);
     const painted = buildOptions(curved({ onSteps: "Painted wood", want: { treads: ["sand"] } }), CARD).options[0];
     expect(painted.notes.join(" ")).toMatch(/Red flag: the steps are painted/);
   });
 
-  it("oak stringers: sand & stain on solid, oak skin on veneer or don't know", () => {
-    const solid = buildOptions(curved({ want: { treads: ["caps"], stringer: "oak" } }), CARD).options[0];
+  it("coloured stringers: sand & stain on solid, oak skin on veneer or when blank", () => {
+    const solid = buildOptions(curved({ want: { treads: ["caps"], stringer: "coloured" } }), CARD).options[0];
     expect(solid.lines.map((l) => l.description)).toContain("Task: 2 Side Oak (Sand & Stain)");
-    const veneer = buildOptions(curved({ stringers: { made: "Veneer" }, want: { treads: ["caps"], stringer: "oak" } }), CARD).options[0];
+    const veneer = buildOptions(curved({ stringers: { made: "Veneer" }, want: { treads: ["caps"], stringer: "coloured" } }), CARD).options[0];
     expect(veneer.lines.map((l) => l.description)).toContain("Task: 2 Side Oak Skin (Glue and Stain)");
+    const blank = buildOptions(curved({ stringers: {}, want: { treads: ["caps"], stringer: "coloured" } }), CARD).options[0];
+    expect(blank.lines.map((l) => l.description)).toContain("Task: 2 Side Oak Skin (Glue and Stain)");
   });
 
   it("new posts replace every existing one plus the ones to add; keep adds only the new ones", () => {

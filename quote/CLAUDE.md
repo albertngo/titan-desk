@@ -392,24 +392,28 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   Customer view has no tab and the customer deployment never reads it. Pure rules in
   `src/lib/rooms/log.ts`, tested in `tests/rooms.test.ts`.
 - **Site sheet (Albert, 2026-10-28).** A **Site sheet** tab on the quote page, beside Rooms, staff only. The PM
-  fills the two-page paper **Stair Site Sheet** (v3) on site: what is there (staircases, shape, what is on the
+  fills the two-page paper **Stair Site Sheet** (v4) on site: what is there (staircases, shape, what is on the
   steps, a tread grid of RSO / LSO / Boxed / 2 side open by 36 / 42 / 48", pie / pizza set / bullnose by open
-  side, landings by size, half moons, stringers, nosing pieces with full and picket-hole lengths, railing,
-  spindles, picket heights, posts) and box G, what the customer wants. Staff photograph both pages into the
+  side, landings by size, half moons, stringers (White / Coloured; a blank Made of reads as veneer), nosings as a
+  staircase default (type, thickness, depth 4.5" unless written) plus one column per piece (length, a type or
+  thickness only if different, Sand ticked only if kept), railing as one column per run (length, steps / flat /
+  wall, curved, pickets ticked or their feet), and optional spindle counts, picket heights and posts) and box G, what the customer wants. Staff photograph both pages into the
   tab (`/api/sitesheet`, signed in; photos shrunk in the browser); **Claude reads them** (`src/lib/anthropic/client.ts`,
   model `claude-opus-5-5`, one forced tool call, instructions and schema in `src/lib/sitesheet/prompt.ts`), the
   photos go on **Quotes → Site Sheet Photos** and what was read on **Quotes → Site Sheet** (JSON, app-written,
   compare-and-swap like Rooms; `src/lib/quotes/sitesheet.ts`). A person checks every field beside the photos
   (uncertain ones are marked) and presses **Save check**. The app works out, never asks: risers = treads + one
-  per landing (a half moon counts) + one for the top floor; open sides from the grid; spindles at 2 a step (pie
-  and pizza pieces too), 3 a 2-side-open step, 3 a foot of picket-hole nosing, where a written count higher
+  per landing (a half moon counts) + one for the top floor; open sides from the grid; spindles from the railing runs (on-steps runs with
+  pickets: 2 a step, pie and pizza pieces too, 3 a 2-side-open step; flat runs: 3 a foot of their picket feet),
+  holed nosings one per flat run with pickets, rail feet split straight / curved (curved priced from "Task: New
+  Curved Handrail + Stain"), an on-steps run flagged when far from ~1.1 ft a tread, where a written count higher
   wins and a lower one is flagged; picket heights 36 / 39 alternating on the steps, 36 on the flat top; oak at
   about 20 sq ft a box (`src/lib/sitesheet/derive.ts`). **Build stair options** puts one option per viable G1
   tick into the editor's draft for the quote (`buildOptions()` in `src/lib/sitesheet/options.ts`, Stair Items
   found by name in `ITEM_NAMES`): sanding only over wood caps (never under carpet; painted wood red-flagged;
   the piano look, white risers and stringers), new caps always with new risers and recommended on a curved or
-  spiral stair, no vinyl treads on a curve, stringers white → paint / oak on solid → sand & stain / oak on
-  veneer or unknown → oak skin, new spindles and posts replace all plus the ones to add, a pizza set one price
+  spiral stair, no vinyl treads on a curve, stringers white → paint / coloured on solid → sand & stain /
+  coloured on veneer or unknown → oak skin, new spindles and posts replace all plus the ones to add, a pizza set one price
   per turn, the half moon the card's all-in flat rate. An answer with no Stair Item becomes a Stairs line with
   no price and a note, never a guess. Ten such items were added to Stair Items on 2026-10-28 with blank prices for Albert to fill (carpet off the stairs, vinyl treads, vinyl flooring on steps, paint risers white, solid half-moon upgrade, pie step left, custom bullnose upcharge, wall rail bracket, refinish post, stain wood spindles); a blank-priced item is skipped by `getRateCard()`, so each stays an unpriced line until it is priced. Staff review and **Save as new version** in the editor as usual; the
   tab writes no quote line. Tested in `tests/sitesheet.test.ts`. Requote threshold (±5% or $300) is a starting

@@ -4,9 +4,11 @@ import { TREAD_TYPES, type SiteSheet, type TreadType, type WidthCounts } from ".
  * What the app works out from the site sheet so the PM never has to (Albert, 2026-10-28):
  * - risers: one per tread, one per landing (a half moon counts) and one for the top floor;
  * - open sides, and so the stringers and spindles that show, from the tread grid;
- * - spindles: 2 a regular step, 2 a pie or pizza piece, 3 a 2-side-open step, plus 3 a foot of nosing
- *   with picket holes. More is always fine: a written count higher than this wins, and a written count
- *   lower than this is used but flagged to confirm;
+ * - spindles (sheet v4): on-steps railing runs with pickets → 2 a regular step (pie and pizza pieces too),
+ *   3 a 2-side-open step; flat runs with pickets → 3 a foot of their picket feet. With no railing runs
+ *   written at all, an open staircase still gets the per-step estimate. More is always fine: a written
+ *   count higher than this wins, and a written count lower than this is used but flagged to confirm;
+ * - holed nosings: one per flat run with pickets, as long as its picket feet;
  * - picket heights: on the steps they alternate 36" and 39" (more 36s), the flat top is all 36";
  * - oak for landings at about 20 sq ft a box (3 × 3 when the size isn't written).
  * Pure; tested in tests/sitesheet.test.ts.
@@ -28,7 +30,8 @@ export type Derived = {
   spindles: Count & { estimate: number };
   heights: { h36: number; h39: number; h42: number; how: "calculated" | "written" };
   posts: { now: number; add: number };
-  railFt: number;
+  /** Handrail feet by kind (sheet v4 runs): new straight and curved rail are priced apart. */
+  rail: { straightFt: number; curvedFt: number; wallFt: number; flatPicketFt: number; totalFt: number };
   nosing: { pieces: number; newPieces: number; holedPieces: number; sandPieces: number; feet: number; holedFt: number };
   oakBoxes: number;
   /** Things a person must look at before the quote is trusted. */
@@ -67,8 +70,12 @@ export function derive(s: SiteSheet): Derived {
 
   // Spindles on the steps: 2 on a one-side-open tread (pie and pizza pieces too), 3 on a 2-side-open one.
   const regular = by.rso + by.lso;
-  const stepEstimate = regular * 2 + by.two * 3;
-  const holedFt = s.nosings.reduce((t, p) => t + n(p.holed), 0);
+  const picketFt = (x: SiteSheet["runs"][number]) => (x.pickets ? (x.picketFt ?? x.ft ?? 0) : n(x.picketFt));
+  const stepRuns = s.runs.filter((x) => x.where === "S");
+  const flatPicketRuns = s.runs.filter((x) => x.where === "F" && picketFt(x) > 0);
+  const stepsHavePickets = s.runs.length === 0 ? openSides > 0 : stepRuns.some((x) => picketFt(x) > 0);
+  const stepEstimate = stepsHavePickets ? regular * 2 + by.two * 3 : 0;
+  const holedFt = flatPicketRuns.reduce((t, x) => t + picketFt(x), 0);
   const flatEstimate = Math.ceil(holedFt * 3);
   const estimate = stepEstimate + flatEstimate;
   const writtenAny = s.spindles.onSteps !== null || s.spindles.flatTop !== null;
@@ -76,7 +83,7 @@ export function derive(s: SiteSheet): Derived {
   let spindles: Derived["spindles"];
   if (writtenAny) {
     spindles = { value: written, how: "written", estimate };
-    if (written < estimate) flags.push(`Spindles: the sheet says ${written}, the steps and picket-hole nosing suggest ${estimate}. Confirm the count.`);
+    if (written < estimate) flags.push(`Spindles: the sheet says ${written}, the steps and railing suggest ${estimate}. Confirm the count.`);
   } else {
     spindles = { value: estimate, how: "calculated", estimate };
   }
@@ -91,15 +98,29 @@ export function derive(s: SiteSheet): Derived {
     heights = { h36: Math.ceil(onSteps / 2) + flat, h39: Math.floor(onSteps / 2), h42: 0, how: "calculated" };
   }
 
-  const pieces = s.nosings.filter((p) => n(p.full) > 0 || n(p.holed) > 0);
+  const pieces = s.nosings.filter((p) => n(p.ft) > 0);
   const nosing = {
     pieces: pieces.length,
     newPieces: pieces.filter((p) => !p.sand).length,
-    holedPieces: pieces.filter((p) => !p.sand && n(p.holed) > 0).length,
+    holedPieces: flatPicketRuns.length,
     sandPieces: pieces.filter((p) => p.sand).length,
-    feet: pieces.reduce((t, p) => t + Math.max(n(p.full), n(p.holed)), 0),
+    feet: pieces.reduce((t, p) => t + n(p.ft), 0),
     holedFt,
   };
+  const rail = {
+    straightFt: s.runs.filter((x) => !x.curved).reduce((t, x) => t + n(x.ft), 0),
+    curvedFt: s.runs.filter((x) => x.curved).reduce((t, x) => t + n(x.ft), 0),
+    wallFt: s.runs.filter((x) => x.where === "W").reduce((t, x) => t + n(x.ft), 0),
+    flatPicketFt: holedFt,
+    totalFt: s.runs.reduce((t, x) => t + n(x.ft), 0),
+  };
+  // A run on the steps is about 1.1 ft of rail a step; far off that, a length or the tread count is wrong.
+  const expectFt = treads * 1.1;
+  for (const [i, x] of s.runs.entries()) {
+    if (x.where !== "S" || !n(x.ft) || !treads) continue;
+    if (n(x.ft) < expectFt * 0.7 || n(x.ft) > expectFt * 1.3) flags.push(`Railing run ${i + 1} is ${n(x.ft)} ft on the steps; ${treads} treads suggest about ${Math.round(expectFt)} ft. Check the length or the treads.`);
+  }
+  if (s.runs.some((x) => x.pickets && x.where === "W")) flags.push("A wall rail run is ticked as having pickets. Check whether it's really on the steps or flat.");
 
   const landingSqft = n(s.landings.s3x3) * 9 + n(s.landings.s3x6) * 18 + n(s.landings.other) * 9;
   const oakBoxes = Math.ceil(landingSqft / 20);
@@ -123,7 +144,7 @@ export function derive(s: SiteSheet): Derived {
     spindles,
     heights,
     posts: { now: n(s.posts.now), add: n(s.posts.add) },
-    railFt: n(s.rail.stairsFt) + n(s.rail.landingFt) + n(s.rail.flatFt),
+    rail,
     nosing,
     oakBoxes,
     flags,

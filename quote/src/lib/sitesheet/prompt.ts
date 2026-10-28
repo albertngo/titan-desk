@@ -6,7 +6,7 @@
 
 export const SHEET_TOOL = "record_sheet";
 
-export const SHEET_PROMPT = `You are reading photos of Titan Flooring's "Stair Site Sheet" (v3, two Letter pages), filled in by hand on site by a project manager. Read exactly what is written or marked. Never guess and never fill in a typical value: a box left blank is null.
+export const SHEET_PROMPT = `You are reading photos of Titan Flooring's "Stair Site Sheet" (v4, two Letter pages), filled in by hand on site by a project manager. Read exactly what is written or marked. Never guess and never fill in a typical value: a box left blank is null.
 
 How the sheet is marked:
 - Round bubbles and square ticks are chosen when filled, ticked, crossed or circled. An empty bubble is not chosen.
@@ -24,23 +24,23 @@ Page 1:
 - B9 Total treads.
 - B10 Side / half staircase: steps, its tread type (RSO/LSO/Boxed/2 side open → rso/lso/boxed/two), width.
 - C1 Landings: how many at 3×3 (s3x3), ≈3×6 (s3x6), Other (other). C2 Half moons: how many, nosing feet, and solid=true only if "Solid one-piece" is chosen.
-- D1 Stringers now: White, Oak, Other. D2 Made of: Veneer, Solid, Don't know.
+- D1 Stringers now: White, Coloured, Other. D2 Made of: Veneer, Solid, Don't know (blank stays null).
 
 Page 2:
-- E1 Nosing depth: standard 4.5" → 0, else inches. E2 Thickness inches.
-- E3 Nosing pieces, columns 1–10: each column is one piece with Full length (feet), With picket holes (feet of it), Sand instead of new (ticked = sand true). Return only columns with something in them, in column order.
-- F1 Handrail feet: On the stairs (stairsFt), Landing (landingFt), Flat upstairs (flatFt), Wall rail (wallFt), Brackets (count).
-- F2 Spindles counted: On the steps, Flat top. F3 Picket heights: counts at 36", 39", 42". F4 Posts: There now, To add.
+- E1 Nosing default for the staircase (nosingDefault): Nosing now Hardwood / Laminate / Vinyl / Carpet (type); thickness ½" → "1/2", ¾" → "3/4", Not sure → "unsure"; depth: blank or Standard 4.5" → null, else the inches written.
+- E2 Nosing pieces, columns 1–10, one piece each: Length (ft); "If different" (a type and/or thickness written for that piece only, e.g. "L ½" → type Laminate, thickness "1/2"; blank → both null); Sand instead of new (ticked → sand true). Return only columns with something in them, in column order.
+- F1 Railing runs, columns 1–8, one run each: Length (ft); Where S (on steps) / F (flat) / W (wall) → "S" / "F" / "W"; Curved ticked → curved true; Pickets ticked → pickets true, and if feet are written there instead of (or beside) the tick, put them in picketFt. Return only columns with something in them. Brackets (count) under the grid → brackets.
+- F2 Spindles counted (optional): On the steps, Flat top. F3 Picket heights (optional): counts at 36", 39", 42". F4 Posts: There now, To add.
 - G What the customer wants:
   - G1 Treads (tick all): Sand & refinish existing caps → "sand", New wood caps → "caps", Vinyl → "vinyl", Not sure → "unsure".
   - G2 Riser colour: white / stain / unsure.
-  - G3 Stringer colour: white / oak / unsure.
+  - G3 Stringer colour: white / coloured / unsure.
   - G4 Stain colour (text), and matchFloors true when "Match floors" is chosen.
   - G5 Handrail: refinish / new / complex. If "Add wall rail" has feet written, put them in wallRailFt.
   - G6 Spindles: keep / iron / wood. G7 Posts: keep / refinish / new. G8 Covers: main / both.
 - N1 Notes: copy the handwriting as written.
 
-If you are not confident about a value (smudged, ambiguous, two marks), give your best reading and add its code (like "B6" or "E3") to "unclear". If a whole page is missing from the photos, leave its fields null and add "page 1 missing" or "page 2 missing" to notes. Call ${SHEET_TOOL} exactly once.`;
+If you are not confident about a value (smudged, ambiguous, two marks), give your best reading and add its code (like "B6" or "F1") to "unclear". If a whole page is missing from the photos, leave its fields null and add "page 1 missing" or "page 2 missing" to notes. Call ${SHEET_TOOL} exactly once.`;
 
 const N = { type: ["number", "null"] };
 const S = { type: ["string", "null"] };
@@ -72,11 +72,11 @@ export const SHEET_SCHEMA = {
     side: { type: "object", properties: { steps: N, type: choice(["rso", "lso", "boxed", "two"]), width: N } },
     landings: { type: "object", properties: { s3x3: N, s3x6: N, other: N } },
     halfMoons: { type: "object", properties: { count: N, nosingFt: N, solid: { type: "boolean" } } },
-    stringers: { type: "object", properties: { now: choice(["White", "Oak", "Other"]), made: choice(["Veneer", "Solid", "Don't know"]) } },
-    nosingDepth: N,
-    nosingThickness: N,
-    nosings: { type: "array", maxItems: 10, items: { type: "object", properties: { full: N, holed: N, sand: { type: "boolean" } } } },
-    rail: { type: "object", properties: { stairsFt: N, landingFt: N, flatFt: N, wallFt: N, brackets: N } },
+    stringers: { type: "object", properties: { now: choice(["White", "Coloured", "Other"]), made: choice(["Veneer", "Solid", "Don't know"]) } },
+    nosingDefault: { type: "object", properties: { type: choice(["Hardwood", "Laminate", "Vinyl", "Carpet"]), thickness: choice(["1/2", "3/4", "unsure"]), depth: N } },
+    nosings: { type: "array", maxItems: 10, items: { type: "object", properties: { ft: N, type: choice(["Hardwood", "Laminate", "Vinyl", "Carpet"]), thickness: choice(["1/2", "3/4", "unsure"]), sand: { type: "boolean" } } } },
+    runs: { type: "array", maxItems: 8, items: { type: "object", properties: { ft: N, where: choice(["S", "F", "W"]), curved: { type: "boolean" }, pickets: { type: "boolean" }, picketFt: N } } },
+    brackets: N,
     spindles: { type: "object", properties: { onSteps: N, flatTop: N } },
     heights: { type: "object", properties: { h36: N, h39: N, h42: N } },
     posts: { type: "object", properties: { now: N, add: N } },
@@ -85,7 +85,7 @@ export const SHEET_SCHEMA = {
       properties: {
         treads: { type: "array", items: { type: "string", enum: ["sand", "caps", "vinyl", "unsure"] } },
         riser: choice(["white", "stain", "unsure"]),
-        stringer: choice(["white", "oak", "unsure"]),
+        stringer: choice(["white", "coloured", "unsure"]),
         stain: S,
         matchFloors: { type: "boolean" },
         handrail: choice(["refinish", "new", "complex"]),
