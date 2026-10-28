@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { acceptedCopy, acceptProblems, addOnsOf, buildAcceptance, notAcceptable, parseAcceptance, parseSignature, readAcceptInput, serializeAcceptance, type AcceptInput } from "../src/lib/accept/plan";
 import { termsHref, termsLabel, type Terms } from "../src/lib/accept/terms";
 import { optionTotals } from "../src/lib/calc";
@@ -331,5 +331,23 @@ describe("the quote email once acceptance is on", () => {
     expect(on.type === "Email" && on.html).toContain("Compare and accept");
     expect(off.type === "Email" && off.html).not.toContain("press Accept");
     expect(prelim.type === "Email" && prelim.html).not.toContain("press Accept");
+  });
+});
+
+describe("staffQuoteLink (2026-10-28: the Notion project's Quote Link opens the staff app's page)", () => {
+  const keep = { ...process.env };
+  afterEach(() => {
+    process.env = { ...keep };
+  });
+  it("uses QUOTE_STAFF_URL, else Vercel's production domain, and never the customer deployment", async () => {
+    const { staffQuoteLink } = await import("../src/lib/accept/settings");
+    process.env.QUOTE_STAFF_URL = "https://quotes.example.com/";
+    expect(staffQuoteLink("recAAAAAAAAAAAAAA")).toBe("https://quotes.example.com/q/recAAAAAAAAAAAAAA");
+    delete process.env.QUOTE_STAFF_URL;
+    process.env.VERCEL_PROJECT_PRODUCTION_URL = "staff.example.com";
+    expect(staffQuoteLink("recAAAAAAAAAAAAAA")).toBe("https://staff.example.com/q/recAAAAAAAAAAAAAA");
+    expect(staffQuoteLink("not-a-record")).toBeNull();
+    process.env.QUOTE_MODE = "customer";
+    expect(staffQuoteLink("recAAAAAAAAAAAAAA")).toBeNull();
   });
 });

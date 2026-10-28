@@ -316,8 +316,9 @@ describe("open tracking (2026-10-27: no sign-in, key-gated, the customer deploym
     const relay = code(all.find((f) => f.rel === RELAY)!.text);
     expect(relay).not.toMatch(/airtable|createRecord|updateRecord|make\/client|ghl\/client/);
     expect(relay).toMatch(/if \(!isCustomerDeployment\(\) \|\|/);
-    // The staff app's address is read on the customer deployment by the relay and, since 2026-10-27, by the accept client.
-    expect(all.filter((f) => /QUOTE_STAFF_URL/.test(code(f.text))).map((f) => f.rel).sort()).toEqual(["lib/quotes/acceptClient.ts", RELAY].sort());
+    // The staff app's address is read on the customer deployment by the relay and, since 2026-10-27, by the accept client;
+    // since 2026-10-28 also by accept/settings, on the staff app only, for the Notion project's Quote Link.
+    expect(all.filter((f) => /QUOTE_STAFF_URL/.test(code(f.text))).map((f) => f.rel).sort()).toEqual(["lib/accept/settings.ts", "lib/quotes/acceptClient.ts", RELAY].sort());
     expect(all.filter((f) => /QUOTE_ACTIVITY_KEY/.test(code(f.text))).map((f) => f.rel).sort()).toEqual([RELAY, TRACK].sort());
     const importers = all.filter((f) => /from ["']@\/lib\/activity\/relay["']/.test(f.text)).map((f) => f.rel).sort();
     expect(importers).toEqual(["app/c/[token]/[file]/route.ts", "app/c/[token]/seen/route.ts"]);

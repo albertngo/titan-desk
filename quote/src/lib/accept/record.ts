@@ -9,7 +9,7 @@ import { ids, str } from "@/lib/quotes/values";
 import { acceptedPdfName, copyState, parseCopy, torontoToday, type CopyState, type CustomerCopy } from "@/lib/send/copy";
 import { acceptedEmailMessage, acceptedSmsMessage, customerLinks, emailFromFor, isToken, type Sender } from "@/lib/send/plan";
 import { acceptedWhen, parseAcceptance, serializeAcceptance, type Acceptance, type Handoff } from "./plan";
-import { customerUrl, etransferEmail } from "./settings";
+import { customerUrl, etransferEmail, staffQuoteLink } from "./settings";
 import { acceptTerms, type LiveTerms } from "./live";
 import { TERMS_PDF } from "./terms";
 
@@ -186,7 +186,7 @@ export async function handOff(versionId: string): Promise<Handoff> {
       try {
         const stage = wonStageId(await pipelines());
         if (!stage) throw new Error("GHL's Sales pipeline has no single Project Won stage.");
-        await sendToGhl(buildWon({ contactId: t.quote.contactId, opportunityId: t.quote.opportunityId, wonStageId: stage, total: a.totals.total, acceptedLink: links?.link ?? null }));
+        await sendToGhl(buildWon({ contactId: t.quote.contactId, opportunityId: t.quote.opportunityId, wonStageId: stage, total: a.totals.total, acceptedLink: staffQuoteLink(t.versionId) ?? links?.link ?? null }));
         ghl = "done";
       } catch (e) {
         ghl = "failed";

@@ -3,7 +3,7 @@ import { listByIds, updateRecord, updateRecords } from "@/lib/airtable/client";
 import { QUOTE, T, VERSION } from "@/lib/airtable/fields";
 import { requireQuoter, requireQuoterPerson } from "@/lib/auth";
 import { fromQuote } from "@/lib/editor/model";
-import { etransferEmail } from "@/lib/accept/settings";
+import { etransferEmail, staffQuoteLink } from "@/lib/accept/settings";
 import { acceptTerms } from "@/lib/accept/live";
 import { BOOKING_URLS } from "@/lib/ghl/ids";
 import { followUpTagBodies } from "@/lib/activity/track";
@@ -318,7 +318,7 @@ async function recordContract(quote: Quote, copy: CustomerCopy, link: string): P
   const opportunityId = quote.link?.ghlOpportunityId;
   if (!contactId || !opportunityId) return [...notes, "GHL's value wasn't updated: the quote isn't linked to an opportunity."];
   try {
-    await sendToGhl(buildContract({ contactId, opportunityId, total: copy.options[0].totals.total, link }));
+    await sendToGhl(buildContract({ contactId, opportunityId, total: copy.options[0].totals.total, link: staffQuoteLink(quote.id) ?? link }));
   } catch (e) {
     notes.push(`GHL's value wasn't updated (${e instanceof Error ? e.message : String(e)}). Set it to ${copy.options[0].totals.total.toFixed(2)} on the opportunity.`);
   }
