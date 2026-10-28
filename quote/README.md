@@ -59,6 +59,7 @@ repo with Root Directory `quote`. Rules for changing it: `CLAUDE.md` in this fol
 | `QUOTE_ACCEPT_KEY` | acceptance (2026-10-27): the key the customer deployment sends to `/api/accept` in the `x-quote-key` header. Same value on both deployments. Unset = online acceptance is off |
 | `QUOTE_ETRANSFER_EMAIL` | where an e-transfer deposit goes, printed in the acceptance email, text and page (Albert: the company email). Same value on both deployments. Unset = acceptance is off |
 | `QUOTE_ACTIVITY_KEY` | open tracking (2026-10-27): the key the customer deployment and the daily summary run send to `/api/activity` in the `x-quote-key` header. Same value on both deployments and in the GitHub secret. Unset = tracking is off. For the summaries' tags, `QUOTE_GHL_TOKEN` also needs `users.readonly`; without it they tag the opportunity's assigned user |
+| `QUOTE_ANTHROPIC_KEY` | Site sheet (2026-10-28): a Claude API key (console.anthropic.com) used by `src/lib/anthropic/client.ts` to read photos of the stair site sheet. Staff app only, never the customer deployment. Unset = the Site sheet tab says reading isn't set up |
 
 ## The customer deployment (sending quotes)
 

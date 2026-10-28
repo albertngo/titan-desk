@@ -7,6 +7,7 @@ import { parseAcceptance } from "@/lib/accept/plan";
 import { cleanSchedule } from "@/lib/pricing/schedule";
 import { isStairMethod, isStairType } from "@/lib/quick/stairs";
 import { roomsRaw } from "@/lib/rooms/log";
+import { sheetRaw } from "@/lib/sitesheet/sheet";
 import { bool, ids, num, str } from "./values";
 import { groupVersions, type QuoteGroup, type QuoteHead } from "./group";
 import type { MaterialRow, Quote, QuoteLine, QuoteLink, QuoteOption, RateCard, RateRow, StairProfileRow, StairRow } from "./types";
@@ -140,6 +141,15 @@ function toOption(r: AirtableRecord, lines: QuoteLine[]): QuoteOption {
   };
 }
 
+/** Site sheet photos (2026-10-28): Airtable's attachment addresses expire after a few hours, so they are read fresh each time. */
+function photosOf(v: unknown): { url: string; name: string }[] {
+  if (!Array.isArray(v)) return [];
+  return v.flatMap((a) => {
+    const o = a && typeof a === "object" ? (a as Record<string, unknown>) : {};
+    return typeof o.url === "string" && /^https:\/\//.test(o.url) ? [{ url: o.url, name: typeof o.filename === "string" ? o.filename : "photo" }] : [];
+  });
+}
+
 function linkOf(r: AirtableRecord): QuoteLink {
   const f = r.fields;
   return {
@@ -161,6 +171,8 @@ function linkOf(r: AirtableRecord): QuoteLink {
     notionProjectUrl: str(f[QUOTE.notionProjectUrl]),
     contractVersionId: ids(f[QUOTE.contractVersion])[0] ?? null,
     rooms: roomsRaw(f[QUOTE.rooms]),
+    siteSheet: sheetRaw(f[QUOTE.siteSheet]),
+    siteSheetPhotos: photosOf(f[QUOTE.siteSheetPhotos]),
   };
 }
 

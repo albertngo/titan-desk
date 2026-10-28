@@ -4,8 +4,9 @@ import { acceptForCustomer, cancelAcceptance, retryHandoff, type CancelResult, t
 import { confirmAddress, linkToJob } from "@/lib/quotes/link";
 import { makeChange, type SaveResult } from "@/lib/quotes/save";
 import { saveRooms } from "@/lib/quotes/rooms";
+import { saveSiteSheet } from "@/lib/quotes/sitesheet";
 import { sendQuote } from "@/lib/quotes/send";
-import type { ConfirmAddressResult, LinkJobResult, SaveRoomsResult, SendResult } from "@/lib/quotes/types";
+import type { ConfirmAddressResult, LinkJobResult, SaveRoomsResult, SendResult, SiteSheetResult } from "@/lib/quotes/types";
 
 /** Server actions for the quote page. Each checks the quoter allowlist inside. */
 
@@ -42,4 +43,9 @@ export async function makeChangeAction(versionId: string): Promise<SaveResult> {
 
 export async function saveRoomsAction(quoteRecordId: string, seen: string, rooms: unknown): Promise<SaveRoomsResult> {
   return saveRooms(String(quoteRecordId ?? ""), String(seen ?? ""), rooms);
+}
+
+/** The Site sheet tab's Save check (2026-10-28): the fields as a person corrected them. */
+export async function saveSiteSheetAction(quoteRecordId: string, seen: string, sheet: unknown): Promise<SiteSheetResult> {
+  return saveSiteSheet(String(quoteRecordId ?? ""), String(seen ?? ""), sheet);
 }
