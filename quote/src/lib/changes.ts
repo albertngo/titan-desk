@@ -22,6 +22,15 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-10-28",
+    kind: "new",
+    title: "Report a bug",
+    details: [
+      "Report a bug in the header (here and in the desk) sends Albert a bug with a one-line summary, how urgent it is and up to five screenshots.",
+      "It lands on the Tactical Tasks list as \"BUG FIX: Desk App (Quotes) …\", assigned to Albert, with the screenshots and the page you were on.",
+    ],
+  },
+  {
+    date: "2026-10-28",
     kind: "changed",
     title: "Each version says where it came from",
     details: [

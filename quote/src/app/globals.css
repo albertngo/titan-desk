@@ -908,3 +908,26 @@ a.chip.accent:hover { text-decoration: underline; }
 .changes-day > ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
 .changes-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .changes-details { margin: 6px 0 0; padding-left: 20px; color: var(--fg-dim); line-height: 1.5; }
+
+/* Report a bug (2026-10-28): the header form. */
+.bug-form { display: grid; gap: 14px; overflow-y: auto; }
+.bug-form .fld { display: grid; gap: 6px; font-size: 13px; font-weight: 600; }
+.bug-urg { border: 0; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.bug-urg legend { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+.bug-urg label { display: inline-flex; align-items: center; min-height: 36px; padding: 6px 12px; border: 1px solid var(--line-strong); border-radius: 999px; font-size: 13px; cursor: pointer; }
+.bug-urg label.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.bug-urg input { position: absolute; opacity: 0; pointer-events: none; }
+.bug-urg label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.bug-shots { display: grid; gap: 8px; }
+.bug-shots .k { font-size: 13px; font-weight: 600; }
+.bug-shots .sub { font-weight: 400; color: var(--fg-faint); }
+.bug-shots .row { display: flex; flex-wrap: wrap; gap: 8px; }
+.bug-shots figure { position: relative; margin: 0; width: 72px; height: 72px; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); }
+.bug-shots figure img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.bug-shots figure button { position: absolute; top: 3px; right: 3px; width: 22px; height: 22px; border: 0; border-radius: 999px; background: rgba(20, 30, 45, .7); color: #fff; font-size: 14px; line-height: 1; cursor: pointer; }
+.bug-add { width: 72px; height: 72px; border: 1px dashed var(--line-strong); border-radius: 8px; background: none; color: var(--fg-dim); font: inherit; font-size: 13px; cursor: pointer; }
+.bug-add:hover { border-color: var(--accent); color: var(--accent); }
+.bug-err { color: var(--bad); font-size: 13px; margin: 0; }
+.bug-foot { display: flex; justify-content: flex-end; }
+.bug-done { display: grid; gap: 10px; justify-items: start; }
+.bug-done .sub { color: var(--fg-dim); font-size: 13px; margin: 0; }

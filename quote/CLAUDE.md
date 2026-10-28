@@ -469,6 +469,12 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   fold-out between Newest first (the default) and By origin, each version nested under its source
   (`versionTree()`); the choice is kept in localStorage on that device only.
 
+- **Report a bug (2026-10-28).** The header's Report a bug (staff only, hidden in Customer view and
+  until `NOTION_BUG_TOKEN` is set) posts a summary, an urgency and up to five screenshots (shrunk in
+  the browser to stay under Vercel's 4.5 MB body limit) to `/api/bug`. That signed-in route makes
+  Albert a Tactical Task through `src/lib/bug/notion.ts`, the only file that talks to Notion. Rules in
+  the repo CLAUDE.md, rule 8.
+
 ## Hard rules
 
 1. **One file talks to Airtable:** `src/lib/airtable/client.ts`. It alone reads
