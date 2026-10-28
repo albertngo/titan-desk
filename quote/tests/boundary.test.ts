@@ -112,7 +112,8 @@ describe("booking step (Make, no sign-in)", () => {
     expect(proxy).toContain('matcher: ["/((?!_next/|brand/|favicon\\\\.ico|robots\\\\.txt).*)"]');
     expect(proxy).toContain("const OPEN_ON_STAFF = /^\\/(login|auth\\/|denied|api\\/booking|api\\/activity|api\\/accept)/;");
     // Open tracking and acceptance (2026-10-27) are the other two key-gated routes; see their own blocks below.
-    expect(all.filter((f) => f.rel.startsWith("app/api/")).map((f) => f.rel).sort()).toEqual(["app/api/accept/route.ts", "app/api/activity/route.ts", ROUTE]);
+    // Report a bug (2026-10-28) is the one API route that is NOT open: the proxy signs people in first (tests/bug.test.ts).
+    expect(all.filter((f) => f.rel.startsWith("app/api/")).map((f) => f.rel).sort()).toEqual(["app/api/accept/route.ts", "app/api/activity/route.ts", ROUTE, "app/api/bug/route.ts"]);
   });
 
   it("keeps the shared quote helpers away from pages and actions", () => {

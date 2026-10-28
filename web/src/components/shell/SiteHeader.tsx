@@ -3,14 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SyncStatus } from "@/components/SyncStatus";
+import { ReportBug } from "@/components/shell/ReportBug";
 
 const NAV = [
   { href: "/", label: "Shop", short: "Shop", match: (p: string) => p === "/" || p.startsWith("/p/") },
   { href: "/design", label: "Help me choose", short: "Choose", match: (p: string) => p.startsWith("/design") },
 ];
 
-/** The desk's top bar: Titan mascot and name, the two destinations, and the data freshness. */
-export function SiteHeader() {
+/** The desk's top bar: Titan mascot and name, the two destinations, Report a bug (once set up) and the data freshness. */
+export function SiteHeader({ bugReports = false }: { bugReports?: boolean }) {
   const path = usePathname() ?? "/";
   return (
     <header className="pt-safe sticky top-0 z-20 bg-denim text-cream">
@@ -36,7 +37,8 @@ export function SiteHeader() {
             );
           })}
         </nav>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-1 sm:gap-2">
+          {bugReports && <ReportBug />}
           <SyncStatus />
         </div>
       </div>

@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { bugReportsOn } from "@/lib/bug/notion";
 import { CHANGES } from "@/lib/changes";
 import { customerView } from "@/lib/view";
+import { ReportBug } from "./ReportBug";
 import { ViewSwitch } from "./ViewSwitch";
 
 export async function TopBar({ email }: { email: string }) {
@@ -19,6 +21,8 @@ export async function TopBar({ email }: { email: string }) {
             What&apos;s new
           </Link>
         )}
+        {/* Report a bug (2026-10-28): staff only, and only once the Notion token is set. */}
+        {!customer && bugReportsOn() && <ReportBug />}
         <div className="who">
           <span className="email">{email}</span>
           <span className="avatar" aria-hidden>{email.slice(0, 2)}</span>

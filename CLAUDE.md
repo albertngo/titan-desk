@@ -46,6 +46,13 @@ deployment with a write token.
    supabase-js defaults to `return=minimal`.
 7. **Search functions stay inlinable.** No `STRICT`, no `SET search_path`, single SELECT,
    schema-qualified names (`extensions.word_similarity`, `OPERATOR(extensions.<%)`).
+8. **Report a bug is the one Notion write (Albert, 2026-10-28).** Both staff apps have a header
+   button that makes Albert a Tactical Task ("BUG FIX: Desk App (Quotes|Catalogue) …") with the
+   screenshots on the page. `src/lib/bug/notion.ts` in each app is the only file that talks to
+   Notion or reads `NOTION_BUG_TOKEN`, a Notion internal integration shared with the Tactical Tasks
+   List alone, set on the two staff deployments and never the customer one. It creates tasks and
+   uploads images, nothing else. `src/lib/bug/report.ts` and `shrink.ts` are copies in both apps;
+   `quote/tests/bug.test.ts` fails if they drift, and `web/tests/bug.test.ts` guards the desk's side.
 
 ## Layout
 
