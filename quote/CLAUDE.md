@@ -219,7 +219,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   large, Recommended badge), a pill button, the payment schedule in words on a measured quote, three
   "what happens next" steps (a preliminary links the in-store calendar on its showroom step (the separate in-store button went 2026-10-27, it said the same thing twice) and the
   in-home measurement calendar on its measure step; both GHL calendar ids in `src/lib/ghl/ids.ts`),
-  and a transactional footer from the letterhead: no carousel, no click tracking, no unsubscribe. The
+  and a transactional footer from the letterhead: no carousel, no click tracking, no unsubscribe. **No HST number** on the page, the PDF or the email (Albert, 2026-10-27: "This is just an estimate, so it's not like a formal invoice"); `QUOTE_COMPANY_HST` is no longer read. The
   accent is the logo's blue (`#283890`), not the old template's terracotta. Tables and inline styles
   only, 600px collapsing under 620px, no web fonts. The text names who is writing, gives the one
   number, puts the link on its own line and stays in GSM-7 (no curly quotes or emoji). **Preview the
@@ -442,7 +442,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
 - **Won (2026-10-27).** When an accepted quote opens, it reads its opportunity for the PP number and the
   Notion page Make 3710214 writes back after making the project (opportunity fields
   `OPP_FIELDS.projectNumber` and `ACCEPT_FIELDS.notionProjectUrl`), fills them in (blanks only; a PP
-  number is never overwritten) and the accepted version becomes **Won**. All quotes files a quote under
+  number is never overwritten) and the accepted version becomes **Won**. It keeps looking until it has both (Notion page links are notion.so, notion.site or app.notion.com). Any linked quote without a CompanyCam link copies the opportunity's (2026-10-27: a quote started in the app and never booked has none of its own). All quotes files a quote under
   **Accepted** (yes, no PP number yet) or **Won** (has one). Rule: `projectPickup()` in `src/lib/link/refresh.ts`.
 - **Changes after acceptance (Albert, 2026-10-27: "verbal, sent for record").** The accepted version
   stays frozen. **Make a change** on the contract version starts a new version of the same quote,

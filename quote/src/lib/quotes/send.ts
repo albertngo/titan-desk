@@ -56,7 +56,6 @@ function letterhead(): Letterhead {
     phone: v("QUOTE_COMPANY_PHONE"),
     email: v("QUOTE_COMPANY_EMAIL"),
     website: v("QUOTE_COMPANY_WEBSITE"),
-    hstNumber: v("QUOTE_COMPANY_HST"),
     logoUrl: logoUrl(),
   };
 }

@@ -285,12 +285,9 @@ export function CustomerQuote({
         {after}
 
         {/* The "Questions?" card with Call / Email buttons is gone (Albert, 2026-10-24): replies go to the
-            message the quote came in. The website and HST number stay, as one quiet line. */}
-        {(c.website || c.hstNumber) && (
-          <footer className="cq-legal">
-            {[c.website, c.hstNumber ? `HST # ${c.hstNumber}` : null].filter(Boolean).join(" · ")}
-          </footer>
-        )}
+            message the quote came in. The website stays, as one quiet line. No HST number (Albert,
+            2026-10-27: "This is just an estimate, so it's not like a formal invoice"). */}
+        {c.website && <footer className="cq-legal">{c.website}</footer>}
       </main>
     </div>
   );

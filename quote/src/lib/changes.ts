@@ -22,6 +22,31 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-10-27",
+    kind: "fixed",
+    title: "Won quotes link their Notion project, and quotes pick up the job's CompanyCam",
+    details: [
+      "Notion's new page links (app.notion.com) were being ignored, so a won quote showed its PP number but no Notion project link. They're taken now, including on quotes that already have their PP number.",
+      "A linked quote with no CompanyCam link copies the one on its GHL opportunity, for example from an earlier booking.",
+    ],
+  },
+  {
+    date: "2026-10-27",
+    kind: "removed",
+    title: "No HST number on quotes",
+    details: [
+      "The customer's page, the PDF and the email no longer show the HST registration number: a quote is an estimate, not an invoice. Quotes already sent lose it too.",
+    ],
+  },
+  {
+    date: "2026-10-27",
+    kind: "fixed",
+    title: "The price and payment schedule no longer overlap",
+    details: [
+      "On the customer's page the price comes first and the payment schedule sits under it, full width, so long notes like \"On acceptance, to secure your materials…\" wrap instead of running into the price.",
+    ],
+  },
+  {
+    date: "2026-10-27",
     kind: "new",
     title: "Customers can accept a quote",
     details: [

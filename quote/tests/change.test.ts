@@ -84,7 +84,7 @@ const quote = (lines: QuoteLine[], p: Partial<Quote> = {}): Quote => ({
   changeNo: 1,
   ...p,
 });
-const COMPANY: Letterhead = { name: "Titan Flooring", address: null, phone: null, email: "hello@example.com", website: null, hstNumber: null };
+const COMPANY: Letterhead = { name: "Titan Flooring", address: null, phone: null, email: "hello@example.com", website: null };
 const at = { sentOn: "2026-11-10", validUntil: null, company: COMPANY };
 
 const install = line({}); // 100 sf × 10 = 1,000

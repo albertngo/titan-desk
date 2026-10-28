@@ -62,17 +62,29 @@ export function customerRefresh(copy: CustomerCopy, contact: LiveContact | null,
  * Notion project when the opportunity goes to Project Won and writes both back onto the opportunity;
  * the quote copies them the next time it opens. Blanks are filled, never overwritten: a PP number is
  * the project's identity, and a different one on the opportunity is for a person to look at. Only a
- * number that looks like one ("PP-412") and an https link are taken.
+ * number that looks like one ("PP-412") and an https link are taken. Notion's page links are
+ * notion.so, notion.site or, since 2026, app.notion.com ("https://app.notion.com/p/…").
+ *
+ * The job's CompanyCam link comes along too (2026-10-27): a quote started in the app, never booked,
+ * has none of its own even when the opportunity has one from an earlier booking.
  */
-export type ProjectPatch = { projectNumber?: string; notionProjectUrl?: string };
+export type ProjectPatch = { projectNumber?: string; notionProjectUrl?: string; companyCamUrl?: string };
 
-export function projectPickup(copy: { projectNumber: string | null; notionProjectUrl: string | null }, live: { projectNumber: string | null; notionUrl: string | null } | null): ProjectPatch {
+const NOTION_PAGE = /^https:\/\/((www|app)\.)?notion\.(so|site|com)\//;
+const COMPANYCAM = /^https:\/\/app\.companycam\.com\//;
+
+export function projectPickup(
+  copy: { projectNumber: string | null; notionProjectUrl: string | null; companyCamUrl?: string | null },
+  live: { projectNumber: string | null; notionUrl: string | null; companyCamUrl?: string | null } | null,
+): ProjectPatch {
   if (!live) return {};
   const patch: ProjectPatch = {};
   const pp = t(live.projectNumber)?.toUpperCase().replace(/^PP\s*-?\s*/, "PP-") ?? null;
   if (!t(copy.projectNumber) && pp && /^PP-\d{1,6}$/.test(pp)) patch.projectNumber = pp;
   const url = t(live.notionUrl);
-  if (!t(copy.notionProjectUrl) && url && /^https:\/\/(www\.)?notion\.(so|site)\//.test(url)) patch.notionProjectUrl = url;
+  if (!t(copy.notionProjectUrl) && url && NOTION_PAGE.test(url)) patch.notionProjectUrl = url;
+  const cam = t(live.companyCamUrl);
+  if (!t(copy.companyCamUrl) && cam && COMPANYCAM.test(cam)) patch.companyCamUrl = cam;
   return patch;
 }
 

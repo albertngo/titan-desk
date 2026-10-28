@@ -88,7 +88,7 @@ const quote = (p: Partial<Quote> = {}): Quote => ({
   legacyLineCount: 0,
   ...p,
 });
-const COMPANY: Letterhead = { name: "Titan Flooring", address: null, phone: null, email: "hello@example.com", website: null, hstNumber: null };
+const COMPANY: Letterhead = { name: "Titan Flooring", address: null, phone: null, email: "hello@example.com", website: null };
 const copyOf = (q = quote()) => customerCopy(q, { sentOn: "2026-10-27", validUntil: "2026-11-30", company: COMPANY });
 const TERMS: Terms = { id: "recTermsAAAAAAAAA", on: "2026-10-27" };
 const input = (p: Partial<AcceptInput> = {}): AcceptInput => ({ optionIndex: 0, addOns: [], name: "Sam Sample", terms: true, termsId: TERMS.id, signature: null, reason: null, ...p });
