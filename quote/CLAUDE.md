@@ -400,7 +400,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   depth or thickness only if different, Sand ticked only if kept), railing as one column per run (length, steps / flat /
   wall, curved, pickets ticked or their feet), a metal-bar tick, and optional spindle counts and picket heights, and posts) and box G, what the customer wants. Staff photograph both pages into the
   tab (`/api/sitesheet`, signed in; photos shrunk in the browser); **Claude reads them** (`src/lib/anthropic/client.ts`,
-  model `claude-opus-5-5`, one forced tool call, instructions and schema in `src/lib/sitesheet/prompt.ts`), the
+  model `claude-opus-5-5`, structured outputs: one JSON object held to the strict schema in `src/lib/sitesheet/prompt.ts`, since the model refuses a forced tool call; server-side fallback on a refusal), the
   photos go on **Quotes → Site Sheet Photos** and what was read on **Quotes → Site Sheet** (JSON, app-written,
   compare-and-swap like Rooms; `src/lib/quotes/sitesheet.ts`). A person checks every field beside the photos
   (uncertain ones are marked) and presses **Save check**. The app works out, never asks: risers = treads + one

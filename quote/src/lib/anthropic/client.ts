@@ -5,7 +5,8 @@ import { keyProblem } from "./key";
 /**
  * The ONLY file in quote/ that talks to Claude (Albert, 2026-10-28: reading photos of the stair site
  * sheet), and the only reader of QUOTE_ANTHROPIC_KEY, which is set on the staff deployment only.
- * One request: images plus instructions in, the input of one forced tool call out. Nothing is stored
+ * One request: images plus instructions in, one JSON object held to a schema out (structured outputs,
+ * `output_config.format`; 2026-10-28: the model answers a forced tool call with a 400). Nothing is stored
  * here; the caller cleans the answer before anything uses it. Called only from src/lib/quotes/sitesheet.ts
  * (tests/boundary.test.ts).
  */
@@ -27,7 +28,7 @@ export class ClaudeError extends Error {
 
 export const readerOn = (): boolean => !isCustomerDeployment() && !!process.env.QUOTE_ANTHROPIC_KEY?.trim();
 
-export async function readWithTool(images: ImageIn[], prompt: string, tool: { name: string; description: string; schema: object }): Promise<unknown> {
+export async function readJson(images: ImageIn[], prompt: string, schema: object): Promise<unknown> {
   const key = process.env.QUOTE_ANTHROPIC_KEY?.trim();
   if (!key || isCustomerDeployment()) throw new ClaudeError("Reading site sheets isn't set up (QUOTE_ANTHROPIC_KEY).", 503);
   // Checked before it goes in a header (2026-10-28): a malformed value once made fetch throw with the value in its message.
@@ -37,12 +38,14 @@ export async function readWithTool(images: ImageIn[], prompt: string, tool: { na
   try {
     res = await fetch(API, {
     method: "POST",
-    headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    // The server-side fallback (beta) answers a safety-classifier refusal with another model instead of nothing.
+    headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "anthropic-beta": "server-side-fallback-2026-07-01", "content-type": "application/json" },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 4096,
-      tools: [{ name: tool.name, description: tool.description, input_schema: tool.schema }],
-      tool_choice: { type: "tool", name: tool.name },
+      // Thinking is always on for this model and counts against this, so leave room for it as well as the answer.
+      max_tokens: 16000,
+      output_config: { effort: "medium", format: { type: "json_schema", schema } },
+      fallbacks: "default",
       messages: [
         {
           role: "user",
@@ -64,8 +67,13 @@ export async function readWithTool(images: ImageIn[], prompt: string, tool: { na
     const why = typeof body?.error?.message === "string" ? body.error.message.slice(0, 160) : "no reason given";
     throw new ClaudeError(res.status === 401 ? "Claude refused the key (401). Check QUOTE_ANTHROPIC_KEY on this deployment." : `Claude ${res.status}: ${why}`, res.status);
   }
-  const out = (await res.json()) as { content?: { type: string; name?: string; input?: unknown }[] };
-  const call = out.content?.find((c) => c.type === "tool_use" && c.name === tool.name);
-  if (!call) throw new ClaudeError("Claude didn't return the sheet's fields.", 502);
-  return call.input;
+  const out = (await res.json()) as { stop_reason?: string; content?: { type: string; text?: string }[] };
+  if (out.stop_reason === "refusal") throw new ClaudeError("Claude declined to read these photos. Try again, or fill the fields in by hand.", 502);
+  if (out.stop_reason === "max_tokens") throw new ClaudeError("Claude ran out of room before finishing the sheet. Try again.", 502);
+  const text = out.content?.filter((c) => c.type === "text").map((c) => c.text ?? "").join("") ?? "";
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new ClaudeError("Claude didn't return the sheet's fields.", 502);
+  }
 }

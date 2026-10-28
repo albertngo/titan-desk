@@ -286,3 +286,23 @@ describe("building options from what the customer wants", () => {
     expect(both.lines.find((l) => l.area === "Side staircase")?.qty).toBe(4);
   });
 });
+
+describe("the schema sent with the photos", () => {
+  it("is strict for structured outputs: every object closed, every key required, no array limits", async () => {
+    const { SHEET_SCHEMA } = await import("../src/lib/sitesheet/prompt");
+    const walk = (node: unknown, path: string): string[] => {
+      if (Array.isArray(node)) return node.flatMap((x, i) => walk(x, `${path}[${i}]`));
+      if (!node || typeof node !== "object") return [];
+      const o = node as Record<string, unknown>;
+      const bad: string[] = [];
+      if ("maxItems" in o) bad.push(`${path} has maxItems`);
+      if (o.properties) {
+        if (o.additionalProperties !== false) bad.push(`${path} is open`);
+        if (JSON.stringify(o.required) !== JSON.stringify(Object.keys(o.properties as object))) bad.push(`${path} misses required keys`);
+      }
+      return [...bad, ...Object.entries(o).flatMap(([k, v]) => (k === "enum" ? [] : walk(v, `${path}.${k}`)))];
+    };
+    expect(walk(SHEET_SCHEMA, "$")).toEqual([]);
+    expect((SHEET_SCHEMA.properties as Record<string, unknown>).want).toMatchObject({ additionalProperties: false });
+  });
+});

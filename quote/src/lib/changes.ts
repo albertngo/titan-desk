@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-10-28",
     kind: "fixed",
+    title: "Site sheet: reading the photos works with the current Claude model",
+    details: ["Read stopped with \"tool_choice … not supported for this model\". The sheet is now read as one JSON answer held to the sheet's fields, which this model supports."],
+  },
+  {
+    date: "2026-10-28",
+    kind: "fixed",
     title: "Site sheet: user keys from the Anthropic Console are accepted",
     details: ["The reading key check refused keys starting sk-ant-usr-, which the Console now gives out. Any Anthropic key is accepted; Anthropic itself says if one is wrong."],
   },
