@@ -1,6 +1,7 @@
 import { acceptedTotals, restageAmounts, round2, type AcceptedTotals } from "@/lib/calc";
 import { defaultSchedule } from "@/lib/pricing/schedule";
-import { stagesOf, type CopyItem, type CopyOption, type CopyStage, type CopyState, type CustomerCopy } from "@/lib/send/copy";
+import type { Scope } from "@/lib/quotes/types";
+import { scopeOf, stagesOf, type CopyItem, type CopyOption, type CopySection, type CopyStage, type CopyState, type CopyTotals, type CustomerCopy } from "@/lib/send/copy";
 import type { Terms } from "./terms";
 
 /**
@@ -14,7 +15,9 @@ import type { Terms } from "./terms";
  *   only with a reason saying where the written yes is;
  * - only a measured version that is out with the customer and still good can be accepted: a
  *   preliminary is an estimate, and a change after acceptance is sent for the record;
- * - one option, and any of its add-ons ticked, at exactly the prices shown;
+ * - one option, and any of its add-ons ticked, at exactly the prices shown; since 2026-10-28, one
+ *   option of each scope (a flooring option and a stairs option, or just one of them), which become
+ *   one contract: one total, one deposit, one schedule;
  * - they tick that they have read the Project Expectations, and the version they saw is recorded
  *   (a newer one saved since they opened the page means they reload and look again);
  * - the accepted copy is frozen like the sent one: nothing live is ever read to show it again.
@@ -24,7 +27,11 @@ export const ACCEPTANCE_VERSION = 1;
 
 export type AcceptMethod = "link" | "store" | "staff";
 
+/** `key` is "option.section.line" (2026-10-28), or "section.line" on the one option of an older record. */
 export type AcceptedAddOn = { key: string; description: string; amount: number };
+
+/** One option the customer took (2026-10-28): its place in the copy, its name, its Quote Options record and its scope. */
+export type AcceptedPick = { index: number; name: string; ref: string | null; scope: Scope };
 
 /** What happened after the yes, kept on the record so staff can see it and retry: GHL Won, and the messages. */
 export type Handoff = { at: string; ghl: "done" | "failed" | "off"; ghlMessage: string | null; told: string[]; tellFailed: string | null };
@@ -37,7 +44,10 @@ export type Acceptance = {
   method: AcceptMethod;
   /** The customer's full name as they typed it (or as staff typed it, on their behalf). */
   name: string;
+  /** What was accepted as one: the first pick's place and record, and every pick's name joined ("Oak floors + Red oak caps"). */
   option: { index: number; name: string; ref: string | null };
+  /** Every option taken, flooring first (2026-10-28). Absent on a record from before then: the one `option`. */
+  picks?: AcceptedPick[];
   addOns: AcceptedAddOn[];
   totals: AcceptedTotals;
   /** The payment schedule on the accepted total, in dollars. The first stage is the deposit. */
@@ -57,7 +67,8 @@ export type Acceptance = {
 };
 
 export type AcceptInput = {
-  optionIndex: number;
+  /** The options taken, at most one of each scope (2026-10-28). */
+  optionIndexes: number[];
   addOns: string[];
   name: string;
   terms: boolean;
@@ -75,25 +86,57 @@ const text = (v: unknown, max: number) => (typeof v === "string" ? v.replace(/\s
 export function readAcceptInput(raw: unknown): AcceptInput | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
-  const optionIndex = typeof r.optionIndex === "number" && Number.isInteger(r.optionIndex) ? r.optionIndex : null;
-  if (optionIndex === null) return null;
-  const addOns = Array.isArray(r.addOns) ? [...new Set(r.addOns.filter((k): k is string => typeof k === "string" && /^\d{1,3}\.\d{1,3}$/.test(k)))].slice(0, 50) : [];
+  const whole = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v >= 0 && v < 1000;
+  // `optionIndex` is what a page opened before 2026-10-28 sends: one option.
+  const optionIndexes = Array.isArray(r.optionIndexes) ? [...new Set(r.optionIndexes.filter(whole))].slice(0, 2) : whole(r.optionIndex) ? [r.optionIndex] : [];
+  if (optionIndexes.length === 0) return null;
+  // "option.section.line"; an older page's "section.line" belongs to its one option.
+  const addOns = Array.isArray(r.addOns)
+    ? [...new Set(r.addOns.filter((k): k is string => typeof k === "string" && /^\d{1,3}\.\d{1,3}(\.\d{1,3})?$/.test(k)).map((k) => (k.split(".").length === 2 ? `${optionIndexes[0]}.${k}` : k)))].slice(0, 50)
+    : [];
   const signature = typeof r.signature === "string" && r.signature.trim() ? r.signature.trim() : null;
   const termsId = typeof r.termsId === "string" && /^rec[A-Za-z0-9]{14}$/.test(r.termsId) ? r.termsId : null;
-  return { optionIndex, addOns, name: text(r.name, 120), terms: r.terms === true, termsId, signature, reason: text(r.reason, 500) || null };
+  return { optionIndexes, addOns, name: text(r.name, 120), terms: r.terms === true, termsId, signature, reason: text(r.reason, 500) || null };
 }
 
-/** "2.3": the add-on at line 3 of section 2 of the option, as the copy has it. */
-export const addOnKey = (section: number, line: number) => `${section}.${line}`;
+/** "1.2.3": the add-on at line 3 of section 2 of the copy's option 1. */
+export const addOnKey = (option: number, section: number, line: number) => `${option}.${section}.${line}`;
 
 /** Whether HST is charged on a line, as the copy said it. */
 const taxed = (copy: Pick<CustomerCopy, "showHst">, l: Pick<CopyItem, "hst">) => (copy.showHst ? l.hst !== "none" : l.hst === "plus");
 
-/** The add-ons an option offers, with the key the Accept panel sends back for each. */
-export function addOnsOf(copy: Pick<CustomerCopy, "showHst">, o: CopyOption): (AcceptedAddOn & { taxed: boolean })[] {
+/** The add-ons the copy's option `index` offers, with the key the Accept panel sends back for each. */
+export function addOnsOf(copy: Pick<CustomerCopy, "showHst" | "options">, index: number): (AcceptedAddOn & { taxed: boolean })[] {
+  const o = copy.options[index];
+  if (!o) return [];
   return o.sections.flatMap((s, si) =>
-    s.lines.flatMap((l, li) => (l.kind === "item" && l.optional && l.amount !== null ? [{ key: addOnKey(si, li), description: l.description, amount: l.amount, taxed: taxed(copy, l) }] : [])),
+    s.lines.flatMap((l, li) => (l.kind === "item" && l.optional && l.amount !== null ? [{ key: addOnKey(index, si, li), description: l.description, amount: l.amount, taxed: taxed(copy, l) }] : [])),
   );
+}
+
+/** Why a set of options can't be taken together, or null: at least one, each on the copy, never two of one scope. */
+export function pickProblem(copy: Pick<CustomerCopy, "options">, indexes: number[]): string | null {
+  if (indexes.length === 0 || indexes.some((i) => !copy.options[i])) return "Choose the option you're accepting.";
+  const scopes = indexes.map((i) => scopeOf(copy.options[i]));
+  if (new Set(scopes).size < scopes.length) return `Choose one ${scopes[0].toLowerCase()} option, not two.`;
+  return null;
+}
+
+/** The picks in the order the contract lists them: flooring first. */
+const ordered = (copy: Pick<CustomerCopy, "options">, indexes: number[]) =>
+  [...indexes].sort((a, b) => (scopeOf(copy.options[a]) === scopeOf(copy.options[b]) ? a - b : scopeOf(copy.options[a]) === "Flooring" ? -1 : 1));
+
+/** What one or more options add up to as sent, before anything is ticked. */
+function sumTotals(parts: CopyTotals[]): CopyTotals {
+  const add = (k: keyof CopyTotals) => round2(parts.reduce((a, t) => a + t[k], 0));
+  return { preDiscount: add("preDiscount"), discount: add("discount"), subtotal: add("subtotal"), hst: add("hst"), total: add("total"), payment1: add("payment1"), payment2: add("payment2"), paymentFinal: add("paymentFinal") };
+}
+
+/** The frozen stages of the picks, added stage by stage, so a material deposit keeps the dollars of both. */
+export function frozenStages(parts: CopyOption[]): CopyStage[] {
+  const [first, ...rest] = parts.map(stagesOf);
+  if (!first) return [];
+  return first.map((s, i) => ({ ...s, amount: s.amount === null ? null : round2(s.amount + rest.reduce((a, st) => a + (st[i]?.amount ?? 0), 0)) }));
 }
 
 /* ---------- the signature ---------- */
@@ -133,10 +176,10 @@ export function acceptProblems(copy: CustomerCopy, state: CopyState, input: Acce
   const whole = notAcceptable(copy, state, ctx.terms);
   if (whole) return [whole];
   const out: string[] = [];
-  const o = copy.options[input.optionIndex];
-  if (!o) return ["Choose the option you're accepting."];
-  const offered = new Set(addOnsOf(copy, o).map((a) => a.key));
-  if (input.addOns.some((k) => !offered.has(k))) out.push("An add-on you ticked isn't on that option. Reload the page and try again.");
+  const pick = pickProblem(copy, input.optionIndexes);
+  if (pick) return [pick];
+  const offered = new Set(input.optionIndexes.flatMap((i) => addOnsOf(copy, i).map((a) => a.key)));
+  if (input.addOns.some((k) => !offered.has(k))) out.push("An add-on you ticked isn't on the options you chose. Reload the page and try again.");
   if (input.name.length < 2 || !/\p{L}/u.test(input.name)) out.push("Type your full name.");
   if (!input.terms) out.push("Tick that you've read and agree to the Project Expectations.");
   else if (input.termsId !== ctx.terms!.id) out.push("The Project Expectations were just updated. Reload the page and review them, then accept.");
@@ -162,11 +205,12 @@ export function buildAcceptance(
   input: AcceptInput,
   ctx: { now: Date; terms: Terms; method: AcceptMethod; recordedBy: string | null; userAgent: string | null },
 ): Acceptance {
-  const o = copy.options[input.optionIndex];
-  const offered = addOnsOf(copy, o);
+  const indexes = ordered(copy, input.optionIndexes);
+  const parts = indexes.map((i) => copy.options[i]);
+  const offered = indexes.flatMap((i) => addOnsOf(copy, i));
   const chosen = offered.filter((a) => input.addOns.includes(a.key));
-  const totals = acceptedTotals(o.totals, chosen);
-  const frozen = stagesOf(o);
+  const totals = acceptedTotals(sumTotals(parts.map((o) => o.totals)), chosen);
+  const frozen = frozenStages(parts);
   const schedule = copy.paymentSchedule ?? defaultSchedule();
   // A copy frozen before schedules existed has the default's three stages; anything else is restaged from its own definition.
   const restaged = schedule.stages.length === frozen.length ? restageAmounts(schedule, frozen, totals.total) : restageAmounts(defaultSchedule(), frozen, totals.total);
@@ -177,7 +221,8 @@ export function buildAcceptance(
     on: torontoDay(ctx.now),
     method: ctx.method,
     name: input.name,
-    option: { index: input.optionIndex, name: o.name, ref: o.ref ?? null },
+    option: { index: indexes[0], name: parts.map((o) => o.name).join(" + "), ref: parts[0].ref ?? null },
+    picks: indexes.map((i) => ({ index: i, name: copy.options[i].name, ref: copy.options[i].ref ?? null, scope: scopeOf(copy.options[i]) })),
     addOns: chosen.map(({ key, description, amount }) => ({ key, description, amount })),
     totals,
     stages,
@@ -205,33 +250,56 @@ export function parseAcceptance(raw: string | null | undefined): Acceptance | nu
   }
 }
 
+/** The options an acceptance took: its picks, or the one option of a record from before 2026-10-28. */
+export const picksOf = (a: Pick<Acceptance, "option" | "picks">): AcceptedPick[] => a.picks?.length ? a.picks : [{ ...a.option, scope: "Flooring" }];
+
+/** Whether an accepted add-on is the line at (option, section, line): the 3-part key, or an older record's 2-part one on its one option. */
+const tookAddOn = (a: Acceptance, option: number, section: number, line: number) =>
+  a.addOns.some((x) => x.key === `${option}.${section}.${line}` || (!a.picks && x.key === `${section}.${line}` && option === a.option.index));
+
 /**
- * The accepted copy (2026-10-27): the one option accepted, its ticked add-ons now part of the work,
- * the others left off, and the totals and payment schedule as accepted. The stamped PDF and the
- * customer's accepted page are drawn from it, so they show exactly what was agreed.
+ * The accepted copy (2026-10-27): what was accepted as one option, its ticked add-ons now part of
+ * the work, the others left off, and the totals and payment schedule as accepted. The stamped PDF
+ * and the customer's accepted page are drawn from it, so they show exactly what was agreed. A
+ * flooring option and a stairs option taken together (2026-10-28) are joined into that one option:
+ * the flooring's sections, then the stairs', a section both have holding both, numbered through.
  */
 export function acceptedCopy(copy: CustomerCopy, a: Acceptance): CustomerCopy {
-  const o = copy.options[a.option.index];
-  if (!o) return copy;
-  const ticked = new Set(a.addOns.map((x) => x.key));
-  const sections = o.sections
-    .map((s, si) => ({
-      ...s,
-      lines: s.lines.flatMap((l, li) => {
+  const picks = picksOf(a).filter((p) => copy.options[p.index]);
+  if (picks.length === 0) return copy;
+  const parts = picks.map((p) => copy.options[p.index]);
+  const sections: CopySection[] = [];
+  let n = 0;
+  picks.forEach((p, pi) => {
+    parts[pi].sections.forEach((s, si) => {
+      const lines = s.lines.flatMap((l, li) => {
         if (l.kind !== "item" || !l.optional) return [l];
-        return ticked.has(addOnKey(si, li)) ? [{ ...l, optional: false, added: true }] : [];
-      }),
-    }))
-    .filter((s) => s.lines.length > 0);
+        return tookAddOn(a, p.index, si, li) ? [{ ...l, optional: false, added: true }] : [];
+      });
+      if (lines.length === 0) return;
+      const into = sections.find((x) => x.name === s.name);
+      if (into) {
+        into.lines.push(...lines);
+        into.total = into.total === null || s.total === null ? null : round2(into.total + s.total);
+      } else sections.push({ ...s, lines: [...lines] });
+    });
+  });
+  // Numbered through when two options are joined; an add-on taken keeps no number, as before.
+  if (parts.length > 1) for (const s of sections) s.lines = s.lines.map((l) => (l.kind === "item" && l.n !== null ? { ...l, n: ++n } : l));
   const extra = round2(a.addOns.reduce((sum, x) => sum + x.amount, 0));
+  const sent = sumTotals(parts.map((o) => o.totals));
   const pay = (i: number) => a.stages[i]?.amount ?? 0;
+  const description = parts.map((o) => o.description).filter(Boolean).join("\n\n") || null;
   const option: CopyOption = {
-    ...o,
+    ...parts[0],
+    name: parts.map((o) => o.name).join(" + "),
+    description,
     sections,
+    exclusions: [...new Set(parts.flatMap((o) => o.exclusions))],
     recommended: false,
     totals: {
-      ...o.totals,
-      preDiscount: round2(o.totals.preDiscount + extra),
+      ...sent,
+      preDiscount: round2(sent.preDiscount + extra),
       subtotal: a.totals.subtotal,
       hst: a.totals.hst,
       total: a.totals.total,
@@ -242,6 +310,7 @@ export function acceptedCopy(copy: CustomerCopy, a: Acceptance): CustomerCopy {
     schedule: a.stages,
   };
   delete option.range;
+  if (new Set(parts.map(scopeOf)).size > 1) delete option.scope;
   return { ...copy, options: [option] };
 }
 

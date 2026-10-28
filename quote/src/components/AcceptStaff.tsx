@@ -6,6 +6,7 @@ import { acceptForCustomerAction, cancelAcceptanceAction, makeChangeAction, retr
 import type { Acceptance } from "@/lib/accept/plan";
 import { termsLabel } from "@/lib/accept/terms";
 import { money } from "@/lib/format";
+import type { Scope } from "@/lib/quotes/types";
 
 /**
  * Acceptance on the staff quote page (Albert, 2026-10-27). Two cards:
@@ -16,7 +17,7 @@ import { money } from "@/lib/format";
  *   change and Cancel acceptance.
  */
 
-export type StaffAcceptOption = { index: number; name: string; subtotal: number; addOns: { key: string; description: string; amount: number }[] };
+export type StaffAcceptOption = { index: number; name: string; subtotal: number; scope: Scope; addOns: { key: string; description: string; amount: number }[] };
 
 export function AcceptForCustomer({
   versionId,
@@ -38,20 +39,27 @@ export function AcceptForCustomer({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [index, setIndex] = useState(options.length === 1 ? 0 : -1);
+  // One option of each scope (2026-10-28); a scope with one option starts chosen only when it's the quote's only scope.
+  const scopes = (["Flooring", "Stairs"] as Scope[]).filter((sc) => options.some((x) => x.scope === sc));
+  const [picks, setPicks] = useState<number[]>(options.length === 1 ? [0] : []);
   const [ticked, setTicked] = useState<string[]>([]);
   const [name, setName] = useState(customerName ?? "");
   const [reason, setReason] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [busy, start] = useTransition();
   const [msg, setMsg] = useState<{ text: string; bad: boolean; problems?: string[] } | null>(null);
-  const o = options.find((x) => x.index === index) ?? null;
+  const chosen = options.filter((x) => picks.includes(x.index));
+  const choose = (scope: Scope, index: number) => {
+    const next = [...options.filter((x) => x.scope !== scope && picks.includes(x.index)).map((x) => x.index), ...(index >= 0 ? [index] : [])];
+    setPicks(next);
+    setTicked(ticked.filter((k) => next.some((i) => k.startsWith(`${i}.`))));
+  };
 
   const submit = () => {
-    if (!o) return;
+    if (chosen.length === 0) return;
     setMsg(null);
     start(async () => {
-      const r = await acceptForCustomerAction(versionId, { optionIndex: o.index, addOns: ticked, name, terms: agreed, termsId: terms?.id ?? null, signature: null, reason });
+      const r = await acceptForCustomerAction(versionId, { optionIndexes: picks, addOns: ticked, name, terms: agreed, termsId: terms?.id ?? null, signature: null, reason });
       if (r.ok) {
         setMsg({ text: r.warning ? `Recorded. ${r.warning}` : "Recorded. GHL is at Project Won and the customer has the accepted quote.", bad: Boolean(r.warning) });
         router.refresh();
@@ -82,20 +90,23 @@ export function AcceptForCustomer({
             {open && (
               <div className="form acc-form">
                 <p className="faint">For a yes in writing that didn&apos;t come through their link: a signed paper, an email. Say where it is.</p>
-                {options.length > 1 && (
-                  <label>
-                    Option
-                    <select value={index} onChange={(e) => (setIndex(Number(e.target.value)), setTicked([]))}>
-                      <option value={-1}>Choose…</option>
-                      {options.map((x) => (
-                        <option key={x.index} value={x.index}>
-                          Option {x.index + 1}: {x.name} · {money(x.subtotal)} before HST
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                )}
-                {o?.addOns.map((a) => (
+                {options.length > 1 &&
+                  scopes.map((scope) => (
+                    <label key={scope}>
+                      {scopes.length > 1 ? `${scope} option` : "Option"}
+                      <select value={options.find((x) => x.scope === scope && picks.includes(x.index))?.index ?? -1} onChange={(e) => choose(scope, Number(e.target.value))}>
+                        <option value={-1}>{scopes.length > 1 ? `No ${scope.toLowerCase()}` : "Choose…"}</option>
+                        {options
+                          .filter((x) => x.scope === scope)
+                          .map((x) => (
+                            <option key={x.index} value={x.index}>
+                              Option {x.index + 1}: {x.name} · {money(x.subtotal)} before HST
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                  ))}
+                {chosen.flatMap((x) => x.addOns).map((a) => (
                   <label key={a.key} className="check-in">
                     <input type="checkbox" checked={ticked.includes(a.key)} onChange={(e) => setTicked(e.target.checked ? [...ticked, a.key] : ticked.filter((k) => k !== a.key))} /> Add {a.description} (+ {money(a.amount)})
                   </label>
@@ -111,7 +122,7 @@ export function AcceptForCustomer({
                 <label className="check-in">
                   <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} /> They have the Project Expectations{terms ? ` (${terms.label})` : ""} and agree to them
                 </label>
-                <button type="button" className="btn primary" disabled={busy || !o || !agreed || !reason.trim() || name.trim().length < 2} onClick={submit}>
+                <button type="button" className="btn primary" disabled={busy || chosen.length === 0 || !agreed || !reason.trim() || name.trim().length < 2} onClick={submit}>
                   {busy ? "Recording…" : "Record acceptance"}
                 </button>
               </div>

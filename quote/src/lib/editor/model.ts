@@ -7,7 +7,8 @@ import { lineTotal, optionTotals, PRIVATE_SECTION, round2, sectionOf, SECTIONS, 
 import { impliedRate } from "@/lib/pricing/accepted";
 import type { PaymentSchedule } from "@/lib/pricing/schedule";
 import { levelApplies, levelOf, levelPrice, type ServiceLevel } from "@/lib/pricing/service";
-import type { MaterialRow, Quote, QuoteLine, RateRow, StairRow } from "@/lib/quotes/types";
+import { optionScope } from "@/lib/quotes/scope";
+import type { MaterialRow, Quote, QuoteLine, RateRow, Scope, StairRow } from "@/lib/quotes/types";
 
 export type Section = (typeof SECTIONS)[number] | "Unsorted";
 
@@ -37,6 +38,8 @@ export type EditorOption = {
   crew?: string | null;
   /** What the customer sees in place of the Private section's lines (2026-10-22); null or absent = "Additional work". */
   privateLabel?: string | null;
+  /** Flooring or Stairs (2026-10-28); null or absent = worked out from the lines. See src/lib/quotes/scope.ts. */
+  scope?: Scope | null;
   lines: EditorLine[];
 };
 
@@ -412,9 +415,14 @@ export function removeOption(q: EditorQuote, optionId: string): EditorQuote {
   return { ...q, options: q.options.filter((o) => o.id !== optionId) };
 }
 
-export function updateOption(q: EditorQuote, optionId: string, patch: Partial<Pick<EditorOption, "name" | "description" | "recommended" | "privateLabel">>): EditorQuote {
+export function updateOption(q: EditorQuote, optionId: string, patch: Partial<Pick<EditorOption, "name" | "description" | "recommended" | "privateLabel" | "scope">>): EditorQuote {
   let next = mapOption(q, optionId, (o) => ({ ...o, ...patch }));
-  if (patch.recommended) next = { ...next, options: next.options.map((o) => (o.id === optionId ? o : { ...o, recommended: false })) };
+  // One recommended option per scope (2026-10-28): a customer picks one flooring and one stairs option.
+  const me = next.options.find((o) => o.id === optionId);
+  if (me?.recommended && (patch.recommended || patch.scope !== undefined)) {
+    const scope = optionScope(me);
+    next = { ...next, options: next.options.map((o) => (o.id === optionId || optionScope(o) !== scope ? o : { ...o, recommended: false })) };
+  }
   return next;
 }
 
@@ -681,6 +689,7 @@ export function fromQuote(quote: Quote): EditorQuote {
       serviceLevel: levelOf(o),
       crew: o.crew,
       privateLabel: o.privateLabel ?? null,
+      scope: o.scope ?? null,
       lines: o.lines.map((l: QuoteLine): EditorLine => ({
         id: l.id,
         sourceKind: l.sourceKind,

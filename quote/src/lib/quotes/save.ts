@@ -6,7 +6,8 @@ import { fromQuote, type EditorQuote } from "@/lib/editor/model";
 import { versionLabel } from "@/lib/link/identity";
 import { fixedSchedule, scheduleProblems } from "@/lib/pricing/schedule";
 import { parseCopy, stagesOf } from "@/lib/send/copy";
-import { parseAcceptance } from "@/lib/accept/plan";
+import { parseAcceptance, picksOf } from "@/lib/accept/plan";
+import type { QuoteOption } from "./types";
 import { authorFields, describePlan } from "./history";
 import { getQuote } from "./load";
 import { changeSlot, cleanEditorQuote, fingerprint, isRecordId, newVersionRefusal, planIsEmpty, planSave, type SavePlan } from "./savePlan";
@@ -109,6 +110,7 @@ export async function saveAsNewVersion(versionId: string, raw: unknown, basis: s
  * Make a change after acceptance (Albert, 2026-10-27). The accepted version stays frozen; the change
  * is a new version of the same quote, numbered (Change No 1, 2, …), that starts as the contract
  * stands: only the accepted option, its ticked add-ons now part of the work and the others gone, and
+ * (2026-10-28) a flooring option and a stairs option taken together joined into that one option, and
  * a schedule where every stage already agreed keeps its dollars and the balance takes the difference.
  * Staff then edit it like any version and send it for the customer's records.
  */
@@ -122,8 +124,11 @@ export async function makeChange(versionId: string): Promise<SaveResult> {
   if (!accepted && !from.changeNo) return { ok: false, message: "This version hasn't been accepted, so there is nothing to change yet." };
 
   // The option the contract stands on, and its stages as agreed.
-  const option = accepted ? from.options.find((o) => o.id === accepted.option.ref) : from.options.length === 1 ? from.options[0] : undefined;
-  if (!option) return { ok: false, message: "The accepted option isn't on this version any more, so a change can't start from it." };
+  const taken = accepted ? picksOf(accepted).map((p) => from.options.find((o) => o.id === p.ref)) : from.options.length === 1 ? [from.options[0]] : [undefined];
+  if (taken.length === 0 || taken.some((o) => !o)) return { ok: false, message: "The accepted option isn't on this version any more, so a change can't start from it." };
+  const parts = taken as QuoteOption[];
+  // Two options taken together become one: the contract is one option from here on, with one schedule.
+  const option: QuoteOption = parts.length === 1 ? parts[0] : { ...parts[0], name: accepted!.option.name, scope: null, recommended: false, description: parts.map((o) => o.description).filter(Boolean).join("\n\n") || null, lines: parts.flatMap((o) => o.lines) };
   let stages = accepted?.stages;
   if (!stages) {
     const frozen = parseCopy(str((await listByIds(T.versions, [from.id], [VERSION.customerCopy]))[0]?.fields[VERSION.customerCopy]));

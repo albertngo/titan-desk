@@ -8,6 +8,7 @@ import { cleanSchedule } from "@/lib/pricing/schedule";
 import { isStairMethod, isStairType } from "@/lib/quick/stairs";
 import { roomsRaw } from "@/lib/rooms/log";
 import { sheetRaw } from "@/lib/sitesheet/sheet";
+import { scopeValue } from "./scope";
 import { bool, ids, num, str } from "./values";
 import { groupVersions, type QuoteGroup, type QuoteHead } from "./group";
 import type { MaterialRow, Quote, QuoteLine, QuoteLink, QuoteOption, RateCard, RateRow, StairProfileRow, StairRow } from "./types";
@@ -123,6 +124,7 @@ function toOption(r: AirtableRecord, lines: QuoteLine[]): QuoteOption {
     serviceLevel: str(f[OPTION.serviceLevel]),
     crew: str(f[OPTION.crew]),
     privateLabel: str(f[OPTION.privateLabel]),
+    scope: scopeValue(f[OPTION.scope]),
     lines,
     airtable: {
       preDiscount: num(f[OPTION.preDiscount]) ?? undefined,

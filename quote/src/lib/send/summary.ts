@@ -1,5 +1,5 @@
 import { isPriced, sectionOf } from "@/lib/calc";
-import type { QuoteLine, QuoteOption } from "@/lib/quotes/types";
+import type { QuoteLine } from "@/lib/quotes/types";
 import type { CopyItem, CopyOption, CustomerCopy } from "./copy";
 
 /**
@@ -25,7 +25,7 @@ export const isStairLine = (l: Pick<QuoteLine, "lineType" | "sourceKind" | "sect
 const kindOf = (stairs: boolean, flooring: boolean): QuoteKind => (stairs && flooring ? "both" : stairs ? "stairs" : flooring ? "flooring" : "none");
 
 /** What an option quotes, from its included, priced lines. */
-export function quoteKind(o: Pick<QuoteOption, "lines">): QuoteKind {
+export function quoteKind(o: { lines: Pick<QuoteLine, "lineType" | "sourceKind" | "section" | "include">[] }): QuoteKind {
   const live = o.lines.filter((l) => isPriced(l) && l.include);
   return kindOf(
     live.some(isStairLine),

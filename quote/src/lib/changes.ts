@@ -22,6 +22,17 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-10-28",
+    kind: "new",
+    title: "Flooring and stairs on one quote, one of each accepted",
+    details: [
+      "Every option is Flooring or Stairs. The editor sets it for you from the lines (Auto), and the Scope picker beside Recommended changes it. Options built from the site sheet are Stairs.",
+      "The customer sees the options grouped under Flooring options and Stairs options. They can accept one of each, or just one of them, and the two become one contract: one total, one deposit, one schedule, one Won in GHL.",
+      "A preliminary shows each scope's price on its own, in the email, the text and on the page. Several options in a scope read \"from\" the lowest.",
+      "Recommended is now one per scope. Make a change on a quote accepted this way starts from both options joined into one.",
+    ],
+  },
+  {
+    date: "2026-10-28",
     kind: "changed",
     title: "Site sheet v5: fewer choices for the PM",
     details: [

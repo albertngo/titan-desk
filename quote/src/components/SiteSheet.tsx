@@ -122,7 +122,9 @@ export function SiteSheetTab({
     let q = start.quote;
     for (const o of built.options) {
       const id = `opt-ss-${o.kind}-${Date.now().toString(36)}`;
-      q = { ...q, options: [...q.options, { id, name: o.name, description: o.description, recommended: o.recommended, serviceLevel: "Standard", crew: null, lines: o.lines }] };
+      // Stairs options (2026-10-28): quoted beside the flooring, one of each taken. Recommended only if no stairs option already is.
+      const stairsRec = q.options.some((x) => x.recommended && x.scope === "Stairs");
+      q = { ...q, options: [...q.options, { id, name: o.name, description: o.description, recommended: o.recommended && !stairsRec, serviceLevel: "Standard", crew: null, scope: "Stairs", lines: o.lines }] };
     }
     try {
       window.localStorage.setItem(key, JSON.stringify({ savedAt: new Date().toISOString(), quote: q, base: start.base ?? base }));

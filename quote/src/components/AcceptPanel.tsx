@@ -6,11 +6,14 @@ import { acceptAction } from "@/app/c/[token]/actions";
 import { acceptedTotals, restageAmounts } from "@/lib/calc";
 import { money } from "@/lib/format";
 import { payWords, type PaymentSchedule } from "@/lib/pricing/schedule";
+import type { Scope } from "@/lib/quotes/types";
 
 /**
  * The Accept panel on a customer's quote (Albert, 2026-10-27). The customer picks the option, ticks
  * any add-ons (the total and the deposit follow as they tick), ticks that they have read the Project
- * Expectations and types their name; on the store tablet they also sign. The figures here are for
+ * Expectations and types their name; on the store tablet they also sign. With flooring and stairs
+ * options on one quote (2026-10-28) they pick one of each, or just one of them, and the two make one
+ * total and one deposit. The figures here are for
  * the customer to see: the staff app works them out again from the frozen copy and never takes them
  * from the browser.
  */
@@ -20,6 +23,7 @@ export type AcceptOption = {
   name: string;
   subtotal: number;
   hst: number;
+  scope: Scope;
   addOns: { key: string; description: string; amount: number; taxed: boolean }[];
   /** The frozen stages' amounts, so a material deposit keeps its dollars when add-ons are ticked. */
   frozen: { amount: number | null }[];
@@ -31,7 +35,7 @@ export function AcceptPanel({
   options,
   schedule,
   terms,
-  defaultIndex,
+  defaultPicks,
 }: {
   token: string;
   /** Opened from the staff app's "Accept with customer": a drawn signature is taken too. */
@@ -40,26 +44,41 @@ export function AcceptPanel({
   schedule: PaymentSchedule;
   /** The Project Expectations shown: its Terms Versions row goes back with the Accept, so a newer one since is caught. */
   terms: { id: string; label: string; href: string };
-  defaultIndex: number;
+  /** What starts chosen: an option index per scope. */
+  defaultPicks: number[];
 }) {
   const router = useRouter();
-  const [index, setIndex] = useState(defaultIndex);
+  const [picks, setPicks] = useState<number[]>(defaultPicks);
   const [ticked, setTicked] = useState<string[]>([]);
   const [agreed, setAgreed] = useState(false);
   const [name, setName] = useState("");
   const [signature, setSignature] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, start] = useTransition();
-  const o = options.find((x) => x.index === index) ?? options[0];
+  const scopes = (["Flooring", "Stairs"] as Scope[]).filter((sc) => options.some((x) => x.scope === sc));
+  const split = scopes.length > 1;
+  const chosen = useMemo(() => options.filter((x) => picks.includes(x.index)), [options, picks]);
+  const addOns = chosen.flatMap((x) => x.addOns);
 
-  const totals = useMemo(() => acceptedTotals(o, o.addOns.filter((a) => ticked.includes(a.key))), [o, ticked]);
-  const stages = useMemo(() => restageAmounts(schedule, o.frozen, totals.total), [schedule, o, totals.total]);
-  const ready = agreed && name.trim().length >= 2 && (!store || signature);
+  const totals = useMemo(() => {
+    const sent = { subtotal: chosen.reduce((a, x) => a + x.subtotal, 0), hst: chosen.reduce((a, x) => a + x.hst, 0) };
+    return acceptedTotals(sent, addOns.filter((a) => ticked.includes(a.key)));
+  }, [chosen, addOns, ticked]);
+  const frozen = useMemo(() => (chosen[0]?.frozen ?? []).map((st, i) => ({ amount: st.amount === null ? null : chosen.reduce((a, x) => a + (x.frozen[i]?.amount ?? 0), 0) })), [chosen]);
+  const stages = useMemo(() => restageAmounts(schedule, frozen, totals.total), [schedule, frozen, totals.total]);
+  const ready = chosen.length > 0 && agreed && name.trim().length >= 2 && (!store || signature);
+  /** Choose `index` for its scope (null = none of that scope), dropping the add-ons of what it replaces. */
+  const choose = (scope: Scope, index: number | null) => {
+    const others = options.filter((x) => x.scope !== scope && picks.includes(x.index)).map((x) => x.index);
+    const next = index === null ? others : [...others, index];
+    setPicks(next);
+    setTicked(ticked.filter((k) => next.some((i) => k.startsWith(`${i}.`))));
+  };
 
   const accept = () => {
     setError(null);
     start(async () => {
-      const r = await acceptAction(token, { optionIndex: o.index, addOns: ticked, name: name.trim(), terms: agreed, termsId: terms.id, signature }, store);
+      const r = await acceptAction(token, { optionIndexes: picks, addOns: ticked, name: name.trim(), terms: agreed, termsId: terms.id, signature }, store);
       if (r.ok) router.refresh();
       else setError(r.message);
     });
@@ -68,32 +87,35 @@ export function AcceptPanel({
   return (
     <section className="cq-card cq-accept" aria-labelledby="acc-h">
       <h2 id="acc-h">Accept this quote</h2>
-      {options.length > 1 && (
-        <fieldset className="acc-opts">
-          <legend>Which option?</legend>
-          {options.map((x) => (
-            <label key={x.index} className={x.index === o.index ? "on" : undefined}>
-              <input
-                type="radio"
-                name="acc-option"
-                checked={x.index === o.index}
-                onChange={() => {
-                  setIndex(x.index);
-                  setTicked([]);
-                }}
-              />
-              <span className="nm">
-                Option {x.index + 1}: {x.name}
-              </span>
-              <span className="amt">{money(x.subtotal)} before HST</span>
-            </label>
-          ))}
-        </fieldset>
-      )}
-      {o.addOns.length > 0 && (
+      {scopes.map((scope) => {
+        const mine = options.filter((x) => x.scope === scope);
+        if (!split && mine.length < 2) return null;
+        const current = mine.find((x) => picks.includes(x.index))?.index ?? null;
+        return (
+          <fieldset className="acc-opts" key={scope}>
+            <legend>{split ? `Which ${scope.toLowerCase()} option?` : "Which option?"}</legend>
+            {mine.map((x) => (
+              <label key={x.index} className={x.index === current ? "on" : undefined}>
+                <input type="radio" name={`acc-option-${scope}`} checked={x.index === current} onChange={() => choose(scope, x.index)} />
+                <span className="nm">
+                  Option {x.index + 1}: {x.name}
+                </span>
+                <span className="amt">{money(x.subtotal)} before HST</span>
+              </label>
+            ))}
+            {split && (
+              <label className={current === null ? "on" : undefined}>
+                <input type="radio" name={`acc-option-${scope}`} checked={current === null} onChange={() => choose(scope, null)} />
+                <span className="nm">No {scope.toLowerCase()} for now</span>
+              </label>
+            )}
+          </fieldset>
+        );
+      })}
+      {addOns.length > 0 && (
         <fieldset className="acc-adds">
           <legend>Add anything?</legend>
-          {o.addOns.map((a) => (
+          {addOns.map((a) => (
             <label key={a.key}>
               <input type="checkbox" checked={ticked.includes(a.key)} onChange={(e) => setTicked(e.target.checked ? [...ticked, a.key] : ticked.filter((k) => k !== a.key))} />
               <span className="nm">{a.description}</span>
@@ -147,7 +169,7 @@ export function AcceptPanel({
         </p>
       )}
       <button type="button" className="btn primary acc-go" disabled={!ready || busy} onClick={accept}>
-        {busy ? "Accepting…" : `Accept ${options.length > 1 ? `option ${o.index + 1}` : "this quote"}`}
+        {busy ? "Accepting…" : chosen.length === 0 ? "Choose an option" : options.length > 1 ? `Accept ${chosen.length > 1 ? "options" : "option"} ${chosen.map((x) => x.index + 1).join(" and ")}` : "Accept this quote"}
       </button>
     </section>
   );

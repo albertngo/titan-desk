@@ -474,6 +474,19 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   once, with no redeploy (read within a minute; anything that can't be read reads as off). Also off until
   Terms Versions has a PDF and `QUOTE_ETRANSFER_EMAIL`, `QUOTE_ACCEPT_KEY` and `QUOTE_STAFF_URL` are set. Rules: `src/lib/accept/plan.ts`; carried out by
   `src/lib/accept/record.ts`; tested in `tests/accept.test.ts`.
+- **Scopes: flooring and stairs on one quote (Albert, 2026-10-28: "For stair quotes, generally I like to
+  keep them separate from the flooring quote. Basically, just create it as an option").** One opportunity
+  still has one quote. Each option is **Flooring** or **Stairs** (Quote Options → **Scope**; blank = worked
+  out from the lines, Stairs when every priced line is a stair line, `optionScope()` in
+  `src/lib/quotes/scope.ts`; the editor's Scope picker sets it; site-sheet options are Stairs). The copy
+  freezes it (`CopyOption.scope`, flooring options first) and the page, PDF and email group and label by it.
+  A customer accepts **at most one option of each scope** (`pickProblem()`), and the picks become one
+  contract: totals added, one schedule restaged on the whole (`frozenStages()`), one Won value, the
+  Acceptance record's `picks` and Accepted Option listing both, and `acceptedCopy()` joining them into
+  one option (same-name sections together). **Make a change** joins them into one live option, so a change
+  stays one option. A preliminary shows each scope's price on its own (`scopeLeads()`: one option's range,
+  or "from" the lowest of several). Recommended is one per scope. A stairs option from an older version is
+  carried by copying it into a new version; no cross-version picking. Tested in `tests/scope.test.ts`.
 - **Won (2026-10-27).** When an accepted quote opens, it reads its opportunity for the PP number and the
   Notion page Make 3710214 writes back after making the project (opportunity fields
   `OPP_FIELDS.projectNumber` and `ACCEPT_FIELDS.notionProjectUrl`), fills them in (blanks only; a PP

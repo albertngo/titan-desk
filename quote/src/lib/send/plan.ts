@@ -3,7 +3,7 @@ import type { Quote } from "@/lib/quotes/types";
 import { defaultSchedule, payWords, scheduleProblems } from "@/lib/pricing/schedule";
 import type { Acceptance } from "@/lib/accept/plan";
 import { changeWords as changeLine } from "@/lib/change/diff";
-import { addDays, dollars, hstRow, isIsoDate, isRange, leadPrice, longDate, offersPdf, rangeText, rangeWhy, stageNote, stagesOf, type CopyOption, type CopyStage, type CustomerCopy } from "./copy";
+import { addDays, dollars, hstRow, isIsoDate, isRange, isSplit, scopeLeads, scopeOf, leadPrice, longDate, offersPdf, rangeText, rangeWhy, stageNote, stagesOf, type CopyOption, type CopyStage, type CustomerCopy } from "./copy";
 import { copyKind, flooringSummary, kindPhrase } from "./summary";
 
 /**
@@ -243,7 +243,7 @@ function optionCard(o: CopyOption, copy: CustomerCopy, several: boolean): string
   if (copy.timing) items.push(`<tr>${cell("Timing")}${cell(esc(copy.timing), true)}</tr>`);
   const prelim = copy.basis === "Preliminary";
   const badge = o.recommended && several ? `<span style="display:inline-block;padding:4px 10px;border-radius:999px;background:${C.cream};font-family:${SANS};font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:${C.accentDeep};font-weight:600;">Recommended</span>` : "";
-  const title = several ? esc(o.name) : prelim ? "What&rsquo;s included" : "Your quote";
+  const title = several ? `${isSplit(copy) ? `${scopeOf(o)} &middot; ` : ""}${esc(o.name)}` : prelim ? "What&rsquo;s included" : "Your quote";
   const r = o.range;
   const totalLabel = r ? "Estimated range" : prelim ? "Rough total" : "Total";
   // Before HST, set large, with the HST and the with-HST total as two quiet lines under it (2026-10-24).
@@ -292,7 +292,7 @@ function optionList(copy: CustomerCopy): string {
         : "";
       return (
         `<tr><td style="padding:13px 0;border-bottom:1px solid ${C.hair};font-family:${SANS};font-size:15px;color:${C.ink};">` +
-        `<span style="color:${C.muted};font-size:13px;">Option ${i + 1}</span><br>${esc(o.name)}${badge}</td>` +
+        `<span style="color:${C.muted};font-size:13px;">${isSplit(copy) ? `${scopeOf(o)} &middot; ` : ""}Option ${i + 1}</span><br>${esc(o.name)}${badge}</td>` +
         `<td align="right" valign="bottom" style="padding:13px 0;border-bottom:1px solid ${C.hair};white-space:nowrap;">` +
         `<span style="font-family:${SERIF};font-size:20px;color:${C.ink};">${price}</span>` +
         `<span style="font-family:${SANS};font-size:12px;color:${C.muted};"> ${esc(lead.tag)}</span></td></tr>`
@@ -407,7 +407,11 @@ export function emailMessage(
   const ranged = isRange(copy);
   const r0 = copy.options[0].range;
   const lowEnd = ranged ? Math.min(...copy.options.map((o) => o.range?.low ?? leadPrice(copy, o.totals).amount)) : low.amount;
-  const preheader = several
+  // Flooring and stairs (2026-10-28): each scope's price on its own, never one "from" across both.
+  const split = isSplit(copy);
+  const preheader = split
+    ? `${scopeLeads(copy, (n) => cad.format(n)).map((x) => `${x.scope} ${x.phrase}`).join(" · ")}${copy.validUntil ? ` · good until ${longDate(copy.validUntil)}` : ""}`
+    : several
     ? `${copy.options.length} options from ${ranged ? dollars(lowEnd) : cad.format(lowEnd)} ${low.tag}${copy.validUntil ? ` · good until ${longDate(copy.validUntil)}` : ""}`
     : r0
       ? `Estimated range ${rangeText(r0.low, r0.high)} ${leads[0].tag}`
@@ -421,6 +425,8 @@ export function emailMessage(
     ? `Thanks for telling us about your project. Here is a price range based on what you&rsquo;ve described. ${esc(rangeWhy(copy))} Once you&rsquo;ve picked a material and we&rsquo;ve measured, we confirm the final price.`
     : prelim
     ? `Thanks for telling us about your project. Here is a rough number based on what you&rsquo;ve described. Once you&rsquo;ve picked a material and we&rsquo;ve measured, we confirm the final price.`
+    : split
+      ? `Flooring and stairs are quoted side by side: take one option of each, or just one of them. Open the quote to see every detail and the payment schedule.`
     : several
       ? `${copy.options.length} ways to do the work, side by side. Open the quote to see every detail and the payment schedule.`
       : `Everything we talked about is in the quote, with the payment schedule. Open it to see the detail.`;
@@ -509,16 +515,23 @@ export function smsMessage(copy: CustomerCopy, to: { contactId: string; firstNam
   // Layout (Albert, 2026-10-24): the news, a blank line, "See the full details here:" with the link on
   // its own line, a blank line, how to reply. No phone number: the reply goes to the same thread.
   const r0 = copy.options[0].range;
-  const what = prelim
+  // Flooring and stairs (2026-10-28): each scope's price on its own, " to " for a range (GSM-7).
+  const split = isSplit(copy);
+  const scopeWords = scopeLeads(copy, money, " to ").map((x) => `${x.scope.toLowerCase()} ${x.phrase}`).join(", ");
+  const what = prelim && split
+    ? `Thanks for telling us about your project. Your estimate: ${scopeWords}.`
+    : prelim
     ? r0
       ? // A range (2026-10-27), with " to ": an en dash is not GSM-7.
         `Thanks for telling us about your project. Your ${kind === "quote" ? "" : `${kind} `}estimate is ${rangeText(r0.low, r0.high, " to ")} ${leads[0].tag}.`
       : `Thanks for telling us about your project. Your rough ${kind === "quote" ? "" : `${kind} `}estimate is ${money(leads[0].amount)} ${leads[0].tag}.`
+    : split
+      ? `Your quote is ready: ${scopeWords}${copy.validUntil ? `, good until ${shortDate(copy.validUntil)}` : ""}.`
     : several
       ? `${copy.options.length} options for your ${kind === "quote" ? "project" : kind} are ready to compare, from ${money(low.amount)} ${low.tag}${copy.validUntil ? `, good until ${shortDate(copy.validUntil)}` : ""}.`
       : `Your ${kind === "quote" ? "" : `${kind} `}quote is ready, ${money(leads[0].amount)} ${leads[0].tag}${copy.validUntil ? `, good until ${shortDate(copy.validUntil)}` : ""}.`;
   const close = prelim
-    ? r0
+    ? r0 || (split && isRange(copy))
       ? "The final price should land in that range. Any questions, just reply."
       : "We confirm the price once we've measured. Any questions, just reply."
     : several
