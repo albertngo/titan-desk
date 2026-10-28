@@ -9,11 +9,13 @@ describe("the reading key", () => {
   it("accepts an API key, with or without stray spaces around it", () => {
     expect(keyProblem(GOOD)).toBeNull();
     expect(keyProblem(`  ${GOOD}\n`)).toBeNull();
+    // A user key from the Console (2026-10-28) is a key too.
+    expect(keyProblem(`sk-ant-usr-${"Zz9_-q".repeat(8)}`)).toBeNull();
   });
 
-  it("refuses a pasted command, a key with spaces inside, and a token that isn't an API key, never repeating the value", () => {
+  it("refuses a pasted command, a key with spaces inside, and something that isn't a key, never repeating the value", () => {
     const pasted = `curl https://api.example.com/v1/messages \\\n --header "x-api-key: ${GOOD}"`;
-    const cases = [pasted, `${GOOD.slice(0, 20)} ${GOOD.slice(20)}`, `sk-ant-usr-${"Zz9".repeat(10)}`, "hello"];
+    const cases = [pasted, `${GOOD.slice(0, 20)} ${GOOD.slice(20)}`, `sk-ant-usr-${"Zz9".repeat(10)} extra`, "hello"];
     for (const v of cases) {
       const why = keyProblem(v);
       expect(why).not.toBeNull();
@@ -21,6 +23,6 @@ describe("the reading key", () => {
       expect(why).not.toContain("Zz9Zz9");
     }
     expect(keyProblem(pasted)).toMatch(/pasted command/);
-    expect(keyProblem(`sk-ant-usr-${"Zz9".repeat(10)}`)).toMatch(/isn't an API key/);
+    expect(keyProblem("hello")).toMatch(/doesn't look like/);
   });
 });

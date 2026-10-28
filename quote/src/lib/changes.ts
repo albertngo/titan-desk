@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-10-28",
     kind: "fixed",
+    title: "Site sheet: user keys from the Anthropic Console are accepted",
+    details: ["The reading key check refused keys starting sk-ant-usr-, which the Console now gives out. Any Anthropic key is accepted; Anthropic itself says if one is wrong."],
+  },
+  {
+    date: "2026-10-28",
+    kind: "fixed",
     title: "Site sheet: a second photo now adds on",
     details: ["Taking or choosing another photo adds it beside the ones already there (up to 4), instead of replacing them."],
   },
