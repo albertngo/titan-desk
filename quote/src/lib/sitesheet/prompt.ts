@@ -1,12 +1,11 @@
 /**
  * What Claude is told when it reads photos of the stair site sheet (v5), and the JSON schema its answer
- * must follow (structured outputs, 2026-10-28: the model refuses a forced tool call, so the answer comes
- * back as JSON held to this schema instead). Pure data: src/lib/quotes/sitesheet.ts sends it,
+ * follows, written into the message itself (see SHEET_PROMPT below). Pure data: src/lib/quotes/sitesheet.ts sends it,
  * src/lib/sitesheet/sheet.ts cleans the answer. The schema mirrors SiteSheet; cleanSheet() still checks
  * every value, so a wrong answer can't get in.
  */
 
-export const SHEET_PROMPT = `You are reading photos of Titan Flooring's "Stair Site Sheet" (v5, two Letter pages), filled in by hand on site by a project manager. Read exactly what is written or marked. Never guess and never fill in a typical value: a box left blank is null.
+const INSTRUCTIONS = `You are reading photos of Titan Flooring's "Stair Site Sheet" (v5, two Letter pages), filled in by hand on site by a project manager. Read exactly what is written or marked. Never guess and never fill in a typical value: a box left blank is null.
 
 How the sheet is marked:
 - Round bubbles and square ticks are chosen when filled, ticked, crossed or circled. An empty bubble is not chosen.
@@ -43,7 +42,7 @@ Page 2:
   - G6 Spindles: keep / iron / wood. G7 Posts: keep / refinish / new. G8 Covers: main / both.
 - N1 Notes: copy the handwriting as written.
 
-If you are not confident about a value (smudged, ambiguous, two marks), give your best reading and add its code (like "B6" or "F1") to "unclear". If a whole page is missing from the photos, leave its fields null and add "page 1 missing" or "page 2 missing" to notes. Answer with the one JSON object only.`;
+If you are not confident about a value (smudged, ambiguous, two marks), give your best reading and add its code (like "B6" or "F1") to "unclear". If a whole page is missing from the photos, leave its fields null and add "page 1 missing" or "page 2 missing" to notes. Answer with one JSON object and nothing else, following the JSON Schema at the end of these instructions.`;
 
 const N = { type: ["number", "null"] };
 const S = { type: ["string", "null"] };
@@ -51,37 +50,7 @@ const widths = { type: "object", properties: { w36: N, w42: N, w48: N, other: N,
 const sides = { type: "object", properties: { lso: N, rso: N, two: N } };
 const choice = (values: string[]) => ({ type: ["string", "null"], enum: [...values, null] });
 
-/**
- * Structured outputs want every object closed (`additionalProperties: false`) and take no array-length
- * limits, so the schema below is written plainly and made strict here: every object closed, every key
- * required (a blank box is null, never missing), `maxItems` dropped (cleanSheet() caps the lists), and a
- * nullable value written as anyOf.
- */
-type Json = { [k: string]: unknown };
-export function strictSchema(node: unknown): unknown {
-  if (Array.isArray(node)) return node.map(strictSchema);
-  if (!node || typeof node !== "object") return node;
-  const out: Json = {};
-  for (const [k, v] of Object.entries(node as Json)) if (k !== "maxItems" && k !== "required") out[k] = k === "enum" ? v : strictSchema(v);
-  if (out.properties && typeof out.properties === "object") {
-    out.required = Object.keys(out.properties as Json);
-    out.additionalProperties = false;
-  }
-  // A list of types (["string", "null"]) is written as anyOf, one branch per type, each holding only its own
-  // enum values: the API refused `enum: ["Straight", …, null]` beside `type: ["string", "null"]` (2026-10-28).
-  if (Array.isArray(out.type)) {
-    const { type, enum: values, ...rest } = out;
-    const branches = (type as string[]).map((t) => {
-      if (t === "null") return { type: "null" };
-      const mine = Array.isArray(values) ? values.filter((v) => v !== null) : null;
-      return { ...rest, type: t, ...(mine ? { enum: mine } : {}) };
-    });
-    return { anyOf: branches };
-  }
-  return out;
-}
-
-const PLAIN_SCHEMA = {
+export const SHEET_SCHEMA = {
   type: "object",
   properties: {
     quoteNumber: S,
@@ -129,4 +98,13 @@ const PLAIN_SCHEMA = {
   },
 };
 
-export const SHEET_SCHEMA = strictSchema(PLAIN_SCHEMA) as Json;
+/**
+ * The whole message: the instructions, then the schema as text. The schema goes in the prompt rather than in
+ * the request's structured-output setting (2026-10-28): that setting refused this sheet three ways in a row
+ * (a type list beside an enum, then too many nullable fields: 70 against its limit), and cleanSheet() checks
+ * every value anyway, so nothing the answer holds can get past it.
+ */
+export const SHEET_PROMPT = `${INSTRUCTIONS}
+
+JSON Schema of the answer (null for a blank box; leave out nothing):
+${JSON.stringify(SHEET_SCHEMA)}`;

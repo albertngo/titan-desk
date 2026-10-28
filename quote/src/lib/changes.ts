@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-10-28",
     kind: "fixed",
+    title: "Site sheet: reading no longer trips over Claude's limits on the field list",
+    details: ["Read stopped with \"too many parameters with union types\". The field list now goes to Claude as part of the instructions, and the app checks every value it gets back, as before."],
+  },
+  {
+    date: "2026-10-28",
+    kind: "fixed",
     title: "Site sheet: the sheet's field list is accepted by Claude",
     details: ["Read stopped with \"Invalid schema: Enum value 'Straight'…\". Fields that can be left blank are now described the way Claude accepts."],
   },

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { keyProblem } from "../src/lib/anthropic/key";
+import { jsonFromText, keyProblem } from "../src/lib/anthropic/key";
 
 /* Invented keys only: none of these is or was a real key. */
 
@@ -24,5 +24,15 @@ describe("the reading key", () => {
     }
     expect(keyProblem(pasted)).toMatch(/pasted command/);
     expect(keyProblem("hello")).toMatch(/doesn't look like/);
+  });
+});
+
+describe("reading the answer", () => {
+  it("finds the one JSON object, bare, fenced or with words around it, and nothing else", () => {
+    expect(jsonFromText('{"a":1}')).toEqual({ a: 1 });
+    expect(jsonFromText('Here it is:\n```json\n{"a":2}\n```')).toEqual({ a: 2 });
+    expect(jsonFromText('Sure. {"a":3} Done.')).toEqual({ a: 3 });
+    expect(jsonFromText("no json here")).toBeUndefined();
+    expect(jsonFromText("[1,2]")).toBeUndefined();
   });
 });

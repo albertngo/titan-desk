@@ -3,7 +3,7 @@ import { AirtableError, getRecord, updateRecord, uploadAttachment } from "@/lib/
 import { QUOTE, T } from "@/lib/airtable/fields";
 import { ClaudeError, readerOn, readJson, type ImageIn } from "@/lib/anthropic/client";
 import { requireQuoter } from "@/lib/auth";
-import { SHEET_PROMPT, SHEET_SCHEMA } from "@/lib/sitesheet/prompt";
+import { SHEET_PROMPT } from "@/lib/sitesheet/prompt";
 import { cleanSheet, serializeStored, sheetRaw } from "@/lib/sitesheet/sheet";
 import type { SiteSheetResult } from "./types";
 
@@ -54,7 +54,7 @@ export async function readSiteSheet(quoteRecordId: string, seen: string, photos:
   const images: ImageIn[] = photos.map((p) => ({ mediaType: p.type as ImageIn["mediaType"], base64: Buffer.from(p.bytes).toString("base64") }));
   let answer: unknown;
   try {
-    answer = await readJson(images, SHEET_PROMPT, SHEET_SCHEMA);
+    answer = await readJson(images, SHEET_PROMPT);
   } catch (e) {
     // Only the reader's own words reach the screen (2026-10-28): a raw error once printed part of the key.
     if (!(e instanceof ClaudeError)) console.error("site sheet read failed:", e instanceof Error ? e.name : typeof e);
