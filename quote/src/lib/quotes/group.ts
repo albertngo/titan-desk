@@ -15,6 +15,9 @@ export type VersionRow = {
   /** When the customer last had the link open (a reload within 30 minutes moves it too). */
   lastOpenedAt?: string | null;
   tracked?: boolean;
+  /** The version this one was made from (Quote Versions → Supersedes), and its change number if it is a change. */
+  supersedes?: string | null;
+  changeNo?: number | null;
   createdTime: string;
 };
 
@@ -37,6 +40,18 @@ export type QuoteGroup = QuoteHead & {
   /** When its newest version was made: groups sort on it, newest first. */
   latestAt: string;
 };
+
+/** "Change 2 · from v4", "from v8", or null for a version made from nothing (v1, or one made before Supersedes was kept). */
+export function fromWords(changeNo: number | null | undefined, fromVersion: number | null | undefined): string | null {
+  const parts = [changeNo ? `Change ${changeNo}` : null, fromVersion != null ? `from v${fromVersion}` : null].filter(Boolean);
+  return parts.length ? parts.join(" · ") : null;
+}
+
+/** Where a version came from (2026-10-28), looked up among its own quote's versions: an id from elsewhere shows nothing. */
+export function fromLabel(v: Pick<VersionRow, "supersedes" | "changeNo">, versions: Pick<VersionRow, "id" | "version">[]): string | null {
+  const src = v.supersedes ? versions.find((x) => x.id === v.supersedes) : undefined;
+  return fromWords(v.changeNo, src?.version);
+}
 
 const byNewest = (a: VersionRow, b: VersionRow) => (b.version ?? 0) - (a.version ?? 0) || b.createdTime.localeCompare(a.createdTime);
 

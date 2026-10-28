@@ -463,7 +463,9 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   Tested in `tests/change.test.ts`.
 - **All quotes (2026-10-15).** One row per quote, its versions folded under it (newest first),
   and a search over name, quote and project number, city, email and phone digits. Grouping and
-  search are pure, in `src/lib/quotes/group.ts`, tested in `tests/group.test.ts`.
+  search are pure, in `src/lib/quotes/group.ts`, tested in `tests/group.test.ts`. Since 2026-10-28
+  each version says where it came from ("Change 2 · from v4", `fromLabel()`), read from Quote
+  Versions → Supersedes, and the quote page header says the same.
 
 ## Hard rules
 

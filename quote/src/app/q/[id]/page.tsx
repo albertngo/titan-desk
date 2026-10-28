@@ -16,6 +16,7 @@ import { requireQuoter } from "@/lib/auth";
 import { optionTotals, parityDiffs } from "@/lib/calc";
 import { money } from "@/lib/format";
 import { jobChoices } from "@/lib/quotes/link";
+import { fromWords } from "@/lib/quotes/group";
 import { getQuote } from "@/lib/quotes/load";
 import { refreshFromGhl } from "@/lib/quotes/refresh";
 import { customerView } from "@/lib/view";
@@ -53,6 +54,7 @@ export default async function QuotePage({
   const showRooms = opt === "rooms" && !customer;
   const option = showAnalysis || showRooms ? null : (quote.options.find((o) => o.id === opt) ?? quote.options[0] ?? null);
   const totals = option ? optionTotals(option.lines, quote.discountRate, quote.showHst) : null;
+  const madeFrom = fromWords(quote.changeNo, quote.fromVersion);
   const airtableUrl = airtableRecordUrl(T.versions, quote.id);
   // A quote with no GHL opportunity yet (Needs linking): offer the customer's jobs to link it to.
   const unlinked = quote.link && !quote.link.ghlOpportunityId ? quote.link : null;
@@ -184,7 +186,9 @@ export default async function QuotePage({
             <h1>{quote.customerName ?? "No customer"}</h1>
             <p>
               {quote.quoteId ?? "No quote ID"}
-              {quote.version !== null && ` · v${quote.version}`}
+              {/* The label already ends in "v4"; only an unlabelled version needs the number. */}
+              {quote.version !== null && !(quote.quoteId ?? "").endsWith(`v${quote.version}`) && ` · v${quote.version}`}
+              {madeFrom && ` · ${madeFrom}`}
               {" · "}
               <Link href={`/q/${quote.id}/edit`}>Edit this quote</Link>
             </p>

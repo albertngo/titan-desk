@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { whenWords } from "@/lib/activity/track";
 import { displayPhone } from "@/lib/link/identity";
-import { ago, inFilter, matchesSearch, openedOn, QUOTE_FILTERS, type QuoteFilter, type QuoteGroup, type VersionRow } from "@/lib/quotes/group";
+import { ago, fromLabel, inFilter, matchesSearch, openedOn, QUOTE_FILTERS, type QuoteFilter, type QuoteGroup, type VersionRow } from "@/lib/quotes/group";
 
 const dateOf = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric", year: "numeric" });
 const initials = (name: string | null) =>
@@ -210,10 +210,13 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
                 </div>
                 {expanded && (
                   <ul className="ql-vs" id={`v-${k}`}>
-                    {g.versions.map((v, i) => (
+                    {g.versions.map((v, i) => {
+                      const from = fromLabel(v, g.versions);
+                      return (
                       <li key={v.id}>
                         <Link href={`/q/${v.id}`} className="ql-v">
                           <span className="nm">{v.label ?? `v${v.version ?? "?"}`}</span>
+                          {from && <span className="ql-from">{from}</span>}
                           {i === 0 && <span className="ql-cur">Current</span>}
                           <Status status={v.status} />
                           {v.basis && <span className={`ql-basis ${v.basis}`}>{v.basis}</span>}
@@ -223,7 +226,8 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
                           </span>
                         </Link>
                       </li>
-                    ))}
+                      );
+                    })}
                   </ul>
                 )}
               </li>

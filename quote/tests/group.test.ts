@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ago, groupVersions, inFilter, matchesSearch, openedOn, type QuoteHead, type VersionRow } from "../src/lib/quotes/group";
+import { ago, fromLabel, fromWords, groupVersions, inFilter, matchesSearch, openedOn, type QuoteHead, type VersionRow } from "../src/lib/quotes/group";
 
 // INVENTED people and numbers only: this repo is public.
 const V = (o: Partial<VersionRow> & { id: string; quoteRecordId: string | null }): VersionRow & { quoteRecordId: string | null } => ({ label: null, version: 1, status: "Draft", basis: "Preliminary", optionCount: 1, createdTime: "2026-10-01T00:00:00Z", ...o });
@@ -79,5 +79,32 @@ describe("All quotes: quick filters and dates", () => {
     expect(openedOn("2026-10-14T13:05:00Z", now)).toBe("yesterday 9:05 am");
     expect(openedOn("2026-10-12T20:00:00Z", now)).toBe("Oct 12");
     expect(openedOn("2025-09-01T16:00:00Z", now)).toBe("Sep 1, 2025");
+  });
+});
+
+describe("fromLabel", () => {
+  const vs = [
+    { id: "v9", version: 9 },
+    { id: "v8", version: 8 },
+    { id: "v4", version: 4 },
+    { id: "v1", version: 1 },
+  ];
+  it("names the older version a draft was branched from", () => {
+    expect(fromLabel({ supersedes: "v4" }, vs)).toBe("from v4");
+  });
+  it("puts the change number first on a change", () => {
+    expect(fromLabel({ supersedes: "v4", changeNo: 3 }, vs)).toBe("Change 3 · from v4");
+  });
+  it("says nothing for version 1", () => {
+    expect(fromLabel({ supersedes: null, changeNo: null }, vs)).toBeNull();
+  });
+  it("ignores a source id that is not one of this quote's versions", () => {
+    expect(fromLabel({ supersedes: "recElsewhere" }, vs)).toBeNull();
+    expect(fromLabel({ supersedes: "recElsewhere", changeNo: 2 }, vs)).toBe("Change 2");
+  });
+  it("fromWords builds the header words", () => {
+    expect(fromWords(1, 4)).toBe("Change 1 · from v4");
+    expect(fromWords(null, 8)).toBe("from v8");
+    expect(fromWords(null, null)).toBeNull();
   });
 });
