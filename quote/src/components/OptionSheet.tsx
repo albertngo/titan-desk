@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { sectionLinesInOrder, stairGroupLabel, stairGroups } from "@/lib/editor/stairGroups";
 import {
   DEFAULT_PRIVATE_LABEL,
   LUMP_QTY_SECTIONS,
@@ -170,7 +171,7 @@ export function OptionSheet({
   const exclusions = option.lines.filter((l) => l.section === "Exclusions" && l.description);
   const nums = new Map<string, number>();
   let i = 0;
-  for (const s of order) for (const l of option.lines) if (sectionOf(l) === s && isPriced(l) && l.include) nums.set(l.id, ++i);
+  for (const s of order) for (const l of sectionLinesInOrder(s, option.lines.filter((x) => sectionOf(x) === s))) if (isPriced(l) && l.include) nums.set(l.id, ++i);
   // Customer view: the Private section's total as one numbered row at the end of Other; not on a lump sum.
   const hidden = customer && !lump ? privateRollup(option.lines) : 0;
 
@@ -217,7 +218,19 @@ export function OptionSheet({
                       </td>
                       <td className="r">{lump ? "" : money(sum)}</td>
                     </tr>,
-                    ...lines.map((l) => <Row key={l.id} l={l} n={nums.get(l.id)} customer={customer} lump={lump} />),
+                    // Stairs grouped by the Stair Item's Category (2026-10-28), a small heading over each group.
+                    ...(s === "Stairs"
+                      ? stairGroups(lines).flatMap((g) => [
+                          ...(g.heading
+                            ? [
+                                <tr className="subsect" key={`g-${g.group ?? "other"}`}>
+                                  <td colSpan={lump ? 4 : customer ? 5 : 8}>{stairGroupLabel(g.group)}</td>
+                                </tr>,
+                              ]
+                            : []),
+                          ...g.lines.map((l) => <Row key={l.id} l={l} n={nums.get(l.id)} customer={customer} lump={lump} />),
+                        ])
+                      : lines.map((l) => <Row key={l.id} l={l} n={nums.get(l.id)} customer={customer} lump={lump} />)),
                     ...(rollup > 0
                       ? [
                           <tr key="private-rollup">

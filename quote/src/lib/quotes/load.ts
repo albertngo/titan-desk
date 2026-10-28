@@ -81,6 +81,13 @@ function source(f: Record<string, unknown>): Pick<QuoteLine, "sourceKind" | "sou
   return { sourceKind: "manual", sourceId: null };
 }
 
+/** A lookup's first value as text (a select looks up as its name, or as {name}). */
+function lookupText(v: unknown): string | null {
+  const first = Array.isArray(v) ? v[0] : v;
+  const t = typeof first === "string" ? first : first && typeof first === "object" && typeof (first as { name?: unknown }).name === "string" ? (first as { name: string }).name : null;
+  return t?.trim() || null;
+}
+
 function toLine(r: AirtableRecord): QuoteLine {
   const f = r.fields;
   return {
@@ -106,6 +113,7 @@ function toLine(r: AirtableRecord): QuoteLine {
     uom: str(f[LINE.uom]),
     contractor: str(f[LINE.contractor]),
     materialId: ids(f[LINE.installMaterial])[0] ?? null,
+    stairCategory: lookupText(f[LINE.stairCategory]),
     clientNote: str(f[LINE.clientNote]),
     sortOrder: num(f[LINE.sortOrder]),
     airtableTotal: num(f[LINE.lineTotal]),

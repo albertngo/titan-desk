@@ -155,6 +155,14 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   profile (`addLines()` in `src/lib/editor/model.ts`), so the measured quote is an edit of the
   preliminary. Tested in `tests/stairBuilder.test.ts`. Next (not built): Material Group / Default
   Material on Stair Items for spindle, picket and post types, like the Rate Card's.
+- **Stairs grouped by category, and always one price (Albert, 2026-10-28).** On the quote page and in the
+  editor the Stairs section is split under small headings by the Stair Item's Category (Quote Lines →
+  **Stair Category**, a lookup through Stair Item; the card's category for a line just picked), in work order
+  step, bullnose, riser, landing, accent, railing, task, then anything else (`src/lib/editor/stairGroups.ts`).
+  Display only: no money, section or Airtable write changes. **Send breakdown itemises the flooring only**:
+  Stairs lines go to the customer with no quantity, unit price or amount and no section total, on every copy
+  (`copyOption()` in `copy.ts`). The site sheet's nosing is one line in linear feet of "Accents: Nosing"
+  ($30/ft on the card); picket-hole nosing is the same item.
 - **Stairs is its own section again (Albert, 2026-10-18)**, after Install, everywhere sections
   show (quote page, editor, customer page, PDF, Analysis), with its own subtotal; Stair Items are
   offered in that section only. This reverses the 2026-10-12 fold into Install; Refinish, Paint

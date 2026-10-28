@@ -45,8 +45,8 @@ export const ITEM_NAMES = {
   spindle: ["Iron Spindles (w/material)"],
   post: ["New Post"],
   postAlter: ["Task: Alter Post Design"],
+  // One nosing item, by the foot (Albert, 2026-10-28: "no difference between nosing and nosings with picket holes").
   nosing: ["Accents: Nosing"],
-  nosingPicket: ["Accents: Nosing (w/Picket Holes)"],
   nosingSand: ["Task: Sand + Stain Nosing"],
   stringPaint: ["Task: 2 Side Paint (White)"],
   stringSkin: ["Task: 2 Side Oak Skin (Glue and Stain)"],
@@ -111,10 +111,10 @@ export function buildOptions(s: SiteSheet, catalogue: CardEntry[], level: Servic
 function build(kind: BuiltOption["kind"], s: SiteSheet, d: Derived, find: (names: string[]) => Stair | null, level: ServiceLevel, recommend: boolean): BuiltOption {
   const lines: EditorLine[] = [];
   const notes: string[] = [];
-  const add = (names: string[], qty: number, what: string, area = "Main staircase") => {
+  const add = (names: string[], qty: number, what: string, area = "Main staircase", uom?: string) => {
     if (!(qty > 0)) return;
     const e = find(names);
-    if (e) lines.push({ ...lineFromEntry(e, "Stairs", undefined, level), qty, area });
+    if (e) lines.push({ ...lineFromEntry(e, "Stairs", undefined, level), qty, area, ...(uom ? { uom } : {}) });
     else gap(what, qty, area);
   };
   const gap = (what: string, qty: number, area = "Main staircase") => {
@@ -161,12 +161,10 @@ function build(kind: BuiltOption["kind"], s: SiteSheet, d: Derived, find: (names
   }
   if (s.want.squareBullnose) add(ITEM_NAMES.squareBullnose, n(s.bullnose.lso) + n(s.bullnose.rso) + n(s.bullnose.two), "Square off bullnose");
 
-  // Nosings: every piece new unless the PM ticked Sand instead; picket holes on the pieces that have them.
+  // Nosings: one line in feet, every piece new unless the PM ticked Sand instead. Holed pieces are the same item
+  // (2026-10-28); with no piece lengths written, the flat picket feet still need nosing.
   if (kind === "caps" || kind === "sand") {
-    // Every piece is new unless ticked sand; the ones under a flat run with pickets are ordered holed.
-    const plain = Math.max(0, d.nosing.newPieces - d.nosing.holedPieces);
-    add(ITEM_NAMES.nosing, kind === "sand" ? 0 : plain, "Nosing");
-    add(ITEM_NAMES.nosingPicket, kind === "sand" ? 0 : d.nosing.holedPieces, "Nosing with picket holes");
+    add(ITEM_NAMES.nosing, kind === "sand" ? 0 : Math.ceil(Math.max(d.nosing.newFt, d.nosing.holedFt)), "Nosing", "Main staircase", "linear ft");
     add(ITEM_NAMES.nosingSand, kind === "sand" ? d.nosing.pieces : d.nosing.sandPieces, "Sand & stain nosing");
   }
 

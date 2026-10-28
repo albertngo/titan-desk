@@ -19,6 +19,8 @@ export type QuoteLine = LineInput & {
   contractor: string | null;
   /** The Install Material picked for a Rate Card line (2026-10-16); null/absent = none. */
   materialId?: string | null;
+  /** The Stair Item's Category (Quote Lines → Stair Category, 2026-10-28), for grouping the Stairs section; display only. */
+  stairCategory?: string | null;
   clientNote: string | null;
   sortOrder: number | null;
   /** Airtable's own Line Total / Line Cost, for the per-line parity check. */

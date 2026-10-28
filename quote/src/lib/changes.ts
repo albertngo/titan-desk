@@ -22,6 +22,16 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-10-28",
+    kind: "changed",
+    title: "Stairs: grouped by category, one nosing line, and always one price",
+    details: [
+      "The Stairs section on the quote page and in the editor is split under small headings by each Stair Item's Category in Airtable (Steps, Landings, Accents, Railing, Tasks…).",
+      "A stair built from the site sheet has one nosing line in feet, at the Accents: Nosing rate. Picket-hole nosing is the same item.",
+      "Send breakdown itemises the flooring only. Stairs always go to the customer as one price.",
+    ],
+  },
+  {
+    date: "2026-10-28",
     kind: "fixed",
     title: "Site sheet: Build stair options opens the editor with the options in it",
     details: ["The button opened the editor without the new stair options. They now arrive there as unsaved changes, priced from Stair Items, ready to review and save as a new version."],

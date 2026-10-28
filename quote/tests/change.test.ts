@@ -97,9 +97,10 @@ const after = customerCopy(quote([{ ...install, qty: 107 }, { ...stairs, qty: 14
 describe("what changed", () => {
   it("finds added, removed and changed lines by section and wording", () => {
     const items = diffOptions(before, after);
-    expect(items.map((i) => i.kind).sort()).toEqual(["changed", "changed", "removed"]);
-    expect(items.map(changeWords)).toEqual(["Changed: Click install, 100 sqft to 107 sqft", "Changed: Sand and stain steps, 12 each to 14 each", "Removed: Baseboard removal"]);
-    expect(items.map(itemDifference)).toEqual([70, 100, -120]);
+    // Stairs are one price even on a breakdown (2026-10-28): their count isn't shown, so it isn't listed as a change.
+    expect(items.map((i) => i.kind).sort()).toEqual(["changed", "removed"]);
+    expect(items.map(changeWords)).toEqual(["Changed: Click install, 100 sqft to 107 sqft", "Removed: Baseboard removal"]);
+    expect(items.map(itemDifference)).toEqual([70, -120]);
   });
 
   it("an add-on the customer ticked, now an ordinary line, is not a change because a lump sum hides its quantity", () => {
