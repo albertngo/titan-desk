@@ -23,6 +23,15 @@ export const CHANGES: Change[] = [
   {
     date: "2026-10-28",
     kind: "changed",
+    title: "A tidier top bar",
+    details: [
+      "The top bar is grouped: Customer view, then What's new and Report a bug, then you, with a thin line between them.",
+      "Your email and Sign out are now under your initials at the right.",
+    ],
+  },
+  {
+    date: "2026-10-28",
+    kind: "changed",
     title: "The Notion project links to the quote in this app",
     details: [
       "When a quote is accepted, or a change is sent after it, the Notion project's Quote Link now opens the quote here, with all its details, instead of the customer's accepted page.",

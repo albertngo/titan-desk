@@ -70,8 +70,12 @@ export function ReportBug() {
 
   return (
     <>
-      <button type="button" className="linkbtn" onClick={() => setOpen(true)}>
-        Report a bug
+      <button type="button" className="tb-btn" aria-label="Report a bug" onClick={() => setOpen(true)}>
+        <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+          <rect x="4.5" y="5" width="7" height="8.5" rx="3.5" />
+          <path d="M6 5V4a2 2 0 0 1 4 0v1M2 8.5h2.5M11.5 8.5H14M2.5 12l2-1M13.5 12l-2-1M2.5 5l2 1.2M13.5 5l-2 1.2" />
+        </svg>
+        <span className="lbl">Report a bug</span>
       </button>
       {open && (
         <div className="modal" role="dialog" aria-modal="true" aria-label="Report a bug" onClick={close} onKeyDown={(e) => e.key === "Escape" && close()}>
