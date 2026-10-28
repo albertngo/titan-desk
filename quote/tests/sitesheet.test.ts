@@ -304,5 +304,18 @@ describe("the schema sent with the photos", () => {
     };
     expect(walk(SHEET_SCHEMA, "$")).toEqual([]);
     expect((SHEET_SCHEMA.properties as Record<string, unknown>).want).toMatchObject({ additionalProperties: false });
+    // No list of types anywhere, and every enum matches its own branch's type (the API checks both).
+    const types = (node: unknown): string[] =>
+      Array.isArray(node)
+        ? node.flatMap(types)
+        : node && typeof node === "object"
+          ? [
+              ...(Array.isArray((node as { type?: unknown }).type) ? ["list of types"] : []),
+              ...(((node as { enum?: unknown[] }).enum ?? []).some((v) => v === null || typeof v !== (node as { type?: string }).type?.replace("integer", "number")) ? [`enum ${JSON.stringify((node as { enum?: unknown[] }).enum)}`] : []),
+              ...Object.values(node as object).flatMap(types),
+            ]
+          : [];
+    expect(types(SHEET_SCHEMA)).toEqual([]);
+    expect((SHEET_SCHEMA.properties as Record<string, unknown>).shape).toEqual({ anyOf: [{ type: "string", enum: ["Straight", "Quarter turn", "Quarter winder", "U landing", "Curved", "Spiral", "Double winder", "Half landing"] }, { type: "null" }] });
   });
 });
