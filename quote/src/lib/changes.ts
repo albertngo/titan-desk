@@ -22,6 +22,15 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-10-28",
+    kind: "fixed",
+    title: "Site sheet: both pages at once, and a clear message when reading isn't set up right",
+    details: [
+      "Take a photo adds one page at a time; Choose photos picks several from the library. Each one shows as a thumbnail (Page 1, Page 2) with a × to remove it, then Read reads them all together.",
+      "When the reading key on the server is set wrong, the tab now says what is wrong with it instead of showing a technical error.",
+    ],
+  },
+  {
+    date: "2026-10-28",
     kind: "new",
     title: "Flooring and stairs on one quote, one of each accepted",
     details: [
