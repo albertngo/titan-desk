@@ -24,6 +24,8 @@ import {
   setContractor,
   setCrew,
   setMaterial,
+  setMaterialFigures,
+  materialSplit,
   setServiceLevel,
   setAcceptedPrice,
   setDiscountAmount,
@@ -261,6 +263,8 @@ export default function Editor({
     const entry = entryFor(l, catalogue);
     const contractors = entry && entry.kind === "rate" ? entry.contractors : [];
     const mat = materialChoices(l, pricing);
+    const split = mat.current ? materialSplit(l, pricing, levelOf(option)) : null;
+    const setMat = (patch: { price?: number | null; cost?: number | null }) => apply(setMaterialFigures(quote, option.id, l.id, patch, pricing));
     const overridden = l.unitPrice !== null || l.costOverride !== null;
     const margin = total && total > 0 && cost !== null ? ((total - cost) / total) * 100 : null;
     const upd = (patch: Partial<EditorLine>) => apply(updateLine(quote, option.id, l.id, patch));
@@ -342,6 +346,12 @@ export default function Editor({
           <td className="r">
             <NumCell value={l.costOverride} label="Unit cost" placeholder={l.unitCostSnap !== null ? rate(l.unitCostSnap) : "cost"} onCommit={(v) => upd({ costOverride: v })} />
             {l.unitCostSnap !== null && <span className="sub">card {money(l.unitCostSnap)}</span>}
+            {split && (
+              <div className="matin" title="The material's cost per unit, on top of the labour. Blank follows the card.">
+                <NumCell value={split.cost} label="Material unit cost" placeholder={rate(split.cardCost)} onCommit={(v) => setMat({ cost: v })} />
+                <span className="sub">material · labour {money(split.labourCost)}</span>
+              </div>
+            )}
           </td>
         )}
         <td className="r">
@@ -350,6 +360,12 @@ export default function Editor({
             <span className="sub">
               {levelOf(option) === "Premium" && levelApplies(l) ? `card +${Math.round(PREMIUM_MARKUP * 100)}%` : "card"} {money(l.unitPriceSnap)}
             </span>
+          )}
+          {split && (
+            <div className="matin" title="The material's price per unit, on top of the labour. Blank follows the card.">
+              <NumCell value={split.price} label="Material unit price" placeholder={rate(split.cardPrice)} onCommit={(v) => setMat({ price: v })} />
+              {!customer && <span className="sub">material · labour {money(split.labourPrice)}</span>}
+            </div>
           )}
         </td>
         {!customer && <td className="r muted">{pct(margin, 0)}</td>}

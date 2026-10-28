@@ -67,9 +67,8 @@ export type EditorQuote = {
 };
 
 /**
- * One contractor's Rate Card row. `rate` and `cost` include the default material, when the row has
- * one; `material` is set only when the row's material can be swapped (a group, and a default that
- * has a price and cost no bigger than the row's own).
+ * One contractor's Rate Card row. `rate` and `cost` are labour only; `material` is set when the row
+ * names a group and a default material that is priced, and the line adds the chosen one on top.
  */
 export type CardContractor = {
   name: string;
@@ -138,7 +137,7 @@ function materialFor(r: RateRow, materials: MaterialRow[]): CardContractor["mate
   if (!r.materialGroup || !r.defaultMaterialId) return null;
   const choices = materials.filter((m): m is PricedMaterial => m.group === r.materialGroup && priced(m)).sort((a, b) => a.price - b.price || a.name.localeCompare(b.name));
   const def = choices.find((m) => m.id === r.defaultMaterialId);
-  if (!def || def.price > r.rate || def.cost > r.cost) return null;
+  if (!def) return null;
   return { default: def, choices };
 }
 
@@ -231,11 +230,11 @@ function baseLine(section: string): Omit<EditorLine, "description" | "sourceKind
 
 // ---------- material (2026-10-16) ----------
 //
-// A Rate Card row can name a Material Group and the Default Material its Titan Rate and Total
-// Cost already include. On a line the material can be swapped for any other in the group: one
-// line for the customer, named with its material. Labour = the row less its default material;
-// the line = labour (at the service level, so Premium marks up labour only) + the chosen material.
-// With the default material at Standard that is exactly the row's own rate and cost.
+// A Rate Card row can name a Material Group and a Default Material. On a line the material can be
+// swapped for any other in the group: one line for the customer, named with its material. The
+// row's Titan Rate and Total Cost are labour only (2026-10-28: the 2026-10-16 reading, that they
+// already included the default material, left a glue-down line priced as labour alone), so the
+// line = the row (at the service level, so Premium marks up labour only) + the chosen material.
 
 type RateEntry = Extract<CardEntry, { kind: "rate" }>;
 
@@ -246,8 +245,8 @@ export function rateSnap(entry: RateEntry, c: CardContractor, materialId: string
   if (!m) return { price: levelPrice(c.rate, level, applies), cost: c.cost, material: null };
   const chosen = m.choices.find((x) => x.id === materialId) ?? m.default;
   return {
-    price: round2(levelPrice(round2(c.rate - m.default.price), level, applies) + chosen.price),
-    cost: round2(c.cost - m.default.cost + chosen.cost),
+    price: round2(levelPrice(c.rate, level, applies) + chosen.price),
+    cost: round2(c.cost + chosen.cost),
     material: chosen,
   };
 }
@@ -288,6 +287,45 @@ export function setMaterial(q: EditorQuote, optionId: string, lineId: string, ma
     const c = e.contractors.find((x) => x.name === l.contractor);
     if (!c?.material?.choices.some((m) => m.id === materialId)) return l;
     return snapLine(l, e, c, materialId, level);
+  });
+}
+
+/**
+ * The material's share of a line's unit price and cost (2026-10-28: "put the unit cost and unit price
+ * for the material so that they are also editable"). Labour is the card row at the option's level;
+ * the material is what the line charges on top of it, so a typed material price is stored as the
+ * line's own Unit Price (labour + material) and Airtable needs no new field. `price` / `cost` are
+ * null while the line follows the card; `cardPrice` / `cardCost` are the picked material's own.
+ */
+export function materialSplit(l: EditorLine, entries: CardEntry[], level: ServiceLevel) {
+  const e = entryFor(l, entries);
+  if (!e || e.kind !== "rate") return null;
+  const c = e.contractors.find((x) => x.name === l.contractor);
+  if (!c?.material) return null;
+  const s = rateSnap(e, c, l.materialId, level);
+  const chosen = s.material!;
+  const labourPrice = round2(s.price - chosen.price);
+  const labourCost = round2(s.cost - chosen.cost);
+  return {
+    labourPrice,
+    labourCost,
+    cardPrice: chosen.price,
+    cardCost: chosen.cost,
+    price: l.unitPrice === null ? null : round2(l.unitPrice - labourPrice),
+    cost: l.costOverride === null ? null : round2(l.costOverride - labourCost),
+  };
+}
+
+/** Type the material's price or cost on a line: the line's unit price or cost becomes labour + it. Null goes back to the card. */
+export function setMaterialFigures(q: EditorQuote, optionId: string, lineId: string, patch: { price?: number | null; cost?: number | null }, entries: CardEntry[]): EditorQuote {
+  const level = levelOf(q.options.find((o) => o.id === optionId) ?? {});
+  return mapLine(q, optionId, lineId, (l) => {
+    const m = materialSplit(l, entries, level);
+    if (!m) return l;
+    const next = { ...l };
+    if (patch.price !== undefined) next.unitPrice = patch.price === null ? null : round2(m.labourPrice + patch.price);
+    if (patch.cost !== undefined) next.costOverride = patch.cost === null ? null : round2(m.labourCost + patch.cost);
+    return next;
   });
 }
 
