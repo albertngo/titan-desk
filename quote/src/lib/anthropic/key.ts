@@ -15,3 +15,21 @@ export function keyProblem(value: string): string | null {
   if (!KEY.test(v)) return "doesn't look like an Anthropic API key, which starts sk-ant-. Copy it again from the Anthropic Console under API keys.";
   return null;
 }
+
+/**
+ * The one JSON object in an answer's text: the whole text, or what sits inside a ```json fence, or from the
+ * first "{" to the last "}". Undefined when none of those parses to an object.
+ */
+export function jsonFromText(text: string): unknown {
+  const tries = [text.trim(), /```(?:json)?\s*([\s\S]*?)```/i.exec(text)?.[1]?.trim(), text.includes("{") ? text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1) : undefined];
+  for (const t of tries) {
+    if (!t) continue;
+    try {
+      const v = JSON.parse(t);
+      if (v && typeof v === "object" && !Array.isArray(v)) return v;
+    } catch {
+      // try the next way of finding it
+    }
+  }
+  return undefined;
+}

@@ -1,12 +1,13 @@
 import "server-only";
 import { isCustomerDeployment } from "@/lib/mode";
-import { keyProblem } from "./key";
+import { jsonFromText, keyProblem } from "./key";
 
 /**
  * The ONLY file in quote/ that talks to Claude (Albert, 2026-10-28: reading photos of the stair site
  * sheet), and the only reader of QUOTE_ANTHROPIC_KEY, which is set on the staff deployment only.
- * One request: images plus instructions in, one JSON object held to a schema out (structured outputs,
- * `output_config.format`; 2026-10-28: the model answers a forced tool call with a 400). Nothing is stored
+ * One request: images plus instructions in, one JSON object out, read from the answer's text by
+ * jsonFromText(). 2026-10-28: the model refuses a forced tool call, and the structured-output setting refused
+ * the sheet's schema, so the schema rides in the prompt and the caller's cleaner checks the answer. Nothing is stored
  * here; the caller cleans the answer before anything uses it. Called only from src/lib/quotes/sitesheet.ts
  * (tests/boundary.test.ts).
  */
@@ -28,7 +29,7 @@ export class ClaudeError extends Error {
 
 export const readerOn = (): boolean => !isCustomerDeployment() && !!process.env.QUOTE_ANTHROPIC_KEY?.trim();
 
-export async function readJson(images: ImageIn[], prompt: string, schema: object): Promise<unknown> {
+export async function readJson(images: ImageIn[], prompt: string): Promise<unknown> {
   const key = process.env.QUOTE_ANTHROPIC_KEY?.trim();
   if (!key || isCustomerDeployment()) throw new ClaudeError("Reading site sheets isn't set up (QUOTE_ANTHROPIC_KEY).", 503);
   // Checked before it goes in a header (2026-10-28): a malformed value once made fetch throw with the value in its message.
@@ -44,7 +45,7 @@ export async function readJson(images: ImageIn[], prompt: string, schema: object
       model: MODEL,
       // Thinking is always on for this model and counts against this, so leave room for it as well as the answer.
       max_tokens: 16000,
-      output_config: { effort: "medium", format: { type: "json_schema", schema } },
+      output_config: { effort: "medium" },
       fallbacks: "default",
       messages: [
         {
@@ -71,9 +72,7 @@ export async function readJson(images: ImageIn[], prompt: string, schema: object
   if (out.stop_reason === "refusal") throw new ClaudeError("Claude declined to read these photos. Try again, or fill the fields in by hand.", 502);
   if (out.stop_reason === "max_tokens") throw new ClaudeError("Claude ran out of room before finishing the sheet. Try again.", 502);
   const text = out.content?.filter((c) => c.type === "text").map((c) => c.text ?? "").join("") ?? "";
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new ClaudeError("Claude didn't return the sheet's fields.", 502);
-  }
+  const json = jsonFromText(text);
+  if (json === undefined) throw new ClaudeError("Claude didn't return the sheet's fields. Try again.", 502);
+  return json;
 }

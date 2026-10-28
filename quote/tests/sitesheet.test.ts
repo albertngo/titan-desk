@@ -287,35 +287,10 @@ describe("building options from what the customer wants", () => {
   });
 });
 
-describe("the schema sent with the photos", () => {
-  it("is strict for structured outputs: every object closed, every key required, no array limits", async () => {
-    const { SHEET_SCHEMA } = await import("../src/lib/sitesheet/prompt");
-    const walk = (node: unknown, path: string): string[] => {
-      if (Array.isArray(node)) return node.flatMap((x, i) => walk(x, `${path}[${i}]`));
-      if (!node || typeof node !== "object") return [];
-      const o = node as Record<string, unknown>;
-      const bad: string[] = [];
-      if ("maxItems" in o) bad.push(`${path} has maxItems`);
-      if (o.properties) {
-        if (o.additionalProperties !== false) bad.push(`${path} is open`);
-        if (JSON.stringify(o.required) !== JSON.stringify(Object.keys(o.properties as object))) bad.push(`${path} misses required keys`);
-      }
-      return [...bad, ...Object.entries(o).flatMap(([k, v]) => (k === "enum" ? [] : walk(v, `${path}.${k}`)))];
-    };
-    expect(walk(SHEET_SCHEMA, "$")).toEqual([]);
-    expect((SHEET_SCHEMA.properties as Record<string, unknown>).want).toMatchObject({ additionalProperties: false });
-    // No list of types anywhere, and every enum matches its own branch's type (the API checks both).
-    const types = (node: unknown): string[] =>
-      Array.isArray(node)
-        ? node.flatMap(types)
-        : node && typeof node === "object"
-          ? [
-              ...(Array.isArray((node as { type?: unknown }).type) ? ["list of types"] : []),
-              ...(((node as { enum?: unknown[] }).enum ?? []).some((v) => v === null || typeof v !== (node as { type?: string }).type?.replace("integer", "number")) ? [`enum ${JSON.stringify((node as { enum?: unknown[] }).enum)}`] : []),
-              ...Object.values(node as object).flatMap(types),
-            ]
-          : [];
-    expect(types(SHEET_SCHEMA)).toEqual([]);
-    expect((SHEET_SCHEMA.properties as Record<string, unknown>).shape).toEqual({ anyOf: [{ type: "string", enum: ["Straight", "Quarter turn", "Quarter winder", "U landing", "Curved", "Spiral", "Double winder", "Half landing"] }, { type: "null" }] });
+describe("what is sent with the photos", () => {
+  it("carries the schema in the message, so the request has nothing the API can refuse for its shape", async () => {
+    const { SHEET_PROMPT, SHEET_SCHEMA } = await import("../src/lib/sitesheet/prompt");
+    expect(SHEET_PROMPT).toContain(JSON.stringify(SHEET_SCHEMA));
+    expect(SHEET_PROMPT).toMatch(/one JSON object and nothing else/);
   });
 });
