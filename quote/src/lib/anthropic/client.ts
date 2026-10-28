@@ -1,5 +1,6 @@
 import "server-only";
 import { isCustomerDeployment } from "@/lib/mode";
+import { keyProblem } from "./key";
 
 /**
  * The ONLY file in quote/ that talks to Claude (Albert, 2026-10-28: reading photos of the stair site
@@ -29,7 +30,12 @@ export const readerOn = (): boolean => !isCustomerDeployment() && !!process.env.
 export async function readWithTool(images: ImageIn[], prompt: string, tool: { name: string; description: string; schema: object }): Promise<unknown> {
   const key = process.env.QUOTE_ANTHROPIC_KEY?.trim();
   if (!key || isCustomerDeployment()) throw new ClaudeError("Reading site sheets isn't set up (QUOTE_ANTHROPIC_KEY).", 503);
-  const res = await fetch(API, {
+  // Checked before it goes in a header (2026-10-28): a malformed value once made fetch throw with the value in its message.
+  const problem = keyProblem(key);
+  if (problem) throw new ClaudeError(`QUOTE_ANTHROPIC_KEY ${problem}`, 503);
+  let res: Response;
+  try {
+    res = await fetch(API, {
     method: "POST",
     headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
     body: JSON.stringify({
@@ -46,10 +52,17 @@ export async function readWithTool(images: ImageIn[], prompt: string, tool: { na
     }),
     signal: AbortSignal.timeout(110_000),
     cache: "no-store",
-  });
+    });
+  } catch (e) {
+    // Never the thrown message: it can carry the request's headers.
+    const timedOut = e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError");
+    throw new ClaudeError(timedOut ? "Claude took too long to read the photos. Try again." : "Claude couldn't be reached. Try again.", 502);
+  }
   if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new ClaudeError(`Claude ${res.status}: ${body.slice(0, 200)}`, res.status);
+    // The API's own error words (they never repeat the key), not the raw body.
+    const body = (await res.json().catch(() => null)) as { error?: { message?: unknown } } | null;
+    const why = typeof body?.error?.message === "string" ? body.error.message.slice(0, 160) : "no reason given";
+    throw new ClaudeError(res.status === 401 ? "Claude refused the key (401). Check QUOTE_ANTHROPIC_KEY on this deployment." : `Claude ${res.status}: ${why}`, res.status);
   }
   const out = (await res.json()) as { content?: { type: string; name?: string; input?: unknown }[] };
   const call = out.content?.find((c) => c.type === "tool_use" && c.name === tool.name);

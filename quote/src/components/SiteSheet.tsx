@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { saveSiteSheetAction } from "@/app/q/[id]/actions";
 import { shrinkImage } from "@/lib/bug/shrink";
 import { optionTotals } from "@/lib/calc";
@@ -34,6 +34,8 @@ function set(s: SiteSheet, path: Path, value: unknown): SiteSheet {
   return out as unknown as SiteSheet;
 }
 
+/** Both pages, with room for a retake or a close-up. */
+const MAX_PHOTOS = 4;
 const WANT_LABEL: Record<string, string> = { sand: "Sand & refinish caps", caps: "New wood caps", vinylTreads: "Vinyl treads", vinylSteps: "Vinyl steps", unsure: "Not sure" };
 const THICK_LABEL: Record<string, string> = { "1/2": "½\"", "3/4": "¾\"", unsure: "not sure" };
 const WHERE_LABEL: Record<string, string> = { Main: "Main", Basement: "Basement", Townhome: "Townhome", Side: "Side / half" };
@@ -62,6 +64,10 @@ export function SiteSheetTab({
   const [sheet, setSheet] = useState<SiteSheet>(() => stored?.sheet ?? emptySheet());
   const [photos, setPhotos] = useState<Photo[]>(photos0);
   const [files, setFiles] = useState<File[]>([]);
+  // Picks add up (2026-10-28: only one photo could be attached): take page 1, then page 2, or choose several.
+  const addFiles = (list: FileList | null) => setFiles((f) => [...f, ...Array.from(list ?? []).filter((x) => !x.type || x.type.startsWith("image/"))].slice(0, MAX_PHOTOS));
+  const previews = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files]);
+  useEffect(() => () => previews.forEach((u) => URL.revokeObjectURL(u)), [previews]);
   const [message, setMessage] = useState<{ text: string; bad: boolean } | null>(null);
   const [reading, setReading] = useState(false);
   const [saving, startSave] = useTransition();
@@ -209,11 +215,33 @@ export function SiteSheetTab({
         <div className="card-b ss-up">
           <p className="faint">Photograph both pages of the stair site sheet, flat and in good light, with the four black corner squares in the picture.</p>
           <div className="ss-up-row">
-            <input type="file" accept="image/*" capture="environment" multiple aria-label="Photos of the site sheet" onChange={(e) => setFiles(Array.from(e.target.files ?? []).slice(0, 4))} />
+            {/* The camera takes one shot at a time; the library allows several. Both add to the list. */}
+            <label className={`btn${files.length >= MAX_PHOTOS ? " disabled" : ""}`}>
+              Take a photo
+              <input type="file" accept="image/*" capture="environment" hidden disabled={files.length >= MAX_PHOTOS} aria-label="Take a photo of a page" onChange={(e) => (addFiles(e.target.files), (e.target.value = ""))} />
+            </label>
+            <label className={`btn${files.length >= MAX_PHOTOS ? " disabled" : ""}`}>
+              Choose photos
+              <input type="file" accept="image/*" multiple hidden disabled={files.length >= MAX_PHOTOS} aria-label="Choose photos of the site sheet" onChange={(e) => (addFiles(e.target.files), (e.target.value = ""))} />
+            </label>
             <button type="button" className="btn primary" disabled={files.length === 0 || reading} onClick={read}>
-              {reading ? "Reading… about a minute" : stored ? "Read new photos" : "Read the sheet"}
+              {reading ? "Reading… about a minute" : files.length ? `Read ${files.length} photo${files.length === 1 ? "" : "s"}` : stored ? "Read new photos" : "Read the sheet"}
             </button>
           </div>
+          {files.length > 0 && (
+            <ul className="ss-picked" aria-label="Photos to read">
+              {files.map((f, i) => (
+                <li key={`${f.name}-${i}`}>
+                  {/* eslint-disable-next-line @next/next/no-img-element -- a local preview, not a served image */}
+                  <img src={previews[i]} alt={`Page ${i + 1}`} />
+                  <span>Page {i + 1}</span>
+                  <button type="button" className="linkbtn" aria-label={`Remove page ${i + 1}`} onClick={() => setFiles(files.filter((_, j) => j !== i))}>
+                    ×
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
           {stored && files.length > 0 && <p className="faint">Reading new photos replaces the fields below (the old photos stay on the quote).</p>}
           {message && <p className={message.bad ? "ss-msg bad" : "ss-msg ok"} role="status">{message.text}</p>}
         </div>

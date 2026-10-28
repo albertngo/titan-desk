@@ -56,8 +56,9 @@ export async function readSiteSheet(quoteRecordId: string, seen: string, photos:
   try {
     answer = await readWithTool(images, SHEET_PROMPT, { name: SHEET_TOOL, description: "Record every field of the stair site sheet exactly as written.", schema: SHEET_SCHEMA });
   } catch (e) {
-    const why = e instanceof ClaudeError && e.status === 503 ? e.message : `the photos couldn't be read (${e instanceof Error ? e.message.slice(0, 120) : "error"})`;
-    return { ok: false, message: `Nothing was saved: ${why}. Try again.` };
+    // Only the reader's own words reach the screen (2026-10-28): a raw error once printed part of the key.
+    if (!(e instanceof ClaudeError)) console.error("site sheet read failed:", e instanceof Error ? e.name : typeof e);
+    return { ok: false, message: `Nothing was saved. ${e instanceof ClaudeError ? e.message : "The photos couldn't be read. Try again."}` };
   }
   const saved = serializeStored({ sheet: cleanSheet(answer), by: email, at: new Date().toISOString(), checked: false });
 
