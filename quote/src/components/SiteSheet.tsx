@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { saveSiteSheetAction } from "@/app/q/[id]/actions";
 import { shrinkImage } from "@/lib/bug/shrink";
 import { optionTotals } from "@/lib/calc";
-import { buildCatalogue, type EditorQuote } from "@/lib/editor/model";
+import { buildCatalogue, draftKey, type EditorQuote } from "@/lib/editor/model";
 import { money } from "@/lib/format";
 import type { RateCard, SiteSheetResult } from "@/lib/quotes/types";
 import { derive } from "@/lib/sitesheet/derive";
@@ -123,7 +123,8 @@ export function SiteSheetTab({
   }
 
   function buildIntoEditor() {
-    const key = `titan-quote-draft:${quoteRecordId}`;
+    // The editor's own key for this version's draft, so it opens with these options in it.
+    const key = draftKey(initial);
     let start: { quote: EditorQuote; base?: string } = { quote: initial, base };
     try {
       const prev = window.localStorage.getItem(key);

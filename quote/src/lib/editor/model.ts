@@ -665,6 +665,14 @@ export function blankQuote(): EditorQuote {
   );
 }
 
+/**
+ * Where the editor keeps a quote's unsaved draft on this device. Keyed by the editor quote's own
+ * `quoteRecordId` (which holds the version's record id). Anything that hands the editor a draft (the
+ * Site sheet's Build stair options) must use this, never build the key itself: on 2026-10-28 it keyed by
+ * the Quotes record instead, and the editor opened without the new options.
+ */
+export const draftKey = (q: Pick<EditorQuote, "quoteRecordId">) => `titan-quote-draft:${q.quoteRecordId ?? "new"}`;
+
 export function fromQuote(quote: Quote): EditorQuote {
   return {
     quoteRecordId: quote.id,

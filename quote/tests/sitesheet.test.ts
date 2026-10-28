@@ -304,3 +304,10 @@ describe("what is sent with the photos", () => {
     expect(SHEET_PROMPT).toMatch(/one JSON object and nothing else/);
   });
 });
+
+describe("handing the options to the editor", () => {
+  it("uses the editor's own draft key for the version, so the editor opens with them (2026-10-28)", async () => {
+    const { draftKey } = await import("../src/lib/editor/model");
+    expect(draftKey({ quoteRecordId: "recVERSION0000001" })).toBe("titan-quote-draft:recVERSION0000001");
+  });
+});
