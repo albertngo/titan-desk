@@ -23,7 +23,7 @@ export default async function EditQuotePage({ params }: { params: Promise<{ id: 
   // A change after acceptance (2026-10-27): the editor shows how far it moves the contract's total.
   const contract = quote.changeNo ? (await previewCopy(quote.id))?.change ?? null : null;
   const change = quote.changeNo ? { no: quote.changeNo, contractTotal: contract?.before.total ?? null } : null;
-  const version = { id: quote.id, label: quote.quoteId, version: quote.version, status: quote.status, basis: quote.basis, base: fingerprint(initial), change };
+  const version = { id: quote.id, label: quote.quoteId, version: quote.version, status: quote.status, basis: quote.basis, base: fingerprint(initial), change, agreed: Boolean(quote.acceptance && !quote.acceptance.cancelled) };
   return (
     <>
       <TopBar email={email} />

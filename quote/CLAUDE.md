@@ -449,7 +449,10 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   numbered (Quote Versions → **Change No** 1, 2, …): only the accepted option, its ticked add-ons now part
   of the work, the others gone, and a schedule where every agreed stage keeps its dollars and the final
   payment takes the difference (`fixedSchedule()`). Staff edit it as usual; the editor shows how far it
-  moves the contract's total. Sending it freezes a **What changed since <date>** block on its copy
+  moves the contract's total. **One change open at a time (2026-10-28):** Make a change reopens a draft change instead of starting
+  another, and numbers count only sent changes (`changeSlot()` in `savePlan.ts`). A change and the accepted
+  version are never copied by **Save as new version** (`newVersionRefusal()`; the editor hides it): a copy would
+  go out as a fresh quote to accept. Sending it freezes a **What changed since <date>** block on its copy
   (`src/lib/change/diff.ts`: lines added, removed and changed, matched by section and wording; line amounts
   only on an itemised quote) and the customer gets the full updated quote with that box at the top, on
   the page, the PDF, the email and the text: no good-until date, nothing to accept or approve, no

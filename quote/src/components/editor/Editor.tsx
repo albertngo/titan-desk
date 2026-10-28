@@ -60,6 +60,8 @@ export type EditorVersion = {
   base: string;
   /** A change after acceptance (2026-10-27): its number and the total (with HST) of the contract it changes. */
   change?: { no: number; contractTotal: number | null } | null;
+  /** The accepted (or won) quote (2026-10-27): never copied into a new version; it changes only through Make a change. */
+  agreed?: boolean;
 };
 
 const BASES = ["Preliminary", "Measured"] as const;
@@ -376,7 +378,11 @@ export default function Editor({
             {version.label ?? (version.version !== null ? `v${version.version}` : "Quote")}
             {version.basis && ` · ${version.basis}`}
             {" · "}
-            {isDraft ? "Changes are kept on this device until you save." : `This version is ${version.status ?? "locked"}: changes save as a new version.`}
+            {isDraft
+              ? "Changes are kept on this device until you save."
+              : version.agreed || version.change
+                ? `This version is ${version.status ?? "locked"}. To change what was agreed, use Make a change on the quote page.`
+                : `This version is ${version.status ?? "locked"}: changes save as a new version.`}
           </p>
           {version.change && (
             <p className="change-note">
@@ -722,6 +728,9 @@ export default function Editor({
 
           <div className="actions">
             <button className="btn" onClick={discard} disabled={!changed && !restoredAt}>Discard changes</button>
+            {/* A change, or the agreed quote, is never copied into an ordinary version (2026-10-27):
+                the copy would go out as a fresh quote to accept. Make a change is the way. */}
+            {!version.change && !version.agreed && (
             <span className="saveas">
               <select className="in" value={basis} onChange={(e) => setBasis(e.target.value)} aria-label="Basis of the new version" disabled={saving}>
                 {BASES.map((b) => (
@@ -732,6 +741,12 @@ export default function Editor({
                 {saving ? "Saving…" : "Save as new version"}
               </button>
             </span>
+            )}
+            {!isDraft && (version.change || version.agreed) && (
+              <Link href={backHref} className="btn primary">
+                Back to the quote
+              </Link>
+            )}
             {isDraft && (
               <button className="btn primary" onClick={save} disabled={saving || !changed}>
                 {saving ? "Saving…" : "Save"}

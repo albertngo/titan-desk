@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { LINE, OPTION, VERSION } from "../src/lib/airtable/fields";
 import type { EditorLine, EditorOption, EditorQuote } from "../src/lib/editor/model";
-import { cleanEditorQuote, isRecordId, lineFields, planIsEmpty, planSave } from "../src/lib/quotes/savePlan";
+import { changeSlot, cleanEditorQuote, isRecordId, lineFields, newVersionRefusal, planIsEmpty, planSave } from "../src/lib/quotes/savePlan";
 import { profileLine, stairProfileLine } from "../src/lib/quick/stairs";
 
 // INVENTED rates, quantities and ids only: this repo is public.
@@ -208,5 +208,26 @@ describe("what the browser sends, cleaned", () => {
   it("saves a stair profile as a flat Stairs line with no links and its name as the wording (2026-10-18)", () => {
     const f = lineFields(stairProfileLine("Townhome", "Vinyl treads", 1500), 1);
     expect(f).toMatchObject({ [LINE.section]: "Stairs", [LINE.lineType]: "Stairs", [LINE.uom]: "flat", [LINE.qty]: 1, [LINE.unitPrice]: 1500, [LINE.descriptionOverride]: "Townhome – Vinyl treads", [LINE.rateItem]: [], [LINE.stairItem]: [], [LINE.product]: [] });
+  });
+});
+
+describe("changes after acceptance (2026-10-27)", () => {
+  const v = (id: string, status: string, changeNo: number | null, sentAt: string | null = null) => ({ id, status, changeNo, sentAt });
+
+  it("reopens the change already open instead of starting another", () => {
+    expect(changeSlot([v("a", "Won", null, "2026-10-27"), v("b", "Draft", 1)])).toEqual({ open: "b", next: 1 });
+    // An ordinary draft is not a change.
+    expect(changeSlot([v("a", "Won", null, "2026-10-27"), v("c", "Draft", null)]).open).toBeNull();
+  });
+
+  it("numbers only the changes that were sent, so a thrown-away draft leaves no gap", () => {
+    expect(changeSlot([v("a", "Won", null, "2026-10-27"), v("b", "Superseded", 1), v("d", "Superseded", 2)])).toEqual({ open: null, next: 1 });
+    expect(changeSlot([v("a", "Won", null, "2026-10-27"), v("b", "Superseded", 1, "2026-10-28"), v("e", "Sent", 2, "2026-10-29")])).toEqual({ open: null, next: 3 });
+  });
+
+  it("never copies the accepted quote or a change into an ordinary version", () => {
+    expect(newVersionRefusal({ changeNo: null, agreed: true })).toMatch(/Make a change/);
+    expect(newVersionRefusal({ changeNo: 2, agreed: false })).toMatch(/change to the accepted quote/);
+    expect(newVersionRefusal({ changeNo: null, agreed: false })).toBeNull();
   });
 });
