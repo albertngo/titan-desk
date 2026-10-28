@@ -4,10 +4,13 @@ import { TREAD_TYPES, type SiteSheet, type TreadType, type WidthCounts } from ".
  * What the app works out from the site sheet so the PM never has to (Albert, 2026-10-28):
  * - risers: one per tread, one per landing (a half moon counts) and one for the top floor;
  * - open sides, and so the stringers and spindles that show, from the tread grid;
- * - spindles (sheet v4): on-steps railing runs with pickets → 2 a regular step (pie and pizza pieces too),
- *   3 a 2-side-open step; flat runs with pickets → 3 a foot of their picket feet. With no railing runs
- *   written at all, an open staircase still gets the per-step estimate. More is always fine: a written
- *   count higher than this wins, and a written count lower than this is used but flagged to confirm;
+ * - spindles (Albert, 2026-10-28, after the first real sheet: "there should always be 3 spindles per foot of
+ *   handrail"): 3 a foot of picket feet, on the steps and flat alike (a run's picket feet are written, or its
+ *   whole length when Pickets is ticked). With no railing runs written at all, an open staircase falls back
+ *   to the per-step estimate (2 a step, 3 a 2-side-open step). More is always fine: a written count higher
+ *   than this wins, and a written count lower than this is used but flagged to confirm;
+ * - the rail check: the on-steps runs added up (a staircase's rail is often in pieces) against about
+ *   1.1 ft a tread, or twice that on a 2-side-open staircase, which may have a rail on each side;
  * - holed nosings: one per flat run with pickets, as long as its picket feet;
  * - custom pieces (sheet v5): a 2-piece pizza set, or a 3-piece one that is 2-side open; every 2-side-open
  *   bullnose (LSO and RSO bullnoses are standard);
@@ -82,15 +85,15 @@ export function derive(s: SiteSheet): Derived {
   // Risers: one more than the steps, with every landing (and a half moon) counted as a step.
   const risers = treads > 0 ? treads + landings + halfMoons + 1 : 0;
 
-  // Spindles on the steps: 2 on a one-side-open tread (pie and pizza pieces too), 3 on a 2-side-open one.
-  // A pizza set's pieces take spindles like a one-side-open step, or a 2-side-open one when ticked so.
+  // Spindles: 3 a foot of rail with pickets. Only with no runs written at all, the per-step fallback:
+  // 2 on a one-side-open tread (pie and pizza pieces too), 3 on a 2-side-open one.
   const regular = by.rso + by.lso + (s.pizza.twoSide ? 0 : pizza);
   const twoSided = by.two + (s.pizza.twoSide ? pizza : 0);
   const picketFt = (x: SiteSheet["runs"][number]) => (x.pickets ? (x.picketFt ?? x.ft ?? 0) : n(x.picketFt));
   const stepRuns = s.runs.filter((x) => x.where === "S");
   const flatPicketRuns = s.runs.filter((x) => x.where === "F" && picketFt(x) > 0);
-  const stepsHavePickets = s.runs.length === 0 ? openSides > 0 : stepRuns.some((x) => picketFt(x) > 0);
-  const stepEstimate = stepsHavePickets ? regular * 2 + twoSided * 3 : 0;
+  const stepPicketFt = stepRuns.reduce((t, x) => t + picketFt(x), 0);
+  const stepEstimate = s.runs.length === 0 ? (openSides > 0 ? regular * 2 + twoSided * 3 : 0) : Math.ceil(stepPicketFt * 3);
   const holedFt = flatPicketRuns.reduce((t, x) => t + picketFt(x), 0);
   const flatEstimate = Math.ceil(holedFt * 3);
   const estimate = stepEstimate + flatEstimate;
@@ -130,12 +133,13 @@ export function derive(s: SiteSheet): Derived {
     flatPicketFt: holedFt,
     totalFt: s.runs.reduce((t, x) => t + n(x.ft), 0),
   };
-  // A run on the steps is about 1.1 ft of rail a step; far off that, a length or the tread count is wrong.
+  // Rail on the steps is about 1.1 ft a step, the runs added up (it's often in pieces); a 2-side-open staircase
+  // may carry it on both sides. Far off that, a length or the tread count is wrong.
   const expectFt = treads * 1.1;
-  for (const [i, x] of s.runs.entries()) {
-    if (x.where !== "S" || !n(x.ft) || !treads) continue;
-    if (n(x.ft) < expectFt * 0.7 || n(x.ft) > expectFt * 1.3) flags.push(`Railing run ${i + 1} is ${n(x.ft)} ft on the steps; ${treads} treads suggest about ${Math.round(expectFt)} ft. Check the length or the treads.`);
-  }
+  const stepFt = stepRuns.reduce((t, x) => t + n(x.ft), 0);
+  const near = (target: number) => stepFt >= target * 0.7 && stepFt <= target * 1.3;
+  if (stepFt > 0 && treads > 0 && !near(expectFt) && !(openSides === 2 && near(expectFt * 2)))
+    flags.push(`Railing on the steps adds up to ${Math.round(stepFt * 10) / 10} ft; ${treads} treads suggest about ${Math.round(expectFt)} ft. Check the lengths or the treads.`);
   if (s.runs.some((x) => x.pickets && x.where === "W")) flags.push("A wall rail run is ticked as having pickets. Check whether it's really on the steps or flat.");
 
   const landingSqft = n(s.landings.s3x3) * 9 + n(s.landings.s3x6) * 18 + n(s.landings.other) * 9;

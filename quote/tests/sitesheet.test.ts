@@ -93,13 +93,16 @@ describe("what the app works out", () => {
     expect(d.open).toEqual({ left: false, right: true });
   });
 
-  it("estimates spindles from the railing: 2 a step on a run with pickets, 3 a 2-side-open step, 3 a foot of flat pickets", () => {
+  it("estimates spindles at 3 a foot of rail with pickets, on the steps and flat alike (Albert, 2026-10-28)", () => {
     const d = derive(curved({ spindles: {} }));
-    expect(d.spindles).toEqual({ value: 13 * 2 + 8 * 3, how: "calculated", estimate: 50 });
-    // A flat run with pickets on only part of it counts only those feet.
-    expect(derive(curved({ spindles: {}, runs: [{ ft: 15, where: "S", pickets: true }, { ft: 10, where: "F", picketFt: 4 }] })).spindles.value).toBe(26 + 12);
+    expect(d.spindles).toEqual({ value: (15 + 8) * 3, how: "calculated", estimate: 69 });
+    // A run with pickets on only part of it counts only those feet.
+    expect(derive(curved({ spindles: {}, runs: [{ ft: 15, where: "S", pickets: true }, { ft: 10, where: "F", picketFt: 4 }] })).spindles.value).toBe(45 + 12);
+    // His first real sheet: runs of 2, 5 and 5 ft with pickets make 12 ft, so 36 spindles.
+    expect(derive(curved({ spindles: {}, runs: [{ ft: 2, where: "F", pickets: true }, { ft: 5, where: "S", pickets: true }, { ft: 6, where: "W" }, { ft: 5, where: "S", pickets: true }] })).spindles.value).toBe(36);
     // Stair runs with no pickets give no step spindles.
     expect(derive(curved({ spindles: {}, runs: [{ ft: 15, where: "S" }] })).spindles.value).toBe(0);
+    // With no railing runs written at all, the per-step fallback: 2 a step, 3 a 2-side-open step.
     const two = derive(cleanSheet({ treads: { two: { w42: 2 }, rso: { w42: 4 } } }));
     expect(two.spindles.value).toBe(2 * 3 + 4 * 2);
   });
@@ -110,9 +113,16 @@ describe("what the app works out", () => {
     expect(d.nosing).toMatchObject({ pieces: 2, newPieces: 2, holedPieces: 1, feet: 18 });
   });
 
-  it("flags a run on the steps far from about 1.1 ft a tread", () => {
-    expect(derive(curved()).flags.some((f) => f.startsWith("Railing run"))).toBe(false);
-    expect(derive(curved({ runs: [{ ft: 5, where: "S", pickets: true }] })).flags.some((f) => f.startsWith("Railing run 1 is 5 ft"))).toBe(true);
+  it("checks the rail on the steps added up, against about 1.1 ft a tread (twice that if both sides are open)", () => {
+    const railFlag = (d: ReturnType<typeof derive>) => d.flags.some((f) => f.startsWith("Railing on the steps"));
+    expect(railFlag(derive(curved()))).toBe(false);
+    expect(derive(curved({ runs: [{ ft: 5, where: "S", pickets: true }] })).flags.some((f) => f.startsWith("Railing on the steps adds up to 5 ft"))).toBe(true);
+    // Albert's sheet: two 5 ft runs on 12 treads make 10 ft, about right; neither is flagged on its own.
+    const twelve = (runs: unknown[], two = false) => derive(cleanSheet({ treads: two ? { two: { w42: 12 } } : { lso: { w42: 12 } }, runs }));
+    expect(railFlag(twelve([{ ft: 5, where: "S" }, { ft: 5, where: "S" }]))).toBe(false);
+    // Both sides open: a rail each side, about twice the length, is fine too.
+    expect(railFlag(twelve([{ ft: 13, where: "S" }, { ft: 13, where: "S" }], true))).toBe(false);
+    expect(railFlag(twelve([{ ft: 13, where: "S" }, { ft: 13, where: "S" }]))).toBe(true);
   });
 
   it("a nosing piece follows the default unless its own column says otherwise", () => {
@@ -143,8 +153,8 @@ describe("what the app works out", () => {
   });
 
   it("a written count higher than the estimate wins quietly; a lower one is flagged to confirm", () => {
-    const higher = derive(curved({ runs: [{ ft: 15, where: "S", pickets: true }], spindles: { onSteps: 35, flatTop: 3 } }));
-    expect(higher.spindles).toMatchObject({ value: 38, how: "written" });
+    const higher = derive(curved({ runs: [{ ft: 15, where: "S", pickets: true }], spindles: { onSteps: 47, flatTop: 3 } }));
+    expect(higher.spindles).toMatchObject({ value: 50, how: "written" });
     expect(higher.flags.some((f) => f.startsWith("Spindles"))).toBe(false);
     const lower = derive(curved({ runs: [{ ft: 15, where: "S", pickets: true }], spindles: { onSteps: 10 } }));
     expect(lower.spindles.value).toBe(10);

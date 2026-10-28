@@ -404,10 +404,10 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   photos go on **Quotes → Site Sheet Photos** and what was read on **Quotes → Site Sheet** (JSON, app-written,
   compare-and-swap like Rooms; `src/lib/quotes/sitesheet.ts`). A person checks every field beside the photos
   (uncertain ones are marked) and presses **Save check**. The app works out, never asks: risers = treads + one
-  per landing (a half moon counts) + one for the top floor; open sides from the grid; spindles from the railing runs (on-steps runs with
-  pickets: 2 a step, pie and pizza pieces too, 3 a 2-side-open step; flat runs: 3 a foot of their picket feet),
+  per landing (a half moon counts) + one for the top floor; open sides from the grid; spindles from the railing runs (3 a foot of
+  rail with pickets, on the steps and flat alike, Albert after the first real sheet; with no runs written, 2 a step and 3 a 2-side-open step),
   holed nosings one per flat run with pickets, rail feet split straight / curved (curved priced from "Task: New
-  Curved Handrail + Stain"), an on-steps run flagged when far from ~1.1 ft a tread, where a written count higher
+  Curved Handrail + Stain"), the on-steps runs added up and flagged when far from ~1.1 ft a tread (or twice that, both sides open), where a written count higher
   wins and a lower one is flagged; picket heights 36 / 39 alternating on the steps, 36 on the flat top; oak at
   about 20 sq ft a box; wall-rail brackets, the first 1 ft in then one every 2 ft; custom pieces (a 2-piece pizza
   set, a 3-piece one that is 2 side open, every 2-side-open bullnose) (`src/lib/sitesheet/derive.ts`). **Build stair options** puts one option per viable G1
