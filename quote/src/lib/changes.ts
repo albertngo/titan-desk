@@ -22,6 +22,15 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-10-28",
+    kind: "changed",
+    title: "New stair items, waiting for their prices",
+    details: [
+      "Ten items the Site sheet needs are now in Airtable's Stair Items with blank prices, among them carpet off the stairs, vinyl treads, vinyl flooring on steps, painting risers white and refinishing posts.",
+      "Fill in each one's Titan Rate and Cost and the stair options built from a site sheet price it straight away. Until then it comes in with no price and a note.",
+    ],
+  },
+  {
+    date: "2026-10-28",
     kind: "new",
     title: "Site sheet: upload the stair sheet and get priced stair options",
     details: [

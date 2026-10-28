@@ -46,6 +46,17 @@ export const ITEM_NAMES = {
   stringPaint: ["Task: 2 Side Paint (White)"],
   stringSkin: ["Task: 2 Side Oak Skin (Glue and Stain)"],
   stringSand: ["Task: 2 Side Oak (Sand & Stain)"],
+  // Created 2026-10-28 with blank prices for Albert to fill in. A blank-priced item isn't on the card
+  // (getRateCard skips it), so until then each comes in as an unpriced line with a note, as before.
+  carpetOff: ["Task: Remove Carpet (Stairs)"],
+  vinylTread: ["Vinyl Tread (Install)"],
+  vinylFlooring: ["Task: Vinyl Flooring on Steps"],
+  paintRisers: ["Task: Paint Risers White"],
+  halfMoonSolid: ["Half Moon Solid One-Piece (Upgrade)"],
+  bullnoseCustom: ["Bullnose Custom Size (Upcharge)"],
+  wallBracket: ["Wall Rail Bracket"],
+  postRefinish: ["Task: Refinish Post"],
+  spindleStain: ["Task: Stain Wood Spindles"],
 };
 
 export type BuiltOption = {
@@ -103,7 +114,7 @@ function build(kind: BuiltOption["kind"], s: SiteSheet, d: Derived, find: (names
   const n = (v: number | null) => v ?? 0;
   const both = s.want.covers === "both";
 
-  if (s.onSteps === "Carpet" && kind !== "sand") gap("Carpet removed from the stairs", d.treads + d.landings + (both ? d.sideTreads : 0));
+  if (s.onSteps === "Carpet" && kind !== "sand") add(ITEM_NAMES.carpetOff, d.treads + d.landings + (both ? d.sideTreads : 0), "Carpet removed from the stairs");
 
   // Treads
   if (kind === "caps") {
@@ -112,13 +123,15 @@ function build(kind: BuiltOption["kind"], s: SiteSheet, d: Derived, find: (names
       add(ITEM_NAMES.step[t], grid, `Step (${TREAD_NAME[t]})`);
       add(ITEM_NAMES.bullnose[t], n(s.bullnose[t]), `Bullnose (${TREAD_NAME[t]})`);
     }
+    const bullnoses = n(s.bullnose.lso) + n(s.bullnose.rso) + n(s.bullnose.two);
+    if (s.bullnoseCustom) add(ITEM_NAMES.bullnoseCustom, bullnoses, "Custom-size bullnose");
     const pies = n(s.pie.boxed) + n(s.pie.lso) + n(s.pie.rso) + n(s.pie.two);
     add(ITEM_NAMES.pie[s.pieTurn ?? "R"], pies, "Pie shape step");
     const sets = n(s.pizza.boxed) + n(s.pizza.lso) + n(s.pizza.rso) + n(s.pizza.two);
     add(ITEM_NAMES.corner, sets, "Corner turn set");
     add(ITEM_NAMES.landing, d.landings, "Landing");
     add(ITEM_NAMES.halfMoon, d.halfMoons, "Half moon");
-    if (d.halfMoons > 0 && s.halfMoons.solid) gap("Half moon as one solid piece (instead of the nosing method)", d.halfMoons);
+    if (d.halfMoons > 0 && s.halfMoons.solid) add(ITEM_NAMES.halfMoonSolid, d.halfMoons, "Half moon as one solid piece (instead of the nosing method)");
     if (both && d.sideTreads > 0) add(ITEM_NAMES.step[s.side.type ?? "boxed"], d.sideTreads, "Side staircase step", "Side staircase");
     // New caps always come with new risers.
     add(ITEM_NAMES.riser, d.risers + (both && d.sideTreads ? d.sideTreads + 1 : 0), "New risers");
@@ -127,16 +140,16 @@ function build(kind: BuiltOption["kind"], s: SiteSheet, d: Derived, find: (names
     if (recommend) notes.push(`Recommended for a ${s.shape?.toLowerCase()} staircase.`);
   } else if (kind === "sand") {
     add(ITEM_NAMES.sandSteps, d.treads + d.landings + d.halfMoons + (both ? d.sideTreads : 0), "Sand & stain steps");
-    gap("Risers painted white", d.risers);
+    add(ITEM_NAMES.paintRisers, d.risers, "Risers painted white");
     if (s.onSteps === "Painted wood") notes.push("Red flag: the steps are painted. Getting paint out of the grain is hard; check before promising a stain.");
     notes.push("The piano look: stained treads, white risers and stringers. A darker stain than today's is not recommended.");
   } else {
     const curved = s.shape === "Curved" || s.shape === "Spiral";
     if (curved) {
-      gap("Vinyl flooring on the steps", d.treads + d.landings + d.halfMoons + (both ? d.sideTreads : 0));
+      add(ITEM_NAMES.vinylFlooring, d.treads + d.landings + d.halfMoons + (both ? d.sideTreads : 0), "Vinyl flooring on the steps");
       notes.push("Curved staircase: no vinyl treads. Vinyl flooring is possible but not advised.");
     } else {
-      gap("Vinyl treads", d.treads + d.landings + d.halfMoons + (both ? d.sideTreads : 0));
+      add(ITEM_NAMES.vinylTread, d.treads + d.landings + d.halfMoons + (both ? d.sideTreads : 0), "Vinyl treads");
     }
   }
 
@@ -155,16 +168,16 @@ function build(kind: BuiltOption["kind"], s: SiteSheet, d: Derived, find: (names
   if (s.want.handrail === "complex") add(ITEM_NAMES.railComplex, 1, "Complex handrail design");
   if (n(s.want.wallRailFt) > 0) {
     add(ITEM_NAMES.railNew, Math.ceil(n(s.want.wallRailFt)), "New wall rail", "Wall rail");
-    gap("Wall rail brackets", Math.max(n(s.rail.brackets), Math.ceil(n(s.want.wallRailFt) / 4)), "Wall rail");
+    add(ITEM_NAMES.wallBracket, Math.max(n(s.rail.brackets), Math.ceil(n(s.want.wallRailFt) / 4)), "Wall rail brackets", "Wall rail");
   }
   if (s.want.spindles === "iron" || s.want.spindles === "wood") {
     add(ITEM_NAMES.spindle, d.spindles.value, "New spindles");
-    if (s.want.spindles === "wood") notes.push("Wood spindles are priced as iron; staining them isn't on the card yet.");
+    if (s.want.spindles === "wood") add(ITEM_NAMES.spindleStain, d.spindles.value, "Stain wood spindles");
   }
   const posts = d.posts.now + d.posts.add;
   if (s.want.posts === "new") add(ITEM_NAMES.post, posts, "New posts");
   else if (d.posts.add > 0) add(ITEM_NAMES.post, d.posts.add, "Posts to add");
-  if (s.want.posts === "refinish") gap("Refinish posts", d.posts.now);
+  if (s.want.posts === "refinish") add(ITEM_NAMES.postRefinish, d.posts.now, "Refinish posts");
 
   // Stringers, only where a side is open.
   if (d.openSides > 0) {

@@ -411,7 +411,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   spiral stair, no vinyl treads on a curve, stringers white → paint / oak on solid → sand & stain / oak on
   veneer or unknown → oak skin, new spindles and posts replace all plus the ones to add, a pizza set one price
   per turn, the half moon the card's all-in flat rate. An answer with no Stair Item becomes a Stairs line with
-  no price and a note, never a guess. Staff review and **Save as new version** in the editor as usual; the
+  no price and a note, never a guess. Ten such items were added to Stair Items on 2026-10-28 with blank prices for Albert to fill (carpet off the stairs, vinyl treads, vinyl flooring on steps, paint risers white, solid half-moon upgrade, pie step left, custom bullnose upcharge, wall rail bracket, refinish post, stain wood spindles); a blank-priced item is skipped by `getRateCard()`, so each stays an unpriced line until it is priced. Staff review and **Save as new version** in the editor as usual; the
   tab writes no quote line. Tested in `tests/sitesheet.test.ts`. Requote threshold (±5% or $300) is a starting
   point to check against real jobs, not built.
 - **The payment schedule (Albert, 2026-10-27: "update the payment structure to be editable").** One

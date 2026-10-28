@@ -121,6 +121,16 @@ describe("what the app works out", () => {
 });
 
 describe("building options from what the customer wants", () => {
+  it("uses the Stair Items created with blank prices (2026-10-28) as soon as they're priced", () => {
+    const priced = buildCatalogue([], [item("Task: Remove Carpet (Stairs)", 15), item("Task: Paint Risers White", 6), ...CARD.flatMap((e) => (e.kind === "stair" ? [{ id: e.recordId, name: e.name, category: null, size: null, rate: e.rate, cost: null }] : []))]);
+    const caps = buildOptions(curved({ want: { treads: ["caps"] } }), priced).options[0];
+    const carpet = caps.lines.find((l) => l.description === "Task: Remove Carpet (Stairs)")!;
+    expect([carpet.sourceKind, carpet.qty, carpet.unitPriceSnap]).toEqual(["stair", 13, 15]);
+    expect(caps.notes.some((x) => x.includes("no rate"))).toBe(false);
+    const sand = buildOptions(curved({ shape: "Straight", onSteps: "Wood caps", want: { treads: ["sand"] } }), priced).options[0];
+    expect(sand.lines.find((l) => l.description === "Task: Paint Risers White")?.qty).toBe(14);
+  });
+
   it("Not sure builds every option the conditions allow, and says why sanding isn't one under carpet", () => {
     const r = buildOptions(curved(), CARD);
     expect(r.options.map((o) => o.kind)).toEqual(["caps", "vinyl"]);
