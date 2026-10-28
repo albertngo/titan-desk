@@ -37,6 +37,7 @@ import {
   updateOption,
   type EditorLine,
   type EditorQuote,
+  draftKey,
 } from "@/lib/editor/model";
 import { ghlContactUrl } from "@/lib/ghl/ids";
 import { fixAddressLink } from "@/lib/link/linkJob";
@@ -68,10 +69,6 @@ export type EditorVersion = {
 };
 
 const BASES = ["Preliminary", "Measured"] as const;
-
-function draftKey(q: EditorQuote) {
-  return `titan-quote-draft:${q.quoteRecordId ?? "new"}`;
-}
 
 function loadDraft(key: string): Draft | null {
   try {

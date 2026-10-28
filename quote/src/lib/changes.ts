@@ -22,6 +22,12 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-10-28",
+    kind: "fixed",
+    title: "Site sheet: Build stair options opens the editor with the options in it",
+    details: ["The button opened the editor without the new stair options. They now arrive there as unsaved changes, priced from Stair Items, ready to review and save as a new version."],
+  },
+  {
+    date: "2026-10-28",
     kind: "changed",
     title: "Site sheet: spindles at 3 a foot, and the rail check on the total",
     details: [
