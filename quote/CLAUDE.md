@@ -411,7 +411,9 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   model `claude-opus-5-5`, one JSON object in the answer's text, the schema written into the message in `src/lib/sitesheet/prompt.ts` (the model refuses a forced tool call and the structured-output setting refused the sheet's 70 nullable fields), read by `jsonFromText()` and then `cleanSheet()`; server-side fallback on a refusal), the
   photos go on **Quotes → Site Sheet Photos** and what was read on **Quotes → Site Sheet** (JSON, app-written,
   compare-and-swap like Rooms; `src/lib/quotes/sitesheet.ts`). A person checks every field beside the photos
-  (uncertain ones are marked) and presses **Save check**. The app works out, never asks: risers = treads + one
+  (uncertain ones are marked) and presses **Save check**. What was read is drawn as the paper sheet itself, one box for one box
+  (Albert, 2026-10-29), each page beside its photo: `src/components/SiteSheetPaper.tsx`, styles scoped under `.ssp`; every bubble, tick
+  and box on it is the control for that field, and a code Claude marked unclear is washed yellow. Change the sheet and this copy together. The app works out, never asks: risers = treads + one
   per landing (a half moon counts) + one for the top floor; open sides from the grid; spindles from the railing runs (3 a foot of
   rail with pickets, on the steps and flat alike, Albert after the first real sheet; with no runs written, 2 a step and 3 a 2-side-open step),
   holed nosings one per flat run with pickets, rail feet split straight / curved (curved priced from "Task: New
