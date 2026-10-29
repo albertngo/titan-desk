@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-10-29",
     kind: "changed",
+    title: "Site sheet: bigger numbers on the sheet copy",
+    details: ["What was written on the sheet (counts, lengths, the quote number, notes) shows in a larger hand, and the printed labels are a little larger too, so the check reads easily on a computer."],
+  },
+  {
+    date: "2026-10-29",
+    kind: "changed",
     title: "Site sheet: check what was read on a copy of the paper sheet",
     details: [
       "What Claude read is drawn as the Stair Site Sheet itself, section for section and box for box, with each page beside its photo.",
