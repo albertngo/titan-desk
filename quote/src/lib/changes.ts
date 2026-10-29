@@ -21,6 +21,16 @@ export type Change = {
 
 export const CHANGES: Change[] = [
   {
+    date: "2026-10-29",
+    kind: "changed",
+    title: "Site sheet: check what was read on a copy of the paper sheet",
+    details: [
+      "What Claude read is drawn as the Stair Site Sheet itself, section for section and box for box, with each page beside its photo.",
+      "Tap a bubble or a tick to mark it, tap it again to clear it, and type into any box. Anything Claude wasn't sure of is shaded yellow.",
+      "On a phone the page keeps its shape and scrolls sideways.",
+    ],
+  },
+  {
     date: "2026-10-28",
     kind: "changed",
     title: "Stairs: grouped by category, one nosing line, and always one price",

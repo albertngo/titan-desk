@@ -10,7 +10,8 @@ import { money } from "@/lib/format";
 import type { RateCard, SiteSheetResult } from "@/lib/quotes/types";
 import { derive } from "@/lib/sitesheet/derive";
 import { buildOptions } from "@/lib/sitesheet/options";
-import { cleanSheet, emptySheet, MAX_NOSINGS, MAX_RUNS, THICKNESSES, type NosingPiece, type RailRun, ON_STEPS, parseStored, SHAPES, TREAD_NAME, TREAD_TYPES, WANT_TREADS, WHERE, type SiteSheet } from "@/lib/sitesheet/sheet";
+import { cleanSheet, emptySheet, MAX_NOSINGS, MAX_RUNS, type NosingPiece, type RailRun, parseStored, type SiteSheet } from "@/lib/sitesheet/sheet";
+import { SiteSheetPaper } from "./SiteSheetPaper";
 
 /**
  * The Site sheet tab (Albert, 2026-10-28). Upload photos of the stair site sheet; Claude reads them into
@@ -36,9 +37,6 @@ function set(s: SiteSheet, path: Path, value: unknown): SiteSheet {
 
 /** Both pages, with room for a retake or a close-up. */
 const MAX_PHOTOS = 4;
-const WANT_LABEL: Record<string, string> = { sand: "Sand & refinish caps", caps: "New wood caps", vinylTreads: "Vinyl treads", vinylSteps: "Vinyl steps", unsure: "Not sure" };
-const THICK_LABEL: Record<string, string> = { "1/2": "½\"", "3/4": "¾\"", unsure: "not sure" };
-const WHERE_LABEL: Record<string, string> = { Main: "Main", Basement: "Basement", Townhome: "Townhome", Side: "Side / half" };
 
 export function SiteSheetTab({
   quoteRecordId,
@@ -148,53 +146,6 @@ export function SiteSheetTab({
     router.push(`/q/${versionId}/edit`);
   }
 
-  const num = (path: Path, label?: string, w = 64) => (
-    <input
-      className="in ss-num"
-      style={{ width: w }}
-      inputMode="decimal"
-      aria-label={label ?? path}
-      value={get(sheet, path) === null || get(sheet, path) === undefined ? "" : String(get(sheet, path))}
-      onChange={(e) => edit(path, e.target.value.trim() === "" ? null : e.target.value)}
-    />
-  );
-  const choice = (path: Path, opts: readonly (string | number)[], labels?: Record<string, string>) => (
-    <select className="in ss-sel" aria-label={path} value={get(sheet, path) === null ? "" : String(get(sheet, path))} onChange={(e) => edit(path, e.target.value === "" ? null : typeof opts[0] === "number" ? Number(e.target.value) : e.target.value)}>
-      <option value="">—</option>
-      {opts.map((o) => (
-        <option key={String(o)} value={String(o)}>
-          {labels?.[String(o)] ?? String(o)}
-        </option>
-      ))}
-    </select>
-  );
-  const multi = (path: Path, opts: readonly string[], labels: Record<string, string>) => {
-    const cur = (get(sheet, path) as string[]) ?? [];
-    return (
-      <span className="ss-multi">
-        {opts.map((o) => (
-          <label key={o}>
-            <input type="checkbox" checked={cur.includes(o)} onChange={(e) => edit(path, e.target.checked ? [...cur, o] : cur.filter((x) => x !== o))} /> {labels[o] ?? o}
-          </label>
-        ))}
-      </span>
-    );
-  };
-  const tick = (path: Path, label: string) => (
-    <label className="ss-tick">
-      <input type="checkbox" checked={get(sheet, path) === true} onChange={(e) => edit(path, e.target.checked)} /> {label}
-    </label>
-  );
-  const code = (c: string) => <span className={`ss-code${unclear.has(c) ? " unclear" : ""}`} title={unclear.has(c) ? "Not read with confidence: check the photo" : undefined}>{c}</span>;
-  const row = (c: string, label: string, body: React.ReactNode) => (
-    <div className={`ss-row${unclear.has(c) ? " unclear" : ""}`}>
-      <span className="ss-k">
-        {code(c)} {label}
-      </span>
-      <span className="ss-v">{body}</span>
-    </div>
-  );
-
   if (!enabled) {
     return (
       <section className="card">
@@ -204,7 +155,7 @@ export function SiteSheetTab({
     );
   }
 
-  const pieces: NosingPiece[] = Array.from({ length: MAX_NOSINGS }, (_, i) => sheet.nosings[i] ?? { ft: null, type: null, thickness: null, sand: false });
+  const pieces: NosingPiece[] = Array.from({ length: MAX_NOSINGS }, (_, i) => sheet.nosings[i] ?? { ft: null, depth: null, thickness: null, sand: false });
   const runs: RailRun[] = Array.from({ length: MAX_RUNS }, (_, i) => sheet.runs[i] ?? { ft: null, where: null, curved: false, pickets: false, picketFt: null });
   const setRun = (i: number, patch: Partial<RailRun>) => edit("runs", runs.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   const setPiece = (i: number, patch: Partial<(typeof pieces)[number]>) => {
@@ -256,142 +207,37 @@ export function SiteSheetTab({
 
       {stored && (
         <div className="ss-cols">
-          <section className="card ss-photos" aria-label="Photos">
-            <div className="card-h">Photos ({photos.length})</div>
-            <div className="card-b">
-              {photos.length === 0 ? (
-                <p className="faint">No photos on the quote.</p>
-              ) : (
-                photos.map((p) => (
-                  <a key={p.url} href={p.url} target="_blank" rel="noreferrer" title="Open full size">
+          <div className="ss-check" aria-label="What was read, on the sheet">
+            <div className="ss-check-h">
+              <b>What was read</b>, drawn on the sheet: check each page against its photo. Tap a bubble or tick to change it; tap a filled one again to clear it.
+              {sheet.unclear.length > 0 && <span className="ss-unclear-note"> {sheet.unclear.length} marked in yellow to check.</span>}
+            </div>
+            {([1, 2] as const).map((page) => (
+              <div className="ss-pair" key={page}>
+                <div className="ss-shot">
+                  {photos[page - 1] ? (
+                    <a href={photos[page - 1].url} target="_blank" rel="noreferrer" title="Open full size">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={photos[page - 1].url} alt={`Photo ${page}: ${photos[page - 1].name}`} />
+                    </a>
+                  ) : (
+                    <p className="faint">No photo {page} on the quote.</p>
+                  )}
+                </div>
+                <SiteSheetPaper page={page} sheet={sheet} get={(path) => get(sheet, path)} edit={edit} pieces={pieces} runs={runs} setPiece={setPiece} setRun={setRun} unclear={unclear} treadsAddUp={d.treads} />
+              </div>
+            ))}
+            {photos.length > 2 && (
+              <div className="ss-more">
+                {photos.slice(2).map((ph) => (
+                  <a key={ph.url} href={ph.url} target="_blank" rel="noreferrer" title="Open full size">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={p.url} alt={p.name} />
+                    <img src={ph.url} alt={ph.name} />
                   </a>
-                ))
-              )}
-            </div>
-          </section>
-
-          <section className="card ss-fields" aria-label="What was read">
-            <div className="card-h">
-              What was read
-              {sheet.unclear.length > 0 && <span className="right ss-unclear-note">{sheet.unclear.length} to check against the photo</span>}
-            </div>
-            <div className="card-b">
-              <h4>The staircase</h4>
-              {row("Q", "Quote on the sheet", <input className="in" style={{ width: 120 }} value={sheet.quoteNumber ?? ""} onChange={(e) => edit("quoteNumber", e.target.value || null)} />)}
-              {row("A1", "Where", multi("where", WHERE, WHERE_LABEL))}
-              {row("A2", "Main shape", choice("shape", SHAPES))}
-              {row("A3", "On the steps now", choice("onSteps", ON_STEPS))}
-
-              <h4>Treads {code("B1")}–{code("B4")}</h4>
-              <div className="ss-tbl">
-                <table>
-                  <thead>
-                    <tr><th></th><th>36&quot;</th><th>42&quot;</th><th>48&quot;</th><th>Other</th><th>width</th></tr>
-                  </thead>
-                  <tbody>
-                    {TREAD_TYPES.map((t) => (
-                      <tr key={t}>
-                        <th>{TREAD_NAME[t]}</th>
-                        {(["w36", "w42", "w48", "other", "otherWidth"] as const).map((k) => <td key={k}>{num(`treads.${t}.${k}`, `${TREAD_NAME[t]} ${k}`, 52)}</td>)}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                ))}
               </div>
-              {row("B5", "Tread depth (0 = standard 10-5/8\")", num("treadDepth"))}
-              <div className="ss-tbl">
-                <table>
-                  <thead>
-                    <tr><th></th><th>LSO</th><th>RSO</th><th>2 side</th></tr>
-                  </thead>
-                  <tbody>
-                    <tr className={unclear.has("B6") ? "unclear" : ""}>
-                      <th>{code("B6")} Pie</th>
-                      {(["lso", "rso", "two"] as const).map((k) => <td key={k}>{num(`pie.${k}`, `pie ${k}`, 52)}</td>)}
-                    </tr>
-                    <tr className={unclear.has("B8") ? "unclear" : ""}>
-                      <th>{code("B8")} Bullnose</th>
-                      {(["lso", "rso", "two"] as const).map((k) => <td key={k}>{num(`bullnose.${k}`, `bullnose ${k}`, 52)}</td>)}
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              {row("B7", "Pizza sets: how many, 2 side open, pieces", <>{num("pizza.sets", "pizza sets")} {tick("pizza.twoSide", "2 side open")} {choice("pizza.pieces", [2, 3], { "2": "2-pc", "3": "3-pc" })}{d.custom.pizzaSets > 0 && <span className="faint"> custom</span>}</>)}
-              {row("B9", "Total treads", <>{num("totalTreads")} <span className="faint">boxes add up to {d.treads}</span></>)}
-              {row("B10", "Side / half staircase", <>{num("side.steps", "side steps")} steps {choice("side.type", TREAD_TYPES, TREAD_NAME)} {num("side.width", "side width")}&quot;</>)}
-
-              <h4>Landings, half moons, stringers</h4>
-              {row("C1", "Landings 3×3 / 3×6 / other", <>{num("landings.s3x3", "3x3")} {num("landings.s3x6", "3x6")} {num("landings.other", "other")}</>)}
-              {row("C2", "Half moons, nosing ft", <>{num("halfMoons.count", "half moons")} {num("halfMoons.nosingFt", "half moon nosing")} {tick("halfMoons.solid", "solid one-piece")}</>)}
-              {row("D1", "Stringers now", choice("stringers.now", ["White", "Stained", "Other"]))}
-              {row("D2", "Stringers made of", choice("stringers.made", ["Veneer", "Solid", "Don't know"]))}
-
-              <h4>Nosings</h4>
-              {row("E1", "Default: thickness / depth (blank = 4.5\")", <>{tick("nosingDefault.carpet", "carpet on now")} {choice("nosingDefault.thickness", THICKNESSES, THICK_LABEL)} {num("nosingDefault.depth", "nosing depth")}</>)}
-              <div className={`ss-tbl${unclear.has("E2") ? " unclear" : ""}`}>
-                <table>
-                  <thead>
-                    <tr><th>{code("E2")}</th>{pieces.map((_, i) => <th key={i}>{i + 1}</th>)}</tr>
-                  </thead>
-                  <tbody>
-                    <tr><th>Length ft</th>{pieces.map((p, i) => <td key={i}><input className="in ss-num" style={{ width: 46 }} inputMode="decimal" aria-label={`nosing ${i + 1} length`} value={p.ft ?? ""} onChange={(e) => setPiece(i, { ft: e.target.value === "" ? null : (e.target.value as unknown as number) })} /></td>)}</tr>
-                    <tr><th>Depth if diff.</th>{pieces.map((p, i) => <td key={i}><input className="in ss-num" style={{ width: 46 }} inputMode="decimal" aria-label={`nosing ${i + 1} depth`} value={p.depth ?? ""} onChange={(e) => setPiece(i, { depth: e.target.value === "" ? null : (e.target.value as unknown as number) })} /></td>)}</tr>
-                    <tr><th>Thick if diff.</th>{pieces.map((p, i) => (
-                      <td key={i}>
-                        <select className="in ss-sel" aria-label={`nosing ${i + 1} thickness`} value={p.thickness ?? ""} onChange={(e) => setPiece(i, { thickness: (e.target.value || null) as NosingPiece["thickness"] })}>
-                          <option value="">—</option>
-                          {THICKNESSES.filter((t) => t !== "unsure").map((t) => <option key={t} value={t}>{THICK_LABEL[t]}</option>)}
-                        </select>
-                      </td>
-                    ))}</tr>
-                    <tr><th>Sand</th>{pieces.map((p, i) => <td key={i}><input type="checkbox" aria-label={`nosing ${i + 1} sand`} checked={p.sand} onChange={(e) => setPiece(i, { sand: e.target.checked })} /></td>)}</tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <h4>Railing as it is</h4>
-              <div className={`ss-tbl${unclear.has("F1") ? " unclear" : ""}`}>
-                <table>
-                  <thead>
-                    <tr><th>{code("F1")}</th>{runs.map((_, i) => <th key={i}>{i + 1}</th>)}</tr>
-                  </thead>
-                  <tbody>
-                    <tr><th>Length ft</th>{runs.map((x, i) => <td key={i}><input className="in ss-num" style={{ width: 46 }} inputMode="decimal" aria-label={`run ${i + 1} length`} value={x.ft ?? ""} onChange={(e) => setRun(i, { ft: e.target.value === "" ? null : (e.target.value as unknown as number) })} /></td>)}</tr>
-                    <tr><th>Where</th>{runs.map((x, i) => (
-                      <td key={i}>
-                        <select className="in ss-sel" aria-label={`run ${i + 1} where`} value={x.where ?? ""} onChange={(e) => setRun(i, { where: (e.target.value || null) as RailRun["where"] })}>
-                          <option value="">—</option>
-                          <option value="S">steps</option>
-                          <option value="F">flat</option>
-                          <option value="W">wall</option>
-                        </select>
-                      </td>
-                    ))}</tr>
-                    <tr><th>Curved</th>{runs.map((x, i) => <td key={i}><input type="checkbox" aria-label={`run ${i + 1} curved`} checked={x.curved} onChange={(e) => setRun(i, { curved: e.target.checked })} /></td>)}</tr>
-                    <tr><th>Pickets</th>{runs.map((x, i) => <td key={i}><input type="checkbox" aria-label={`run ${i + 1} pickets`} checked={x.pickets} onChange={(e) => setRun(i, { pickets: e.target.checked })} /></td>)}</tr>
-                    <tr><th>…or ft</th>{runs.map((x, i) => <td key={i}><input className="in ss-num" style={{ width: 46 }} inputMode="decimal" aria-label={`run ${i + 1} picket feet`} value={x.picketFt ?? ""} onChange={(e) => setRun(i, { picketFt: e.target.value === "" ? null : (e.target.value as unknown as number) })} /></td>)}</tr>
-                  </tbody>
-                </table>
-              </div>
-              {row("F2", "Metal bar under the handrail", <>{tick("metalBar", "yes")} <span className="faint">brackets worked out: {d.brackets}</span></>)}
-              {row("F2", "Spindles counted (optional): steps / flat top", <>{num("spindles.onSteps", "on steps")} {num("spindles.flatTop", "flat top")}</>)}
-              {row("F3", "Picket heights (optional) 36 / 39 / 42", <>{num("heights.h36", "36")} {num("heights.h39", "39")} {num("heights.h42", "42")}</>)}
-              {row("F4", "Posts there now / to add", <>{num("posts.now", "posts now")} {num("posts.add", "posts to add")}</>)}
-
-              <h4>What the customer wants</h4>
-              {row("G1", "Treads", <>{multi("want.treads", WANT_TREADS, WANT_LABEL)} {tick("want.squareBullnose", "square off bullnose")}</>)}
-              {row("G2", "Riser colour", choice("want.riser", ["white", "stain", "unsure"]))}
-              {row("G3", "Stringer colour", choice("want.stringer", ["white", "stain", "unsure"]))}
-              {row("G4", "Stain colour", <><input className="in" style={{ width: 160 }} value={sheet.want.stain ?? ""} onChange={(e) => edit("want.stain", e.target.value || null)} /> {tick("want.matchFloors", "match floors")}</>)}
-              {row("G5", "Handrail, add wall rail ft", <>{choice("want.handrail", ["refinish", "new"])} {num("want.wallRailFt", "wall rail ft")}</>)}
-              {row("G6", "Spindles", choice("want.spindles", ["keep", "iron", "wood"]))}
-              {row("G7", "Posts", choice("want.posts", ["keep", "refinish", "new"]))}
-              {row("G8", "Covers", choice("want.covers", ["main", "both"]))}
-              {row("N1", "Notes", <textarea className="in" rows={3} value={sheet.notes ?? ""} onChange={(e) => edit("notes", e.target.value || null)} />)}
-            </div>
-          </section>
+            )}
+          </div>
 
           <section className="card ss-result" aria-label="What it comes to">
             <div className="card-h">What it comes to</div>
