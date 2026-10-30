@@ -283,6 +283,9 @@ export type AddressScanResult =
 
 /* ---------- sending a quote (src/lib/quotes/send.ts) ---------- */
 
+/** Sending a sent quote's link again (2026-10-30). */
+export type ResendResult = { ok: true; sentTo: string[]; pdf: boolean; warning: string | null } | { ok: false; message: string; problems?: string[] };
+
 export type SendResult =
   | { ok: true; link: string; sentTo: string[]; warning: string | null }
   | { ok: false; message: string; problems?: string[] };

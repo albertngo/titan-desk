@@ -553,6 +553,7 @@ a.chip.accent:hover { text-decoration: underline; }
 .sq-msg ul { margin: 4px 0 0; padding-left: 18px; }
 .sq-msg.warn { background: var(--warn-soft); color: var(--warn); }
 .sq-msg.bad { background: var(--bad-soft); color: var(--bad); }
+.sq-msg.ok { background: var(--good-soft); color: var(--good); }
 .sq-ch { border: 0; padding: 0; margin: 0; display: grid; gap: 6px; }
 .sq-ch label { display: flex; gap: 10px; align-items: flex-start; padding: 9px 10px; border: 1px solid var(--line); border-radius: var(--radius); cursor: pointer; font-size: 13px; transition: border-color .15s, background .15s; }
 .sq-ch label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
@@ -1063,3 +1064,11 @@ a.chip.accent:hover { text-decoration: underline; }
 .ss-opt ul { margin: 6px 0 0; padding-left: 18px; font-size: 12px; color: var(--fg-dim); display: grid; gap: 2px; }
 .ss-drop { font-size: 12.5px; color: var(--fg-dim); margin: 4px 0 8px; }
 .ss-acts { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 6px; }
+
+/* Send again (2026-10-30) */
+.sq-again { margin-top: 10px; display: grid; gap: 8px; justify-items: start; }
+.sq-again.open { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; justify-items: stretch; }
+.sq-again-h { margin: 0; font-size: 13px; font-weight: 600; }
+.sq-again .sq-tick { display: flex; gap: 6px; align-items: baseline; font-size: 13px; flex-wrap: wrap; }
+.sq-again-acts { display: flex; gap: 8px; }
+.sq-again-note { margin: 0; font-size: 12px; }
