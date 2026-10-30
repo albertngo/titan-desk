@@ -518,6 +518,16 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   points at it, and GHL's value follows the new total with HST (`buildContract()`). The Project
   Expectations are to say (Albert rewords the doc before go-live) that a change agreed in person or by
   phone is confirmed by this updated quote.
+  **Swap option (Albert, 2026-10-30: "sent for record is fine, accepted version only").** A customer who
+  changes their mind about which option they took (the other stairs) gets it as a change: on a draft change
+  the editor offers the accepted version's other options of the same scope as a pick (`swapSource()`, found
+  by following Supersedes back to the acceptance, `acceptedVersionOf()` in `load.ts`), included lines only.
+  The change's lines that came from that pick are ticked to come out (matched by section and wording,
+  `swapMatches()`; staff untick or tick), the new option's lines come in as new lines at the prices quoted,
+  in place (`swapOption()`), and the option takes the new name, or the new pick's part of a joined name. A
+  final payment that would go below nothing is shown before the swap (`swapPreview()`) and still refused at
+  send. Nothing new for the customer: the What changed box lists the lines out and in. Rules in
+  `src/lib/change/swap.ts`; screen `src/components/editor/SwapOption.tsx`.
   Tested in `tests/change.test.ts`.
 - **Invoices and receipts (Albert, 2026-10-30).** One numbered document per won project, on its contract
   version (the accepted one or its latest change): an **invoice** (INV-82571, INV-82572…) when the contract charges

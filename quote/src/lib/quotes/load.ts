@@ -238,6 +238,7 @@ export async function getQuote(id: string): Promise<Quote | null> {
     acceptance: parseAcceptance(str(f[VERSION.acceptance])),
     changeNo: num(f[VERSION.changeNo]),
     fromVersion: source[0] ? num(source[0].fields[VERSION.version]) : null,
+    fromVersionId: sourceId ?? null,
     validUntil: str(f[VERSION.validUntil]),
     sentAt: str(f[VERSION.sentAt]),
     sendBlock: str(f[VERSION.sendBlock]),
@@ -305,6 +306,21 @@ async function loadProfiles(): Promise<StairProfileRow[]> {
 }
 
 /** The preliminary's staircase dropdown. Costs included: quoters only; the page strips them before the browser. */
+/**
+ * The accepted version a change goes back to (Swap option, 2026-10-30): Supersedes, followed back
+ * through earlier changes to the version that carries the acceptance. Null when there is none.
+ */
+export async function acceptedVersionOf(q: Quote): Promise<Quote | null> {
+  await requireQuoter();
+  let at: Quote | null = q;
+  for (let hop = 0; at && hop < 12; hop++) {
+    if (at.acceptance && !at.acceptance.cancelled) return at;
+    if (!at.changeNo || !at.fromVersionId) return null;
+    at = await getQuote(at.fromVersionId);
+  }
+  return null;
+}
+
 export async function getStairProfiles(): Promise<StairProfileRow[]> {
   await requireQuoter();
   return loadProfiles();

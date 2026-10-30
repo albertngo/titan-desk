@@ -47,6 +47,8 @@ import type { RateCard } from "@/lib/quotes/types";
 import { optionScope, scopeGroups } from "@/lib/quotes/scope";
 import { Picker } from "./Picker";
 import { ScheduleEditor } from "./ScheduleEditor";
+import { SwapOption } from "./SwapOption";
+import type { SwapSource } from "@/lib/change/swap";
 import { defaultSchedule, suggestsMaterialDeposit } from "@/lib/pricing/schedule";
 import { levelApplies, levelOf, PREMIUM_MARKUP, SERVICE_LEVELS } from "@/lib/pricing/service";
 
@@ -130,6 +132,7 @@ export default function Editor({
   backHref,
   version,
   customer,
+  swap = null,
 }: {
   initial: EditorQuote;
   card: RateCard;
@@ -137,6 +140,8 @@ export default function Editor({
   version: EditorVersion;
   /** Customer view: no cost, margin, contractor, card rate or flags on screen. */
   customer: boolean;
+  /** Swap option (2026-10-30): on a draft change, the accepted version's other options; null otherwise. */
+  swap?: SwapSource | null;
 }) {
   const key = draftKey(initial);
   const [boot] = useState(() => loadDraft(key));
@@ -425,6 +430,10 @@ export default function Editor({
 
       <div className={`layout${option && t ? "" : " full"}`}>
         <div className="stack">
+          {/* Swap option (2026-10-30): the customer changed their mind on which option; sent for record like any change. */}
+          {isDraft && version.change && swap && option && (
+            <SwapOption source={swap} quote={quote} option={option} contractTotal={version.change.contractTotal} apply={apply} />
+          )}
           <section className="card">
             <div className="card-h">Customer and terms</div>
             <div className="card-b form">

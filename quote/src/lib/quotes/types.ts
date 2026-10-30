@@ -113,6 +113,8 @@ export type Quote = {
   changeNo?: number | null;
   /** Quote Versions → Supersedes, resolved (2026-10-28): the version number this one was made from; null for v1. */
   fromVersion?: number | null;
+  /** Quote Versions → Supersedes (2026-10-30): the id of the version this one was made from; null for v1. */
+  fromVersionId?: string | null;
   validUntil: string | null;
   sentAt: string | null;
   /** Sending: Airtable's own reason this version must not be sent (a measured version exists), if any. */
