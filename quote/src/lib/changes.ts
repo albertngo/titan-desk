@@ -22,6 +22,16 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-10-30",
+    kind: "changed",
+    title: "Accepted quote, easier to read",
+    details: [
+      "The Accepted card on a quote page is now in sections: Price (before HST, HST, total), Payments (the deposit highlighted, each payment with when it is due), Project Expectations, Hand-off and Links.",
+      "Each link (GHL, Notion, CompanyCam, the customer's page) is on its own line.",
+      "The option tabs on an accepted quote mark the option the customer took with a green \"Accepted\" badge (one per kind, when they took flooring and stairs).",
+    ],
+  },
+  {
+    date: "2026-10-30",
     kind: "new",
     title: "Swap option on a change",
     details: [

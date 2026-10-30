@@ -201,39 +201,64 @@ export function AcceptedCard({
         </p>
         {a.reason && <p className="faint">{a.reason}</p>}
         {a.addOns.length > 0 && <p>Added: {a.addOns.map((x) => `${x.description} (${money(x.amount)})`).join(", ")}</p>}
-        <dl className="acc-dl">
-          <div><dt>Price before HST</dt><dd>{money(a.totals.subtotal)}</dd></div>
-          <div><dt>Total with HST</dt><dd>{money(a.totals.total)}</dd></div>
-          {a.stages.map((s, i) => (
-            <div key={i}><dt>{s.label}</dt><dd>{money(s.amount)}</dd></div>
-          ))}
-          <div><dt>Project Expectations</dt><dd>{termsLabel(a.terms)}</dd></div>
-        </dl>
-        {a.signature && (
-          <svg className="acc-sig" viewBox="0 0 1000 300" role="img" aria-label={`${a.name}'s signature`}>
-            <path d={a.signature} fill="none" stroke="currentColor" strokeWidth={4} strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+        <div className="acc-grp">
+          <h4>Price</h4>
+          <dl className="acc-dl">
+            <div><dt>Price before HST</dt><dd>{money(a.totals.subtotal)}</dd></div>
+            <div><dt>HST</dt><dd>{money(a.totals.hst)}</dd></div>
+            <div className="tot"><dt>Total with HST</dt><dd>{money(a.totals.total)}</dd></div>
+          </dl>
+        </div>
+        {a.stages.length > 0 && (
+          <div className="acc-grp">
+            <h4>Payments</h4>
+            <dl className="acc-dl">
+              {a.stages.map((s, i) => (
+                <div key={i} className={i === 0 ? "dep" : undefined}>
+                  <dt>
+                    {s.label}
+                    {s.when && <span className="when">{s.when}</span>}
+                  </dt>
+                  <dd>{money(s.amount)}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
         )}
+        <div className="acc-grp">
+          <h4>Project Expectations</h4>
+          <p className="acc-line">{termsLabel(a.terms)}</p>
+          {a.signature && (
+            <svg className="acc-sig" viewBox="0 0 1000 300" role="img" aria-label={`${a.name}'s signature`}>
+              <path d={a.signature} fill="none" stroke="currentColor" strokeWidth={4} strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
+        </div>
         {a.cancelled ? (
           <p className="banner warn">Cancelled by {a.cancelled.by}: {a.cancelled.reason}</p>
         ) : (
-          <ul className="handoff">
-            <li className={h?.ghl === "done" ? "good" : "warn"}>{h?.ghl === "done" ? "GHL: Project Won" : `GHL not moved yet${h?.ghlMessage ? `: ${h.ghlMessage}` : ""}`}</li>
-            <li className={projectNumber ? "good" : "faint"}>{projectNumber ? `Notion project ${projectNumber}` : "Notion project: waiting for its PP number"}</li>
-            <li className={h?.told.length ? "good" : "warn"}>{h?.told.length ? `Customer told by ${h.told.join(" and ").toLowerCase()}` : "Customer not told yet"}{h?.tellFailed ? ` (${h.tellFailed})` : ""}</li>
-          </ul>
+          <div className="acc-grp">
+            <h4>Hand-off</h4>
+            <ul className="handoff">
+              <li className={h?.ghl === "done" ? "good" : "warn"}>{h?.ghl === "done" ? "GHL: Project Won" : `GHL not moved yet${h?.ghlMessage ? `: ${h.ghlMessage}` : ""}`}</li>
+              <li className={projectNumber ? "good" : "faint"}>{projectNumber ? `Notion project ${projectNumber}` : "Notion project: waiting for its PP number"}</li>
+              <li className={h?.told.length ? "good" : "warn"}>{h?.told.length ? `Customer told by ${h.told.join(" and ").toLowerCase()}` : "Customer not told yet"}{h?.tellFailed ? ` (${h.tellFailed})` : ""}</li>
+            </ul>
+          </div>
         )}
         {links.length > 0 && (
-          <p className="acc-links">
-            {links.map((l, i) => (
-              <span key={l.href}>
-                {i > 0 && " · "}
-                <a href={l.href} target="_blank" rel="noreferrer">
-                  {l.label} ↗
-                </a>
-              </span>
-            ))}
-          </p>
+          <div className="acc-grp">
+            <h4>Links</h4>
+            <ul className="acc-links">
+              {links.map((l) => (
+                <li key={l.href}>
+                  <a href={l.href} target="_blank" rel="noreferrer">
+                    {l.label} ↗
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
         {!a.cancelled && current && (
           <p className="acc-actions">

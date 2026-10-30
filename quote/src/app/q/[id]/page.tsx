@@ -30,7 +30,7 @@ import { customerView } from "@/lib/view";
 import { fromQuote } from "@/lib/editor/model";
 import { fingerprint } from "@/lib/quotes/savePlan";
 import { previewCopy, sendingReady, sendsFrom, sentLink } from "@/lib/quotes/send";
-import { acceptedWhen, addOnsOf } from "@/lib/accept/plan";
+import { acceptedWhen, addOnsOf, picksOf } from "@/lib/accept/plan";
 import { acceptReadiness } from "@/lib/accept/staff";
 import { termsLabel } from "@/lib/accept/terms";
 import { ghlOpportunityUrl } from "@/lib/ghl/ids";
@@ -70,6 +70,8 @@ export default async function QuotePage({
   const unlinked = quote.link && !quote.link.ghlOpportunityId ? quote.link : null;
   // The accepted quote has no Edit (2026-10-30): it changes only through Make a change, as the editor says.
   const agreed = Boolean(quote.acceptance && !quote.acceptance.cancelled);
+  // The option tabs mark what the customer took (2026-10-30), one per scope at most.
+  const acceptedIds = new Set(agreed && quote.acceptance ? picksOf(quote.acceptance).flatMap((p) => (p.ref ? [p.ref] : [])) : []);
   const jobs = unlinked ? await jobChoices(unlinked.quoteRecordId) : null;
 
   // Sending (milestone 4): what would stop it, decided by the same check the send runs.
@@ -248,10 +250,11 @@ export default async function QuotePage({
                     {g.options.map((o) => (
                       <Link
                         key={o.id}
-                        className="tab"
+                        className={acceptedIds.has(o.id) ? "tab accepted" : "tab"}
                         href={`/q/${quote.id}?opt=${o.id}`}
                         aria-current={option?.id === o.id ? "page" : undefined}
                       >
+                        {acceptedIds.has(o.id) && <span className="t-acc">✓ Accepted</span>}
                         {o.name}
                         <span className="t-amt">{money(optionTotals(o.lines, quote.discountRate, quote.showHst).total)}</span>
                       </Link>
