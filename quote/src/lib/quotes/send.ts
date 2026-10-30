@@ -11,7 +11,7 @@ import { acceptedCopy, parseAcceptance } from "@/lib/accept/plan";
 import { changeSummary } from "@/lib/change/diff";
 import { buildContract } from "@/lib/link/ghlRequest";
 import { makeConfigured, sendMessage, sendToGhl, setFollowUpTags } from "@/lib/make/client";
-import { COPY_MAX_CHARS, customerCopy, offersPdf, parseCopy, pdfName, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "@/lib/send/copy";
+import { acceptedPdfName, COPY_MAX_CHARS, customerCopy, offersPdf, parseCopy, pdfName, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "@/lib/send/copy";
 import { changeEmailMessage, changeSmsMessage, chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, isToken, newToken, parseOptionIds, parseResend, resendEmailMessage, resendProblems, resendSmsMessage, sendProblems, smsMessage, type Channels, type Sender } from "@/lib/send/plan";
 import { authorFields, firstNameOf, type Person } from "./history";
 import { getQuote } from "./load";
@@ -316,20 +316,24 @@ export async function resendQuote(versionId: string, raw: unknown): Promise<Rese
   const problems = resendProblems(quote, input, { email: quote.link?.email ?? null, phone: quote.link?.phone ?? null }, today);
   if (problems.length) return { ok: false, message: "Not sent.", problems };
   const contactId = quote.link?.ghlContactId;
-  const stored = await listByIds(T.versions, [quote.id], [VERSION.customerCopy]);
+  const stored = await listByIds(T.versions, [quote.id], [VERSION.customerCopy, VERSION.acceptance]);
   const frozen = parseCopy(str(stored[0]?.fields[VERSION.customerCopy]));
   if (!frozen || !isToken(quote.customerToken) || !contactId) return { ok: false, message: "This version's sent copy or link couldn't be read, so it can't be sent again. Send a new version instead." };
+  // An accepted or won quote (2026-10-30): its link shows the accepted copy and its signed PDF is always there, so nothing is switched on.
+  const accepted = quote.status === "Accepted" || quote.status === "Won";
+  const a = accepted ? parseAcceptance(str(stored[0]?.fields[VERSION.acceptance])) : null;
+  if (accepted && (!a || a.cancelled)) return { ok: false, message: "This version's acceptance couldn't be read, so it can't be sent again." };
 
   const notes: string[] = [];
   let copy = frozen;
   let turnedOn = false;
-  if (input.pdf && !offersPdf(frozen)) {
+  if (!accepted && input.pdf && !offersPdf(frozen)) {
     copy = { ...frozen, pdf: true };
     await updateRecord(T.versions, quote.id, { [VERSION.customerCopy]: serializeCopy(copy) });
     turnedOn = true;
   }
-  const { link, pdfUrl } = customerLinks(base, quote.customerToken, pdfName(copy));
-  const to = { contactId, firstName: quote.link?.firstName ?? null, link, pdfUrl: input.pdf ? pdfUrl : null };
+  const { link, pdfUrl } = customerLinks(base, quote.customerToken, accepted ? acceptedPdfName(copy) : pdfName(copy));
+  const to = { contactId, firstName: quote.link?.firstName ?? null, link, pdfUrl: input.pdf ? pdfUrl : null, accepted };
   const from = senderOf(person);
   const sentTo: string[] = [];
   const failed: string[] = [];

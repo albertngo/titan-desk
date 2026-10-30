@@ -878,7 +878,11 @@ describe("send again (2026-10-30)", () => {
   it("only a version still out with the customer goes again, by a channel the contact has", () => {
     expect(resendProblems({ status: "Sent", validUntil: "2026-11-30" }, both, contact, today)).toEqual([]);
     expect(resendProblems({ status: "Sent", validUntil: null }, both, contact, today)).toEqual([]);
-    expect(resendProblems({ status: "Draft", validUntil: null }, both, contact, today)[0]).toMatch(/Sent/);
+    expect(resendProblems({ status: "Draft", validUntil: null }, both, contact, today)[0]).toMatch(/Sent|out with/);
+    // Accepted and won quotes go again too (2026-10-30), whatever their good-until date.
+    expect(resendProblems({ status: "Accepted", validUntil: "2026-10-01" }, both, contact, today)).toEqual([]);
+    expect(resendProblems({ status: "Won", validUntil: null }, both, contact, today)).toEqual([]);
+    expect(resendProblems({ status: "Lost", validUntil: null }, both, contact, today)).toHaveLength(1);
     expect(resendProblems({ status: "Superseded", validUntil: null }, both, contact, today)).toHaveLength(1);
     expect(resendProblems({ status: "Sent", validUntil: "2026-10-29" }, both, contact, today)[0]).toMatch(/good-until/);
     expect(resendProblems({ status: "Sent", validUntil: null }, { channels: { email: false, sms: false }, pdf: false }, contact, today)[0]).toMatch(/Choose/);
@@ -905,5 +909,12 @@ describe("send again (2026-10-30)", () => {
     const t = resendSmsMessage(copy, to, sender);
     expect(t.type === "SMS" && t.message).toMatch(/again:\n/);
     expect(t.type === "SMS" && /^[\x20-\x7E\n]*$/.test(t.message)).toBe(true);
+  });
+
+  it("an accepted quote says so", () => {
+    const e = resendEmailMessage(copy, { ...to, pdfUrl: `${to.link}/x-accepted.pdf`, accepted: true }, sender);
+    expect(e.type === "Email" && e.subject).toMatch(/accepted quote .* as a PDF/);
+    const t = resendSmsMessage(copy, { ...to, pdfUrl: `${to.link}/x-accepted.pdf`, accepted: true }, sender);
+    expect(t.type === "SMS" && t.message).toMatch(/PDF of your accepted quote/);
   });
 });
