@@ -21,6 +21,12 @@ export type Change = {
 
 export const CHANGES: Change[] = [
   {
+    date: "2026-10-30",
+    kind: "changed",
+    title: "Option tabs split into Flooring and Stairs",
+    details: ["When a quote has both, the option tabs on the quote page and in the editor are grouped: Flooring first, then Stairs, each under its own small heading with a line between them."],
+  },
+  {
     date: "2026-10-29",
     kind: "changed",
     title: "Site sheet: bigger numbers on the sheet copy",

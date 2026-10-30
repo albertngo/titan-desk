@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Fragment } from "react";
 import { notFound } from "next/navigation";
 import { AcceptedCard, AcceptForCustomer, ChangeCard } from "@/components/AcceptStaff";
 import { AddressScan } from "@/components/AddressScan";
@@ -17,6 +18,7 @@ import { requireQuoter } from "@/lib/auth";
 import { optionTotals, parityDiffs } from "@/lib/calc";
 import { money } from "@/lib/format";
 import { jobChoices } from "@/lib/quotes/link";
+import { scopeGroups } from "@/lib/quotes/scope";
 import { fromWords } from "@/lib/quotes/group";
 import { getQuote, getRateCard } from "@/lib/quotes/load";
 import { sheetReaderOn } from "@/lib/quotes/sitesheet";
@@ -58,6 +60,7 @@ export default async function QuotePage({
   // The Site sheet tab (2026-10-28): staff only, like Rooms.
   const showSheet = opt === "sheet" && !customer;
   const option = showAnalysis || showRooms || showSheet ? null : (quote.options.find((o) => o.id === opt) ?? quote.options[0] ?? null);
+  const tabGroups = scopeGroups(quote.options);
   const totals = option ? optionTotals(option.lines, quote.discountRate, quote.showHst) : null;
   const madeFrom = fromWords(quote.changeNo, quote.fromVersion);
   const airtableUrl = airtableRecordUrl(T.versions, quote.id);
@@ -224,17 +227,24 @@ export default async function QuotePage({
 
             {(quote.options.length > 0 || !customer) && (
               <nav className="tabs" aria-label="Options">
-                {quote.options.map((o) => (
-                  <Link
-                    key={o.id}
-                    className="tab"
-                    href={`/q/${quote.id}?opt=${o.id}`}
-                    aria-current={option?.id === o.id ? "page" : undefined}
-                  >
-                    {o.name}
-                    <span className="t-amt">{money(optionTotals(o.lines, quote.discountRate, quote.showHst).total)}</span>
-                  </Link>
+                {tabGroups.groups.map((g, i) => (
+                  <Fragment key={g.scope}>
+                    {i > 0 && <span className="tab-sep" aria-hidden />}
+                    {tabGroups.split && <span className="tab-scope">{g.scope}</span>}
+                    {g.options.map((o) => (
+                      <Link
+                        key={o.id}
+                        className="tab"
+                        href={`/q/${quote.id}?opt=${o.id}`}
+                        aria-current={option?.id === o.id ? "page" : undefined}
+                      >
+                        {o.name}
+                        <span className="t-amt">{money(optionTotals(o.lines, quote.discountRate, quote.showHst).total)}</span>
+                      </Link>
+                    ))}
+                  </Fragment>
                 ))}
+                {quote.options.length > 0 && !customer && <span className="tab-sep" aria-hidden />}
                 {!customer && (
                   <Link className="tab rooms" href={`/q/${quote.id}?opt=rooms`} aria-current={showRooms ? "page" : undefined}>
                     Rooms

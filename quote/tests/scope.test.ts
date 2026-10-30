@@ -3,7 +3,7 @@ import { acceptedCopy, acceptProblems, addOnsOf, buildAcceptance, picksOf, type 
 import type { Terms } from "../src/lib/accept/terms";
 import { optionTotals, round2 } from "../src/lib/calc";
 import { fromQuote, updateOption } from "../src/lib/editor/model";
-import { optionScope } from "../src/lib/quotes/scope";
+import { optionScope, scopeGroups } from "../src/lib/quotes/scope";
 import type { Quote, QuoteLine, QuoteOption } from "../src/lib/quotes/types";
 import { customerCopy, isSplit, scopeLeads, scopesOf, type Letterhead } from "../src/lib/send/copy";
 import { emailMessage, smsMessage, type GhlMessage } from "../src/lib/send/plan";
@@ -184,5 +184,18 @@ describe("each scope's price on its own", () => {
       { scope: "Stairs", count: 1, phrase: `$${c.options[2].totals.subtotal} + HST` },
     ]);
     expect(body(smsMessage(c, TO))).toMatch(/Your quote is ready: flooring from .*, stairs .*, good until/);
+  });
+});
+
+describe("scopeGroups (2026-10-30: Flooring | Stairs tabs)", () => {
+  const o = (id: string, scope: "Flooring" | "Stairs") => ({ id, name: id, scope, lines: [] as QuoteLine[] });
+  it("puts flooring first, then stairs, each in its own order", () => {
+    const g = scopeGroups([o("s1", "Stairs"), o("f1", "Flooring"), o("s2", "Stairs"), o("f2", "Flooring")]);
+    expect(g.split).toBe(true);
+    expect(g.groups.map((x) => [x.scope, x.options.map((y) => y.id)])).toEqual([["Flooring", ["f1", "f2"]], ["Stairs", ["s1", "s2"]]]);
+  });
+  it("is not split when every option is one scope", () => {
+    expect(scopeGroups([o("a", "Stairs"), o("b", "Stairs")]).split).toBe(false);
+    expect(scopeGroups([]).groups).toEqual([]);
   });
 });
