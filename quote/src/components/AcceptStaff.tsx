@@ -6,7 +6,7 @@ import { acceptForCustomerAction, cancelAcceptanceAction, makeChangeAction, retr
 import type { Acceptance } from "@/lib/accept/plan";
 import { termsLabel } from "@/lib/accept/terms";
 import { money } from "@/lib/format";
-import type { Scope } from "@/lib/quotes/types";
+import { partKeys, partWords } from "@/lib/send/copy";
 
 /**
  * Acceptance on the staff quote page (Albert, 2026-10-27). Two cards:
@@ -17,7 +17,7 @@ import type { Scope } from "@/lib/quotes/types";
  *   change and Cancel acceptance.
  */
 
-export type StaffAcceptOption = { index: number; name: string; subtotal: number; scope: Scope; addOns: { key: string; description: string; amount: number }[] };
+export type StaffAcceptOption = { index: number; name: string; subtotal: number; part: string; addOns: { key: string; description: string; amount: number }[] };
 
 export function AcceptForCustomer({
   versionId,
@@ -39,8 +39,8 @@ export function AcceptForCustomer({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  // One option of each scope (2026-10-28); a scope with one option starts chosen only when it's the quote's only scope.
-  const scopes = (["Flooring", "Stairs"] as Scope[]).filter((sc) => options.some((x) => x.scope === sc));
+  // One option per Part (2026-10-30; per scope before then); nothing starts chosen unless there is one option.
+  const parts = partKeys(options);
   const [picks, setPicks] = useState<number[]>(options.length === 1 ? [0] : []);
   const [ticked, setTicked] = useState<string[]>([]);
   const [name, setName] = useState(customerName ?? "");
@@ -49,8 +49,8 @@ export function AcceptForCustomer({
   const [busy, start] = useTransition();
   const [msg, setMsg] = useState<{ text: string; bad: boolean; problems?: string[] } | null>(null);
   const chosen = options.filter((x) => picks.includes(x.index));
-  const choose = (scope: Scope, index: number) => {
-    const next = [...options.filter((x) => x.scope !== scope && picks.includes(x.index)).map((x) => x.index), ...(index >= 0 ? [index] : [])];
+  const choose = (part: string, index: number) => {
+    const next = [...options.filter((x) => x.part !== part && picks.includes(x.index)).map((x) => x.index), ...(index >= 0 ? [index] : [])];
     setPicks(next);
     setTicked(ticked.filter((k) => next.some((i) => k.startsWith(`${i}.`))));
   };
@@ -91,13 +91,13 @@ export function AcceptForCustomer({
               <div className="form acc-form">
                 <p className="faint">For a yes in writing that didn&apos;t come through their link: a signed paper, an email. Say where it is.</p>
                 {options.length > 1 &&
-                  scopes.map((scope) => (
-                    <label key={scope}>
-                      {scopes.length > 1 ? `${scope} option` : "Option"}
-                      <select value={options.find((x) => x.scope === scope && picks.includes(x.index))?.index ?? -1} onChange={(e) => choose(scope, Number(e.target.value))}>
-                        <option value={-1}>{scopes.length > 1 ? `No ${scope.toLowerCase()}` : "Choose…"}</option>
+                  parts.map((part) => (
+                    <label key={part}>
+                      {parts.length > 1 ? partWords(part).label : "Option"}
+                      <select value={options.find((x) => x.part === part && picks.includes(x.index))?.index ?? -1} onChange={(e) => choose(part, Number(e.target.value))}>
+                        <option value={-1}>{parts.length > 1 ? partWords(part).none : "Choose…"}</option>
                         {options
-                          .filter((x) => x.scope === scope)
+                          .filter((x) => x.part === part)
                           .map((x) => (
                             <option key={x.index} value={x.index}>
                               Option {x.index + 1}: {x.name} · {money(x.subtotal)} before HST

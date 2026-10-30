@@ -44,7 +44,7 @@ import { ghlContactUrl } from "@/lib/ghl/ids";
 import { fixAddressLink } from "@/lib/link/linkJob";
 import { money, pct, rate } from "@/lib/format";
 import type { RateCard } from "@/lib/quotes/types";
-import { optionScope, scopeGroups } from "@/lib/quotes/scope";
+import { optionScope, PARTS, partValue, scopeGroups } from "@/lib/quotes/scope";
 import { Picker } from "./Picker";
 import { ScheduleEditor } from "./ScheduleEditor";
 import { SwapOption } from "./SwapOption";
@@ -496,7 +496,8 @@ export default function Editor({
                 {i > 0 && <span className="tab-sep" aria-hidden />}
                 {all.length > 1 && <span className="tab-scope">{g.scope}</span>}
                 {g.options.map((o) => (
-                  <button key={o.id} className="tab" aria-current={option?.id === o.id ? "page" : undefined} onClick={() => setActiveId(o.id)}>
+                  <button key={o.id} className={o.notOffered ? "tab off" : "tab"} aria-current={option?.id === o.id ? "page" : undefined} onClick={() => setActiveId(o.id)} title={o.notOffered ? "Not offered: left off what the customer is sent" : undefined}>
+                    {o.part && <span className="t-part">{o.part}</span>}
                     {o.name || "Untitled"}
                     <span className="t-amt">{money(optionTotals(o.lines, quote.discountRate, quote.showHst).total)}</span>
                   </button>
@@ -550,6 +551,27 @@ export default function Editor({
                         <option value="Flooring">Flooring</option>
                         <option value="Stairs">Stairs</option>
                       </select>
+                    </label>
+                    {/* The part of the home (2026-10-30): options in one Part are alternatives; the customer takes one per Part. */}
+                    <label className="check-in" title="Options in one Part are alternatives: the customer takes one per Part. Say exactly what it covers in the description.">
+                      Part{" "}
+                      <select
+                        className="in"
+                        aria-label="Part"
+                        value={option.part ?? ""}
+                        onChange={(e) => apply(updateOption(quote, option.id, { part: partValue(e.target.value) }))}
+                      >
+                        <option value="">None ({optionScope({ ...option, part: null })})</option>
+                        {PARTS.map((p) => (
+                          <option key={p.part} value={p.part}>
+                            {p.part}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {/* Kept on the quote, left off what the customer is sent (2026-10-30). */}
+                    <label className="check-in" title="Kept on the quote but left off what the customer is sent. Untick to offer it again.">
+                      <input type="checkbox" checked={option.notOffered === true} onChange={(e) => apply(updateOption(quote, option.id, { notOffered: e.target.checked }))} /> Not offered
                     </label>
                     {!customer && (
                       <div className="lvl" role="radiogroup" aria-label="Service level">

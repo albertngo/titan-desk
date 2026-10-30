@@ -1,7 +1,7 @@
 import { acceptedTotals, restageAmounts, round2, type AcceptedTotals } from "@/lib/calc";
 import { defaultSchedule } from "@/lib/pricing/schedule";
-import type { Scope } from "@/lib/quotes/types";
-import { scopeOf, stagesOf, type CopyItem, type CopyOption, type CopyStage, type CopyState, type CopyTotals, type CustomerCopy } from "@/lib/send/copy";
+import type { Part, Scope } from "@/lib/quotes/types";
+import { partOf, scopeOf, stagesOf, type CopyItem, type CopyOption, type CopyStage, type CopyState, type CopyTotals, type CustomerCopy } from "@/lib/send/copy";
 import { contractView, fromAcceptance } from "@/lib/contract/model";
 import type { Terms } from "./terms";
 
@@ -32,7 +32,7 @@ export type AcceptMethod = "link" | "store" | "staff";
 export type AcceptedAddOn = { key: string; description: string; amount: number };
 
 /** One option the customer took (2026-10-28): its place in the copy, its name, its Quote Options record and its scope. */
-export type AcceptedPick = { index: number; name: string; ref: string | null; scope: Scope };
+export type AcceptedPick = { index: number; name: string; ref: string | null; scope: Scope; part?: Part };
 
 /** What happened after the yes, kept on the record so staff can see it and retry: GHL Won, and the messages. */
 export type Handoff = { at: string; ghl: "done" | "failed" | "off"; ghlMessage: string | null; told: string[]; tellFailed: string | null };
@@ -68,7 +68,7 @@ export type Acceptance = {
 };
 
 export type AcceptInput = {
-  /** The options taken, at most one of each scope (2026-10-28). */
+  /** The options taken, at most one per Part (2026-10-30; one of each scope before then). */
   optionIndexes: number[];
   addOns: string[];
   name: string;
@@ -89,7 +89,7 @@ export function readAcceptInput(raw: unknown): AcceptInput | null {
   const r = raw as Record<string, unknown>;
   const whole = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v >= 0 && v < 1000;
   // `optionIndex` is what a page opened before 2026-10-28 sends: one option.
-  const optionIndexes = Array.isArray(r.optionIndexes) ? [...new Set(r.optionIndexes.filter(whole))].slice(0, 2) : whole(r.optionIndex) ? [r.optionIndex] : [];
+  const optionIndexes = Array.isArray(r.optionIndexes) ? [...new Set(r.optionIndexes.filter(whole))].slice(0, PART_LIMIT) : whole(r.optionIndex) ? [r.optionIndex] : [];
   if (optionIndexes.length === 0) return null;
   // "option.section.line"; an older page's "section.line" belongs to its one option.
   const addOns = Array.isArray(r.addOns)
@@ -115,11 +115,15 @@ export function addOnsOf(copy: Pick<CustomerCopy, "showHst" | "options">, index:
   );
 }
 
-/** Why a set of options can't be taken together, or null: at least one, each on the copy, never two of one scope. */
+/** At most this many options in one acceptance: one per Part. */
+const PART_LIMIT = 6;
+
+/** Why a set of options can't be taken together, or null: at least one, each on the copy, never two for one Part (2026-10-30; one scope before then). */
 export function pickProblem(copy: Pick<CustomerCopy, "options">, indexes: number[]): string | null {
   if (indexes.length === 0 || indexes.some((i) => !copy.options[i])) return "Choose the option you're accepting.";
-  const scopes = indexes.map((i) => scopeOf(copy.options[i]));
-  if (new Set(scopes).size < scopes.length) return `Choose one ${scopes[0].toLowerCase()} option, not two.`;
+  const parts = indexes.map((i) => partOf(copy.options[i]));
+  const twice = parts.find((p, i) => parts.indexOf(p) !== i);
+  if (twice) return twice === "Flooring" || twice === "Stairs" ? `Choose one ${twice.toLowerCase()} option, not two.` : `Choose one option for the ${twice.toLowerCase()}, not two.`;
   return null;
 }
 
@@ -223,7 +227,7 @@ export function buildAcceptance(
     method: ctx.method,
     name: input.name,
     option: { index: indexes[0], name: parts.map((o) => o.name).join(" + "), ref: parts[0].ref ?? null },
-    picks: indexes.map((i) => ({ index: i, name: copy.options[i].name, ref: copy.options[i].ref ?? null, scope: scopeOf(copy.options[i]) })),
+    picks: indexes.map((i) => ({ index: i, name: copy.options[i].name, ref: copy.options[i].ref ?? null, scope: scopeOf(copy.options[i]), ...(copy.options[i].part ? { part: copy.options[i].part } : {}) })),
     addOns: chosen.map(({ key, description, amount }) => ({ key, description, amount })),
     totals,
     stages,

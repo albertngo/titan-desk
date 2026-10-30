@@ -2,7 +2,7 @@ import { LINE, OPTION, VERSION } from "@/lib/airtable/fields";
 import { sectionOf } from "@/lib/calc";
 import { cleanSchedule, sameSchedule, scheduleField } from "@/lib/pricing/schedule";
 import { levelOf } from "@/lib/pricing/service";
-import { scopeValue } from "./scope";
+import { partValue, scopeValue } from "./scope";
 import type { EditorLine, EditorOption, EditorQuote } from "@/lib/editor/model";
 
 /**
@@ -98,6 +98,8 @@ export function cleanEditorQuote(raw: unknown): EditorQuote {
       crew: text(x.crew, 80).trim() || null,
       privateLabel: text(x.privateLabel, 120).trim() || null,
       scope: scopeValue(x.scope),
+      ...(partValue(x.part) ? { part: partValue(x.part)! } : {}),
+      ...(x.notOffered === true ? { notOffered: true as const } : {}),
       lines: (Array.isArray(x.lines) ? x.lines : []).slice(0, LIMITS.linesPerOption).map(cleanLine),
     };
   });
@@ -171,6 +173,8 @@ export function optionFields(o: EditorOption, sortOrder: number): Fields {
     [OPTION.crew]: o.crew?.trim() || null,
     [OPTION.privateLabel]: o.privateLabel?.trim() || null,
     [OPTION.scope]: o.scope ?? null,
+    [OPTION.part]: o.part ?? null,
+    [OPTION.notOffered]: o.notOffered === true,
   };
 }
 

@@ -10,7 +10,7 @@ import { termsHref, termsLabel } from "@/lib/accept/terms";
 import { defaultSchedule } from "@/lib/pricing/schedule";
 import { acceptConfigured } from "@/lib/quotes/acceptClient";
 import { customerQuote } from "@/lib/quotes/customer";
-import { acceptedPdfName, isSplit, offersPdf, pdfName, scopeOf, scopesOf, stagesOf } from "@/lib/send/copy";
+import { acceptedPdfName, offersPdf, partKeys, partOf, pdfName, stagesOf } from "@/lib/send/copy";
 
 /** A customer's quote, opened from the link in their email or text. Customer deployment only. */
 
@@ -69,14 +69,14 @@ export default async function CustomerQuotePage({ params, searchParams }: { para
     name: o.name,
     subtotal: o.totals.subtotal,
     hst: o.totals.hst,
-    scope: scopeOf(o),
+    part: partOf(o),
     addOns: addOnsOf(copy, index),
     frozen: stagesOf(o).map((s) => ({ amount: s.amount })),
   }));
-  // What starts ticked: the recommended option of each scope. With one scope only, the first when none is recommended.
-  const split = isSplit(copy);
-  const defaults = scopesOf(copy).flatMap((scope) => {
-    const mine = options.filter((o) => o.scope === scope);
+  // What starts ticked: the recommended option of each Part. With one Part only, the first when none is recommended.
+  const split = partKeys(options).length > 1;
+  const defaults = partKeys(options).flatMap((part) => {
+    const mine = options.filter((o) => o.part === part);
     const rec = mine.find((o) => copy.options[o.index].recommended);
     return rec ? [rec.index] : !split && mine[0] ? [mine[0].index] : [];
   });

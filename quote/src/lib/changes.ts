@@ -22,6 +22,16 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-10-30",
+    kind: "new",
+    title: "Parts, and Not offered",
+    details: [
+      "Each option can have a Part in the editor, beside Scope: Main floor, Upstairs, Basement, Main stairs or Basement stairs. Options in one Part are alternatives, and the customer accepts one option per Part, so upstairs and basement flooring can both be taken. Say exactly what an option covers in its description.",
+      "An option with no Part works as before: one flooring and one stairs option.",
+      "Not offered, beside Part, keeps an option on the quote but leaves it off what the customer is sent. It starts unticked on the Send card and its tab is dashed. Untick it to offer it again.",
+    ],
+  },
+  {
+    date: "2026-10-30",
     kind: "changed",
     title: "Accepted quote, easier to read",
     details: [

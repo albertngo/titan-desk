@@ -1,6 +1,6 @@
 import { round2, type AcceptedTotals } from "@/lib/calc";
 import type { Acceptance, AcceptedAddOn } from "@/lib/accept/plan";
-import type { Scope } from "@/lib/quotes/types";
+import type { Part, Scope } from "@/lib/quotes/types";
 import { scopeOf, stagesOf, type CopyOption, type CopySection, type CopyStage, type CopyTotals, type CustomerCopy } from "@/lib/send/copy";
 
 /**
@@ -29,6 +29,8 @@ export type ContractItem = {
   name: string;
   /** Null on a change that joined a flooring and a stairs option into one (how changes were made before Parts). */
   scope: Scope | null;
+  /** The part of the home (2026-10-30); absent = the scope stands for it. */
+  part?: Part;
   /** Keys "option.section.line" on that copy. */
   addOns: AcceptedAddOn[];
   /** How it got onto the contract, and the day (Toronto). */
@@ -61,6 +63,7 @@ export function fromAcceptance(versionId: string, a: Acceptance): Contract {
       ref: p.ref,
       name: p.name,
       scope: p.scope,
+      ...("part" in p && p.part ? { part: p.part } : {}),
       addOns: keyed.filter((x) => x.key.startsWith(`${p.index}.`)),
       via: "accepted",
       on: a.on,
@@ -76,7 +79,7 @@ export function fromChange(versionId: string, copy: CustomerCopy): Contract | nu
   if (!o) return null;
   return {
     v: CONTRACT_VERSION,
-    items: [{ versionId, index: 0, ref: o.ref ?? null, name: o.name, scope: o.scope === "Stairs" ? "Stairs" : null, addOns: [], via: "change", on: copy.sentOn }],
+    items: [{ versionId, index: 0, ref: o.ref ?? null, name: o.name, scope: o.scope === "Stairs" ? "Stairs" : null, ...(o.part ? { part: o.part } : {}), addOns: [], via: "change", on: copy.sentOn }],
     totals: { subtotal: o.totals.subtotal, hst: o.totals.hst, total: o.totals.total },
     stages: stagesOf(o),
   };

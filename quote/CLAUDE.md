@@ -543,6 +543,17 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   (a fixed dropdown; one option per Part) and swapping any option from any version into the contract (step 2); then
   accepting a still-open Part on a later version's link, the schedule restaged on the whole with what Notion's Master
   Payments Log shows received counted toward it (step 3). Tested in `tests/scope.test.ts`.
+- **Parts and Not offered (Albert, 2026-10-30; vault `05_decisions/2026-10-30-quote-one-working-quote`).** Each
+  option may have a **Part** (Quote Options → Part: Main floor, Upstairs, Basement, Main stairs, Basement stairs;
+  `PARTS` in `src/lib/quotes/scope.ts`). Options in one Part are alternatives: the customer accepts at most one per
+  Part (`pickProblem()`, up to six in one acceptance), and Recommended is one per Part. No Part = the option's scope
+  stands for it (`partKey()` / `partOf()`), so a quote from before Parts still takes one flooring and one stairs
+  option; a Part with no Scope set gives the scope (a stairs Part is Stairs). What an option covers in detail goes in
+  its description. The copy freezes it (`CopyOption.part`), and the Accept panels group by it (`partKeys()` /
+  `partWords()`). **Not offered** (Quote Options → Not Offered) keeps an option on the quote and off what is sent:
+  unticked by default on the Send card, left out by `chooseOptions()` when a send names no options, dashed tab.
+  Both join the editor's option only when set (absent, never null or false), so drafts saved before them keep their
+  fingerprint. Tested in `tests/scope.test.ts`.
 - **Invoices and receipts (Albert, 2026-10-30).** One numbered document per won project, on its contract
   version (the accepted one or its latest change): an **invoice** (INV-82571, INV-82572…) when the contract charges
   HST on every line, a **receipt** (R-10245, R-10246…) when HST is on part of it (the floor material) or none

@@ -2,7 +2,7 @@ import { DEFAULT_PRIVATE_LABEL, LUMP_QTY_SECTIONS, PRIVATE_SECTION, SECTIONS, ch
 import type { CopyChange } from "@/lib/change/diff";
 import { defaultSchedule, payWords, type PayHow, type PaymentSchedule } from "@/lib/pricing/schedule";
 import { optionScope } from "@/lib/quotes/scope";
-import type { Quote, QuoteLine, QuoteOption, Scope } from "@/lib/quotes/types";
+import type { Part, Quote, QuoteLine, QuoteOption, Scope } from "@/lib/quotes/types";
 import { copyKind } from "./summary";
 
 /**
@@ -84,6 +84,8 @@ export type CopyOption = {
   schedule?: CopyStage[];
   /** "Stairs" on a stairs option (2026-10-28); absent = Flooring, which every copy frozen before then is. */
   scope?: "Stairs";
+  /** The part of the home (2026-10-30); absent = the scope stands for it, as on every copy frozen before then. */
+  part?: Part;
 };
 
 export type Letterhead = {
@@ -334,6 +336,7 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
     ...(ranged && t.subtotal > 0 ? { range: copyRange(t) } : {}),
     schedule: copyStages(schedule, o, discountRate, showHst, t.total, ranged && t.subtotal > 0),
     ...(optionScope(o) === "Stairs" ? { scope: "Stairs" as const } : {}),
+    ...(o.part ? { part: o.part } : {}),
   };
 }
 
@@ -341,6 +344,20 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
 
 /** The scope a frozen option counts as. */
 export const scopeOf = (o: Pick<CopyOption, "scope">): Scope => (o.scope === "Stairs" ? "Stairs" : "Flooring");
+
+/** What a frozen option is an alternative within (2026-10-30): its Part, else its scope. */
+export const partOf = (o: Pick<CopyOption, "scope" | "part">): string => o.part ?? scopeOf(o);
+
+/** The Parts a set of options offers, in the order they first appear. */
+export const partKeys = (options: { part: string }[]): string[] => [...new Set(options.map((o) => o.part))];
+
+/** The words for choosing within one Part: "Which flooring option?" / "Which option for the basement?", and "No … for now". */
+export function partWords(part: string): { which: string; none: string; label: string } {
+  const lower = part.toLowerCase();
+  return part === "Flooring" || part === "Stairs"
+    ? { which: `Which ${lower} option?`, none: `No ${lower} for now`, label: `${part} option` }
+    : { which: `Which option for the ${lower}?`, none: `No ${lower} for now`, label: part };
+}
 
 /** The scopes a copy offers, flooring first. */
 export const scopesOf = (copy: Pick<CustomerCopy, "options">): Scope[] => (["Flooring", "Stairs"] as Scope[]).filter((s) => copy.options.some((o) => scopeOf(o) === s));

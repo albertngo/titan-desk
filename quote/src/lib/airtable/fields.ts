@@ -151,6 +151,10 @@ export const OPTION = {
   privateLabel: "fldBYBPfe6bcSdsQD",
   /** Flooring / Stairs (2026-10-28): a customer accepts at most one option of each. Blank = from the lines. */
   scope: "fldSJma4kK5YZn8P0",
+  /** 2026-10-30: Main floor / Upstairs / Basement / Main stairs / Basement stairs; one option per Part is taken. Blank = the scope. */
+  part: "fldJCihXClTHJR9Az",
+  /** 2026-10-30: kept on the quote, left off what the customer is sent. */
+  notOffered: "fldBXH91HUa5kMsQ4",
   lines: "fldYmOczi2hNUldJU",
   /** The version this option belongs to; emptied, never deleted, when the option is removed. */
   version: "flduprOIp2Z5Z6JcG",

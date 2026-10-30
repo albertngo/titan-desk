@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { acceptedCopy, acceptProblems, addOnsOf, buildAcceptance, picksOf, type AcceptInput } from "../src/lib/accept/plan";
+import { acceptedCopy, acceptProblems, addOnsOf, buildAcceptance, picksOf, readAcceptInput, type AcceptInput } from "../src/lib/accept/plan";
 import type { Terms } from "../src/lib/accept/terms";
 import { optionTotals, round2 } from "../src/lib/calc";
 import { fromQuote, updateOption } from "../src/lib/editor/model";
-import { optionScope, scopeGroups } from "../src/lib/quotes/scope";
+import { optionScope, partKey, partValue, scopeGroups } from "../src/lib/quotes/scope";
+import { cleanEditorQuote, fingerprint } from "../src/lib/quotes/savePlan";
 import type { Quote, QuoteLine, QuoteOption } from "../src/lib/quotes/types";
 import { contractOn, contractVersions, contractView, fromAcceptance, fromChange, legacyContract, parseContract, serializeContract, type Contract } from "../src/lib/contract/model";
-import { customerCopy, isSplit, scopeLeads, scopesOf, type Letterhead } from "../src/lib/send/copy";
-import { emailMessage, smsMessage, type GhlMessage } from "../src/lib/send/plan";
+import { customerCopy, isSplit, partKeys, partOf, partWords, scopeLeads, scopesOf, type Letterhead } from "../src/lib/send/copy";
+import { chooseOptions, chosenWords, emailMessage, smsMessage, type GhlMessage } from "../src/lib/send/plan";
 
 const body = (m: GhlMessage) => (m.type === "Email" ? m.html : m.message);
 
@@ -273,5 +274,69 @@ describe("the contract", () => {
     expect(parseContract("{")).toBeNull();
     expect(parseContract(JSON.stringify({ ...k, items: [] }))).toBeNull();
     expect(parseContract(JSON.stringify({ ...k, v: 2 }))).toBeNull();
+  });
+});
+
+/* Parts and Not offered (Albert, 2026-10-30): one working quote, one option per Part. */
+describe("Parts", () => {
+  const parted = () =>
+    quote({
+      options: [
+        option("Oak up", [line({})], { part: "Upstairs" }),
+        option("Vinyl up", [line({ unitPriceSnap: 8 })], { part: "Upstairs" }),
+        option("Vinyl basement", [line({ unitPriceSnap: 7 })], { part: "Basement" }),
+        option("Caps", [stair()], { part: "Main stairs" }),
+      ],
+    });
+
+  it("a Part sets the scope when none was set, and stands for the option's alternatives", () => {
+    expect(optionScope(option("A", [line({})], { part: "Main stairs" }))).toBe("Stairs");
+    expect(optionScope(option("A", [stair()], { part: "Basement" }))).toBe("Flooring");
+    expect(optionScope(option("A", [line({})], { part: "Main stairs", scope: "Flooring" }))).toBe("Flooring");
+    expect(partKey(option("A", [line({})], { part: "Basement" }))).toBe("Basement");
+    expect(partKey(option("A", [stair()]))).toBe("Stairs");
+    expect(partValue("Basement")).toBe("Basement");
+    expect(partValue("Attic")).toBeNull();
+  });
+
+  it("is frozen on the copy, and the customer takes one option per Part, up to every Part", () => {
+    const c = copyOf(parted());
+    expect(c.options.map((o) => o.part)).toEqual(["Upstairs", "Upstairs", "Basement", "Main stairs"]);
+    expect(partOf(c.options[0])).toBe("Upstairs");
+    expect(acceptProblems(c, "open", input({ optionIndexes: [0, 2, 3] }), { terms: TERMS, method: "link" })).toEqual([]);
+    expect(acceptProblems(c, "open", input({ optionIndexes: [0, 1] }), { terms: TERMS, method: "link" })).toEqual(["Choose one option for the upstairs, not two."]);
+    expect(readAcceptInput({ optionIndexes: [0, 2, 3], name: "x" })?.optionIndexes).toEqual([0, 2, 3]);
+    const a = buildAcceptance(c, input({ optionIndexes: [0, 2, 3] }), ctx);
+    expect(picksOf(a).map((p) => p.part)).toEqual(["Upstairs", "Basement", "Main stairs"]);
+    expect(fromAcceptance("recV1", a).items.map((i) => i.part)).toEqual(["Upstairs", "Basement", "Main stairs"]);
+    expect(partKeys(c.options.map((o) => ({ part: partOf(o) })))).toEqual(["Upstairs", "Basement", "Main stairs"]);
+    expect(partWords("Basement").which).toBe("Which option for the basement?");
+    expect(partWords("Stairs").which).toBe("Which stairs option?");
+  });
+
+  it("keeps one recommended option per Part", () => {
+    let q = fromQuote(parted());
+    const [oak, vinyl, base] = q.options;
+    q = updateOption(q, oak.id, { recommended: true });
+    q = updateOption(q, base.id, { recommended: true });
+    q = updateOption(q, vinyl.id, { recommended: true });
+    expect(q.options.map((o) => o.recommended)).toEqual([false, true, true, false]);
+  });
+
+  it("leaves Part and Not offered off an option until they are set, so older drafts keep their fingerprint", () => {
+    const plain = fromQuote(quote());
+    expect("part" in plain.options[0] || "notOffered" in plain.options[0]).toBe(false);
+    const set = updateOption(updateOption(plain, plain.options[0].id, { part: "Basement" }), plain.options[0].id, { notOffered: true });
+    expect(set.options[0]).toMatchObject({ part: "Basement", notOffered: true });
+    const unset = updateOption(updateOption(set, plain.options[0].id, { part: null }), plain.options[0].id, { notOffered: false });
+    expect(fingerprint(unset)).toBe(fingerprint(plain));
+    expect(cleanEditorQuote(set).options[0]).toMatchObject({ part: "Basement", notOffered: true });
+  });
+
+  it("a Not offered option stays on the quote and off what is sent, unless the sender ticks it", () => {
+    const q = quote({ options: [option("Oak", [line({})]), option("Old vinyl", [line({ unitPriceSnap: 8 })], { notOffered: true })] });
+    expect(chooseOptions(q, null).options.map((o) => o.name)).toEqual(["Oak"]);
+    expect(chooseOptions(q, q.options.map((o) => o.id)).options).toHaveLength(2);
+    expect(chosenWords(q, null)).toBe("option 1 only");
   });
 });

@@ -6,7 +6,7 @@ import { acceptAction } from "@/app/c/[token]/actions";
 import { acceptedTotals, restageAmounts } from "@/lib/calc";
 import { money } from "@/lib/format";
 import { payWords, type PaymentSchedule } from "@/lib/pricing/schedule";
-import type { Scope } from "@/lib/quotes/types";
+import { partKeys, partWords } from "@/lib/send/copy";
 
 /**
  * The Accept panel on a customer's quote (Albert, 2026-10-27). The customer picks the option, ticks
@@ -23,7 +23,8 @@ export type AcceptOption = {
   name: string;
   subtotal: number;
   hst: number;
-  scope: Scope;
+  /** What it is an alternative within (2026-10-30): its Part, else its scope. One per Part is taken. */
+  part: string;
   addOns: { key: string; description: string; amount: number; taxed: boolean }[];
   /** The frozen stages' amounts, so a material deposit keeps its dollars when add-ons are ticked. */
   frozen: { amount: number | null }[];
@@ -44,7 +45,7 @@ export function AcceptPanel({
   schedule: PaymentSchedule;
   /** The Project Expectations shown: its Terms Versions row goes back with the Accept, so a newer one since is caught. */
   terms: { id: string; label: string; href: string };
-  /** What starts chosen: an option index per scope. */
+  /** What starts chosen: an option index per Part. */
   defaultPicks: number[];
 }) {
   const router = useRouter();
@@ -55,8 +56,8 @@ export function AcceptPanel({
   const [signature, setSignature] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, start] = useTransition();
-  const scopes = (["Flooring", "Stairs"] as Scope[]).filter((sc) => options.some((x) => x.scope === sc));
-  const split = scopes.length > 1;
+  const parts = partKeys(options);
+  const split = parts.length > 1;
   const chosen = useMemo(() => options.filter((x) => picks.includes(x.index)), [options, picks]);
   const addOns = chosen.flatMap((x) => x.addOns);
 
@@ -67,9 +68,9 @@ export function AcceptPanel({
   const frozen = useMemo(() => (chosen[0]?.frozen ?? []).map((st, i) => ({ amount: st.amount === null ? null : chosen.reduce((a, x) => a + (x.frozen[i]?.amount ?? 0), 0) })), [chosen]);
   const stages = useMemo(() => restageAmounts(schedule, frozen, totals.total), [schedule, frozen, totals.total]);
   const ready = chosen.length > 0 && agreed && name.trim().length >= 2 && (!store || signature);
-  /** Choose `index` for its scope (null = none of that scope), dropping the add-ons of what it replaces. */
-  const choose = (scope: Scope, index: number | null) => {
-    const others = options.filter((x) => x.scope !== scope && picks.includes(x.index)).map((x) => x.index);
+  /** Choose `index` for its Part (null = none for that Part), dropping the add-ons of what it replaces. */
+  const choose = (part: string, index: number | null) => {
+    const others = options.filter((x) => x.part !== part && picks.includes(x.index)).map((x) => x.index);
     const next = index === null ? others : [...others, index];
     setPicks(next);
     setTicked(ticked.filter((k) => next.some((i) => k.startsWith(`${i}.`))));
@@ -87,16 +88,17 @@ export function AcceptPanel({
   return (
     <section className="cq-card cq-accept" aria-labelledby="acc-h">
       <h2 id="acc-h">Accept this quote</h2>
-      {scopes.map((scope) => {
-        const mine = options.filter((x) => x.scope === scope);
+      {parts.map((part) => {
+        const mine = options.filter((x) => x.part === part);
+        const words = partWords(part);
         if (!split && mine.length < 2) return null;
         const current = mine.find((x) => picks.includes(x.index))?.index ?? null;
         return (
-          <fieldset className="acc-opts" key={scope}>
-            <legend>{split ? `Which ${scope.toLowerCase()} option?` : "Which option?"}</legend>
+          <fieldset className="acc-opts" key={part}>
+            <legend>{split ? words.which : "Which option?"}</legend>
             {mine.map((x) => (
               <label key={x.index} className={x.index === current ? "on" : undefined}>
-                <input type="radio" name={`acc-option-${scope}`} checked={x.index === current} onChange={() => choose(scope, x.index)} />
+                <input type="radio" name={`acc-option-${part}`} checked={x.index === current} onChange={() => choose(part, x.index)} />
                 <span className="nm">
                   Option {x.index + 1}: {x.name}
                 </span>
@@ -105,8 +107,8 @@ export function AcceptPanel({
             ))}
             {split && (
               <label className={current === null ? "on" : undefined}>
-                <input type="radio" name={`acc-option-${scope}`} checked={current === null} onChange={() => choose(scope, null)} />
-                <span className="nm">No {scope.toLowerCase()} for now</span>
+                <input type="radio" name={`acc-option-${part}`} checked={current === null} onChange={() => choose(part, null)} />
+                <span className="nm">{words.none}</span>
               </label>
             )}
           </fieldset>

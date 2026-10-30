@@ -30,6 +30,9 @@ export type QuoteLine = LineInput & {
 
 /** What an option quotes (Albert, 2026-10-28): stairs are quoted apart from flooring, and a customer takes one of each. */
 export type Scope = "Flooring" | "Stairs";
+
+/** The part of the home an option covers (2026-10-30). Options in one Part are alternatives. See src/lib/quotes/scope.ts. */
+export type Part = "Main floor" | "Upstairs" | "Basement" | "Main stairs" | "Basement stairs";
 export const SCOPES: Scope[] = ["Flooring", "Stairs"];
 
 export type QuoteOption = {
@@ -46,6 +49,10 @@ export type QuoteOption = {
   privateLabel?: string | null;
   /** Quote Options → Scope (2026-10-28): "Flooring" or "Stairs"; null = worked out from the lines (see optionScope). */
   scope?: Scope | null;
+  /** Quote Options → Part (2026-10-30); null = the option's scope stands for it. */
+  part?: Part | null;
+  /** Quote Options → Not Offered (2026-10-30): kept on the quote, left off what the customer is sent. */
+  notOffered?: boolean;
   lines: QuoteLine[];
   /** Airtable's own option rollups, for the parity check. */
   airtable: Partial<OptionTotals>;

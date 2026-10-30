@@ -43,14 +43,16 @@ export function parseOptionIds(raw: unknown): string[] | null {
 
 /** The quote with only the chosen options, in their order; null = all. An id not on the quote is ignored here and refused by sendProblems. */
 export function chooseOptions<Q extends Pick<Quote, "options">>(quote: Q, ids: string[] | null | undefined): Q {
-  if (!ids) return quote;
+  // Not named: every option still offered (2026-10-30: a Not offered one stays on the quote and off the copy).
+  if (!ids) return { ...quote, options: quote.options.filter((o) => !o.notOffered) };
   const keep = new Set(ids);
   return { ...quote, options: quote.options.filter((o) => keep.has(o.id)) };
 }
 
 /** "options 1 and 3" for the edit log, numbered as the editor shows them; null when every option went. */
 export function chosenWords(quote: Pick<Quote, "options">, ids: string[] | null | undefined): string | null {
-  if (!ids || quote.options.every((o) => ids.includes(o.id))) return null;
+  if (!ids) ids = quote.options.filter((o) => !o.notOffered).map((o) => o.id);
+  if (quote.options.every((o) => ids.includes(o.id))) return null;
   const nums = quote.options.flatMap((o, i) => (ids.includes(o.id) ? [String(i + 1)] : []));
   return nums.length === 1 ? `option ${nums[0]} only` : `options ${nums.slice(0, -1).join(", ")} and ${nums.at(-1)}`;
 }

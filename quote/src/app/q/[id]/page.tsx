@@ -35,7 +35,7 @@ import { acceptReadiness } from "@/lib/accept/staff";
 import { termsLabel } from "@/lib/accept/terms";
 import { ghlOpportunityUrl } from "@/lib/ghl/ids";
 import { logEntries } from "@/lib/quotes/history";
-import { addDays, leadPrice, offersPdf, priceRange, rangeText, scopeOf, torontoToday, VALID_DAYS } from "@/lib/send/copy";
+import { addDays, leadPrice, offersPdf, partOf, priceRange, rangeText, torontoToday, VALID_DAYS } from "@/lib/send/copy";
 import { optionProblem, sendProblems } from "@/lib/send/plan";
 import { parseRooms } from "@/lib/rooms/log";
 
@@ -90,7 +90,7 @@ export default async function QuotePage({
     const lead = leadPrice(quote, optionTotals(o.lines, quote.discountRate, quote.showHst));
     const r = priceRange(lead.amount);
     const range = preliminary && lead.amount > 0 ? `${rangeText(r.low, r.high)} ${lead.tag}` : null;
-    return { id: o.id, name: o.name, price: `${money(lead.amount)} ${lead.tag}`, range, recommended: o.recommended, problem: optionProblem(quote, o) };
+    return { id: o.id, name: o.name, price: `${money(lead.amount)} ${lead.tag}`, range, recommended: o.recommended, notOffered: o.notOffered === true, problem: optionProblem(quote, o) };
   });
   // Send again (2026-10-30) says whether their page already offers the PDF: read from the frozen copy, only for a version out with the customer.
   const sentPdf = !customer && quote.status === "Sent" ? offersPdf((await previewCopy(quote.id)) ?? { pdf: false }) : false;
@@ -136,7 +136,7 @@ export default async function QuotePage({
       <AcceptForCustomer
         versionId={quote.id}
         link={link}
-        options={sentCopy.options.map((o, index) => ({ index, name: o.name, subtotal: o.totals.subtotal, scope: scopeOf(o), addOns: addOnsOf(sentCopy, index) }))}
+        options={sentCopy.options.map((o, index) => ({ index, name: o.name, subtotal: o.totals.subtotal, part: partOf(o), addOns: addOnsOf(sentCopy, index) }))}
         customerName={[quote.link?.firstName, quote.link?.lastName].filter(Boolean).join(" ") || quote.customerName}
         terms={acceptGate?.terms ? { id: acceptGate.terms.id, label: termsLabel(acceptGate.terms.on) } : null}
         off={acceptGate?.off ?? null}
@@ -250,11 +250,13 @@ export default async function QuotePage({
                     {g.options.map((o) => (
                       <Link
                         key={o.id}
-                        className={acceptedIds.has(o.id) ? "tab accepted" : "tab"}
+                        className={["tab", acceptedIds.has(o.id) ? "accepted" : "", o.notOffered ? "off" : ""].filter(Boolean).join(" ")}
                         href={`/q/${quote.id}?opt=${o.id}`}
                         aria-current={option?.id === o.id ? "page" : undefined}
+                        title={o.notOffered ? "Not offered: left off what the customer is sent" : undefined}
                       >
                         {acceptedIds.has(o.id) && <span className="t-acc">✓ Accepted</span>}
+                        {o.part && <span className="t-part">{o.part}</span>}
                         {o.name}
                         <span className="t-amt">{money(optionTotals(o.lines, quote.discountRate, quote.showHst).total)}</span>
                       </Link>
