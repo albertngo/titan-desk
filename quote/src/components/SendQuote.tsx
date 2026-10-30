@@ -168,7 +168,7 @@ export function SendQuote({
   /** The address the email goes out from: the signed-in quoter's (2026-10-22); null = GHL's default sender. */
   from: string | null;
   /** The version's options, for choosing which go to the customer (2026-10-24); `range` is what a preliminary shows instead of `price` (2026-10-27). */
-  options: { id: string; name: string; price: string; range: string | null; recommended: boolean; problem: string | null }[];
+  options: { id: string; name: string; price: string; range: string | null; recommended: boolean; notOffered?: boolean; problem: string | null }[];
 }) {
   const router = useRouter();
   const [until, setUntil] = useState(defaultUntil);
@@ -182,8 +182,11 @@ export function SendQuote({
   const exact = preliminary && !range;
   /** The quote page offers the PDF (Albert, 2026-10-27): off by default. Never attached to the email. */
   const [pdf, setPdf] = useState(false);
-  /** Which options go to the customer (2026-10-24): all of them unless the sender unticks some. */
-  const [chosen, setChosen] = useState<string[]>(() => options.map((o) => o.id));
+  /** Which options go to the customer (2026-10-24): all of them unless the sender unticks some; a Not offered one starts unticked (2026-10-30). */
+  const [chosen, setChosen] = useState<string[]>(() => {
+    const offered = options.filter((o) => !o.notOffered).map((o) => o.id);
+    return offered.length ? offered : options.map((o) => o.id);
+  });
   const everyOption = chosen.length === options.length;
   const optionIds = everyOption ? null : chosen;
   const optionProblems = options.filter((o) => chosen.includes(o.id) && o.problem).map((o) => o.problem!);
@@ -215,7 +218,7 @@ export function SendQuote({
               {s.validUntil && <span className="sq-until">Good until {day(s.validUntil)}</span>}
             </p>
           ) : (
-            <p className="faint">This version is {status ?? "not a draft"}. To send changes, save them as a new version.</p>
+            <p className="faint">This version is {status ?? "not a draft"}. To send changes, edit the quote: saving starts the next draft.</p>
           )}
           {done?.warning && <p className="sq-msg warn" role="status">{done.warning}</p>}
           {!done && sent?.activity && <Activity a={sent.activity} />}
@@ -296,7 +299,7 @@ export function SendQuote({
                   onChange={(e) => setChosen((c) => (e.target.checked ? options.map((x) => x.id).filter((id) => id === o.id || c.includes(id)) : c.filter((id) => id !== o.id)))}
                 />
                 <span>
-                  <span className="nm">{i + 1}. {o.name}{o.recommended ? <span className="rec"> · Recommended</span> : null}</span>
+                  <span className="nm">{i + 1}. {o.name}{o.recommended ? <span className="rec"> · Recommended</span> : null}{o.notOffered ? <span className="faint"> · Not offered</span> : null}</span>
                   <span className="sub">{o.problem ?? (preliminary && !exact && o.range ? o.range : o.price)}</span>
                 </span>
               </label>

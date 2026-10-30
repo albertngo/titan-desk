@@ -132,7 +132,7 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
     const lines = [
       ...ch.items.flatMap((it) => wrap(changeWords(it), "R", 9, RIGHT - M - 24)),
       `Change, before HST: ${signedMoney(ch.difference, money)}`,
-      `Total was ${money(ch.before.total)}, now ${money(copy.options[0].totals.total)}. The difference is on the final payment.`,
+      `Total was ${money(ch.before.total)}, now ${money(copy.options[0].totals.total)}. The payment schedule is worked out on the new total; what you've already paid counts toward it.`,
     ];
     const h = lines.length * 12 + 30;
     room(h + 10);

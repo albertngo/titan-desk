@@ -22,6 +22,46 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-10-30",
+    kind: "changed",
+    title: "Put on contract, from any version",
+    details: [
+      "On an accepted quote, an option that isn't on the contract shows Put on contract when its Part (or flooring or stairs) is one the customer has. It opens the change with that option ready to swap in.",
+      "Swap option now offers options of the same Part from every version of the quote, not just the accepted one, each with its version beside it.",
+      "A change now works the payment schedule out again on the new total, instead of putting the whole difference on the final payment. The email and text say what they've already paid counts toward it.",
+    ],
+  },
+  {
+    date: "2026-10-30",
+    kind: "changed",
+    title: "One working quote: no more Save as new version",
+    details: [
+      "Work on the quote and its options, like sheets in the Excel workbook. Sending keeps a copy of exactly what the customer saw.",
+      "Editing a quote that was already sent opens its draft if there is one; otherwise Save as the next draft starts it, with every option carried over. Pick whether the next draft is preliminary or measured beside the button.",
+      "There is only ever one draft per quote, so there is nothing to branch. All quotes lists the versions newest first; the By origin view and the \"from v4\" labels are gone. A change still shows its number.",
+    ],
+  },
+  {
+    date: "2026-10-30",
+    kind: "new",
+    title: "Parts, and Not offered",
+    details: [
+      "Each option can have a Part in the editor, beside Scope: Main floor, Upstairs, Basement, Main stairs or Basement stairs. Options in one Part are alternatives, and the customer accepts one option per Part, so upstairs and basement flooring can both be taken. Say exactly what an option covers in its description.",
+      "An option with no Part works as before: one flooring and one stairs option.",
+      "Not offered, beside Part, keeps an option on the quote but leaves it off what the customer is sent. It starts unticked on the Send card and its tab is dashed. Untick it to offer it again.",
+    ],
+  },
+  {
+    date: "2026-10-30",
+    kind: "changed",
+    title: "Accepted quote, easier to read",
+    details: [
+      "The Accepted card on a quote page is now in sections: Price (before HST, HST, total), Payments (the deposit highlighted, each payment with when it is due), Project Expectations, Hand-off and Links.",
+      "Each link (GHL, Notion, CompanyCam, the customer's page) is on its own line.",
+      "The option tabs on an accepted quote mark the option the customer took with a green \"Accepted\" badge (one per kind, when they took flooring and stairs).",
+    ],
+  },
+  {
+    date: "2026-10-30",
     kind: "new",
     title: "Swap option on a change",
     details: [

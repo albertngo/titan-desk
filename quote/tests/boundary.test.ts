@@ -65,6 +65,12 @@ describe("Airtable boundary", () => {
     expect(writers).toContain("lib/quotes/save.ts");
   });
 
+  it("writes the contract (Quotes → Contract, 2026-10-30) from acceptance and a sent change only", () => {
+    const writes = all.filter((f) => /\[QUOTE\.contract\]:/.test(code(f.text))).map((f) => f.rel).sort();
+    expect(writes).toEqual(["lib/accept/record.ts", "lib/quotes/send.ts"]);
+    expect(all.filter((f) => /serializeContract\(/.test(code(f.text)) && !f.rel.startsWith("lib/contract/")).map((f) => f.rel).sort()).toEqual(writes);
+  });
+
   it("keeps the client, the loaders and the auth check server-only", () => {
     for (const rel of [CLIENT, GHL, "lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/customer.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/activity/relay.ts", "lib/quotes/acceptClient.ts", "lib/accept/record.ts", "lib/accept/accept.ts", "lib/accept/staff.ts", "lib/accept/live.ts", "lib/quotes/sitesheet.ts", "lib/anthropic/client.ts", "lib/quotes/billing.ts", "lib/notion/payments.ts", "lib/auth.ts"]) {
       expect(all.find((f) => f.rel === rel)!.text).toMatch(/^import "server-only";/m);

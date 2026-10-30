@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { acceptedCopy, acceptProblems, addOnsOf, buildAcceptance, picksOf, type AcceptInput } from "../src/lib/accept/plan";
+import { acceptedCopy, acceptProblems, addOnsOf, buildAcceptance, picksOf, readAcceptInput, type AcceptInput } from "../src/lib/accept/plan";
 import type { Terms } from "../src/lib/accept/terms";
 import { optionTotals, round2 } from "../src/lib/calc";
 import { fromQuote, updateOption } from "../src/lib/editor/model";
-import { optionScope, scopeGroups } from "../src/lib/quotes/scope";
+import { optionScope, partKey, partValue, scopeGroups } from "../src/lib/quotes/scope";
+import { cleanEditorQuote, fingerprint } from "../src/lib/quotes/savePlan";
 import type { Quote, QuoteLine, QuoteOption } from "../src/lib/quotes/types";
-import { customerCopy, isSplit, scopeLeads, scopesOf, type Letterhead } from "../src/lib/send/copy";
-import { emailMessage, smsMessage, type GhlMessage } from "../src/lib/send/plan";
+import { contractOn, contractVersions, contractView, fromAcceptance, fromChange, legacyContract, parseContract, serializeContract, type Contract } from "../src/lib/contract/model";
+import { customerCopy, isSplit, partKeys, partOf, partWords, scopeLeads, scopesOf, type Letterhead } from "../src/lib/send/copy";
+import { chooseOptions, chosenWords, emailMessage, smsMessage, type GhlMessage } from "../src/lib/send/plan";
 
 const body = (m: GhlMessage) => (m.type === "Email" ? m.html : m.message);
 
@@ -197,5 +199,144 @@ describe("scopeGroups (2026-10-30: Flooring | Stairs tabs)", () => {
   it("is not split when every option is one scope", () => {
     expect(scopeGroups([o("a", "Stairs"), o("b", "Stairs")]).split).toBe(false);
     expect(scopeGroups([]).groups).toEqual([]);
+  });
+});
+
+/* The contract as pointers (Albert, 2026-10-30): the same contract as before, held as items on the quote. */
+describe("the contract", () => {
+  const c = copyOf(split()); // 0 Oak (with the optional nosing), 1 Vinyl, 2 Red oak caps
+  const key = () => addOnsOf(c, 0)[0].key;
+  const a = () => buildAcceptance(c, input({ optionIndexes: [2, 0], addOns: [key()] }), ctx); // Oak + Red oak caps
+
+  it("is one item per option taken, each with its own add-ons, the totals and schedule on the whole", () => {
+    const k = fromAcceptance("recVERSION0000001", a());
+    expect(k.items.map((i) => [i.index, i.name, i.scope, i.via, i.on])).toEqual([
+      [0, "Oak", "Flooring", "accepted", "2026-11-03"],
+      [2, "Red oak caps", "Stairs", "accepted", "2026-11-03"],
+    ]);
+    expect(k.items[0].addOns.map((x) => x.key)).toEqual([key()]);
+    expect(k.items[1].addOns).toEqual([]);
+    expect(k.totals).toEqual(a().totals);
+    expect(k.stages).toEqual(a().stages);
+  });
+
+  it("joins to exactly the accepted copy", () => {
+    const k = fromAcceptance("recV1", a());
+    expect(contractView(k, { recV1: c })).toEqual(acceptedCopy(c, a()));
+  });
+
+  it("reads an older record's two-part add-on keys onto its one option", () => {
+    const one = copyOf();
+    const old = { ...buildAcceptance(one, input({ optionIndexes: [0] }), ctx), picks: undefined, addOns: [{ key: "1.0", description: "Stair nosing", amount: 100 }] };
+    expect(fromAcceptance("recV1", old).items[0].addOns[0].key).toBe("0.1.0");
+  });
+
+  it("joins options from two versions, on the newest copy", () => {
+    const v5 = { ...c, sentOn: "2026-10-20", quoteNumber: "Q-9001" };
+    const v8 = { ...copyOf(quote({ options: [option("Walnut", [line({ unitPriceSnap: 12 })])] })), sentOn: "2026-10-29" };
+    const k: Contract = {
+      v: 1,
+      items: [
+        { versionId: "recV8", index: 0, ref: null, name: "Walnut", scope: "Flooring", addOns: [], via: "accepted", on: "2026-10-30" },
+        { versionId: "recV5", index: 2, ref: null, name: "Red oak caps", scope: "Stairs", addOns: [], via: "accepted", on: "2026-10-21" },
+      ],
+      totals: { subtotal: 1, hst: 0, total: 1 },
+      stages: [],
+    };
+    const view = contractView(k, { recV5: v5, recV8: v8 })!;
+    expect(view.sentOn).toBe("2026-10-29");
+    expect(view.options[0].name).toBe("Walnut + Red oak caps");
+    expect(view.options[0].sections.map((s) => s.name)).toEqual(["Install", "Stairs"]);
+    expect(contractVersions(k)).toEqual(["recV8", "recV5"]);
+    expect(contractOn(k)).toBe("2026-10-30");
+    expect(contractView(k, { recV8: v8 })).toBeNull();
+  });
+
+  it("after a change is that change's one option", () => {
+    const sent = { ...copyOf(), change: { no: 1 } as never, sentOn: "2026-11-05" };
+    const k = fromChange("recCHANGE", sent)!;
+    expect(k.items).toEqual([{ versionId: "recCHANGE", index: 0, ref: sent.options[0].ref, name: "Oak", scope: null, addOns: [], via: "change", on: "2026-11-05" }]);
+    expect(k.totals.total).toBe(sent.options[0].totals.total);
+    expect(contractView(k, { recCHANGE: sent })!.options[0].sections.flatMap((s) => s.lines).some((l) => l.kind === "item" && l.optional)).toBe(false);
+  });
+
+  it("is worked out from Contract Version on a quote accepted before the field: its acceptance, or the change it is", () => {
+    expect(legacyContract("recV1", c, a())).toEqual(fromAcceptance("recV1", a()));
+    expect(legacyContract("recV1", c, { ...a(), cancelled: { at: "x", by: "y", reason: "z" } })).toBeNull();
+    expect(legacyContract("recV1", c, null)).toBeNull();
+    expect(legacyContract("recV1", { ...c, change: { no: 2 } as never }, null)?.items[0].via).toBe("change");
+  });
+
+  it("round-trips, and anything that isn't one reads as none", () => {
+    const k = fromAcceptance("recV1", a());
+    expect(parseContract(serializeContract(k))).toEqual(k);
+    expect(parseContract("")).toBeNull();
+    expect(parseContract("{")).toBeNull();
+    expect(parseContract(JSON.stringify({ ...k, items: [] }))).toBeNull();
+    expect(parseContract(JSON.stringify({ ...k, v: 2 }))).toBeNull();
+  });
+});
+
+/* Parts and Not offered (Albert, 2026-10-30): one working quote, one option per Part. */
+describe("Parts", () => {
+  const parted = () =>
+    quote({
+      options: [
+        option("Oak up", [line({})], { part: "Upstairs" }),
+        option("Vinyl up", [line({ unitPriceSnap: 8 })], { part: "Upstairs" }),
+        option("Vinyl basement", [line({ unitPriceSnap: 7 })], { part: "Basement" }),
+        option("Caps", [stair()], { part: "Main stairs" }),
+      ],
+    });
+
+  it("a Part sets the scope when none was set, and stands for the option's alternatives", () => {
+    expect(optionScope(option("A", [line({})], { part: "Main stairs" }))).toBe("Stairs");
+    expect(optionScope(option("A", [stair()], { part: "Basement" }))).toBe("Flooring");
+    expect(optionScope(option("A", [line({})], { part: "Main stairs", scope: "Flooring" }))).toBe("Flooring");
+    expect(partKey(option("A", [line({})], { part: "Basement" }))).toBe("Basement");
+    expect(partKey(option("A", [stair()]))).toBe("Stairs");
+    expect(partValue("Basement")).toBe("Basement");
+    expect(partValue("Attic")).toBeNull();
+  });
+
+  it("is frozen on the copy, and the customer takes one option per Part, up to every Part", () => {
+    const c = copyOf(parted());
+    expect(c.options.map((o) => o.part)).toEqual(["Upstairs", "Upstairs", "Basement", "Main stairs"]);
+    expect(partOf(c.options[0])).toBe("Upstairs");
+    expect(acceptProblems(c, "open", input({ optionIndexes: [0, 2, 3] }), { terms: TERMS, method: "link" })).toEqual([]);
+    expect(acceptProblems(c, "open", input({ optionIndexes: [0, 1] }), { terms: TERMS, method: "link" })).toEqual(["Choose one option for the upstairs, not two."]);
+    expect(readAcceptInput({ optionIndexes: [0, 2, 3], name: "x" })?.optionIndexes).toEqual([0, 2, 3]);
+    const a = buildAcceptance(c, input({ optionIndexes: [0, 2, 3] }), ctx);
+    expect(picksOf(a).map((p) => p.part)).toEqual(["Upstairs", "Basement", "Main stairs"]);
+    expect(fromAcceptance("recV1", a).items.map((i) => i.part)).toEqual(["Upstairs", "Basement", "Main stairs"]);
+    expect(partKeys(c.options.map((o) => ({ part: partOf(o) })))).toEqual(["Upstairs", "Basement", "Main stairs"]);
+    expect(partWords("Basement").which).toBe("Which option for the basement?");
+    expect(partWords("Stairs").which).toBe("Which stairs option?");
+  });
+
+  it("keeps one recommended option per Part", () => {
+    let q = fromQuote(parted());
+    const [oak, vinyl, base] = q.options;
+    q = updateOption(q, oak.id, { recommended: true });
+    q = updateOption(q, base.id, { recommended: true });
+    q = updateOption(q, vinyl.id, { recommended: true });
+    expect(q.options.map((o) => o.recommended)).toEqual([false, true, true, false]);
+  });
+
+  it("leaves Part and Not offered off an option until they are set, so older drafts keep their fingerprint", () => {
+    const plain = fromQuote(quote());
+    expect("part" in plain.options[0] || "notOffered" in plain.options[0]).toBe(false);
+    const set = updateOption(updateOption(plain, plain.options[0].id, { part: "Basement" }), plain.options[0].id, { notOffered: true });
+    expect(set.options[0]).toMatchObject({ part: "Basement", notOffered: true });
+    const unset = updateOption(updateOption(set, plain.options[0].id, { part: null }), plain.options[0].id, { notOffered: false });
+    expect(fingerprint(unset)).toBe(fingerprint(plain));
+    expect(cleanEditorQuote(set).options[0]).toMatchObject({ part: "Basement", notOffered: true });
+  });
+
+  it("a Not offered option stays on the quote and off what is sent, unless the sender ticks it", () => {
+    const q = quote({ options: [option("Oak", [line({})]), option("Old vinyl", [line({ unitPriceSnap: 8 })], { notOffered: true })] });
+    expect(chooseOptions(q, null).options.map((o) => o.name)).toEqual(["Oak"]);
+    expect(chooseOptions(q, q.options.map((o) => o.id)).options).toHaveLength(2);
+    expect(chosenWords(q, null)).toBe("option 1 only");
   });
 });

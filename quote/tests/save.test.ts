@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { LINE, OPTION, VERSION } from "../src/lib/airtable/fields";
 import type { EditorLine, EditorOption, EditorQuote } from "../src/lib/editor/model";
-import { changeSlot, cleanEditorQuote, isRecordId, lineFields, newVersionRefusal, planIsEmpty, planSave } from "../src/lib/quotes/savePlan";
+import { changeSlot, cleanEditorQuote, isRecordId, lineFields, newVersionRefusal, planIsEmpty, planSave, workingDraft } from "../src/lib/quotes/savePlan";
 import { profileLine, stairProfileLine } from "../src/lib/quick/stairs";
 
 // INVENTED rates, quantities and ids only: this repo is public.
@@ -229,5 +229,15 @@ describe("changes after acceptance (2026-10-27)", () => {
     expect(newVersionRefusal({ changeNo: null, agreed: true })).toMatch(/Make a change/);
     expect(newVersionRefusal({ changeNo: 2, agreed: false })).toMatch(/change to the accepted quote/);
     expect(newVersionRefusal({ changeNo: null, agreed: false })).toBeNull();
+  });
+});
+
+describe("one working quote (2026-10-30)", () => {
+  const v = (id: string, version: number, status: string, changeNo: number | null = null) => ({ id, version, status, changeNo });
+  it("has at most one ordinary draft: the newest, never a change, never the version asking", () => {
+    expect(workingDraft([v("a", 1, "Sent"), v("b", 2, "Draft")], "a")).toEqual({ id: "b", version: 2 });
+    expect(workingDraft([v("a", 1, "Sent"), v("b", 2, "Draft")], "b")).toBeNull();
+    expect(workingDraft([v("a", 1, "Accepted"), v("c", 3, "Draft", 1)], "a")).toBeNull();
+    expect(workingDraft([v("a", 1, "Draft"), v("b", 4, "Draft"), v("c", 2, "Sent")], "c")).toEqual({ id: "b", version: 4 });
   });
 });

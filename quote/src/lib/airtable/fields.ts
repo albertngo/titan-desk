@@ -53,6 +53,13 @@ export const QUOTE = {
    * sent after it. Its total is what GHL's value and Notion's Value Approx carry. Written by the app.
    */
   contractVersion: "fldQC0eOTE7sZu6OK",
+  /**
+   * The contract as pointers (2026-10-30): the accepted options, each on a version's frozen copy, with the
+   * totals and schedule on the whole. JSON written by the app only (src/lib/contract/model.ts). Blank on a
+   * quote accepted before then, which reads Contract Version instead. Contract Version is still written:
+   * the newest version on the contract.
+   */
+  contract: "fldA6EduTlqDnKYXi",
   pipeline: "fldeupuDWQZ0dbXEg",
   notes: "fldnVyjuta6kQjOOf",
   versions: "fldasgos7nsSuqkJh",
@@ -144,6 +151,10 @@ export const OPTION = {
   privateLabel: "fldBYBPfe6bcSdsQD",
   /** Flooring / Stairs (2026-10-28): a customer accepts at most one option of each. Blank = from the lines. */
   scope: "fldSJma4kK5YZn8P0",
+  /** 2026-10-30: Main floor / Upstairs / Basement / Main stairs / Basement stairs; one option per Part is taken. Blank = the scope. */
+  part: "fldJCihXClTHJR9Az",
+  /** 2026-10-30: kept on the quote, left off what the customer is sent. */
+  notOffered: "fldBXH91HUa5kMsQ4",
   lines: "fldYmOczi2hNUldJU",
   /** The version this option belongs to; emptied, never deleted, when the option is removed. */
   version: "flduprOIp2Z5Z6JcG",

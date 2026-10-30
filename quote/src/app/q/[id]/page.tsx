@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Fragment } from "react";
 import { notFound } from "next/navigation";
-import { AcceptedCard, AcceptForCustomer, ChangeCard } from "@/components/AcceptStaff";
+import { AcceptedCard, AcceptForCustomer, ChangeCard, PutOnContract } from "@/components/AcceptStaff";
 import { AddressScan } from "@/components/AddressScan";
 import { BillingCard } from "@/components/BillingCard";
 import { Analysis } from "@/components/Analysis";
@@ -20,7 +20,8 @@ import { optionTotals, parityDiffs } from "@/lib/calc";
 import { money } from "@/lib/format";
 import { jobChoices } from "@/lib/quotes/link";
 import { billingState } from "@/lib/quotes/billing";
-import { scopeGroups } from "@/lib/quotes/scope";
+import { partKey, scopeGroups } from "@/lib/quotes/scope";
+import { loadContract } from "@/lib/quotes/contract";
 import { fromWords } from "@/lib/quotes/group";
 import { getQuote, getRateCard } from "@/lib/quotes/load";
 import { sheetReaderOn } from "@/lib/quotes/sitesheet";
@@ -30,12 +31,12 @@ import { customerView } from "@/lib/view";
 import { fromQuote } from "@/lib/editor/model";
 import { fingerprint } from "@/lib/quotes/savePlan";
 import { previewCopy, sendingReady, sendsFrom, sentLink } from "@/lib/quotes/send";
-import { acceptedWhen, addOnsOf } from "@/lib/accept/plan";
+import { acceptedWhen, addOnsOf, picksOf } from "@/lib/accept/plan";
 import { acceptReadiness } from "@/lib/accept/staff";
 import { termsLabel } from "@/lib/accept/terms";
 import { ghlOpportunityUrl } from "@/lib/ghl/ids";
 import { logEntries } from "@/lib/quotes/history";
-import { addDays, leadPrice, offersPdf, priceRange, rangeText, scopeOf, torontoToday, VALID_DAYS } from "@/lib/send/copy";
+import { addDays, leadPrice, offersPdf, partOf, priceRange, rangeText, torontoToday, VALID_DAYS } from "@/lib/send/copy";
 import { optionProblem, sendProblems } from "@/lib/send/plan";
 import { parseRooms } from "@/lib/rooms/log";
 
@@ -64,12 +65,20 @@ export default async function QuotePage({
   const option = showAnalysis || showRooms || showSheet ? null : (quote.options.find((o) => o.id === opt) ?? quote.options[0] ?? null);
   const tabGroups = scopeGroups(quote.options);
   const totals = option ? optionTotals(option.lines, quote.discountRate, quote.showHst) : null;
-  const madeFrom = fromWords(quote.changeNo, quote.fromVersion);
+  const madeFrom = fromWords(quote.changeNo, null);
   const airtableUrl = airtableRecordUrl(T.versions, quote.id);
   // A quote with no GHL opportunity yet (Needs linking): offer the customer's jobs to link it to.
   const unlinked = quote.link && !quote.link.ghlOpportunityId ? quote.link : null;
   // The accepted quote has no Edit (2026-10-30): it changes only through Make a change, as the editor says.
   const agreed = Boolean(quote.acceptance && !quote.acceptance.cancelled);
+  // The option tabs mark what the customer took (2026-10-30), one per scope at most.
+  // Put on contract (2026-10-30): on a quote with a contract, an option of a Part the contract covers can replace the one there.
+  const contractId = quote.link?.contractVersionId ?? null;
+  const loadedContract = !customer && contractId && quote.link && !quote.changeNo ? await loadContract(quote.link.quoteRecordId) : null;
+  const putOn = loadedContract && contractId
+    ? { versionId: contractId, parts: new Set(loadedContract.contract.items.flatMap((i) => (i.part ? [i.part] : i.scope ? [i.scope] : ["Flooring", "Stairs"]))) }
+    : null;
+  const acceptedIds = new Set(agreed && quote.acceptance ? picksOf(quote.acceptance).flatMap((p) => (p.ref ? [p.ref] : [])) : []);
   const jobs = unlinked ? await jobChoices(unlinked.quoteRecordId) : null;
 
   // Sending (milestone 4): what would stop it, decided by the same check the send runs.
@@ -88,7 +97,7 @@ export default async function QuotePage({
     const lead = leadPrice(quote, optionTotals(o.lines, quote.discountRate, quote.showHst));
     const r = priceRange(lead.amount);
     const range = preliminary && lead.amount > 0 ? `${rangeText(r.low, r.high)} ${lead.tag}` : null;
-    return { id: o.id, name: o.name, price: `${money(lead.amount)} ${lead.tag}`, range, recommended: o.recommended, problem: optionProblem(quote, o) };
+    return { id: o.id, name: o.name, price: `${money(lead.amount)} ${lead.tag}`, range, recommended: o.recommended, notOffered: o.notOffered === true, problem: optionProblem(quote, o) };
   });
   // Send again (2026-10-30) says whether their page already offers the PDF: read from the frozen copy, only for a version out with the customer.
   const sentPdf = !customer && quote.status === "Sent" ? offersPdf((await previewCopy(quote.id)) ?? { pdf: false }) : false;
@@ -134,7 +143,7 @@ export default async function QuotePage({
       <AcceptForCustomer
         versionId={quote.id}
         link={link}
-        options={sentCopy.options.map((o, index) => ({ index, name: o.name, subtotal: o.totals.subtotal, scope: scopeOf(o), addOns: addOnsOf(sentCopy, index) }))}
+        options={sentCopy.options.map((o, index) => ({ index, name: o.name, subtotal: o.totals.subtotal, part: partOf(o), addOns: addOnsOf(sentCopy, index) }))}
         customerName={[quote.link?.firstName, quote.link?.lastName].filter(Boolean).join(" ") || quote.customerName}
         terms={acceptGate?.terms ? { id: acceptGate.terms.id, label: termsLabel(acceptGate.terms.on) } : null}
         off={acceptGate?.off ?? null}
@@ -248,10 +257,13 @@ export default async function QuotePage({
                     {g.options.map((o) => (
                       <Link
                         key={o.id}
-                        className="tab"
+                        className={["tab", acceptedIds.has(o.id) ? "accepted" : "", o.notOffered ? "off" : ""].filter(Boolean).join(" ")}
                         href={`/q/${quote.id}?opt=${o.id}`}
                         aria-current={option?.id === o.id ? "page" : undefined}
+                        title={o.notOffered ? "Not offered: left off what the customer is sent" : undefined}
                       >
+                        {acceptedIds.has(o.id) && <span className="t-acc">✓ Accepted</span>}
+                        {o.part && <span className="t-part">{o.part}</span>}
                         {o.name}
                         <span className="t-amt">{money(optionTotals(o.lines, quote.discountRate, quote.showHst).total)}</span>
                       </Link>
@@ -307,6 +319,10 @@ export default async function QuotePage({
             ) : showAnalysis ? (
               <Analysis quote={quote} customer={customer} />
             ) : option && totals ? (
+              <>
+              {putOn && !acceptedIds.has(option.id) && putOn.parts.has(partKey(option)) && (
+                <PutOnContract contractVersionId={putOn.versionId} optionId={option.id} part={partKey(option)} />
+              )}
               <OptionSheet
                 option={option}
                 t={totals}
@@ -318,6 +334,7 @@ export default async function QuotePage({
                 lumpSum={quote.itemised !== true}
                 sendable={draft}
               />
+              </>
             ) : (
               <section className="card">
                 <p className="empty">This quote has no options yet.</p>

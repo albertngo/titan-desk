@@ -44,7 +44,7 @@ import { ghlContactUrl } from "@/lib/ghl/ids";
 import { fixAddressLink } from "@/lib/link/linkJob";
 import { money, pct, rate } from "@/lib/format";
 import type { RateCard } from "@/lib/quotes/types";
-import { optionScope, scopeGroups } from "@/lib/quotes/scope";
+import { optionScope, PARTS, partValue, scopeGroups } from "@/lib/quotes/scope";
 import { Picker } from "./Picker";
 import { ScheduleEditor } from "./ScheduleEditor";
 import { SwapOption } from "./SwapOption";
@@ -133,6 +133,7 @@ export default function Editor({
   version,
   customer,
   swap = null,
+  swapTo = null,
 }: {
   initial: EditorQuote;
   card: RateCard;
@@ -142,6 +143,8 @@ export default function Editor({
   customer: boolean;
   /** Swap option (2026-10-30): on a draft change, the accepted version's other options; null otherwise. */
   swap?: SwapSource | null;
+  /** Put on contract (2026-10-30): the option to start the swap with, opened and chosen. */
+  swapTo?: string | null;
 }) {
   const key = draftKey(initial);
   const [boot] = useState(() => loadDraft(key));
@@ -402,11 +405,11 @@ export default function Editor({
               ? "Changes are kept on this device until you save."
               : version.agreed || version.change
                 ? `This version is ${version.status ?? "locked"}. To change what was agreed, use Make a change on the quote page.`
-                : `This version is ${version.status ?? "locked"}: changes save as a new version.`}
+                : `This version was sent (${(version.status ?? "locked").toLowerCase()}), so it stays as the customer saw it: saving starts the next draft, with every option carried over.`}
           </p>
           {version.change && (
             <p className="change-note">
-              Change {version.change.no} to the accepted quote. Edit the work as usual; the customer gets it as an updated quote, for their records, and the difference goes on the final payment.
+              Change {version.change.no} to the accepted quote. Edit the work as usual; the customer gets it as an updated quote, for their records, and the payment schedule is worked out again on the new total.
               {version.change.contractTotal !== null && option && t && quote.options.length === 1 && (
                 <span className={`chip ${t.total >= version.change.contractTotal ? "accent" : "warn"}`}>
                   vs contract: {t.total - version.change.contractTotal >= 0 ? "+" : "−"}
@@ -432,7 +435,7 @@ export default function Editor({
         <div className="stack">
           {/* Swap option (2026-10-30): the customer changed their mind on which option; sent for record like any change. */}
           {isDraft && version.change && swap && option && (
-            <SwapOption source={swap} quote={quote} option={option} contractTotal={version.change.contractTotal} apply={apply} />
+            <SwapOption source={swap} quote={quote} option={option} contractTotal={version.change.contractTotal} apply={apply} preselect={swapTo} />
           )}
           <section className="card">
             <div className="card-h">Customer and terms</div>
@@ -496,7 +499,8 @@ export default function Editor({
                 {i > 0 && <span className="tab-sep" aria-hidden />}
                 {all.length > 1 && <span className="tab-scope">{g.scope}</span>}
                 {g.options.map((o) => (
-                  <button key={o.id} className="tab" aria-current={option?.id === o.id ? "page" : undefined} onClick={() => setActiveId(o.id)}>
+                  <button key={o.id} className={o.notOffered ? "tab off" : "tab"} aria-current={option?.id === o.id ? "page" : undefined} onClick={() => setActiveId(o.id)} title={o.notOffered ? "Not offered: left off what the customer is sent" : undefined}>
+                    {o.part && <span className="t-part">{o.part}</span>}
                     {o.name || "Untitled"}
                     <span className="t-amt">{money(optionTotals(o.lines, quote.discountRate, quote.showHst).total)}</span>
                   </button>
@@ -550,6 +554,27 @@ export default function Editor({
                         <option value="Flooring">Flooring</option>
                         <option value="Stairs">Stairs</option>
                       </select>
+                    </label>
+                    {/* The part of the home (2026-10-30): options in one Part are alternatives; the customer takes one per Part. */}
+                    <label className="check-in" title="Options in one Part are alternatives: the customer takes one per Part. Say exactly what it covers in the description.">
+                      Part{" "}
+                      <select
+                        className="in"
+                        aria-label="Part"
+                        value={option.part ?? ""}
+                        onChange={(e) => apply(updateOption(quote, option.id, { part: partValue(e.target.value) }))}
+                      >
+                        <option value="">None ({optionScope({ ...option, part: null })})</option>
+                        {PARTS.map((p) => (
+                          <option key={p.part} value={p.part}>
+                            {p.part}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    {/* Kept on the quote, left off what the customer is sent (2026-10-30). */}
+                    <label className="check-in" title="Kept on the quote but left off what the customer is sent. Untick to offer it again.">
+                      <input type="checkbox" checked={option.notOffered === true} onChange={(e) => apply(updateOption(quote, option.id, { notOffered: e.target.checked }))} /> Not offered
                     </label>
                     {!customer && (
                       <div className="lvl" role="radiogroup" aria-label="Service level">
@@ -785,17 +810,17 @@ export default function Editor({
 
           <div className="actions">
             <button className="btn" onClick={discard} disabled={!changed && !restoredAt}>Discard changes</button>
-            {/* A change, or the agreed quote, is never copied into an ordinary version (2026-10-27):
-                the copy would go out as a fresh quote to accept. Make a change is the way. */}
-            {!version.change && !version.agreed && (
+            {/* One working quote (2026-10-30): no Save as new version. A sent version saves as the next draft;
+                a change, or the agreed quote, is never copied into an ordinary version (2026-10-27): Make a change is the way. */}
+            {!isDraft && !version.change && !version.agreed && (
             <span className="saveas">
-              <select className="in" value={basis} onChange={(e) => setBasis(e.target.value)} aria-label="Basis of the new version" disabled={saving}>
+              <select className="in" value={basis} onChange={(e) => setBasis(e.target.value)} aria-label="The next draft is" title="Whether the next draft is a preliminary or a measured quote" disabled={saving}>
                 {BASES.map((b) => (
                   <option key={b} value={b}>{b}</option>
                 ))}
               </select>
-              <button className={`btn${isDraft ? "" : " primary"}`} onClick={saveAsNew} disabled={saving}>
-                {saving ? "Saving…" : "Save as new version"}
+              <button className="btn primary" onClick={saveAsNew} disabled={saving || !changed}>
+                {saving ? "Saving…" : "Save as the next draft"}
               </button>
             </span>
             )}
@@ -813,6 +838,15 @@ export default function Editor({
           {saveError && (
             <p className="card banner bad save-error" role="alert">
               {saveError.message}
+              {/* Airtable moved on under this draft: keep this device's work as the next draft, and the other becomes Superseded. */}
+              {saveError.conflict && !version.change && !version.agreed && (
+                <>
+                  {" "}
+                  <button type="button" className="btn" onClick={saveAsNew} disabled={saving}>
+                    Save mine as the next draft
+                  </button>
+                </>
+              )}
             </p>
           )}
         </div>

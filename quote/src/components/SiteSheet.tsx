@@ -278,7 +278,7 @@ export function SiteSheetTab({
                   Build stair options →
                 </button>
               </div>
-              <p className="faint">Build adds these as new options to this quote in the editor, priced at Standard. Review them there and save as a new version.</p>
+              <p className="faint">Build adds these as new options to this quote in the editor, priced at Standard. Review them there and save.</p>
             </div>
           </section>
         </div>

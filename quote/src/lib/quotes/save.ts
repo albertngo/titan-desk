@@ -4,13 +4,14 @@ import { AirtableError, createRecord, createRecords, getRecord, listByIds, updat
 import { LINE, OPTION, QUOTE, T, VERSION } from "@/lib/airtable/fields";
 import { fromQuote, type EditorQuote } from "@/lib/editor/model";
 import { versionLabel } from "@/lib/link/identity";
-import { fixedSchedule, scheduleProblems } from "@/lib/pricing/schedule";
-import { parseCopy, stagesOf } from "@/lib/send/copy";
-import { parseAcceptance, picksOf } from "@/lib/accept/plan";
-import type { QuoteOption } from "./types";
+import { restagedSchedule, scheduleProblems } from "@/lib/pricing/schedule";
+import { parseAcceptance } from "@/lib/accept/plan";
+import { contractVersions } from "@/lib/contract/model";
+import type { Quote, QuoteOption } from "./types";
 import { authorFields, describePlan } from "./history";
+import { loadContract } from "./contract";
 import { getQuote } from "./load";
-import { changeSlot, cleanEditorQuote, fingerprint, isRecordId, newVersionRefusal, planIsEmpty, planSave, type SavePlan } from "./savePlan";
+import { changeSlot, workingDraft, cleanEditorQuote, fingerprint, isRecordId, newVersionRefusal, planIsEmpty, planSave, type SavePlan } from "./savePlan";
 import { ids, num, str } from "./values";
 
 /**
@@ -38,14 +39,14 @@ export async function saveVersion(versionId: string, raw: unknown, base: string)
   const current = await getQuote(versionId);
   if (!current) return { ok: false, message: "This version isn't in Airtable any more." };
   if (current.status !== "Draft") {
-    return { ok: false, message: `This version is ${current.status ?? "not a draft"}, so it can't be changed. Save your changes as a new version instead.` };
+    return { ok: false, message: `This version is ${current.status ?? "not a draft"}, so it can't be changed. Your changes are still on this device: open the quote's editor again and save them as the next draft.` };
   }
   const original = fromQuote(current);
   if (fingerprint(original) !== base) {
     return {
       ok: false,
       conflict: true,
-      message: "This version changed in Airtable since you opened it, so saving would overwrite that. Your changes are still on this device: save them as a new version, or discard them and start from what's in Airtable.",
+      message: "This version changed in Airtable since you opened it, so saving would overwrite that. Your changes are still on this device: save them as the next draft, or discard them and start from what's in Airtable.",
     };
   }
   const edited = cleanEditorQuote(raw);
@@ -75,7 +76,10 @@ export async function saveAsNewVersion(versionId: string, raw: unknown, basis: s
   if (refused) return { ok: false, message: refused };
 
   const quote = await getRecord(T.quotes, quoteId);
-  const siblings = await listByIds(T.versions, ids(quote.fields[QUOTE.versions]), [VERSION.version]);
+  const siblings = await listByIds(T.versions, ids(quote.fields[QUOTE.versions]), [VERSION.version, VERSION.status, VERSION.changeNo]);
+  // One working quote (2026-10-30): a second ordinary draft would be a branch. The editor opens the draft instead.
+  const draft = workingDraft(siblings.map((v) => ({ id: v.id, status: str(v.fields[VERSION.status]), changeNo: num(v.fields[VERSION.changeNo]), version: num(v.fields[VERSION.version]) })), versionId);
+  if (draft) return { ok: false, message: `v${draft.version ?? "?"} is already the draft for this quote, so nothing was saved here. Your changes are still on this device: open v${draft.version ?? "?"} and make them there.` };
   const n = Math.max(0, ...siblings.map((v) => num(v.fields[VERSION.version]) ?? 0)) + 1;
   const quoteNo = str(quote.fields[QUOTE.quoteNumber]);
 
@@ -111,7 +115,7 @@ export async function saveAsNewVersion(versionId: string, raw: unknown, basis: s
  * is a new version of the same quote, numbered (Change No 1, 2, …), that starts as the contract
  * stands: only the accepted option, its ticked add-ons now part of the work and the others gone, and
  * (2026-10-28) a flooring option and a stairs option taken together joined into that one option, and
- * a schedule where every stage already agreed keeps its dollars and the balance takes the difference.
+ * (2026-10-30) the contract's schedule restaged on the new total, not the difference on the final payment.
  * Staff then edit it like any version and send it for the customer's records.
  */
 export async function makeChange(versionId: string): Promise<SaveResult> {
@@ -120,26 +124,28 @@ export async function makeChange(versionId: string): Promise<SaveResult> {
   const from = await getQuote(versionId);
   if (!from?.link) return { ok: false, message: "This version isn't linked to a quote." };
   if (from.link.contractVersionId !== from.id) return { ok: false, message: "Only the version that is the contract now can be changed. Open the newest one." };
-  const accepted = from.acceptance && !from.acceptance.cancelled ? from.acceptance : null;
-  if (!accepted && !from.changeNo) return { ok: false, message: "This version hasn't been accepted, so there is nothing to change yet." };
+  const loaded = await loadContract(from.link.quoteRecordId);
+  if (!loaded) return { ok: false, message: "This version hasn't been accepted, so there is nothing to change yet." };
+  const { contract } = loaded;
 
-  // The option the contract stands on, and its stages as agreed.
-  const taken = accepted ? picksOf(accepted).map((p) => from.options.find((o) => o.id === p.ref)) : from.options.length === 1 ? [from.options[0]] : [undefined];
+  // The live options the contract points at (2026-10-30: each on its own version), and its stages as agreed.
+  const sources = new Map<string, Quote | null>([[from.id, from]]);
+  for (const id of contractVersions(contract)) if (!sources.has(id)) sources.set(id, await getQuote(id));
+  const taken = contract.items.map((it) => {
+    const v = sources.get(it.versionId);
+    return it.ref ? v?.options.find((o) => o.id === it.ref) : v?.options.length === 1 ? v.options[0] : undefined;
+  });
   if (taken.length === 0 || taken.some((o) => !o)) return { ok: false, message: "The accepted option isn't on this version any more, so a change can't start from it." };
   const parts = taken as QuoteOption[];
   // Two options taken together become one: the contract is one option from here on, with one schedule.
-  const option: QuoteOption = parts.length === 1 ? parts[0] : { ...parts[0], name: accepted!.option.name, scope: null, recommended: false, description: parts.map((o) => o.description).filter(Boolean).join("\n\n") || null, lines: parts.flatMap((o) => o.lines) };
-  let stages = accepted?.stages;
-  if (!stages) {
-    const frozen = parseCopy(str((await listByIds(T.versions, [from.id], [VERSION.customerCopy]))[0]?.fields[VERSION.customerCopy]));
-    stages = frozen?.options[0] ? stagesOf(frozen.options[0]) : undefined;
-  }
-  if (!stages?.length) return { ok: false, message: "This version has no payment schedule to carry over." };
+  const option: QuoteOption = parts.length === 1 ? parts[0] : { ...parts[0], name: contract.items.map((i) => i.name).join(" + "), scope: null, part: null, recommended: false, description: parts.map((o) => o.description).filter(Boolean).join("\n\n") || null, lines: parts.flatMap((o) => o.lines) };
+  const stages = contract.stages;
+  if (!stages.length) return { ok: false, message: "This version has no payment schedule to carry over." };
 
   // Ticked add-ons are part of the work now; the ones the customer didn't take are gone.
-  const took = new Set((accepted?.addOns ?? []).map((a) => a.description.replace(/\s+/g, " ").trim().toLowerCase()));
+  const took = new Set(contract.items.flatMap((i) => i.addOns).map((a) => a.description.replace(/\s+/g, " ").trim().toLowerCase()));
   const lines = option.lines.flatMap((l) => (l.include ? [l] : took.has((l.description ?? "").replace(/\s+/g, " ").trim().toLowerCase()) ? [{ ...l, include: true }] : []));
-  const edited = cleanEditorQuote({ ...fromQuote({ ...from, options: [{ ...option, lines }] }), schedule: fixedSchedule(stages) });
+  const edited = cleanEditorQuote({ ...fromQuote({ ...from, options: [{ ...option, lines }] }), schedule: restagedSchedule(stages) });
 
   const quote = await getRecord(T.quotes, from.link.quoteRecordId);
   const siblings = await listByIds(T.versions, ids(quote.fields[QUOTE.versions]), [VERSION.version, VERSION.changeNo, VERSION.status, VERSION.sentAt]);
@@ -225,7 +231,7 @@ async function carryOut(versionId: string, plan: SavePlan): Promise<SaveResult> 
       message:
         writes === 0
           ? `Nothing was saved: Airtable refused it (${message(e)}). Your changes are still on this device; try again.`
-          : `Only part of this saved before Airtable refused it (${message(e)}). Your changes are still on this device: open the quote to see what's in Airtable, then save them as a new version.`,
+          : `Only part of this saved before Airtable refused it (${message(e)}). Your changes are still on this device: open the quote to see what's in Airtable, then save them as the next draft.`,
     };
   }
   return { ok: true, versionId, writes };

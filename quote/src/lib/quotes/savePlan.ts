@@ -2,7 +2,7 @@ import { LINE, OPTION, VERSION } from "@/lib/airtable/fields";
 import { sectionOf } from "@/lib/calc";
 import { cleanSchedule, sameSchedule, scheduleField } from "@/lib/pricing/schedule";
 import { levelOf } from "@/lib/pricing/service";
-import { scopeValue } from "./scope";
+import { partValue, scopeValue } from "./scope";
 import type { EditorLine, EditorOption, EditorQuote } from "@/lib/editor/model";
 
 /**
@@ -98,6 +98,8 @@ export function cleanEditorQuote(raw: unknown): EditorQuote {
       crew: text(x.crew, 80).trim() || null,
       privateLabel: text(x.privateLabel, 120).trim() || null,
       scope: scopeValue(x.scope),
+      ...(partValue(x.part) ? { part: partValue(x.part)! } : {}),
+      ...(x.notOffered === true ? { notOffered: true as const } : {}),
       lines: (Array.isArray(x.lines) ? x.lines : []).slice(0, LIMITS.linesPerOption).map(cleanLine),
     };
   });
@@ -171,6 +173,8 @@ export function optionFields(o: EditorOption, sortOrder: number): Fields {
     [OPTION.crew]: o.crew?.trim() || null,
     [OPTION.privateLabel]: o.privateLabel?.trim() || null,
     [OPTION.scope]: o.scope ?? null,
+    [OPTION.part]: o.part ?? null,
+    [OPTION.notOffered]: o.notOffered === true,
   };
 }
 
@@ -268,4 +272,14 @@ export function newVersionRefusal(from: { changeNo: number | null; agreed: boole
   if (from.agreed) return "This is the accepted quote. To change it, use Make a change on the quote page.";
   if ((from.changeNo ?? 0) > 0) return "This is a change to the accepted quote. Save it here, or use Make a change on the quote page for the next one.";
   return null;
+}
+
+/**
+ * The quote's working draft (2026-10-30, vault 05_decisions/2026-10-30-quote-one-working-quote): staff work on one
+ * quote and sending takes the snapshot, so there is at most one ordinary draft. The newest Draft that isn't a change,
+ * other than `self`; null when there is none.
+ */
+export function workingDraft(versions: { id: string; status: string | null; changeNo: number | null; version: number | null }[], self?: string): { id: string; version: number | null } | null {
+  const drafts = versions.filter((v) => v.id !== self && v.status === "Draft" && !((v.changeNo ?? 0) > 0)).sort((a, b) => (b.version ?? 0) - (a.version ?? 0));
+  return drafts[0] ? { id: drafts[0].id, version: drafts[0].version } : null;
 }

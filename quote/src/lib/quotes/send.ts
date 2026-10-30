@@ -7,13 +7,15 @@ import { etransferEmail, staffQuoteLink } from "@/lib/accept/settings";
 import { acceptTerms } from "@/lib/accept/live";
 import { BOOKING_URLS } from "@/lib/ghl/ids";
 import { followUpTagBodies } from "@/lib/activity/track";
-import { acceptedCopy, parseAcceptance } from "@/lib/accept/plan";
+import { parseAcceptance } from "@/lib/accept/plan";
 import { changeSummary } from "@/lib/change/diff";
+import { contractOn, contractVersions, fromChange, serializeContract } from "@/lib/contract/model";
 import { buildContract } from "@/lib/link/ghlRequest";
 import { makeConfigured, sendMessage, sendToGhl, setFollowUpTags } from "@/lib/make/client";
 import { acceptedPdfName, COPY_MAX_CHARS, customerCopy, offersPdf, parseCopy, pdfName, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "@/lib/send/copy";
 import { changeEmailMessage, changeSmsMessage, chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, isToken, newToken, parseOptionIds, parseResend, resendEmailMessage, resendProblems, resendSmsMessage, sendProblems, smsMessage, type Channels, type Sender } from "@/lib/send/plan";
 import { authorFields, firstNameOf, type Person } from "./history";
+import { loadContract } from "./contract";
 import { getQuote } from "./load";
 import { refreshFromGhl } from "./refresh";
 import { fingerprint } from "./savePlan";
@@ -81,20 +83,18 @@ const acceptOnline = async () => (await acceptTerms()) !== null && etransferEmai
 
 /**
  * A change after acceptance (2026-10-27): its copy carries what changed since the contract it updates,
- * read from that version's own frozen copy (and its acceptance, for the accepted one). Null when the
- * contract can't be read, which stops the send.
+ * read from the contract as it stands (src/lib/quotes/contract.ts: the options it points at, joined).
+ * Null when the contract can't be read, which stops the send.
  */
 async function withChange(quote: Quote, copy: CustomerCopy): Promise<CustomerCopy | null> {
   if (!quote.changeNo) return copy;
-  const contractId = quote.link?.contractVersionId;
-  if (!contractId || contractId === quote.id) return null;
-  const rec = (await listByIds(T.versions, [contractId], [VERSION.customerCopy, VERSION.acceptance]))[0];
-  const frozen = parseCopy(str(rec?.fields[VERSION.customerCopy]));
-  if (!frozen) return null;
-  const a = parseAcceptance(str(rec?.fields[VERSION.acceptance]));
-  const before = a && !a.cancelled ? acceptedCopy(frozen, a) : frozen;
-  if (!before.options[0] || !copy.options[0]) return null;
-  return { ...copy, change: changeSummary(quote.changeNo, a?.on ?? before.sentOn, before.options[0], copy.options[0]) };
+  const quoteRecordId = quote.link?.quoteRecordId;
+  if (!quoteRecordId) return null;
+  const loaded = await loadContract(quoteRecordId);
+  if (!loaded || contractVersions(loaded.contract).includes(quote.id)) return null;
+  const before = loaded.view.options[0];
+  if (!before || !copy.options[0]) return null;
+  return { ...copy, change: changeSummary(quote.changeNo, contractOn(loaded.contract), before, copy.options[0]) };
 }
 
 /** The in-store and in-home booking pages a preliminary's email offers: the GHL calendars in src/lib/ghl/ids.ts. */
@@ -385,7 +385,8 @@ async function supersedeOlder(quoteRecordId: string, keep: string): Promise<void
 async function recordContract(quote: Quote, copy: CustomerCopy, link: string): Promise<string[]> {
   const notes: string[] = [];
   try {
-    await updateRecord(T.quotes, quote.link!.quoteRecordId, { [QUOTE.contractVersion]: [quote.id] });
+    const contract = fromChange(quote.id, copy);
+    await updateRecord(T.quotes, quote.link!.quoteRecordId, { [QUOTE.contractVersion]: [quote.id], ...(contract ? { [QUOTE.contract]: serializeContract(contract) } : {}) });
   } catch {
     notes.push("The quote couldn't be pointed at this change as its contract; set Contract Version in Airtable.");
   }

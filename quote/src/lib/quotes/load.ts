@@ -8,7 +8,8 @@ import { cleanSchedule } from "@/lib/pricing/schedule";
 import { isStairMethod, isStairType } from "@/lib/quick/stairs";
 import { roomsRaw } from "@/lib/rooms/log";
 import { sheetRaw } from "@/lib/sitesheet/sheet";
-import { scopeValue } from "./scope";
+import { partValue, scopeValue } from "./scope";
+import { workingDraft } from "./savePlan";
 import { bool, ids, num, str } from "./values";
 import { groupVersions, type QuoteGroup, type QuoteHead } from "./group";
 import type { MaterialRow, Quote, QuoteLine, QuoteLink, QuoteOption, RateCard, RateRow, StairProfileRow, StairRow } from "./types";
@@ -133,6 +134,8 @@ function toOption(r: AirtableRecord, lines: QuoteLine[]): QuoteOption {
     crew: str(f[OPTION.crew]),
     privateLabel: str(f[OPTION.privateLabel]),
     scope: scopeValue(f[OPTION.scope]),
+    part: partValue(f[OPTION.part]),
+    notOffered: bool(f[OPTION.notOffered]),
     lines,
     airtable: {
       preDiscount: num(f[OPTION.preDiscount]) ?? undefined,
@@ -319,6 +322,34 @@ export async function acceptedVersionOf(q: Quote): Promise<Quote | null> {
     at = await getQuote(at.fromVersionId);
   }
   return null;
+}
+
+type WorkingDraft = { id: string; version: number | null };
+
+/** The quote's working draft (2026-10-30), when it is another version than `q`: the editor opens it instead. */
+export async function workingDraftOf(q: Quote): Promise<WorkingDraft | null> {
+  await requireQuoter();
+  if (!q.link) return null;
+  const quote = (await listByIds(T.quotes, [q.link.quoteRecordId], [QUOTE.versions]))[0];
+  const rows = quote ? await listByIds(T.versions, ids(quote.fields[QUOTE.versions]), [VERSION.version, VERSION.status, VERSION.changeNo]) : [];
+  return workingDraft(rows.map((v) => ({ id: v.id, status: str(v.fields[VERSION.status]), changeNo: num(v.fields[VERSION.changeNo]), version: num(v.fields[VERSION.version]) })), q.id);
+}
+
+/**
+ * The quote's ordinary versions other than `exclude` (2026-10-30: Swap option draws from any version), newest first,
+ * at most `limit`. Changes are left out: their one option is the contract, already joined.
+ */
+export async function otherVersionsOf(q: Quote, exclude: string[], limit = 4): Promise<Quote[]> {
+  await requireQuoter();
+  if (!q.link) return [];
+  const quote = (await listByIds(T.quotes, [q.link.quoteRecordId], [QUOTE.versions]))[0];
+  const rows = quote ? await listByIds(T.versions, ids(quote.fields[QUOTE.versions]), [VERSION.version, VERSION.changeNo]) : [];
+  const wanted = rows
+    .filter((v) => !exclude.includes(v.id) && !((num(v.fields[VERSION.changeNo]) ?? 0) > 0))
+    .sort((a, b) => (num(b.fields[VERSION.version]) ?? 0) - (num(a.fields[VERSION.version]) ?? 0))
+    .slice(0, limit);
+  const loaded = await Promise.all(wanted.map((v) => getQuote(v.id)));
+  return loaded.filter((x): x is Quote => x !== null);
 }
 
 export async function getStairProfiles(): Promise<StairProfileRow[]> {

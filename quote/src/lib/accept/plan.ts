@@ -1,7 +1,8 @@
 import { acceptedTotals, restageAmounts, round2, type AcceptedTotals } from "@/lib/calc";
 import { defaultSchedule } from "@/lib/pricing/schedule";
-import type { Scope } from "@/lib/quotes/types";
-import { scopeOf, stagesOf, type CopyItem, type CopyOption, type CopySection, type CopyStage, type CopyState, type CopyTotals, type CustomerCopy } from "@/lib/send/copy";
+import type { Part, Scope } from "@/lib/quotes/types";
+import { partOf, scopeOf, stagesOf, type CopyItem, type CopyOption, type CopyStage, type CopyState, type CopyTotals, type CustomerCopy } from "@/lib/send/copy";
+import { contractView, fromAcceptance } from "@/lib/contract/model";
 import type { Terms } from "./terms";
 
 /**
@@ -31,7 +32,7 @@ export type AcceptMethod = "link" | "store" | "staff";
 export type AcceptedAddOn = { key: string; description: string; amount: number };
 
 /** One option the customer took (2026-10-28): its place in the copy, its name, its Quote Options record and its scope. */
-export type AcceptedPick = { index: number; name: string; ref: string | null; scope: Scope };
+export type AcceptedPick = { index: number; name: string; ref: string | null; scope: Scope; part?: Part };
 
 /** What happened after the yes, kept on the record so staff can see it and retry: GHL Won, and the messages. */
 export type Handoff = { at: string; ghl: "done" | "failed" | "off"; ghlMessage: string | null; told: string[]; tellFailed: string | null };
@@ -67,7 +68,7 @@ export type Acceptance = {
 };
 
 export type AcceptInput = {
-  /** The options taken, at most one of each scope (2026-10-28). */
+  /** The options taken, at most one per Part (2026-10-30; one of each scope before then). */
   optionIndexes: number[];
   addOns: string[];
   name: string;
@@ -88,7 +89,7 @@ export function readAcceptInput(raw: unknown): AcceptInput | null {
   const r = raw as Record<string, unknown>;
   const whole = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v >= 0 && v < 1000;
   // `optionIndex` is what a page opened before 2026-10-28 sends: one option.
-  const optionIndexes = Array.isArray(r.optionIndexes) ? [...new Set(r.optionIndexes.filter(whole))].slice(0, 2) : whole(r.optionIndex) ? [r.optionIndex] : [];
+  const optionIndexes = Array.isArray(r.optionIndexes) ? [...new Set(r.optionIndexes.filter(whole))].slice(0, PART_LIMIT) : whole(r.optionIndex) ? [r.optionIndex] : [];
   if (optionIndexes.length === 0) return null;
   // "option.section.line"; an older page's "section.line" belongs to its one option.
   const addOns = Array.isArray(r.addOns)
@@ -114,11 +115,15 @@ export function addOnsOf(copy: Pick<CustomerCopy, "showHst" | "options">, index:
   );
 }
 
-/** Why a set of options can't be taken together, or null: at least one, each on the copy, never two of one scope. */
+/** At most this many options in one acceptance: one per Part. */
+const PART_LIMIT = 6;
+
+/** Why a set of options can't be taken together, or null: at least one, each on the copy, never two for one Part (2026-10-30; one scope before then). */
 export function pickProblem(copy: Pick<CustomerCopy, "options">, indexes: number[]): string | null {
   if (indexes.length === 0 || indexes.some((i) => !copy.options[i])) return "Choose the option you're accepting.";
-  const scopes = indexes.map((i) => scopeOf(copy.options[i]));
-  if (new Set(scopes).size < scopes.length) return `Choose one ${scopes[0].toLowerCase()} option, not two.`;
+  const parts = indexes.map((i) => partOf(copy.options[i]));
+  const twice = parts.find((p, i) => parts.indexOf(p) !== i);
+  if (twice) return twice === "Flooring" || twice === "Stairs" ? `Choose one ${twice.toLowerCase()} option, not two.` : `Choose one option for the ${twice.toLowerCase()}, not two.`;
   return null;
 }
 
@@ -222,7 +227,7 @@ export function buildAcceptance(
     method: ctx.method,
     name: input.name,
     option: { index: indexes[0], name: parts.map((o) => o.name).join(" + "), ref: parts[0].ref ?? null },
-    picks: indexes.map((i) => ({ index: i, name: copy.options[i].name, ref: copy.options[i].ref ?? null, scope: scopeOf(copy.options[i]) })),
+    picks: indexes.map((i) => ({ index: i, name: copy.options[i].name, ref: copy.options[i].ref ?? null, scope: scopeOf(copy.options[i]), ...(copy.options[i].part ? { part: copy.options[i].part } : {}) })),
     addOns: chosen.map(({ key, description, amount }) => ({ key, description, amount })),
     totals,
     stages,
@@ -253,66 +258,18 @@ export function parseAcceptance(raw: string | null | undefined): Acceptance | nu
 /** The options an acceptance took: its picks, or the one option of a record from before 2026-10-28. */
 export const picksOf = (a: Pick<Acceptance, "option" | "picks">): AcceptedPick[] => a.picks?.length ? a.picks : [{ ...a.option, scope: "Flooring" }];
 
-/** Whether an accepted add-on is the line at (option, section, line): the 3-part key, or an older record's 2-part one on its one option. */
-const tookAddOn = (a: Acceptance, option: number, section: number, line: number) =>
-  a.addOns.some((x) => x.key === `${option}.${section}.${line}` || (!a.picks && x.key === `${section}.${line}` && option === a.option.index));
-
 /**
  * The accepted copy (2026-10-27): what was accepted as one option, its ticked add-ons now part of
  * the work, the others left off, and the totals and payment schedule as accepted. The stamped PDF
  * and the customer's accepted page are drawn from it, so they show exactly what was agreed. A
- * flooring option and a stairs option taken together (2026-10-28) are joined into that one option:
- * the flooring's sections, then the stairs', a section both have holding both, numbered through.
+ * flooring option and a stairs option taken together (2026-10-28) are joined into that one option.
+ * Since 2026-10-30 this is the contract's own view of this one acceptance (src/lib/contract/model.ts).
  */
 export function acceptedCopy(copy: CustomerCopy, a: Acceptance): CustomerCopy {
-  const picks = picksOf(a).filter((p) => copy.options[p.index]);
-  if (picks.length === 0) return copy;
-  const parts = picks.map((p) => copy.options[p.index]);
-  const sections: CopySection[] = [];
-  let n = 0;
-  picks.forEach((p, pi) => {
-    parts[pi].sections.forEach((s, si) => {
-      const lines = s.lines.flatMap((l, li) => {
-        if (l.kind !== "item" || !l.optional) return [l];
-        return tookAddOn(a, p.index, si, li) ? [{ ...l, optional: false, added: true }] : [];
-      });
-      if (lines.length === 0) return;
-      const into = sections.find((x) => x.name === s.name);
-      if (into) {
-        into.lines.push(...lines);
-        into.total = into.total === null || s.total === null ? null : round2(into.total + s.total);
-      } else sections.push({ ...s, lines: [...lines] });
-    });
-  });
-  // Numbered through when two options are joined; an add-on taken keeps no number, as before.
-  if (parts.length > 1) for (const s of sections) s.lines = s.lines.map((l) => (l.kind === "item" && l.n !== null ? { ...l, n: ++n } : l));
-  const extra = round2(a.addOns.reduce((sum, x) => sum + x.amount, 0));
-  const sent = sumTotals(parts.map((o) => o.totals));
-  const pay = (i: number) => a.stages[i]?.amount ?? 0;
-  const description = parts.map((o) => o.description).filter(Boolean).join("\n\n") || null;
-  const option: CopyOption = {
-    ...parts[0],
-    name: parts.map((o) => o.name).join(" + "),
-    description,
-    sections,
-    exclusions: [...new Set(parts.flatMap((o) => o.exclusions))],
-    recommended: false,
-    totals: {
-      ...sent,
-      preDiscount: round2(sent.preDiscount + extra),
-      subtotal: a.totals.subtotal,
-      hst: a.totals.hst,
-      total: a.totals.total,
-      payment1: pay(0),
-      payment2: a.stages.length > 2 ? pay(1) : 0,
-      paymentFinal: pay(a.stages.length - 1),
-    },
-    schedule: a.stages,
-  };
-  delete option.range;
-  if (new Set(parts.map(scopeOf)).size > 1) delete option.scope;
-  return { ...copy, options: [option] };
+  return contractView(fromAcceptance(SELF, a), { [SELF]: copy }) ?? copy;
 }
+
+const SELF = "this version";
 
 /** The deposit: the first stage of the accepted schedule. */
 export const depositOf = (a: Acceptance): CopyStage => a.stages[0];

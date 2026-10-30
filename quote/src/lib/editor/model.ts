@@ -7,8 +7,8 @@ import { lineTotal, optionTotals, PRIVATE_SECTION, round2, sectionOf, SECTIONS, 
 import { impliedRate } from "@/lib/pricing/accepted";
 import type { PaymentSchedule } from "@/lib/pricing/schedule";
 import { levelApplies, levelOf, levelPrice, type ServiceLevel } from "@/lib/pricing/service";
-import { optionScope } from "@/lib/quotes/scope";
-import type { MaterialRow, Quote, QuoteLine, RateRow, Scope, StairRow } from "@/lib/quotes/types";
+import { partKey } from "@/lib/quotes/scope";
+import type { MaterialRow, Part, Quote, QuoteLine, RateRow, Scope, StairRow } from "@/lib/quotes/types";
 
 export type Section = (typeof SECTIONS)[number] | "Unsorted";
 
@@ -42,6 +42,10 @@ export type EditorOption = {
   privateLabel?: string | null;
   /** Flooring or Stairs (2026-10-28); null or absent = worked out from the lines. See src/lib/quotes/scope.ts. */
   scope?: Scope | null;
+  /** The part of the home (2026-10-30); absent = the scope stands for it. Absent rather than null, so older drafts keep their fingerprint. */
+  part?: Part;
+  /** Kept on the quote, left off what the customer is sent (2026-10-30); absent = offered. */
+  notOffered?: true;
   lines: EditorLine[];
 };
 
@@ -418,13 +422,30 @@ export function removeOption(q: EditorQuote, optionId: string): EditorQuote {
   return { ...q, options: q.options.filter((o) => o.id !== optionId) };
 }
 
-export function updateOption(q: EditorQuote, optionId: string, patch: Partial<Pick<EditorOption, "name" | "description" | "recommended" | "privateLabel" | "scope">>): EditorQuote {
-  let next = mapOption(q, optionId, (o) => ({ ...o, ...patch }));
-  // One recommended option per scope (2026-10-28): a customer picks one flooring and one stairs option.
+export function updateOption(
+  q: EditorQuote,
+  optionId: string,
+  patch: Partial<Pick<EditorOption, "name" | "description" | "recommended" | "privateLabel" | "scope">> & { part?: Part | null; notOffered?: boolean },
+): EditorQuote {
+  let next = mapOption(q, optionId, (o) => {
+    const { part, notOffered, ...rest } = patch;
+    const out: EditorOption = { ...o, ...rest };
+    // Absent, not null or false, when unset: an option saved before these existed keeps its fingerprint.
+    if (part !== undefined) {
+      if (part) out.part = part;
+      else delete out.part;
+    }
+    if (notOffered !== undefined) {
+      if (notOffered) out.notOffered = true;
+      else delete out.notOffered;
+    }
+    return out;
+  });
+  // One recommended option per Part (2026-10-30; per scope before then): a customer picks one option for each.
   const me = next.options.find((o) => o.id === optionId);
-  if (me?.recommended && (patch.recommended || patch.scope !== undefined)) {
-    const scope = optionScope(me);
-    next = { ...next, options: next.options.map((o) => (o.id === optionId || optionScope(o) !== scope ? o : { ...o, recommended: false })) };
+  if (me?.recommended && (patch.recommended || patch.scope !== undefined || patch.part !== undefined)) {
+    const key = partKey(me);
+    next = { ...next, options: next.options.map((o) => (o.id === optionId || partKey(o) !== key ? o : { ...o, recommended: false })) };
   }
   return next;
 }
@@ -701,6 +722,8 @@ export function fromQuote(quote: Quote): EditorQuote {
       crew: o.crew,
       privateLabel: o.privateLabel ?? null,
       scope: o.scope ?? null,
+      ...(o.part ? { part: o.part } : {}),
+      ...(o.notOffered ? { notOffered: true as const } : {}),
       lines: o.lines.map((l: QuoteLine): EditorLine => ({
         id: l.id,
         sourceKind: l.sourceKind,

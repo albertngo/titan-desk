@@ -6,7 +6,7 @@ import { acceptForCustomerAction, cancelAcceptanceAction, makeChangeAction, retr
 import type { Acceptance } from "@/lib/accept/plan";
 import { termsLabel } from "@/lib/accept/terms";
 import { money } from "@/lib/format";
-import type { Scope } from "@/lib/quotes/types";
+import { partKeys, partWords } from "@/lib/send/copy";
 
 /**
  * Acceptance on the staff quote page (Albert, 2026-10-27). Two cards:
@@ -17,7 +17,7 @@ import type { Scope } from "@/lib/quotes/types";
  *   change and Cancel acceptance.
  */
 
-export type StaffAcceptOption = { index: number; name: string; subtotal: number; scope: Scope; addOns: { key: string; description: string; amount: number }[] };
+export type StaffAcceptOption = { index: number; name: string; subtotal: number; part: string; addOns: { key: string; description: string; amount: number }[] };
 
 export function AcceptForCustomer({
   versionId,
@@ -39,8 +39,8 @@ export function AcceptForCustomer({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  // One option of each scope (2026-10-28); a scope with one option starts chosen only when it's the quote's only scope.
-  const scopes = (["Flooring", "Stairs"] as Scope[]).filter((sc) => options.some((x) => x.scope === sc));
+  // One option per Part (2026-10-30; per scope before then); nothing starts chosen unless there is one option.
+  const parts = partKeys(options);
   const [picks, setPicks] = useState<number[]>(options.length === 1 ? [0] : []);
   const [ticked, setTicked] = useState<string[]>([]);
   const [name, setName] = useState(customerName ?? "");
@@ -49,8 +49,8 @@ export function AcceptForCustomer({
   const [busy, start] = useTransition();
   const [msg, setMsg] = useState<{ text: string; bad: boolean; problems?: string[] } | null>(null);
   const chosen = options.filter((x) => picks.includes(x.index));
-  const choose = (scope: Scope, index: number) => {
-    const next = [...options.filter((x) => x.scope !== scope && picks.includes(x.index)).map((x) => x.index), ...(index >= 0 ? [index] : [])];
+  const choose = (part: string, index: number) => {
+    const next = [...options.filter((x) => x.part !== part && picks.includes(x.index)).map((x) => x.index), ...(index >= 0 ? [index] : [])];
     setPicks(next);
     setTicked(ticked.filter((k) => next.some((i) => k.startsWith(`${i}.`))));
   };
@@ -91,13 +91,13 @@ export function AcceptForCustomer({
               <div className="form acc-form">
                 <p className="faint">For a yes in writing that didn&apos;t come through their link: a signed paper, an email. Say where it is.</p>
                 {options.length > 1 &&
-                  scopes.map((scope) => (
-                    <label key={scope}>
-                      {scopes.length > 1 ? `${scope} option` : "Option"}
-                      <select value={options.find((x) => x.scope === scope && picks.includes(x.index))?.index ?? -1} onChange={(e) => choose(scope, Number(e.target.value))}>
-                        <option value={-1}>{scopes.length > 1 ? `No ${scope.toLowerCase()}` : "Choose…"}</option>
+                  parts.map((part) => (
+                    <label key={part}>
+                      {parts.length > 1 ? partWords(part).label : "Option"}
+                      <select value={options.find((x) => x.part === part && picks.includes(x.index))?.index ?? -1} onChange={(e) => choose(part, Number(e.target.value))}>
+                        <option value={-1}>{parts.length > 1 ? partWords(part).none : "Choose…"}</option>
                         {options
-                          .filter((x) => x.scope === scope)
+                          .filter((x) => x.part === part)
                           .map((x) => (
                             <option key={x.index} value={x.index}>
                               Option {x.index + 1}: {x.name} · {money(x.subtotal)} before HST
@@ -201,39 +201,64 @@ export function AcceptedCard({
         </p>
         {a.reason && <p className="faint">{a.reason}</p>}
         {a.addOns.length > 0 && <p>Added: {a.addOns.map((x) => `${x.description} (${money(x.amount)})`).join(", ")}</p>}
-        <dl className="acc-dl">
-          <div><dt>Price before HST</dt><dd>{money(a.totals.subtotal)}</dd></div>
-          <div><dt>Total with HST</dt><dd>{money(a.totals.total)}</dd></div>
-          {a.stages.map((s, i) => (
-            <div key={i}><dt>{s.label}</dt><dd>{money(s.amount)}</dd></div>
-          ))}
-          <div><dt>Project Expectations</dt><dd>{termsLabel(a.terms)}</dd></div>
-        </dl>
-        {a.signature && (
-          <svg className="acc-sig" viewBox="0 0 1000 300" role="img" aria-label={`${a.name}'s signature`}>
-            <path d={a.signature} fill="none" stroke="currentColor" strokeWidth={4} strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+        <div className="acc-grp">
+          <h4>Price</h4>
+          <dl className="acc-dl">
+            <div><dt>Price before HST</dt><dd>{money(a.totals.subtotal)}</dd></div>
+            <div><dt>HST</dt><dd>{money(a.totals.hst)}</dd></div>
+            <div className="tot"><dt>Total with HST</dt><dd>{money(a.totals.total)}</dd></div>
+          </dl>
+        </div>
+        {a.stages.length > 0 && (
+          <div className="acc-grp">
+            <h4>Payments</h4>
+            <dl className="acc-dl">
+              {a.stages.map((s, i) => (
+                <div key={i} className={i === 0 ? "dep" : undefined}>
+                  <dt>
+                    {s.label}
+                    {s.when && <span className="when">{s.when}</span>}
+                  </dt>
+                  <dd>{money(s.amount)}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
         )}
+        <div className="acc-grp">
+          <h4>Project Expectations</h4>
+          <p className="acc-line">{termsLabel(a.terms)}</p>
+          {a.signature && (
+            <svg className="acc-sig" viewBox="0 0 1000 300" role="img" aria-label={`${a.name}'s signature`}>
+              <path d={a.signature} fill="none" stroke="currentColor" strokeWidth={4} strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
+        </div>
         {a.cancelled ? (
           <p className="banner warn">Cancelled by {a.cancelled.by}: {a.cancelled.reason}</p>
         ) : (
-          <ul className="handoff">
-            <li className={h?.ghl === "done" ? "good" : "warn"}>{h?.ghl === "done" ? "GHL: Project Won" : `GHL not moved yet${h?.ghlMessage ? `: ${h.ghlMessage}` : ""}`}</li>
-            <li className={projectNumber ? "good" : "faint"}>{projectNumber ? `Notion project ${projectNumber}` : "Notion project: waiting for its PP number"}</li>
-            <li className={h?.told.length ? "good" : "warn"}>{h?.told.length ? `Customer told by ${h.told.join(" and ").toLowerCase()}` : "Customer not told yet"}{h?.tellFailed ? ` (${h.tellFailed})` : ""}</li>
-          </ul>
+          <div className="acc-grp">
+            <h4>Hand-off</h4>
+            <ul className="handoff">
+              <li className={h?.ghl === "done" ? "good" : "warn"}>{h?.ghl === "done" ? "GHL: Project Won" : `GHL not moved yet${h?.ghlMessage ? `: ${h.ghlMessage}` : ""}`}</li>
+              <li className={projectNumber ? "good" : "faint"}>{projectNumber ? `Notion project ${projectNumber}` : "Notion project: waiting for its PP number"}</li>
+              <li className={h?.told.length ? "good" : "warn"}>{h?.told.length ? `Customer told by ${h.told.join(" and ").toLowerCase()}` : "Customer not told yet"}{h?.tellFailed ? ` (${h.tellFailed})` : ""}</li>
+            </ul>
+          </div>
         )}
         {links.length > 0 && (
-          <p className="acc-links">
-            {links.map((l, i) => (
-              <span key={l.href}>
-                {i > 0 && " · "}
-                <a href={l.href} target="_blank" rel="noreferrer">
-                  {l.label} ↗
-                </a>
-              </span>
-            ))}
-          </p>
+          <div className="acc-grp">
+            <h4>Links</h4>
+            <ul className="acc-links">
+              {links.map((l) => (
+                <li key={l.href}>
+                  <a href={l.href} target="_blank" rel="noreferrer">
+                    {l.label} ↗
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
         {!a.cancelled && current && (
           <p className="acc-actions">
@@ -286,7 +311,7 @@ export function ChangeCard({ versionId, changeNo, status, sentAt, current }: { v
       </div>
       <div className="card-b">
         {status === "Draft" ? (
-          <p>Edit it, then send it from the Send card. The customer gets the updated quote with what changed at the top, for their records; GHL&apos;s value follows the new total. The difference goes on the final payment.</p>
+          <p>Edit it, then send it from the Send card. The customer gets the updated quote with what changed at the top, for their records; GHL&apos;s value follows the new total. The payment schedule is worked out again on the new total.</p>
         ) : current ? (
           <p>Sent{sentAt ? ` ${sentAt}` : ""}. This is the contract now: GHL&apos;s value and the Notion project follow its total.</p>
         ) : (
@@ -313,5 +338,37 @@ export function ChangeCard({ versionId, changeNo, status, sentAt, current }: { v
         {msg && <p className="banner warn">{msg}</p>}
       </div>
     </section>
+  );
+}
+
+/**
+ * Put on contract (Albert, 2026-10-30: one working quote, "On a contract basis, I will select which options from
+ * there I would like to go for"). On an option that isn't on the contract, in a Part that is: opens the change (Make
+ * a change, or the one already open) with this option chosen in Swap option. Nothing is saved until the change is.
+ */
+export function PutOnContract({ contractVersionId, optionId, part }: { contractVersionId: string; optionId: string; part: string }) {
+  const router = useRouter();
+  const [busy, start] = useTransition();
+  const [msg, setMsg] = useState<string | null>(null);
+  return (
+    <p className="put-contract">
+      <button
+        type="button"
+        className="btn"
+        disabled={busy}
+        title={`Opens a change to the accepted quote with this option in place of the ${part.toLowerCase()} option on the contract. It goes to the customer for their records.`}
+        onClick={() =>
+          start(async () => {
+            const r = await makeChangeAction(contractVersionId);
+            if (r.ok) router.push(`/q/${r.versionId}/edit?swap=${optionId}`);
+            else setMsg(r.message);
+          })
+        }
+      >
+        {busy ? "Opening…" : "Put on contract"}
+      </button>
+      <span className="faint"> in place of the {part.toLowerCase()} option the customer has</span>
+      {msg && <span className="banner warn">{msg}</span>}
+    </p>
   );
 }

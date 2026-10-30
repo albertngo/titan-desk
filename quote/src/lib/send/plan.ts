@@ -43,14 +43,16 @@ export function parseOptionIds(raw: unknown): string[] | null {
 
 /** The quote with only the chosen options, in their order; null = all. An id not on the quote is ignored here and refused by sendProblems. */
 export function chooseOptions<Q extends Pick<Quote, "options">>(quote: Q, ids: string[] | null | undefined): Q {
-  if (!ids) return quote;
+  // Not named: every option still offered (2026-10-30: a Not offered one stays on the quote and off the copy).
+  if (!ids) return { ...quote, options: quote.options.filter((o) => !o.notOffered) };
   const keep = new Set(ids);
   return { ...quote, options: quote.options.filter((o) => keep.has(o.id)) };
 }
 
 /** "options 1 and 3" for the edit log, numbered as the editor shows them; null when every option went. */
 export function chosenWords(quote: Pick<Quote, "options">, ids: string[] | null | undefined): string | null {
-  if (!ids || quote.options.every((o) => ids.includes(o.id))) return null;
+  if (!ids) ids = quote.options.filter((o) => !o.notOffered).map((o) => o.id);
+  if (quote.options.every((o) => ids.includes(o.id))) return null;
   const nums = quote.options.flatMap((o, i) => (ids.includes(o.id) ? [String(i + 1)] : []));
   return nums.length === 1 ? `option ${nums[0]} only` : `options ${nums.slice(0, -1).join(", ")} and ${nums.at(-1)}`;
 }
@@ -684,7 +686,7 @@ export function changeEmailMessage(copy: CustomerCopy, to: { contactId: string; 
     ) +
     row(button("View your updated quote", to.link), "12px 40px 10px") +
     hairline() +
-    row(eyebrow("Your payment schedule") + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${stages}</table>` + para("The difference is on the final payment.", 13, C.muted, "10px 0 0")) +
+    row(eyebrow("Your payment schedule") + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${stages}</table>` + para("The payment schedule is worked out on the new total; what you&rsquo;ve already paid counts toward it.", 13, C.muted, "10px 0 0")) +
     hairline("22px 40px 28px") +
     row(para("If anything here isn&rsquo;t what we agreed, reply to this email.", 15, C.body, "0 0 4px") + para(signoff, 14, C.muted, "0 0 36px"));
   const from = "emailFrom" in options ? options.emailFrom : emailFromFor(sender, copy.company.email, true);
@@ -701,7 +703,7 @@ export function changeSmsMessage(copy: CustomerCopy, to: { contactId: string; fi
   return {
     type: "SMS",
     contactId: to.contactId,
-    message: `${hi ? `Hi ${hi}, ${whoFrom}.` : `Hi, ${whoFrom}.`} As we discussed, here is your updated quote ${copy.quoteNumber} (change ${c.no}). The new total is ${total}${copy.options[0].totals.hst ? " with HST" : ""}; the difference is on the final payment.\n\nSee what changed:\n${to.link}\n\nIf anything isn't what we agreed, just reply.`,
+    message: `${hi ? `Hi ${hi}, ${whoFrom}.` : `Hi, ${whoFrom}.`} As we discussed, here is your updated quote ${copy.quoteNumber} (change ${c.no}). The new total is ${total}${copy.options[0].totals.hst ? " with HST" : ""}; the payments follow the new total, and what you've paid counts toward it.\n\nSee what changed:\n${to.link}\n\nIf anything isn't what we agreed, just reply.`,
   };
 }
 
