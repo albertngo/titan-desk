@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { sectionLinesInOrder, stairGroupLabel, stairGroups } from "@/lib/editor/stairGroups";
+import { addChoices, sectionLinesInOrder, stairGroupLabel, stairGroups, type AddChoice } from "@/lib/editor/stairGroups";
 import { Fragment, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { saveAsNewVersionAction, saveVersionAction } from "@/app/q/[id]/edit/actions";
 import { Financials } from "@/components/Financials";
 import { DEFAULT_PRIVATE_LABEL, PRIVATE_SECTION, SECTIONS, isPriced, lineCost, lineFlags, lineTotal, optionTotals, privateRollup, sectionOf, stageAmounts } from "@/lib/calc";
-import {
+import { manualLine,
   UOMS,
   addLine,
   addLines,
@@ -160,7 +160,7 @@ export default function Editor({
   const [restoredAt, setRestoredAt] = useState<string | null>(boot?.savedAt ?? null);
   const [savedAt, setSavedAt] = useState<string | null>(boot?.savedAt ?? null);
   const [activeId, setActiveId] = useState<string | null>(quote.options[0]?.id ?? null);
-  const [picking, setPicking] = useState<string | null>(null);
+  const [picking, setPicking] = useState<AddChoice | null>(null);
   const [newExclusion, setNewExclusion] = useState("");
 
   // The rate card and the stair items, for the picker and for re-pricing (service level, contractor, material).
@@ -691,7 +691,12 @@ export default function Editor({
                           <tr className="sect" key={`s-${s}`}>
                             <td colSpan={customer ? 4 : 7}>
                               {s}{" "}
-                              <button className="addinline" onClick={() => setPicking(s)}>+ Add</button>
+                              {/* The inline Add follows the option's scope (2026-10-30): a stairs option adds only to Stairs and Private (stair items or typed), a flooring option never to Stairs. */}
+                              {(optionScope(option) === "Stairs" ? s === "Stairs" || s === PRIVATE_SECTION : s !== "Stairs") && (
+                                <button className="addinline" onClick={() => setPicking({ label: s, section: s, ...(optionScope(option) === "Stairs" && s === PRIVATE_SECTION ? { stairsOnly: true as const } : {}) })}>
+                                  + Add
+                                </button>
+                              )}
                               {s === PRIVATE_SECTION && !customer && (
                                 <span className="priv-as" title="These lines are never itemised for the customer. On the page, the PDF and the email they roll up into one row in Other with this name and their total.">
                                   Not itemised for the customer. Shown as{" "}
@@ -738,9 +743,18 @@ export default function Editor({
                 </div>
                 <div className="addbar">
                   <span className="lbl">Add work</span>
-                  {WORK_SECTIONS.filter((s) => !(customer && s === PRIVATE_SECTION)).map((s) => (
-                    <button key={s} className="chip-btn" onClick={() => setPicking(s)}>{s}</button>
-                  ))}
+                  {/* A stairs option adds Stair Items by category (2026-10-30); a flooring option everything but Stairs. */}
+                  {addChoices(optionScope(option), card.stairs.map((x) => x.category), WORK_SECTIONS.filter((s) => !(customer && s === PRIVATE_SECTION)))
+                    .map((c) => (
+                      <button
+                        key={`${c.section}:${c.category ?? c.label}`}
+                        className="chip-btn"
+                        onClick={() => (c.typed ? apply(addLine(quote, option.id, manualLine(c.section))) : setPicking(c))}
+                        title={c.typed ? "A line you type, with your own price" : undefined}
+                      >
+                        {c.label}
+                      </button>
+                    ))}
                 </div>
               </section>
 
@@ -856,7 +870,9 @@ export default function Editor({
 
       {picking && option && (
         <Picker
-          section={picking}
+          section={picking.section}
+          category={picking.category ?? null}
+          stairsOnly={picking.stairsOnly === true}
           catalogue={catalogue}
           profiles={card.profiles ?? []}
           profileLines={option.lines.filter((l) => l.sourceKind === "profile").map((l) => ({ id: l.id, sourceId: l.sourceId }))}

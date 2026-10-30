@@ -39,3 +39,22 @@ export function stairGroups<T extends { stairCategory?: string | null }>(lines: 
 export function sectionLinesInOrder<T extends { stairCategory?: string | null }>(section: string, lines: T[]): T[] {
   return section === "Stairs" ? stairGroups(lines).flatMap((g) => g.lines) : lines;
 }
+
+/**
+ * What an option can add (Albert, 2026-10-30: "For stairs, the only options should be from stair items. And the select
+ * options should be from the category there"; a hand-typed line and the Private section stay). A Stairs option: the
+ * staircase builder, then one button per Stair Item category in work order, a typed line, and Private (stair items
+ * or a typed line only). A Flooring option: every work section but Stairs. Lines already on an option are untouched.
+ */
+export type AddChoice = { label: string; section: string; category?: string; stairsOnly?: true; typed?: true };
+
+export function addChoices(scope: "Flooring" | "Stairs", categories: (string | null | undefined)[], sections: readonly string[]): AddChoice[] {
+  if (scope === "Flooring") return sections.filter((s) => s !== "Stairs").map((s) => ({ label: s, section: s }));
+  const groups = [...new Set(categories.map((c) => stairGroupOf({ stairCategory: c })).filter((g): g is string => g !== null))].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+  return [
+    { label: "Staircase", section: "Stairs" },
+    ...groups.map((g) => ({ label: stairGroupLabel(g), section: "Stairs", category: g })),
+    { label: "Typed line", section: "Stairs", typed: true as const },
+    ...(sections.includes("Private") ? [{ label: "Private", section: "Private", stairsOnly: true as const }] : []),
+  ];
+}

@@ -23,6 +23,16 @@ export const CHANGES: Change[] = [
   {
     date: "2026-10-30",
     kind: "changed",
+    title: "Stairs options add stair items only, by category",
+    details: [
+      "On a stairs option, Add work shows Staircase (the builder), then one button per Stair Item category (Steps, Bullnoses, Risers, Landings, Accents, Railing, Tasks), each listing only that category's items, then Typed line and Private. Private there offers stair items or a line you type, never the rate card.",
+      "A flooring option no longer offers Stairs. Lines already on an option stay as they are.",
+      "A new option counts as flooring until it has stair lines, a Stairs scope or a stairs Part, so set the Scope or Part first for a stairs option.",
+    ],
+  },
+  {
+    date: "2026-10-30",
+    kind: "changed",
     title: "Put on contract, from any version",
     details: [
       "On an accepted quote, an option that isn't on the contract shows Put on contract when its Part (or flooring or stairs) is one the customer has. It opens the change with that option ready to swap in.",

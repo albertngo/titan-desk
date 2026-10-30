@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sectionLinesInOrder, stairGroupLabel, stairGroups } from "../src/lib/editor/stairGroups";
+import { addChoices, sectionLinesInOrder, stairGroupLabel, stairGroups } from "../src/lib/editor/stairGroups";
 
 /* Invented lines only. */
 
@@ -25,5 +25,21 @@ describe("the Stairs section grouped by Stair Item category (2026-10-28)", () =>
     expect(sectionLinesInOrder("Install", [l("b", "task"), l("a", "step")]).map((x) => x.id)).toEqual(["b", "a"]);
     expect(sectionLinesInOrder("Stairs", [l("b", "task"), l("a", "step")]).map((x) => x.id)).toEqual(["a", "b"]);
     expect(stairGroupLabel("Trim")).toBe("Trim");
+  });
+});
+
+describe("what an option can add (2026-10-30)", () => {
+  const sections = ["Install", "Stairs", "Removal", "Disposal", "Prep", "Materials", "Delivery", "Other", "Private"];
+  it("a stairs option: the builder, the Stair Item categories in work order, a typed line, and Private (stair items only)", () => {
+    const c = addChoices("Stairs", ["Railing", "Step", null, "Riser", "step", "Weird"], sections);
+    expect(c.map((x) => x.label)).toEqual(["Staircase", "Steps", "Risers", "Railing", "Weird", "Typed line", "Private"]);
+    expect(c.find((x) => x.label === "Steps")).toEqual({ label: "Steps", section: "Stairs", category: "step" });
+    expect(c.find((x) => x.label === "Typed line")?.typed).toBe(true);
+    expect(c.find((x) => x.label === "Private")).toEqual({ label: "Private", section: "Private", stairsOnly: true });
+    // Customer view leaves Private out of the sections, and so out of the choices.
+    expect(addChoices("Stairs", ["Step"], sections.filter((s) => s !== "Private")).map((x) => x.label)).toEqual(["Staircase", "Steps", "Typed line"]);
+  });
+  it("a flooring option: every work section but Stairs", () => {
+    expect(addChoices("Flooring", ["Step"], sections).map((x) => x.section)).toEqual(["Install", "Removal", "Disposal", "Prep", "Materials", "Delivery", "Other", "Private"]);
   });
 });

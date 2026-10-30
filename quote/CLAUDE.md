@@ -574,6 +574,13 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   final payment" for new changes; the change email, PDF and text say what was already paid counts toward it (the
   invoice or receipt shows it). A joined change option takes no Part. Not built (step 3): a Part not on the contract
   offered for acceptance on a later link.
+- **What an option can add follows its scope (Albert, 2026-10-30: "For stairs, the only options should be from stair
+  items. And the select options should be from the category there"; Stair Items stay their own table, not folded into
+  the Rate Card).** `addChoices()` in `src/lib/editor/stairGroups.ts`: a **Stairs** option's Add work is Staircase (the
+  builder), one button per Stair Item Category in work order (read from the card, so a new category shows itself),
+  Typed line (a manual Stairs line) and Private, whose picker offers Stair Items and typed lines only (`stairsOnly` on
+  the Picker); a **Flooring** option gets every work section but Stairs. A section's inline + Add follows the same rule.
+  Lines already on an option are untouched. Tested in `tests/stairGroups.test.ts`.
 - **Invoices and receipts (Albert, 2026-10-30).** One numbered document per won project, on its contract
   version (the accepted one or its latest change): an **invoice** (INV-82571, INV-82572…) when the contract charges
   HST on every line, a **receipt** (R-10245, R-10246…) when HST is on part of it (the floor material) or none

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { optionTotals } from "@/lib/calc";
 import { bestContractor, entryLabel, lineFromEntry, manualLine, rateSnap, searchCatalogue, SECTION_LABOUR, type CardEntry, type EditorLine } from "@/lib/editor/model";
 import { defaultInput, expandProfile, type BuilderInput } from "@/lib/editor/stairBuilder";
+import { stairGroupLabel, stairGroupOf } from "@/lib/editor/stairGroups";
 import { money } from "@/lib/format";
 import { levelPrice, type ServiceLevel } from "@/lib/pricing/service";
 import { STAIR_METHODS, STAIR_TYPES, profileName, stairProfileLine } from "@/lib/quick/stairs";
@@ -29,6 +30,8 @@ const COUNTS: [keyof BuilderInput, string][] = [
  */
 export function Picker({
   section,
+  category = null,
+  stairsOnly = false,
   catalogue,
   onPick,
   onClose,
@@ -40,6 +43,10 @@ export function Picker({
   onPickMany,
 }: {
   section: string;
+  /** A stairs option's category button (2026-10-30): only Stair Items of that category, no builder. */
+  category?: string | null;
+  /** A stairs option's Private section (2026-10-30): Stair Items and typed lines only, never the rate card. */
+  stairsOnly?: boolean;
   catalogue: CardEntry[];
   onPick: (l: EditorLine) => void;
   onClose: () => void;
@@ -60,13 +67,17 @@ export function Picker({
   const [input, setInput] = useState<BuilderInput>({ steps: 0, openSideSteps: 0, handrailFt: 0, spindles: 0, posts: 0 });
   const [replace, setReplace] = useState(true);
   const [all, setAll] = useState(false);
-  const results = searchCatalogue(catalogue, q, section, 40, all);
-  // Only a section with work of its own is filtered, so only there is widening offered.
-  const filterable = SECTION_LABOUR[section] !== undefined;
+  const narrowed = category !== null || stairsOnly;
+  const results = narrowed
+    ? searchCatalogue(catalogue, q, "Stairs", Infinity).filter((e) => category === null || (e.kind === "stair" && stairGroupOf({ stairCategory: e.category }) === category)).slice(0, 40)
+    : searchCatalogue(catalogue, q, section, 40, all);
+  // Only a section with work of its own is filtered, so only there is widening offered; never on a stairs option.
+  const filterable = !narrowed && SECTION_LABOUR[section] !== undefined;
   const elsewhere = filterable && !all ? searchCatalogue(catalogue, q, section, Infinity, true).length - searchCatalogue(catalogue, q, section, Infinity).length : 0;
   const words = q.toLowerCase().split(/\s+/).filter(Boolean);
-  const rows = section === "Stairs" ? (profiles ?? []).filter((p) => words.every((w) => p.name.toLowerCase().includes(w))) : [];
-  const codeProfiles = section === "Stairs" && (profiles ?? []).length === 0 ? CODE_PROFILES.filter((p) => words.every((w) => profileName(p).toLowerCase().includes(w))) : [];
+  const builder = section === "Stairs" && category === null;
+  const rows = builder ? (profiles ?? []).filter((p) => words.every((w) => p.name.toLowerCase().includes(w))) : [];
+  const codeProfiles = builder && (profiles ?? []).length === 0 ? CODE_PROFILES.filter((p) => words.every((w) => profileName(p).toLowerCase().includes(w))) : [];
   const built = building ? expandProfile(building, input, catalogue, level) : null;
   const replacing = building ? (profileLines ?? []).filter((l) => l.sourceId === building.id).map((l) => l.id) : [];
 
@@ -81,13 +92,14 @@ export function Picker({
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
         <div className="card-h">
           Add to {section}
+          {category !== null && ` · ${stairGroupLabel(category)}`}
           <button className="linkbtn right" onClick={onClose}>Close</button>
         </div>
         <div className="card-b">
           <input
             className="in"
             autoFocus
-            placeholder={section === "Stairs" ? "Search stair items…" : "Search the rate card, e.g. click, baseboard, bin"}
+            placeholder={section === "Stairs" || stairsOnly ? "Search stair items…" : "Search the rate card, e.g. click, baseboard, bin"}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             aria-label="Search the rate card"
@@ -178,7 +190,7 @@ export function Picker({
               </li>
             );
           })}
-          {results.length === 0 && rows.length === 0 && codeProfiles.length === 0 && <li className="empty">{filterable && !all ? `Nothing in ${section} matches “${q}”.` : `Nothing on the rate card matches “${q}”.`}</li>}
+          {results.length === 0 && rows.length === 0 && codeProfiles.length === 0 && <li className="empty">{narrowed ? `No stair item${category !== null ? ` in ${stairGroupLabel(category)}` : ""} matches “${q}”.` : filterable && !all ? `Nothing in ${section} matches “${q}”.` : `Nothing on the rate card matches “${q}”.`}</li>}
           <li>
             <button className="pick manual" onClick={() => onPick(manualLine(section, q.trim()))}>
               <span className="nm">Type it in yourself{q.trim() ? `: “${q.trim()}”` : ""}</span>
