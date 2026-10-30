@@ -598,6 +598,17 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   stays the sale of record and the A/R, and nothing posts to QuickBooks or Lightspeed. If a change flips the
   contract's HST after a document was issued, the app refuses a second number and says to ask Albert. Tested in
   `tests/billing.test.ts`.
+- **Photos (Albert, 2026-10-30: "display all those photos with their proper timestamps and descriptions,
+  mirroring company cam itself").** A **Photos** tab on the quote page, beside Site sheet, staff only, on a quote
+  whose CompanyCam link (Quotes → CompanyCam URL, `https://app.companycam.com/projects/<id>`, Make 3453735's
+  `project_url`) gives a project id (`projectIdOf()`). Opening the tab reads the project and every photo on it live
+  (`src/lib/quotes/companycam.ts`, up to 600, 50 a page), stored nowhere, and lays them out like CompanyCam's timeline:
+  by Toronto day, newest first, each with the time taken (else uploaded), who took it, its description and any tags
+  CompanyCam includes; a search over those; a viewer with arrows, keys and swipe. A photo's marked-up copy is shown
+  when it has one. Read-only: nothing is written to CompanyCam, Airtable or GHL. Each photo keeps its web-size URL so
+  a later step can hand stair and measurement photos to Claude (not built: that would go through
+  `src/lib/anthropic/client.ts`, a reviewed change to rule 2e). Pure reading in `src/lib/companycam/photos.ts`, tested
+  in `tests/companycam.test.ts`; screen `src/components/CompanyCamPhotos.tsx`.
 - **All quotes (2026-10-15).** One row per quote, its versions folded under it (newest first),
   and a search over name, quote and project number, city, email and phone digits. Grouping and
   search are pure, in `src/lib/quotes/group.ts`, tested in `tests/group.test.ts`. Since 2026-10-28
@@ -675,6 +686,11 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
    of `QUOTE_NOTION_PAYMENTS_TOKEN` (a Notion internal integration with read content only, shared with the Master
    Payments Log alone, staff deployment only), one request (a query of that log), reached only from
    `src/lib/quotes/billing.ts`. `src/lib/bug/notion.ts` is the only other file that talks to Notion.
+2g. **One file talks to CompanyCam, and only reads (2026-10-30):** `src/lib/companycam/client.ts`, `server-only`,
+   GET only, one request function, the only reader of `QUOTE_COMPANYCAM_TOKEN` (staff deployment only; refuses on
+   the customer one) and the only file naming `api.companycam.com`. A CompanyCam access token is not scoped, so this
+   file is the limit: one project and its photos. It is reached only from `src/lib/quotes/companycam.ts`, which only
+   the quote page imports. Making projects stays Make's. `tests/boundary.test.ts` pins all of this.
 3. **Staff is not enough.** Only emails on `QUOTE_ALLOWED_EMAILS` get in. The proxy checks
    it and every loader in `src/lib/quotes/load.ts` and `src/lib/quotes/start.ts` checks again
    (`requireQuoter()`). An empty list lets nobody in.
