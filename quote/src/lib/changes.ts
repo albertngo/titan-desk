@@ -23,6 +23,15 @@ export const CHANGES: Change[] = [
   {
     date: "2026-10-30",
     kind: "changed",
+    title: "No Edit on an accepted quote, and Send to customer only on a draft",
+    details: [
+      "An accepted quote's page no longer offers Edit (under the quote or beside its name): Make a change is the way to change it.",
+      "The Send to customer button under the quote shows on a draft only. Once a version is sent, the Send card beside it is where to send it again.",
+    ],
+  },
+  {
+    date: "2026-10-30",
+    kind: "changed",
     title: "Receipts say \"HST (13%) on materials only\"",
     details: ["The HST row inside a receipt's Materials section now reads \"on materials only\"."],
   },
