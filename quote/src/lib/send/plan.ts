@@ -704,6 +704,72 @@ export function changeSmsMessage(copy: CustomerCopy, to: { contactId: string; fi
   };
 }
 
+/* ---------- send again (Albert, 2026-10-30) ---------- */
+
+/**
+ * Sending a quote's link again (Albert, 2026-10-30: "after sending a quote link WITHOUT a PDF, the client
+ * requests for it. Can there be a send PDF button. Or a re-send quote?"). Same version, same link, same frozen
+ * copy: nothing about the quote changes, it is not a new send (no status, date, follow-up tag or supersede).
+ * `pdf` turns on Download PDF on their page, if it was off, and puts the PDF's link in the message. Still
+ * never an attachment (2026-10-27): the link is the PDF.
+ */
+export type ResendInput = { channels: Channels; pdf: boolean };
+
+export function parseResend(raw: unknown): ResendInput | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const ch = (r.channels ?? {}) as Record<string, unknown>;
+  return { channels: { email: ch.email === true, sms: ch.sms === true }, pdf: r.pdf === true };
+}
+
+/** Why it can't go again: only a version still out with the customer, by a channel the contact has. */
+export function resendProblems(v: { status: string | null; validUntil: string | null }, input: ResendInput, to: { email: string | null; phone: string | null }, today: string): string[] {
+  const out: string[] = [];
+  if (v.status !== "Sent") out.push("Only a quote that is out with the customer (Sent) can be sent again.");
+  else if (v.validUntil && today > v.validUntil) out.push("This quote's good-until date has passed, so its link no longer offers it. Send a new version instead.");
+  if (!input.channels.email && !input.channels.sms) out.push("Choose email, text or both.");
+  if (input.channels.email && !to.email) out.push("The GHL contact has no email.");
+  if (input.channels.sms && !to.phone) out.push("The GHL contact has no phone number.");
+  return out;
+}
+
+/** The email: the PDF's link when asked for, and the quote's own link either way. */
+export function resendEmailMessage(
+  copy: CustomerCopy,
+  to: { contactId: string; firstName: string | null; link: string; pdfUrl: string | null },
+  sender: Sender | null = null,
+  options: { emailFrom?: string | null } = {},
+): GhlMessage {
+  const hi = greetingName(to.firstName);
+  const subject = to.pdfUrl ? `Your quote ${copy.quoteNumber} as a PDF` : `Your quote ${copy.quoteNumber} from ${copy.company.name}`;
+  const preheader = to.pdfUrl ? "Here is the PDF you asked for." : "Here is the link to your quote again.";
+  const signoff = sender?.firstName ? `${esc(sender.firstName)} &middot; ${esc(copy.company.name)}` : `The ${esc(copy.company.name)} team`;
+  const head = to.pdfUrl ? "here is your quote as a PDF." : "here is your quote again.";
+  const body =
+    row(
+      eyebrow(esc(copy.quoteNumber)) +
+        `<h1 class="h1" style="margin:0 0 16px;font-family:${SERIF};font-weight:400;font-size:30px;line-height:1.2;color:${C.ink};">${hi ? `Hi ${esc(hi)}, ${head}` : head.charAt(0).toUpperCase() + head.slice(1)}</h1>` +
+        para(to.pdfUrl ? "Download it below. The full quote is still online at the same link as before." : "It&rsquo;s the same quote we sent before, at the same link."),
+      "40px 40px 12px",
+    ) +
+    (to.pdfUrl ? row(button("Download the PDF", to.pdfUrl), "8px 40px 12px") + row(button("View your quote online", to.link, false), "4px 40px 10px") : row(button("View your quote", to.link), "8px 40px 10px")) +
+    hairline("22px 40px 28px") +
+    row(para("Any questions, just reply to this email.", 15, C.body, "0 0 4px") + para(signoff, 14, C.muted, "0 0 36px"));
+  const from = "emailFrom" in options ? options.emailFrom : emailFromFor(sender, copy.company.email, true);
+  return { type: "Email", contactId: to.contactId, subject, html: frame(copy, subject, preheader, body), ...(from ? { emailFrom: from } : {}) };
+}
+
+/** The text: who, the PDF's link on its own line when asked for, then the quote's. GSM-7. */
+export function resendSmsMessage(copy: CustomerCopy, to: { contactId: string; firstName: string | null; link: string; pdfUrl: string | null }, sender: Sender | null = null): GhlMessage {
+  const hi = greetingName(to.firstName);
+  const whoFrom = sender?.firstName ? `it's ${sender.firstName} from ${copy.company.name}` : `it's ${copy.company.name}`;
+  const first = hi ? `Hi ${hi}, ${whoFrom}.` : `Hi, ${whoFrom}.`;
+  const message = to.pdfUrl
+    ? `${first} Here is the PDF of your quote ${copy.quoteNumber}:\n${to.pdfUrl}\n\nThe full quote is still here:\n${to.link}\n\nAny questions, just reply.`
+    : `${first} Here is the link to your quote ${copy.quoteNumber} again:\n${to.link}\n\nAny questions, just reply.`;
+  return { type: "SMS", contactId: to.contactId, message };
+}
+
 /* ---------- the link ---------- */
 
 const TOKEN = /^[A-Za-z0-9]{32}$/;

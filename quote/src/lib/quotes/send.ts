@@ -11,13 +11,13 @@ import { acceptedCopy, parseAcceptance } from "@/lib/accept/plan";
 import { changeSummary } from "@/lib/change/diff";
 import { buildContract } from "@/lib/link/ghlRequest";
 import { makeConfigured, sendMessage, sendToGhl, setFollowUpTags } from "@/lib/make/client";
-import { COPY_MAX_CHARS, customerCopy, parseCopy, pdfName, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "@/lib/send/copy";
-import { changeEmailMessage, changeSmsMessage, chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, isToken, newToken, parseOptionIds, sendProblems, smsMessage, type Channels, type Sender } from "@/lib/send/plan";
+import { COPY_MAX_CHARS, customerCopy, offersPdf, parseCopy, pdfName, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "@/lib/send/copy";
+import { changeEmailMessage, changeSmsMessage, chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, isToken, newToken, parseOptionIds, parseResend, resendEmailMessage, resendProblems, resendSmsMessage, sendProblems, smsMessage, type Channels, type Sender } from "@/lib/send/plan";
 import { authorFields, firstNameOf, type Person } from "./history";
 import { getQuote } from "./load";
 import { refreshFromGhl } from "./refresh";
 import { fingerprint } from "./savePlan";
-import type { Quote, SendResult } from "./types";
+import type { Quote, ResendResult, SendResult } from "./types";
 import { ids, str } from "./values";
 
 /**
@@ -294,6 +294,77 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   if (copy.change) notes.push(...(await recordContract(quote, copy, link)));
   const warning = [...failed.map((f) => `Not sent by ${f}`), ...notes].join(" ") || null;
   return { ok: true, link, sentTo, warning };
+}
+
+/**
+ * Send the link again (Albert, 2026-10-30), when a customer asks for the PDF or has lost the message. The same
+ * version, link and frozen copy: no status, date, follow-up tag or supersede changes. Asked with the PDF, its
+ * Download button is turned on (the one field of the copy that changes: what they see is otherwise identical)
+ * and its link goes in the message, never as an attachment. A line goes in the edit log.
+ */
+export async function resendQuote(versionId: string, raw: unknown): Promise<ResendResult> {
+  const person = await requireQuoterPerson();
+  const input = parseResend(raw);
+  if (!REC_ID.test(versionId) || !input) return { ok: false, message: "That request didn't make sense. Reload the page." };
+  const ready = await sendingReady();
+  const base = customerBase();
+  if (!ready.ready || !base) return { ok: false, message: ready.why ?? "Sending isn't switched on." };
+  const loaded = await getQuote(versionId);
+  if (!loaded) return { ok: false, message: "This version no longer exists." };
+  const quote = await refreshFromGhl(loaded);
+  const today = torontoToday(new Date());
+  const problems = resendProblems(quote, input, { email: quote.link?.email ?? null, phone: quote.link?.phone ?? null }, today);
+  if (problems.length) return { ok: false, message: "Not sent.", problems };
+  const contactId = quote.link?.ghlContactId;
+  const stored = await listByIds(T.versions, [quote.id], [VERSION.customerCopy]);
+  const frozen = parseCopy(str(stored[0]?.fields[VERSION.customerCopy]));
+  if (!frozen || !isToken(quote.customerToken) || !contactId) return { ok: false, message: "This version's sent copy or link couldn't be read, so it can't be sent again. Send a new version instead." };
+
+  const notes: string[] = [];
+  let copy = frozen;
+  let turnedOn = false;
+  if (input.pdf && !offersPdf(frozen)) {
+    copy = { ...frozen, pdf: true };
+    await updateRecord(T.versions, quote.id, { [VERSION.customerCopy]: serializeCopy(copy) });
+    turnedOn = true;
+  }
+  const { link, pdfUrl } = customerLinks(base, quote.customerToken, pdfName(copy));
+  const to = { contactId, firstName: quote.link?.firstName ?? null, link, pdfUrl: input.pdf ? pdfUrl : null };
+  const from = senderOf(person);
+  const sentTo: string[] = [];
+  const failed: string[] = [];
+  if (input.channels.email) {
+    const attempts = [...new Set([emailFromFor(from, copy.company.email, true), emailFromFor(from, copy.company.email, false), null])];
+    let last: unknown = null;
+    for (const emailFrom of attempts) {
+      try {
+        await sendMessage(resendEmailMessage(copy, to, from, { emailFrom }));
+        sentTo.push("Email");
+        if (emailFrom === null && attempts[0] !== null) notes.push(`GHL would not send from ${from.email}, so the email went out from the location's default address.`);
+        last = null;
+        break;
+      } catch (e) {
+        last = e;
+      }
+    }
+    if (last) failed.push(`Email: ${last instanceof Error ? last.message : String(last)}`);
+  }
+  if (input.channels.sms) {
+    try {
+      await sendMessage(resendSmsMessage(copy, to, from));
+      sentTo.push("Text");
+    } catch (e) {
+      failed.push(`Text: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  if (sentTo.length === 0) return { ok: false, message: `Nothing was sent. ${failed.join(" ")}${turnedOn ? " The PDF download is now on their page." : ""}` };
+  try {
+    const how = `sent again by ${sentTo.join(" and ").toLowerCase()}${input.pdf ? ", with the PDF link" : ""}${turnedOn ? ", PDF download turned on" : ""}`;
+    await updateRecord(T.versions, quote.id, authorFields(person, new Date(), how, quote.editLog));
+  } catch {
+    notes.push("Airtable didn't record it in the history.");
+  }
+  return { ok: true, sentTo, pdf: input.pdf, warning: [...failed.map((f) => `Not sent by ${f}`), ...notes].join(" ") || null };
 }
 
 /** The quote's other versions that were sent: their links now say a newer quote replaced them. */

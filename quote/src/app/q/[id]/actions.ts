@@ -5,8 +5,8 @@ import { confirmAddress, linkToJob } from "@/lib/quotes/link";
 import { makeChange, type SaveResult } from "@/lib/quotes/save";
 import { saveRooms } from "@/lib/quotes/rooms";
 import { saveSiteSheet } from "@/lib/quotes/sitesheet";
-import { sendQuote } from "@/lib/quotes/send";
-import type { ConfirmAddressResult, LinkJobResult, SaveRoomsResult, SendResult, SiteSheetResult } from "@/lib/quotes/types";
+import { resendQuote, sendQuote } from "@/lib/quotes/send";
+import type { ConfirmAddressResult, LinkJobResult, ResendResult, SaveRoomsResult, SendResult, SiteSheetResult } from "@/lib/quotes/types";
 
 /** Server actions for the quote page. Each checks the quoter allowlist inside. */
 
@@ -20,6 +20,10 @@ export async function confirmAddressAction(quoteRecordId: string, shown: string)
 
 export async function sendQuoteAction(versionId: string, input: unknown): Promise<SendResult> {
   return sendQuote(String(versionId ?? ""), input);
+}
+
+export async function resendQuoteAction(versionId: string, input: unknown): Promise<ResendResult> {
+  return resendQuote(String(versionId ?? ""), input);
 }
 
 /* Acceptance (2026-10-27): on the customer's behalf, retrying the hand-off, cancelling. */

@@ -22,6 +22,15 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-10-30",
+    kind: "new",
+    title: "Send again, with or without the PDF",
+    details: [
+      "A sent quote's Sent to customer card has Send again…: it sends the same link by email and/or text, for when the customer lost it or asks for the PDF.",
+      "Include the PDF turns on Download PDF on their page, if the quote went without it, and puts the PDF's link in the message. Nothing else about the quote changes: same price, link and good-until date.",
+    ],
+  },
+  {
+    date: "2026-10-30",
     kind: "changed",
     title: "Option tabs split into Flooring and Stairs",
     details: ["When a quote has both, the option tabs on the quote page and in the editor are grouped: Flooring first, then Stairs, each under its own small heading with a line between them."],

@@ -33,7 +33,7 @@ import { acceptReadiness } from "@/lib/accept/staff";
 import { termsLabel } from "@/lib/accept/terms";
 import { ghlOpportunityUrl } from "@/lib/ghl/ids";
 import { logEntries } from "@/lib/quotes/history";
-import { addDays, leadPrice, priceRange, rangeText, scopeOf, torontoToday, VALID_DAYS } from "@/lib/send/copy";
+import { addDays, leadPrice, offersPdf, priceRange, rangeText, scopeOf, torontoToday, VALID_DAYS } from "@/lib/send/copy";
 import { optionProblem, sendProblems } from "@/lib/send/plan";
 import { parseRooms } from "@/lib/rooms/log";
 
@@ -86,6 +86,8 @@ export default async function QuotePage({
     const range = preliminary && lead.amount > 0 ? `${rangeText(r.low, r.high)} ${lead.tag}` : null;
     return { id: o.id, name: o.name, price: `${money(lead.amount)} ${lead.tag}`, range, recommended: o.recommended, problem: optionProblem(quote, o) };
   });
+  // Send again (2026-10-30) says whether their page already offers the PDF: read from the frozen copy, only for a version out with the customer.
+  const sentPdf = !customer && quote.status === "Sent" ? offersPdf((await previewCopy(quote.id)) ?? { pdf: false }) : false;
   const send = customer ? null : (
     <SendQuote
       versionId={quote.id}
@@ -100,7 +102,7 @@ export default async function QuotePage({
       phone={quote.link?.phone ?? null}
       problems={problems}
       ready={ready}
-      sent={draft ? null : { sentAt: quote.sentAt, sentBy: quote.sentBy, sentTo: quote.sentTo, validUntil: quote.validUntil, link, activity: quote.activity ?? null }}
+      sent={draft ? null : { sentAt: quote.sentAt, sentBy: quote.sentBy, sentTo: quote.sentTo, validUntil: quote.validUntil, link, activity: quote.activity ?? null, pdf: sentPdf }}
       preliminary={preliminary}
       change={quote.changeNo ?? null}
       from={from}

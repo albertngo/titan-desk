@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addDays, copyRange, copyState, customerCopy, discountLabel, hstRow, hstWord, isRange, longDate, offersPdf, parseCopy, pdfName, prelimNote, priceRange, rangeText, rangeWhy, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "../src/lib/send/copy";
-import { chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, greetingName, isToken, newToken, optionProblem, parseOptionIds, sendProblems, smsMessage, type SendInput } from "../src/lib/send/plan";
+import { chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, greetingName, isToken, newToken, optionProblem, parseOptionIds, parseResend, resendEmailMessage, resendProblems, resendSmsMessage, sendProblems, smsMessage, type SendInput } from "../src/lib/send/plan";
 import { encode, textWidth, wrap } from "../src/lib/send/pdfDoc";
 import { quotePdf } from "../src/lib/send/pdf";
 import { fromQuote } from "../src/lib/editor/model";
@@ -858,5 +858,52 @@ describe("the PDF is offered on the quote page only when ticked (Albert, 2026-10
     const before = JSON.parse(serializeCopy(on));
     delete before.pdf;
     expect(offersPdf(parseCopy(JSON.stringify(before))!)).toBe(true);
+  });
+});
+
+describe("send again (2026-10-30)", () => {
+  const copy = customerCopy(quote(), AT);
+  const to = { contactId: "c1", firstName: "Sam", link: "https://q.example/c/" + "a".repeat(32), pdfUrl: null as string | null };
+  const sender = { email: "pat@example.com", firstName: "Pat" };
+  const today = "2026-10-30";
+  const both = { channels: { email: true, sms: true }, pdf: true };
+  const contact = { email: "sam@example.com", phone: "+15555550100" };
+
+  it("reads what the browser sends, and nothing else", () => {
+    expect(parseResend({ channels: { email: true }, pdf: true })).toEqual({ channels: { email: true, sms: false }, pdf: true });
+    expect(parseResend({ channels: { sms: "yes" } })).toEqual({ channels: { email: false, sms: false }, pdf: false });
+    expect(parseResend(null)).toBeNull();
+  });
+
+  it("only a version still out with the customer goes again, by a channel the contact has", () => {
+    expect(resendProblems({ status: "Sent", validUntil: "2026-11-30" }, both, contact, today)).toEqual([]);
+    expect(resendProblems({ status: "Sent", validUntil: null }, both, contact, today)).toEqual([]);
+    expect(resendProblems({ status: "Draft", validUntil: null }, both, contact, today)[0]).toMatch(/Sent/);
+    expect(resendProblems({ status: "Superseded", validUntil: null }, both, contact, today)).toHaveLength(1);
+    expect(resendProblems({ status: "Sent", validUntil: "2026-10-29" }, both, contact, today)[0]).toMatch(/good-until/);
+    expect(resendProblems({ status: "Sent", validUntil: null }, { channels: { email: false, sms: false }, pdf: false }, contact, today)[0]).toMatch(/Choose/);
+    expect(resendProblems({ status: "Sent", validUntil: null }, both, { email: null, phone: null }, today)).toHaveLength(2);
+  });
+
+  it("with the PDF: its link and the quote's, never an attachment", () => {
+    const pdfUrl = `${to.link}/${pdfName(copy)}`;
+    const e = resendEmailMessage(copy, { ...to, pdfUrl }, sender);
+    expect(e.type).toBe("Email");
+    if (e.type !== "Email") return;
+    expect(e.subject).toMatch(/as a PDF/);
+    expect(e.html).toContain(pdfUrl);
+    expect(e.html).toContain(to.link);
+    expect(e.attachments).toBeUndefined();
+    const t = resendSmsMessage(copy, { ...to, pdfUrl }, sender);
+    expect(t.type === "SMS" && t.message).toContain(`:\n${pdfUrl}\n`);
+    expect(t.type === "SMS" && t.message).toMatch(/^Hi Sam, it's Pat from /);
+  });
+
+  it("without the PDF: the quote's link again, and no PDF anywhere", () => {
+    const e = resendEmailMessage(copy, to, sender);
+    expect(e.type === "Email" && e.html).not.toMatch(/\.pdf/);
+    const t = resendSmsMessage(copy, to, sender);
+    expect(t.type === "SMS" && t.message).toMatch(/again:\n/);
+    expect(t.type === "SMS" && /^[\x20-\x7E\n]*$/.test(t.message)).toBe(true);
   });
 });

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { sendQuoteAction } from "@/app/q/[id]/actions";
+import { resendQuoteAction, sendQuoteAction } from "@/app/q/[id]/actions";
 import { activityEntries, devicesSeen, whenWords } from "@/lib/activity/track";
 import type { QuoteActivity } from "@/lib/quotes/types";
 
@@ -12,7 +12,7 @@ import type { QuoteActivity } from "@/lib/quotes/types";
  * is locked. Once sent, the card shows how and when, and the customer's link to copy.
  */
 
-export type SentInfo = { sentAt: string | null; sentBy: string | null; sentTo: string | null; validUntil: string | null; link: string | null; activity?: QuoteActivity | null };
+export type SentInfo = { sentAt: string | null; sentBy: string | null; sentTo: string | null; validUntil: string | null; link: string | null; activity?: QuoteActivity | null; /** Their page offers Download PDF (2026-10-30). */ pdf?: boolean };
 
 const times = (n: number) => (n === 1 ? "once" : n === 2 ? "twice" : `${n} times`);
 
@@ -74,6 +74,57 @@ function CopyLink({ link }: { link: string }) {
       </button>
       {/* #staff: opening it from here is never counted as the customer's open (2026-10-27). */}
       <a className="btn small" href={`${link}#staff`} target="_blank" rel="noreferrer">Open</a>
+    </div>
+  );
+}
+
+/**
+ * Send the link again (Albert, 2026-10-30): when the customer asks for the PDF, or lost the message. The same
+ * quote and link; "Include the PDF" turns on its Download button if it was off and puts its link in the message.
+ */
+function SendAgain({ versionId, email, phone, pdfOn }: { versionId: string; email: string | null; phone: string | null; pdfOn: boolean }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [byEmail, setByEmail] = useState(!!email);
+  const [bySms, setBySms] = useState(!email && !!phone);
+  const [pdf, setPdf] = useState(true);
+  const [busy, start] = useTransition();
+  const [result, setResult] = useState<{ text: string; bad: boolean; problems?: string[] } | null>(null);
+  if (!open)
+    return (
+      <div className="sq-again">
+        <button type="button" className="btn small" onClick={() => { setOpen(true); setResult(null); }}>Send again…</button>
+        {result && <p className={`sq-msg ${result.bad ? "bad" : "ok"}`} role="status">{result.text}</p>}
+      </div>
+    );
+  function go() {
+    setResult(null);
+    start(async () => {
+      const r = await resendQuoteAction(versionId, { channels: { email: byEmail, sms: bySms }, pdf });
+      if (r.ok) {
+        setOpen(false);
+        setResult({ text: `Sent again by ${r.sentTo.join(" and ").toLowerCase()}${r.pdf ? ", with the PDF" : ""}.${r.warning ? ` ${r.warning}` : ""}`, bad: false });
+        router.refresh();
+      } else setResult({ text: r.message, bad: true, problems: r.problems });
+    });
+  }
+  return (
+    <div className="sq-again open">
+      <p className="sq-again-h">Send the same quote and link again</p>
+      <label className="sq-tick"><input type="checkbox" checked={pdf} onChange={(e) => setPdf(e.target.checked)} /> Include the PDF <span className="faint">{pdfOn ? "(already on their page)" : "(turns on Download PDF on their page)"}</span></label>
+      <label className="sq-tick"><input type="checkbox" checked={byEmail} disabled={!email} onChange={(e) => setByEmail(e.target.checked)} /> Email {email ? <span className="faint">{email}</span> : <span className="faint">no email on the contact</span>}</label>
+      <label className="sq-tick"><input type="checkbox" checked={bySms} disabled={!phone} onChange={(e) => setBySms(e.target.checked)} /> Text {phone ? <span className="faint">{phone}</span> : <span className="faint">no phone on the contact</span>}</label>
+      {result && (
+        <div className={`sq-msg ${result.bad ? "bad" : "ok"}`} role="status">
+          {result.text}
+          {result.problems && <ul>{result.problems.map((x) => <li key={x}>{x}</li>)}</ul>}
+        </div>
+      )}
+      <div className="sq-again-acts">
+        <button type="button" className="btn primary small" disabled={busy || (!byEmail && !bySms)} onClick={go}>{busy ? "Sending…" : "Send"}</button>
+        <button type="button" className="btn small" disabled={busy} onClick={() => setOpen(false)}>Cancel</button>
+      </div>
+      <p className="faint sq-again-note">Nothing about the quote changes: same price, same link, same good-until date. The message has a link to the PDF, never an attachment.</p>
     </div>
   );
 }
@@ -169,6 +220,7 @@ export function SendQuote({
           {done?.warning && <p className="sq-msg warn" role="status">{done.warning}</p>}
           {!done && sent?.activity && <Activity a={sent.activity} />}
           {s?.link && <CopyLink link={s.link} />}
+          {status === "Sent" && !done && s?.link && ready.ready && <SendAgain versionId={versionId} email={email} phone={phone} pdfOn={sent?.pdf === true} />}
           <div className="sq-tools">
             <a href={`/q/${versionId}/preview`} target="_blank" rel="noreferrer">What the customer sees</a>
             <a href={`/q/${versionId}/preview/email`} target="_blank" rel="noreferrer">The email</a>
