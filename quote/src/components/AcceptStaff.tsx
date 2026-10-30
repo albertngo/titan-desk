@@ -311,7 +311,7 @@ export function ChangeCard({ versionId, changeNo, status, sentAt, current }: { v
       </div>
       <div className="card-b">
         {status === "Draft" ? (
-          <p>Edit it, then send it from the Send card. The customer gets the updated quote with what changed at the top, for their records; GHL&apos;s value follows the new total. The difference goes on the final payment.</p>
+          <p>Edit it, then send it from the Send card. The customer gets the updated quote with what changed at the top, for their records; GHL&apos;s value follows the new total. The payment schedule is worked out again on the new total.</p>
         ) : current ? (
           <p>Sent{sentAt ? ` ${sentAt}` : ""}. This is the contract now: GHL&apos;s value and the Notion project follow its total.</p>
         ) : (
@@ -338,5 +338,37 @@ export function ChangeCard({ versionId, changeNo, status, sentAt, current }: { v
         {msg && <p className="banner warn">{msg}</p>}
       </div>
     </section>
+  );
+}
+
+/**
+ * Put on contract (Albert, 2026-10-30: one working quote, "On a contract basis, I will select which options from
+ * there I would like to go for"). On an option that isn't on the contract, in a Part that is: opens the change (Make
+ * a change, or the one already open) with this option chosen in Swap option. Nothing is saved until the change is.
+ */
+export function PutOnContract({ contractVersionId, optionId, part }: { contractVersionId: string; optionId: string; part: string }) {
+  const router = useRouter();
+  const [busy, start] = useTransition();
+  const [msg, setMsg] = useState<string | null>(null);
+  return (
+    <p className="put-contract">
+      <button
+        type="button"
+        className="btn"
+        disabled={busy}
+        title={`Opens a change to the accepted quote with this option in place of the ${part.toLowerCase()} option on the contract. It goes to the customer for their records.`}
+        onClick={() =>
+          start(async () => {
+            const r = await makeChangeAction(contractVersionId);
+            if (r.ok) router.push(`/q/${r.versionId}/edit?swap=${optionId}`);
+            else setMsg(r.message);
+          })
+        }
+      >
+        {busy ? "Opening…" : "Put on contract"}
+      </button>
+      <span className="faint"> in place of the {part.toLowerCase()} option the customer has</span>
+      {msg && <span className="banner warn">{msg}</span>}
+    </p>
   );
 }

@@ -133,6 +133,7 @@ export default function Editor({
   version,
   customer,
   swap = null,
+  swapTo = null,
 }: {
   initial: EditorQuote;
   card: RateCard;
@@ -142,6 +143,8 @@ export default function Editor({
   customer: boolean;
   /** Swap option (2026-10-30): on a draft change, the accepted version's other options; null otherwise. */
   swap?: SwapSource | null;
+  /** Put on contract (2026-10-30): the option to start the swap with, opened and chosen. */
+  swapTo?: string | null;
 }) {
   const key = draftKey(initial);
   const [boot] = useState(() => loadDraft(key));
@@ -406,7 +409,7 @@ export default function Editor({
           </p>
           {version.change && (
             <p className="change-note">
-              Change {version.change.no} to the accepted quote. Edit the work as usual; the customer gets it as an updated quote, for their records, and the difference goes on the final payment.
+              Change {version.change.no} to the accepted quote. Edit the work as usual; the customer gets it as an updated quote, for their records, and the payment schedule is worked out again on the new total.
               {version.change.contractTotal !== null && option && t && quote.options.length === 1 && (
                 <span className={`chip ${t.total >= version.change.contractTotal ? "accent" : "warn"}`}>
                   vs contract: {t.total - version.change.contractTotal >= 0 ? "+" : "−"}
@@ -432,7 +435,7 @@ export default function Editor({
         <div className="stack">
           {/* Swap option (2026-10-30): the customer changed their mind on which option; sent for record like any change. */}
           {isDraft && version.change && swap && option && (
-            <SwapOption source={swap} quote={quote} option={option} contractTotal={version.change.contractTotal} apply={apply} />
+            <SwapOption source={swap} quote={quote} option={option} contractTotal={version.change.contractTotal} apply={apply} preselect={swapTo} />
           )}
           <section className="card">
             <div className="card-h">Customer and terms</div>

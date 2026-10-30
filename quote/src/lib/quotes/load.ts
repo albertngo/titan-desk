@@ -335,6 +335,23 @@ export async function workingDraftOf(q: Quote): Promise<WorkingDraft | null> {
   return workingDraft(rows.map((v) => ({ id: v.id, status: str(v.fields[VERSION.status]), changeNo: num(v.fields[VERSION.changeNo]), version: num(v.fields[VERSION.version]) })), q.id);
 }
 
+/**
+ * The quote's ordinary versions other than `exclude` (2026-10-30: Swap option draws from any version), newest first,
+ * at most `limit`. Changes are left out: their one option is the contract, already joined.
+ */
+export async function otherVersionsOf(q: Quote, exclude: string[], limit = 4): Promise<Quote[]> {
+  await requireQuoter();
+  if (!q.link) return [];
+  const quote = (await listByIds(T.quotes, [q.link.quoteRecordId], [QUOTE.versions]))[0];
+  const rows = quote ? await listByIds(T.versions, ids(quote.fields[QUOTE.versions]), [VERSION.version, VERSION.changeNo]) : [];
+  const wanted = rows
+    .filter((v) => !exclude.includes(v.id) && !((num(v.fields[VERSION.changeNo]) ?? 0) > 0))
+    .sort((a, b) => (num(b.fields[VERSION.version]) ?? 0) - (num(a.fields[VERSION.version]) ?? 0))
+    .slice(0, limit);
+  const loaded = await Promise.all(wanted.map((v) => getQuote(v.id)));
+  return loaded.filter((x): x is Quote => x !== null);
+}
+
 export async function getStairProfiles(): Promise<StairProfileRow[]> {
   await requireQuoter();
   return loadProfiles();

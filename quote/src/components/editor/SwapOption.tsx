@@ -19,22 +19,26 @@ export function SwapOption({
   option,
   contractTotal,
   apply,
+  preselect = null,
 }: {
   source: SwapSource;
   quote: EditorQuote;
   option: EditorOption;
   contractTotal: number | null;
   apply: (next: EditorQuote) => void;
+  /** Put on contract (2026-10-30): an option id to open with, chosen, its pick's lines ticked to come out. */
+  preselect?: string | null;
 }) {
-  const [open, setOpen] = useState(false);
-  const [pickIdx, setPickIdx] = useState(0);
-  const [candidateId, setCandidateId] = useState<string | null>(null);
-  const [remove, setRemove] = useState<Set<string>>(new Set());
+  const start = preselect ? source.picks.findIndex((p) => p.candidates.some((c) => c.id === preselect)) : -1;
+  const [open, setOpen] = useState(start >= 0);
+  const [pickIdx, setPickIdx] = useState(Math.max(0, start));
+  const [candidateId, setCandidateId] = useState<string | null>(start >= 0 ? preselect : null);
+  const [remove, setRemove] = useState<Set<string>>(() => new Set(start >= 0 ? swapMatches(option.lines, source.picks[start].lines) : []));
   const [done, setDone] = useState<string | null>(null);
 
   const pick = source.picks[pickIdx] ?? source.picks[0];
   const incoming = pick.candidates.find((c) => c.id === candidateId) ?? null;
-  const from = source.version !== null ? `v${source.version}` : "the accepted version";
+  const from = "this quote";
 
   const choose = (c: EditorOption | null, p = pick) => {
     setCandidateId(c?.id ?? null);
@@ -92,7 +96,9 @@ export function SwapOption({
           {pick.candidates.map((c) => (
             <button key={c.id} className={`btn${c.id === candidateId ? " primary" : ""}`} onClick={() => choose(c)}>
               {c.name || "Untitled"}
-              <span className="faint">{money(optionTotals(c.lines, quote.discountRate, quote.showHst).subtotal)} before HST</span>
+              <span className="faint">
+                {money(optionTotals(c.lines, quote.discountRate, quote.showHst).subtotal)} before HST · {c.from !== null ? `v${c.from}` : source.version !== null ? `v${source.version}, accepted` : "accepted version"}
+              </span>
             </button>
           ))}
         </div>

@@ -183,7 +183,34 @@ export const sameSchedule = (a: PaymentSchedule | null | undefined, b: PaymentSc
 export const depositPct = (s: PaymentSchedule): number | null => (s.stages[0]?.part.kind === "share" ? s.stages[0].part.pct : null);
 
 /**
- * The schedule of a change after acceptance (Albert, 2026-10-27: the difference goes into the final
+ * The schedule of a change after acceptance since 2026-10-30 (Albert: "just readjust it entirely… It should be on
+ * the whole balance of the accepted quotes"; vault 05_decisions/2026-10-30-quote-contract-from-any-version): the
+ * contract's own stages restaged on the new total. A share stays a share, a material deposit the material, a fixed
+ * amount its amount, and the last stage is the balance. What has already been received counts toward it, on the
+ * invoice or receipt. Staff can still edit it before sending.
+ */
+export function restagedSchedule(stages: { label: string; when: string; pay: PayHow; kind: string; pct: number | null; amount: number | null }[]): PaymentSchedule {
+  const last = stages.length - 1;
+  return {
+    preset: "custom",
+    stages: stages.map((s, i) => ({
+      label: s.label,
+      when: s.when,
+      pay: s.pay,
+      part:
+        i === last
+          ? { kind: "balance" as const }
+          : s.kind === "share" && s.pct !== null
+            ? { kind: "share" as const, pct: s.pct }
+            : s.kind === "materials"
+              ? { kind: "materials" as const }
+              : { kind: "amount" as const, amount: s.amount ?? 0 },
+    })),
+  };
+}
+
+/**
+ * Before 2026-10-30, the schedule of a change after acceptance (Albert, 2026-10-27: the difference goes into the final
  * payment): every stage already agreed keeps its dollars, and the last stage is the balance, so a
  * change up or down lands on the final payment only. Staff can still edit it before sending.
  */

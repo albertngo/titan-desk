@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Fragment } from "react";
 import { notFound } from "next/navigation";
-import { AcceptedCard, AcceptForCustomer, ChangeCard } from "@/components/AcceptStaff";
+import { AcceptedCard, AcceptForCustomer, ChangeCard, PutOnContract } from "@/components/AcceptStaff";
 import { AddressScan } from "@/components/AddressScan";
 import { BillingCard } from "@/components/BillingCard";
 import { Analysis } from "@/components/Analysis";
@@ -20,7 +20,8 @@ import { optionTotals, parityDiffs } from "@/lib/calc";
 import { money } from "@/lib/format";
 import { jobChoices } from "@/lib/quotes/link";
 import { billingState } from "@/lib/quotes/billing";
-import { scopeGroups } from "@/lib/quotes/scope";
+import { partKey, scopeGroups } from "@/lib/quotes/scope";
+import { loadContract } from "@/lib/quotes/contract";
 import { fromWords } from "@/lib/quotes/group";
 import { getQuote, getRateCard } from "@/lib/quotes/load";
 import { sheetReaderOn } from "@/lib/quotes/sitesheet";
@@ -71,6 +72,12 @@ export default async function QuotePage({
   // The accepted quote has no Edit (2026-10-30): it changes only through Make a change, as the editor says.
   const agreed = Boolean(quote.acceptance && !quote.acceptance.cancelled);
   // The option tabs mark what the customer took (2026-10-30), one per scope at most.
+  // Put on contract (2026-10-30): on a quote with a contract, an option of a Part the contract covers can replace the one there.
+  const contractId = quote.link?.contractVersionId ?? null;
+  const loadedContract = !customer && contractId && quote.link && !quote.changeNo ? await loadContract(quote.link.quoteRecordId) : null;
+  const putOn = loadedContract && contractId
+    ? { versionId: contractId, parts: new Set(loadedContract.contract.items.flatMap((i) => (i.part ? [i.part] : i.scope ? [i.scope] : ["Flooring", "Stairs"]))) }
+    : null;
   const acceptedIds = new Set(agreed && quote.acceptance ? picksOf(quote.acceptance).flatMap((p) => (p.ref ? [p.ref] : [])) : []);
   const jobs = unlinked ? await jobChoices(unlinked.quoteRecordId) : null;
 
@@ -312,6 +319,10 @@ export default async function QuotePage({
             ) : showAnalysis ? (
               <Analysis quote={quote} customer={customer} />
             ) : option && totals ? (
+              <>
+              {putOn && !acceptedIds.has(option.id) && putOn.parts.has(partKey(option)) && (
+                <PutOnContract contractVersionId={putOn.versionId} optionId={option.id} part={partKey(option)} />
+              )}
               <OptionSheet
                 option={option}
                 t={totals}
@@ -323,6 +334,7 @@ export default async function QuotePage({
                 lumpSum={quote.itemised !== true}
                 sendable={draft}
               />
+              </>
             ) : (
               <section className="card">
                 <p className="empty">This quote has no options yet.</p>

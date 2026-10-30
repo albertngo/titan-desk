@@ -5,7 +5,7 @@ import { changeSummary, changeWords, diffOptions, itemDifference, signedMoney } 
 import { swapMatches, swapOption, swapPreview, swapSource } from "../src/lib/change/swap";
 import type { EditorLine, EditorOption, EditorQuote } from "../src/lib/editor/model";
 import { money } from "../src/lib/format";
-import { fixedSchedule, scheduleProblems } from "../src/lib/pricing/schedule";
+import { fixedSchedule, restagedSchedule, scheduleProblems } from "../src/lib/pricing/schedule";
 import type { Quote, QuoteLine, QuoteOption } from "../src/lib/quotes/types";
 import { customerCopy, type CustomerCopy, type Letterhead } from "../src/lib/send/copy";
 import { quotePdf } from "../src/lib/send/pdf";
@@ -145,6 +145,21 @@ describe("the change's payment schedule", () => {
     expect(stageAmounts(s, [], 0, true, 1720 - 100).map((x) => x.amount)).toEqual([600, 600, 420]);
   });
 
+  it("since 2026-10-30, restages the contract's schedule on the new total: shares stay shares, the last is the balance", () => {
+    const s = restagedSchedule([
+      { label: "Deposit", when: "On acceptance", pay: "etransfer", kind: "share", pct: 35, amount: 700 },
+      { label: "Second payment", when: "First day", pay: null, kind: "share", pct: 35, amount: 700 },
+      { label: "Final payment", when: "Completion", pay: null, kind: "balance", pct: null, amount: 600 },
+    ]);
+    expect(s.stages.map((x) => x.part)).toEqual([{ kind: "share", pct: 35 }, { kind: "share", pct: 35 }, { kind: "balance" }]);
+    const m = restagedSchedule([
+      { label: "Deposit", when: "x", pay: "etransfer", kind: "materials", pct: null, amount: 900 },
+      { label: "Fixed", when: "y", pay: null, kind: "amount", pct: null, amount: 250 },
+      { label: "Final payment", when: "z", pay: "onsite", kind: "share", pct: 50, amount: 1 },
+    ]);
+    expect(m.stages.map((x) => x.part)).toEqual([{ kind: "materials" }, { kind: "amount", amount: 250 }, { kind: "balance" }]);
+  });
+
   it("a credit bigger than the final payment is caught before sending", () => {
     const q = quote([line({ qty: 10 })], { schedule: fixedSchedule(agreed) });
     const problems = sendProblems(q, { base: "b", validUntil: null, channels: { email: true, sms: false } }, { today: "2026-11-10", fingerprint: "b" });
@@ -176,7 +191,7 @@ describe("sending a change", () => {
     expect(m.html).toContain("Changed: Click install, 100 sqft to 107 sqft");
     expect(m.html).toContain("Removed: Baseboard removal");
     expect(m.html).toContain("+$50.00");
-    expect(m.html).toContain("The difference is on the final payment.");
+    expect(m.html).toContain("The payment schedule is worked out on the new total; what you&rsquo;ve already paid counts toward it.");
     // Nothing to do: no Accept or approve button, no deadline. (The deposit stage still says it was due "on acceptance".)
     expect(m.html).not.toMatch(/press Accept|approve|good until|View and accept/i);
   });
@@ -257,6 +272,24 @@ describe("Swap option on a change", () => {
     expect(s.picks[0].candidates.map((c) => c.name)).toEqual(["Vinyl treads"]);
     expect(s.picks[0].candidates[0].lines.map((l) => l.description)).toEqual(["Vinyl tread", "Stair nosing"]);
     expect(swapSource(accepted, ["recOPTFLOOR"], 4)).toBeNull();
+  });
+
+  it("since one working quote, also offers the same Part from other versions, each once, saying where it is", () => {
+    const v6 = equote([
+      eopt("recV6CAPS", "New oak caps", capsA.lines, { scope: "Stairs" }), // the pick itself, copied forward: not offered
+      eopt("recV6TREAD", "Vinyl treads", treadsB.lines, { scope: "Stairs" }), // the same as the accepted version's: once
+      eopt("recV6MAPLE", "Maple caps", [eline(stair("Step", 12, 240))], { scope: "Stairs" }),
+      eopt("recV6BASE", "Basement vinyl", [eline({ description: "Click install", qty: 300 })], { part: "Basement" }),
+    ]);
+    const s = swapSource(accepted, ["recOPTFLOOR", "recOPTCAPS"], 4, [{ version: 6, quote: v6 }])!;
+    expect(s.picks.map((p) => [p.name, p.part])).toEqual([["New oak caps", "Stairs"]]);
+    expect(s.picks[0].candidates.map((c) => [c.name, c.from])).toEqual([["Vinyl treads", null], ["Maple caps", 6]]);
+  });
+
+  it("matches by Part: an upstairs pick is offered upstairs options, not the basement's", () => {
+    const up = eopt("recOPTUP", "Oak upstairs", [eline({ description: "Click install", qty: 400 })], { part: "Upstairs" });
+    const q = equote([up, eopt("recOPTUP2", "Vinyl upstairs", [eline({ description: "Click install", qty: 400, unitPriceSnap: 4 })], { part: "Upstairs" }), eopt("recOPTB", "Vinyl basement", [eline({ description: "Click install", qty: 200 })], { part: "Basement" })]);
+    expect(swapSource(q, ["recOPTUP"], 2)!.picks[0].candidates.map((c) => c.name)).toEqual(["Vinyl upstairs"]);
   });
 
   it("finds the lines that came from the replaced pick, one for one, and leaves edited ones to the person", () => {

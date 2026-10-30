@@ -889,6 +889,7 @@ a.chip.accent:hover { text-decoration: underline; }
 .handoff li.good { color: var(--good); }
 .handoff li.warn { color: var(--warn); }
 .handoff li.faint { color: var(--fg-faint); }
+.put-contract { margin: 0 0 10px; font-size: 13px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .acc-links { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 13px; }
 .linkbtn.danger:hover { color: var(--bad); }
 

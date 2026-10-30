@@ -562,6 +562,18 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   On a conflict (Airtable changed under a draft) the banner offers "Save mine as the next draft", which supersedes the
   other. All quotes lists versions newest first only: the By origin view and "from vN" labels are gone (a change keeps
   "Change N"). This supersedes the 2026-10-28 branching and By origin notes above; changes after acceptance are unchanged.
+- **Put on contract, swap from any version, schedule restaged (Albert, 2026-10-30; step 2 of the contract).** Swap
+  option on a change offers options of the **same Part** (`partKey()`) from the accepted version and the quote's other
+  ordinary versions, newest first (`otherVersionsOf()` in `load.ts`, at most four), each shown once (`sameOption()`:
+  name and included lines) and labelled with its version; this replaces "accepted version only" above. **Put on
+  contract** on the quote page, on an option not on the contract in a Part the contract covers (`loadContract()`;
+  a joined change counts as both scopes), opens the change (Make a change, or the one already open) at
+  `/q/<change>/edit?swap=<option id>`, with that option chosen in Swap option. **A change restages the schedule on
+  the whole** (`restagedSchedule()` in `src/lib/pricing/schedule.ts`: shares stay shares, a material deposit the
+  material, a fixed amount its amount, the last stage the balance), replacing `fixedSchedule()`'s "difference on the
+  final payment" for new changes; the change email, PDF and text say what was already paid counts toward it (the
+  invoice or receipt shows it). A joined change option takes no Part. Not built (step 3): a Part not on the contract
+  offered for acceptance on a later link.
 - **Invoices and receipts (Albert, 2026-10-30).** One numbered document per won project, on its contract
   version (the accepted one or its latest change): an **invoice** (INV-82571, INV-82572…) when the contract charges
   HST on every line, a **receipt** (R-10245, R-10246…) when HST is on part of it (the floor material) or none

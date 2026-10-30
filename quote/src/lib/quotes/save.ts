@@ -4,7 +4,7 @@ import { AirtableError, createRecord, createRecords, getRecord, listByIds, updat
 import { LINE, OPTION, QUOTE, T, VERSION } from "@/lib/airtable/fields";
 import { fromQuote, type EditorQuote } from "@/lib/editor/model";
 import { versionLabel } from "@/lib/link/identity";
-import { fixedSchedule, scheduleProblems } from "@/lib/pricing/schedule";
+import { restagedSchedule, scheduleProblems } from "@/lib/pricing/schedule";
 import { parseAcceptance } from "@/lib/accept/plan";
 import { contractVersions } from "@/lib/contract/model";
 import type { Quote, QuoteOption } from "./types";
@@ -115,7 +115,7 @@ export async function saveAsNewVersion(versionId: string, raw: unknown, basis: s
  * is a new version of the same quote, numbered (Change No 1, 2, …), that starts as the contract
  * stands: only the accepted option, its ticked add-ons now part of the work and the others gone, and
  * (2026-10-28) a flooring option and a stairs option taken together joined into that one option, and
- * a schedule where every stage already agreed keeps its dollars and the balance takes the difference.
+ * (2026-10-30) the contract's schedule restaged on the new total, not the difference on the final payment.
  * Staff then edit it like any version and send it for the customer's records.
  */
 export async function makeChange(versionId: string): Promise<SaveResult> {
@@ -138,14 +138,14 @@ export async function makeChange(versionId: string): Promise<SaveResult> {
   if (taken.length === 0 || taken.some((o) => !o)) return { ok: false, message: "The accepted option isn't on this version any more, so a change can't start from it." };
   const parts = taken as QuoteOption[];
   // Two options taken together become one: the contract is one option from here on, with one schedule.
-  const option: QuoteOption = parts.length === 1 ? parts[0] : { ...parts[0], name: contract.items.map((i) => i.name).join(" + "), scope: null, recommended: false, description: parts.map((o) => o.description).filter(Boolean).join("\n\n") || null, lines: parts.flatMap((o) => o.lines) };
+  const option: QuoteOption = parts.length === 1 ? parts[0] : { ...parts[0], name: contract.items.map((i) => i.name).join(" + "), scope: null, part: null, recommended: false, description: parts.map((o) => o.description).filter(Boolean).join("\n\n") || null, lines: parts.flatMap((o) => o.lines) };
   const stages = contract.stages;
   if (!stages.length) return { ok: false, message: "This version has no payment schedule to carry over." };
 
   // Ticked add-ons are part of the work now; the ones the customer didn't take are gone.
   const took = new Set(contract.items.flatMap((i) => i.addOns).map((a) => a.description.replace(/\s+/g, " ").trim().toLowerCase()));
   const lines = option.lines.flatMap((l) => (l.include ? [l] : took.has((l.description ?? "").replace(/\s+/g, " ").trim().toLowerCase()) ? [{ ...l, include: true }] : []));
-  const edited = cleanEditorQuote({ ...fromQuote({ ...from, options: [{ ...option, lines }] }), schedule: fixedSchedule(stages) });
+  const edited = cleanEditorQuote({ ...fromQuote({ ...from, options: [{ ...option, lines }] }), schedule: restagedSchedule(stages) });
 
   const quote = await getRecord(T.quotes, from.link.quoteRecordId);
   const siblings = await listByIds(T.versions, ids(quote.fields[QUOTE.versions]), [VERSION.version, VERSION.changeNo, VERSION.status, VERSION.sentAt]);

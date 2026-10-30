@@ -23,6 +23,16 @@ export const CHANGES: Change[] = [
   {
     date: "2026-10-30",
     kind: "changed",
+    title: "Put on contract, from any version",
+    details: [
+      "On an accepted quote, an option that isn't on the contract shows Put on contract when its Part (or flooring or stairs) is one the customer has. It opens the change with that option ready to swap in.",
+      "Swap option now offers options of the same Part from every version of the quote, not just the accepted one, each with its version beside it.",
+      "A change now works the payment schedule out again on the new total, instead of putting the whole difference on the final payment. The email and text say what they've already paid counts toward it.",
+    ],
+  },
+  {
+    date: "2026-10-30",
+    kind: "changed",
     title: "One working quote: no more Save as new version",
     details: [
       "Work on the quote and its options, like sheets in the Excel workbook. Sending keeps a copy of exactly what the customer saw.",
