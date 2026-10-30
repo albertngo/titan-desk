@@ -22,6 +22,12 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-10-30",
+    kind: "changed",
+    title: "Send again on accepted and won quotes",
+    details: ["Send again… is on an accepted or won quote's Sent to customer card too. Include the PDF sends a link to the signed, accepted PDF."],
+  },
+  {
+    date: "2026-10-30",
     kind: "new",
     title: "Send again, with or without the PDF",
     details: [

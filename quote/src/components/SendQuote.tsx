@@ -82,7 +82,7 @@ function CopyLink({ link }: { link: string }) {
  * Send the link again (Albert, 2026-10-30): when the customer asks for the PDF, or lost the message. The same
  * quote and link; "Include the PDF" turns on its Download button if it was off and puts its link in the message.
  */
-function SendAgain({ versionId, email, phone, pdfOn }: { versionId: string; email: string | null; phone: string | null; pdfOn: boolean }) {
+function SendAgain({ versionId, email, phone, pdfOn, accepted }: { versionId: string; email: string | null; phone: string | null; pdfOn: boolean; accepted: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [byEmail, setByEmail] = useState(!!email);
@@ -111,7 +111,7 @@ function SendAgain({ versionId, email, phone, pdfOn }: { versionId: string; emai
   return (
     <div className="sq-again open">
       <p className="sq-again-h">Send the same quote and link again</p>
-      <label className="sq-tick"><input type="checkbox" checked={pdf} onChange={(e) => setPdf(e.target.checked)} /> Include the PDF <span className="faint">{pdfOn ? "(already on their page)" : "(turns on Download PDF on their page)"}</span></label>
+      <label className="sq-tick"><input type="checkbox" checked={pdf} onChange={(e) => setPdf(e.target.checked)} /> Include the PDF <span className="faint">{accepted ? "(the signed, accepted PDF)" : pdfOn ? "(already on their page)" : "(turns on Download PDF on their page)"}</span></label>
       <label className="sq-tick"><input type="checkbox" checked={byEmail} disabled={!email} onChange={(e) => setByEmail(e.target.checked)} /> Email {email ? <span className="faint">{email}</span> : <span className="faint">no email on the contact</span>}</label>
       <label className="sq-tick"><input type="checkbox" checked={bySms} disabled={!phone} onChange={(e) => setBySms(e.target.checked)} /> Text {phone ? <span className="faint">{phone}</span> : <span className="faint">no phone on the contact</span>}</label>
       {result && (
@@ -124,7 +124,7 @@ function SendAgain({ versionId, email, phone, pdfOn }: { versionId: string; emai
         <button type="button" className="btn primary small" disabled={busy || (!byEmail && !bySms)} onClick={go}>{busy ? "Sending…" : "Send"}</button>
         <button type="button" className="btn small" disabled={busy} onClick={() => setOpen(false)}>Cancel</button>
       </div>
-      <p className="faint sq-again-note">Nothing about the quote changes: same price, same link, same good-until date. The message has a link to the PDF, never an attachment.</p>
+      <p className="faint sq-again-note">Nothing about the quote changes: same price, same link{accepted ? "" : ", same good-until date"}. The message has a link to the PDF, never an attachment.</p>
     </div>
   );
 }
@@ -220,7 +220,7 @@ export function SendQuote({
           {done?.warning && <p className="sq-msg warn" role="status">{done.warning}</p>}
           {!done && sent?.activity && <Activity a={sent.activity} />}
           {s?.link && <CopyLink link={s.link} />}
-          {status === "Sent" && !done && s?.link && ready.ready && <SendAgain versionId={versionId} email={email} phone={phone} pdfOn={sent?.pdf === true} />}
+          {["Sent", "Accepted", "Won"].includes(status ?? "") && !done && s?.link && ready.ready && <SendAgain versionId={versionId} email={email} phone={phone} pdfOn={sent?.pdf === true} accepted={status !== "Sent"} />}
           <div className="sq-tools">
             <a href={`/q/${versionId}/preview`} target="_blank" rel="noreferrer">What the customer sees</a>
             <a href={`/q/${versionId}/preview/email`} target="_blank" rel="noreferrer">The email</a>
