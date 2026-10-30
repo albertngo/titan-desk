@@ -1,4 +1,3 @@
-import { acceptedCopy, type Acceptance } from "@/lib/accept/plan";
 import { round2 } from "@/lib/calc";
 import type { CustomerCopy } from "@/lib/send/copy";
 
@@ -59,12 +58,11 @@ export const billingFile = (k: BillingKind, number: string) => `${kindTitle(k)}-
 export const BILLING_FILE = /^(Invoice-INV-\d{3,9}|Receipt-R-\d{3,9})\.pdf$/;
 
 /**
- * The contract the document is for: the accepted copy (the picks joined, ticked add-ons added) or, after a change,
- * that change's copy. The "what changed" box belongs to the change email, not the invoice, and an optional
+ * The contract the document is for, from the contract's joined copy (src/lib/contract/model.ts: the picks joined,
+ * ticked add-ons added; after a change, that change's option). The "what changed" box belongs to the change email, not the invoice, and an optional
  * add-on that wasn't taken is left off.
  */
-export function contractCopy(frozen: CustomerCopy, acceptance: Acceptance | null): CustomerCopy {
-  const c = acceptance && !acceptance.cancelled ? acceptedCopy(frozen, acceptance) : frozen;
+export function contractCopy(c: CustomerCopy): CustomerCopy {
   const { change: _change, ...rest } = c;
   void _change;
   // An add-on nobody took isn't on an invoice: acceptance already drops those, a change's copy can still carry one.

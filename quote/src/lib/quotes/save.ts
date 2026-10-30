@@ -5,10 +5,11 @@ import { LINE, OPTION, QUOTE, T, VERSION } from "@/lib/airtable/fields";
 import { fromQuote, type EditorQuote } from "@/lib/editor/model";
 import { versionLabel } from "@/lib/link/identity";
 import { fixedSchedule, scheduleProblems } from "@/lib/pricing/schedule";
-import { parseCopy, stagesOf } from "@/lib/send/copy";
-import { parseAcceptance, picksOf } from "@/lib/accept/plan";
-import type { QuoteOption } from "./types";
+import { parseAcceptance } from "@/lib/accept/plan";
+import { contractVersions } from "@/lib/contract/model";
+import type { Quote, QuoteOption } from "./types";
 import { authorFields, describePlan } from "./history";
+import { loadContract } from "./contract";
 import { getQuote } from "./load";
 import { changeSlot, cleanEditorQuote, fingerprint, isRecordId, newVersionRefusal, planIsEmpty, planSave, type SavePlan } from "./savePlan";
 import { ids, num, str } from "./values";
@@ -120,24 +121,26 @@ export async function makeChange(versionId: string): Promise<SaveResult> {
   const from = await getQuote(versionId);
   if (!from?.link) return { ok: false, message: "This version isn't linked to a quote." };
   if (from.link.contractVersionId !== from.id) return { ok: false, message: "Only the version that is the contract now can be changed. Open the newest one." };
-  const accepted = from.acceptance && !from.acceptance.cancelled ? from.acceptance : null;
-  if (!accepted && !from.changeNo) return { ok: false, message: "This version hasn't been accepted, so there is nothing to change yet." };
+  const loaded = await loadContract(from.link.quoteRecordId);
+  if (!loaded) return { ok: false, message: "This version hasn't been accepted, so there is nothing to change yet." };
+  const { contract } = loaded;
 
-  // The option the contract stands on, and its stages as agreed.
-  const taken = accepted ? picksOf(accepted).map((p) => from.options.find((o) => o.id === p.ref)) : from.options.length === 1 ? [from.options[0]] : [undefined];
+  // The live options the contract points at (2026-10-30: each on its own version), and its stages as agreed.
+  const sources = new Map<string, Quote | null>([[from.id, from]]);
+  for (const id of contractVersions(contract)) if (!sources.has(id)) sources.set(id, await getQuote(id));
+  const taken = contract.items.map((it) => {
+    const v = sources.get(it.versionId);
+    return it.ref ? v?.options.find((o) => o.id === it.ref) : v?.options.length === 1 ? v.options[0] : undefined;
+  });
   if (taken.length === 0 || taken.some((o) => !o)) return { ok: false, message: "The accepted option isn't on this version any more, so a change can't start from it." };
   const parts = taken as QuoteOption[];
   // Two options taken together become one: the contract is one option from here on, with one schedule.
-  const option: QuoteOption = parts.length === 1 ? parts[0] : { ...parts[0], name: accepted!.option.name, scope: null, recommended: false, description: parts.map((o) => o.description).filter(Boolean).join("\n\n") || null, lines: parts.flatMap((o) => o.lines) };
-  let stages = accepted?.stages;
-  if (!stages) {
-    const frozen = parseCopy(str((await listByIds(T.versions, [from.id], [VERSION.customerCopy]))[0]?.fields[VERSION.customerCopy]));
-    stages = frozen?.options[0] ? stagesOf(frozen.options[0]) : undefined;
-  }
-  if (!stages?.length) return { ok: false, message: "This version has no payment schedule to carry over." };
+  const option: QuoteOption = parts.length === 1 ? parts[0] : { ...parts[0], name: contract.items.map((i) => i.name).join(" + "), scope: null, recommended: false, description: parts.map((o) => o.description).filter(Boolean).join("\n\n") || null, lines: parts.flatMap((o) => o.lines) };
+  const stages = contract.stages;
+  if (!stages.length) return { ok: false, message: "This version has no payment schedule to carry over." };
 
   // Ticked add-ons are part of the work now; the ones the customer didn't take are gone.
-  const took = new Set((accepted?.addOns ?? []).map((a) => a.description.replace(/\s+/g, " ").trim().toLowerCase()));
+  const took = new Set(contract.items.flatMap((i) => i.addOns).map((a) => a.description.replace(/\s+/g, " ").trim().toLowerCase()));
   const lines = option.lines.flatMap((l) => (l.include ? [l] : took.has((l.description ?? "").replace(/\s+/g, " ").trim().toLowerCase()) ? [{ ...l, include: true }] : []));
   const edited = cleanEditorQuote({ ...fromQuote({ ...from, options: [{ ...option, lines }] }), schedule: fixedSchedule(stages) });
 

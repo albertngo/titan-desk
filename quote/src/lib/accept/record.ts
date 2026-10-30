@@ -1,6 +1,7 @@
 import "server-only";
 import { getRecord, listByIds, listRecords, updateRecord, updateRecords, type AirtableRecord } from "@/lib/airtable/client";
 import { QUOTE, T, VERSION } from "@/lib/airtable/fields";
+import { fromAcceptance, serializeContract } from "@/lib/contract/model";
 import { ghlConfigured, pipelines } from "@/lib/ghl/client";
 import { buildLost, buildWon, wonStageId } from "@/lib/link/ghlRequest";
 import { makeConfigured, sendMessage, sendToGhl } from "@/lib/make/client";
@@ -21,7 +22,8 @@ import { TERMS_PDF } from "./terms";
  *
  *   1. read the version again and record the yes only if it is still Sent and not yet accepted;
  *   2. the version becomes Accepted with the record, the option and the day; the quote's contract
- *      is this version; any other version still out with the customer is Superseded;
+ *      (Quotes → Contract, pointers to the options taken) is this yes; any other version still out
+ *      with the customer is Superseded;
  *   3. hand off: the GHL opportunity goes to Project Won with the accepted total (with HST) through
  *      Make, which fires GHL's won workflow (Make 3710214: the Notion project, the WhatsApp post);
  *      then the acceptance email (stamped PDF and Project Expectations attached, the deposit request)
@@ -142,7 +144,8 @@ export async function recordAcceptance(target: AcceptTarget, a: Acceptance, who:
     [VERSION.editLog]: appendLog(fresh.editLog, logLine(now, who, `accepted ${HOW[a.method]} by ${a.name}: ${a.option.name}${added}, ${a.totals.total.toFixed(2)} with HST`)),
   });
   if (fresh.quote) {
-    await updateRecord(T.quotes, fresh.quote.id, { [QUOTE.contractVersion]: [fresh.versionId] }).catch(() => undefined);
+    // The contract is this yes (2026-10-30: held as pointers on the quote; Contract Version stays the newest version on it).
+    await updateRecord(T.quotes, fresh.quote.id, { [QUOTE.contractVersion]: [fresh.versionId], [QUOTE.contract]: serializeContract(fromAcceptance(fresh.versionId, a)) }).catch(() => undefined);
     await supersedeOthers(fresh.quote.versionIds, fresh.versionId).catch(() => undefined);
   }
   const handoff = await handOff(fresh.versionId);
@@ -258,7 +261,7 @@ export async function cancelAcceptanceRecord(versionId: string, reason: string, 
     [VERSION.acceptance]: serializeAcceptance({ ...t.acceptance, cancelled: { at: now.toISOString(), by: who, reason } }),
     [VERSION.editLog]: appendLog(t.editLog, logLine(now, who, `acceptance cancelled: ${reason}`)),
   });
-  if (t.quote) await updateRecord(T.quotes, t.quote.id, { [QUOTE.contractVersion]: [] }).catch(() => undefined);
+  if (t.quote) await updateRecord(T.quotes, t.quote.id, { [QUOTE.contractVersion]: [], [QUOTE.contract]: "" }).catch(() => undefined);
   let ghl = "GHL was not changed: the quote isn't linked to an opportunity.";
   if (t.quote?.contactId && t.quote.opportunityId) {
     try {

@@ -133,7 +133,7 @@ describe("invoice or receipt", () => {
 
   it("drops the change box and keeps one option", () => {
     const two = customerCopy(quote({ options: [option("A", [line({})]), option("B", [line({ qty: 50 })])] }), AT);
-    const c = contractCopy({ ...two, change: { no: 1 } as never }, null);
+    const c = contractCopy({ ...two, change: { no: 1 } as never });
     expect(c.change).toBeUndefined();
     expect(c.options).toHaveLength(1);
     // The fixture's optional "Stair nosing" wasn't taken, so it isn't billed.
@@ -166,7 +166,7 @@ describe("invoice or receipt", () => {
     number: "INV-82571",
     issuedOn: "2026-10-30",
     asOf: "2026-10-30",
-    copy: contractCopy(customerCopy(quote(), AT), null),
+    copy: contractCopy(customerCopy(quote(), AT)),
     payments: [{ date: "2026-10-01", amount: 100, method: "e-Transfer", reference: "REF1" }],
     hstNumber: "123456789RT0001",
     project: "PP-900",

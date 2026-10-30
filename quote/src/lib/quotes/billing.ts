@@ -1,8 +1,7 @@
 import "server-only";
-import { parseAcceptance } from "@/lib/accept/plan";
 import { customerUrl } from "@/lib/accept/settings";
 import { createRecord, listByIds, updateRecord } from "@/lib/airtable/client";
-import { INVOICE, QUOTE, RECEIPT, T, VERSION } from "@/lib/airtable/fields";
+import { INVOICE, QUOTE, RECEIPT, T } from "@/lib/airtable/fields";
 import { requireQuoterPerson } from "@/lib/auth";
 import {
   billingFile,
@@ -22,9 +21,10 @@ import {
 } from "@/lib/billing/doc";
 import { sendMessage } from "@/lib/make/client";
 import { paymentsReaderOn, projectPayments } from "@/lib/notion/payments";
-import { parseCopy, torontoToday, type CustomerCopy } from "@/lib/send/copy";
+import { torontoToday, type CustomerCopy } from "@/lib/send/copy";
 import { billingEmailMessage, customerLinks, emailFromFor, isToken } from "@/lib/send/plan";
 import { appendLog, authorFields, firstNameOf, logLine } from "./history";
+import { loadContract } from "./contract";
 import { getQuote } from "./load";
 import { refreshFromGhl } from "./refresh";
 import type { Quote } from "./types";
@@ -73,12 +73,9 @@ async function contract(versionId: string): Promise<Contract | string> {
   const loaded = await getQuote(versionId);
   if (!loaded) return "This version no longer exists.";
   if (!loaded.link || loaded.link.contractVersionId !== loaded.id) return "Only the version that is the contract (accepted, or its latest change) has an invoice or receipt.";
-  const rec = (await listByIds(T.versions, [loaded.id], [VERSION.customerCopy, VERSION.acceptance]))[0];
-  const frozen = parseCopy(str(rec?.fields[VERSION.customerCopy]));
-  if (!frozen) return "This version's sent copy couldn't be read.";
-  const a = parseAcceptance(str(rec?.fields[VERSION.acceptance]));
-  if (a?.cancelled) return "This acceptance was cancelled.";
-  const copy = contractCopy(frozen, a);
+  const c = await loadContract(loaded.link.quoteRecordId);
+  if (!c) return "This project's contract couldn't be read (or its acceptance was cancelled).";
+  const copy = contractCopy(c.view);
   return { quote: loaded, copy, kind: billingKind(copy) };
 }
 

@@ -529,6 +529,20 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   send. Nothing new for the customer: the What changed box lists the lines out and in. Rules in
   `src/lib/change/swap.ts`; screen `src/components/editor/SwapOption.tsx`.
   Tested in `tests/change.test.ts`.
+- **The contract is a list of pointers (Albert, 2026-10-30; vault `05_decisions/2026-10-30-quote-contract-from-any-version`).**
+  Quotes → **Contract** (JSON, app-written) holds what the customer has: one item per option, each pointing at an
+  option on some version's frozen copy (version, place in the copy, Quote Options record, name, scope, the add-ons
+  taken with it, how and when it got there), with the totals and the payment schedule on the whole. Nothing is merged
+  when stored; `contractView()` in `src/lib/contract/model.ts` joins the items into one copy whenever it is needed
+  (`acceptedCopy()` is that view of one acceptance). Written only by `src/lib/accept/record.ts` (acceptance; cleared on
+  cancel) and `src/lib/quotes/send.ts` (a change sent), pinned by the boundary test; read through `loadContract()` in
+  `src/lib/quotes/contract.ts` by Make a change, the change's What changed and invoices / receipts. A quote accepted
+  before the field has it blank and reads the same contract from Contract Version (`legacyContract()`), so nothing was
+  backfilled. **Contract Version is still written** (the newest version on the contract): the Accepted card, Make a
+  change and the billing card are keyed on it. **Step 1 of three, no visible change.** Next: a Part on each option
+  (a fixed dropdown; one option per Part) and swapping any option from any version into the contract (step 2); then
+  accepting a still-open Part on a later version's link, the schedule restaged on the whole with what Notion's Master
+  Payments Log shows received counted toward it (step 3). Tested in `tests/scope.test.ts`.
 - **Invoices and receipts (Albert, 2026-10-30).** One numbered document per won project, on its contract
   version (the accepted one or its latest change): an **invoice** (INV-82571, INV-82572…) when the contract charges
   HST on every line, a **receipt** (R-10245, R-10246…) when HST is on part of it (the floor material) or none

@@ -53,6 +53,13 @@ export const QUOTE = {
    * sent after it. Its total is what GHL's value and Notion's Value Approx carry. Written by the app.
    */
   contractVersion: "fldQC0eOTE7sZu6OK",
+  /**
+   * The contract as pointers (2026-10-30): the accepted options, each on a version's frozen copy, with the
+   * totals and schedule on the whole. JSON written by the app only (src/lib/contract/model.ts). Blank on a
+   * quote accepted before then, which reads Contract Version instead. Contract Version is still written:
+   * the newest version on the contract.
+   */
+  contract: "fldA6EduTlqDnKYXi",
   pipeline: "fldeupuDWQZ0dbXEg",
   notes: "fldnVyjuta6kQjOOf",
   versions: "fldasgos7nsSuqkJh",
