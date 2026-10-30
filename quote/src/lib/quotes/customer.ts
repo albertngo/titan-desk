@@ -2,7 +2,8 @@ import "server-only";
 import { acceptTerms, termsById, type LiveTerms } from "@/lib/accept/live";
 import { parseAcceptance, type Acceptance } from "@/lib/accept/plan";
 import { listByIds, listRecords } from "@/lib/airtable/client";
-import { QUOTE, T, VERSION } from "@/lib/airtable/fields";
+import { INVOICE, QUOTE, RECEIPT, T, VERSION } from "@/lib/airtable/fields";
+import { parseSnapshot, type BillingSnapshot } from "@/lib/billing/doc";
 import { isCustomerDeployment } from "@/lib/mode";
 import { copyState, parseCopy, torontoToday, type CopyState, type CustomerCopy } from "@/lib/send/copy";
 import { isToken } from "@/lib/send/plan";
@@ -45,6 +46,29 @@ export async function customerQuote(token: string): Promise<CustomerQuote | null
   const changedTo = acceptance ? await contractToken(ids(f[VERSION.quote])[0], found[0].id) : null;
   const terms = acceptance ? await termsById(acceptance.termsId) : state === "open" ? await acceptTerms() : null;
   return { copy, state, today, newerToken: newerToken ?? changedTo, acceptance, terms };
+}
+
+/**
+ * The project's invoice or receipt (2026-10-30), as last exported by staff: its frozen snapshot, nothing live.
+ * Only on a link that is still the customer's (open or accepted). The PDF it draws is the email's attachment.
+ */
+export async function customerBilling(token: string): Promise<BillingSnapshot | null> {
+  if (!isCustomerDeployment() || !isToken(token)) return null;
+  const found = await listRecords(T.versions, { fields: [VERSION.status, VERSION.validUntil, VERSION.quote], filterByFormula: `{${VERSION.customerToken}}='${token}'` });
+  if (found.length !== 1) return null;
+  const state = copyState(str(found[0].fields[VERSION.status]), str(found[0].fields[VERSION.validUntil]), torontoToday(new Date()));
+  if (state !== "open" && state !== "accepted") return null;
+  const quoteId = ids(found[0].fields[VERSION.quote])[0];
+  if (!quoteId) return null;
+  const q = (await listByIds(T.quotes, [quoteId], [QUOTE.invoices, QUOTE.receipts]))[0];
+  for (const [table, field, snapshot] of [[T.invoices, QUOTE.invoices, INVOICE.snapshot], [T.receipts, QUOTE.receipts, RECEIPT.snapshot]] as const) {
+    const rowIds = ids(q?.fields[field]);
+    if (!rowIds.length) continue;
+    const rows = await listByIds(table, rowIds, [snapshot]);
+    const s = parseSnapshot(str(rows[0]?.fields[snapshot]));
+    if (s) return s;
+  }
+  return null;
 }
 
 /** For a replaced version: the link of the quote's newest version that is out with the customer. */

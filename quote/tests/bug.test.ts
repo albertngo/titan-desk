@@ -88,8 +88,9 @@ const all = files(SRC).map((p) => ({ rel: path.relative(SRC, p).split(path.sep).
 const read = (root: string, rel: string) => readFileSync(path.join(root, rel), "utf8");
 
 describe("Notion boundary (Report a bug)", () => {
-  it("has exactly one file that talks to Notion, and it alone reads the token", () => {
-    expect(all.filter((f) => f.text.includes("api.notion.com")).map((f) => f.rel)).toEqual(["lib/bug/notion.ts"]);
+  it("has exactly one file that writes to Notion, and it alone reads the token", () => {
+    // Since 2026-10-30 lib/notion/payments.ts also talks to Notion, read-only (tests/boundary.test.ts, "Notion payments").
+    expect(all.filter((f) => f.text.includes("api.notion.com")).map((f) => f.rel).sort()).toEqual(["lib/bug/notion.ts", "lib/notion/payments.ts"]);
     expect(all.filter((f) => f.text.includes("NOTION_BUG_TOKEN") && !f.rel.startsWith("lib/bug/notion")).map((f) => f.rel)).toEqual([]);
   });
   it("is server-only, POSTs only, and is reached only from the bug route and the header check", () => {

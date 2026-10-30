@@ -22,6 +22,15 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-10-30",
+    kind: "new",
+    title: "Invoices and receipts for won projects",
+    details: [
+      "A won quote's page has an Invoice or Receipt card: an invoice (INV-82571 and on) when HST is on every line, a receipt (R-10245 and on) when HST is only on the materials or not charged.",
+      "It lists every payment linked to the project in Notion's Master Payments Log and the balance owing. Create it to get its number, Open PDF to download it, or Email to customer to send it with the PDF attached. Updating it later keeps the number and adds newer payments.",
+    ],
+  },
+  {
+    date: "2026-10-30",
     kind: "changed",
     title: "Send again on accepted and won quotes",
     details: ["Send again… is on an accepted or won quote's Sent to customer card too. Include the PDF sends a link to the signed, accepted PDF."],
