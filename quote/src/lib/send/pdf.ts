@@ -222,7 +222,7 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
         if (room(40)) tableHead(true);
         const h = s.total !== null ? 34 : 19;
         doc.rect(COL.item - 6, y - h + 11, RIGHT - COL.item + 6, h, SOFT);
-        doc.text(COL.item, y, "HST (13%) on materials", { size: 9, color: INK });
+        doc.text(COL.item, y, "HST (13%) on materials only", { size: 9, color: INK });
         doc.text(COL.amount - 4, y, money(o.totals.hst), { size: 9, color: INK, align: "right" });
         y -= 15;
         if (s.total !== null) {
