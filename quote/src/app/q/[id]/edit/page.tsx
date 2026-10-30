@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ConversationDrawer } from "@/components/Conversation";
 import { EditorClient } from "@/components/editor/EditorClient";
 import { TopBar } from "@/components/TopBar";
@@ -7,7 +7,7 @@ import { fromQuote } from "@/lib/editor/model";
 import { previewCopy } from "@/lib/quotes/send";
 import { picksOf } from "@/lib/accept/plan";
 import { swapSource } from "@/lib/change/swap";
-import { acceptedVersionOf, getQuote, getRateCard } from "@/lib/quotes/load";
+import { acceptedVersionOf, getQuote, getRateCard, workingDraftOf } from "@/lib/quotes/load";
 import { refreshFromGhl } from "@/lib/quotes/refresh";
 import { fingerprint } from "@/lib/quotes/savePlan";
 import { customerView } from "@/lib/view";
@@ -20,6 +20,11 @@ export default async function EditQuotePage({ params }: { params: Promise<{ id: 
   const { id } = await params;
   const [loaded, card, customer] = await Promise.all([getQuote(id), getRateCard(), customerView()]);
   if (!loaded) notFound();
+  // One working quote (2026-10-30): editing a sent version opens the draft already being worked on, if there is one.
+  if (loaded.status !== "Draft" && !loaded.changeNo && !(loaded.acceptance && !loaded.acceptance.cancelled)) {
+    const draft = await workingDraftOf(loaded);
+    if (draft) redirect(`/q/${draft.id}/edit`);
+  }
   const quote = await refreshFromGhl(loaded);
   const initial = fromQuote(quote);
   // A change after acceptance (2026-10-27): the editor shows how far it moves the contract's total.

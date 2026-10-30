@@ -11,7 +11,7 @@ import type { Quote, QuoteOption } from "./types";
 import { authorFields, describePlan } from "./history";
 import { loadContract } from "./contract";
 import { getQuote } from "./load";
-import { changeSlot, cleanEditorQuote, fingerprint, isRecordId, newVersionRefusal, planIsEmpty, planSave, type SavePlan } from "./savePlan";
+import { changeSlot, workingDraft, cleanEditorQuote, fingerprint, isRecordId, newVersionRefusal, planIsEmpty, planSave, type SavePlan } from "./savePlan";
 import { ids, num, str } from "./values";
 
 /**
@@ -39,14 +39,14 @@ export async function saveVersion(versionId: string, raw: unknown, base: string)
   const current = await getQuote(versionId);
   if (!current) return { ok: false, message: "This version isn't in Airtable any more." };
   if (current.status !== "Draft") {
-    return { ok: false, message: `This version is ${current.status ?? "not a draft"}, so it can't be changed. Save your changes as a new version instead.` };
+    return { ok: false, message: `This version is ${current.status ?? "not a draft"}, so it can't be changed. Your changes are still on this device: open the quote's editor again and save them as the next draft.` };
   }
   const original = fromQuote(current);
   if (fingerprint(original) !== base) {
     return {
       ok: false,
       conflict: true,
-      message: "This version changed in Airtable since you opened it, so saving would overwrite that. Your changes are still on this device: save them as a new version, or discard them and start from what's in Airtable.",
+      message: "This version changed in Airtable since you opened it, so saving would overwrite that. Your changes are still on this device: save them as the next draft, or discard them and start from what's in Airtable.",
     };
   }
   const edited = cleanEditorQuote(raw);
@@ -76,7 +76,10 @@ export async function saveAsNewVersion(versionId: string, raw: unknown, basis: s
   if (refused) return { ok: false, message: refused };
 
   const quote = await getRecord(T.quotes, quoteId);
-  const siblings = await listByIds(T.versions, ids(quote.fields[QUOTE.versions]), [VERSION.version]);
+  const siblings = await listByIds(T.versions, ids(quote.fields[QUOTE.versions]), [VERSION.version, VERSION.status, VERSION.changeNo]);
+  // One working quote (2026-10-30): a second ordinary draft would be a branch. The editor opens the draft instead.
+  const draft = workingDraft(siblings.map((v) => ({ id: v.id, status: str(v.fields[VERSION.status]), changeNo: num(v.fields[VERSION.changeNo]), version: num(v.fields[VERSION.version]) })), versionId);
+  if (draft) return { ok: false, message: `v${draft.version ?? "?"} is already the draft for this quote, so nothing was saved here. Your changes are still on this device: open v${draft.version ?? "?"} and make them there.` };
   const n = Math.max(0, ...siblings.map((v) => num(v.fields[VERSION.version]) ?? 0)) + 1;
   const quoteNo = str(quote.fields[QUOTE.quoteNumber]);
 
@@ -228,7 +231,7 @@ async function carryOut(versionId: string, plan: SavePlan): Promise<SaveResult> 
       message:
         writes === 0
           ? `Nothing was saved: Airtable refused it (${message(e)}). Your changes are still on this device; try again.`
-          : `Only part of this saved before Airtable refused it (${message(e)}). Your changes are still on this device: open the quote to see what's in Airtable, then save them as a new version.`,
+          : `Only part of this saved before Airtable refused it (${message(e)}). Your changes are still on this device: open the quote to see what's in Airtable, then save them as the next draft.`,
     };
   }
   return { ok: true, versionId, writes };

@@ -554,6 +554,14 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   unticked by default on the Send card, left out by `chooseOptions()` when a send names no options, dashed tab.
   Both join the editor's option only when set (absent, never null or false), so drafts saved before them keep their
   fingerprint. Tested in `tests/scope.test.ts`.
+- **One working quote (Albert, 2026-10-30; vault `05_decisions/2026-10-30-quote-one-working-quote`).** Staff work on
+  one quote and its options; versions are the send history. **No Save as new version button**: a Draft saves in place;
+  a sent version's editor saves **as the next draft** (`saveAsNewVersion()`, every option carried over, the basis picked
+  beside the button), and only one ordinary draft exists per quote (`workingDraft()` in `savePlan.ts`): the editor of a
+  sent version redirects to it (`workingDraftOf()` in `load.ts`), and a save that would make a second one is refused.
+  On a conflict (Airtable changed under a draft) the banner offers "Save mine as the next draft", which supersedes the
+  other. All quotes lists versions newest first only: the By origin view and "from vN" labels are gone (a change keeps
+  "Change N"). This supersedes the 2026-10-28 branching and By origin notes above; changes after acceptance are unchanged.
 - **Invoices and receipts (Albert, 2026-10-30).** One numbered document per won project, on its contract
   version (the accepted one or its latest change): an **invoice** (INV-82571, INV-82572…) when the contract charges
   HST on every line, a **receipt** (R-10245, R-10246…) when HST is on part of it (the floor material) or none

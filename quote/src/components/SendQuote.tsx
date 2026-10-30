@@ -218,7 +218,7 @@ export function SendQuote({
               {s.validUntil && <span className="sq-until">Good until {day(s.validUntil)}</span>}
             </p>
           ) : (
-            <p className="faint">This version is {status ?? "not a draft"}. To send changes, save them as a new version.</p>
+            <p className="faint">This version is {status ?? "not a draft"}. To send changes, edit the quote: saving starts the next draft.</p>
           )}
           {done?.warning && <p className="sq-msg warn" role="status">{done.warning}</p>}
           {!done && sent?.activity && <Activity a={sent.activity} />}

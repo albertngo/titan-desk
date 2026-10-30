@@ -22,6 +22,16 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-10-30",
+    kind: "changed",
+    title: "One working quote: no more Save as new version",
+    details: [
+      "Work on the quote and its options, like sheets in the Excel workbook. Sending keeps a copy of exactly what the customer saw.",
+      "Editing a quote that was already sent opens its draft if there is one; otherwise Save as the next draft starts it, with every option carried over. Pick whether the next draft is preliminary or measured beside the button.",
+      "There is only ever one draft per quote, so there is nothing to branch. All quotes lists the versions newest first; the By origin view and the \"from v4\" labels are gone. A change still shows its number.",
+    ],
+  },
+  {
+    date: "2026-10-30",
     kind: "new",
     title: "Parts, and Not offered",
     details: [

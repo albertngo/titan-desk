@@ -402,7 +402,7 @@ export default function Editor({
               ? "Changes are kept on this device until you save."
               : version.agreed || version.change
                 ? `This version is ${version.status ?? "locked"}. To change what was agreed, use Make a change on the quote page.`
-                : `This version is ${version.status ?? "locked"}: changes save as a new version.`}
+                : `This version was sent (${(version.status ?? "locked").toLowerCase()}), so it stays as the customer saw it: saving starts the next draft, with every option carried over.`}
           </p>
           {version.change && (
             <p className="change-note">
@@ -807,17 +807,17 @@ export default function Editor({
 
           <div className="actions">
             <button className="btn" onClick={discard} disabled={!changed && !restoredAt}>Discard changes</button>
-            {/* A change, or the agreed quote, is never copied into an ordinary version (2026-10-27):
-                the copy would go out as a fresh quote to accept. Make a change is the way. */}
-            {!version.change && !version.agreed && (
+            {/* One working quote (2026-10-30): no Save as new version. A sent version saves as the next draft;
+                a change, or the agreed quote, is never copied into an ordinary version (2026-10-27): Make a change is the way. */}
+            {!isDraft && !version.change && !version.agreed && (
             <span className="saveas">
-              <select className="in" value={basis} onChange={(e) => setBasis(e.target.value)} aria-label="Basis of the new version" disabled={saving}>
+              <select className="in" value={basis} onChange={(e) => setBasis(e.target.value)} aria-label="The next draft is" title="Whether the next draft is a preliminary or a measured quote" disabled={saving}>
                 {BASES.map((b) => (
                   <option key={b} value={b}>{b}</option>
                 ))}
               </select>
-              <button className={`btn${isDraft ? "" : " primary"}`} onClick={saveAsNew} disabled={saving}>
-                {saving ? "Saving…" : "Save as new version"}
+              <button className="btn primary" onClick={saveAsNew} disabled={saving || !changed}>
+                {saving ? "Saving…" : "Save as the next draft"}
               </button>
             </span>
             )}
@@ -835,6 +835,15 @@ export default function Editor({
           {saveError && (
             <p className="card banner bad save-error" role="alert">
               {saveError.message}
+              {/* Airtable moved on under this draft: keep this device's work as the next draft, and the other becomes Superseded. */}
+              {saveError.conflict && !version.change && !version.agreed && (
+                <>
+                  {" "}
+                  <button type="button" className="btn" onClick={saveAsNew} disabled={saving}>
+                    Save mine as the next draft
+                  </button>
+                </>
+              )}
             </p>
           )}
         </div>

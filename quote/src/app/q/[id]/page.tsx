@@ -64,7 +64,7 @@ export default async function QuotePage({
   const option = showAnalysis || showRooms || showSheet ? null : (quote.options.find((o) => o.id === opt) ?? quote.options[0] ?? null);
   const tabGroups = scopeGroups(quote.options);
   const totals = option ? optionTotals(option.lines, quote.discountRate, quote.showHst) : null;
-  const madeFrom = fromWords(quote.changeNo, quote.fromVersion);
+  const madeFrom = fromWords(quote.changeNo, null);
   const airtableUrl = airtableRecordUrl(T.versions, quote.id);
   // A quote with no GHL opportunity yet (Needs linking): offer the customer's jobs to link it to.
   const unlinked = quote.link && !quote.link.ghlOpportunityId ? quote.link : null;

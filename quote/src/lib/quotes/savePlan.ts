@@ -273,3 +273,13 @@ export function newVersionRefusal(from: { changeNo: number | null; agreed: boole
   if ((from.changeNo ?? 0) > 0) return "This is a change to the accepted quote. Save it here, or use Make a change on the quote page for the next one.";
   return null;
 }
+
+/**
+ * The quote's working draft (2026-10-30, vault 05_decisions/2026-10-30-quote-one-working-quote): staff work on one
+ * quote and sending takes the snapshot, so there is at most one ordinary draft. The newest Draft that isn't a change,
+ * other than `self`; null when there is none.
+ */
+export function workingDraft(versions: { id: string; status: string | null; changeNo: number | null; version: number | null }[], self?: string): { id: string; version: number | null } | null {
+  const drafts = versions.filter((v) => v.id !== self && v.status === "Draft" && !((v.changeNo ?? 0) > 0)).sort((a, b) => (b.version ?? 0) - (a.version ?? 0));
+  return drafts[0] ? { id: drafts[0].id, version: drafts[0].version } : null;
+}
