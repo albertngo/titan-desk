@@ -64,6 +64,9 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
     return true;
   };
 
+  /** An invoice or receipt whose HST is on the materials only: shown inside that section (2026-10-30). */
+  const materialsHst = (o: CopyOption) => bill !== null && !copy.showHst && o.totals.hst !== 0 && o.sections.some((s) => s.name === "Materials");
+
   /* ---------- letterhead ---------- */
   newPage();
   const c = copy.company;
@@ -200,19 +203,25 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
     y -= 8;
     tableHead(false);
 
-    // A receipt with HST on the materials only (Albert, 2026-10-30: "put the HST right inside the Material section"):
-    // the HST is a row of that section, and every other section says it carries none.
-    const hstInMaterials = bill !== null && !copy.showHst && o.totals.hst !== 0 && o.sections.some((s) => s.name === "Materials");
+    // A receipt with HST on the materials only (Albert, 2026-10-30: "put the HST right inside the Material section",
+    // then "more singled out"): the Materials section carries a blue bar down its left and says HST APPLIES, its HST
+    // and its total with HST sit on a tinted band at its end, and every other section says NO HST.
+    const hstInMaterials = materialsHst(o);
     for (const s of o.sections) {
       if (room(40)) tableHead(true);
+      const mat = hstInMaterials && s.name === "Materials";
       const head = s.name.toUpperCase();
+      const startY = y + 10;
+      const startPage = doc.pageCount;
       doc.text(COL.item, y, head, { font: "B", size: 8, color: BLUE });
-      if (hstInMaterials && s.name !== "Materials" && s.lines.some((l) => l.kind === "item")) doc.text(COL.item + textWidth(head, "B", 8) + 6, y, "·  NO HST", { font: "B", size: 7.5, color: FAINT });
+      if (hstInMaterials && s.lines.some((l) => l.kind === "item")) doc.text(COL.item + textWidth(head, "B", 8) + 6, y, mat ? "·  HST APPLIES" : "·  NO HST", { font: "B", size: 7.5, color: mat ? BLUE : FAINT });
       if (s.total !== null && s.lines.some((l) => l.kind === "item" && !l.optional)) doc.text(COL.amount - 4, y, money(s.total), { font: "B", size: 8, color: DIM, align: "right" });
       y -= 14;
       for (const l of s.lines) row(l);
-      if (hstInMaterials && s.name === "Materials") {
-        if (room(34)) tableHead(true);
+      if (mat) {
+        if (room(40)) tableHead(true);
+        const h = s.total !== null ? 34 : 19;
+        doc.rect(COL.item - 6, y - h + 11, RIGHT - COL.item + 6, h, SOFT);
         doc.text(COL.item, y, "HST (13%) on materials", { size: 9, color: INK });
         doc.text(COL.amount - 4, y, money(o.totals.hst), { size: 9, color: INK, align: "right" });
         y -= 15;
@@ -221,7 +230,8 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
           doc.text(COL.amount - 4, y, money(round2(s.total + o.totals.hst)), { font: "B", size: 9, color: INK, align: "right" });
           y -= 15;
         }
-        doc.line(COL.item, y + 9, RIGHT, y + 9, RULE, 0.5);
+        // The bar, on this page only: a section split across pages gets none rather than a broken one.
+        if (doc.pageCount === startPage) doc.line(COL.item - 10, startY, COL.item - 10, y + 7, BLUE, 2);
       }
       y -= 4;
     }
@@ -259,7 +269,7 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
       return;
     }
     const lines = wrap(l.description, "R", 9, COL.itemW);
-    const sub = [l.note, l.wastePct ? `includes ${l.wastePct}% waste allowance` : null, l.minimum ? "minimum charge" : null, itemHstNote(l)].filter(Boolean).join(" · ");
+    const sub = [l.note, l.wastePct ? `includes ${l.wastePct}% waste allowance` : null, l.minimum ? "minimum charge" : null, bill && !copy.showHst && l.hst === "plus" ? null : itemHstNote(l)].filter(Boolean).join(" · ");
     const notes = sub ? wrap(sub, "R", 8, COL.itemW) : [];
     if (room(lines.length * 12 + notes.length * 10 + 6)) tableHead(true);
     const color = l.optional ? DIM : INK;
@@ -290,7 +300,8 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
     // before HST; the tax and the total with it follow under it.
     const lead = leadPrice(copy, t);
     const h = hstRow(copy, t);
-    const after: [string, string][] = [[h.label, h.amount === null ? "Not included" : r ? "On the final price" : money(h.amount)]];
+    // With the HST shown inside the Materials section (2026-10-30), the totals don't repeat it.
+    const after: [string, string][] = materialsHst(o) ? [] : [[h.label, h.amount === null ? "Not included" : r ? "On the final price" : money(h.amount)]];
     if (lead.addsHst) after.push([r ? "With HST" : "Total with HST", r ? rangeText(r.lowWithHst, r.highWithHst) : money(t.total)]);
     // The schedule as frozen (2026-10-27); a range's is in shares of the final price, which isn't known yet.
     const x1 = r ? 300 : 340;
