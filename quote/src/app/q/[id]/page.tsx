@@ -3,6 +3,7 @@ import { Fragment } from "react";
 import { notFound } from "next/navigation";
 import { AcceptedCard, AcceptForCustomer, ChangeCard } from "@/components/AcceptStaff";
 import { AddressScan } from "@/components/AddressScan";
+import { BillingCard } from "@/components/BillingCard";
 import { Analysis } from "@/components/Analysis";
 import { ConversationDrawer } from "@/components/Conversation";
 import { CustomerCard } from "@/components/CustomerCard";
@@ -18,6 +19,7 @@ import { requireQuoter } from "@/lib/auth";
 import { optionTotals, parityDiffs } from "@/lib/calc";
 import { money } from "@/lib/format";
 import { jobChoices } from "@/lib/quotes/link";
+import { billingState } from "@/lib/quotes/billing";
 import { scopeGroups } from "@/lib/quotes/scope";
 import { fromWords } from "@/lib/quotes/group";
 import { getQuote, getRateCard } from "@/lib/quotes/load";
@@ -154,6 +156,10 @@ export default async function QuotePage({
         current={quote.link?.contractVersionId === quote.id}
       />
     ) : null;
+
+  // The project's invoice or receipt (2026-10-30): on the contract version only, staff only.
+  const billing = !customer && quote.link?.contractVersionId === quote.id && ["Accepted", "Won", "Sent"].includes(quote.status ?? "") ? await billingState(quote.id) : null;
+  const billingCard = billing ? <BillingCard versionId={quote.id} s={billing} /> : null;
 
   const changeCard =
     !customer && quote.changeNo ? (
@@ -312,6 +318,7 @@ export default async function QuotePage({
             )}
             {!(option && totals) && changeCard}
             {!(option && totals) && acceptedCard}
+            {!(option && totals) && billingCard}
             {!(option && totals) && acceptCard}
             {!(option && totals) && send}
             {!(option && totals) && historyCard}
@@ -321,6 +328,7 @@ export default async function QuotePage({
             <div className="stack">
               {changeCard}
               {acceptedCard}
+              {billingCard}
               {acceptCard}
               {send}
               <Financials

@@ -1,6 +1,7 @@
 import { parseSignature, type Acceptance } from "@/lib/accept/plan";
 import { termsLabel } from "@/lib/accept/terms";
 import { changeWords, signedMoney } from "@/lib/change/diff";
+import type { Payment } from "@/lib/billing/doc";
 import { PAGE, PdfDoc, wrap, type Rgb } from "./pdfDoc";
 import { discountLabel, hstRow, isLump, isSplit, scopeOf, itemHstNote, leadPrice, longDate, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyText, type CustomerCopy } from "./copy";
 
@@ -41,8 +42,14 @@ export function methodWords(a: Acceptance): string {
   return "Online, from the link we sent.";
 }
 
-export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null): Uint8Array<ArrayBuffer> {
-  const doc = new PdfDoc(`Titan Flooring quote ${copy.quoteNumber}`);
+/**
+ * An invoice or receipt (Albert, 2026-10-30): the same drawing as the quote, titled and numbered as the document,
+ * with the HST number, the payments received and the balance owing in place of the payment schedule.
+ */
+export type BillStamp = { title: "INVOICE" | "RECEIPT"; number: string; issuedOn: string; asOf: string; project: string | null; hstNumber: string | null; payments: Payment[]; paid: number; balance: number; credit: number };
+
+export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null, bill: BillStamp | null = null): Uint8Array<ArrayBuffer> {
+  const doc = new PdfDoc(bill ? `Titan Flooring ${bill.title.toLowerCase()} ${bill.number}` : `Titan Flooring quote ${copy.quoteNumber}`);
   let y = TOP;
 
   const newPage = () => {
@@ -61,18 +68,17 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null)
   const c = copy.company;
   doc.text(M, y - 16, c.name.toUpperCase(), { font: "B", size: 17, color: BLUE });
   let ly = y - 32;
-  for (const l of [c.address, [c.phone, c.email].filter(Boolean).join("  ·  "), c.website]) {
+  for (const l of [c.address, [c.phone, c.email].filter(Boolean).join("  ·  "), c.website, bill?.hstNumber ? `HST # ${bill.hstNumber}` : null]) {
     if (!l) continue;
     doc.text(M, ly, l, { size: 8.5, color: DIM });
     ly -= 11;
   }
-  doc.text(RIGHT, y - 16, copy.basis === "Preliminary" ? "PRELIMINARY QUOTE" : "QUOTE", { font: "B", size: 13, color: INK, align: "right" });
+  doc.text(RIGHT, y - 16, bill ? bill.title : copy.basis === "Preliminary" ? "PRELIMINARY QUOTE" : "QUOTE", { font: "B", size: 13, color: INK, align: "right" });
   let ry = y - 32;
-  for (const [k, v] of [
-    ["Quote", `${copy.quoteNumber}${copy.version !== null ? ` · v${copy.version}` : ""}`],
-    ["Date", longDate(copy.sentOn)],
-    ...(copy.validUntil ? [["Valid until", longDate(copy.validUntil)]] : []),
-  ]) {
+  const meta = bill
+    ? [[bill.title === "INVOICE" ? "Invoice" : "Receipt", bill.number], ["Date", longDate(bill.issuedOn)], ["Quote", copy.quoteNumber], ...(bill.project ? [["Project", bill.project]] : [])]
+    : [["Quote", `${copy.quoteNumber}${copy.version !== null ? ` · v${copy.version}` : ""}`], ["Date", longDate(copy.sentOn)], ...(copy.validUntil ? [["Valid until", longDate(copy.validUntil)]] : [])];
+  for (const [k, v] of meta) {
     doc.text(RIGHT - 110, ry, k, { size: 8.5, color: DIM, align: "right" });
     doc.text(RIGHT, ry, v, { font: "B", size: 8.5, color: INK, align: "right" });
     ry -= 12;
@@ -81,7 +87,7 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null)
   doc.line(M, y, RIGHT, y, RULE);
   y -= 18;
 
-  doc.text(M, y, "PREPARED FOR", { font: "B", size: 7.5, color: FAINT });
+  doc.text(M, y, bill ? "BILL TO" : "PREPARED FOR", { font: "B", size: 7.5, color: FAINT });
   y -= 14;
   doc.text(M, y, copy.customer.name ?? "", { font: "B", size: 11, color: INK });
   const site = [copy.customer.siteAddress, copy.customer.siteCity].filter(Boolean).join(", ");
@@ -150,13 +156,14 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null)
     else room(160);
     option(o, copy.options.length > 1 ? i + 1 : null);
   });
+  if (bill) payments(bill);
 
   /* ---------- footers, once the page count is known ---------- */
   const contact = [c.phone, c.email].filter(Boolean).join("  ·  ");
   for (let p = 0; p < doc.pageCount; p++) {
     doc.line(M, 52, RIGHT, 52, RULE, 0.75, p);
     if (contact) doc.text(M, 38, `Questions? ${contact}`, { size: 8, color: DIM, page: p });
-    doc.text(RIGHT, 38, `${copy.quoteNumber}  ·  Page ${p + 1} of ${doc.pageCount}`, { size: 8, color: FAINT, align: "right", page: p });
+    doc.text(RIGHT, 38, `${bill ? bill.number : copy.quoteNumber}  ·  Page ${p + 1} of ${doc.pageCount}`, { size: 8, color: FAINT, align: "right", page: p });
   }
   return doc.bytes();
 
@@ -274,6 +281,8 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null)
       v: stageFigure(s, money),
       note: stageNote(s) ? wrap(stageNote(s), "R", 7.5, RIGHT - x1 - 90) : [],
     }));
+    // An invoice or receipt shows what was paid instead of the schedule (payments(), below).
+    if (bill) pay.length = 0;
     room(rows.length * 15 + 42 + after.length * 15 + pay.reduce((a, p) => a + 13 + p.note.length * 10, 0) + 30);
     y -= 6;
     // A range's label and its two figures need a wider bar.
@@ -294,6 +303,7 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null)
       doc.text(COL.amount - 4, y, v, { font: strong ? "B" : "R", size: 9, color: INK, align: "right" });
       y -= 15;
     }
+    if (bill) return;
     y -= 15;
     doc.text(x0, y, r ? "PAYMENT SCHEDULE, ON THE FINAL PRICE" : lead.addsHst ? "PAYMENT SCHEDULE, WITH HST" : "PAYMENT SCHEDULE", { font: "B", size: 7.5, color: FAINT });
     y -= 13;
@@ -307,5 +317,43 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null)
       }
     }
     y -= 12;
+  }
+
+  /** The payments received, as read from the payments log on the day it was exported, and what is left to pay. */
+  function payments(b: BillStamp) {
+    room(60 + b.payments.length * 14);
+    y -= 6;
+    doc.text(M, y, `PAYMENTS RECEIVED, AS OF ${longDate(b.asOf).toUpperCase()}`, { font: "B", size: 7.5, color: FAINT });
+    y -= 16;
+    doc.rect(M, y - 6, RIGHT - M, 18, HEAD);
+    doc.text(M + 6, y, "Date", { font: "B", size: 8, color: DIM });
+    doc.text(M + 130, y, "Method", { font: "B", size: 8, color: DIM });
+    doc.text(M + 250, y, "Reference", { font: "B", size: 8, color: DIM });
+    doc.text(COL.amount - 4, y, "Amount", { font: "B", size: 8, color: DIM, align: "right" });
+    y -= 20;
+    if (b.payments.length === 0) {
+      doc.text(M + 6, y, "No payments received yet.", { size: 9, color: DIM });
+      y -= 16;
+    }
+    for (const p of b.payments) {
+      if (room(16)) y -= 4;
+      doc.text(M + 6, y, p.date ? longDate(p.date) : "", { size: 9, color: INK });
+      doc.text(M + 130, y, p.method ?? "", { size: 9, color: INK });
+      doc.text(M + 250, y, wrap(p.reference ?? "", "R", 9, 170)[0] ?? "", { size: 9, color: DIM });
+      doc.text(COL.amount - 4, y, money(p.amount), { size: 9, color: INK, align: "right" });
+      y -= 9;
+      doc.line(M, y, RIGHT, y, RULE, 0.5);
+      y -= 12;
+    }
+    room(60);
+    const x0 = 340;
+    y -= 4;
+    doc.text(x0, y, "Total paid", { size: 9, color: DIM });
+    doc.text(COL.amount - 4, y, money(b.paid), { size: 9, color: INK, align: "right" });
+    y -= 22;
+    doc.rect(x0 - 8, y - 7, RIGHT - x0 + 8, 22, b.credit > 0 || b.balance > 0 ? BLUE : GREEN);
+    doc.text(x0, y, b.credit > 0 ? "Credit" : b.balance > 0 ? "Balance owing" : "Paid in full", { font: "B", size: 11, color: [1, 1, 1] });
+    doc.text(COL.amount - 4, y, money(b.credit > 0 ? b.credit : b.balance), { font: "B", size: 11, color: [1, 1, 1], align: "right" });
+    y -= 22;
   }
 }

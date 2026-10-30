@@ -112,7 +112,8 @@ export type GhlMessage =
   /**
    * Never an attachment (Albert, 2026-10-27): the PDF, when offered, is downloaded from the quote page only.
    * The one exception is the acceptance email (Albert, same day: "attach for acceptance only"), which
-   * carries the stamped accepted PDF and the Project Expectations it was accepted under.
+   * carries the stamped accepted PDF and the Project Expectations it was accepted under; and since 2026-10-30
+   * the invoice or receipt email, which carries that document.
    */
   | { type: "Email"; contactId: string; subject: string; html: string; emailFrom?: string; attachments?: string[] }
   | { type: "SMS"; contactId: string; message: string }
@@ -773,6 +774,53 @@ export function resendSmsMessage(copy: CustomerCopy, to: { contactId: string; fi
     ? `${first} Here is the PDF of your ${what} ${copy.quoteNumber}:\n${to.pdfUrl}\n\nThe full quote is still here:\n${to.link}\n\nAny questions, just reply.`
     : `${first} Here is the link to your ${what} ${copy.quoteNumber} again:\n${to.link}\n\nAny questions, just reply.`;
   return { type: "SMS", contactId: to.contactId, message };
+}
+
+/* ---------- the invoice or receipt (Albert, 2026-10-30) ---------- */
+
+/**
+ * The email carrying a won project's invoice or receipt: the total, what has been paid, what is left, and the
+ * PDF **attached** (Albert, 2026-10-30: an invoice is a document customers file), with its link as well. The
+ * second email allowed an attachment, after the acceptance email.
+ */
+export function billingEmailMessage(
+  copy: CustomerCopy,
+  doc: { title: "Invoice" | "Receipt"; number: string; total: number; paid: number; balance: number; credit: number },
+  to: { contactId: string; firstName: string | null; pdfUrl: string },
+  sender: Sender | null = null,
+  options: { emailFrom?: string | null } = {},
+): GhlMessage {
+  const hi = greetingName(to.firstName);
+  const word = doc.title.toLowerCase();
+  const subject = `Your ${word} ${doc.number} from ${copy.company.name} (${copy.quoteNumber})`;
+  const left = doc.credit > 0 ? `a credit of ${cad.format(doc.credit)}` : doc.balance > 0 ? `${cad.format(doc.balance)} left to pay` : "paid in full";
+  const preheader = `Total ${cad.format(doc.total)}, paid ${cad.format(doc.paid)}, ${left}.`;
+  const cell = (t: string, right = false, strong = false) =>
+    `<td${right ? ' align="right"' : ""} style="padding:9px 0;border-bottom:1px solid ${C.hair};font-family:${SANS};font-size:15px;color:${strong ? C.ink : C.body};${strong ? "font-weight:600;" : ""}${right ? "white-space:nowrap;" : ""}">${t}</td>`;
+  const rows = [
+    `<tr>${cell("Total")}${cell(cad.format(doc.total), true)}</tr>`,
+    `<tr>${cell("Paid so far")}${cell(cad.format(doc.paid), true)}</tr>`,
+    `<tr>${cell(doc.credit > 0 ? "Credit" : doc.balance > 0 ? "Balance owing" : "Paid in full", false, true)}${cell(cad.format(doc.credit > 0 ? doc.credit : doc.balance), true, true)}</tr>`,
+  ].join("");
+  const signoff = sender?.firstName ? `${esc(sender.firstName)} &middot; ${esc(copy.company.name)}` : `The ${esc(copy.company.name)} team`;
+  const body =
+    row(
+      eyebrow(`${esc(doc.title)} &middot; ${esc(doc.number)}`) +
+        `<h1 class="h1" style="margin:0 0 16px;font-family:${SERIF};font-weight:400;font-size:30px;line-height:1.2;color:${C.ink};">${hi ? `Hi ${esc(hi)}, here` : "Here"} is your ${word}.</h1>` +
+        para(`For your project, quote ${esc(copy.quoteNumber)}. It&rsquo;s attached as a PDF, with every payment we&rsquo;ve received so far.`),
+      "40px 40px 16px",
+    ) +
+    row(
+      `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.wash};border-radius:18px;"><tr><td style="padding:8px;">` +
+        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.card};border:1px solid ${C.hair};border-radius:12px;"><tr><td style="padding:20px 24px;">` +
+        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${rows}</table></td></tr></table></td></tr></table>`,
+      "0 40px 16px",
+    ) +
+    row(button(`Download your ${word}`, to.pdfUrl), "12px 40px 10px") +
+    hairline("22px 40px 28px") +
+    row(para("Any questions, just reply to this email.", 15, C.body, "0 0 4px") + para(signoff, 14, C.muted, "0 0 36px"));
+  const from = "emailFrom" in options ? options.emailFrom : emailFromFor(sender, copy.company.email, true);
+  return { type: "Email", contactId: to.contactId, subject, html: frame(copy, subject, preheader, body), attachments: [to.pdfUrl], ...(from ? { emailFrom: from } : {}) };
 }
 
 /* ---------- the link ---------- */

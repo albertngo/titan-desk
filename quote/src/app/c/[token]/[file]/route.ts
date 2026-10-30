@@ -2,7 +2,9 @@ import { after } from "next/server";
 import { acceptedCopy, acceptedWhen } from "@/lib/accept/plan";
 import { isAirtableFile, TERMS_PDF } from "@/lib/accept/terms";
 import { relayActivity } from "@/lib/activity/relay";
-import { customerQuote } from "@/lib/quotes/customer";
+import { BILLING_FILE, billingFile } from "@/lib/billing/doc";
+import { billingPdf } from "@/lib/billing/pdf";
+import { customerBilling, customerQuote } from "@/lib/quotes/customer";
 import { acceptedPdfName, offersPdf, pdfName } from "@/lib/send/copy";
 import { quotePdf } from "@/lib/send/pdf";
 
@@ -13,6 +15,12 @@ import { quotePdf } from "@/lib/send/pdf";
  */
 export async function GET(req: Request, { params }: { params: Promise<{ token: string; file: string }> }) {
   const { token, file } = await params;
+  // The project's invoice or receipt (2026-10-30): drawn from the snapshot staff last exported, at its own file name only.
+  if (BILLING_FILE.test(file)) {
+    const snap = await customerBilling(token);
+    if (!snap || file !== billingFile(snap.kind, snap.number)) return new Response("Not found", { status: 404 });
+    return pdfResponse(billingPdf(snap), file);
+  }
   const found = await customerQuote(token);
   if (!found) return new Response("Not found", { status: 404 });
   if (file === TERMS_PDF) return projectExpectations(found.terms?.pdfUrl ?? null);
@@ -27,6 +35,18 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
     after(() => relayActivity(token, "pdf", ua));
   }
   const bytes = accepted ? quotePdf(acceptedCopy(found.copy, a), { acceptance: a, when: acceptedWhen(a.at) }) : quotePdf(found.copy);
+  return new Response(bytes, {
+    headers: {
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `inline; filename="${file}"`,
+      "Cache-Control": "private, no-store",
+      "Referrer-Policy": "no-referrer",
+      "X-Robots-Tag": "noindex",
+    },
+  });
+}
+
+function pdfResponse(bytes: Uint8Array<ArrayBuffer>, file: string): Response {
   return new Response(bytes, {
     headers: {
       "Content-Type": "application/pdf",

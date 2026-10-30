@@ -12,7 +12,7 @@ const SRC = path.resolve(__dirname, "../src");
 const CLIENT = "lib/airtable/client.ts";
 const GHL = "lib/ghl/client.ts";
 /** The only files allowed to create or update Airtable records. Adding one is a reviewed decision. */
-const WRITERS = ["lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/accept/record.ts", "lib/quotes/sitesheet.ts"];
+const WRITERS = ["lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/accept/record.ts", "lib/quotes/sitesheet.ts", "lib/quotes/billing.ts"];
 const CATALOGUE = "tblfLXD3zkSdNQGbS";
 
 function files(dir: string): string[] {
@@ -51,8 +51,8 @@ describe("Airtable boundary", () => {
     expect(all.filter((f) => code(f.text).includes("content.airtable.com")).map((f) => f.rel)).toEqual([CLIENT]);
   });
 
-  it("writes to the four quote tables only, never the catalogue, Rate Card or Stair Items", () => {
-    expect([...WRITABLE_TABLES].sort()).toEqual([T.quotes, T.versions, T.options, T.lines].sort());
+  it("writes to the four quote tables and Invoices / Receipts (2026-10-30) only, never the catalogue, Rate Card or Stair Items", () => {
+    expect([...WRITABLE_TABLES].sort()).toEqual([T.quotes, T.versions, T.options, T.lines, T.invoices, T.receipts].sort());
     for (const t of [RATE_TABLE, STAIR_TABLE, CATALOGUE]) expect(WRITABLE_TABLES).not.toContain(t);
   });
 
@@ -66,7 +66,7 @@ describe("Airtable boundary", () => {
   });
 
   it("keeps the client, the loaders and the auth check server-only", () => {
-    for (const rel of [CLIENT, GHL, "lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/customer.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/activity/relay.ts", "lib/quotes/acceptClient.ts", "lib/accept/record.ts", "lib/accept/accept.ts", "lib/accept/staff.ts", "lib/accept/live.ts", "lib/quotes/sitesheet.ts", "lib/anthropic/client.ts", "lib/auth.ts"]) {
+    for (const rel of [CLIENT, GHL, "lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/customer.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/activity/relay.ts", "lib/quotes/acceptClient.ts", "lib/accept/record.ts", "lib/accept/accept.ts", "lib/accept/staff.ts", "lib/accept/live.ts", "lib/quotes/sitesheet.ts", "lib/anthropic/client.ts", "lib/quotes/billing.ts", "lib/notion/payments.ts", "lib/auth.ts"]) {
       expect(all.find((f) => f.rel === rel)!.text).toMatch(/^import "server-only";/m);
     }
   });
@@ -74,18 +74,18 @@ describe("Airtable boundary", () => {
   it("never imports Airtable code into a browser component", () => {
     const leaks = all
       .filter((f) => /^["']use client["'];?/m.test(f.text))
-      .filter((f) => /^import (?!type )[^;]*from ["']@\/lib\/(airtable|quotes\/load|quotes\/start|quotes\/save|quotes\/refresh|quotes\/records|quotes\/booking|quotes\/link|quotes\/send|quotes\/rooms|quotes\/customer|quotes\/conversation|quotes\/address|quotes\/activity|activity\/relay|quotes\/acceptClient|accept\/record|accept\/accept|accept\/staff|accept\/live|quotes\/sitesheet|anthropic\/client|ghl\/client|make\/client|auth)/m.test(f.text))
+      .filter((f) => /^import (?!type )[^;]*from ["']@\/lib\/(airtable|quotes\/load|quotes\/start|quotes\/save|quotes\/refresh|quotes\/records|quotes\/booking|quotes\/link|quotes\/send|quotes\/rooms|quotes\/customer|quotes\/conversation|quotes\/address|quotes\/activity|activity\/relay|quotes\/acceptClient|accept\/record|accept\/accept|accept\/staff|accept\/live|quotes\/sitesheet|quotes\/billing|notion\/payments|anthropic\/client|ghl\/client|make\/client|auth)/m.test(f.text))
       .map((f) => f.rel);
     expect(leaks).toEqual([]);
   });
 
   it("never exposes an Airtable setting to the browser", () => {
-    expect(all.filter((f) => /NEXT_PUBLIC_[A-Z_]*(AIRTABLE|GHL|MAKE|ANTHROPIC)/.test(f.text)).map((f) => f.rel)).toEqual([]);
+    expect(all.filter((f) => /NEXT_PUBLIC_[A-Z_]*(AIRTABLE|GHL|MAKE|ANTHROPIC|NOTION)/.test(f.text)).map((f) => f.rel)).toEqual([]);
   });
 
   it("checks the quoter allowlist in both the proxy and every loader", () => {
     expect(all.find((f) => f.rel === "proxy.ts")!.text).toContain("isQuoter(");
-    for (const rel of ["lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/sitesheet.ts"]) {
+    for (const rel of ["lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/sitesheet.ts", "lib/quotes/billing.ts"]) {
       const text = all.find((f) => f.rel === rel)!.text;
       const exported = text.match(/export async function \w+/g) ?? [];
       const guarded = text.match(/export async function \w+[^{]*\{\s*(const \w+ = )?await requireQuoter(Person)?\(\);/g) ?? [];
@@ -193,7 +193,7 @@ describe("Make boundary", () => {
   it("is server-only and only reached from starting, booking, linking, sending and tracking a quote, Address arrived, and acceptance", () => {
     expect(all.find((f) => f.rel === "lib/make/client.ts")!.text).toMatch(/^import "server-only";/m);
     const callers = all.filter((f) => f.rel !== "lib/make/client.ts" && /from ["']@\/lib\/make\/client["']/.test(f.text)).map((f) => f.rel);
-    expect(callers.sort()).toEqual(["lib/accept/record.ts", "lib/quotes/activity.ts", "lib/quotes/address.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/start.ts"]);
+    expect(callers.sort()).toEqual(["lib/accept/record.ts", "lib/quotes/activity.ts", "lib/quotes/address.ts", "lib/quotes/billing.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/start.ts"]);
   });
 
   it("Address arrived fills only the contact in GHL and only the Quotes table in Airtable", () => {
@@ -216,8 +216,9 @@ describe("customer links (no sign-in, customer deployment only)", () => {
   it("answers only on the customer deployment and only for a well-formed token, before touching Airtable", () => {
     const exported = text().match(/export async function \w+/g) ?? [];
     const guarded = text().match(/export async function \w+\(token: string\)[^{]*\{\s*if \(!isCustomerDeployment\(\) \|\| !isToken\(token\)\) return null;/g) ?? [];
-    expect(exported.length).toBe(1);
-    expect(guarded.length).toBe(1);
+    // customerQuote and, since 2026-10-30, customerBilling (the invoice or receipt snapshot).
+    expect(exported.length).toBe(2);
+    expect(guarded.length).toBe(2);
   });
 
   it("reads only: no write, no sign-in code, and it returns the frozen copy, not live lines", () => {
@@ -230,7 +231,7 @@ describe("customer links (no sign-in, customer deployment only)", () => {
     const importers = all.filter((f) => /from ["']@\/lib\/quotes\/customer["']/.test(f.text)).map((f) => f.rel).sort();
     expect(importers).toEqual(["app/c/[token]/[file]/route.ts", "app/c/[token]/page.tsx"]);
     // Acceptance (2026-10-27) adds pure rules and settings, and the one keyed client to the staff app; nothing that reads Airtable.
-    const allowed = ["quotes/customer", "send/copy", "send/pdf", "activity/relay", "accept/plan", "accept/terms", "accept/settings", "pricing/schedule", "quotes/acceptClient"];
+    const allowed = ["quotes/customer", "send/copy", "send/pdf", "activity/relay", "accept/plan", "accept/terms", "accept/settings", "pricing/schedule", "quotes/acceptClient", "billing/doc", "billing/pdf"];
     for (const f of all.filter((x) => x.rel.startsWith("app/c/"))) {
       const lib = [...f.text.matchAll(/from ["']@\/lib\/([^"']+)["']/g)].map((m) => m[1]);
       expect(lib.filter((l) => !allowed.includes(l))).toEqual([]);
@@ -367,6 +368,30 @@ describe("the PDF on the customer's page (2026-10-27: only when the sender offer
     const plan = code(all.find((f) => f.rel === "lib/send/plan.ts")!.text);
     const fns = plan.split(/\nexport function /).slice(1);
     const attaching = fns.filter((f) => /attachments\s*[:}]|\{ attachments \}/.test(f)).map((f) => f.match(/^\w+/)![0]);
-    expect(attaching).toEqual(["acceptedEmailMessage"]);
+    // And the invoice or receipt email (Albert, 2026-10-30: attach the PDF).
+    expect(attaching.sort()).toEqual(["acceptedEmailMessage", "billingEmailMessage"]);
+  });
+});
+
+describe("Notion payments (2026-10-30: read-only, for invoices and receipts)", () => {
+  const READER = "lib/notion/payments.ts";
+  it("one file reads the payments token, and it only queries the Master Payments Log", () => {
+    expect(all.filter((f) => code(f.text).includes("QUOTE_NOTION_PAYMENTS_TOKEN")).map((f) => f.rel)).toEqual([READER]);
+    expect(all.filter((f) => code(f.text).includes("api.notion.com")).map((f) => f.rel).sort()).toEqual(["lib/bug/notion.ts", READER].sort());
+    const text = code(all.find((f) => f.rel === READER)!.text);
+    expect(text.match(/\bfetch\(/g)?.length).toBe(1);
+    expect(text).toMatch(/fetch\(`\$\{API\}\/data_sources\/\$\{PAYMENTS_LOG\}\/query`/);
+    expect(text).not.toMatch(/\/pages|PATCH|DELETE/);
+  });
+
+  it("is reached only from the invoice and receipt writer", () => {
+    expect(all.filter((f) => /from ["']@\/lib\/notion\/payments["']/.test(f.text)).map((f) => f.rel)).toEqual(["lib/quotes/billing.ts"]);
+  });
+
+  it("the billing writer writes Invoices, Receipts and the version's history only", () => {
+    const text = code(all.find((f) => f.rel === "lib/quotes/billing.ts")!.text);
+    for (const m of text.matchAll(/\b(?:createRecord|updateRecord)\(([^,]+)/g)) expect(["TABLE[c.kind]", "TABLE[r.snap.kind]", "T.versions"]).toContain(m[1].trim());
+    for (const m of text.matchAll(/updateRecord\(T\.versions[^)]*authorFields/g)) expect(m[0]).toContain("authorFields");
+    expect(text).not.toMatch(/createRecords|updateRecords\(/);
   });
 });

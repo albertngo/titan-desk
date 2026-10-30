@@ -15,10 +15,16 @@ export const T = {
   versions: "tblyOBAe7Y2W4Tv2q",
   options: "tbldbVTeelE9fU54o",
   lines: "tblGkT8y8JycWkX5b",
+  /** Invoices and Receipts (Albert, 2026-10-30): one numbered document per won project. */
+  invoices: "tbl49nHIuyKfaCjEp",
+  receipts: "tblUEcr7cypJwZOd7",
 } as const;
 
-/** The four tables this app may ever write to (milestone 3). Nothing else, ever. */
-export const WRITABLE_TABLES: readonly string[] = [T.quotes, T.versions, T.options, T.lines];
+/**
+ * The tables this app may ever write to: the four quote tables (milestone 3) and, since 2026-10-30, Invoices
+ * and Receipts. Nothing else, ever.
+ */
+export const WRITABLE_TABLES: readonly string[] = [T.quotes, T.versions, T.options, T.lines, T.invoices, T.receipts];
 
 /** Quotes table: one row per quote. Customer fields are display copies; GHL owns them. */
 export const QUOTE = {
@@ -56,6 +62,9 @@ export const QUOTE = {
   siteSheetPhotos: "fldVyJRpAY5Mr8Obn",
   /** 2026-10-28: what was read from the site sheet and what staff checked, JSON (src/lib/sitesheet/sheet.ts). */
   siteSheet: "fldDmKVwRWRZ6tsEc",
+  /** 2026-10-30: the quote's invoice or receipt (the inverse links of Invoices → Quote and Receipts → Quote). */
+  invoices: "fldYN32jS4YqbfBFf",
+  receipts: "fldpnMqQnH8ipaWTT",
 } as const;
 
 /** Quote Versions table: one row per version of a quote. */
@@ -310,3 +319,34 @@ export const CAT = {
   retail: "fldpH6d7GlytLLh7Q",
   active: "fldPsKISM495IjaWU",
 } as const;
+
+/**
+ * Invoices and Receipts (Albert, 2026-10-30): the same fields in each table. `seq` is Airtable's autonumber and
+ * `number` its formula (INV- & 82570 + Seq; R- & 10244 + Seq), so a number is never chosen by the app and never
+ * reused. The app writes the rest; nobody deletes a row.
+ */
+export const INVOICE = {
+  seq: "fldc97YfvLuRsm5eq",
+  number: "fldXKMoP8K1U6fVlQ",
+  quote: "fldfnxVbAyfwQdS6Y",
+  contractVersion: "fldUFdUNrCJt41HYo",
+  issuedAt: "fldMIvQFcn6NAlvW6",
+  issuedBy: "fldNN2AiG5ijeqtBP",
+  snapshot: "fldXsZHXszEJBb1o6",
+  lastSentAt: "fld7j32RWQiI9MSNO",
+  sentTo: "fldOfWaoSeGAJ1ngb",
+  log: "fld1rTqHl5jxCEU48",
+} as const;
+
+export const RECEIPT: typeof INVOICE extends Record<infer K, string> ? Record<K, string> : never = {
+  seq: "fldfm20LwWNofIJhC",
+  number: "fldqMqUW6TrqFgMiO",
+  quote: "fldi5FxFy7Z5WXXyh",
+  contractVersion: "fldubZqsoQGWqVQlg",
+  issuedAt: "fldnMd6MCcYRqptNk",
+  issuedBy: "fldW1GUYQZadK7aQw",
+  snapshot: "fldojAX1r4clYjcDG",
+  lastSentAt: "fldWlp3pYLqRd6grg",
+  sentTo: "fld1DQ3cH89sIyaHD",
+  log: "fldvvVPnn6JDaYpS7",
+};

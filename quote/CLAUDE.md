@@ -519,6 +519,23 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   Expectations are to say (Albert rewords the doc before go-live) that a change agreed in person or by
   phone is confirmed by this updated quote.
   Tested in `tests/change.test.ts`.
+- **Invoices and receipts (Albert, 2026-10-30).** One numbered document per won project, on its contract
+  version (the accepted one or its latest change): an **invoice** (INV-82571, INV-82572…) when the contract charges
+  HST on every line, a **receipt** (R-10245, R-10246…) when HST is on part of it (the floor material) or none
+  (`billingKind()` in `src/lib/billing/doc.ts`). The numbers come from Airtable: tables **Invoices** and
+  **Receipts**, an autonumber Seq and a Number formula (INV- & 82570 + Seq; R- & 10244 + Seq), one row per quote,
+  created the first time the document is exported, so a number is never chosen by the app, shared or reused; never
+  delete a row. Each export refreshes the row's **Snapshot** (JSON): the contract as accepted (`contractCopy()`), the
+  payments read that day from Notion's **Master Payments Log** (rows whose Projects is the quote's Notion project;
+  date, amount, form of payment, reference; never the sender's name, message or notes), the HST number
+  (`QUOTE_COMPANY_HST`, read again for these documents only) and the PP number. The PDF is the quote's drawing
+  titled and numbered as the document, payments received and the balance owing in place of the schedule
+  (`billingPdf()`); an overpayment shows as a credit. **Email to customer** attaches it (the second email allowed an
+  attachment), served from the customer's link at `/c/<token>/Invoice-INV-82571.pdf` from the Snapshot only. Staff
+  card on the quote page (`BillingCard`); writer `src/lib/quotes/billing.ts`. Customer documents only: Lightspeed
+  stays the sale of record and the A/R, and nothing posts to QuickBooks or Lightspeed. If a change flips the
+  contract's HST after a document was issued, the app refuses a second number and says to ask Albert. Tested in
+  `tests/billing.test.ts`.
 - **All quotes (2026-10-15).** One row per quote, its versions folded under it (newest first),
   and a search over name, quote and project number, city, email and phone digits. Grouping and
   search are pure, in `src/lib/quotes/group.ts`, tested in `tests/group.test.ts`. Since 2026-10-28
@@ -530,7 +547,8 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
 - **Report a bug (2026-10-28).** The header's Report a bug (staff only, hidden in Customer view and
   until `NOTION_BUG_TOKEN` is set) posts a summary, an urgency and up to five screenshots (shrunk in
   the browser to stay under Vercel's 4.5 MB body limit) to `/api/bug`. That signed-in route makes
-  Albert a Tactical Task through `src/lib/bug/notion.ts`, the only file that talks to Notion. Rules in
+  Albert a Tactical Task through `src/lib/bug/notion.ts`, the only file that writes to Notion (payments are read in
+  `src/lib/notion/payments.ts`, hard rule 2f). Rules in
   the repo CLAUDE.md, rule 8.
 
 ## Hard rules
@@ -538,9 +556,9 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
 1. **One file talks to Airtable:** `src/lib/airtable/client.ts`. It alone reads
    `QUOTE_AIRTABLE_TOKEN`, it is `server-only`, and the token never reaches a browser.
    `tests/boundary.test.ts` enforces all of this.
-2. **Writes go to the four quote tables only.** Since 2026-10-14 the client can create
+2. **Writes go to the four quote tables, and Invoices and Receipts (2026-10-30), only.** Since 2026-10-14 the client can create
    (POST) and update (PATCH) records, never delete or replace, and `write()` refuses any
-   table outside `WRITABLE_TABLES` (Quotes, Quote Versions, Quote Options, Quote Lines).
+   table outside `WRITABLE_TABLES` (Quotes, Quote Versions, Quote Options, Quote Lines, Invoices, Receipts).
    Only the files listed in the boundary test's `WRITERS` may call it. Never a write to the
    catalogue, Rate Card or Stair Items from this app.
 2a. **One file talks to GHL, and only reads:** `src/lib/ghl/client.ts`, `server-only`, GET
@@ -552,8 +570,8 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
 2b. **One file sends to Make:** `src/lib/make/client.ts`, `server-only`, the only reader of
    `QUOTE_MAKE_GHL_HOOK` / `QUOTE_MAKE_GHL_KEY`, called only from `src/lib/quotes/start.ts`, `src/lib/quotes/booking.ts`, `src/lib/quotes/link.ts`, `src/lib/quotes/send.ts`,
    `src/lib/quotes/address.ts` (Address arrived: the contact's street only, never a site on the opportunity),
-   `src/lib/quotes/activity.ts` (internal comments only) and `src/lib/accept/record.ts` (acceptance: Won,
-   cancel, and the acceptance messages).
+   `src/lib/quotes/activity.ts` (internal comments only), `src/lib/accept/record.ts` (acceptance: Won,
+   cancel, and the acceptance messages) and `src/lib/quotes/billing.ts` (the invoice or receipt email).
    Set those two variables only after the scenario is switched on: a request to a scenario
    that is off waits in Make's queue and would run later.
 2c. **A path without a sign-in on the staff app:** `/api/booking`, called by Make 3453735 when an appointment
@@ -591,6 +609,10 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
    called only from `src/lib/quotes/sitesheet.ts`, which writes the Quotes table only (the Site Sheet field and,
    through `uploadAttachment()` in the Airtable client, the Site Sheet Photos field). The Airtable client's
    third request, `uploadAttachment()`, runs the same table and deployment checks as `write()`.
+2f. **Notion payments are read in one file (2026-10-30):** `src/lib/notion/payments.ts`, `server-only`, the only reader
+   of `QUOTE_NOTION_PAYMENTS_TOKEN` (a Notion internal integration with read content only, shared with the Master
+   Payments Log alone, staff deployment only), one request (a query of that log), reached only from
+   `src/lib/quotes/billing.ts`. `src/lib/bug/notion.ts` is the only other file that talks to Notion.
 3. **Staff is not enough.** Only emails on `QUOTE_ALLOWED_EMAILS` get in. The proxy checks
    it and every loader in `src/lib/quotes/load.ts` and `src/lib/quotes/start.ts` checks again
    (`requireQuoter()`). An empty list lets nobody in.

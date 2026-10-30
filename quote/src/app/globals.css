@@ -1072,3 +1072,13 @@ a.chip.accent:hover { text-decoration: underline; }
 .sq-again .sq-tick { display: flex; gap: 6px; align-items: baseline; font-size: 13px; flex-wrap: wrap; }
 .sq-again-acts { display: flex; gap: 8px; }
 .sq-again-note { margin: 0; font-size: 12px; }
+
+/* Invoice / receipt card (2026-10-30) */
+.bill .card-b { display: grid; gap: 8px; }
+.bill-why, .bill-note { margin: 0; font-size: 12.5px; }
+.bill-dl { margin: 0; display: grid; gap: 3px; font-size: 13px; }
+.bill-dl div { display: flex; justify-content: space-between; gap: 12px; }
+.bill-dl dd { margin: 0; font-variant-numeric: tabular-nums; }
+.bill-pay { color: var(--fg-dim); }
+.bill-left { border-top: 1px solid var(--line); padding-top: 4px; font-weight: 600; }
+.bill-ask p { margin: 0 0 8px; font-size: 13px; }
