@@ -154,13 +154,17 @@ export function OptionSheet({
   editHref,
   customer,
   lumpSum,
+  sendable,
 }: {
   option: QuoteOption;
   t: OptionTotals;
   discountRate: number;
   showHst: boolean;
   quoteNotes: string | null;
-  editHref: string;
+  /** Null on the accepted quote (2026-10-30): it changes only through Make a change. */
+  editHref: string | null;
+  /** The jump to the Send card, on a draft only: once sent, the card itself is there (2026-10-30). */
+  sendable?: boolean;
   /** Customer view: no cost, margin, contractor, card rate, flags or parity check. */
   customer: boolean;
   /** The version is a lump sum: in Customer view, no unit prices, line or section amounts (2026-10-22). */
@@ -279,10 +283,12 @@ export function OptionSheet({
         </section>
       </div>
 
-      <div className="actions">
-        <Link className="btn" href={editHref}>Edit</Link>
-        {!customer && <a className="btn primary" href="#send">Send to customer</a>}
-      </div>
+      {(editHref || (!customer && sendable)) && (
+        <div className="actions">
+          {editHref && <Link className="btn" href={editHref}>Edit</Link>}
+          {!customer && sendable && <a className="btn primary" href="#send">Send to customer</a>}
+        </div>
+      )}
     </>
   );
 }

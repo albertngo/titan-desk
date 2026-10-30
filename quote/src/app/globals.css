@@ -1082,3 +1082,22 @@ a.chip.accent:hover { text-decoration: underline; }
 .bill-pay { color: var(--fg-dim); }
 .bill-left { border-top: 1px solid var(--line); padding-top: 4px; font-weight: 600; }
 .bill-ask p { margin: 0 0 8px; font-size: 13px; }
+
+/* ---------- Swap option on a change (2026-10-30) ---------- */
+.swap-open { margin: 0; font-size: 12.5px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.swap .card-h .right { margin-left: auto; }
+.swap .card-b { display: grid; gap: 12px; }
+.swap-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.swap-row .btn { flex-direction: column; align-items: flex-start; gap: 2px; }
+.swap-row .btn .faint { font-weight: 500; font-size: 11.5px; }
+.swap-row .btn.primary .faint { color: inherit; opacity: .85; }
+.swap-k { font-size: 12px; font-weight: 600; color: var(--fg-dim); }
+.swap-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.swap-cols h3 { margin: 0 0 4px; font-size: 12.5px; }
+.swap-cols p { margin: 0 0 6px; font-size: 12px; }
+.swap-l { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 12.5px; }
+.swap-l .faint { font-size: 11px; text-transform: uppercase; letter-spacing: .03em; margin-right: 4px; }
+.swap .banner { margin: 0; border-radius: var(--radius); border: 0; }
+.swap-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 13px; }
+.swap-foot .chip { margin-left: 8px; }
+@media (max-width: 720px) { .swap-cols { grid-template-columns: 1fr; } }

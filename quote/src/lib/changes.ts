@@ -22,6 +22,25 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-10-30",
+    kind: "new",
+    title: "Swap option on a change",
+    details: [
+      "A customer who accepted one option and now wants another from the same quote (say the other stairs): open the change and press \"Swap it in\" at the top of the editor.",
+      "Pick the option they want. The lines from the one they took are ticked to come out, the new option's lines come in exactly as quoted, and the new total shows against the contract. Save, then send it as the updated quote, for the record; the difference goes on the final payment.",
+      "Only options from the accepted version, and only the same kind (stairs for stairs, flooring for flooring).",
+    ],
+  },
+  {
+    date: "2026-10-30",
+    kind: "changed",
+    title: "No Edit on an accepted quote, and Send to customer only on a draft",
+    details: [
+      "An accepted quote's page no longer offers Edit (under the quote or beside its name): Make a change is the way to change it.",
+      "The Send to customer button under the quote shows on a draft only. Once a version is sent, the Send card beside it is where to send it again.",
+    ],
+  },
+  {
+    date: "2026-10-30",
     kind: "changed",
     title: "Receipts say \"HST (13%) on materials only\"",
     details: ["The HST row inside a receipt's Materials section now reads \"on materials only\"."],

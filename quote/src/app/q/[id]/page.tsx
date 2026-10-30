@@ -68,6 +68,8 @@ export default async function QuotePage({
   const airtableUrl = airtableRecordUrl(T.versions, quote.id);
   // A quote with no GHL opportunity yet (Needs linking): offer the customer's jobs to link it to.
   const unlinked = quote.link && !quote.link.ghlOpportunityId ? quote.link : null;
+  // The accepted quote has no Edit (2026-10-30): it changes only through Make a change, as the editor says.
+  const agreed = Boolean(quote.acceptance && !quote.acceptance.cancelled);
   const jobs = unlinked ? await jobChoices(unlinked.quoteRecordId) : null;
 
   // Sending (milestone 4): what would stop it, decided by the same check the send runs.
@@ -210,8 +212,12 @@ export default async function QuotePage({
               {/* The label already ends in "v4"; only an unlabelled version needs the number. */}
               {quote.version !== null && !(quote.quoteId ?? "").endsWith(`v${quote.version}`) && ` · v${quote.version}`}
               {madeFrom && ` · ${madeFrom}`}
-              {" · "}
-              <Link href={`/q/${quote.id}/edit`}>Edit this quote</Link>
+              {!agreed && (
+                <>
+                  {" · "}
+                  <Link href={`/q/${quote.id}/edit`}>Edit this quote</Link>
+                </>
+              )}
             </p>
           </div>
           {quote.status && <span className={`status ${quote.status}`}>{quote.status}</span>}
@@ -307,9 +313,10 @@ export default async function QuotePage({
                 discountRate={quote.discountRate}
                 showHst={quote.showHst}
                 quoteNotes={quote.notes}
-                editHref={`/q/${quote.id}/edit`}
+                editHref={agreed ? null : `/q/${quote.id}/edit`}
                 customer={customer}
                 lumpSum={quote.itemised !== true}
+                sendable={draft}
               />
             ) : (
               <section className="card">
