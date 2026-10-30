@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-10-30",
     kind: "changed",
+    title: "Receipts say \"HST (13%) on materials only\"",
+    details: ["The HST row inside a receipt's Materials section now reads \"on materials only\"."],
+  },
+  {
+    date: "2026-10-30",
+    kind: "changed",
     title: "Receipts: the Materials section stands out as the part with HST",
     details: ["On a receipt with HST on the materials only, the Materials section has a blue bar and says HST applies, its HST rows sit on a tinted band, and the totals at the bottom no longer repeat the HST line."],
   },
