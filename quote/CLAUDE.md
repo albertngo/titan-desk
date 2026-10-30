@@ -530,7 +530,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   date, amount, form of payment, reference; never the sender's name, message or notes), the HST number
   (`QUOTE_COMPANY_HST`, read again for these documents only) and the PP number. The PDF is the quote's drawing
   titled and numbered as the document, payments received and the balance owing in place of the schedule
-  (`billingPdf()`); an overpayment shows as a credit. **Email to customer** attaches it (the second email allowed an
+  (`billingPdf()`); an overpayment shows as a credit. With HST on the materials only, the HST and "Materials with HST" are rows at the end of the Materials section and every other section heading says NO HST (Albert, same day: less confusion). **Email to customer** attaches it (the second email allowed an
   attachment), served from the customer's link at `/c/<token>/Invoice-INV-82571.pdf` from the Snapshot only. Staff
   card on the quote page (`BillingCard`); writer `src/lib/quotes/billing.ts`. Customer documents only: Lightspeed
   stays the sale of record and the A/R, and nothing posts to QuickBooks or Lightspeed. If a change flips the

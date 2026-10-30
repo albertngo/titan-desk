@@ -2,7 +2,8 @@ import { parseSignature, type Acceptance } from "@/lib/accept/plan";
 import { termsLabel } from "@/lib/accept/terms";
 import { changeWords, signedMoney } from "@/lib/change/diff";
 import type { Payment } from "@/lib/billing/doc";
-import { PAGE, PdfDoc, wrap, type Rgb } from "./pdfDoc";
+import { round2 } from "@/lib/calc";
+import { PAGE, PdfDoc, textWidth, wrap, type Rgb } from "./pdfDoc";
 import { discountLabel, hstRow, isLump, isSplit, scopeOf, itemHstNote, leadPrice, longDate, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyText, type CustomerCopy } from "./copy";
 
 /**
@@ -199,12 +200,29 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
     y -= 8;
     tableHead(false);
 
+    // A receipt with HST on the materials only (Albert, 2026-10-30: "put the HST right inside the Material section"):
+    // the HST is a row of that section, and every other section says it carries none.
+    const hstInMaterials = bill !== null && !copy.showHst && o.totals.hst !== 0 && o.sections.some((s) => s.name === "Materials");
     for (const s of o.sections) {
       if (room(40)) tableHead(true);
-      doc.text(COL.item, y, s.name.toUpperCase(), { font: "B", size: 8, color: BLUE });
+      const head = s.name.toUpperCase();
+      doc.text(COL.item, y, head, { font: "B", size: 8, color: BLUE });
+      if (hstInMaterials && s.name !== "Materials" && s.lines.some((l) => l.kind === "item")) doc.text(COL.item + textWidth(head, "B", 8) + 6, y, "·  NO HST", { font: "B", size: 7.5, color: FAINT });
       if (s.total !== null && s.lines.some((l) => l.kind === "item" && !l.optional)) doc.text(COL.amount - 4, y, money(s.total), { font: "B", size: 8, color: DIM, align: "right" });
       y -= 14;
       for (const l of s.lines) row(l);
+      if (hstInMaterials && s.name === "Materials") {
+        if (room(34)) tableHead(true);
+        doc.text(COL.item, y, "HST (13%) on materials", { size: 9, color: INK });
+        doc.text(COL.amount - 4, y, money(o.totals.hst), { size: 9, color: INK, align: "right" });
+        y -= 15;
+        if (s.total !== null) {
+          doc.text(COL.item, y, "Materials with HST", { font: "B", size: 9, color: INK });
+          doc.text(COL.amount - 4, y, money(round2(s.total + o.totals.hst)), { font: "B", size: 9, color: INK, align: "right" });
+          y -= 15;
+        }
+        doc.line(COL.item, y + 9, RIGHT, y + 9, RULE, 0.5);
+      }
       y -= 4;
     }
 

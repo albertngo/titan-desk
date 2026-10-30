@@ -22,6 +22,12 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-10-30",
+    kind: "changed",
+    title: "Receipts show the HST inside the Materials section",
+    details: ["On a receipt where HST is charged on the materials only, the HST and the materials' total with HST sit at the end of the Materials section, and every other section is marked no HST."],
+  },
+  {
+    date: "2026-10-30",
     kind: "new",
     title: "Invoices and receipts for won projects",
     details: [
