@@ -17,3 +17,13 @@ export const scopeValue = (v: unknown): Scope | null => (v === "Flooring" || v =
 export function optionScope(o: Parameters<typeof quoteKind>[0] & { scope?: Scope | null }): Scope {
   return o.scope ?? (quoteKind(o) === "stairs" ? "Stairs" : "Flooring");
 }
+
+/**
+ * The option tabs split by scope (Albert, 2026-10-30: "a separation from Stairs and Flooring. Flooring | Stair"):
+ * flooring first, then stairs, each keeping its order. `split` is false when every option is one scope, and then
+ * the tabs show no headings.
+ */
+export function scopeGroups<O extends Parameters<typeof optionScope>[0]>(options: O[]): { split: boolean; groups: { scope: Scope; options: O[] }[] } {
+  const groups = (["Flooring", "Stairs"] as Scope[]).map((scope) => ({ scope, options: options.filter((o) => optionScope(o) === scope) })).filter((g) => g.options.length > 0);
+  return { split: groups.length > 1, groups };
+}

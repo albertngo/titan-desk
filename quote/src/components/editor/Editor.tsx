@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { sectionLinesInOrder, stairGroupLabel, stairGroups } from "@/lib/editor/stairGroups";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { saveAsNewVersionAction, saveVersionAction } from "@/app/q/[id]/edit/actions";
 import { Financials } from "@/components/Financials";
 import { DEFAULT_PRIVATE_LABEL, PRIVATE_SECTION, SECTIONS, isPriced, lineCost, lineFlags, lineTotal, optionTotals, privateRollup, sectionOf, stageAmounts } from "@/lib/calc";
@@ -44,7 +44,7 @@ import { ghlContactUrl } from "@/lib/ghl/ids";
 import { fixAddressLink } from "@/lib/link/linkJob";
 import { money, pct, rate } from "@/lib/format";
 import type { RateCard } from "@/lib/quotes/types";
-import { optionScope } from "@/lib/quotes/scope";
+import { optionScope, scopeGroups } from "@/lib/quotes/scope";
 import { Picker } from "./Picker";
 import { ScheduleEditor } from "./ScheduleEditor";
 import { defaultSchedule, suggestsMaterialDeposit } from "@/lib/pricing/schedule";
@@ -482,13 +482,19 @@ export default function Editor({
           </section>
 
           <nav className="tabs" aria-label="Options">
-            {quote.options.map((o) => (
-              <button key={o.id} className="tab" aria-current={option?.id === o.id ? "page" : undefined} onClick={() => setActiveId(o.id)}>
-                {o.name || "Untitled"}
-                {quote.options.some((x) => optionScope(x) === "Stairs") && quote.options.some((x) => optionScope(x) === "Flooring") && <span className="t-scope"> · {optionScope(o)}</span>}
-                <span className="t-amt">{money(optionTotals(o.lines, quote.discountRate, quote.showHst).total)}</span>
-              </button>
+            {scopeGroups(quote.options).groups.map((g, i, all) => (
+              <Fragment key={g.scope}>
+                {i > 0 && <span className="tab-sep" aria-hidden />}
+                {all.length > 1 && <span className="tab-scope">{g.scope}</span>}
+                {g.options.map((o) => (
+                  <button key={o.id} className="tab" aria-current={option?.id === o.id ? "page" : undefined} onClick={() => setActiveId(o.id)}>
+                    {o.name || "Untitled"}
+                    <span className="t-amt">{money(optionTotals(o.lines, quote.discountRate, quote.showHst).total)}</span>
+                  </button>
+                ))}
+              </Fragment>
             ))}
+            {quote.options.length > 0 && <span className="tab-sep" aria-hidden />}
             <button
               className="tab"
               onClick={() => {
