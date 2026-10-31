@@ -22,6 +22,14 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-10-31",
+    kind: "removed",
+    title: "One Send button on a draft",
+    details: [
+      "The Send quote to customer button under the quote overview is gone. Send from the Send quote to customer card beside the quote, which was already there; Edit stays under the overview.",
+    ],
+  },
+  {
+    date: "2026-10-31",
     kind: "changed",
     title: "Send quote to customer; no Edit on a change already sent",
     details: [
