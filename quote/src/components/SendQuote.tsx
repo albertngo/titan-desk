@@ -82,7 +82,9 @@ function CopyLink({ link }: { link: string }) {
  * Send the link again (Albert, 2026-10-30): when the customer asks for the PDF, or lost the message. The same
  * quote and link; "Include the PDF" turns on its Download button if it was off and puts its link in the message.
  */
-function SendAgain({ versionId, email, phone, pdfOn, accepted }: { versionId: string; email: string | null; phone: string | null; pdfOn: boolean; accepted: boolean }) {
+function SendAgain({ versionId, email, phone, pdfOn, kind, dated }: { versionId: string; email: string | null; phone: string | null; pdfOn: boolean; kind: "quote" | "accepted" | "change"; dated: boolean }) {
+  const accepted = kind === "accepted";
+  const what = kind === "accepted" ? "accepted quote" : kind === "change" ? "updated quote" : "quote";
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [byEmail, setByEmail] = useState(!!email);
@@ -110,7 +112,8 @@ function SendAgain({ versionId, email, phone, pdfOn, accepted }: { versionId: st
   }
   return (
     <div className="sq-again open">
-      <p className="sq-again-h">Send the same quote and link again</p>
+      <p className="sq-again-h">Send their {what} again</p>
+      <p className="faint sq-again-note">They get a short message: &ldquo;Here&rsquo;s your {what} again&rdquo; with the link{pdf ? " and the PDF" : ""}.</p>
       <label className="sq-tick"><input type="checkbox" checked={pdf} onChange={(e) => setPdf(e.target.checked)} /> Include the PDF <span className="faint">{accepted ? "(the signed, accepted PDF)" : pdfOn ? "(already on their page)" : "(turns on Download PDF on their page)"}</span></label>
       <label className="sq-tick"><input type="checkbox" checked={byEmail} disabled={!email} onChange={(e) => setByEmail(e.target.checked)} /> Email {email ? <span className="faint">{email}</span> : <span className="faint">no email on the contact</span>}</label>
       <label className="sq-tick"><input type="checkbox" checked={bySms} disabled={!phone} onChange={(e) => setBySms(e.target.checked)} /> Text {phone ? <span className="faint">{phone}</span> : <span className="faint">no phone on the contact</span>}</label>
@@ -124,7 +127,7 @@ function SendAgain({ versionId, email, phone, pdfOn, accepted }: { versionId: st
         <button type="button" className="btn primary small" disabled={busy || (!byEmail && !bySms)} onClick={go}>{busy ? "Sending…" : "Send"}</button>
         <button type="button" className="btn small" disabled={busy} onClick={() => setOpen(false)}>Cancel</button>
       </div>
-      <p className="faint sq-again-note">Nothing about the quote changes: same price, same link{accepted ? "" : ", same good-until date"}. The message has a link to the PDF, never an attachment.</p>
+      <p className="faint sq-again-note">Nothing about the quote changes: same price, same link{dated ? ", same good-until date" : ""}. The message has a link to the PDF, never an attachment.</p>
     </div>
   );
 }
@@ -183,14 +186,19 @@ export function SendQuote({
   /** The quote page offers the PDF (Albert, 2026-10-27): off by default. Never attached to the email. */
   const [pdf, setPdf] = useState(false);
   /** Which options go to the customer (2026-10-24): all of them unless the sender unticks some; a Not offered one starts unticked (2026-10-30). */
-  const [chosen, setChosen] = useState<string[]>(() => {
-    const offered = options.filter((o) => !o.notOffered).map((o) => o.id);
-    return offered.length ? offered : options.map((o) => o.id);
-  });
-  const everyOption = chosen.length === options.length;
+  // Since 2026-10-31 a Not offered one can't be ticked at all (Albert: "as a safeguard, not even an option").
+  const [chosen, setChosen] = useState<string[]>(() => options.filter((o) => !o.notOffered).map((o) => o.id));
+  const offerable = options.filter((o) => !o.notOffered);
+  const notOffered = options.length - offerable.length;
+  // Every offered option ticked = no list sent: the server sends every option still offered, as the previews do.
+  const everyOption = chosen.length === offerable.length;
   const optionIds = everyOption ? null : chosen;
   const optionProblems = options.filter((o) => chosen.includes(o.id) && o.problem).map((o) => o.problem!);
-  const allProblems = [...problems, ...(options.length > 0 && chosen.length === 0 ? ["Choose at least one option to send."] : []), ...optionProblems];
+  const allProblems = [
+    ...problems,
+    ...(options.length > 0 && offerable.length === 0 ? ["Every option is marked Not offered. Untick Not offered on the one to send, in the editor."] : options.length > 0 && chosen.length === 0 ? ["Choose at least one option to send."] : []),
+    ...optionProblems,
+  ];
   const [asking, setAsking] = useState(false);
   const [error, setError] = useState<{ message: string; problems?: string[] } | null>(null);
   const [done, setDone] = useState<{ link: string; sentTo: string[]; warning: string | null } | null>(null);
@@ -223,7 +231,8 @@ export function SendQuote({
           {done?.warning && <p className="sq-msg warn" role="status">{done.warning}</p>}
           {!done && sent?.activity && <Activity a={sent.activity} />}
           {s?.link && <CopyLink link={s.link} />}
-          {["Sent", "Accepted", "Won"].includes(status ?? "") && !done && s?.link && ready.ready && <SendAgain versionId={versionId} email={email} phone={phone} pdfOn={sent?.pdf === true} accepted={status !== "Sent"} />}
+          {/* Also straight after sending (2026-10-31): the version is Sent from that moment, no reload needed. */}
+          {(done || ["Sent", "Accepted", "Won"].includes(status ?? "")) && s?.link && ready.ready && <SendAgain versionId={versionId} email={email} phone={phone} pdfOn={done ? pdf : sent?.pdf === true} kind={!done && status !== "Sent" ? "accepted" : change ? "change" : "quote"} dated={(done || status === "Sent") && Boolean(s.validUntil)} />}
           <div className="sq-tools">
             <a href={`/q/${versionId}/preview`} target="_blank" rel="noreferrer">What the customer sees</a>
             <a href={`/q/${versionId}/preview/email`} target="_blank" rel="noreferrer">The email</a>
@@ -288,10 +297,20 @@ export function SendQuote({
           </span>
         </label>
 
-        {options.length > 1 && (
+        {(options.length > 1 || notOffered > 0) && (
           <fieldset className="sq-opts" disabled={sending || asking}>
-            <legend>Options to send <span className="faint">{everyOption ? "all" : `${chosen.length} of ${options.length}`}</span></legend>
-            {options.map((o, i) => (
+            <legend>Options to send <span className="faint">{everyOption ? "all" : `${chosen.length} of ${offerable.length}`}{notOffered ? ` · ${notOffered} not offered` : ""}</span></legend>
+            {options.map((o, i) =>
+              o.notOffered ? (
+                // Not offered (2026-10-31): shown so nobody wonders where it went, but greyed out and never selectable.
+                <label key={o.id} className="no-offer" aria-disabled="true" title="Not offered: this option is never sent. Untick Not offered in the editor to send it.">
+                  <input type="checkbox" checked={false} disabled readOnly />
+                  <span>
+                    <span className="nm"><s>{i + 1}. {o.name}</s> <span className="no-offer-tag">Not offered</span></span>
+                    <span className="sub">Never sent. Untick Not offered in the editor to send it.</span>
+                  </span>
+                </label>
+              ) : (
               <label key={o.id} className={chosen.includes(o.id) ? undefined : "off"}>
                 <input
                   type="checkbox"
@@ -299,11 +318,12 @@ export function SendQuote({
                   onChange={(e) => setChosen((c) => (e.target.checked ? options.map((x) => x.id).filter((id) => id === o.id || c.includes(id)) : c.filter((id) => id !== o.id)))}
                 />
                 <span>
-                  <span className="nm">{i + 1}. {o.name}{o.recommended ? <span className="rec"> · Recommended</span> : null}{o.notOffered ? <span className="faint"> · Not offered</span> : null}</span>
+                  <span className="nm">{i + 1}. {o.name}{o.recommended ? <span className="rec"> · Recommended</span> : null}</span>
                   <span className="sub">{o.problem ?? (preliminary && !exact && o.range ? o.range : o.price)}</span>
                 </span>
               </label>
-            ))}
+              ),
+            )}
             {!everyOption && chosen.length > 0 && <p className="note">The customer sees only these, numbered from 1, on the page, the PDF, the email and the text.</p>}
           </fieldset>
         )}

@@ -243,20 +243,31 @@ export function CustomerQuote({
 
       <main className="cq-main">
         {noteSlot}
-        {!noteSlot && note && (
-          <p className={`cq-state ${state}`} role="status">
-            {note}
-            {newerHref && (
-              <>
-                {" "}
-                <a href={newerHref}>See the newer quote</a>
-              </>
-            )}
-          </p>
+        {!noteSlot && note && state === "replaced" ? (
+          // An old link (Albert, 2026-10-31): impossible to miss that it is an older version, with the newer one a button.
+          <div className="cq-state replaced" role="status">
+            <p className="cq-old-h">This is an older version of your quote</p>
+            <p>{note}</p>
+            {newerHref && <a className="btn primary cq-newer" href={newerHref}>See the newer quote &rarr;</a>}
+          </div>
+        ) : (
+          !noteSlot && note && (
+            <p className={`cq-state ${state}`} role="status">
+              {note}
+              {newerHref && (
+                <>
+                  {" "}
+                  <a href={newerHref}>See the newer quote</a>
+                </>
+              )}
+            </p>
+          )
         )}
 
         <section className="cq-hero">
-          <p className="cq-kicker">{copy.change ? `Updated quote · change ${copy.change.no} ·` : copy.basis === "Preliminary" ? "Preliminary quote" : "Quote"} {copy.quoteNumber}{copy.version !== null ? ` · v${copy.version}` : ""}</p>
+          {/* A preliminary's header is a solid tag, as in the email and the PDF (Albert, 2026-10-31). */}
+          {copy.basis === "Preliminary" && !copy.change && <p className="cq-prelim-tag">Preliminary estimate</p>}
+          <p className="cq-kicker">{copy.change ? `Updated quote · change ${copy.change.no} ·` : "Quote"} {copy.quoteNumber}{copy.version !== null ? ` · v${copy.version}` : ""}</p>
           <h1>{copy.customer.name ? `Prepared for ${copy.customer.name}` : "Your flooring quote"}</h1>
           {site && <p className="cq-site">{site}</p>}
           <dl className="cq-meta">

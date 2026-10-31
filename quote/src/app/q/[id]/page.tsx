@@ -266,11 +266,12 @@ export default async function QuotePage({
                         className={["tab", acceptedIds.has(o.id) ? "accepted" : "", o.notOffered ? "off" : ""].filter(Boolean).join(" ")}
                         href={`/q/${quote.id}?opt=${o.id}`}
                         aria-current={option?.id === o.id ? "page" : undefined}
-                        title={o.notOffered ? "Not offered: left off what the customer is sent" : undefined}
+                        title={o.notOffered ? "Not offered: never sent to the customer" : undefined}
                       >
                         {acceptedIds.has(o.id) && <span className="t-acc">✓ Accepted</span>}
+                        {o.notOffered && <span className="t-off">Not offered</span>}
                         {o.part && <span className="t-part">{o.part}</span>}
-                        {o.name}
+                        <span className="t-name">{o.name}</span>
                         <span className="t-amt">{money(optionTotals(o.lines, quote.discountRate, quote.showHst).total)}</span>
                       </Link>
                     ))}
@@ -333,6 +334,7 @@ export default async function QuotePage({
               <Analysis quote={quote} customer={customer} />
             ) : option && totals ? (
               <>
+              {!customer && option.notOffered && <p className="no-offer-banner" role="note"><b>Not offered.</b> This option stays on the quote but is never sent to the customer. Untick Not offered in the editor to send it.</p>}
               {putOn && !acceptedIds.has(option.id) && putOn.parts.has(partKey(option)) && (
                 <PutOnContract contractVersionId={putOn.versionId} optionId={option.id} part={partKey(option)} />
               )}
