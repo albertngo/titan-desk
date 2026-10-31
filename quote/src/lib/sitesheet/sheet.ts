@@ -38,8 +38,12 @@ export type SiteSheet = {
   /** B1–B4 */ treads: Record<TreadType, WidthCounts>;
   /** B5: null = not marked, 0 = standard 10-5/8", else the custom inches. */ treadDepth: number | null;
   /** B6 (never boxed; the open side gives the turn) */ pie: SideCounts;
-  /** B7: sets, one 90° turn each. A 2-piece set, or a 3-piece set that is 2-side open, is custom. */
-  pizza: { sets: number | null; twoSide: boolean; pieces: 2 | 3 | null };
+  /**
+   * B7: corner turn sets, one 90° turn each (Albert, 2026-10-31): how many are 2-piece (pc2) and 3-piece (pc3)
+   * under Pizza only, and how many of those are 2 side open (two). A 2-piece set, or a 3-piece set that is
+   * 2-side open, is custom.
+   */
+  pizza: { two: number | null; pc2: number | null; pc3: number | null };
   /** B8 (never boxed). LSO and RSO are standard; 2 side open is always custom. */ bullnose: SideCounts;
   /** B9 */ totalTreads: number | null;
   /** B10: the side / half staircase */ side: { steps: number | null; type: TreadType | null; width: number | null };
@@ -87,6 +91,18 @@ function num(v: unknown): number | null {
   if (!Number.isFinite(n) || n < 0 || n > 999) return null;
   return Math.round(n * 10) / 10;
 }
+/**
+ * A count box that adds up (Albert, 2026-10-31: "count and write, not mentally add"): "4+3+2" or "4 3 2" is 9.
+ * Each part must be a number; a trailing "+" while typing is ignored. One number reads as itself.
+ */
+export function sumParts(v: unknown): { total: number | null; parts: number } {
+  if (typeof v !== "string" || !/[+\s]/.test(v.trim())) return { total: num(v), parts: num(v) === null ? 0 : 1 };
+  const bits = v.split(/[+\s]+/).filter((b) => b !== "");
+  const vals = bits.map(num);
+  if (vals.length === 0 || vals.some((x) => x === null)) return { total: null, parts: 0 };
+  return { total: num((vals as number[]).reduce((t, x) => t + x, 0)), parts: vals.length };
+}
+const count = (v: unknown) => sumParts(v).total;
 function text(v: unknown, max = 200): string | null {
   if (typeof v !== "string") return null;
   const t = v.replace(/\s+/g, " ").trim();
@@ -104,11 +120,22 @@ const bool = (v: unknown) => v === true;
 
 function widths(v: unknown): WidthCounts {
   const o = obj(v);
-  return { w36: num(o.w36), w42: num(o.w42), w48: num(o.w48), other: num(o.other), otherWidth: num(o.otherWidth) };
+  return { w36: count(o.w36), w42: count(o.w42), w48: count(o.w48), other: count(o.other), otherWidth: num(o.otherWidth) };
 }
 function sides(v: unknown, boxed = false): SideCounts {
   const o = obj(v);
-  return { boxed: boxed ? num(o.boxed) : null, lso: num(o.lso), rso: num(o.rso), two: num(o.two) };
+  return { boxed: boxed ? count(o.boxed) : null, lso: count(o.lso), rso: count(o.rso), two: count(o.two) };
+}
+/** B7. A sheet saved before 2026-10-31 had { sets, pieces 2 | 3, twoSide }: its sets become 2-piece or 3-piece
+ * (3 when not marked, as before) and, when ticked, all of them 2 side open. */
+function pizzaOf(v: unknown): SiteSheet["pizza"] {
+  const o = obj(v);
+  if (!("pc2" in o || "pc3" in o || "two" in o) && "sets" in o) {
+    const sets = num(o.sets);
+    const pieces = num(o.pieces);
+    return { two: o.twoSide === true ? sets : null, pc2: pieces === 2 ? sets : null, pc3: pieces === 2 ? null : sets };
+  }
+  return { two: count(o.two), pc2: count(o.pc2), pc3: count(o.pc3) };
 }
 
 export function cleanSheet(input: unknown): SiteSheet {
@@ -131,8 +158,6 @@ export function cleanSheet(input: unknown): SiteSheet {
   const runs: RailRun[] = Array.isArray(o.runs)
     ? o.runs.slice(0, MAX_RUNS).map((x) => ({ ft: num(obj(x).ft), where: pick(obj(x).where, ["S", "F", "W"] as const), curved: bool(obj(x).curved), pickets: bool(obj(x).pickets), picketFt: num(obj(x).picketFt) }))
     : [];
-  const pz = obj(o.pizza);
-  const pizzaPieces = num(pz.pieces);
   return {
     quoteNumber: text(o.quoteNumber, 20),
     customer: text(o.customer, 80),
@@ -144,7 +169,7 @@ export function cleanSheet(input: unknown): SiteSheet {
     treads: { rso: widths(treads.rso), lso: widths(treads.lso), boxed: widths(treads.boxed), two: widths(treads.two) },
     treadDepth: num(o.treadDepth),
     pie: sides(o.pie),
-    pizza: { sets: num(pz.sets), twoSide: bool(pz.twoSide), pieces: pizzaPieces === 2 || pizzaPieces === 3 ? pizzaPieces : null },
+    pizza: pizzaOf(o.pizza),
     bullnose: sides(o.bullnose),
     totalTreads: num(o.totalTreads),
     side: { steps: num(side.steps), type: pick(side.type, TREAD_TYPES), width: num(side.width) },

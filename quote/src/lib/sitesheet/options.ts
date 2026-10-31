@@ -137,7 +137,7 @@ function build(kind: BuiltOption["kind"], s: SiteSheet, d: Derived, find: (names
     add(ITEM_NAMES.bullnoseCustom, d.custom.bullnoses, "Custom-size bullnose (2 side open)");
     add(ITEM_NAMES.pie.L, n(s.pie.lso), "Pie shape step (left)");
     add(ITEM_NAMES.pie.R, n(s.pie.rso) + n(s.pie.two), "Pie shape step (right)");
-    add(ITEM_NAMES.corner, n(s.pizza.sets), "Corner turn set");
+    add(ITEM_NAMES.corner, d.pizzaSets, "Corner turn set");
     add(ITEM_NAMES.pizzaCustom, d.custom.pizzaSets, "Custom corner turn set");
     add(ITEM_NAMES.landing, d.landings, "Landing");
     add(ITEM_NAMES.halfMoon, d.halfMoons, "Half moon");

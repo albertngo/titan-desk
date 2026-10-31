@@ -40,7 +40,8 @@ export type Derived = {
   rail: { straightFt: number; curvedFt: number; wallFt: number; flatPicketFt: number; totalFt: number };
   nosing: { pieces: number; newPieces: number; holedPieces: number; sandPieces: number; feet: number; newFt: number; holedFt: number };
   oakBoxes: number;
-  /** Pizza sets and bullnoses that need a custom piece (sheet v5). */
+  /** Pizza sets (B7, all of them) and the bullnoses and pizza sets that need a custom piece (sheet v5). */
+  pizzaSets: number;
   custom: { pizzaSets: number; bullnoses: number };
   /** Brackets for the wall runs. */
   brackets: number;
@@ -52,8 +53,32 @@ export type Derived = {
 
 const n = (v: number | null | undefined) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
 const sumW = (w: WidthCounts) => n(w.w36) + n(w.w42) + n(w.w48) + n(w.other);
-/** Pizza-set treads: each set is 2 or 3 pieces (3 when not marked). */
-export const pizzaTreads = (s: SiteSheet) => n(s.pizza.sets) * (s.pizza.pieces ?? 3);
+/**
+ * The corner turn (pizza) sets, B7 (2026-10-31): 2-piece and 3-piece counts, and how many of them are 2 side open.
+ * 2-side-open sets beyond the 2-pc + 3-pc counts are counted as 3-piece (3 when not marked, as before). Which
+ * sets are the 2-side-open ones isn't written, so they are taken as the 3-piece ones first: a 2-piece set is
+ * custom anyway, and this never undercounts the custom pieces.
+ */
+export function pizzaCounts(s: SiteSheet) {
+  const two = n(s.pizza.two);
+  const pc2 = n(s.pizza.pc2);
+  const byPieces = pc2 + n(s.pizza.pc3);
+  const extra = Math.max(0, two - byPieces);
+  const pc3 = n(s.pizza.pc3) + extra;
+  const two3 = Math.min(two, pc3);
+  const two2 = two - two3;
+  return {
+    sets: pc2 + pc3,
+    pieces: pc2 * 2 + pc3 * 3,
+    twoSide: two,
+    twoSidePieces: two3 * 3 + two2 * 2,
+    custom: pc2 + two3,
+    /** 2-side-open sets written beyond the 2-pc / 3-pc counts, when those counts were written at all. */
+    overCount: byPieces > 0 ? extra : 0,
+  };
+}
+/** Pizza-set treads: each set is 2 or 3 pieces. */
+export const pizzaTreads = (s: SiteSheet) => pizzaCounts(s).pieces;
 
 /** Treads of each open-side type across the grid, pie steps and bullnoses. Pizza sets have no open side; see pizzaTreads. */
 export function treadsBySide(s: SiteSheet): Record<TreadType, number> {
@@ -71,14 +96,15 @@ export const bracketsFor = (ft: number) => (ft >= 1 ? Math.floor((ft - 1) / 2) +
 
 export function derive(s: SiteSheet): Derived {
   const by = treadsBySide(s);
-  const pizza = pizzaTreads(s);
+  const pz = pizzaCounts(s);
+  const pizza = pz.pieces;
   const treads = by.rso + by.lso + by.boxed + by.two + pizza;
   const sideTreads = n(s.side.steps);
   const halfMoons = n(s.halfMoons.count);
   const landings = n(s.landings.s3x3) + n(s.landings.s3x6) + n(s.landings.other);
   const flags: string[] = [];
 
-  const twoSidePizza = s.pizza.twoSide && pizza > 0;
+  const twoSidePizza = pz.twoSide > 0;
   const open = { left: by.lso + by.two > 0 || twoSidePizza, right: by.rso + by.two > 0 || twoSidePizza };
   const openSides = ((open.left ? 1 : 0) + (open.right ? 1 : 0)) as 0 | 1 | 2;
 
@@ -87,8 +113,8 @@ export function derive(s: SiteSheet): Derived {
 
   // Spindles: 3 a foot of rail with pickets. Only with no runs written at all, the per-step fallback:
   // 2 on a one-side-open tread (pie and pizza pieces too), 3 on a 2-side-open one.
-  const regular = by.rso + by.lso + (s.pizza.twoSide ? 0 : pizza);
-  const twoSided = by.two + (s.pizza.twoSide ? pizza : 0);
+  const regular = by.rso + by.lso + (pizza - pz.twoSidePieces);
+  const twoSided = by.two + pz.twoSidePieces;
   const picketFt = (x: SiteSheet["runs"][number]) => (x.pickets ? (x.picketFt ?? x.ft ?? 0) : n(x.picketFt));
   const stepRuns = s.runs.filter((x) => x.where === "S");
   const flatPicketRuns = s.runs.filter((x) => x.where === "F" && picketFt(x) > 0);
@@ -154,12 +180,15 @@ export function derive(s: SiteSheet): Derived {
   if (s.onSteps === null) flags.push("What is on the steps now (A3) is blank, so sanding can't be offered.");
   if (s.unclear.length) flags.push(`Couldn't be read with confidence: ${s.unclear.join(", ")}. Check them against the photo.`);
 
-  const sets = n(s.pizza.sets);
-  const custom = { pizzaSets: s.pizza.pieces === 2 || s.pizza.twoSide ? sets : 0, bullnoses: n(s.bullnose.two) };
+  if (pz.overCount > 0) flags.push(`Pizza sets: ${pz.twoSide} marked 2 side open, but the 2-pc and 3-pc boxes add up to fewer (${pz.sets - pz.overCount}). The extra ${pz.overCount} counted as 3-piece; check B7.`);
+  const custom = { pizzaSets: pz.custom, bullnoses: n(s.bullnose.two) };
   const brackets = s.runs.filter((x) => x.where === "W").reduce((t, x) => t + bracketsFor(n(x.ft)), 0);
   const notes: string[] = [];
   if (s.metalBar) notes.push("Metal bar under the handrail: bring the hardware for it.");
-  if (custom.pizzaSets) notes.push(`${custom.pizzaSets} custom pizza set${custom.pizzaSets === 1 ? "" : "s"} (${s.pizza.pieces === 2 ? "2-piece" : "2-side open"}).`);
+  if (custom.pizzaSets) {
+    const why = [n(s.pizza.pc2) ? `${n(s.pizza.pc2)} 2-piece` : "", custom.pizzaSets - n(s.pizza.pc2) ? `${custom.pizzaSets - n(s.pizza.pc2)} 3-piece, 2 side open` : ""].filter(Boolean).join(", ");
+    notes.push(`${custom.pizzaSets} custom pizza set${custom.pizzaSets === 1 ? "" : "s"} (${why}).`);
+  }
   if (custom.bullnoses) notes.push(`${custom.bullnoses} custom bullnose${custom.bullnoses === 1 ? "" : "s"} (2-side open).`);
 
   return {
@@ -167,6 +196,7 @@ export function derive(s: SiteSheet): Derived {
     sideTreads,
     landings,
     halfMoons,
+    pizzaSets: pz.sets,
     risers,
     open,
     openSides,

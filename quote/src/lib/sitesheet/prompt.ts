@@ -10,6 +10,7 @@ const INSTRUCTIONS = `You are reading photos of Titan Flooring's "Stair Site She
 How the sheet is marked:
 - Round bubbles and square ticks are chosen when filled, ticked, crossed or circled. An empty bubble is not chosen.
 - Numbers are written in boxes or on lines. A crossed-out number is replaced by the one written beside it.
+- Count boxes in B1–B8 may hold several numbers, because the PM counts a staircase in parts (e.g. "4 + 3", "4 3", or numbers stacked in the box): add them up and return the total as one number. A number on its own is itself. The "at __" width in Other width is never added.
 - Each field has a small code printed beside it (A1, B6, F3 …). Use the codes to find fields.
 
 Page 1:
@@ -20,7 +21,7 @@ Page 1:
 - B1–B4 Treads grid: rows RSO (rso), LSO (lso), Boxed (boxed), 2 side open (two); columns 36", 42", 48", Other width. A number in "Other width" goes in "other"; if the width itself is written (e.g. "40") put it in otherWidth.
 - B5 Tread depth: standard 10-5/8" → 0; custom → the inches written.
 - B6 Pie shape: counts under LSO / RSO / 2 side open (Boxed is shaded; there is no turn box).
-- B7 Pizza set: how many sets (pizza.sets); twoSide true when "2 side open" is ticked; pieces 2 or 3 from the 2-pc / 3-pc bubble (blank → null).
+- B7 Pizza set: under Pizza only, how many 2-piece sets (pizza.pc2, the "2-pc" box) and how many 3-piece sets (pizza.pc3, the "3-pc" box); under 2 side open (the box marked "of these sets →"), how many of those sets are 2 side open (pizza.two; they are already in the 2-pc / 3-pc counts, not extra). Blank → null. On an older print with one "sets" box, 2-pc / 3-pc bubbles and a 2-side-open tick: the sets go in pc2 when 2-pc is chosen, else pc3, and also in two when the tick is marked.
 - B8 Bullnose: counts under LSO / RSO / 2 side open (Boxed and Type are shaded).
 - B9 Total treads.
 - B10 Side / half staircase: steps, its tread type (RSO/LSO/Boxed/2 side open → rso/lso/boxed/two), width.
@@ -63,7 +64,7 @@ export const SHEET_SCHEMA = {
     treads: { type: "object", properties: { rso: widths, lso: widths, boxed: widths, two: widths } },
     treadDepth: N,
     pie: sides,
-    pizza: { type: "object", properties: { sets: N, twoSide: { type: "boolean" }, pieces: { type: ["number", "null"], enum: [2, 3, null] } } },
+    pizza: { type: "object", properties: { two: N, pc2: N, pc3: N } },
     bullnose: sides,
     totalTreads: N,
     side: { type: "object", properties: { steps: N, type: choice(["rso", "lso", "boxed", "two"]), width: N } },
