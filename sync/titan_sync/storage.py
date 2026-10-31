@@ -16,6 +16,7 @@ class Storage(Protocol):
     def upload(self, bucket: str, path: str, data: bytes, content_type: str, *, upsert: bool = False) -> None: ...
     def copy(self, bucket: str, src: str, dst: str) -> None: ...
     def remove(self, bucket: str, paths: list[str]) -> None: ...
+    def empty_bucket(self, bucket: str) -> None: ...
 
 
 @dataclass
@@ -63,6 +64,12 @@ class SupabaseStorage:
                                  headers={"Content-Type": "application/json"})
         r.raise_for_status()
 
+    def empty_bucket(self, bucket: str) -> None:
+        """Delete every object in the bucket through the Storage API (frees the space; a SQL
+        delete on storage.objects would not)."""
+        r = self._client.post(f"/bucket/{bucket}/empty")
+        r.raise_for_status()
+
 
 @dataclass
 class FakeStorage:
@@ -89,6 +96,11 @@ class FakeStorage:
         for p in paths:
             self.calls.append(("remove", bucket, p))
             self.objects.pop((bucket, p), None)
+
+    def empty_bucket(self, bucket: str) -> None:
+        self.calls.append(("empty", bucket, ""))
+        for key in [k for k in self.objects if k[0] == bucket]:
+            del self.objects[key]
 
     def uploads(self) -> list[str]:
         return [f"{b}/{p}" for op, b, p in self.calls if op == "upload"]

@@ -7,7 +7,9 @@ the image pipeline into Supabase Storage. Read-only against Airtable, always.
 python -m titan_sync.run --mode incremental   # every 30 min: records modified since the watermark (−10 min overlap)
 python -m titan_sync.run --mode full          # nightly: everything, then delete rows gone from Airtable (guarded)
 python -m titan_sync.run --mode images        # drain new/changed attachments (300 per run by default)
-python -m titan_sync.run --mode purge         # delete WebP variants of images removed ≥30 days ago (originals kept)
+python -m titan_sync.run --mode purge         # delete WebP variants of images removed ≥30 days ago
+python -m titan_sync.run --mode purge-originals  # one-off: empty the legacy catalogue-originals bucket
+python -m titan_sync.run --mode storage-check   # Storage use vs SYNC_STORAGE_LIMIT_MB; exit 3 at ≥80%
 python -m titan_sync.run --mode report        # markdown summary of the latest run(s) for $GITHUB_STEP_SUMMARY
 python -m titan_sync.schema_snapshot --check  # compare the live Airtable schema to schema_snapshot.json
 ```
@@ -43,13 +45,18 @@ against `mirror.catalogue_images`:
   (same bytes live under another SKU), or process + upload
 - processing: exif_transpose → sRGB via embedded ICC → flatten on white → strip metadata →
   200/600/1600 WebP q80 m6 (never upscaled; `low_res` when long edge < 1600) → blurhash from
-  the 200 px; HEIC/HEIF also get a full-res JPEG master (q92) in the originals bucket
+  the 200 px
 - accepted: JPEG, PNG, WebP, HEIC/HEIF, TIFF. Anything else is recorded in
   `catalogue_image_skips` (once per attachment id) and in the run report; never fatal
-- removed in Airtable → `deleted_at`; `--mode purge` deletes the **variants** after 30 days;
-  originals and masters are never deleted (rows get `orphaned_at`)
-- Storage keys: `catalogue-originals/{sku}/{sha256}.{ext}` (+ `_master.jpg`),
-  `catalogue-images/{sku}/{sha256}_{200|600|1600}.webp`; URLs in the views carry
+- removed in Airtable → `deleted_at`; `--mode purge` deletes the variants after 30 days
+  (rows get `variants_purged_at` / `orphaned_at`)
+- **originals are not stored** (2026-10-31): only the variants go to Storage. Airtable keeps
+  the source file; `source_hash` and `original_*` on the row still describe it and drive
+  dedupe. `catalogue-originals` is a legacy private bucket, emptied by `--mode purge-originals`
+  (workflow "Purge image originals (one-off)")
+- **storage guard**: the drain uploads nothing once Storage is at 95% of
+  `SYNC_STORAGE_LIMIT_MB` (default 1024, the Free plan); `--mode storage-check` fails at 80%
+- Storage keys: `catalogue-images/{sku}/{sha256}_{200|600|1600}.webp`; URLs in the views carry
   `?v=<encoder_version>`; bump `ENCODER_VERSION` in `images.py` to re-encode
 
 ## Credentials

@@ -1,4 +1,4 @@
-"""Entry point: python -m titan_sync.run --mode incremental | full | images | purge | report"""
+"""Entry point: python -m titan_sync.run --mode incremental | full | images | purge | purge-originals | storage-check | report"""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import argparse
 import sys
 import traceback
 from datetime import datetime, timedelta, timezone
+from dataclasses import dataclass
 from typing import Any
 
 import structlog
@@ -16,7 +17,7 @@ from .db import Db, MergeResult
 from .design import sync_design_tables
 from .fields import field_map, skipped_field_ids
 from .images import ImageSync
-from .storage import SupabaseStorage
+from .storage import Storage, SupabaseStorage
 from .transform import record_to_row
 
 log = structlog.get_logger("titan_sync")
@@ -95,11 +96,60 @@ def sync_catalogue(db: Db, source: Source, settings: Settings, *, mode: str) -> 
         raise
 
 
-def run_images(db: Db, settings: Settings, source: Source | None, *, batch: int) -> dict[str, Any]:
-    storage = SupabaseStorage(settings.supabase_url, settings.service_role_key)
+@dataclass(frozen=True)
+class StorageCheck:
+    used_bytes: int
+    limit_bytes: int
+    by_bucket: dict[str, int]
+    warn_ratio: float
+    stop_ratio: float
+
+    @property
+    def ratio(self) -> float:
+        return self.used_bytes / self.limit_bytes if self.limit_bytes else 0.0
+
+    @property
+    def warn(self) -> bool:
+        return self.ratio >= self.warn_ratio
+
+    @property
+    def stop(self) -> bool:
+        return self.ratio >= self.stop_ratio
+
+    def markdown(self) -> str:
+        mb = lambda b: f"{b / 1024 / 1024:,.0f} MB"
+        state = "STOP: image uploads paused" if self.stop else ("WARNING" if self.warn else "ok")
+        lines = [f"## Supabase Storage: {mb(self.used_bytes)} of {mb(self.limit_bytes)} ({self.ratio:.0%}) — {state}", ""]
+        lines += [f"- `{b}`: {mb(n)}" for b, n in sorted(self.by_bucket.items(), key=lambda x: -x[1])]
+        if self.warn:
+            lines += ["", f"Over {self.warn_ratio:.0%} of the plan's file storage. At 100% Supabase blocks the whole project, "
+                      "sign-in included. Upgrade the plan (then raise SYNC_STORAGE_LIMIT_MB) or remove images."]
+        return "\n".join(lines) + "\n"
+
+
+def check_storage(db: Db, settings: Settings) -> StorageCheck:
+    with db.conn.cursor() as cur:
+        cur.execute("select bucket_id, bytes from mirror.storage_usage()")
+        by_bucket = {b: int(n) for b, n in cur.fetchall()}
+    db.commit()
+    return StorageCheck(used_bytes=sum(by_bucket.values()), limit_bytes=settings.storage_limit_mb * 1024 * 1024,
+                        by_bucket=by_bucket, warn_ratio=settings.storage_warn_ratio, stop_ratio=settings.storage_stop_ratio)
+
+
+def run_images(db: Db, settings: Settings, source: Source | None, *, batch: int, storage: Storage | None = None) -> dict[str, Any]:
+    storage = storage or SupabaseStorage(settings.supabase_url, settings.service_role_key)
     run_id = db.start_run("images", trigger=settings.trigger, github_run_id=settings.github_run_id, watermark_before=None)
     job = ImageSync(db=db, storage=storage, source=source, public_base_url=settings.public_base_url, run_id=run_id)
     try:
+        usage = check_storage(db, settings)
+        if usage.stop:
+            # Uploading more would push the project into Supabase's restriction (sign-in goes down).
+            db.add_issue(run_id, "storage_full", f"Storage at {usage.ratio:.0%} of {settings.storage_limit_mb} MB; no images uploaded")
+            db.commit()
+            counts = dict(images_processed=0, images_skipped=0, issues=db.issue_count(run_id), api_calls=0)
+            db.finish_run(run_id, "success", **counts)
+            log.warning("images.storage_full", run_id=run_id, ratio=round(usage.ratio, 3))
+            return counts
         c = job.run(batch)
         counts = dict(images_processed=c.processed + c.reused + c.undeleted, images_skipped=c.skipped + c.failed,
                       issues=db.issue_count(run_id), api_calls=(source.api_calls if source else 0))
@@ -120,6 +170,21 @@ def run_purge(db: Db, settings: Settings) -> int:
         n = job.purge(settings.purge_days)
         db.finish_run(run_id, "success", images_processed=n)
         log.info("purge.done", run_id=run_id, purged=n)
+        return n
+    except Exception as e:
+        db.rollback()
+        db.finish_run(run_id, "failed", error=f"{type(e).__name__}: {e}"[:2000])
+        raise
+
+
+def run_purge_originals(db: Db, settings: Settings, storage: Storage | None = None) -> int:
+    storage = storage or SupabaseStorage(settings.supabase_url, settings.service_role_key)
+    run_id = db.start_run("purge_originals", trigger=settings.trigger, github_run_id=settings.github_run_id, watermark_before=None)
+    job = ImageSync(db=db, storage=storage, source=None, public_base_url=settings.public_base_url, run_id=run_id)
+    try:
+        n = job.purge_originals()
+        db.finish_run(run_id, "success", images_processed=n)
+        log.info("purge_originals.done", run_id=run_id, rows_cleared=n)
         return n
     except Exception as e:
         db.rollback()
@@ -160,7 +225,7 @@ def report(db: Db, *, since_run: bool) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="titan-sync")
-    ap.add_argument("--mode", required=True, choices=["incremental", "full", "images", "purge", "report"])
+    ap.add_argument("--mode", required=True, choices=["incremental", "full", "images", "purge", "purge-originals", "storage-check", "report"])
     ap.add_argument("--batch", type=int, default=None, help="images per --mode images run (default SYNC_IMAGE_BATCH)")
     ap.add_argument("--since-run", action="store_true", help="report: only the latest run")
     args = ap.parse_args(argv)
@@ -181,6 +246,13 @@ def main(argv: list[str] | None = None) -> int:
         elif args.mode == "purge":
             settings.require("supabase_url", "service_role_key")
             run_purge(db, settings)
+        elif args.mode == "purge-originals":
+            settings.require("supabase_url", "service_role_key")
+            run_purge_originals(db, settings)
+        elif args.mode == "storage-check":
+            usage = check_storage(db, settings)
+            sys.stdout.write(usage.markdown())
+            return 3 if usage.warn else 0
         elif args.mode == "report":
             sys.stdout.write(report(db, since_run=args.since_run))
         return 0

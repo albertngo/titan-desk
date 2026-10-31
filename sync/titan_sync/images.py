@@ -1,5 +1,9 @@
-"""Image pipeline: Airtable attachments → originals (private bucket) + WebP variants (public bucket)
-+ index rows in mirror.catalogue_images.
+"""Image pipeline: Airtable attachments → WebP variants (public bucket) + index rows in
+mirror.catalogue_images.
+
+Originals are NOT kept in Supabase (2026-10-31, Albert): Airtable already holds the source
+file, nothing ever served the originals, and they were ~4.2 GB of a 1 GB Free-plan quota.
+Anything that needs the source again (a re-encode) downloads it from Airtable.
 
 Processing rules (in this order, for every image):
   1. ImageOps.exif_transpose()      phone photos come out upright
@@ -9,7 +13,6 @@ Processing rules (in this order, for every image):
   5. resize long edge to 200 / 600 / 1600, never upscaling (low_res when long edge < 1600)
   6. WebP quality 80, method 6
   7. blurhash from the 200 px variant
-HEIC/HEIF sources also get a full-resolution JPEG master (quality 92) in the originals bucket.
 Anything that is not JPEG/PNG/WebP/HEIC/HEIF/TIFF is skipped and reported, never fatal.
 """
 
@@ -38,10 +41,9 @@ ENCODER_VERSION = 1
 VARIANT_SIZES = (200, 600, 1600)
 WEBP_QUALITY = 80
 WEBP_METHOD = 6
-MASTER_JPG_QUALITY = 92
 MAX_BYTES = 25 * 1024 * 1024
 BUCKET_IMAGES = "catalogue-images"
-BUCKET_ORIGINALS = "catalogue-originals"
+BUCKET_ORIGINALS = "catalogue-originals"   # legacy: emptied by --mode purge-originals, never written
 
 # Pillow format name → (mime, extension)
 ACCEPTED_FORMATS: dict[str, tuple[str, str]] = {
@@ -76,7 +78,6 @@ class Processed:
     low_res: bool
     variants: dict[int, tuple[bytes, int, int]]   # size → (webp bytes, w, h)
     blurhash: str
-    master_jpg: bytes | None = None
 
 
 def _to_srgb_rgb(im: Image.Image) -> Image.Image:
@@ -155,15 +156,10 @@ def process_image(data: bytes) -> Processed:
         variants[size] = (_webp(v), *v.size)
     thumb = _fit(rgb, VARIANT_SIZES[0])
     bh = blurhash.encode(thumb, x_components=4, y_components=3)   # 7
-    master = None
-    if fmt == "HEIF":
-        buf = io.BytesIO()
-        rgb.save(buf, format="JPEG", quality=MASTER_JPG_QUALITY, optimize=True)
-        master = buf.getvalue()
     return Processed(
         sha256=hashlib.sha256(data).hexdigest(), mime=mime, ext=ext,
         width=width, height=height, low_res=long < VARIANT_SIZES[-1],
-        variants=variants, blurhash=bh, master_jpg=master,
+        variants=variants, blurhash=bh,
     )
 
 
@@ -198,13 +194,9 @@ class ImageSync:
 
     # ---- paths --------------------------------------------------------------------------------
     @staticmethod
-    def paths(sku: str, sha: str, ext: str, has_master: bool) -> dict[str, Any]:
+    def paths(sku: str, sha: str) -> dict[str, Any]:
         base = f"{sku_safe(sku)}/{sha}"
-        return {
-            "original": f"{base}.{ext}",
-            "master": f"{base}_master.jpg" if has_master else None,
-            "variants": {str(s): f"{base}_{s}.webp" for s in VARIANT_SIZES},
-        }
+        return {"variants": {str(s): f"{base}_{s}.webp" for s in VARIANT_SIZES}}
 
     # ---- diff ---------------------------------------------------------------------------------
     def soft_delete_removed(self) -> int:
@@ -319,8 +311,8 @@ class ImageSync:
         with self.db.conn.cursor() as cur:
             cur.execute(
                 """
-                select sku, original_path, original_mime, original_bytes, original_width, original_height,
-                       master_jpg_path, low_res, variant_paths, width, height, blurhash
+                select sku, original_mime, original_bytes, original_width, original_height,
+                       low_res, variant_paths, width, height, blurhash
                   from mirror.catalogue_images
                  where source_hash = %s and encoder_version = %s and variants_purged_at is null
                  order by deleted_at nulls first, id
@@ -331,8 +323,8 @@ class ImageSync:
             r = cur.fetchone()
             if not r:
                 return None
-            cols = ("sku", "original_path", "original_mime", "original_bytes", "original_width", "original_height",
-                    "master_jpg_path", "low_res", "variant_paths", "width", "height", "blurhash")
+            cols = ("sku", "original_mime", "original_bytes", "original_width", "original_height",
+                    "low_res", "variant_paths", "width", "height", "blurhash")
             return dict(zip(cols, r))
 
     def _undelete(self, row_id: int, item: dict[str, Any]) -> None:
@@ -347,9 +339,9 @@ class ImageSync:
                     *, existing_id: int | None) -> None:
         params = {
             "record_id": item["record_id"], "sku": item["sku"], "kind": item["kind"], "att_id": item["att_id"],
-            "sort": item["sort"] or 0, "sha": sha, "original_path": meta["original_path"], "mime": meta["original_mime"],
+            "sort": item["sort"] or 0, "sha": sha, "original_path": None, "mime": meta["original_mime"],
             "bytes": meta["original_bytes"], "ow": meta["original_width"], "oh": meta["original_height"],
-            "master": meta["master_jpg_path"], "low_res": meta["low_res"], "vp": self.db.jsonb(variant_paths),
+            "master": None, "low_res": meta["low_res"], "vp": self.db.jsonb(variant_paths),
             "w": meta["width"], "h": meta["height"], "bh": meta["blurhash"], "ver": ENCODER_VERSION,
             "base": self.public_base_url,
         }
@@ -382,10 +374,7 @@ class ImageSync:
                 )
         self.db.commit()
 
-    def _upload_all(self, item: dict[str, Any], p: Processed, paths: dict[str, Any], data: bytes) -> None:
-        self.storage.upload(BUCKET_ORIGINALS, paths["original"], data, p.mime)
-        if p.master_jpg is not None and paths["master"]:
-            self.storage.upload(BUCKET_ORIGINALS, paths["master"], p.master_jpg, "image/jpeg")
+    def _upload_variants(self, p: Processed, paths: dict[str, Any]) -> None:
         for size, (webp, _w, _h) in p.variants.items():
             self.storage.upload(BUCKET_IMAGES, paths["variants"][str(size)], webp, "image/webp")
 
@@ -418,17 +407,12 @@ class ImageSync:
         # Same bytes live elsewhere: server-side copy, no encode.
         reusable = self._reusable_by_hash(sha)
         if reusable and sku_safe(reusable["sku"]) != sku_safe(item["sku"]):
-            ext = reusable["original_path"].rsplit(".", 1)[-1]
-            paths = self.paths(item["sku"], sha, ext, bool(reusable["master_jpg_path"]))
-            self.storage.copy(BUCKET_ORIGINALS, reusable["original_path"], paths["original"])
-            if reusable["master_jpg_path"]:
-                self.storage.copy(BUCKET_ORIGINALS, reusable["master_jpg_path"], paths["master"])
+            paths = self.paths(item["sku"], sha)
             variant_paths = {}
             for size, info in reusable["variant_paths"].items():
                 self.storage.copy(BUCKET_IMAGES, info["path"], paths["variants"][size])
                 variant_paths[size] = {**info, "path": paths["variants"][size]}
-            meta = {**reusable, "original_path": paths["original"], "master_jpg_path": paths["master"]}
-            self._upsert_row(item, sha, meta, variant_paths, existing_id=existing_id)
+            self._upsert_row(item, sha, reusable, variant_paths, existing_id=existing_id)
             self.counts.reused += 1
             return "reused"
         if reusable:  # same SKU, different kind: objects already exist under this prefix
@@ -454,13 +438,13 @@ class ImageSync:
             self.counts.skipped += 1
             return "skipped"
 
-        paths = self.paths(item["sku"], sha, p.ext, p.master_jpg is not None)
-        self._upload_all(item, p, paths, data)
+        paths = self.paths(item["sku"], sha)
+        self._upload_variants(p, paths)
         variant_paths = {str(s): {"path": paths["variants"][str(s)], "w": w, "h": h} for s, (_b, w, h) in p.variants.items()}
         largest = p.variants[VARIANT_SIZES[-1]]
         meta = {
-            "original_path": paths["original"], "original_mime": p.mime, "original_bytes": len(data),
-            "original_width": p.width, "original_height": p.height, "master_jpg_path": paths["master"],
+            "original_mime": p.mime, "original_bytes": len(data),
+            "original_width": p.width, "original_height": p.height,
             "low_res": p.low_res, "width": largest[1], "height": largest[2], "blurhash": p.blurhash,
         }
         self._upsert_row(item, sha, meta, variant_paths, existing_id=existing_id)
@@ -481,7 +465,7 @@ class ImageSync:
         return self.counts
 
     def purge(self, days: int) -> int:
-        """Delete Storage variants of rows soft-deleted more than `days` ago. Originals are never deleted."""
+        """Delete Storage variants of rows soft-deleted more than `days` ago."""
         with self.db.conn.cursor() as cur:
             cur.execute(
                 """
@@ -509,4 +493,15 @@ class ImageSync:
             self.db.commit()
             n += 1
         self.counts.purged = n
+        return n
+
+    def purge_originals(self) -> int:
+        """One-off (2026-10-31): empty the legacy originals bucket and clear the paths that named it.
+        Returns how many index rows pointed at an original."""
+        self.storage.empty_bucket(BUCKET_ORIGINALS)
+        with self.db.conn.cursor() as cur:
+            cur.execute("update mirror.catalogue_images set original_path = null, master_jpg_path = null "
+                        "where original_path is not null or master_jpg_path is not null")
+            n = cur.rowcount
+        self.db.commit()
         return n

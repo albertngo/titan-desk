@@ -31,6 +31,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           SYNC_IMAGE_BATCH: "300"
+          SYNC_STORAGE_LIMIT_MB: ${{ vars.SYNC_STORAGE_LIMIT_MB || '1024' }}
           GITHUB_RUN_ID: ${{ github.run_id }}
         run: python -m titan_sync.run --mode images
       - name: Skipped-file report
@@ -39,3 +40,16 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: python -m titan_sync.run --mode report --since-run >> "$GITHUB_STEP_SUMMARY"
+      # Fails the job (GitHub emails the failure) at 80% of the plan's file storage. At 100%
+      # Supabase blocks the whole project, sign-in included (2026-10-31). The drain above
+      # already uploads nothing at 95%. Raise the repo variable SYNC_STORAGE_LIMIT_MB after
+      # an upgrade (Pro = 102400).
+      - name: Storage size alert
+        if: always()
+        working-directory: sync
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SYNC_STORAGE_LIMIT_MB: ${{ vars.SYNC_STORAGE_LIMIT_MB || '1024' }}
+        run: |
+          set -o pipefail
+          python -m titan_sync.run --mode storage-check | tee -a "$GITHUB_STEP_SUMMARY"

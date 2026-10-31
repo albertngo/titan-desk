@@ -17,7 +17,8 @@ Airtable (source of truth)  ──sync every 30 min / nightly full──▶  Sup
 - **Boundary:** the public/staff split is enforced by view grants in the database. Cost,
   MAP, supplier, notes never leave the staff tier. See `db/README.md` for the tier table.
 - **Images:** Airtable holds which photos belong to a SKU; Supabase Storage holds WebP
-  variants (public, CDN) and untouched originals (private); Postgres holds the index.
+  variants (public, CDN); Postgres holds the index. Full-size originals are not kept in
+  Supabase since 2026-10-31: Airtable already has them.
 - **One-way:** nothing here writes to Airtable. The worker's token is read-only.
 
 ## Repo map
@@ -25,7 +26,7 @@ Airtable (source of truth)  ──sync every 30 min / nightly full──▶  Sup
 | Path | What |
 |---|---|
 | `db/` | Supabase project: migration 001, seed, pgTAP tests, local-Postgres harness |
-| `sync/` | Python worker: `--mode incremental \| full \| images \| purge \| report` |
+| `sync/` | Python worker: `--mode incremental \| full \| images \| purge \| purge-originals \| storage-check \| report` |
 | `web/` | Next.js 16 App Router PWA |
 | `quote/` | Quoting app (Next.js 16), its own Vercel project; see `quote/README.md` |
 | `platform-settings/airtable.json` | Airtable base/table/field IDs (not secrets) |
@@ -47,10 +48,13 @@ Vercel env, never in the repo.
 - **Supabase Free** to start (`ca-central-1`; only the `api` schema exposed). The mirror is
   tens of MB and rebuildable from Airtable, the 30-minute sync keeps the project from being
   paused for inactivity, and backups are unnecessary for a mirror.
-- **Upgrade to Pro when image storage grows.** Originals are kept forever in the private
-  `catalogue-originals` bucket, so the Free plan's 1 GB storage cap is the trigger (roughly
-  300–500 photos with originals). The "storage footprint" query in `db/README.md` is the
-  number to watch; upgrade when it approaches 1 GB.
+- **Storage is the limit to watch.** On 2026-10-31 the project was restricted for
+  `exceed_storage_size_quota` (sign-in down for every app): kept originals had reached
+  ~4.2 GB against Free's 1 GB. Originals are no longer stored; the ~5,200 photos then in the
+  catalogue need about 0.6 GB as WebP variants. Every images run ends with a **Storage size
+  alert** step that fails the job (GitHub emails) at 80% of `SYNC_STORAGE_LIMIT_MB`
+  (repo variable, default 1024), and the drain uploads nothing at 95%. Upgrade to Pro when
+  the alert fires, then set the variable to 102400.
 - **Vercel** project rooted at `web/`, function region `yul1` (Montréal).
 
 ## Runbook

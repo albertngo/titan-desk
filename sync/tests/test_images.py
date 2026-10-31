@@ -57,7 +57,6 @@ def test_big_source_all_three_sizes_and_blurhash(images):
     assert _open(p.variants[1600][0]).size == (1600, 1067)
     assert _open(p.variants[200][0]).format == "WEBP"
     assert isinstance(p.blurhash, str) and len(p.blurhash) >= 6
-    assert p.master_jpg is None
 
 
 def test_variants_carry_no_metadata(images):
@@ -66,14 +65,13 @@ def test_variants_carry_no_metadata(images):
     assert not v.getexif() and "icc_profile" not in v.info
 
 
-def test_heic_gets_master_jpeg(images):
+def test_heic_becomes_webp_variants(images):
     if images["photo.heic"] is None:
         pytest.skip("pillow-heif has no HEIF encoder in this build")
     p = process_image(images["photo.heic"])
     assert p.mime == "image/heic" and p.ext == "heic"
-    assert p.master_jpg is not None
-    m = _open(p.master_jpg)
-    assert m.format == "JPEG" and m.size == (640, 480)
+    assert _open(p.variants[600][0]).format == "WEBP" and (p.width, p.height) == (640, 480)
+    assert not hasattr(p, "master_jpg")   # no full-size JPEG copy since 2026-10-31
 
 
 @pytest.mark.parametrize("name,reason", [("spec.pdf", "not a decodable"), ("clip.mp4", "not a decodable"), ("anim.gif", "unsupported format GIF")])
@@ -144,11 +142,12 @@ def test_image_sync_end_to_end(db, reader, storage, source, images):
     rows = _q(db, "select kind, low_res, original_path, master_jpg_path, variant_paths, width, height from mirror.catalogue_images where deleted_at is null order by kind, sort_order")
     assert [r[0] for r in rows] == ["detail", "swatch"]
     swatch = rows[1]
-    sha = swatch[2].split("/")[1].split(".")[0]
-    assert swatch[2] == f"ENG-VIDR-0042/{sha}.jpg" and swatch[3] is None and swatch[1] is False and (swatch[5], swatch[6]) == (1600, 1067)
+    sha = swatch[4]["1600"]["path"].split("/")[1].split("_")[0]
+    assert swatch[2] is None and swatch[3] is None and swatch[1] is False and (swatch[5], swatch[6]) == (1600, 1067)
     assert swatch[4]["1600"]["path"] == f"ENG-VIDR-0042/{sha}_1600.webp"
-    # objects: original in the private bucket, three variants in the public bucket
-    assert (BUCKET_ORIGINALS, f"ENG-VIDR-0042/{sha}.jpg") in storage.objects
+    # objects: three variants in the public bucket, nothing in the originals bucket (2026-10-31)
+    assert not any(b == BUCKET_ORIGINALS for b, _p in storage.objects)
+    assert not any(b == BUCKET_ORIGINALS for _op, b, _p in storage.calls)
     for size in (200, 600, 1600):
         assert (BUCKET_IMAGES, f"ENG-VIDR-0042/{sha}_{size}.webp") in storage.objects
     # the PDF is reported, not fatal, and remembered so it is not downloaded again
@@ -212,15 +211,14 @@ def test_expired_url_is_refreshed_from_airtable(db, storage, source, images):
 
 
 @needs_db
-def test_purge_removes_variants_only_and_keeps_originals(db, storage, source, images):
+def test_purge_removes_variants(db, storage, source, images):
     fetch = Fetcher({"http://img/a": images["small800.jpg"]})
     _catalogue_row(db, "recP", "T-SKU-P", [_att("swatch", "attP", "http://img/a", 0)])
     run_id = db.start_run("images", trigger="test", github_run_id=None, watermark_before=None)
     job = ImageSync(db=db, storage=storage, source=source, public_base_url="https://x/cat", run_id=run_id, fetch=fetch)
     job.run(50)
-    originals = [k for k in storage.objects if k[0] == BUCKET_ORIGINALS]
     variants = [k for k in storage.objects if k[0] == BUCKET_IMAGES]
-    assert len(originals) == 1 and len(variants) == 3
+    assert len(variants) == 3
 
     _catalogue_row(db, "recP", "T-SKU-P", [])
     job.run(50)
@@ -229,8 +227,30 @@ def test_purge_removes_variants_only_and_keeps_originals(db, storage, source, im
     db.commit()
     assert job.purge(days=30) == 1
     assert [k for k in storage.objects if k[0] == BUCKET_IMAGES] == []
-    assert [k for k in storage.objects if k[0] == BUCKET_ORIGINALS] == originals   # never purged
     row = _q(db, "select variants_purged_at is not null, orphaned_at is not null from mirror.catalogue_images where airtable_attachment_id = 'attP'")[0]
     assert row == (True, True)
     # purging again does nothing
     assert job.purge(days=30) == 0
+
+
+@needs_db
+def test_purge_originals_empties_the_legacy_bucket(db, storage, source, images):
+    """Rows written before 2026-10-31 name an original; purge-originals empties the bucket and clears them."""
+    fetch = Fetcher({"http://img/o": images["small800.jpg"]})
+    _catalogue_row(db, "recO", "T-SKU-O", [_att("swatch", "attO", "http://img/o", 0)])
+    run_id = db.start_run("images", trigger="test", github_run_id=None, watermark_before=None)
+    job = ImageSync(db=db, storage=storage, source=source, public_base_url="https://x/cat", run_id=run_id, fetch=fetch)
+    job.run(50)
+    with db.conn.cursor() as cur:  # what a pre-010 row looked like
+        cur.execute("update mirror.catalogue_images set original_path = 'T-SKU-O/abc.jpg', master_jpg_path = 'T-SKU-O/abc_master.jpg' "
+                    "where airtable_attachment_id = 'attO'")
+    db.commit()
+    storage.objects[(BUCKET_ORIGINALS, "T-SKU-O/abc.jpg")] = (b"x", "image/jpeg")
+    storage.objects[(BUCKET_ORIGINALS, "T-SKU-O/abc_master.jpg")] = (b"x", "image/jpeg")
+    variants = sorted(k for k in storage.objects if k[0] == BUCKET_IMAGES)
+
+    assert job.purge_originals() == 1
+    assert not any(b == BUCKET_ORIGINALS for b, _p in storage.objects)
+    assert sorted(k for k in storage.objects if k[0] == BUCKET_IMAGES) == variants   # variants untouched
+    assert _q(db, "select count(*) from mirror.catalogue_images where original_path is not null or master_jpg_path is not null")[0][0] == 0
+    assert job.purge_originals() == 0
