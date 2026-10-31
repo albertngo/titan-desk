@@ -399,7 +399,25 @@ export default function Editor({
   };
 
   return (
-    <div className="page">
+    <div className={`page${version.change ? " is-change" : ""}`}>
+      {/* Editing an accepted quote (Albert, 2026-10-31: "make it a little bit more obvious"): a band that stays
+          in view while scrolling, so nobody mistakes a change for an ordinary draft. */}
+      {version.change && (
+        <div className="change-band" role="note">
+          <span className="change-band-tag">Accepted quote · Change {version.change.no}</span>
+          <span className="change-band-t">
+            {isDraft
+              ? `You are changing ${quote.customerName ? `${quote.customerName}'s` : "the customer's"} accepted quote. When sent, it goes to them as the updated quote for their records.`
+              : `This change to ${quote.customerName ? `${quote.customerName}'s` : "the customer's"} accepted quote was ${(version.status ?? "sent").toLowerCase()}.`}
+          </span>
+          {version.change.contractTotal !== null && option && t && quote.options.length === 1 && (
+            <span className={`change-band-d ${t.total >= version.change.contractTotal ? "up" : "down"}`}>
+              {t.total - version.change.contractTotal >= 0 ? "+" : "−"}
+              {money(Math.abs(t.total - version.change.contractTotal))} vs contract, with HST
+            </span>
+          )}
+        </div>
+      )}
       <div className="pagehead">
         <div className="titles">
           <Link href={backHref} className="crumb">← Back</Link>
@@ -418,12 +436,6 @@ export default function Editor({
             <p className="change-note">
               Change {version.change.no} to the accepted quote. Edit the work as usual; the customer gets it as an updated quote, for their records, and the payment schedule is worked out again on the new total.
               {" "}New work (a basement, an extra) can go on the first option or as another option after it: everything on a change is part of the project when it is sent, for the record, with nothing for the customer to accept.
-              {version.change.contractTotal !== null && option && t && quote.options.length === 1 && (
-                <span className={`chip ${t.total >= version.change.contractTotal ? "accent" : "warn"}`}>
-                  vs contract: {t.total - version.change.contractTotal >= 0 ? "+" : "−"}
-                  {money(Math.abs(t.total - version.change.contractTotal))} with HST
-                </span>
-              )}
             </p>
           )}
         </div>
@@ -912,7 +924,7 @@ export default function Editor({
             )}
             {isDraft && (
               <button className="btn primary" onClick={save} disabled={saving || !changed}>
-                {saving ? "Saving…" : "Save"}
+                {saving ? "Saving…" : version.change ? `Save change ${version.change.no}` : "Save"}
               </button>
             )}
           </div>

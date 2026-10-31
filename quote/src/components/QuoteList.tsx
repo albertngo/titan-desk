@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { whenWords } from "@/lib/activity/track";
 import { displayPhone } from "@/lib/link/identity";
-import { ago, fromWords, inFilter, matchesSearch, openedOn, QUOTE_FILTERS, type QuoteFilter, type QuoteGroup, type VersionRow } from "@/lib/quotes/group";
+import { ago, fromWords, inFilter, lastSentVersion, matchesSearch, openedOn, opensWords, QUOTE_FILTERS, type QuoteFilter, type QuoteGroup, type VersionRow } from "@/lib/quotes/group";
 
 const dateOf = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric", year: "numeric" });
 const initials = (name: string | null) =>
@@ -20,15 +20,19 @@ type OpenInfo = Pick<VersionRow, "status" | "openedCount" | "lastOpenedAt" | "tr
 const openTitle = (n: number, lastOpenedAt: string | null | undefined) =>
   `Customer opened the link ${n === 1 ? "once" : `${n} times`}${lastOpenedAt ? `, last ${whenWords(new Date(lastOpenedAt))}` : ""}`;
 
-/** Open tracking (2026-10-27): how often the customer opened a sent version's link and when last; "Not opened" once it is tracked. */
+/**
+ * Open tracking (2026-10-27): how often the customer opened this version's link and when last;
+ * "Not opened" once it is tracked. The count always shows, one open included (Albert, 2026-10-31),
+ * and each version keeps its own: a new version starts again at none.
+ */
 function Opened({ v, now }: { v: OpenInfo; now: Date }) {
   const n = v.openedCount ?? 0;
   if (n > 0) {
     const when = v.lastOpenedAt ? openedOn(v.lastOpenedAt, now) : null;
     return (
       <span className="ql-open" title={openTitle(n, v.lastOpenedAt)}>
-        Opened{n > 1 ? ` ×${n}` : ""}
-        {when && <span className="ql-open-at">{n > 1 ? `, last ${when}` : ` ${when}`}</span>}
+        Opened · {opensWords(n)}
+        {when && <span className="ql-open-at">, last {when}</span>}
       </span>
     );
   }
@@ -36,22 +40,38 @@ function Opened({ v, now }: { v: OpenInfo; now: Date }) {
   return null;
 }
 
-/** The Last opened column (2026-10-27): the current version's last open, how many in all under it. */
-function LastOpened({ v, now }: { v: OpenInfo; now: Date }) {
+/**
+ * The Last opened column (2026-10-27): the newest version that went out, its last open and how many
+ * opens it has. A newer draft doesn't blank it (Albert, 2026-10-31): the customer still has the sent
+ * one's link, so that is what shows, labelled with its version when it isn't the current one.
+ */
+function LastOpened({ versions, now }: { versions: (OpenInfo & Pick<VersionRow, "id" | "version">)[]; now: Date }) {
+  const v = lastSentVersion(versions);
+  if (!v) return <div className="ql-seen" />;
+  const which = v.id !== versions[0]?.id ? <span className="ql-seen-v">v{v.version ?? "?"}</span> : null;
   const n = v.openedCount ?? 0;
   if (n > 0) {
     const when = v.lastOpenedAt ? openedOn(v.lastOpenedAt, now) : null;
     return (
-      <div className="ql-seen" title={openTitle(n, v.lastOpenedAt)}>
+      <div className="ql-seen" title={`${v.version != null ? `v${v.version}: ` : ""}${openTitle(n, v.lastOpenedAt)}`}>
         <span className="at">
           <span className="k">Last opened: </span>
           {when ? when[0].toUpperCase() + when.slice(1) : "Opened"}
         </span>
-        <span className="mt">{n === 1 ? "1 open" : `${n} opens`}</span>
+        <span className="mt">
+          {which}
+          {opensWords(n)}
+        </span>
       </div>
     );
   }
-  return <div className="ql-seen">{v.tracked && v.status === "Sent" && <span className="none">Not opened</span>}</div>;
+  if (!(v.tracked && v.status === "Sent")) return <div className="ql-seen" />;
+  return (
+    <div className="ql-seen">
+      <span className="none">Not opened</span>
+      {which && <span className="mt">{which}</span>}
+    </div>
+  );
 }
 
 /** A version's status as a quiet dot badge; the colour carries the state, the word stays readable. */
@@ -200,7 +220,7 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
                     <Status status={latest.status} />
                     {latest.basis && <span className={`ql-basis ${latest.basis}`}>{latest.basis}</span>}
                   </div>
-                  <LastOpened v={latest} now={now} />
+                  <LastOpened versions={g.versions} now={now} />
                   <div className="ql-flags">
                     {g.linkStatus === "Needs linking" && <span className="chip bad">Needs linking</span>}
                     {g.addressStatus === "Unconfirmed" && <span className="chip warn">Address unconfirmed</span>}

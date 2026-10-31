@@ -77,6 +77,22 @@ export function versionTree<V extends Pick<VersionRow, "id" | "version" | "super
   return out;
 }
 
+/** Statuses of a version that went out to the customer, so its link can have been opened. */
+const WENT_OUT = new Set(["Sent", "Superseded", "Accepted", "Won"]);
+
+/**
+ * The version the Last opened column reports (Albert, 2026-10-31: "the last opened should still show
+ * the previous quote's details even if there's a new draft"): the newest version that went out to the
+ * customer, else one with opens recorded, else none. A draft is never it: nobody has its link.
+ * `versions` is newest first, as groupVersions leaves it.
+ */
+export function lastSentVersion<V extends Pick<VersionRow, "status" | "openedCount">>(versions: V[]): V | null {
+  return versions.find((v) => WENT_OUT.has(v.status ?? "")) ?? versions.find((v) => (v.openedCount ?? 0) > 0) ?? null;
+}
+
+/** "1 open", "3 opens": always the count, so one open reads as plainly as several. */
+export const opensWords = (n: number) => (n === 1 ? "1 open" : `${n} opens`);
+
 const byNewest = (a: VersionRow, b: VersionRow) => (b.version ?? 0) - (a.version ?? 0) || b.createdTime.localeCompare(a.createdTime);
 
 /** Versions grouped under their quote. A version with no quote is a group of its own. */

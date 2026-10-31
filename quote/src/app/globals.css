@@ -924,6 +924,15 @@ a.chip.accent:hover { text-decoration: underline; }
 .cq-change .diff, .cq-change .now { font-weight: 700; }
 .cq-change .was { color: var(--fg-faint); margin-right: 6px; }
 .cq-change > .faint { margin: 0; font-size: 13px; color: var(--fg-dim); }
+/* Editing an accepted quote (2026-10-31): an amber band pinned to the top and an amber rule down the page edge. */
+.page.is-change { box-shadow: inset 4px 0 0 var(--warn); }
+.change-band { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: -20px calc(-1 * clamp(16px, 2.5vw, 32px)) 16px; padding: 10px clamp(16px, 2.5vw, 32px); background: var(--warn-soft); border-bottom: 2px solid var(--warn); color: var(--fg); font-size: 13.5px; }
+.change-band-tag { flex: none; padding: 3px 10px; border-radius: 999px; background: var(--warn); color: #fff; font-size: 12px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; white-space: nowrap; }
+.change-band-t { flex: 1 1 280px; font-weight: 500; }
+.change-band-d { flex: none; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.change-band-d.up { color: var(--good); }
+.change-band-d.down { color: var(--bad); }
+@media (min-width: 981px) { .page.is-change .layout > .stack:nth-child(2) { top: 64px; max-height: calc(100vh - 76px); } }
 .change-note { margin: 6px 0 0; font-size: 13px; color: var(--fg-dim); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 /* the Rooms tab: a manual measurement log, room by room (2026-10-27) */
 .rm-body { display: grid; gap: 14px; }
@@ -958,6 +967,7 @@ a.chip.accent:hover { text-decoration: underline; }
 .ql-open { font-size: 11.5px; font-weight: 600; color: var(--good, #1a7f4b); white-space: nowrap; }
 .ql-open.none { color: var(--fg-dim); font-weight: 500; }
 .ql-open-at { font-weight: 500; }
+.ql-seen-v { font-weight: 600; color: var(--fg-dim); margin-right: 6px; }
 
 /* ---------- What's new (2026-10-27) ---------- */
 .changes { display: grid; gap: 12px; max-width: 820px; }
