@@ -107,6 +107,13 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   that creates the contact or opportunity (`buildGhlRequest()` in `src/lib/link/ghlRequest.ts`), so no
   GHL workflow and no Make change. Optional; a measured quote does not ask. Tested in
   `tests/ghlRequest.test.ts` and `tests/link.test.ts`.
+- **The preliminary's option is named for what it installs (Albert, 2026-10-31).** It was called
+  "Preliminary", which stayed on the tab, and on the customer's option heading, after the quote was
+  measured. `optionName()` in `src/lib/quick/plan.ts` names it from the Install rows that made it onto
+  the quote ("Install Hardwood (Nail Down)", "Install Tiles + Laminate / Vinyl / Eng Click"); a refinish
+  keeps its own words; no install row falls back to the materials, then "Stairs", then "Flooring".
+  The name never says Preliminary or Measured: that is the version's Basis. Quotes made before keep
+  their name (rename the tab in the editor). Tested in `tests/quick.test.ts`.
 - **Quick form = the preliminary (Albert, 2026-10-15; phone layout 2026-10-18).** "Job", step 1
   of a preliminary, replaces the GHL "Preliminary Mobile Quote" form and its workflow: pick flooring
   work from short lists, type square footage, add staircases, see a live estimate. Laid out for a

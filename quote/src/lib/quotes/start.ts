@@ -183,7 +183,7 @@ async function fillFromQuickForm(quoteId: string, versionId: string, work: Quick
   try {
     const [choices, products, profileRows] = await Promise.all([getQuickForm(), quickProducts(work.rows.flatMap((r) => (r.productId ? [r.productId] : []))), getStairProfiles()]);
     const profiles = new Map(profileRows.map((p) => [p.id, p]));
-    const { lines, skipped } = buildPreliminary(choices, work, products, profiles);
+    const { lines, skipped, name } = buildPreliminary(choices, work, products, profiles);
     const problems = [...skipped];
     let filled = false;
     if (lines.length > 0) {
@@ -202,7 +202,8 @@ async function fillFromQuickForm(quoteId: string, versionId: string, work: Quick
         options: [
           {
             id: "opt_quick_1",
-            name: "Preliminary",
+            // Named for what it installs (2026-10-31), never "Preliminary": the basis is the version's and changes when measured.
+            name,
             description: stairDescription(work.stairs.flatMap((s) => { const p = profiles.get(s.profileId); return p ? [profileOf(p)] : []; })),
             recommended: true,
             lines,

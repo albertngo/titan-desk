@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { optionTotals } from "../src/lib/calc";
-import { amountUnit, BASEBOARD_PER_SQFT, baseboardDefault, baseboardFollow, buildPreliminary, choiceRate, parseWork, QUICK_GROUPS, rowTotal, stairTotal, workIsEmpty, type QuickChoice, type QuickPart, type QuickProduct } from "../src/lib/quick/plan";
+import { amountUnit, BASEBOARD_PER_SQFT, baseboardDefault, baseboardFollow, buildPreliminary, choiceRate, optionName, parseWork, QUICK_GROUPS, rowTotal, stairTotal, workIsEmpty, type QuickChoice, type QuickPart, type QuickProduct } from "../src/lib/quick/plan";
 
 // INVENTED rates, costs, ids and products only: this repo is public.
 const part = (o: Partial<QuickPart> & { recordId: string }): QuickPart => ({ kind: "rate", labourType: "Install", spec: "SPEC", description: "Install | SPEC", contractor: "Crew A", uom: "sqft", rate: 2, cost: 1, minCharge: null, ...o });
@@ -153,5 +153,32 @@ describe("quick form: baseboards follow the install (2026-10-22)", () => {
     expect(baseboardFollow("200", 600, null)).toBe("");
     expect(baseboardFollow("", 600, null)).toBeNull();
     expect(baseboardFollow("", null, null)).toBeNull();
+  });
+});
+
+describe("the preliminary's option is named for what it installs (Albert, 2026-10-31)", () => {
+  it("names it from the Install rows that made it on, never Preliminary", () => {
+    const one = buildPreliminary(choices, parseWork({ rows: [{ choiceId: NAIL.id, amount: 400 }, { choiceId: BINS.id }] }), new Map());
+    expect(one.name).toBe("Install Nail down");
+    const two = buildPreliminary(choices, parseWork({ rows: [{ choiceId: NAIL.id, amount: 400 }, { choiceId: NAIL_GLUE.id, amount: 100 }, { choiceId: NAIL.id, amount: 50 }] }), new Map());
+    expect(two.name).toBe("Install Nail down + Nail + glue");
+  });
+
+  it("leaves out an install row that was skipped", () => {
+    const r = buildPreliminary(choices, parseWork({ rows: [{ choiceId: NAIL.id }, { choiceId: MAT.id, amount: 300 }] }), new Map());
+    expect(r.name).toBe("Install Vinyl click");
+  });
+
+  it("tidies Airtable's labels, keeps a refinish's own words, and adds stairs", () => {
+    expect(optionName(["Laminate | Vinyl | Eng Click", "Tiles"], [], false)).toBe("Install Laminate / Vinyl / Eng Click + Tiles");
+    expect(optionName(["Sand and Stain Existing Hardwood"], ["Solid Hardwood"], true)).toBe("Sand and Stain Existing Hardwood + Stairs");
+    expect(optionName(["Hardwood (Nail Down)", "Refinish (Buff And Polish Only)"], [], false)).toBe("Install Hardwood (Nail Down) + Refinish (Buff And Polish Only)");
+  });
+
+  it("falls back to the materials, then Stairs, then Flooring, and stays short", () => {
+    expect(optionName([], ["Engineered (Click)"], false)).toBe("Install Engineered (Click)");
+    expect(optionName([], [], true)).toBe("Stairs");
+    expect(optionName([], [], false)).toBe("Flooring");
+    expect(optionName(Array.from({ length: 9 }, (_, i) => `Long install choice ${i}`), [], false).length).toBeLessThanOrEqual(80);
   });
 });
