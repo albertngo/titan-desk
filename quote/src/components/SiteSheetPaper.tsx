@@ -326,7 +326,8 @@ function PageOne(p: PaperProps) {
           <div className="sb">
             <div className={`row${m.uc("D1")}`}><span className="k">Now {m.code("D1")}</span>{m.bubble("stringers.now", "White", "White")}{m.bubble("stringers.now", "Stained", "Stained")}{m.bubble("stringers.now", "Other", "Other")}</div>
             <div className={`row${m.uc("D2")}`}><span className="k">Made of {m.code("D2")}</span>{m.bubble("stringers.made", "Veneer", "Veneer")}{m.bubble("stringers.made", "Solid", "Solid")}{m.bubble("stringers.made", "Don't know", "Don't know")}</div>
-            <p className="lbl plain">Blank reads as veneer.</p>
+            <div className={`row${m.uc("D3")}`}><span className="k">Staircases {m.code("D3")}</span>{m.box("stringers.count", "stringers, staircases' worth", 40)}<span className="lbl plain">blank = 1 · 1.5 if there&apos;s more</span></div>
+            <p className="lbl plain">Blank reads as veneer. Priced per staircase, both sides.</p>
           </div>
         </div>
       </div>

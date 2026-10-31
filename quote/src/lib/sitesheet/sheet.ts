@@ -49,7 +49,11 @@ export type SiteSheet = {
   /** B10: the side / half staircase */ side: { steps: number | null; type: TreadType | null; width: number | null };
   /** C1 */ landings: { s3x3: number | null; s3x6: number | null; other: number | null };
   /** C2 */ halfMoons: { count: number | null; nosingFt: number | null; solid: boolean };
-  /** D1, D2 (v5: White / Stained; a blank Made of reads as veneer) */ stringers: { now: "White" | "Stained" | "Other" | null; made: "Veneer" | "Solid" | "Don't know" | null };
+  /**
+   * D1, D2 (v5: White / Stained; a blank Made of reads as veneer). D3 (2026-10-31): how many staircases' worth of
+   * stringer, blank = 1; a decimal like 1.5 for a staircase with more stringer than usual.
+   */
+  stringers: { now: "White" | "Stained" | "Other" | null; made: "Veneer" | "Solid" | "Don't know" | null; count: number | null };
   /** E1: the staircase default every piece follows unless its column says otherwise. depth null = standard 4.5" (with overlap). */
   nosingDefault: { carpet: boolean; thickness: Thickness | null; depth: number | null };
   /** E2: up to 10 pieces, one column each */ nosings: NosingPiece[];
@@ -175,7 +179,7 @@ export function cleanSheet(input: unknown): SiteSheet {
     side: { steps: num(side.steps), type: pick(side.type, TREAD_TYPES), width: num(side.width) },
     landings: { s3x3: num(land.s3x3), s3x6: num(land.s3x6), other: num(land.other) },
     halfMoons: { count: num(hm.count), nosingFt: num(hm.nosingFt), solid: bool(hm.solid) },
-    stringers: { now: pick(str.now, ["White", "Stained", "Other"] as const), made: pick(str.made, ["Veneer", "Solid", "Don't know"] as const) },
+    stringers: { now: pick(str.now, ["White", "Stained", "Other"] as const), made: pick(str.made, ["Veneer", "Solid", "Don't know"] as const), count: num(str.count) || null },
     nosingDefault: { carpet: bool(nd.carpet), thickness: pick(nd.thickness, THICKNESSES), depth: num(nd.depth) },
     nosings: pieces.filter((p) => p.ft !== null || p.depth !== null || p.thickness !== null || p.sand),
     runs: runs.filter((x) => x.ft !== null || x.where !== null || x.curved || x.pickets || x.picketFt !== null),

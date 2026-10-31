@@ -23,10 +23,29 @@ export const CHANGES: Change[] = [
   {
     date: "2026-10-31",
     kind: "changed",
+    title: "Site sheet: custom pieces, landings, stringers and step widths",
+    details: [
+      "A custom corner turn set or a solid half moon now replaces the standard piece instead of being added on top. A 2-side-open bullnose is the custom bullnose, with nothing extra.",
+      "A 3 × 6 landing is its own item (two 3 × 3s). Steps get one line per width (36\", 42\", 48\"), all at the same price. Stringers are one per staircase, both sides; a new Staircases box under Stringers takes more, like 1.5.",
+      "Carpet removal is no longer a line on stair options: it isn't charged.",
+    ],
+  },
+  {
+    date: "2026-10-31",
+    kind: "changed",
     title: "Site sheet: Build stair options is never blocked",
     details: [
       "Build stair options works as soon as a sheet is read: no Save check needed first, and edits you made on the sheet are kept.",
       "Every option the customer ticked is built, even one the checks advise against (sanding over carpet, vinyl treads on a curve). It says why on a Not advised note and is never the recommended one. With nothing ticked under G1, every option is built. The checks are there to inform; remove what you don't want in the editor.",
+    ],
+  },
+  {
+    date: "2026-10-31",
+    kind: "fixed",
+    title: "Site sheet: stair options priced from Stair Items again",
+    details: [
+      "Build stair options had left most lines unpriced (risers, landings, nosing, handrail, stringers and more) because the Stair Items had been renamed. Every line now links to its Stair Item, and renaming an item in Airtable no longer breaks it.",
+      "New wood spindles are now the one wood spindle item (material and stain included), not iron spindles plus a stain.",
     ],
   },
   {

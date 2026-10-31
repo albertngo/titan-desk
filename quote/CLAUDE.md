@@ -452,10 +452,10 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   2026-10-31: "just FYI: this is what we think, but never a restrictor for creating the stair option")**: no Save check
   needed (edits are saved first without marking the sheet checked, and a failed save doesn't stop the build), and an
   option the rules below advise against is still built with a "Not advised" note and never recommended (`buildOptions()` in `src/lib/sitesheet/options.ts`, Stair Items
-  found by name in `ITEM_NAMES`): sanding only over wood caps (never under carpet; painted wood red-flagged;
+  found in `ITEM_NAMES` by record id first, then today's name, then old names (2026-10-31: renames in Airtable had unpriced most lines)): sanding only over wood caps (never under carpet; painted wood red-flagged;
   the piano look, white risers and stringers), new caps always with new risers and recommended on a curved or
   spiral stair, vinyl treads and vinyl steps as separate options (no vinyl treads on a curve), square off bullnose a line per
-  bullnose, custom pieces an upcharge on top, stringers white → paint / stain on solid → sand & stain /
+  bullnose, custom pieces in place of the standard one, never on top (Albert, 2026-10-31: a custom corner set or a solid half moon replaces the standard piece; a 2-side-open bullnose is the custom bullnose, and "Bullnose Custom Size" was deleted from Stair Items), a 3 × 6 landing its own item "Landing (3x6)" (two 3 × 3s; another size priced as a 3 × 3 with a note), stringers one per staircase both sides (D3 takes a decimal like 1.5), steps one line per width at the one price, no carpet-removal line ever (it is not charged), stringers white → paint / stain on solid → sand & stain /
   stain on veneer or unknown → oak skin, new spindles and posts replace all plus the ones to add, a pizza set one price
   per turn, the half moon the card's all-in flat rate. An answer with no Stair Item becomes a Stairs line with
   no price and a note, never a guess. Ten such items were added to Stair Items on 2026-10-28 with blank prices for Albert to fill (carpet off the stairs, vinyl treads, vinyl flooring on steps, paint risers white, solid half-moon upgrade, pie step left, custom bullnose upcharge, wall rail bracket, refinish post, stain wood spindles), and two more with sheet v5 (square off bullnose, custom corner turn set upcharge); a blank-priced item is skipped by `getRateCard()`, so each stays an unpriced line until it is priced. Staff review and **Save as new version** in the editor as usual; the
