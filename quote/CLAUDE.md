@@ -434,7 +434,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   staircase default (carpet on now, thickness, depth 4.5" unless written) plus one column per piece (length, a
   depth or thickness only if different, Sand ticked only if kept), railing as one column per run (length, steps / flat /
   wall, curved, pickets ticked or their feet), a metal-bar tick, and optional spindle counts and picket heights, and posts) and box G, what the customer wants. Staff photograph both pages into the
-  tab (`/api/sitesheet`, signed in; photos shrunk in the browser); **Claude reads them** (`src/lib/anthropic/client.ts`,
+  tab (`/api/sitesheet`, signed in; each photo made a JPEG of at most 2000 px in the browser as it is picked, `preparePhoto()` in `src/lib/sitesheet/photo.ts`: iPhone HEIC through `heic-to`, loaded only for a HEIC, since desktop Chrome can't draw one and the API takes JPEG / PNG / WebP only, 2026-10-31); **Claude reads them** (`src/lib/anthropic/client.ts`,
   model `claude-opus-5-5`, one JSON object in the answer's text, the schema written into the message in `src/lib/sitesheet/prompt.ts` (the model refuses a forced tool call and the structured-output setting refused the sheet's 70 nullable fields), read by `jsonFromText()` and then `cleanSheet()`; server-side fallback on a refusal), the
   photos go on **Quotes → Site Sheet Photos** and what was read on **Quotes → Site Sheet** (JSON, app-written,
   compare-and-swap like Rooms; `src/lib/quotes/sitesheet.ts`). A person checks every field beside the photos

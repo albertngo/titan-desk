@@ -4,6 +4,7 @@ import { buildCatalogue } from "../src/lib/editor/model";
 import type { StairRow } from "../src/lib/quotes/types";
 import { derive } from "../src/lib/sitesheet/derive";
 import { buildOptions } from "../src/lib/sitesheet/options";
+import { looksHeic } from "../src/lib/sitesheet/photo";
 import { cleanSheet, parseStored, serializeStored, sumParts, type SiteSheet } from "../src/lib/sitesheet/sheet";
 
 /* Invented items, prices and sheets only (quote/CLAUDE.md rule 4). */
@@ -343,5 +344,14 @@ describe("handing the options to the editor", () => {
   it("uses the editor's own draft key for the version, so the editor opens with them (2026-10-28)", async () => {
     const { draftKey } = await import("../src/lib/editor/model");
     expect(draftKey({ quoteRecordId: "recVERSION0000001" })).toBe("titan-quote-draft:recVERSION0000001");
+  });
+});
+
+describe("site sheet photos", () => {
+  it("knows an iPhone HEIC photo by its type, or by its name when the browser gives no type (2026-10-31)", () => {
+    expect(looksHeic({ type: "image/heic", name: "IMG_1.HEIC" })).toBe(true);
+    expect(looksHeic({ type: "image/heif", name: "x" })).toBe(true);
+    expect(looksHeic({ type: "", name: "IMG_2.heic" })).toBe(true);
+    expect(looksHeic({ type: "image/jpeg", name: "IMG_3.jpg" })).toBe(false);
   });
 });
