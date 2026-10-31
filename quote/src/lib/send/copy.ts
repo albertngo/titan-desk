@@ -46,7 +46,14 @@ export type CopyItem = {
 };
 export type CopyText = { kind: "text"; text: string; note: string | null };
 /** `total` is null on a lump-sum quote. */
-export type CopySection = { name: string; total: number | null; lines: (CopyItem | CopyText)[] };
+/** `part`: on a joined contract (2026-10-31), which of the option's `parts` this section belongs to. */
+export type CopySection = { name: string; total: number | null; lines: (CopyItem | CopyText)[]; part?: number };
+
+/**
+ * One option inside a joined contract (Albert, 2026-10-31: "all options should stay separate… so the customer
+ * can tell what is for what"): its name, words and price before HST. Its sections carry its index as `part`.
+ */
+export type CopyPart = { name: string; description: string | null; subtotal: number; scope?: "Stairs"; part?: Part };
 
 export type CopyTotals = {
   preDiscount: number;
@@ -86,7 +93,19 @@ export type CopyOption = {
   scope?: "Stairs";
   /** The part of the home (2026-10-30); absent = the scope stands for it, as on every copy frozen before then. */
   part?: Part;
+  /**
+   * A contract of two or more options (accepted picks, or a change with new work), kept apart (2026-10-31):
+   * each option's name, words and price, its sections tagged with its index. Absent on one option, and on
+   * copies frozen before then, whose sections were merged.
+   */
+  parts?: CopyPart[];
 };
+
+/** The option's sections, by part (2026-10-31): one group per part on a joined contract, else one group of all. */
+export function partGroups(o: Pick<CopyOption, "sections" | "parts">): { part: CopyPart | null; sections: CopySection[] }[] {
+  if (!o.parts || o.parts.length < 2) return [{ part: null, sections: o.sections }];
+  return o.parts.map((part, i) => ({ part, sections: o.sections.filter((s) => s.part === i) }));
+}
 
 export type Letterhead = {
   name: string;

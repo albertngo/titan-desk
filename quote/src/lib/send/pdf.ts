@@ -4,7 +4,7 @@ import { changeWords, paidLeft, signedMoney } from "@/lib/change/diff";
 import type { Payment } from "@/lib/billing/doc";
 import { round2 } from "@/lib/calc";
 import { PAGE, PdfDoc, textWidth, wrap, type Rgb } from "./pdfDoc";
-import { discountLabel, hstRow, isLump, isSplit, scopeOf, itemHstNote, leadPrice, longDate, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyText, type CustomerCopy } from "./copy";
+import { discountLabel, hstRow, isLump, isSplit, scopeOf, itemHstNote, leadPrice, longDate, partGroups, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyText, type CustomerCopy } from "./copy";
 
 /**
  * The quote as a PDF, drawn from the customer copy only (never from live lines), so the file
@@ -196,15 +196,20 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
 
   function option(o: CopyOption, number: number | null) {
     // With flooring and stairs options (2026-10-28) the title says which: "Stairs · Option 3: Red oak caps".
-    const title = number ? `${isSplit(copy) ? `${scopeOf(o)} · ` : ""}Option ${number}: ${o.name}` : o.name;
+    // A contract of several options (Albert, 2026-10-31): titled as the project, each option its own part below.
+    const groups = partGroups(o);
+    const joined = groups.length > 1;
+    const name = joined ? "Your project" : o.name;
+    const title = number ? `${isSplit(copy) ? `${scopeOf(o)} · ` : ""}Option ${number}: ${name}` : name;
     const titleLines = wrap(title, "B", 14, RIGHT - M - (o.recommended ? 90 : 0));
     titleLines.forEach((l, k) => {
       doc.text(M, y - 4, l, { font: "B", size: 14, color: INK });
       if (k === 0 && o.recommended && number) doc.text(RIGHT, y - 4, "RECOMMENDED", { font: "B", size: 8, color: BLUE, align: "right" });
       y -= 18;
     });
-    if (o.description) {
-      for (const l of wrap(o.description, "R", 9.5, RIGHT - M)) {
+    const intro = joined ? `${groups.length} parts, each with its own work and price below. The total and the payment schedule are for the whole project.` : o.description;
+    if (intro) {
+      for (const l of wrap(intro, "R", 9.5, RIGHT - M)) {
         room(13);
         doc.text(M, y, l, { size: 9.5, color: DIM });
         y -= 13;
@@ -217,27 +222,51 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
     // then "more singled out"): the Materials section carries a blue bar down its left and says HST APPLIES, its HST
     // and its total with HST sit on a tinted band at its end, and every other section says NO HST.
     const hstInMaterials = materialsHst(o);
-    for (const s of o.sections) {
+    // The HST band once, on the last Materials section: the option's HST is for all of its material (2026-10-31, parts).
+    const lastMat = o.sections.map((x) => x.name).lastIndexOf("Materials");
+    const mats = o.sections.filter((x) => x.name === "Materials");
+    const matTotal = mats.some((x) => x.total === null) ? null : round2(mats.reduce((a, x) => a + (x.total ?? 0), 0));
+    let partNo = -1;
+    for (const [si, s] of o.sections.entries()) {
+      const g = joined && s.part !== undefined && s.part !== partNo ? groups[s.part]?.part : null;
+      if (g) {
+        partNo = s.part!;
+        const desc = g.description ? wrap(g.description, "R", 9, RIGHT - M - 16) : [];
+        if (room(48 + desc.length * 12)) tableHead(true);
+        y -= 6;
+        doc.rect(M, y - 8 - desc.length * 12, RIGHT - M, 24 + desc.length * 12, SOFT);
+        doc.line(M, y + 16, M, y - 8 - desc.length * 12, BLUE, 3);
+        doc.text(M + 10, y, `PART ${partNo + 1}`, { font: "B", size: 7.5, color: BLUE });
+        const nm = wrap(g.name, "B", 11, RIGHT - M - 170)[0] ?? "";
+        doc.text(M + 10 + textWidth(`PART ${partNo + 1}`, "B", 7.5) + 8, y, nm, { font: "B", size: 11, color: INK });
+        doc.text(RIGHT - 8, y, `${money(g.subtotal)} before HST`, { font: "B", size: 10, color: INK, align: "right" });
+        y -= 14;
+        for (const t of desc) {
+          doc.text(M + 10, y, t, { size: 9, color: DIM });
+          y -= 12;
+        }
+        y -= 12;
+      }
       if (room(40)) tableHead(true);
-      const mat = hstInMaterials && s.name === "Materials";
+      const mat = hstInMaterials && s.name === "Materials" && si === lastMat;
       const head = s.name.toUpperCase();
       const startY = y + 10;
       const startPage = doc.pageCount;
       doc.text(COL.item, y, head, { font: "B", size: 8, color: BLUE });
-      if (hstInMaterials && s.lines.some((l) => l.kind === "item")) doc.text(COL.item + textWidth(head, "B", 8) + 6, y, mat ? "·  HST APPLIES" : "·  NO HST", { font: "B", size: 7.5, color: mat ? BLUE : FAINT });
+      if (hstInMaterials && s.lines.some((l) => l.kind === "item")) doc.text(COL.item + textWidth(head, "B", 8) + 6, y, s.name === "Materials" ? "·  HST APPLIES" : "·  NO HST", { font: "B", size: 7.5, color: mat ? BLUE : FAINT });
       if (s.total !== null && s.lines.some((l) => l.kind === "item" && !l.optional)) doc.text(COL.amount - 4, y, money(s.total), { font: "B", size: 8, color: DIM, align: "right" });
       y -= 14;
       for (const l of s.lines) row(l);
       if (mat) {
         if (room(40)) tableHead(true);
-        const h = s.total !== null ? 34 : 19;
+        const h = matTotal !== null ? 34 : 19;
         doc.rect(COL.item - 6, y - h + 11, RIGHT - COL.item + 6, h, SOFT);
         doc.text(COL.item, y, "HST (13%) on materials only", { size: 9, color: INK });
         doc.text(COL.amount - 4, y, money(o.totals.hst), { size: 9, color: INK, align: "right" });
         y -= 15;
-        if (s.total !== null) {
-          doc.text(COL.item, y, "Materials with HST", { font: "B", size: 9, color: INK });
-          doc.text(COL.amount - 4, y, money(round2(s.total + o.totals.hst)), { font: "B", size: 9, color: INK, align: "right" });
+        if (matTotal !== null) {
+          doc.text(COL.item, y, mats.length > 1 ? "All materials with HST" : "Materials with HST", { font: "B", size: 9, color: INK });
+          doc.text(COL.amount - 4, y, money(round2(matTotal + o.totals.hst)), { font: "B", size: 9, color: INK, align: "right" });
           y -= 15;
         }
         // The bar, on this page only: a section split across pages gets none rather than a broken one.

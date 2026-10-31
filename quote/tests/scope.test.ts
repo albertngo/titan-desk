@@ -247,6 +247,9 @@ describe("the contract", () => {
     expect(view.sentOn).toBe("2026-10-29");
     expect(view.options[0].name).toBe("Walnut + Red oak caps");
     expect(view.options[0].sections.map((s) => s.name)).toEqual(["Install", "Stairs"]);
+    // Each option stays its own part (2026-10-31), with its own price.
+    expect(view.options[0].sections.map((s) => s.part)).toEqual([0, 1]);
+    expect(view.options[0].parts?.map((p) => [p.name, p.subtotal])).toEqual([["Walnut", v8.options[0].totals.subtotal], ["Red oak caps", v5.options[2].totals.subtotal]]);
     expect(contractVersions(k)).toEqual(["recV8", "recV5"]);
     expect(contractOn(k)).toBe("2026-10-30");
     expect(contractView(k, { recV8: v8 })).toBeNull();

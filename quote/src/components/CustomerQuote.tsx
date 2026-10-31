@@ -1,6 +1,6 @@
 import { changeWords, itemDifference, paidLeft, signedMoney, type CopyChange } from "@/lib/change/diff";
 import { money, rate } from "@/lib/format";
-import { discountLabel, hstRow, isLump, isSplit, scopeHeading, scopeOf, scopesOf, itemHstNote, leadPrice, longDate, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyState, type CopyText, type CustomerCopy } from "@/lib/send/copy";
+import { discountLabel, hstRow, isLump, isSplit, scopeHeading, scopeOf, scopesOf, itemHstNote, leadPrice, longDate, partGroups, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyState, type CopyText, type CustomerCopy } from "@/lib/send/copy";
 
 /**
  * The quote as the customer sees it, drawn from the frozen customer copy only. Used by the
@@ -165,30 +165,65 @@ function ChangeBox({ c, o, lump }: { c: CopyChange; o: CopyOption; lump: boolean
   );
 }
 
-function OptionBlock({ o, i, copy }: { o: CopyOption; i: number | null; copy: CustomerCopy }) {
+function Sections({ sections }: { sections: CopyOption["sections"] }) {
   return (
-    <section className="cq-card cq-opt" id={i ? `option-${i}` : undefined} aria-labelledby={`opt-h-${i ?? 0}`}>
-      <header>
-        <h2 id={`opt-h-${i ?? 0}`}>
-          {i && <span className="cq-num">{isSplit(copy) ? `${scopeOf(o)} · ` : ""}Option {i}</span>}
-          {o.name}
-        </h2>
-        {o.recommended && i && <span className="cq-rec">Recommended</span>}
-        {o.description && <p>{o.description}</p>}
-      </header>
-      {o.sections.map((s) => (
-        <div className="cq-sec" key={s.name}>
+    <>
+      {sections.map((s, k) => (
+        <div className="cq-sec" key={`${s.name}-${k}`}>
           <h3>
             <span>{s.name}</span>
             {s.total !== null && s.lines.some((l) => l.kind === "item" && !l.optional) && <span className="st">{money(s.total)}</span>}
           </h3>
           <ul>
-            {s.lines.map((l, k) => (
-              <Line key={k} l={l} />
+            {s.lines.map((l, j) => (
+              <Line key={j} l={l} />
             ))}
           </ul>
         </div>
       ))}
+    </>
+  );
+}
+
+function OptionBlock({ o, i, copy }: { o: CopyOption; i: number | null; copy: CustomerCopy }) {
+  const groups = partGroups(o);
+  // A contract of several options (Albert, 2026-10-31): each keeps its own heading, words, work and price, then one total.
+  const joined = groups.length > 1;
+  return (
+    <section className="cq-card cq-opt" id={i ? `option-${i}` : undefined} aria-labelledby={`opt-h-${i ?? 0}`}>
+      <header>
+        <h2 id={`opt-h-${i ?? 0}`}>
+          {i && <span className="cq-num">{isSplit(copy) ? `${scopeOf(o)} · ` : ""}Option {i}</span>}
+          {joined ? "Your project" : o.name}
+        </h2>
+        {o.recommended && i && <span className="cq-rec">Recommended</span>}
+        {joined ? (
+          <p>
+            {groups.length} parts, each with its own work and price below. The total and the payment schedule are for the whole project.
+          </p>
+        ) : (
+          o.description && <p>{o.description}</p>
+        )}
+      </header>
+      {groups.map((g, k) =>
+        g.part ? (
+          <div className="cq-part" key={k}>
+            <div className="cq-part-h">
+              <h3>
+                <span className="cq-num">Part {k + 1}</span>
+                {g.part.name}
+              </h3>
+              <span className="cq-part-p">
+                {money(g.part.subtotal)} <span className="faint">before HST</span>
+              </span>
+            </div>
+            {g.part.description && <p className="cq-part-d">{g.part.description}</p>}
+            <Sections sections={g.sections} />
+          </div>
+        ) : (
+          <Sections key={k} sections={g.sections} />
+        ),
+      )}
       <Totals o={o} copy={copy} />
       {o.exclusions.length > 0 && (
         <div className="cq-excl">

@@ -8,7 +8,7 @@ import type { EditorLine, EditorOption, EditorQuote } from "../src/lib/editor/mo
 import { money } from "../src/lib/format";
 import { fixedSchedule, restagedSchedule, scheduleProblems } from "../src/lib/pricing/schedule";
 import type { Quote, QuoteLine, QuoteOption } from "../src/lib/quotes/types";
-import { customerCopy, stagesOf, type CustomerCopy, type Letterhead } from "../src/lib/send/copy";
+import { customerCopy, partGroups, stagesOf, type CustomerCopy, type Letterhead } from "../src/lib/send/copy";
 import { quotePdf } from "../src/lib/send/pdf";
 import { changeEmailMessage, changeSmsMessage, sendProblems } from "../src/lib/send/plan";
 
@@ -169,17 +169,23 @@ describe("the change's payment schedule", () => {
 });
 
 describe("sending a change", () => {
-  it("needs no good-until date; any option after the first is new work joining the project, unless the customer already has its Part", () => {
+  it("needs no good-until date; every option goes, each for its own Part (2026-10-31: options stay apart)", () => {
     const ok = sendProblems(quote([install]), { base: "b", validUntil: null, channels: { email: true, sms: true } }, { today: "2026-11-10", fingerprint: "b" });
     expect(ok).toEqual([]);
-    const send = (q: ReturnType<typeof quote>, parts: string[], ids: string[] | null = null) =>
-      sendProblems(q, { base: "b", validUntil: null, channels: { email: true, sms: false }, optionIds: ids }, { today: "2026-11-10", fingerprint: "b", contractParts: parts }).join(" ");
-    const extra = quote([install], { options: [option([install]), { ...option([stairs]), id: "recOPTVINYL000000", name: "Vinyl" }] });
-    expect(send(extra, ["Flooring"])).toBe("");
-    const basement = quote([install], { options: [option([install]), { ...option([install]), id: "recOPTBASE0000000", name: "Basement vinyl", part: "Basement" }] });
-    expect(send(basement, ["Flooring"])).toBe("");
-    expect(send(basement, ["Upstairs", "Basement"])).toMatch(/already has/);
-    expect(send(basement, ["Flooring"], ["recOPTBASE0000000"])).toMatch(/always goes with a change/);
+    const send = (q: ReturnType<typeof quote>, ids: string[] | null = null) =>
+      sendProblems(q, { base: "b", validUntil: null, channels: { email: true, sms: false }, optionIds: ids }, { today: "2026-11-10", fingerprint: "b" }).join(" ");
+    // The upstairs the customer has, carried as its own option, and the basement as new work beside it.
+    const upstairs = { ...option([install]), part: "Upstairs" as const };
+    const basement = quote([install], { options: [upstairs, { ...option([install]), id: "recOPTBASE0000000", name: "Basement vinyl", part: "Basement" }] });
+    expect(send(basement)).toBe("");
+    expect(send(basement, [upstairs.id])).toMatch(/Everything on a change is the project: tick Basement vinyl/);
+    expect(send(basement, ["recOPTBASE0000000"])).toMatch(/Everything on a change is the project/);
+    // A second option for a Part the project already has would be an alternative: refused.
+    const twice = quote([install], { options: [upstairs, { ...option([install]), id: "recOPTUP200000000", name: "Upstairs oak", part: "Upstairs" }] });
+    expect(send(twice)).toMatch(/are both for the upstairs/);
+    // A Not offered option stays off and needs no tick.
+    const parked = quote([install], { options: [upstairs, { ...option([install]), id: "recOPTPARK0000000", name: "Parked", notOffered: true }] });
+    expect(send(parked)).toBe("");
   });
 
   it("can never be accepted: it is sent for the record", () => {
@@ -366,6 +372,35 @@ describe("new work on a change, for the record", () => {
     expect(joinChange(one)).toEqual(one);
     // Never anything to accept.
     expect(notAcceptable({ ...j, change: changeSummary(1, "2026-11-03", before, j.options[0]) }, "open", { id: "recTermsAAAAAAAAA", on: "2026-10-27" })).toMatch(/nothing to accept/);
+  });
+
+  it("keeps each option apart (Albert, 2026-10-31): its own sections, words and price, never merged with the other's", () => {
+    const j = joinChange(two);
+    const o = j.options[0];
+    expect(o.parts?.map((p) => p.name)).toEqual(["Oak", "Basement vinyl"]);
+    expect(o.parts?.map((p) => p.subtotal)).toEqual([two.options[0].totals.subtotal, two.options[1].totals.subtotal]);
+    expect(round2(o.parts!.reduce((a, p) => a + p.subtotal, 0))).toBe(o.totals.subtotal);
+    // Both options have an Install section: there are two, each tagged with its own part, not one holding both.
+    const installs = o.sections.filter((x) => x.name === two.options[0].sections[0].name);
+    expect(installs.map((x) => x.part)).toEqual([0, 1]);
+    const groups = partGroups(o);
+    expect(groups.map((g) => g.part?.name)).toEqual(["Oak", "Basement vinyl"]);
+    expect(groups[1].sections.flatMap((x) => x.lines).map((l) => (l.kind === "item" ? l.description : ""))).toEqual(["Basement vinyl install"]);
+    // One option is one group, with no parts.
+    expect(partGroups(customerCopy(quote([install]), at).options[0]).map((g) => g.part)).toEqual([null]);
+  });
+
+  it("shows each part on the PDF and in the change email, with its price before HST", () => {
+    const j = joinChange(two);
+    const c: CustomerCopy = { ...j, change: changeSummary(1, "2026-11-03", before, j.options[0]) };
+    const pdf = new TextDecoder("latin1").decode(quotePdf(c));
+    expect(pdf).toContain("PART 1");
+    expect(pdf).toContain("PART 2");
+    expect(pdf).toContain("Your project");
+    const m = changeEmailMessage(c, { contactId: "c", firstName: "Sam", link: "https://quote.example/c/x" });
+    if (m.type !== "Email") throw new Error("expected an email");
+    expect(m.html).toContain("Your project, part by part");
+    expect(m.html).toContain("Part 2: Basement vinyl");
   });
 
   it("says what has been paid and what is left, when the payments could be read", () => {
