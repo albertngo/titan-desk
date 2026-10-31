@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ago, fromLabel, fromWords, groupVersions, inFilter, matchesSearch, openedOn, versionTree, type QuoteHead, type VersionRow } from "../src/lib/quotes/group";
+import { ago, fromLabel, fromWords, groupVersions, inFilter, lastSentVersion, matchesSearch, openedOn, opensWords, versionTree, type QuoteHead, type VersionRow } from "../src/lib/quotes/group";
 
 // INVENTED people and numbers only: this repo is public.
 const V = (o: Partial<VersionRow> & { id: string; quoteRecordId: string | null }): VersionRow & { quoteRecordId: string | null } => ({ label: null, version: 1, status: "Draft", basis: "Preliminary", optionCount: 1, createdTime: "2026-10-01T00:00:00Z", ...o });
@@ -122,5 +122,25 @@ describe("versionTree", () => {
   it("shows every version once even if the links loop", () => {
     const out = versionTree([T("x", 1, "y"), T("y", 2, "x"), T("z", 3, "z")]);
     expect(out.map(({ v }) => v.id).sort()).toEqual(["x", "y", "z"]);
+  });
+});
+
+describe("Last opened follows the version the customer has (2026-10-31)", () => {
+  it("skips a newer draft and reports the newest version that went out", () => {
+    const vs = [
+      { id: "d3", status: "Draft", openedCount: 0 },
+      { id: "s2", status: "Sent", openedCount: 2 },
+      { id: "s1", status: "Superseded", openedCount: 5 },
+    ];
+    expect(lastSentVersion(vs)?.id).toBe("s2");
+  });
+  it("reports an accepted or won version under a draft change", () => {
+    expect(lastSentVersion([{ id: "c1", status: "Draft" }, { id: "a", status: "Won", openedCount: 3 }])?.id).toBe("a");
+  });
+  it("is none for a quote that has only drafts", () => {
+    expect(lastSentVersion([{ id: "d1", status: "Draft" }])).toBeNull();
+  });
+  it("always gives the count, one open included", () => {
+    expect([opensWords(1), opensWords(4)]).toEqual(["1 open", "4 opens"]);
   });
 });

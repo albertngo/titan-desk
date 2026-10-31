@@ -214,6 +214,11 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   The Send card shows the activity once sent, and All quotes has a **Last opened** column (the current version's last open and how many in all) and marks opened versions in each quote's version list (`openedOn()` in `src/lib/quotes/group.ts`); staff opening a
   link from the Send card add `#staff`, which is never counted. Rules in `src/lib/activity/track.ts`,
   tested in `tests/activity.test.ts`.
+  **Counts always show, and a draft never blanks Last opened (Albert, 2026-10-31).** Each version in the list
+  reads "Opened · 1 open, last today 2:14 pm" (`opensWords()`), its own count, a new version starting at none.
+  The Last opened column reports the newest version that went out (`lastSentVersion()` in `group.ts`: Sent,
+  Superseded, Accepted or Won), so a newer draft or draft change leaves the customer's last open showing,
+  labelled with its version (e.g. v2) when it isn't the current one. Tested in `tests/group.test.ts`.
 - **Customer view (Albert, 2026-10-15).** A switch in the top bar, kept per device in the
   `quote_view` cookie. While on, the server renders no cost, margin, profit, contractor, card rate,
   flags or checks, on every page including the editor: they are not hidden, they are not sent.
@@ -524,6 +529,10 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   `OPP_FIELDS.projectNumber` and `ACCEPT_FIELDS.notionProjectUrl`), fills them in (blanks only; a PP
   number is never overwritten) and the accepted version becomes **Won**. It keeps looking until it has both (Notion page links are notion.so, notion.site or app.notion.com). Any linked quote without a CompanyCam link copies the opportunity's (2026-10-27: a quote started in the app and never booked has none of its own). All quotes files a quote under
   **Accepted** (yes, no PP number yet) or **Won** (has one). Rule: `projectPickup()` in `src/lib/link/refresh.ts`.
+- **Editing a change is marked (Albert, 2026-10-31: "make it a little bit more obvious").** The editor of a change
+  carries an amber band pinned to the top ("Accepted quote · Change N", whose accepted quote it is, and the
+  difference against the contract with HST), an amber rule down the page edge, and **Save change N** as its save
+  button. Display only (`.change-band` in `globals.css`).
 - **Changes after acceptance (Albert, 2026-10-27: "verbal, sent for record").** The accepted version
   stays frozen. **Make a change** on the contract version starts a new version of the same quote,
   numbered (Quote Versions → **Change No** 1, 2, …): only the accepted option, its ticked add-ons now part
