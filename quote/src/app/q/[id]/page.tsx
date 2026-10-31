@@ -5,6 +5,7 @@ import { AcceptedCard, AcceptForCustomer, ChangeCard, PutOnContract } from "@/co
 import { AddressScan } from "@/components/AddressScan";
 import { BillingCard } from "@/components/BillingCard";
 import { Analysis } from "@/components/Analysis";
+import { CompanyCamPhotos } from "@/components/CompanyCamPhotos";
 import { ConversationDrawer } from "@/components/Conversation";
 import { CustomerCard } from "@/components/CustomerCard";
 import { Financials } from "@/components/Financials";
@@ -27,6 +28,7 @@ import { getQuote, getRateCard } from "@/lib/quotes/load";
 import { sheetReaderOn } from "@/lib/quotes/sitesheet";
 import { parseStored } from "@/lib/sitesheet/sheet";
 import { refreshFromGhl } from "@/lib/quotes/refresh";
+import { loadCompanyCam } from "@/lib/quotes/companycam";
 import { customerView } from "@/lib/view";
 import { fromQuote } from "@/lib/editor/model";
 import { fingerprint } from "@/lib/quotes/savePlan";
@@ -62,7 +64,10 @@ export default async function QuotePage({
   const showRooms = opt === "rooms" && !customer;
   // The Site sheet tab (2026-10-28): staff only, like Rooms.
   const showSheet = opt === "sheet" && !customer;
-  const option = showAnalysis || showRooms || showSheet ? null : (quote.options.find((o) => o.id === opt) ?? quote.options[0] ?? null);
+  // The Photos tab (2026-10-30): the job's CompanyCam project, staff only, on a quote that links one.
+  const camUrl = quote.link?.companyCamUrl ?? null;
+  const showPhotos = opt === "photos" && !customer && Boolean(camUrl);
+  const option = showAnalysis || showRooms || showSheet || showPhotos ? null : (quote.options.find((o) => o.id === opt) ?? quote.options[0] ?? null);
   const tabGroups = scopeGroups(quote.options);
   const totals = option ? optionTotals(option.lines, quote.discountRate, quote.showHst) : null;
   const madeFrom = fromWords(quote.changeNo, null);
@@ -133,6 +138,8 @@ export default async function QuotePage({
   const sheetRaw = quote.link?.siteSheet ?? "";
   const sheetStored = parseStored(sheetRaw);
   const [sheetCard, sheetOn] = showSheet && quote.link ? await Promise.all([getRateCard(), sheetReaderOn()]) : [null, false];
+  // CompanyCam is read only when the Photos tab is open, so it never slows a quote opening.
+  const camPhotos = showPhotos ? await loadCompanyCam(camUrl) : null;
 
   // Acceptance (2026-10-27): on a measured version out with the customer, accept with them or for them;
   // once accepted, what was agreed and where the hand-off to GHL and Notion stands. Staff only.
@@ -283,6 +290,11 @@ export default async function QuotePage({
                     {sheetStored && <span className="t-amt">{sheetStored.checked ? "checked" : "to check"}</span>}
                   </Link>
                 )}
+                {!customer && camUrl && (
+                  <Link className="tab photos" href={`/q/${quote.id}?opt=photos`} aria-current={showPhotos ? "page" : undefined}>
+                    Photos
+                  </Link>
+                )}
                 {quote.options.length > 0 && (
                   <Link className="tab anal" href={`/q/${quote.id}?opt=analysis`} aria-current={showAnalysis ? "page" : undefined}>
                     Analysis
@@ -291,7 +303,9 @@ export default async function QuotePage({
               </nav>
             )}
 
-            {showSheet ? (
+            {showPhotos && camPhotos && camUrl ? (
+              <CompanyCamPhotos result={camPhotos} linkUrl={camUrl} />
+            ) : showSheet ? (
               quote.link && sheetCard ? (
                 <SiteSheetTab
                   quoteRecordId={quote.link.quoteRecordId}

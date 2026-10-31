@@ -22,6 +22,16 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-10-30",
+    kind: "new",
+    title: "Photos tab: the job's CompanyCam photos in the app",
+    details: [
+      "A quote with a CompanyCam project has a Photos tab beside Site sheet. It shows every photo on the project by day, newest first, each with the time it was taken, who took it and its description, like CompanyCam's own timeline.",
+      "Tap a photo to see it large and use the arrows (or swipe) to go through them. A marked-up photo shows its markup. The search box finds photos by description, person or tag.",
+      "Read-only: taking, describing and tagging photos stays in CompanyCam (Open in CompanyCam, top right).",
+    ],
+  },
+  {
+    date: "2026-10-30",
     kind: "changed",
     title: "Stairs options add stair items only, by category",
     details: [
