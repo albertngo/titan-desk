@@ -7,11 +7,11 @@ import { displayPhone } from "@/lib/link/identity";
 import { stageFor, TIMINGS, type Timing } from "@/lib/link/lead";
 import { isOrigin, ORIGINS, replaceable } from "@/lib/link/origin";
 import type { NewQuoteKind } from "@/lib/link/newQuote";
-import type { QuickChoice, QuickProfile } from "@/lib/quick/plan";
+import { distinctNames, MAX_QUICK_OPTIONS, type QuickChoice, type QuickProfile } from "@/lib/quick/plan";
 import type { CustomerSearch, FoundCustomer } from "@/lib/quotes/types";
 import { money } from "@/lib/format";
 import { Conversation } from "./Conversation";
-import { estimateWork, initialWork, QuickWork, workInput, type WorkState } from "./QuickWork";
+import { copyWork, estimateWork, initialWork, QuickWork, workInput, type WorkState } from "./QuickWork";
 
 type Choice = { contactId: string; opportunityId: string | null } | { newCustomer: true } | null;
 
@@ -26,7 +26,10 @@ const blankCustomer = { firstName: "", lastName: "", phone: "", email: "", addre
  */
 export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = false }: { ghlWrites: boolean; choices: QuickChoice[]; profiles: QuickProfile[]; kind: NewQuoteKind; conversation?: boolean }) {
   const prelim = kind === "preliminary";
-  const [work, setWork] = useState<WorkState>(() => initialWork(choices));
+  /** One quick form per option (Albert, 2026-10-31): tabs over the Job card; each becomes an option of v1. */
+  const [works, setWorks] = useState<WorkState[]>(() => [initialWork(choices)]);
+  const [tab, setTab] = useState(0);
+  const work = works[Math.min(tab, works.length - 1)];
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<CustomerSearch | null>(null);
   const [searching, startSearch] = useTransition();
@@ -66,7 +69,7 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
 
   function create(forceNew = false) {
     setError(null);
-    const shared = { timing, kind: prelim ? "preliminary" : "measured", work: prelim ? workInput(work) : undefined, origin: prelim && origin ? origin : undefined };
+    const shared = { timing, kind: prelim ? "preliminary" : "measured", works: prelim ? works.map(workInput) : undefined, origin: prelim && origin ? origin : undefined };
     const input = picked
       ? { ...shared, contactId: picked.contact.id, opportunityId: (choice as { opportunityId: string | null }).opportunityId, addressConfirmed: confirmed }
       : { ...shared, newCustomer: nc, forceNew };
@@ -84,7 +87,27 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
 
   const linked = picked !== null && (choice as { opportunityId: string | null }).opportunityId !== null;
   const ready = timing !== null && (picked !== null || (isNew && (nc.firstName.trim() || nc.lastName.trim()) && (nc.phone.trim() || nc.email.trim())));
-  const estimate = prelim ? estimateWork(choices, profiles, work) : null;
+  const estimates = prelim ? works.map((w) => estimateWork(choices, profiles, w)) : [];
+  const names = distinctNames(estimates);
+  const estimate = prelim ? estimates[Math.min(tab, works.length - 1)] : null;
+
+  /** A tab's change. Building and the description are the quote's, so a change to either goes on every tab. */
+  function setWork(next: WorkState) {
+    const at = Math.min(tab, works.length - 1);
+    setWorks(works.map((w, i) => (i === at ? next : { ...w, building: next.building, description: next.description })));
+  }
+  function addWork(from: WorkState | null) {
+    if (works.length >= MAX_QUICK_OPTIONS) return;
+    const blank = initialWork(choices);
+    const next = from ? copyWork(from) : { ...blank, building: work.building, description: work.description };
+    setWorks([...works, next]);
+    setTab(works.length);
+  }
+  function removeWork(at: number) {
+    if (works.length < 2 || !window.confirm(`Remove option ${at + 1}, ${names[at]}?`)) return;
+    setWorks(works.filter((_, i) => i !== at));
+    setTab(Math.max(0, Math.min(tab > at ? tab - 1 : tab, works.length - 2)));
+  }
 
   // Sections in order (Albert, 2026-10-18): Job → Customer → Timeline. The job card is only on a
   // preliminary, so the numbers are counted, not typed.
@@ -109,7 +132,27 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
         <section className="card">
           <div className="card-h">1 · Job <span className="right">Preliminary, not measured</span></div>
           <div className="card-b">
-            <QuickWork choices={choices} profiles={profiles} value={work} onChange={setWork} />
+            {/* Several options from one form (2026-10-31): a tab each, named for what it installs. */}
+            <nav className="tabs nq-tabs" aria-label="Options">
+              {works.map((w, i) => (
+                <button key={i} type="button" className="tab" aria-current={i === Math.min(tab, works.length - 1) ? "page" : undefined} onClick={() => setTab(i)}>
+                  <span className="t-part">Option {i + 1}</span>
+                  {estimates[i].lines > 0 ? names[i] : "Nothing yet"}
+                  {estimates[i].lines > 0 && <span className="t-amt">{money(estimates[i].total)}</span>}
+                </button>
+              ))}
+              {works.length < MAX_QUICK_OPTIONS && (
+                <>
+                  <span className="tab-sep" aria-hidden />
+                  <button type="button" className="tab" onClick={() => addWork(null)}>+ Another option</button>
+                  <button type="button" className="tab" onClick={() => addWork(work)} title="A copy of this option, to change a few things">Duplicate</button>
+                </>
+              )}
+              {works.length > 1 && (
+                <button type="button" className="tab nq-tab-x" onClick={() => removeWork(Math.min(tab, works.length - 1))}>Remove option {Math.min(tab, works.length - 1) + 1}</button>
+              )}
+            </nav>
+            <QuickWork key={Math.min(tab, works.length - 1)} choices={choices} profiles={profiles} value={work} onChange={setWork} quoteWide={works.length > 1 ? "shared" : "one"} />
           </div>
         </section>
       )}
@@ -298,7 +341,7 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
       <div className="qw-foot" aria-live="polite">
         {estimate ? (
           <div className="est">
-            <span className="k">Preliminary estimate</span>
+            <span className="k">{works.length > 1 ? `Option ${Math.min(tab, works.length - 1) + 1} of ${works.length}` : "Preliminary estimate"}</span>
             <b>{money(estimate.total)}</b>
             <span className="faint">{estimate.lines} line{estimate.lines === 1 ? "" : "s"}, before discount and HST</span>
           </div>
@@ -309,7 +352,7 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
           </div>
         )}
         <button className="btn primary" type="button" disabled={!ready || creating} onClick={() => create()}>
-          {creating ? "Creating…" : prelim ? "Create preliminary" : "Create quote"}
+          {creating ? "Creating…" : prelim ? (works.length > 1 ? `Create preliminary, ${works.length} options` : "Create preliminary") : "Create quote"}
         </button>
       </div>
     </div>

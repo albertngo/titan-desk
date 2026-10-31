@@ -3,13 +3,16 @@
 import Link from "next/link";
 import { addChoices, sectionLinesInOrder, stairGroupLabel, stairGroups, type AddChoice } from "@/lib/editor/stairGroups";
 import { Fragment, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { saveAsNewVersionAction, saveVersionAction } from "@/app/q/[id]/edit/actions";
+import { quickFormAction, quickOptionAction, saveAsNewVersionAction, saveVersionAction } from "@/app/q/[id]/edit/actions";
+import { estimateWork, initialWork, QuickWork, workInput, type WorkState } from "@/components/QuickWork";
+import type { QuickChoice, QuickProfile } from "@/lib/quick/plan";
 import { Financials } from "@/components/Financials";
 import { DEFAULT_PRIVATE_LABEL, PRIVATE_SECTION, SECTIONS, isPriced, lineCost, lineFlags, lineTotal, optionTotals, privateRollup, sectionOf, stageAmounts } from "@/lib/calc";
 import { manualLine,
   UOMS,
   addLine,
   addLines,
+  addBuiltOption,
   addOption,
   buildCatalogue,
   compareCrews,
@@ -162,6 +165,10 @@ export default function Editor({
   const [activeId, setActiveId] = useState<string | null>(quote.options[0]?.id ?? null);
   const [picking, setPicking] = useState<AddChoice | null>(null);
   const [newExclusion, setNewExclusion] = useState("");
+  /** + From quick form (2026-10-31): the preliminary's screen, opened beside the tabs to build one more option. */
+  const [quick, setQuick] = useState<{ choices: QuickChoice[]; profiles: QuickProfile[]; work: WorkState } | "loading" | null>(null);
+  const [quickNote, setQuickNote] = useState<string | null>(null);
+  const [addingQuick, startQuick] = useTransition();
 
   // The rate card and the stair items, for the picker and for re-pricing (service level, contractor, material).
   const catalogue = useMemo(() => buildCatalogue(card.rates, card.stairs, card.materials), [card]);
@@ -520,7 +527,64 @@ export default function Editor({
             >
               + Add option
             </button>
+            <button
+              className="tab"
+              aria-expanded={quick !== null}
+              disabled={quick === "loading"}
+              title="Build an option with the preliminary's quick form"
+              onClick={() => {
+                setQuickNote(null);
+                if (quick !== null) return setQuick(null);
+                setQuick("loading");
+                startQuick(async () => {
+                  const f = await quickFormAction().catch(() => null);
+                  if (!f || f.choices.length === 0) {
+                    setQuick(null);
+                    setQuickNote("The quick form couldn't be opened. Try again in a moment.");
+                  } else setQuick({ ...f, work: initialWork(f.choices) });
+                });
+              }}
+            >
+              {quick === "loading" ? "Opening…" : "+ From quick form"}
+            </button>
           </nav>
+
+          {quickNote && <div className="banner warn" role="status">{quickNote}</div>}
+          {quick !== null && quick !== "loading" && (() => {
+            const est = estimateWork(quick.choices, quick.profiles, quick.work);
+            return (
+              <section className="card ed-quick" aria-label="New option from the quick form">
+                <div className="card-h">
+                  New option from the quick form
+                  <span className="right">{est.lines > 0 ? `${est.name} · ${money(est.total)} before discount and HST` : "Pick the work"}</span>
+                </div>
+                <div className="card-b">
+                  <QuickWork choices={quick.choices} profiles={quick.profiles} value={quick.work} onChange={(w) => setQuick({ ...quick, work: w })} quoteWide="hidden" />
+                  <div className="ed-quick-foot">
+                    <button type="button" className="btn" onClick={() => setQuick(null)} disabled={addingQuick}>Cancel</button>
+                    <button
+                      type="button"
+                      className="btn primary"
+                      disabled={addingQuick || est.lines === 0}
+                      onClick={() =>
+                        startQuick(async () => {
+                          const r = await quickOptionAction(workInput(quick.work), quote.options.map((o) => o.name));
+                          if (!r.ok) return setQuickNote(r.message);
+                          const next = addBuiltOption(quote, r.option);
+                          apply(next);
+                          setActiveId(next.options[next.options.length - 1].id);
+                          setQuick(null);
+                          setQuickNote(r.skipped.length ? `Added. Left out: ${r.skipped.join("; ")}.` : null);
+                        })
+                      }
+                    >
+                      {addingQuick ? "Adding…" : "Add this option"}
+                    </button>
+                  </div>
+                </div>
+              </section>
+            );
+          })()}
 
           {option && t ? (
             <>

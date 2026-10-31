@@ -1157,3 +1157,10 @@ a.chip.accent:hover { text-decoration: underline; }
 .no-offer-banner { margin: 0; padding: 10px 14px; border-radius: 10px; border: 2px dashed var(--fg-faint); background: var(--card-2); color: var(--fg-dim); font-size: 13.5px; }
 .no-offer-banner b { color: var(--fg); }
 .no-offer-card { border-style: dashed; border-color: var(--fg-faint); }
+
+/* Several options from one quick form (2026-10-31): tabs over the Job card, and the editor's + From quick form panel. */
+.nq-tabs { flex-wrap: wrap; margin-bottom: 14px; }
+.nq-tab-x { color: var(--bad); }
+.nq-tab-x:hover { border-color: var(--bad); color: var(--bad); }
+.ed-quick { margin-top: 12px; }
+.ed-quick-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }

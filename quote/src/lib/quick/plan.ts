@@ -151,7 +151,35 @@ function blank(section: string): Omit<EditorLine, "description" | "sourceKind"> 
   };
 }
 
-export type BuildResult = { lines: EditorLine[]; skipped: string[] };
+export type BuildResult = { lines: EditorLine[]; skipped: string[]; name: string; materials: string[] };
+
+/** Install choices that aren't an install: their label already says the work. */
+const NOT_INSTALL = /^(sand|refinish|stain|buff|install)\b/i;
+const MAX_NAME = 80;
+
+/**
+ * The preliminary's option name, from what it installs (Albert, 2026-10-31): the option used to be
+ * called "Preliminary", which stayed on the tab (and the customer's heading) after the quote was
+ * measured. Built from the Install rows that made it onto the quote, in form order:
+ * "Install Hardwood (Nail Down)", "Install Tiles + Laminate / Vinyl / Eng Click". A refinish keeps
+ * its own words. No install row: the materials ("Install Engineered (Click)"), else "Stairs" for a
+ * stairs-only job, else "Flooring". Never says Preliminary or Measured: the basis is the version's.
+ */
+export function optionName(installs: string[], materials: string[], hasStairs: boolean): string {
+  const tidy = (s: string) => s.replace(/\s*\|\s*/g, " / ").replace(/\s+/g, " ").trim();
+  const uniq = (xs: string[]) => [...new Set(xs.map(tidy).filter(Boolean))];
+  const work = uniq(installs);
+  const done = work.filter((w) => NOT_INSTALL.test(w));
+  const put = work.filter((w) => !NOT_INSTALL.test(w));
+  const mats = put.length === 0 && done.length === 0 ? uniq(materials) : [];
+  const parts = [
+    ...(put.length ? [`Install ${put.join(" + ")}`] : mats.length ? [`Install ${mats.join(" + ")}`] : []),
+    ...done,
+    ...(hasStairs ? ["Stairs"] : []),
+  ];
+  const name = parts.join(" + ") || "Flooring";
+  return name.length > MAX_NAME ? `${name.slice(0, MAX_NAME - 1).trimEnd()}…` : name;
+}
 
 /**
  * The preliminary's lines. A row needs an amount unless every part is flat; a material row needs a
@@ -162,6 +190,9 @@ export function buildPreliminary(choices: QuickChoice[], work: QuickWork, produc
   const byId = new Map(choices.map((c) => [c.id, c]));
   const lines: EditorLine[] = [];
   const skipped: string[] = [];
+  const installs: string[] = [];
+  const materials: string[] = [];
+  let stairs = false;
   for (const row of work.rows) {
     const c = byId.get(row.choiceId);
     if (!c) {
@@ -187,6 +218,7 @@ export function buildPreliminary(choices: QuickChoice[], work: QuickWork, produc
           unitCostSnap: p.cost,
           hasSource: true,
         });
+        materials.push(c.label);
         continue;
       }
       if (c.parts.length === 0) {
@@ -200,6 +232,8 @@ export function buildPreliminary(choices: QuickChoice[], work: QuickWork, produc
       skipped.push(`${c.label} (${c.parts.length === 0 ? "nothing to price it from" : "no amount"})`);
       continue;
     }
+    if (c.group === "Install") installs.push(c.label);
+    if (c.group === "Material") materials.push(c.label);
     for (const p of c.parts) {
       lines.push({
         ...blank(section),
@@ -225,12 +259,39 @@ export function buildPreliminary(choices: QuickChoice[], work: QuickWork, produc
       continue;
     }
     lines.push(profileLine(p, s.price));
+    stairs = true;
   }
   // The preliminary's additional cost is a Private line (Albert, 2026-10-22): the customer sees it as the one rolled-up "Additional work" row, never itemised.
   if (work.extraCost !== null) {
     lines.push({ ...blank(PRIVATE_SECTION), sourceKind: "manual", description: "Additional work", uom: "flat", qty: 1, unitPrice: work.extraCost });
   }
-  return { lines, skipped };
+  return { lines, skipped, name: optionName(installs, materials, stairs), materials };
+}
+
+/** At most this many options from one quick form (the one-working-quote decision revisits at about six). */
+export const MAX_QUICK_OPTIONS = 6;
+
+/** Every option's work from a request: `works` (several options, 2026-10-31), else the single `work`. Empty ones are dropped. */
+export function parseWorks(raw: unknown): QuickWork[] {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const list = Array.isArray(r.works) ? r.works.slice(0, MAX_QUICK_OPTIONS) : [r.work];
+  return list.map(parseWork).filter((w) => !workIsEmpty(w));
+}
+
+/**
+ * Names for several options built from the quick form, none the same: a name already taken adds
+ * the option's material ("Install Hardwood (Nail Down) · Solid Hardwood"), and if that is taken
+ * too, its number ("… (2)").
+ */
+export function distinctNames(built: Pick<BuildResult, "name" | "materials">[]): string[] {
+  const seen = new Set<string>();
+  return built.map((b, i) => {
+    const tidy = [...new Set(b.materials.map((m) => m.replace(/\s*\|\s*/g, " / ").trim()))].join(" + ");
+    const tries = [b.name, tidy && !b.name.includes(tidy) ? `${b.name} · ${tidy}` : null, `${b.name} (${i + 1})`].filter((x): x is string => Boolean(x));
+    const name = tries.find((t) => !seen.has(t.toLowerCase())) ?? `${b.name} (${i + 1}·${seen.size})`;
+    seen.add(name.toLowerCase());
+    return name;
+  });
 }
 
 /**
