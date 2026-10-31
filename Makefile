@@ -50,6 +50,9 @@ sync-images: sync-install ## drain the image backlog
 sync-purge: sync-install ## purge variants of long-deleted images
 	cd sync && ../$(PYTHON) -m titan_sync.run --mode purge
 
+sync-storage: sync-install ## Storage use vs the plan limit (exit 3 at >=80%)
+	cd sync && ../$(PYTHON) -m titan_sync.run --mode storage-check
+
 # ---------- web ----------
 web-install: ## npm install
 	cd web && npm install
@@ -62,4 +65,4 @@ web-check: ## lint + typecheck + unit tests
 
 test: db-test sync-test ## everything that runs without npm
 
-.PHONY: help db-start db-reset db-test db-stop types sync-install sync-test sync-inc sync-full sync-images sync-purge web-install web-dev web-check test
+.PHONY: help db-start db-reset db-test db-stop types sync-install sync-test sync-inc sync-full sync-images sync-purge sync-storage web-install web-dev web-check test

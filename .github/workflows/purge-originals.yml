@@ -1,0 +1,45 @@
+name: Purge image originals (one-off)
+
+# 2026-10-31 (Albert): originals are no longer kept in Supabase Storage. This empties the
+# legacy private bucket `catalogue-originals` (~4.2 GB) through the Storage API and clears
+# the paths that named it. The WebP variants the apps serve are not touched. Safe to re-run.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "empty catalogue-originals" to confirm'
+        required: true
+
+concurrency:
+  group: sync
+  cancel-in-progress: false
+
+jobs:
+  purge:
+    if: ${{ inputs.confirm == 'empty catalogue-originals' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: sync/pyproject.toml
+      - run: pip install -e sync
+      - name: Empty the originals bucket
+        working-directory: sync
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: python -m titan_sync.run --mode purge-originals
+      - name: Storage after
+        if: always()
+        working-directory: sync
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SYNC_STORAGE_LIMIT_MB: ${{ vars.SYNC_STORAGE_LIMIT_MB || '1024' }}
+        run: python -m titan_sync.run --mode storage-check >> "$GITHUB_STEP_SUMMARY" || true

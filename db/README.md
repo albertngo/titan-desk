@@ -110,11 +110,9 @@ select sku, product_name from api.catalogue_staff where coming_soon;
 -- products with no swatch photo (the "Needs swatch" to-do list)
 select sku, product_name from api.catalogue_staff where active and hero is null;
 
--- orphaned originals by size (kept on purpose; review occasionally)
-select count(*), pg_size_pretty(sum(original_bytes)) from mirror.catalogue_images where orphaned_at is not null;
-
--- storage footprint (the "when to upgrade" number: Supabase Free caps Storage at 1 GB)
-select count(*) images, pg_size_pretty(sum(original_bytes)) originals from mirror.catalogue_images where deleted_at is null;
+-- storage footprint per bucket (the "when to upgrade" number: Supabase Free caps Storage at 1 GB).
+-- The images workflow's "Storage size alert" step runs this for you on every run.
+select * from mirror.storage_usage();
 
 -- search latency p95 (client-measured)
 select percentile_cont(0.95) within group (order by took_ms) from api.search_log where created_at > now() - interval '7 days';
@@ -157,10 +155,10 @@ the floor is held out of the picks and the page says how many were held back. Te
 - **Airtable link constants**: `mirror.settings` keys `airtable_base_id`, `airtable_table_id` feed `airtable_url`.
 - **Re-encode images**: bump `ENCODER_VERSION` in `sync/titan_sync/images.py`; URLs change (`?v=`) so caches roll.
 - **When to upgrade the Supabase plan**: the project starts on Free (decision 2026-09-26). The
-  database stays tens of MB; Storage is what grows, because originals are retained forever.
-  Run the "storage footprint" query above (originals + roughly 15% for the WebP variants)
-  and move to Pro when the total approaches the Free plan's 1 GB Storage cap, or earlier if
-  the sync stops for a week and the project is paused for inactivity.
+  database stays tens of MB; Storage is what grows (WebP variants only since 2026-10-31,
+  about 110 KB per photo). The images workflow's Storage size alert fails at 80% of the plan;
+  move to Pro then, or earlier if the sync stops for a week and the project is paused for
+  inactivity.
 
 ## 30-minute sync clock (Supabase Cron → app → GitHub)
 

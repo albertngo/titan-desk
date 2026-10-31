@@ -71,6 +71,9 @@ class Settings:
     service_role_key: str | None
     image_batch: int = 300
     purge_days: int = 30
+    storage_limit_mb: int = 1024          # the plan's file-storage quota (Free = 1 GB)
+    storage_warn_ratio: float = 0.8       # --mode storage-check fails (GitHub emails) at this share
+    storage_stop_ratio: float = 0.95      # --mode images uploads nothing at this share
     watermark_overlap_minutes: int = 10
     deletion_guard_ratio: float = 0.9
     deletion_guard_min_rows: int = 1000
@@ -94,6 +97,9 @@ class Settings:
             service_role_key=_env("SUPABASE_SERVICE_ROLE_KEY"),
             image_batch=int(_env("SYNC_IMAGE_BATCH", "300") or 300),
             purge_days=int(_env("SYNC_PURGE_DAYS", "30") or 30),
+            storage_limit_mb=int(_env("SYNC_STORAGE_LIMIT_MB", "1024") or 1024),
+            storage_warn_ratio=float(_env("SYNC_STORAGE_WARN_RATIO", "0.8") or 0.8),
+            storage_stop_ratio=float(_env("SYNC_STORAGE_STOP_RATIO", "0.95") or 0.95),
             watermark_overlap_minutes=int(_env("SYNC_WATERMARK_OVERLAP_MIN", "10") or 10),
             deletion_guard_ratio=float(_env("SYNC_DELETION_GUARD_RATIO", "0.9") or 0.9),
             deletion_guard_min_rows=int(_env("SYNC_DELETION_GUARD_MIN_ROWS", "1000") or 1000),
