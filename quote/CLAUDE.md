@@ -447,8 +447,11 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   Curved Handrail + Stain"), the on-steps runs added up and flagged when far from ~1.1 ft a tread (or twice that, both sides open), where a written count higher
   wins and a lower one is flagged; picket heights 36 / 39 alternating on the steps, 36 on the flat top; oak at
   about 20 sq ft a box; wall-rail brackets, the first 1 ft in then one every 2 ft; custom pieces (a 2-piece pizza
-  set, a 3-piece one that is 2 side open, every 2-side-open bullnose) (`src/lib/sitesheet/derive.ts`). **Build stair options** puts one option per viable G1
-  tick into the editor's draft for the quote (`buildOptions()` in `src/lib/sitesheet/options.ts`, Stair Items
+  set, a 3-piece one that is 2 side open, every 2-side-open bullnose) (`src/lib/sitesheet/derive.ts`). **Build stair options** puts one option per G1
+  tick (Not sure or nothing ticked = all four) into the editor's draft for the quote. **The checks never stop it (Albert,
+  2026-10-31: "just FYI: this is what we think, but never a restrictor for creating the stair option")**: no Save check
+  needed (edits are saved first without marking the sheet checked, and a failed save doesn't stop the build), and an
+  option the rules below advise against is still built with a "Not advised" note and never recommended (`buildOptions()` in `src/lib/sitesheet/options.ts`, Stair Items
   found by name in `ITEM_NAMES`): sanding only over wood caps (never under carpet; painted wood red-flagged;
   the piano look, white risers and stringers), new caps always with new risers and recommended on a curved or
   spiral stair, vinyl treads and vinyl steps as separate options (no vinyl treads on a curve), square off bullnose a line per

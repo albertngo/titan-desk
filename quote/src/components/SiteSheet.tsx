@@ -134,6 +134,16 @@ export function SiteSheetTab({
     });
   }
 
+  // The checks never stop a build (Albert, 2026-10-31: "just FYI … never a restrictor"): no Save check needed. Edits
+  // made here are kept first, without marking the sheet checked; if that save fails, the options are built anyway.
+  function build() {
+    if (!dirty) return buildIntoEditor();
+    startSave(async () => {
+      await saveSiteSheetAction(quoteRecordId, seen, clean, stored?.checked === true).catch(() => null);
+      buildIntoEditor();
+    });
+  }
+
   function buildIntoEditor() {
     // The editor's own key for this version's draft, so it opens with these options in it.
     const key = draftKey(initial);
@@ -273,7 +283,6 @@ export function SiteSheetTab({
                 </ul>
               )}
               <h4>Options it will build</h4>
-              {built.options.length === 0 && <p className="faint">None yet: tick what the customer wants (G1).</p>}
               {built.options.map((o) => (
                 <div key={o.kind} className="ss-opt">
                   <div className="ss-opt-h">
@@ -283,16 +292,13 @@ export function SiteSheetTab({
                   {o.notes.some((n) => !d.notes.includes(n)) && <ul>{o.notes.filter((n) => !d.notes.includes(n)).map((n) => <li key={n}>{n}</li>)}</ul>}
                 </div>
               ))}
-              {built.dropped.map((x) => (
-                <p key={x.kind} className="ss-drop"><b>{x.name}</b> not offered: {x.why}</p>
-              ))}
               <div className="ss-acts">
                 <button type="button" className="btn" disabled={saving || (!dirty && !!stored?.checked)} onClick={save}>{saving ? "Saving…" : "Save check"}</button>
-                <button type="button" className="btn primary" disabled={built.options.length === 0 || dirty || !stored?.checked} onClick={buildIntoEditor} title={dirty || !stored?.checked ? "Save check first" : undefined}>
+                <button type="button" className="btn primary" disabled={built.options.length === 0 || saving} onClick={build}>
                   Build stair options →
                 </button>
               </div>
-              <p className="faint">Build adds these as new options to this quote in the editor, priced at Standard. Review them there and save.</p>
+              <p className="faint">Build adds these as new options to this quote in the editor, priced at Standard. Review them there and save. The checks above are for your information; they never stop a build.</p>
             </div>
           </section>
         </div>

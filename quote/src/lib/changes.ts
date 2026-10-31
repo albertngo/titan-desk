@@ -22,6 +22,15 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-10-31",
+    kind: "changed",
+    title: "Site sheet: Build stair options is never blocked",
+    details: [
+      "Build stair options works as soon as a sheet is read: no Save check needed first, and edits you made on the sheet are kept.",
+      "Every option the customer ticked is built, even one the checks advise against (sanding over carpet, vinyl treads on a curve). It says why on a Not advised note and is never the recommended one. With nothing ticked under G1, every option is built. The checks are there to inform; remove what you don't want in the editor.",
+    ],
+  },
+  {
+    date: "2026-10-31",
     kind: "fixed",
     title: "Site sheet: iPhone photos (HEIC) read",
     details: [

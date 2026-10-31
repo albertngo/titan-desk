@@ -205,7 +205,7 @@ describe("what the app works out", () => {
   it("flags a tread total that doesn't add up, an empty G1 and a missing side staircase", () => {
     const d = derive(curved({ totalTreads: 12, where: ["Main", "Side"], want: { treads: [] } }));
     expect(d.flags.join(" ")).toMatch(/Total treads: the sheet says 12, the boxes add up to 13/);
-    expect(d.flags.join(" ")).toMatch(/Nothing is ticked under What the customer wants/);
+    expect(d.flags.join(" ")).toMatch(/Nothing is ticked under What the customer wants \(G1\), so every option is built/);
     expect(d.flags.join(" ")).toMatch(/side or half staircase is ticked/);
   });
 
@@ -225,10 +225,20 @@ describe("building options from what the customer wants", () => {
     expect(sand.lines.find((l) => l.description === "Task: Paint Risers White")?.qty).toBe(14);
   });
 
-  it("Not sure builds every option the conditions allow, and says why sanding isn't one under carpet", () => {
+  it("never holds an option back: Not sure builds every one, the ones advised against with a note (2026-10-31)", () => {
     const r = buildOptions(curved(), CARD);
-    expect(r.options.map((o) => o.kind)).toEqual(["caps", "vinylSteps"]);
-    expect(r.dropped).toEqual([expect.objectContaining({ kind: "sand", why: expect.stringMatching(/Carpet/) }), expect.objectContaining({ kind: "vinylTreads", why: expect.stringMatching(/curved/) })]);
+    expect(r.options.map((o) => o.kind)).toEqual(["caps", "sand", "vinylTreads", "vinylSteps"]);
+    const note = (k: string) => r.options.find((o) => o.kind === k)!.notes[0];
+    expect(note("sand")).toMatch(/^Not advised: carpet/);
+    expect(note("vinylTreads")).toMatch(/^Not advised: a curved staircase/);
+    expect(r.options.filter((o) => o.recommended).map((o) => o.kind)).toEqual(["caps"]);
+    // Sanding over carpet takes the carpet off first.
+    expect(r.options.find((o) => o.kind === "sand")!.lines.some((l) => l.description === "Carpet removed from the stairs")).toBe(true);
+    // Nothing ticked under G1 reads as Not sure.
+    expect(buildOptions(curved({ want: { treads: [] } }), CARD).options).toHaveLength(4);
+    // A tick the conditions advise against is still built, alone, and not recommended.
+    const sand = buildOptions(curved({ want: { treads: ["sand"] } }), CARD).options;
+    expect(sand.map((o) => [o.kind, o.recommended])).toEqual([["sand", false]]);
   });
 
   it("new caps: priced pieces from the card, new risers, one line per thing, and recommended on a curved stair", () => {
@@ -256,14 +266,15 @@ describe("building options from what the customer wants", () => {
     expect(optionTotals(caps.lines, 0, false).subtotal).toBe(5 * 120 + 200 + 7 * 130 + 14 * 10 + 8 * 20 + 15 * 35 + 38 * 20 + 2 * 150 + 18 * 20 + 100);
   });
 
-  it("vinyl treads and vinyl steps are separate options; a curved stair gets vinyl steps only", () => {
+  it("vinyl treads and vinyl steps are separate options; a curved stair's vinyl treads are advised against", () => {
     const r = buildOptions(curved({ want: { treads: ["vinylTreads", "vinylSteps"] } }), CARD);
-    expect(r.options.map((o) => o.kind)).toEqual(["vinylSteps"]);
-    expect(r.options[0].lines.map((l) => l.description)).toContain("Vinyl flooring on the steps");
+    expect(r.options.map((o) => o.kind)).toEqual(["vinylTreads", "vinylSteps"]);
+    expect(r.options[0].notes[0]).toMatch(/^Not advised/);
+    expect(r.options[1].lines.map((l) => l.description)).toContain("Vinyl flooring on the steps");
     const straight = buildOptions(curved({ shape: "Straight", want: { treads: ["vinylTreads", "vinylSteps"] } }), CARD);
     expect(straight.options.map((o) => [o.kind, o.name])).toEqual([["vinylTreads", "Vinyl treads"], ["vinylSteps", "Vinyl steps"]]);
     expect(straight.options[0].lines.map((l) => l.description)).toContain("Vinyl treads");
-    expect(straight.dropped).toEqual([]);
+    expect(straight.options.some((o) => o.notes.some((n) => n.startsWith("Not advised")))).toBe(false);
   });
 
   it("square off bullnose is one line per bullnose, in every option", () => {

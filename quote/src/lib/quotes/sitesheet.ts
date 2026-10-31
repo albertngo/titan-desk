@@ -81,13 +81,14 @@ export async function readSiteSheet(quoteRecordId: string, seen: string, photos:
   return { ok: true, saved, photos: photosNow, note: failed ? `${failed} photo${failed === 1 ? "" : "s"} didn't attach to the quote.` : undefined };
 }
 
-export async function saveSiteSheet(quoteRecordId: string, seen: string, input: unknown): Promise<SiteSheetResult> {
+/** `checked` false (2026-10-31): Build stair options keeping unsaved edits without saying a person checked the sheet. */
+export async function saveSiteSheet(quoteRecordId: string, seen: string, input: unknown, checked = true): Promise<SiteSheetResult> {
   const email = await requireQuoter();
   if (!REC_ID.test(quoteRecordId)) return { ok: false, message: "This quote isn't in Airtable any more." };
   const now = await current(quoteRecordId);
   if ("error" in now) return { ok: false, message: now.error };
   if (now.raw !== seen) return { ok: false, message: "Someone else saved this site sheet since the page opened, so yours wasn't saved. Reload and check it again." };
-  const saved = serializeStored({ sheet: cleanSheet(input), by: email, at: new Date().toISOString(), checked: true });
+  const saved = serializeStored({ sheet: cleanSheet(input), by: email, at: new Date().toISOString(), checked });
   try {
     await updateRecord(T.quotes, quoteRecordId, { [QUOTE.siteSheet]: saved });
   } catch (e) {
