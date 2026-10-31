@@ -12,6 +12,7 @@ import { discountLabel, hstRow, isLump, isSplit, scopeOf, itemHstNote, leadPrice
  */
 
 const BLUE: Rgb = [0.118, 0.435, 1];
+const WHITE: Rgb = [1, 1, 1];
 const INK: Rgb = [0.149, 0.188, 0.235];
 const DIM: Rgb = [0.4, 0.443, 0.498];
 const FAINT: Rgb = [0.6, 0.64, 0.68];
@@ -77,8 +78,14 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
     doc.text(M, ly, l, { size: 8.5, color: DIM });
     ly -= 11;
   }
-  doc.text(RIGHT, y - 16, bill ? bill.title : copy.basis === "Preliminary" ? "PRELIMINARY QUOTE" : "QUOTE", { font: "B", size: 13, color: INK, align: "right" });
-  let ry = y - 32;
+  if (!bill && copy.basis === "Preliminary") {
+    // A preliminary's header is a solid blue tag, as in the email (Albert, 2026-10-31: obvious everywhere it shows up).
+    const tag = "PRELIMINARY ESTIMATE";
+    const w = textWidth(tag, "B", 12) + 20;
+    doc.rect(RIGHT - w, y - 22, w, 20, BLUE);
+    doc.text(RIGHT - 10, y - 16, tag, { font: "B", size: 12, color: WHITE, align: "right" });
+  } else doc.text(RIGHT, y - 16, bill ? bill.title : "QUOTE", { font: "B", size: 13, color: INK, align: "right" });
+  let ry = y - (!bill && copy.basis === "Preliminary" ? 36 : 32);
   const meta = bill
     ? [[bill.title === "INVOICE" ? "Invoice" : "Receipt", bill.number], ["Date", longDate(bill.issuedOn)], ["Quote", copy.quoteNumber], ...(bill.project ? [["Project", bill.project]] : [])]
     : [["Quote", `${copy.quoteNumber}${copy.version !== null ? ` · v${copy.version}` : ""}`], ["Date", longDate(copy.sentOn)], ...(copy.validUntil ? [["Valid until", longDate(copy.validUntil)]] : [])];
@@ -143,14 +150,16 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
     y -= h + 10;
   }
 
+  const lumpNote = "Priced as one sum for the project. The items listed show what it includes.";
   for (const note of [
     copy.basis === "Preliminary" ? prelimNote(copy) : null,
-    isLump(copy) ? "Priced as one sum for the project. The items listed show what it includes." : null,
+    isLump(copy) ? lumpNote : null,
   ]) {
     if (!note) continue;
     const lines = wrap(note, "R", 9, RIGHT - M - 24);
     const h = lines.length * 12 + 14;
     doc.rect(M, y - h + 8, RIGHT - M, h, SOFT);
+    if (note !== lumpNote) doc.rect(M, y - h + 8, 3, h, BLUE);
     lines.forEach((l, i) => doc.text(M + 12, y - 6 - i * 12, l, { size: 9, color: INK }));
     y -= h + 10;
   }

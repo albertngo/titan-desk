@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addDays, copyRange, copyState, customerCopy, discountLabel, hstRow, hstWord, isRange, longDate, offersPdf, parseCopy, pdfName, prelimNote, priceRange, rangeText, rangeWhy, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "../src/lib/send/copy";
-import { chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, greetingName, isToken, newToken, optionProblem, parseOptionIds, parseResend, resendEmailMessage, resendProblems, resendSmsMessage, sendProblems, smsMessage, type SendInput } from "../src/lib/send/plan";
+import { chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, greetingName, isToken, newToken, optionProblem, parseOptionIds, parseResend, resendEmailMessage, resendKind, resendProblems, resendSmsMessage, sendProblems, smsMessage, type SendInput } from "../src/lib/send/plan";
 import { encode, textWidth, wrap } from "../src/lib/send/pdfDoc";
 import { quotePdf } from "../src/lib/send/pdf";
 import { fromQuote } from "../src/lib/editor/model";
@@ -899,22 +899,35 @@ describe("send again (2026-10-30)", () => {
     expect(e.html).toContain(to.link);
     expect(e.attachments).toBeUndefined();
     const t = resendSmsMessage(copy, { ...to, pdfUrl }, sender);
-    expect(t.type === "SMS" && t.message).toContain(`:\n${pdfUrl}\n`);
+    expect(t.type === "SMS" && t.message).toContain(`PDF:\n${pdfUrl}\n`);
     expect(t.type === "SMS" && t.message).toMatch(/^Hi Sam, it's Pat from /);
   });
 
   it("without the PDF: the quote's link again, and no PDF anywhere", () => {
     const e = resendEmailMessage(copy, to, sender);
     expect(e.type === "Email" && e.html).not.toMatch(/\.pdf/);
+    expect(e.type === "Email" && e.html).toContain("here&rsquo;s your quote again.");
     const t = resendSmsMessage(copy, to, sender);
-    expect(t.type === "SMS" && t.message).toMatch(/again:\n/);
+    expect(t.type === "SMS" && t.message).toMatch(/Here's your quote .* again:\n/);
     expect(t.type === "SMS" && /^[\x20-\x7E\n]*$/.test(t.message)).toBe(true);
   });
 
-  it("an accepted quote says so", () => {
-    const e = resendEmailMessage(copy, { ...to, pdfUrl: `${to.link}/x-accepted.pdf`, accepted: true }, sender);
+  // 2026-10-31: accepted and changed quotes say what they are, in one short line.
+  it("an accepted quote and a change each say so", () => {
+    const e = resendEmailMessage(copy, { ...to, pdfUrl: `${to.link}/x-accepted.pdf`, kind: "accepted" }, sender);
     expect(e.type === "Email" && e.subject).toMatch(/accepted quote .* as a PDF/);
-    const t = resendSmsMessage(copy, { ...to, pdfUrl: `${to.link}/x-accepted.pdf`, accepted: true }, sender);
-    expect(t.type === "SMS" && t.message).toMatch(/PDF of your accepted quote/);
+    expect(e.type === "Email" && e.html).toContain("here&rsquo;s your accepted quote again, with the PDF.");
+    const t = resendSmsMessage(copy, { ...to, pdfUrl: null, kind: "accepted" }, sender);
+    expect(t.type === "SMS" && t.message).toMatch(/Here's your accepted quote .* again:\n/);
+    const c = resendSmsMessage(copy, { ...to, pdfUrl: null, kind: "change" }, sender);
+    expect(c.type === "SMS" && c.message).toMatch(/Here's your updated quote .* again:\n/);
+    expect(c.type === "SMS" && /^[\x20-\x7E\n]*$/.test(c.message)).toBe(true);
+  });
+
+  it("works out what is being sent again", () => {
+    expect(resendKind("Sent", {})).toBe("quote");
+    expect(resendKind("Sent", { change: {} })).toBe("change");
+    expect(resendKind("Accepted", {})).toBe("accepted");
+    expect(resendKind("Won", { change: {} })).toBe("accepted");
   });
 });
