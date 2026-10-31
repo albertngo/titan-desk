@@ -9,6 +9,10 @@ import type { BillingState } from "@/lib/quotes/billing";
  * The project's invoice or receipt (Albert, 2026-10-30), on its contract version. An invoice when HST is on every
  * line (INV-82571…), a receipt otherwise (R-10245…). The number is issued the first time it is exported and kept
  * after; each export reads the payments again. Staff only.
+ *
+ * 2026-10-31: invoice and receipt switch back and forth with the contract's HST, each keeping its number on file;
+ * exporting marks void the other one only if the customer was emailed it (said here before it happens). An overpayment is shown on the PDF as Paid in full unless staff tick
+ * "Show the credit".
  */
 
 const cad = new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" });
@@ -19,16 +23,19 @@ export function BillingCard({ versionId, s }: { versionId: string; s: BillingSta
   const [busy, start] = useTransition();
   const [asking, setAsking] = useState(false);
   const [msg, setMsg] = useState<{ text: string; bad: boolean } | null>(null);
+  const [showCredit, setShowCredit] = useState(s.creditShown);
   const word = s.title.toLowerCase();
-  const blocked = Boolean(s.conflict) || s.payments === null;
+  const blocked = s.payments === null;
+  const hidden = Boolean(s.credit) && !showCredit;
 
   function go(email: boolean) {
     setMsg(null);
     start(async () => {
-      const r = email ? await emailBillingAction(versionId) : await issueBillingAction(versionId);
+      const r = email ? await emailBillingAction(versionId, { showCredit }) : await issueBillingAction(versionId, { showCredit });
       setAsking(false);
       if (!r.ok) return setMsg({ text: r.message, bad: true });
-      setMsg({ text: `${r.title} ${r.number} ${email ? "emailed" : "ready"}, with ${r.payments} payment${r.payments === 1 ? "" : "s"}.${r.warning ? ` ${r.warning}` : ""}`, bad: false });
+      const voided = r.voided.length ? ` ${r.voided.join(", ")} is now void.` : "";
+      setMsg({ text: `${r.title} ${r.number} ${email ? "emailed" : "ready"}, with ${r.payments} payment${r.payments === 1 ? "" : "s"}.${voided}${r.warning ? ` ${r.warning}` : ""}`, bad: false });
       router.refresh();
     });
   }
@@ -41,7 +48,16 @@ export function BillingCard({ versionId, s }: { versionId: string; s: BillingSta
       </div>
       <div className="card-b">
         <p className="faint bill-why">{s.reason} {s.number ? `Issued ${day(s.issuedAt)}.` : `The number is issued the first time it's exported (${s.kind === "invoice" ? "INV-" : "R-"}…).`}</p>
-        {s.conflict && <p className="sq-msg warn">{s.conflict}</p>}
+        {s.willVoid.length > 0 && (
+          <p className="sq-msg warn">
+            The customer was emailed {s.willVoid.join(", ")}, but the contract now makes it {s.kind === "invoice" ? "an invoice" : "a receipt"}. {s.number ? "Updating" : "Creating"} the {word} marks {s.willVoid.length === 1 ? "it" : "them"} void: the old PDF says so and the {word} says what it replaces.
+          </p>
+        )}
+        {s.willRestore && <p className="sq-msg warn">{s.number} was void; the contract makes it {s.kind === "invoice" ? "an invoice" : "a receipt"} again, so updating it makes it current again.</p>}
+        {s.background.length > 0 && <p className="faint bill-note">{s.background.join(", ")} stays on file in the background (never emailed). It comes back if the HST changes back.</p>}
+        {s.voided.filter((v) => !(s.willRestore && v.number === s.number)).map((v) => (
+          <p key={v.number} className="faint bill-note">{v.number} is void, replaced by {v.replacedBy} on {day(`${v.on}T12:00:00`)}.</p>
+        ))}
         {s.payments === null ? (
           <p className="sq-msg warn">{s.paymentsProblem}</p>
         ) : (
@@ -54,6 +70,14 @@ export function BillingCard({ versionId, s }: { versionId: string; s: BillingSta
               {s.payments.length === 0 && <div className="bill-pay"><dt>No payments linked to the project yet</dt><dd /></div>}
               <div className="bill-left"><dt>{s.credit ? "Credit" : s.balance ? "Balance owing" : "Paid in full"}</dt><dd>{cad.format((s.credit || s.balance) ?? 0)}</dd></div>
             </dl>
+            {Boolean(s.credit) && (
+              <label className="bill-credit">
+                <input type="checkbox" checked={showCredit} disabled={busy} onChange={(e) => setShowCredit(e.target.checked)} />
+                <span>Show the {cad.format(s.credit ?? 0)} credit on the PDF</span>
+              </label>
+            )}
+            {hidden && <p className="faint bill-note">The PDF and email say Paid in full, with no payment amounts listed.</p>}
+            {Boolean(s.credit) && s.number && showCredit !== s.creditShown && <p className="faint bill-note">Update the PDF (or email it) to apply this.</p>}
             <p className="faint bill-note">From the Master Payments Log: payments whose Projects is this project.</p>
           </>
         )}

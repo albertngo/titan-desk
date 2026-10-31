@@ -650,9 +650,23 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   (`billingPdf()`); an overpayment shows as a credit. With HST on the materials only, the HST and "Materials with HST" are rows at the end of the Materials section and every other section heading says NO HST (Albert, same day: less confusion); the Materials section is singled out with a blue bar, HST APPLIES and a tinted band, its lines lose the "plus HST" note, and the totals drop the HST row (later the same day). **Email to customer** attaches it (the second email allowed an
   attachment), served from the customer's link at `/c/<token>/Invoice-INV-82571.pdf` from the Snapshot only. Staff
   card on the quote page (`BillingCard`); writer `src/lib/quotes/billing.ts`. Customer documents only: Lightspeed
-  stays the sale of record and the A/R, and nothing posts to QuickBooks or Lightspeed. If a change flips the
-  contract's HST after a document was issued, the app refuses a second number and says to ask Albert. Tested in
+  stays the sale of record and the A/R, and nothing posts to QuickBooks or Lightspeed. Tested in
   `tests/billing.test.ts`.
+- **The HST flips after a number was issued (Albert, 2026-10-31,** replacing "ask Albert before a second number":
+  "the old invoice is considered void… continue creating a receipt", then the same day: "a fluid switch, back and
+  forth. Whatever we email through, we'll include. Whatever we don't, stay in the background"). Each kind keeps one
+  number on file and the contract's HST decides which is current (`billingPlan()` in `src/lib/billing/doc.ts`):
+  exporting reuses this kind's number or issues one; every **emailed** document of the other kind is marked void on its
+  Snapshot (`voided`: when, who, replaced by) with a Log line, and its PDF at the customer's old link is drawn with a
+  VOID band naming the replacement, while the current one lists "Replaces INV-… (void)" in its header. One never
+  emailed is left alone in the background and the customer route won't serve it. Flipping back makes the old number
+  current again (its `voided` is cleared, Log says so). Rows are never deleted. The card says what will be voided,
+  restored or kept in the background before anyone presses the button. The staff download is the current kind's.
+- **An overpayment can read as Paid in full (Albert, 2026-10-31: "in case it backfires on us, I would rather it be
+  paid in full").** On an overpaid project the card offers **Show the $… credit on the PDF**, off by default; the choice
+  is kept on the document's Snapshot (`creditShown`; missing on older ones, which showed the credit). Off, the PDF lists
+  no payment amounts, only "Payment received in full, with thanks" and Paid in full $0.00, and the email drops "Paid so
+  far" (`shownTotals()`). Staff still see the real credit on the card.
 - **Photos (Albert, 2026-10-30: "display all those photos with their proper timestamps and descriptions,
   mirroring company cam itself").** A **Photos** tab on the quote page, beside Site sheet, staff only, on a quote
   whose CompanyCam link (Quotes → CompanyCam URL, `https://app.companycam.com/projects/<id>`, Make 3453735's
