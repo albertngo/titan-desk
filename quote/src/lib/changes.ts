@@ -23,6 +23,14 @@ export const CHANGES: Change[] = [
   {
     date: "2026-10-31",
     kind: "changed",
+    title: "Customer's quote: each group of options in its own frame",
+    details: [
+      "On the customer's link, Flooring options and Stairs options are each a framed section with a clear heading, with space between the two. The option buttons and the chosen option's details sit inside the same frame, so it is plain which details go with which options. A quote with one kind of option shows the same frame headed Your options.",
+    ],
+  },
+  {
+    date: "2026-10-31",
+    kind: "changed",
     title: "Customer's quote: smoother switching, clearer layout",
     details: [
       "Tapping another option on the customer's link swaps the details in place with a short slide, and the page stays exactly where it was: no more landing somewhere odd.",

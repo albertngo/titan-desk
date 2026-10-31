@@ -335,7 +335,7 @@ export function CustomerQuote({
               <OptionSwitcher
                 key={scope ?? "all"}
                 label={scope ? scopeHeading(scope, mine.length) : "Your options"}
-                heading={scope ? scopeHeading(scope, mine.length) : null}
+                heading={scope ? scopeHeading(scope, mine.length) : "Your options"}
                 tabs={mine.map(({ o, i }) => ({
                   no: i + 1,
                   name: o.name,

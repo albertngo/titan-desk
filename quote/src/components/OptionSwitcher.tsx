@@ -21,7 +21,7 @@ export type SwitchTab = {
   recommended: boolean;
 };
 
-export function OptionSwitcher({ label, heading, tabs, panels }: { label: string; heading: string | null; tabs: SwitchTab[]; panels: React.ReactNode[] }) {
+export function OptionSwitcher({ label, heading, tabs, panels }: { label: string; heading: string; tabs: SwitchTab[]; panels: React.ReactNode[] }) {
   const first = Math.max(0, tabs.findIndex((t) => t.recommended));
   const [on, setOn] = useState(first);
   const id = useId();
@@ -58,11 +58,14 @@ export function OptionSwitcher({ label, heading, tabs, panels }: { label: string
   };
 
   return (
-    <section className="cq-switch" aria-label={label}>
-      {heading && <h2 className="cq-scope">{heading}</h2>}
-      <p className="cq-switch-hint">
-        {tabs.length} options. Tap one to see what it includes.
-      </p>
+    // One framed section per group (Albert, 2026-10-31: "more like a header and more obvious… more of a border, so
+    // that you can visually see what the options are"): a header band, the option buttons, and the details, all
+    // inside the same border, so it is plain which options and which details belong together.
+    <section className="cq-switch" aria-labelledby={`${id}-h`}>
+      <header className="cq-switch-h">
+        <h2 id={`${id}-h`}>{heading}</h2>
+        <p className="cq-switch-hint">{tabs.length > 1 ? `${tabs.length} to choose from. Tap one to see what it includes.` : "What it includes is below."}</p>
+      </header>
       <div ref={row} className="cq-tabs" role="tablist" aria-label={label} style={{ "--n": Math.min(tabs.length, 3) } as React.CSSProperties}>
         {tabs.map((t, k) => (
           <button

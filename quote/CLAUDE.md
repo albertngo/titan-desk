@@ -285,7 +285,10 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   flooring and stairs get one row each. Printing shows every option. **Switching never moves the page** (same day,
   Albert: "it doesn't scroll down into an odd place"): the option buttons are held where they were on screen and the
   details slide in from the side picked. **Each option is three cards** (same day: "more separation between the
-  actual details and the summaries"): the option, What's included, Price and payment, headings in sentence case. Readability inside `.cq`: 16px body, 15px
+  actual details and the summaries"): the option, What's included, Price and payment, headings in sentence case.
+  **Each group is one framed section** (same day: "more like a header and more obvious… more of a border"): a tinted
+  box with a firm border and a header band ("Flooring options", "Stairs options", or "Your options"), holding its
+  option buttons and the chosen option's details, with a clear gap between groups. Readability inside `.cq`: 16px body, 15px
   lines, nothing under 13px, darker greys than the staff app, 44px tap targets. The PDF and email are unchanged.
 - **A preliminary goes as a range (Albert, 2026-10-27).** Customers took a preliminary's one number as
   the price, so a measured quote that came in higher read as a change. Everything the customer gets

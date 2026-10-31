@@ -708,9 +708,15 @@ a.chip.accent:hover { text-decoration: underline; }
 .cq-totals dl div { font-size: 15px; }
 .cq-excl { font-size: 15px; }
 .cq-li { padding: 12px 18px; }
-.cq-switch { display: grid; gap: 10px; overflow-anchor: none; }
-.cq-switch .cq-scope { margin: 6px 0 0; font-size: 17px; font-weight: 700; }
-.cq-switch-hint { font-size: 14px; color: var(--fg-dim); }
+/* Each group of options is one framed section (2026-10-31): a tinted box with a firm border, a header band
+   with the group's name, then its option buttons and the chosen option's details, all inside the frame.
+   Flooring and Stairs sit apart with a clear gap. */
+.cq-switch { display: grid; gap: 12px; overflow-anchor: none; background: #eaf0f8; border: 2px solid #c4d0e0; border-radius: 14px; padding: 0 14px 16px; margin-top: 8px; }
+.cq-switch + .cq-switch { margin-top: 28px; }
+.cq-switch-h { margin: 0 -14px; padding: 14px 16px 12px; background: var(--card); border-bottom: 2px solid #c4d0e0; border-radius: 12px 12px 0 0; border-left: 6px solid var(--accent); }
+.cq-switch-h h2 { font-size: 22px; font-weight: 800; line-height: 1.2; letter-spacing: -.01em; color: var(--fg); }
+.cq-switch-hint { font-size: 14.5px; color: var(--fg-dim); margin-top: 4px; }
+@media (max-width: 520px) { .cq-switch { padding: 0 10px 12px; } .cq-switch-h { margin: 0 -10px; } }
 .cq-tabs { display: grid; grid-template-columns: repeat(var(--n, 2), minmax(0, 1fr)); gap: 8px; }
 @media (max-width: 520px) { .cq-tabs { grid-template-columns: repeat(min(var(--n, 2), 2), minmax(0, 1fr)); } }
 .cq-tab { font: inherit; text-align: left; display: grid; gap: 2px; align-content: start; min-height: 44px; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--card); color: var(--fg); cursor: pointer; position: relative; transition: border-color .2s, background .2s, box-shadow .2s, transform .08s; }
@@ -727,9 +733,9 @@ a.chip.accent:hover { text-decoration: underline; }
 .cq-tab.on .no { color: var(--accent); }
 .cq-tab.on .rec { background: var(--card); }
 /* A small arrow under the chosen option, pointing at its details. */
-.cq-tab.on::after { content: ""; position: absolute; left: 50%; bottom: -8px; width: 12px; height: 12px; margin-left: -6px; background: var(--accent-soft); border-right: 2px solid var(--accent); border-bottom: 2px solid var(--accent); transform: rotate(45deg); }
+.cq-tab.on::after { content: ""; position: absolute; left: 50%; bottom: -8px; z-index: 1; width: 12px; height: 12px; margin-left: -6px; background: var(--accent-soft); border-right: 2px solid var(--accent); border-bottom: 2px solid var(--accent); transform: rotate(45deg); }
 .cq-panel { display: none; overflow-anchor: none; }
-.cq-panel.on { display: block; margin-top: 10px; padding-top: 18px; border-top: 2px solid var(--line-strong); animation: cq-in .22s ease-out; }
+.cq-panel.on { display: block; margin-top: 10px; padding-top: 18px; border-top: 2px dashed #b3c1d4; animation: cq-in .22s ease-out; }
 .cq-panel.on[data-from="right"] { animation-name: cq-in-r; }
 .cq-panel.on[data-from="left"] { animation-name: cq-in-l; }
 @keyframes cq-in { from { opacity: 0; } to { opacity: 1; } }
