@@ -206,7 +206,8 @@ async function fillFromQuickForm(quoteId: string, versionId: string, works: Quic
           // Named for what it installs (2026-10-31), never "Preliminary": the basis is the version's and changes when measured.
           name: o.name,
           description: o.description,
-          recommended: i === 0,
+          // Never ticked for them (Albert, 2026-10-31): Recommended is staff's choice, made in the editor.
+          recommended: false,
           lines: o.lines,
         })),
       });

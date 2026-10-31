@@ -118,14 +118,15 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   option, it cycles through the different options shown" rather than scrolling down to it. On a quote
   with several options, `OptionSwitch` (`src/components/OptionSwitch.tsx`, the customer page's one
   client component) makes the cards buttons and shows one option per row of cards, the recommended one
-  first (with flooring and stairs, one per scope). The others stay in the page, hidden; printing shows
+  first when staff ticked one, else the first (with flooring and stairs, one per scope). The others stay in the page, hidden; printing shows
   them all. A change after acceptance lists its options as before.
 - **Several options from the quick form (Albert, 2026-10-31).** "Create preliminary quotes for
   multiple options": the Job card has a tab per option (at most `MAX_QUICK_OPTIONS`, six), with
   **+ Another option**, **Duplicate** (a full copy to change a few fields) and **Remove**. Building and
   the project description are the quote's, the same on every tab. The request sends `works[]`
-  (`parseWorks()`, empty tabs dropped; a single `work` still reads); v1 gets one option per tab, the
-  first recommended, names kept apart by `distinctNames()` (the material, then the number). In the
+  (`parseWorks()`, empty tabs dropped; a single `work` still reads); v1 gets one option per tab, none
+  ticked Recommended (Albert, same day: "keep that as a choice, something we can tick but not
+  automatically ticked"; the editor's tick sets it), names kept apart by `distinctNames()` (the material, then the number). In the
   editor, **+ From quick form** beside **+ Add option** opens the same form in a panel (choices fetched
   on demand, `quickFormAction()`); **Add this option** prices it on the server (`quickOption()` in
   `src/lib/quotes/quickOption.ts`, which writes nothing) and adds it to the editor's unsaved changes
