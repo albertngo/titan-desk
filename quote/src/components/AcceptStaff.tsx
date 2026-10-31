@@ -6,7 +6,7 @@ import { acceptForCustomerAction, cancelAcceptanceAction, makeChangeAction, retr
 import type { Acceptance } from "@/lib/accept/plan";
 import { termsLabel } from "@/lib/accept/terms";
 import { money } from "@/lib/format";
-import { isAddition, partKeys, partWords } from "@/lib/send/copy";
+import { partKeys, partWords } from "@/lib/send/copy";
 
 /**
  * Acceptance on the staff quote page (Albert, 2026-10-27). Two cards:
@@ -93,9 +93,9 @@ export function AcceptForCustomer({
                 {options.length > 1 &&
                   parts.map((part) => (
                     <label key={part}>
-                      {isAddition(part) ? "Addition" : parts.length > 1 ? partWords(part).label : "Option"}
+                      {parts.length > 1 ? partWords(part).label : "Option"}
                       <select value={options.find((x) => x.part === part && picks.includes(x.index))?.index ?? -1} onChange={(e) => choose(part, Number(e.target.value))}>
-                        <option value={-1}>{isAddition(part) ? "Not added" : parts.length > 1 ? partWords(part).none : "Choose…"}</option>
+                        <option value={-1}>{parts.length > 1 ? partWords(part).none : "Choose…"}</option>
                         {options
                           .filter((x) => x.part === part)
                           .map((x) => (

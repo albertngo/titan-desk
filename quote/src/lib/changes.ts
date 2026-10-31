@@ -22,15 +22,6 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-10-31",
-    kind: "changed",
-    title: "New work without a Part is an addition",
-    details: [
-      "When you add new work to an accepted project, the Part is optional. Leave it blank and the option is an addition on its own: the customer can tick any or all of them, beside a choice for a Part.",
-      "Give options the same Part (Basement, Main stairs…) only when they are alternatives for that area.",
-    ],
-  },
-  {
-    date: "2026-10-31",
     kind: "new",
     title: "Add new work to an accepted project",
     details: [
