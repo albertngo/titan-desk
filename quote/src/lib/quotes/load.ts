@@ -1,4 +1,5 @@
 import "server-only";
+import { stairCost } from "@/lib/pricing/stairCost";
 import { requireQuoter } from "@/lib/auth";
 import { AirtableError, getRecord, listByIds, listRecords, type AirtableRecord } from "@/lib/airtable/client";
 import { CAT, CATALOGUE_TABLE, LINE, MATERIAL, MATERIAL_TABLE, OPTION, PROFILE, PROFILE_TABLE, QUICK, QUICK_TABLE, QUOTE, RATE, RATE_TABLE, STAIR, STAIR_TABLE, T, VERSION } from "@/lib/airtable/fields";
@@ -397,7 +398,7 @@ export async function getRateCard(): Promise<RateCard> {
       const name = str(f[STAIR.name]);
       const rate = num(f[STAIR.rate]);
       if (!name || rate === null) return [];
-      return [{ id: r.id, name, category: str(f[STAIR.category]), size: str(f[STAIR.size]), rate, cost: num(f[STAIR.cost]) }];
+      return [{ id: r.id, name, category: str(f[STAIR.category]), size: str(f[STAIR.size]), rate, cost: stairCost(num(f[STAIR.cost]), num(f[STAIR.materialCost])) }];
     });
   const materials = materialRecs.flatMap((r): MaterialRow[] => {
     const f = r.fields;
