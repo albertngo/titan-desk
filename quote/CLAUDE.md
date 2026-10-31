@@ -114,6 +114,12 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   keeps its own words; no install row falls back to the materials, then "Stairs", then "Flooring".
   The name never says Preliminary or Measured: that is the version's Basis. Quotes made before keep
   their name (rename the tab in the editor). Tested in `tests/quick.test.ts`.
+- **The customer's option cards switch the option shown (Albert, 2026-10-31).** "When you click an
+  option, it cycles through the different options shown" rather than scrolling down to it. On a quote
+  with several options, `OptionSwitch` (`src/components/OptionSwitch.tsx`, the customer page's one
+  client component) makes the cards buttons and shows one option per row of cards, the recommended one
+  first (with flooring and stairs, one per scope). The others stay in the page, hidden; printing shows
+  them all. A change after acceptance lists its options as before.
 - **Several options from the quick form (Albert, 2026-10-31).** "Create preliminary quotes for
   multiple options": the Job card has a tab per option (at most `MAX_QUICK_OPTIONS`, six), with
   **+ Another option**, **Duplicate** (a full copy to change a few fields) and **Remove**. Building and

@@ -11,8 +11,10 @@ import { buildQuickOptions } from "./start";
  * caller is a quoter.
  */
 
+export type QuickFormForBrowser = { choices: QuickChoice[]; profiles: QuickProfile[] };
+
 /** The quick form's choices and staircase profiles as the browser may see them: charge rates only, no cost, no contractor. */
-export async function quickFormForBrowser(): Promise<{ choices: QuickChoice[]; profiles: QuickProfile[] }> {
+export async function quickFormForBrowser(): Promise<QuickFormForBrowser> {
   await requireQuoter();
   const [quick, profileRows] = await Promise.all([getQuickForm().catch(() => []), getStairProfiles().catch(() => [])]);
   return {
