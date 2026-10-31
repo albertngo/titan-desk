@@ -452,7 +452,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   2026-10-31: "just FYI: this is what we think, but never a restrictor for creating the stair option")**: no Save check
   needed (edits are saved first without marking the sheet checked, and a failed save doesn't stop the build), and an
   option the rules below advise against is still built with a "Not advised" note and never recommended (`buildOptions()` in `src/lib/sitesheet/options.ts`, Stair Items
-  found by name in `ITEM_NAMES`): sanding only over wood caps (never under carpet; painted wood red-flagged;
+  found in `ITEM_NAMES` by record id first, then today's name, then old names (2026-10-31: renames in Airtable had unpriced most lines)): sanding only over wood caps (never under carpet; painted wood red-flagged;
   the piano look, white risers and stringers), new caps always with new risers and recommended on a curved or
   spiral stair, vinyl treads and vinyl steps as separate options (no vinyl treads on a curve), square off bullnose a line per
   bullnose, custom pieces an upcharge on top, stringers white → paint / stain on solid → sand & stain /

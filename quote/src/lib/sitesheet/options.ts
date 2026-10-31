@@ -31,42 +31,56 @@ import { TREAD_NAME, type SiteSheet, type TreadType, type WantTread } from "./sh
  * A sheet answer with no item on the card becomes a Stairs line with no price and says so, never a guess.
  */
 
-/** Stair Items by name: the card has no codes, so the name is the key. Several names = try in order. */
+/**
+ * Stair Items for each site sheet answer. Each list is tried in order: the Airtable record id first, so renaming an
+ * item in Airtable never unlinks it (2026-10-31: "Task: …" prefixes and other renames had left most lines unpriced),
+ * then today's name, then names it had before. Record ids are not secrets; the Bert base's ids already live in the repo.
+ */
 export const ITEM_NAMES = {
-  step: { boxed: ["Step (2 Side Close)"], lso: ["Step (Left Side Open)"], rso: ["Step (Right Side Open)"], two: ["Step (2 Side Open)"] } as Record<TreadType, string[]>,
-  bullnose: { boxed: [], lso: ["Bullnose (Left Side Open)"], rso: ["Bullnose (Right Side Open)"], two: ["Bullnose (2 Side Open)"] } as Record<TreadType, string[]>,
-  pie: { L: ["Pie Shape Step (Left)", "Pie Shape Step (Right)"], R: ["Pie Shape Step (Right)", "Pie Shape Step (Left)"] },
+  step: {
+    boxed: ["recf6sSXRYxiSr5rI", "Step (2 Side Close)"],
+    lso: ["recMso5EPr5wvE3lH", "Step (Left Side Open)"],
+    rso: ["recN7dcO7PWdhWFwb", "Step (Right Side Open)"],
+    two: ["recY7EV0srJGXpWp0", "Step (2 Side Open)"],
+  } as Record<TreadType, string[]>,
+  bullnose: {
+    boxed: [],
+    lso: ["recGfXnhGNUX4r83J", "Bullnose (Left Side Open)"],
+    rso: ["recWoAiGggaZcjQiv", "Bullnose (Right Side Open)"],
+    two: ["recgyuj0YBXOzScmf", "Bullnose (2 Side Open)"],
+  } as Record<TreadType, string[]>,
   // The open side gives the turn: a left-side-open pie turns left; right or 2 side open, right.
-  corner: ["Corner Turn Set", "Corner Turn Steps (Right) - 3PC Set", "Corner Turn Steps (Left) - 3PC Set"],
-  landing: ["Landing"],
-  halfMoon: ["1/2 Moon"],
-  riser: ["Riser"],
-  sandSteps: ["Task: Sand Steps"],
-  railRefinish: ["Task: Sand + Stain Handrail"],
-  railNew: ["Task: New Handrail + Stain"],
-  railCurved: ["Task: New Curved Handrail + Stain"],
-  spindle: ["Iron Spindles (w/material)"],
-  post: ["New Post"],
-  postAlter: ["Task: Alter Post Design"],
+  pie: { L: ["recLgSuRKAnw2ycLg", "Pie Shape Step (Left)", "Pie Shape Step (Right)"], R: ["recgMATNTlBwgfr5K", "Pie Shape Step (Right)", "Pie Shape Step (Left)"] },
+  corner: ["recEo06JIu1I2B7jm", "Corner Turn Steps (Right) - 3PC Set", "Corner Turn Set", "Corner Turn Steps (Left) - 3PC Set"],
+  landing: ["recE1Hfg2Wq86PCPL", "Landing (3x3)", "Landing"],
+  halfMoon: ["recjl6cQsM2YhyZRt", "1/2 Moon Landing", "1/2 Moon"],
+  riser: ["rec0WAUmD4A8LowMB", "New Riser", "Riser"],
+  sandSteps: ["recnYAG8K2Upy1rQR", "Keep Existing Steps (Sand + Stain)", "Task: Sand Steps"],
+  railRefinish: ["rec2G8ypCJ2d1pJdC", "Keep Existing Handrail (Sand + Stain)", "Task: Sand + Stain Handrail"],
+  railNew: ["recvgWPinUjeq5N2s", "New Handrail + Stain", "Task: New Handrail + Stain"],
+  railCurved: ["rec7w3RiryndNRM4z", "New Curved Handrail + Stain", "Task: New Curved Handrail + Stain"],
+  spindle: ["recYAF6e7wwn5WAZX", "New Iron Spindles (w/material)", "Iron Spindles (w/material)"],
+  // New wood spindles are one item, material and stain included (2026-10-31), never iron plus a stain.
+  spindleWood: ["recTNhgh42a0KFoGw", "New Stain Wood Spindles (w/material)", "Task: Stain Wood Spindles"],
+  post: ["recT2DY41zY6EDsLY", "New Post"],
+  postAlter: ["reclXcgWqzZINPTWa", "Alter Post Design", "Task: Alter Post Design"],
   // One nosing item, by the foot (Albert, 2026-10-28: "no difference between nosing and nosings with picket holes").
-  nosing: ["Accents: Nosing"],
-  nosingSand: ["Task: Sand + Stain Nosing"],
-  stringPaint: ["Task: 2 Side Paint (White)"],
-  stringSkin: ["Task: 2 Side Oak Skin (Glue and Stain)"],
-  stringSand: ["Task: 2 Side Oak (Sand & Stain)"],
-  // Created 2026-10-28 with blank prices for Albert to fill in. A blank-priced item isn't on the card
-  // (getRateCard skips it), so until then each comes in as an unpriced line with a note, as before.
-  carpetOff: ["Task: Remove Carpet (Stairs)"],
-  vinylTread: ["Vinyl Tread (Install)"],
-  vinylFlooring: ["Task: Vinyl Flooring on Steps"],
-  paintRisers: ["Task: Paint Risers White"],
-  halfMoonSolid: ["Half Moon Solid One-Piece (Upgrade)"],
-  bullnoseCustom: ["Bullnose Custom Size (Upcharge)"],
-  wallBracket: ["Wall Rail Bracket"],
-  postRefinish: ["Task: Refinish Post"],
-  spindleStain: ["Task: Stain Wood Spindles"],
-  squareBullnose: ["Task: Square Off Bullnose"],
-  pizzaCustom: ["Corner Turn Set Custom (Upcharge)"],
+  nosing: ["recqLHia3MFunyXvA", "New Nosings", "Accents: Nosing"],
+  nosingSand: ["recBzyPbWMIojiywS", "Keep Nosing (Sand + Stain)", "Task: Sand + Stain Nosing"],
+  stringPaint: ["rec4dOhd8fcJfHYIh", "2 Side Paint (White)", "Task: 2 Side Paint (White)"],
+  stringSkin: ["recDTQT0pVFOWykrn", "2 Side Oak Skin (Glue and Stain)", "Task: 2 Side Oak Skin (Glue and Stain)"],
+  stringSand: ["recnEZHtLFbPFohsV", "2 Side Oak (Sand & Stain)", "Task: 2 Side Oak (Sand & Stain)"],
+  // No Stair Item yet (2026-10-31): comes in as an unpriced line with a note until one is added.
+  carpetOff: ["Remove Carpet (Stairs)", "Task: Remove Carpet (Stairs)"],
+  vinylTread: ["reclAw4QJ8WIp4n9r", "Vinyl Tread", "Vinyl Tread (Install)"],
+  vinylFlooring: ["recQTWFiWvUpd8fBk", "Vinyl Flooring on Steps", "Task: Vinyl Flooring on Steps"],
+  paintRisers: ["recGmnXAUUEfi4pCp", "Paint Risers White", "Task: Paint Risers White"],
+  halfMoonSolid: ["recFut4r1tdIoYZHn", "Half Moon Solid One-Piece", "Half Moon Solid One-Piece (Upgrade)"],
+  bullnoseCustom: ["recxmhUmo3OJrFTJ5", "Bullnose Custom Size", "Bullnose Custom Size (Upcharge)"],
+  wallBracket: ["recr6emYKw0NT77EE", "Wall Rail Bracket"],
+  postRefinish: ["reczhRmxpz4Tf9h6Y", "Keep Existing Post (Refinished)", "Task: Refinish Post"],
+  squareBullnose: ["recQrr6KQaKipdPOa", "Square Off Bullnose", "Task: Square Off Bullnose"],
+  pizzaCustom: ["recb1BzKkoUuZ8S55", "Corner Turn Set Custom", "Corner Turn Set Custom (Upcharge)"],
 };
 
 export type BuiltOption = {
@@ -89,7 +103,9 @@ export function buildOptions(s: SiteSheet, catalogue: CardEntry[], level: Servic
   const d = derive(s);
   const byName = new Map<string, Stair>();
   for (const e of catalogue) if (e.kind === "stair" && !byName.has(e.name.trim().toLowerCase())) byName.set(e.name.trim().toLowerCase(), e);
-  const find = (names: string[]) => names.map((x) => byName.get(x.toLowerCase())).find(Boolean) ?? null;
+  const byId = new Map<string, Stair>();
+  for (const e of catalogue) if (e.kind === "stair") byId.set(e.recordId, e);
+  const find = (keys: string[]) => keys.map((x) => byId.get(x) ?? byName.get(x.toLowerCase())).find(Boolean) ?? null;
 
   const asked = new Set<WantTread>(s.want.treads);
   // Nothing ticked reads as Not sure: every option, so there is always something to build.
@@ -184,8 +200,8 @@ function build(kind: BuiltOption["kind"], s: SiteSheet, d: Derived, find: (names
     add(ITEM_NAMES.wallBracket, bracketsFor(wallRail), "Wall rail brackets", "Wall rail");
   }
   if (s.want.spindles === "iron" || s.want.spindles === "wood") {
-    add(ITEM_NAMES.spindle, d.spindles.value, "New spindles");
-    if (s.want.spindles === "wood") add(ITEM_NAMES.spindleStain, d.spindles.value, "Stain wood spindles");
+    if (s.want.spindles === "wood") add(ITEM_NAMES.spindleWood, d.spindles.value, "New wood spindles, stained");
+    else add(ITEM_NAMES.spindle, d.spindles.value, "New spindles");
   }
   const posts = d.posts.now + d.posts.add;
   if (s.want.posts === "new") add(ITEM_NAMES.post, posts, "New posts");

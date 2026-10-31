@@ -3,7 +3,7 @@ import { optionTotals } from "../src/lib/calc";
 import { buildCatalogue } from "../src/lib/editor/model";
 import type { StairRow } from "../src/lib/quotes/types";
 import { derive } from "../src/lib/sitesheet/derive";
-import { buildOptions } from "../src/lib/sitesheet/options";
+import { buildOptions, ITEM_NAMES } from "../src/lib/sitesheet/options";
 import { looksHeic } from "../src/lib/sitesheet/photo";
 import { cleanSheet, parseStored, serializeStored, sumParts, type SiteSheet } from "../src/lib/sitesheet/sheet";
 
@@ -364,5 +364,44 @@ describe("site sheet photos", () => {
     expect(looksHeic({ type: "image/heif", name: "x" })).toBe(true);
     expect(looksHeic({ type: "", name: "IMG_2.heic" })).toBe(true);
     expect(looksHeic({ type: "image/jpeg", name: "IMG_3.jpg" })).toBe(false);
+  });
+});
+
+describe("linking the site sheet to Stair Items (2026-10-31)", () => {
+  // Every list's record id and today's name, at an invented price: what the live card looks like after the renames.
+  const lists = Object.values(ITEM_NAMES).flatMap((v) => (Array.isArray(v) ? [v] : Object.values(v))).filter((l) => l.length > 0);
+  const live = buildCatalogue(
+    [],
+    lists.filter((l) => l[0].startsWith("rec")).map((l) => ({ id: l[0], name: `${l[1]} (renamed again)`, category: null, size: null, rate: 10, cost: null })),
+  );
+
+  it("finds every item by its record id, whatever it is called now; only carpet removal has no item", () => {
+    const everything = curved({
+      shape: "Straight",
+      onSteps: "Carpet",
+      treads: { rso: { w36: 2 }, lso: { w42: 2 }, boxed: { w48: 2 }, two: { w36: 1 } },
+      pie: { lso: 1, rso: 1 },
+      pizza: { pc2: 1, pc3: 1, two: 1 },
+      bullnose: { lso: 1, rso: 1, two: 1 },
+      landings: { s3x3: 1 },
+      halfMoons: { count: 1, solid: true },
+      nosings: [{ ft: 4 }, { ft: 4, sand: true }],
+      runs: [{ ft: 10, where: "S", curved: true, pickets: true }, { ft: 6, where: "F", pickets: true }, { ft: 9, where: "W" }],
+      posts: { now: 2, add: 1 },
+      stringers: { now: "White", made: "Solid" },
+      want: { treads: ["unsure"], squareBullnose: true, handrail: "new", wallRailFt: 7, spindles: "iron", posts: "new", stringer: "stain" },
+    });
+    const built = buildOptions(everything, live).options;
+    const unpriced = [...new Set(built.flatMap((o) => o.lines.filter((l) => l.sourceKind !== "stair").map((l) => l.description)))];
+    expect(unpriced).toEqual(["Carpet removed from the stairs"]);
+    const refinish = buildOptions(curved({ shape: "Straight", onSteps: "Wood caps", stringers: { made: "Veneer" }, want: { treads: ["sand"], handrail: "refinish", posts: "refinish", spindles: "wood", stringer: "stain" } }), live).options[0];
+    expect(refinish.lines.every((l) => l.sourceKind === "stair")).toBe(true);
+  });
+
+  it("new wood spindles are the one wood item, never iron plus a stain", () => {
+    const wood = buildOptions(curved({ want: { treads: ["caps"], spindles: "wood" } }), live).options[0];
+    const names = wood.lines.map((l) => l.description);
+    expect(names).toContain("New Stain Wood Spindles (w/material) (renamed again)");
+    expect(names.some((x) => x.includes("Iron"))).toBe(false);
   });
 });
