@@ -286,7 +286,7 @@ export function OptionSheet({
       {(editHref || (!customer && sendable)) && (
         <div className="actions">
           {editHref && <Link className="btn" href={editHref}>Edit</Link>}
-          {!customer && sendable && <a className="btn primary" href="#send">Send to customer</a>}
+          {!customer && sendable && <a className="btn primary" href="#send">Send quote to customer</a>}
         </div>
       )}
     </>
