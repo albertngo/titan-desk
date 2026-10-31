@@ -9,7 +9,7 @@ import { buildGhlRequest } from "@/lib/link/ghlRequest";
 import { parseNewQuote, type NewQuoteRequest } from "@/lib/link/newQuote";
 import { makeConfigured, sendToGhl } from "@/lib/make/client";
 import type { CustomerSearch, FoundCustomer, StartResult } from "./types";
-import { buildPreliminary, parseWork, workIsEmpty, type QuickWork } from "@/lib/quick/plan";
+import { buildPreliminary, distinctNames, parseWorks, type QuickWork } from "@/lib/quick/plan";
 import { profileOf, stairDescription } from "@/lib/quick/stairs";
 import { getQuickForm, getStairProfiles, quickProducts } from "./load";
 import { firstVersion, quotesByOpportunity } from "./records";
@@ -86,8 +86,10 @@ export async function startQuote(raw: unknown): Promise<StartResult> {
   const parsed = parseNewQuote(raw);
   if (!parsed.ok) return parsed;
   const req = parsed.value;
-  // The quick form's work, if any: which choices and how much, never a price (src/lib/quick/plan.ts).
-  const work = parseWork((raw as { work?: unknown } | null)?.work);
+  // The quick form's work, one per option (2026-10-31): which choices and how much, never a price (src/lib/quick/plan.ts).
+  const works = parseWorks(raw);
+  // Building and the project description are the quote's, the same on every option: the first one's.
+  const work = works[0] ?? null;
 
   try {
     // One opportunity, one quote: an existing quote is opened, never duplicated.
@@ -135,8 +137,8 @@ export async function startQuote(raw: unknown): Promise<StartResult> {
     const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Toronto" });
     const note = [
       linked ? null : `${today}: started in the quote app by ${email}. Needs ${req.contactId ? "a new GHL opportunity" : "a new GHL contact and opportunity"}; link it once it exists.`,
-      work.building ? `Building: ${work.building}.` : null,
-      work.description ? `Description of project (internal): ${work.description}` : null,
+      work?.building ? `Building: ${work.building}.` : null,
+      work?.description ? `Description of project (internal): ${work.description}` : null,
     ]
       .filter(Boolean)
       .join("\n") || null;
@@ -161,7 +163,7 @@ export async function startQuote(raw: unknown): Promise<StartResult> {
     const versionId = await firstVersion(quote.id, quoteNo, req.basis, person);
     await pushToGhl(quote.id, quoteNo, str(quote.fields[QUOTE.displayName]) ?? quoteNo, req, who, linkedOpp, today, existing);
     // Only a preliminary takes the quick form's work; a full quote opens empty in the editor.
-    const filled = req.basis === "Preliminary" && !workIsEmpty(work) ? await fillFromQuickForm(quote.id, versionId, work, today) : false;
+    const filled = req.basis === "Preliminary" && works.length > 0 ? await fillFromQuickForm(quote.id, versionId, works, today) : false;
     return { ok: true, versionId, reused: false, filled };
   } catch (e) {
     console.error("startQuote", e);
@@ -175,18 +177,18 @@ export async function startQuote(raw: unknown): Promise<StartResult> {
 }
 
 /**
- * Price the quick form's rows from Airtable and write them into version 1 as one option, with the
- * staircases' customer-facing description on it (2026-10-18). Never fails the quote: whatever
- * couldn't be priced, or a failed save, is noted on the quote and the editor opens instead.
+ * Price the quick form's rows from Airtable and write them into version 1, one option per tab
+ * (2026-10-31), each with its staircases' customer-facing description (2026-10-18). Never fails
+ * the quote: whatever couldn't be priced, or a failed save, is noted on the quote and the editor
+ * opens instead.
  */
-async function fillFromQuickForm(quoteId: string, versionId: string, work: QuickWork, today: string): Promise<boolean> {
+async function fillFromQuickForm(quoteId: string, versionId: string, works: QuickWork[], today: string): Promise<boolean> {
   try {
-    const [choices, products, profileRows] = await Promise.all([getQuickForm(), quickProducts(work.rows.flatMap((r) => (r.productId ? [r.productId] : []))), getStairProfiles()]);
-    const profiles = new Map(profileRows.map((p) => [p.id, p]));
-    const { lines, skipped, name } = buildPreliminary(choices, work, products, profiles);
-    const problems = [...skipped];
+    const built = await buildQuickOptions(works);
+    const problems = built.flatMap((b, i) => (b.skipped.length ? [`${built.length > 1 ? `option ${i + 1}: ` : ""}${b.skipped.join("; ")}`] : []));
+    const options = built.filter((b) => b.lines.length > 0);
     let filled = false;
-    if (lines.length > 0) {
+    if (options.length > 0) {
       const r = await fillVersion(versionId, {
         quoteRecordId: quoteId,
         customerName: "",
@@ -199,16 +201,14 @@ async function fillFromQuickForm(quoteId: string, versionId: string, work: Quick
         notionProjectUrl: null,
         discountRate: 0,
         showHst: true,
-        options: [
-          {
-            id: "opt_quick_1",
-            // Named for what it installs (2026-10-31), never "Preliminary": the basis is the version's and changes when measured.
-            name,
-            description: stairDescription(work.stairs.flatMap((s) => { const p = profiles.get(s.profileId); return p ? [profileOf(p)] : []; })),
-            recommended: true,
-            lines,
-          },
-        ],
+        options: options.map((o, i) => ({
+          id: `opt_quick_${i + 1}`,
+          // Named for what it installs (2026-10-31), never "Preliminary": the basis is the version's and changes when measured.
+          name: o.name,
+          description: o.description,
+          recommended: i === 0,
+          lines: o.lines,
+        })),
       });
       if (r.ok) filled = true;
       else problems.push(`the lines weren't saved (${r.message})`);
@@ -220,6 +220,25 @@ async function fillFromQuickForm(quoteId: string, versionId: string, work: Quick
     await noteOnQuote(quoteId, `${today}: the quick form's lines couldn't be added (${e instanceof Error ? e.message.slice(0, 120) : "error"}). Add them in the editor.`).catch(() => undefined);
     return false;
   }
+}
+
+/**
+ * Each quick-form option priced from Airtable, as the editor's option needs it: distinct names,
+ * the staircases' customer wording, the lines (with cost snapshots) and what was left out. Used by
+ * a new preliminary and by the editor's "+ From quick form" (`quickOptionAction` in src/app/q/[id]/actions.ts).
+ */
+export async function buildQuickOptions(works: QuickWork[]) {
+  await requireQuoter();
+  const [choices, products, profileRows] = await Promise.all([getQuickForm(), quickProducts(works.flatMap((w) => w.rows.flatMap((r) => (r.productId ? [r.productId] : [])))), getStairProfiles()]);
+  const profiles = new Map(profileRows.map((p) => [p.id, p]));
+  const built = works.map((w) => ({ w, b: buildPreliminary(choices, w, products, profiles) }));
+  const names = distinctNames(built.map(({ b }) => b));
+  return built.map(({ w, b }, i) => ({
+    name: names[i],
+    description: stairDescription(w.stairs.flatMap((s) => { const p = profiles.get(s.profileId); return p ? [profileOf(p)] : []; })),
+    lines: b.lines,
+    skipped: b.skipped,
+  }));
 }
 
 async function noteOnQuote(quoteId: string, line: string) {

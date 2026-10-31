@@ -42,9 +42,14 @@ export function workInput(w: WorkState) {
 const pickedProducts = (value: WorkState) => new Map(value.rows.flatMap((r) => (r.product ? [[r.product.recordId, { ...r.product, cost: null }] as const] : [])));
 
 /** The running estimate, the same way the server will price it (before discount and HST). */
-export function estimateWork(choices: QuickChoice[], profiles: QuickProfile[], value: WorkState): { total: number; lines: number } {
-  const { lines } = buildPreliminary(choices, parseWork(workInput(value)), pickedProducts(value), new Map(profiles.map((p) => [p.id, p])));
-  return { total: optionTotals(lines, 0, false).preDiscount, lines: lines.length };
+export function estimateWork(choices: QuickChoice[], profiles: QuickProfile[], value: WorkState): { total: number; lines: number; name: string; materials: string[] } {
+  const { lines, name, materials } = buildPreliminary(choices, parseWork(workInput(value)), pickedProducts(value), new Map(profiles.map((p) => [p.id, p])));
+  return { total: optionTotals(lines, 0, false).preDiscount, lines: lines.length, name, materials };
+}
+
+/** A full, independent copy of one option's work (Duplicate, 2026-10-31): new row keys, nothing shared. */
+export function copyWork(w: WorkState): WorkState {
+  return { ...w, rows: w.rows.map((r) => ({ ...r, key: `r${++n}` })), stairs: w.stairs.map((s) => ({ ...s, key: `s${++n}` })) };
 }
 
 const UNIT_LABEL = { sqft: "sq ft", "linear ft": "lin ft", pieces: "pcs" } as const;
@@ -71,7 +76,20 @@ const clean = (s: string) => s.replace(/[$,\s]/g, "");
  * and prices come from Airtable (Quick Quote Choices); the server re-prices on create. Stairs are
  * Stair Profiles rows at a preset price, a typed price only as an override (src/lib/quick/stairs.ts).
  */
-export function QuickWork({ choices, profiles, value, onChange }: { choices: QuickChoice[]; profiles: QuickProfile[]; value: WorkState; onChange: (w: WorkState) => void }) {
+export function QuickWork({
+  choices,
+  profiles,
+  value,
+  onChange,
+  quoteWide = "one",
+}: {
+  choices: QuickChoice[];
+  profiles: QuickProfile[];
+  value: WorkState;
+  onChange: (w: WorkState) => void;
+  /** Building and the project description belong to the quote: "one" option, "shared" by several tabs (said so), or "hidden" (the editor's + From quick form). */
+  quoteWide?: "one" | "shared" | "hidden";
+}) {
   const byId = useMemo(() => new Map(choices.map((c) => [c.id, c])), [choices]);
   const profileById = useMemo(() => new Map(profiles.map((p) => [p.id, p])), [profiles]);
   const picked = useMemo(() => pickedProducts(value), [value]);
@@ -282,10 +300,12 @@ export function QuickWork({ choices, profiles, value, onChange }: { choices: Qui
 
       <section className="qw-part" aria-labelledby="qw-else">
         <h3 className="qw-part-h" id="qw-else">Anything else</h3>
-        <div className="qw-field">
-          <span className="k">Building</span>
-          <Chips label="Building" options={BUILDINGS} value={value.building} onChange={(v) => set({ building: v })} allowNone />
-        </div>
+        {quoteWide !== "hidden" && (
+          <div className="qw-field">
+            <span className="k">Building{quoteWide === "shared" && <span className="faint"> (the same on every option)</span>}</span>
+            <Chips label="Building" options={BUILDINGS} value={value.building} onChange={(v) => set({ building: v })} allowNone />
+          </div>
+        )}
         <label className="qw-money" title="Goes on the quote as a private line: the customer sees one “Additional work” row with the amount, never what it was for.">
           <span className="k">Additional cost <span className="faint">(private: shown to the customer as one “Additional work” row)</span></span>
           <span className="qw-amt">
@@ -293,10 +313,12 @@ export function QuickWork({ choices, profiles, value, onChange }: { choices: Qui
             <span>$</span>
           </span>
         </label>
-        <label className="qw-desc">
-          Description of project <span className="faint">(internal, saved on the quote&apos;s notes)</span>
-          <textarea className="in area" rows={3} value={value.description} onChange={(e) => set({ description: e.target.value })} />
-        </label>
+        {quoteWide !== "hidden" && (
+          <label className="qw-desc">
+            Description of project <span className="faint">(internal, saved on the quote&apos;s notes{quoteWide === "shared" ? "; the same on every option" : ""})</span>
+            <textarea className="in area" rows={3} value={value.description} onChange={(e) => set({ description: e.target.value })} />
+          </label>
+        )}
       </section>
     </div>
   );

@@ -151,7 +151,7 @@ function blank(section: string): Omit<EditorLine, "description" | "sourceKind"> 
   };
 }
 
-export type BuildResult = { lines: EditorLine[]; skipped: string[]; name: string };
+export type BuildResult = { lines: EditorLine[]; skipped: string[]; name: string; materials: string[] };
 
 /** Install choices that aren't an install: their label already says the work. */
 const NOT_INSTALL = /^(sand|refinish|stain|buff|install)\b/i;
@@ -265,7 +265,33 @@ export function buildPreliminary(choices: QuickChoice[], work: QuickWork, produc
   if (work.extraCost !== null) {
     lines.push({ ...blank(PRIVATE_SECTION), sourceKind: "manual", description: "Additional work", uom: "flat", qty: 1, unitPrice: work.extraCost });
   }
-  return { lines, skipped, name: optionName(installs, materials, stairs) };
+  return { lines, skipped, name: optionName(installs, materials, stairs), materials };
+}
+
+/** At most this many options from one quick form (the one-working-quote decision revisits at about six). */
+export const MAX_QUICK_OPTIONS = 6;
+
+/** Every option's work from a request: `works` (several options, 2026-10-31), else the single `work`. Empty ones are dropped. */
+export function parseWorks(raw: unknown): QuickWork[] {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const list = Array.isArray(r.works) ? r.works.slice(0, MAX_QUICK_OPTIONS) : [r.work];
+  return list.map(parseWork).filter((w) => !workIsEmpty(w));
+}
+
+/**
+ * Names for several options built from the quick form, none the same: a name already taken adds
+ * the option's material ("Install Hardwood (Nail Down) · Solid Hardwood"), and if that is taken
+ * too, its number ("… (2)").
+ */
+export function distinctNames(built: Pick<BuildResult, "name" | "materials">[]): string[] {
+  const seen = new Set<string>();
+  return built.map((b, i) => {
+    const tidy = [...new Set(b.materials.map((m) => m.replace(/\s*\|\s*/g, " / ").trim()))].join(" + ");
+    const tries = [b.name, tidy && !b.name.includes(tidy) ? `${b.name} · ${tidy}` : null, `${b.name} (${i + 1})`].filter((x): x is string => Boolean(x));
+    const name = tries.find((t) => !seen.has(t.toLowerCase())) ?? `${b.name} (${i + 1}·${seen.size})`;
+    seen.add(name.toLowerCase());
+    return name;
+  });
 }
 
 /**

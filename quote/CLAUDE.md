@@ -94,8 +94,8 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
 - **Two ways to start a quote (Albert, 2026-10-18).** The front page has **+ New quote** (`/new`:
   customer with the site address folded in, then timeline; v1 is *Measured* and opens empty in the
   editor) and **+ Preliminary quote** (`/new?kind=preliminary`: the job first, then customer, then
-  timeline, with the step numbers counted; v1 is *Preliminary* with one priced option, opened for
-  review). The request says `kind: "measured"` for the first; anything else is a preliminary
+  timeline, with the step numbers counted; v1 is *Preliminary* with one priced option per Job tab
+  (2026-10-31, below), opened for review). The request says `kind: "measured"` for the first; anything else is a preliminary
   (`parseNewQuote()` in `src/lib/link/newQuote.ts`).
 - **Where they found us (Albert, 2026-10-27).** A preliminary's customer step asks **Where did they
   find us?** from a fixed list (`ORIGINS` in `src/lib/link/origin.ts`). The pick is the most
@@ -114,6 +114,16 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   keeps its own words; no install row falls back to the materials, then "Stairs", then "Flooring".
   The name never says Preliminary or Measured: that is the version's Basis. Quotes made before keep
   their name (rename the tab in the editor). Tested in `tests/quick.test.ts`.
+- **Several options from the quick form (Albert, 2026-10-31).** "Create preliminary quotes for
+  multiple options": the Job card has a tab per option (at most `MAX_QUICK_OPTIONS`, six), with
+  **+ Another option**, **Duplicate** (a full copy to change a few fields) and **Remove**. Building and
+  the project description are the quote's, the same on every tab. The request sends `works[]`
+  (`parseWorks()`, empty tabs dropped; a single `work` still reads); v1 gets one option per tab, the
+  first recommended, names kept apart by `distinctNames()` (the material, then the number). In the
+  editor, **+ From quick form** beside **+ Add option** opens the same form in a panel (choices fetched
+  on demand, `quickFormAction()`); **Add this option** prices it on the server (`quickOption()` in
+  `src/lib/quotes/quickOption.ts`, which writes nothing) and adds it to the editor's unsaved changes
+  (`addBuiltOption()`), saved like any other edit. Tested in `tests/quick.test.ts` and `tests/editor.test.ts`.
 - **Quick form = the preliminary (Albert, 2026-10-15; phone layout 2026-10-18).** "Job", step 1
   of a preliminary, replaces the GHL "Preliminary Mobile Quote" form and its workflow: pick flooring
   work from short lists, type square footage, add staircases, see a live estimate. Laid out for a

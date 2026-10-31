@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { optionTotals } from "../src/lib/calc";
-import { amountUnit, BASEBOARD_PER_SQFT, baseboardDefault, baseboardFollow, buildPreliminary, choiceRate, optionName, parseWork, QUICK_GROUPS, rowTotal, stairTotal, workIsEmpty, type QuickChoice, type QuickPart, type QuickProduct } from "../src/lib/quick/plan";
+import { amountUnit, BASEBOARD_PER_SQFT, baseboardDefault, baseboardFollow, buildPreliminary, choiceRate, distinctNames, MAX_QUICK_OPTIONS, optionName, parseWorks, parseWork, QUICK_GROUPS, rowTotal, stairTotal, workIsEmpty, type QuickChoice, type QuickPart, type QuickProduct } from "../src/lib/quick/plan";
 
 // INVENTED rates, costs, ids and products only: this repo is public.
 const part = (o: Partial<QuickPart> & { recordId: string }): QuickPart => ({ kind: "rate", labourType: "Install", spec: "SPEC", description: "Install | SPEC", contractor: "Crew A", uom: "sqft", rate: 2, cost: 1, minCharge: null, ...o });
@@ -180,5 +180,24 @@ describe("the preliminary's option is named for what it installs (Albert, 2026-1
     expect(optionName([], [], true)).toBe("Stairs");
     expect(optionName([], [], false)).toBe("Flooring");
     expect(optionName(Array.from({ length: 9 }, (_, i) => `Long install choice ${i}`), [], false).length).toBeLessThanOrEqual(80);
+  });
+});
+
+describe("several options from one quick form (Albert, 2026-10-31)", () => {
+  it("reads every tab's work, drops empty ones, caps the count, and still takes the single work", () => {
+    const one = { rows: [{ choiceId: NAIL.id, amount: 100 }] };
+    expect(parseWorks({ works: [one, { rows: [] }, one] })).toHaveLength(2);
+    expect(parseWorks({ works: Array.from({ length: 9 }, () => one) })).toHaveLength(MAX_QUICK_OPTIONS);
+    expect(parseWorks({ work: one })).toHaveLength(1);
+    expect(parseWorks({})).toEqual([]);
+  });
+
+  it("never gives two options the same name: the material first, then the number", () => {
+    expect(distinctNames([
+      { name: "Install Nail down", materials: ["Solid Hardwood"] },
+      { name: "Install Nail down", materials: ["Engineered (3/4\")"] },
+      { name: "Install Nail down", materials: ["Engineered (3/4\")"] },
+      { name: "Stairs", materials: [] },
+    ])).toEqual(["Install Nail down", "Install Nail down · Engineered (3/4\")", "Install Nail down (3)", "Stairs"]);
   });
 });
