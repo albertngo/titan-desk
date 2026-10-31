@@ -581,21 +581,19 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   Typed line (a manual Stairs line) and Private, whose picker offers Stair Items and typed lines only (`stairsOnly` on
   the Picker); a **Flooring** option gets every work section but Stairs. A section's inline + Add follows the same rule.
   Lines already on an option are untouched. Tested in `tests/stairGroups.test.ts`.
-- **New work after acceptance (Albert, 2026-10-31; step 3 of the contract; vault `05_decisions/2026-10-30-quote-one-working-quote`
-  item 7).** A change may offer new work: its **first option is the project as agreed** and always goes; every other option
-  is an **offer**: with a Part, one of the choices for that Part, which must be one the contract doesn't cover
-  (`changeOfferProblems()` in `send/plan.ts`, given `contractParts()`); with **no Part, an addition on its own**
-  (Albert, same day), taken or not beside anything else (`pickKey()` / `isAddition()` in `copy.ts`; tick boxes in
-  the Accept panel). The copy keeps a change's order and marks offers
-  (`CopyOption.offer`, `offersOf()`); the page, PDF and email show the project, then "New work you can add" (no schedule
-  of their own), and the change email and text name them. A change with offers can be accepted on its link, in store or
-  for them, for the offers only (`notAcceptable()` / `acceptProblems()`); the Accept panel's totals and schedule are on
-  the whole project (`base`). `buildAcceptance()` records the project as `base`, the picks, and totals and stages on
-  the whole; `fromAcceptance()` makes the contract base + picks, so the contract, invoices and Make a change carry
-  both. `record.ts` adds `paid` (what the Master Payments Log shows received, null when unreadable) and hands off with
-  **`buildContract()`** (GHL's value moves to the whole total; no second Won, so Make 3710214 makes no second
-  project); the email, text and accepted page ask only for **what is due now** (`dueNow()` / `dueWords()`: the
-  deposit on the whole less what was paid). Tested in `tests/change.test.ts`.
+- **After the first acceptance, everything is for the record (Albert, 2026-10-31; vault
+  `05_decisions/2026-10-31-quote-changes-for-record`).** The customer accepts once, for the project; every change after
+  that is sent for the record with nothing to pick or accept, new work included. This reverses step 3 as built the
+  same morning (offers accepted on a change's link, titan-desk PR 107, reverted). On a change the first option is the
+  project as agreed and always goes; new work (a basement, an extra) goes on it or as another option after it, with
+  or without a Part (`changeProblems()` in `send/plan.ts` refuses only a new option for a Part the customer already
+  has, from `contractParts()`). Sending **joins the change's options into one** (`joinChange()` in
+  `src/lib/contract/model.ts`: totals added, the version's schedule restaged on the whole), so the page, PDF, email,
+  What changed, the contract, GHL's value and invoices see one project, and Make a change later brings back every
+  option that change sent. The change copy carries **what has been paid** (`CopyChange.paid`, read from the Master
+  Payments Log at send, null when unreadable), shown as Paid so far and Left to pay (`paidLeft()` in
+  `src/lib/change/diff.ts`). The guard is a habit: a change goes out only after the customer's yes in person or by
+  phone. Tested in `tests/change.test.ts`.
 - **Invoices and receipts (Albert, 2026-10-30).** One numbered document per won project, on its contract
   version (the accepted one or its latest change): an **invoice** (INV-82571, INV-82572…) when the contract charges
   HST on every line, a **receipt** (R-10245, R-10246…) when HST is on part of it (the floor material) or none
@@ -700,8 +698,8 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
 2f. **Notion payments are read in one file (2026-10-30):** `src/lib/notion/payments.ts`, `server-only`, the only reader
    of `QUOTE_NOTION_PAYMENTS_TOKEN` (a Notion internal integration with read content only, shared with the Master
    Payments Log alone, staff deployment only), one request (a query of that log), reached only from
-   `src/lib/quotes/billing.ts` and, since 2026-10-31, `src/lib/accept/record.ts` (what was already paid, when new work is
-   added to a project). `src/lib/bug/notion.ts` is the only other file that talks to Notion.
+   `src/lib/quotes/billing.ts` and, since 2026-10-31, `src/lib/quotes/send.ts` (a change's paid so far). `src/lib/bug/notion.ts`
+   is the only other file that talks to Notion.
 2g. **One file talks to CompanyCam, and only reads (2026-10-30):** `src/lib/companycam/client.ts`, `server-only`,
    GET only, one request function, the only reader of `QUOTE_COMPANYCAM_TOKEN` (staff deployment only; refuses on
    the customer one) and the only file naming `api.companycam.com`. A CompanyCam access token is not scoped, so this

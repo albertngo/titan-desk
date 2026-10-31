@@ -10,7 +10,7 @@ import { termsHref, termsLabel } from "@/lib/accept/terms";
 import { defaultSchedule } from "@/lib/pricing/schedule";
 import { acceptConfigured } from "@/lib/quotes/acceptClient";
 import { customerQuote } from "@/lib/quotes/customer";
-import { acceptedPdfName, isAddition, offersPdf, partKeys, pdfName, pickKey, stagesOf } from "@/lib/send/copy";
+import { acceptedPdfName, offersPdf, partKeys, partOf, pdfName, stagesOf } from "@/lib/send/copy";
 
 /** A customer's quote, opened from the link in their email or text. Customer deployment only. */
 
@@ -64,22 +64,21 @@ export default async function CustomerQuotePage({ params, searchParams }: { para
 
   // Open to accept: a measured quote, still good, with Online Acceptance switched on and a Project Expectations PDF.
   const canAccept = acceptConfigured() && Boolean(etransferEmail()) && terms !== null && notAcceptable(copy, state, terms) === null;
-  // On a change (2026-10-31) only the new work offered can be taken; the project as agreed (its first option) is the base.
-  const change = Boolean(copy.change);
-  const options: AcceptOption[] = copy.options.flatMap((o, index) =>
-    change && !o.offer
-      ? []
-      : [{ index, name: o.name, subtotal: o.totals.subtotal, hst: o.totals.hst, part: pickKey(o, index), addOns: addOnsOf(copy, index), frozen: stagesOf(o).map((s) => ({ amount: s.amount })) }],
-  );
-  const first = copy.options[0];
-  const base = change && first ? { subtotal: first.totals.subtotal, hst: first.totals.hst, frozen: stagesOf(first).map((s) => ({ amount: s.amount })) } : null;
-  // What starts ticked: the recommended option of each Part. With one Part only, the first when none is recommended;
-  // new work on a change is never ticked for them.
+  const options: AcceptOption[] = copy.options.map((o, index) => ({
+    index,
+    name: o.name,
+    subtotal: o.totals.subtotal,
+    hst: o.totals.hst,
+    part: partOf(o),
+    addOns: addOnsOf(copy, index),
+    frozen: stagesOf(o).map((s) => ({ amount: s.amount })),
+  }));
+  // What starts ticked: the recommended option of each Part. With one Part only, the first when none is recommended.
   const split = partKeys(options).length > 1;
-  const defaults = partKeys(options).filter((part) => !isAddition(part)).flatMap((part) => {
+  const defaults = partKeys(options).flatMap((part) => {
     const mine = options.filter((o) => o.part === part);
     const rec = mine.find((o) => copy.options[o.index].recommended);
-    return rec ? [rec.index] : !split && !change && mine[0] ? [mine[0].index] : [];
+    return rec ? [rec.index] : !split && mine[0] ? [mine[0].index] : [];
   });
   return (
     <>
@@ -98,7 +97,6 @@ export default async function CustomerQuotePage({ params, searchParams }: { para
               schedule={copy.paymentSchedule ?? defaultSchedule()}
               terms={{ id: terms.id, label: termsLabel(terms.on), href: termsHref(token) }}
               defaultPicks={defaults}
-              base={base}
             />
           ) : null
         }

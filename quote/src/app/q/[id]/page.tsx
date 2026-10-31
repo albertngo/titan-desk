@@ -39,7 +39,7 @@ import { acceptReadiness } from "@/lib/accept/staff";
 import { termsLabel } from "@/lib/accept/terms";
 import { ghlOpportunityUrl } from "@/lib/ghl/ids";
 import { logEntries } from "@/lib/quotes/history";
-import { addDays, leadPrice, offersPdf, pickKey, priceRange, rangeText, torontoToday, VALID_DAYS } from "@/lib/send/copy";
+import { addDays, leadPrice, offersPdf, partOf, priceRange, rangeText, torontoToday, VALID_DAYS } from "@/lib/send/copy";
 import { optionProblem, sendProblems } from "@/lib/send/plan";
 import { parseRooms } from "@/lib/rooms/log";
 
@@ -82,7 +82,7 @@ export default async function QuotePage({
   const contractId = quote.link?.contractVersionId ?? null;
   const loadedContract = !customer && contractId && quote.link ? await loadContract(quote.link.quoteRecordId) : null;
   const putOn = loadedContract && contractId && !quote.changeNo ? { versionId: contractId, parts: new Set(contractParts(loadedContract.contract)) } : null;
-  const acceptedIds = new Set(agreed && quote.acceptance ? [...picksOf(quote.acceptance), ...(quote.acceptance.base ? [quote.acceptance.base] : [])].flatMap((p) => (p.ref ? [p.ref] : [])) : []);
+  const acceptedIds = new Set(agreed && quote.acceptance ? picksOf(quote.acceptance).flatMap((p) => (p.ref ? [p.ref] : [])) : []);
   const jobs = unlinked ? await jobChoices(unlinked.quoteRecordId) : null;
 
   // Sending (milestone 4): what would stop it, decided by the same check the send runs.
@@ -142,18 +142,14 @@ export default async function QuotePage({
 
   // Acceptance (2026-10-27): on a measured version out with the customer, accept with them or for them;
   // once accepted, what was agreed and where the hand-off to GHL and Notion stands. Staff only.
-  // A change is accepted only for the new work it offers (2026-10-31); a change with none is for the record.
-  const acceptable = !customer && quote.status === "Sent" && quote.basis === "Measured" && !quote.acceptance;
+  const acceptable = !customer && quote.status === "Sent" && quote.basis === "Measured" && !quote.changeNo && !quote.acceptance;
   const [acceptGate, sentCopy] = acceptable ? await Promise.all([acceptReadiness(), previewCopy(quote.id)]) : [null, null];
-  const acceptOptions = sentCopy
-    ? sentCopy.options.flatMap((o, index) => (sentCopy.change && !o.offer ? [] : [{ index, name: o.name, subtotal: o.totals.subtotal, part: pickKey(o, index), addOns: addOnsOf(sentCopy, index) }]))
-    : [];
   const acceptCard =
-    acceptable && sentCopy && acceptOptions.length > 0 ? (
+    acceptable && sentCopy ? (
       <AcceptForCustomer
         versionId={quote.id}
         link={link}
-        options={acceptOptions}
+        options={sentCopy.options.map((o, index) => ({ index, name: o.name, subtotal: o.totals.subtotal, part: partOf(o), addOns: addOnsOf(sentCopy, index) }))}
         customerName={[quote.link?.firstName, quote.link?.lastName].filter(Boolean).join(" ") || quote.customerName}
         terms={acceptGate?.terms ? { id: acceptGate.terms.id, label: termsLabel(acceptGate.terms.on) } : null}
         off={acceptGate?.off ?? null}

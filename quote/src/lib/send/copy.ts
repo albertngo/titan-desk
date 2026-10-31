@@ -86,11 +86,6 @@ export type CopyOption = {
   scope?: "Stairs";
   /** The part of the home (2026-10-30); absent = the scope stands for it, as on every copy frozen before then. */
   part?: Part;
-  /**
-   * On a change (2026-10-31): new work offered for a Part the contract doesn't cover yet, for the customer to accept
-   * on the change's link. Absent on the change's first option (the project as agreed) and on every ordinary copy.
-   */
-  offer?: true;
 };
 
 export type Letterhead = {
@@ -350,19 +345,8 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
 /** The scope a frozen option counts as. */
 export const scopeOf = (o: Pick<CopyOption, "scope">): Scope => (o.scope === "Stairs" ? "Stairs" : "Flooring");
 
-/** The options a change offers as new work (2026-10-31), with their places in the copy; none on an ordinary copy. */
-export const offersOf = (copy: Pick<CustomerCopy, "options">): number[] => copy.options.flatMap((o, i) => (o.offer ? [i] : []));
-
 /** What a frozen option is an alternative within (2026-10-30): its Part, else its scope. */
 export const partOf = (o: Pick<CopyOption, "scope" | "part">): string => o.part ?? scopeOf(o);
-
-/**
- * What a frozen option is chosen within when accepting (2026-10-31): its Part, else its scope; new work offered with
- * a change and given no Part is an addition, a choice of its own ("addition:<place>"), taken or not beside anything else.
- */
-export const pickKey = (o: Pick<CopyOption, "scope" | "part" | "offer">, index: number): string => (o.offer && !o.part ? `${ADDITION}${index}` : partOf(o));
-const ADDITION = "addition:";
-export const isAddition = (key: string) => key.startsWith(ADDITION);
 
 /** The Parts a set of options offers, in the order they first appear. */
 export const partKeys = (options: { part: string }[]): string[] => [...new Set(options.map((o) => o.part))];
@@ -428,11 +412,9 @@ export function customerCopy(quote: Quote, at: { sentOn: string; validUntil: str
     company: at.company,
     ...(quote.schedule ? { paymentSchedule: quote.schedule } : {}),
     // Flooring options first, then stairs (2026-10-28), so each scope reads as one group; order within a scope is kept.
-    // A change (2026-10-31) keeps its order: the first option is the project as agreed, any others are new work offered.
-    options: (quote.changeNo ? quote.options : [...quote.options].sort((a, b) => (optionScope(a) === optionScope(b) ? 0 : optionScope(a) === "Flooring" ? -1 : 1))).map((o, i) => ({
-      ...copyOption(o, quote.discountRate, quote.showHst, lump, prelim && at.range !== false, quote.schedule ?? defaultSchedule()),
-      ...(quote.changeNo && i > 0 ? { offer: true as const } : {}),
-    })),
+    options: [...quote.options]
+      .sort((a, b) => (optionScope(a) === optionScope(b) ? 0 : optionScope(a) === "Flooring" ? -1 : 1))
+      .map((o) => copyOption(o, quote.discountRate, quote.showHst, lump, prelim && at.range !== false, quote.schedule ?? defaultSchedule())),
   };
 }
 

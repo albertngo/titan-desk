@@ -417,8 +417,8 @@ describe("Notion payments (2026-10-30: read-only, for invoices and receipts)", (
     expect(text).not.toMatch(/\/pages|PATCH|DELETE/);
   });
 
-  it("is reached only from the invoice and receipt writer and, for new work added to a project (2026-10-31), the acceptance step", () => {
-    expect(all.filter((f) => /from ["']@\/lib\/notion\/payments["']/.test(f.text)).map((f) => f.rel).sort()).toEqual(["lib/accept/record.ts", "lib/quotes/billing.ts"]);
+  it("is reached only from the invoice and receipt writer and, for a change's paid-so-far (2026-10-31), the sender", () => {
+    expect(all.filter((f) => /from ["']@\/lib\/notion\/payments["']/.test(f.text)).map((f) => f.rel).sort()).toEqual(["lib/quotes/billing.ts", "lib/quotes/send.ts"]);
   });
 
   it("the billing writer writes Invoices, Receipts and the version's history only", () => {

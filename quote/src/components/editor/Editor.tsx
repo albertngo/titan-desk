@@ -410,7 +410,7 @@ export default function Editor({
           {version.change && (
             <p className="change-note">
               Change {version.change.no} to the accepted quote. Edit the work as usual; the customer gets it as an updated quote, for their records, and the payment schedule is worked out again on the new total.
-              {" "}New work: add an option after the first. Give it a Part (Basement, Main stairs…) to offer a choice for that area, or leave the Part blank for an addition on its own. The customer chooses and accepts it on the updated quote&apos;s page.
+              {" "}New work (a basement, an extra) can go on the first option or as another option after it: everything on a change is part of the project when it is sent, for the record, with nothing for the customer to accept.
               {version.change.contractTotal !== null && option && t && quote.options.length === 1 && (
                 <span className={`chip ${t.total >= version.change.contractTotal ? "accent" : "warn"}`}>
                   vs contract: {t.total - version.change.contractTotal >= 0 ? "+" : "−"}

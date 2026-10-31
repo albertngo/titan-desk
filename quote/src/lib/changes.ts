@@ -23,6 +23,16 @@ export const CHANGES: Change[] = [
   {
     date: "2026-10-31",
     kind: "changed",
+    title: "New work after acceptance is for the record, nothing to accept",
+    details: [
+      "Replaces the two entries below. On a change, new work (a basement, an extra) goes on the first option or as another option after it; everything on the change becomes part of the project when you send it. The customer gets the updated quote for their records, with nothing to pick or accept.",
+      "The updated quote shows what changed, the new total, the payment schedule on the whole project, what has been paid so far and what is left (from Notion's Master Payments Log).",
+      "Only send a change once the customer has said yes in person or by phone. A new option for a part of the home they already have is refused: put that work on the first option.",
+    ],
+  },
+  {
+    date: "2026-10-31",
+    kind: "changed",
     title: "New work without a Part is an addition",
     details: [
       "When you add new work to an accepted project, the Part is optional. Leave it blank and the option is an addition on its own: the customer can tick any or all of them, beside a choice for a Part.",

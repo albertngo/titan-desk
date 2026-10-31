@@ -1,4 +1,5 @@
-import { round2, type AcceptedTotals } from "@/lib/calc";
+import { restageAmounts, round2, type AcceptedTotals } from "@/lib/calc";
+import { defaultSchedule } from "@/lib/pricing/schedule";
 import type { Acceptance, AcceptedAddOn } from "@/lib/accept/plan";
 import type { Part, Scope } from "@/lib/quotes/types";
 import { scopeOf, stagesOf, type CopyOption, type CopySection, type CopyStage, type CopyTotals, type CustomerCopy } from "@/lib/send/copy";
@@ -55,13 +56,9 @@ const fullKey = (key: string, option: number) => (key.split(".").length === 2 ? 
 export function fromAcceptance(versionId: string, a: Acceptance): Contract {
   const picks = a.picks?.length ? a.picks : [{ ...a.option, scope: "Flooring" as Scope }];
   const keyed = a.addOns.map((x) => ({ ...x, key: fullKey(x.key, a.option.index) }));
-  // New work added on a change (2026-10-31): the change's first option, the project as agreed, comes first.
-  const base: ContractItem[] = a.base
-    ? [{ versionId, index: a.base.index, ref: a.base.ref, name: a.base.name, scope: a.base.scope, ...(a.base.part ? { part: a.base.part } : {}), addOns: [], via: "change", on: a.on }]
-    : [];
   return {
     v: CONTRACT_VERSION,
-    items: [...base, ...picks.map((p): ContractItem => ({
+    items: picks.map((p) => ({
       versionId,
       index: p.index,
       ref: p.ref,
@@ -71,7 +68,7 @@ export function fromAcceptance(versionId: string, a: Acceptance): Contract {
       addOns: keyed.filter((x) => x.key.startsWith(`${p.index}.`)),
       via: "accepted",
       on: a.on,
-    }))],
+    })),
     totals: a.totals,
     stages: a.stages,
   };
@@ -122,6 +119,37 @@ export const contractParts = (c: Contract): string[] => [...new Set(c.items.flat
 export const contractOn = (c: Contract) => c.items.map((i) => i.on).sort().at(-1) ?? "";
 
 /* ---------- the joined copy ---------- */
+
+/** The frozen stages of several options, added stage by stage, so a material deposit keeps the dollars of each. */
+export function frozenStages(parts: CopyOption[]): CopyStage[] {
+  const [first, ...rest] = parts.map(stagesOf);
+  if (!first) return [];
+  return first.map((s, i) => ({ ...s, amount: s.amount === null ? null : round2(s.amount + rest.reduce((a, st) => a + (st[i]?.amount ?? 0), 0)) }));
+}
+
+/**
+ * A change's options as the one project they are (Albert, 2026-10-31, vault 05_decisions/2026-10-31-quote-changes-for-record):
+ * everything on a change is part of the project when it is sent, so a change with new work beside the project as
+ * agreed (a basement, an extra) is frozen as one option, the options joined in order, with the totals added and the
+ * version's schedule restaged on the whole. A change with one option is returned as it is.
+ */
+export function joinChange(copy: CustomerCopy): CustomerCopy {
+  if (copy.options.length < 2) return copy;
+  const add = (k: "subtotal" | "hst" | "total") => round2(copy.options.reduce((a, o) => a + o.totals[k], 0));
+  const totals = { subtotal: add("subtotal"), hst: add("hst"), total: add("total") };
+  const frozen = frozenStages(copy.options);
+  const schedule = copy.paymentSchedule ?? defaultSchedule();
+  const restaged = schedule.stages.length === frozen.length ? restageAmounts(schedule, frozen, totals.total) : restageAmounts(defaultSchedule(), frozen, totals.total);
+  const stages: CopyStage[] = restaged.map((s, i) => ({ label: s.label, when: s.when || frozen[i]?.when || "", pay: s.pay, amount: s.amount, pct: s.pct, kind: s.kind }));
+  const SELF = "change";
+  const c: Contract = {
+    v: CONTRACT_VERSION,
+    items: copy.options.map((o, i) => ({ versionId: SELF, index: i, ref: o.ref ?? null, name: o.name, scope: o.scope === "Stairs" ? "Stairs" : null, ...(o.part ? { part: o.part } : {}), addOns: [], via: "change", on: copy.sentOn })),
+    totals,
+    stages,
+  };
+  return contractView(c, { [SELF]: copy }) ?? copy;
+}
 
 function sumTotals(parts: CopyTotals[]): CopyTotals {
   const add = (k: keyof CopyTotals) => round2(parts.reduce((a, t) => a + t[k], 0));

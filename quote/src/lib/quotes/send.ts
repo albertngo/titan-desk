@@ -9,7 +9,9 @@ import { BOOKING_URLS } from "@/lib/ghl/ids";
 import { followUpTagBodies } from "@/lib/activity/track";
 import { parseAcceptance } from "@/lib/accept/plan";
 import { changeSummary } from "@/lib/change/diff";
-import { contractOn, contractParts, contractVersions, fromChange, serializeContract } from "@/lib/contract/model";
+import { contractOn, contractParts, contractVersions, fromChange, joinChange, serializeContract } from "@/lib/contract/model";
+import { cleanPayments } from "@/lib/billing/doc";
+import { paymentsReaderOn, projectPayments } from "@/lib/notion/payments";
 import { buildContract } from "@/lib/link/ghlRequest";
 import { makeConfigured, sendMessage, sendToGhl, setFollowUpTags } from "@/lib/make/client";
 import { acceptedPdfName, COPY_MAX_CHARS, customerCopy, offersPdf, parseCopy, pdfName, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "@/lib/send/copy";
@@ -93,8 +95,20 @@ async function withChange(quote: Quote, copy: CustomerCopy): Promise<CustomerCop
   const loaded = await loadContract(quoteRecordId);
   if (!loaded || contractVersions(loaded.contract).includes(quote.id)) return null;
   const before = loaded.view.options[0];
-  if (!before || !copy.options[0]) return null;
-  return { ...copy, change: changeSummary(quote.changeNo, contractOn(loaded.contract), before, copy.options[0]) };
+  // Everything on a change is the project (2026-10-31): new work beside the project as agreed is joined into it.
+  const joined = joinChange(copy);
+  if (!before || !joined.options[0]) return null;
+  return { ...joined, change: changeSummary(quote.changeNo, contractOn(loaded.contract), before, joined.options[0]) };
+}
+
+/** What Notion's Master Payments Log shows received for the project; null when it can't be read. */
+async function paidSoFar(projectUrl: string | null): Promise<number | null> {
+  if (!projectUrl || !paymentsReaderOn()) return null;
+  try {
+    return Math.round(cleanPayments(await projectPayments(projectUrl)).reduce((t, p) => t + p.amount, 0) * 100) / 100;
+  } catch {
+    return null;
+  }
 }
 
 /** The in-store and in-home booking pages a preliminary's email offers: the GHL calendars in src/lib/ghl/ids.ts. */
@@ -189,7 +203,6 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   // The freshest email and phone from GHL: that is where GHL will send it.
   const quote = await refreshFromGhl(loaded);
   const today = torontoToday(new Date());
-  // A change may offer new work only for Parts the contract doesn't cover (2026-10-31).
   const current = quote.changeNo && quote.link ? await loadContract(quote.link.quoteRecordId) : null;
   const problems = sendProblems(quote, input, { today, fingerprint: fingerprint(fromQuote(quote)), contractParts: current ? contractParts(current.contract) : [] });
   if (problems.length) return { ok: false, message: "Not sent.", problems };
@@ -202,8 +215,10 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   // Only the options ticked on the Send card go to the customer, everywhere (2026-10-24).
   const plain = customerCopy({ ...chooseOptions(quote, input.optionIds), itemised }, { sentOn: today, validUntil, company: letterhead(), range: input.range, pdf: input.pdf });
   // A change carries what changed since the contract it updates (2026-10-27).
-  const copy = await withChange(quote, plain);
-  if (!copy) return { ok: false, message: "This change can't be sent: the accepted quote it changes couldn't be read. Open the accepted version and try Make a change again." };
+  const changed = await withChange(quote, plain);
+  if (!changed) return { ok: false, message: "This change can't be sent: the accepted quote it changes couldn't be read. Open the accepted version and try Make a change again." };
+  // A change says what has been paid so far and what is left (2026-10-31), from Notion's Master Payments Log.
+  const copy = changed.change ? { ...changed, change: { ...changed.change, paid: await paidSoFar(quote.link?.notionProjectUrl ?? null) } } : changed;
   const text = serializeCopy(copy);
   if (text.length > COPY_MAX_CHARS) return { ok: false, message: "This quote is too long to send as one copy. Split it into fewer options." };
   const token = isToken(quote.customerToken) ? quote.customerToken : newToken();
