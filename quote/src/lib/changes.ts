@@ -23,6 +23,14 @@ export const CHANGES: Change[] = [
   {
     date: "2026-10-31",
     kind: "changed",
+    title: "Customer page: each option clearly separated",
+    details: [
+      "On a quote with two or more options, each one now starts with an \"Option 1 of 2\" divider line, more space before it, and a tinted header with a blue top edge, so the option's name stands out from the prices under it. Easiest to see on a phone.",
+    ],
+  },
+  {
+    date: "2026-10-31",
+    kind: "changed",
     title: "Not offered can't be sent; preliminary and old links are obvious",
     details: [
       "A Not offered option is greyed out, struck through and labelled Not offered on its tab, with a note above it. On the Send card it is shown but can't be ticked, so it can never go to the customer. Untick Not offered in the editor to send it.",

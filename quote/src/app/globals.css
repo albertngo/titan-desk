@@ -622,6 +622,13 @@ a.chip.accent:hover { text-decoration: underline; }
 .cq-num { display: block; font-size: 13px; font-weight: 600; color: var(--fg-faint); }
 .cq-num b { color: var(--accent); font-weight: 700; }
 .cq-opt { overflow: hidden; scroll-margin-top: 12px; }
+/* Several options (Albert, 2026-10-31): a labelled rule before each, more room, and a tinted header with a blue top edge. */
+.cq-divider { display: flex; align-items: center; gap: 12px; margin: 22px 0 -4px; color: var(--accent); font-size: 12.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.cq-divider::before, .cq-divider::after { content: ""; flex: 1; height: 2px; background: var(--accent); opacity: .25; border-radius: 2px; }
+.cq-opt.several { border-top: 4px solid var(--accent); scroll-margin-top: 56px; }
+.cq-opt.several > header { background: var(--accent-soft); }
+.cq-opt.several h2 { font-size: 22px; }
+.cq-opt.several .cq-rec { background: #fff; box-shadow: 0 0 0 1px var(--accent) inset; }
 .cq-opt > header { padding: 18px 18px 12px; position: relative; }
 .cq-opt h2 { font-size: 20px; font-weight: 700; line-height: 1.25; padding-right: 110px; }
 .cq-opt > header p { color: var(--fg-dim); margin-top: 6px; font-size: 14px; white-space: pre-line; }

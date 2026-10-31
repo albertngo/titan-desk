@@ -167,10 +167,18 @@ function ChangeBox({ c, o, lump }: { c: CopyChange; o: CopyOption; lump: boolean
 
 function OptionBlock({ o, i, copy }: { o: CopyOption; i: number | null; copy: CustomerCopy }) {
   return (
-    <section className="cq-card cq-opt" id={i ? `option-${i}` : undefined} aria-labelledby={`opt-h-${i ?? 0}`}>
+    <>
+    {/* With several options, a labelled rule before each one (Albert, 2026-10-31: "more of a separator"). */}
+    {i && (
+      <div className="cq-divider" aria-hidden="true">
+        <span>{isSplit(copy) ? `${scopeOf(o)} · ` : ""}Option {i} of {copy.options.length}</span>
+      </div>
+    )}
+    <section className={`cq-card cq-opt${i ? " several" : ""}`} id={i ? `option-${i}` : undefined} aria-labelledby={`opt-h-${i ?? 0}`}>
       <header>
+        {/* "Option N" is the divider above the card (2026-10-31); the screen reader still hears it with the name. */}
         <h2 id={`opt-h-${i ?? 0}`}>
-          {i && <span className="cq-num">{isSplit(copy) ? `${scopeOf(o)} · ` : ""}Option {i}</span>}
+          {i && <span className="sr-only">Option {i}: </span>}
           {o.name}
         </h2>
         {o.recommended && i && <span className="cq-rec">Recommended</span>}
@@ -197,6 +205,7 @@ function OptionBlock({ o, i, copy }: { o: CopyOption; i: number | null; copy: Cu
         </div>
       )}
     </section>
+    </>
   );
 }
 
