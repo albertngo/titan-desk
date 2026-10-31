@@ -23,6 +23,15 @@ export const CHANGES: Change[] = [
   {
     date: "2026-10-31",
     kind: "changed",
+    title: "Send again: shorter messages, and right after sending",
+    details: [
+      "Send again… now shows on the Sent to customer card as soon as a preliminary or measured quote is sent, without reloading the page.",
+      "The message is one short line and the link: \"Here's your quote again\", \"Here's your accepted quote again\" on an accepted or won quote, and \"Here's your updated quote again\" on a change after acceptance. With Include the PDF it carries the PDF's link too.",
+    ],
+  },
+  {
+    date: "2026-10-31",
+    kind: "changed",
     title: "New work after acceptance is for the record, nothing to accept",
     details: [
       "Replaces the two entries below. On a change, new work (a basement, an extra) goes on the first option or as another option after it; everything on the change becomes part of the project when you send it. The customer gets the updated quote for their records, with nothing to pick or accept.",

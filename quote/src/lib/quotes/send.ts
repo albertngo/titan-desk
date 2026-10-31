@@ -15,7 +15,7 @@ import { paymentsReaderOn, projectPayments } from "@/lib/notion/payments";
 import { buildContract } from "@/lib/link/ghlRequest";
 import { makeConfigured, sendMessage, sendToGhl, setFollowUpTags } from "@/lib/make/client";
 import { acceptedPdfName, COPY_MAX_CHARS, customerCopy, offersPdf, parseCopy, pdfName, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "@/lib/send/copy";
-import { changeEmailMessage, changeSmsMessage, chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, isToken, newToken, parseOptionIds, parseResend, resendEmailMessage, resendProblems, resendSmsMessage, sendProblems, smsMessage, type Channels, type Sender } from "@/lib/send/plan";
+import { changeEmailMessage, changeSmsMessage, chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, isToken, newToken, parseOptionIds, parseResend, resendEmailMessage, resendKind, resendProblems, resendSmsMessage, sendProblems, smsMessage, type Channels, type Sender } from "@/lib/send/plan";
 import { authorFields, firstNameOf, type Person } from "./history";
 import { loadContract } from "./contract";
 import { getQuote } from "./load";
@@ -350,7 +350,7 @@ export async function resendQuote(versionId: string, raw: unknown): Promise<Rese
     turnedOn = true;
   }
   const { link, pdfUrl } = customerLinks(base, quote.customerToken, accepted ? acceptedPdfName(copy) : pdfName(copy));
-  const to = { contactId, firstName: quote.link?.firstName ?? null, link, pdfUrl: input.pdf ? pdfUrl : null, accepted };
+  const to = { contactId, firstName: quote.link?.firstName ?? null, link, pdfUrl: input.pdf ? pdfUrl : null, kind: resendKind(quote.status, frozen) };
   const from = senderOf(person);
   const sentTo: string[] = [];
   const failed: string[] = [];

@@ -762,42 +762,53 @@ export function resendProblems(v: { status: string | null; validUntil: string | 
   return out;
 }
 
-/** The email: the PDF's link when asked for, and the quote's own link either way. */
-export function resendEmailMessage(
-  copy: CustomerCopy,
-  to: { contactId: string; firstName: string | null; link: string; pdfUrl: string | null; accepted?: boolean },
-  sender: Sender | null = null,
-  options: { emailFrom?: string | null } = {},
-): GhlMessage {
+/**
+ * What is being sent again (Albert, 2026-10-31): a quote out with the customer (preliminary or measured), the quote they
+ * accepted, or a change after acceptance (the updated quote). Each says so in plain words: "Here's your accepted quote again."
+ */
+export type ResendKind = "quote" | "accepted" | "change";
+
+export function resendKind(status: string | null, copy: { change?: unknown }): ResendKind {
+  if (status === "Accepted" || status === "Won") return "accepted";
+  return copy.change ? "change" : "quote";
+}
+
+const RESEND_WHAT: Record<ResendKind, string> = { quote: "quote", accepted: "accepted quote", change: "updated quote" };
+
+type ResendTo = { contactId: string; firstName: string | null; link: string; pdfUrl: string | null; kind?: ResendKind };
+
+/**
+ * The email, kept short (Albert, 2026-10-31: "simpler, less bloated"): one line saying what it is, the button (the PDF's
+ * first when asked for, then the quote online), and the sign-off. Nothing about the quote is restated: it is at the link.
+ */
+export function resendEmailMessage(copy: CustomerCopy, to: ResendTo, sender: Sender | null = null, options: { emailFrom?: string | null } = {}): GhlMessage {
   const hi = greetingName(to.firstName);
-  const what = to.accepted ? "accepted quote" : "quote";
-  const subject = to.pdfUrl ? `Your ${what} ${copy.quoteNumber} as a PDF` : `Your ${what} ${copy.quoteNumber} from ${copy.company.name}`;
-  const preheader = to.pdfUrl ? "Here is the PDF you asked for." : "Here is the link to your quote again.";
+  const what = RESEND_WHAT[to.kind ?? "quote"];
+  const subject = to.pdfUrl ? `Your ${what} ${copy.quoteNumber} as a PDF` : `Your ${what} ${copy.quoteNumber} again`;
+  const line = `here&rsquo;s your ${what} again${to.pdfUrl ? ", with the PDF" : ""}.`;
+  const preheader = `Here's your ${what} ${copy.quoteNumber} again.`;
   const signoff = sender?.firstName ? `${esc(sender.firstName)} &middot; ${esc(copy.company.name)}` : `The ${esc(copy.company.name)} team`;
-  const head = to.pdfUrl ? `here is your ${what} as a PDF.` : `here is your ${what} again.`;
   const body =
     row(
       eyebrow(esc(copy.quoteNumber)) +
-        `<h1 class="h1" style="margin:0 0 16px;font-family:${SERIF};font-weight:400;font-size:30px;line-height:1.2;color:${C.ink};">${hi ? `Hi ${esc(hi)}, ${head}` : head.charAt(0).toUpperCase() + head.slice(1)}</h1>` +
-        para(to.pdfUrl ? (to.accepted ? "Download the signed copy below. Your accepted quote is also online at the same link as before." : "Download it below. The full quote is still online at the same link as before.") : "It&rsquo;s the same quote we sent before, at the same link."),
-      "40px 40px 12px",
+        `<h1 class="h1" style="margin:0 0 8px;font-family:${SERIF};font-weight:400;font-size:28px;line-height:1.25;color:${C.ink};">${hi ? `Hi ${esc(hi)}, ${line}` : line.charAt(0).toUpperCase() + line.slice(1)}</h1>`,
+      "40px 40px 8px",
     ) +
-    (to.pdfUrl ? row(button("Download the PDF", to.pdfUrl), "8px 40px 12px") + row(button("View your quote online", to.link, false), "4px 40px 10px") : row(button("View your quote", to.link), "8px 40px 10px")) +
-    hairline("22px 40px 28px") +
-    row(para("Any questions, just reply to this email.", 15, C.body, "0 0 4px") + para(signoff, 14, C.muted, "0 0 36px"));
+    (to.pdfUrl ? row(button("Download the PDF", to.pdfUrl), "8px 40px 8px") + row(button("View it online", to.link, false), "4px 40px 20px") : row(button(`View your ${what}`, to.link), "8px 40px 20px")) +
+    row(para("Any questions, just reply.", 15, C.body, "0 0 4px") + para(signoff, 14, C.muted, "0 0 36px"));
   const from = "emailFrom" in options ? options.emailFrom : emailFromFor(sender, copy.company.email, true);
   return { type: "Email", contactId: to.contactId, subject, html: frame(copy, subject, preheader, body), ...(from ? { emailFrom: from } : {}) };
 }
 
-/** The text: who, the PDF's link on its own line when asked for, then the quote's. GSM-7. */
-export function resendSmsMessage(copy: CustomerCopy, to: { contactId: string; firstName: string | null; link: string; pdfUrl: string | null; accepted?: boolean }, sender: Sender | null = null): GhlMessage {
-  const what = to.accepted ? "accepted quote" : "quote";
+/** The text: who, "here's your … again", the link (the PDF's first when asked for). GSM-7. */
+export function resendSmsMessage(copy: CustomerCopy, to: ResendTo, sender: Sender | null = null): GhlMessage {
+  const what = RESEND_WHAT[to.kind ?? "quote"];
   const hi = greetingName(to.firstName);
   const whoFrom = sender?.firstName ? `it's ${sender.firstName} from ${copy.company.name}` : `it's ${copy.company.name}`;
   const first = hi ? `Hi ${hi}, ${whoFrom}.` : `Hi, ${whoFrom}.`;
   const message = to.pdfUrl
-    ? `${first} Here is the PDF of your ${what} ${copy.quoteNumber}:\n${to.pdfUrl}\n\nThe full quote is still here:\n${to.link}\n\nAny questions, just reply.`
-    : `${first} Here is the link to your ${what} ${copy.quoteNumber} again:\n${to.link}\n\nAny questions, just reply.`;
+    ? `${first} Here's your ${what} ${copy.quoteNumber} again.\n\nPDF:\n${to.pdfUrl}\n\nOnline:\n${to.link}`
+    : `${first} Here's your ${what} ${copy.quoteNumber} again:\n${to.link}`;
   return { type: "SMS", contactId: to.contactId, message };
 }
 
