@@ -180,6 +180,9 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   Stairs lines go to the customer with no quantity, unit price or amount and no section total, on every copy
   (`copyOption()` in `copy.ts`). The site sheet's nosing is one line in linear feet of "Accents: Nosing"
   ($30/ft on the card); picket-hole nosing is the same item.
+- **A Stair Item's cost is Labor Cost + Material Cost (Albert, 2026-10-31)**, as Airtable's own Profit / Margin %
+  on Stair Items has it; `stairCost()` in `src/lib/pricing/stairCost.ts`, read in `getRateCard()`. A line keeps the cost
+  it was added with (Unit Cost Snap), so lines made before keep labour only until rebuilt or retyped.
 - **Stairs is its own section again (Albert, 2026-10-18)**, after Install, everywhere sections
   show (quote page, editor, customer page, PDF, Analysis), with its own subtotal; Stair Items are
   offered in that section only. This reverses the 2026-10-12 fold into Install; Refinish, Paint

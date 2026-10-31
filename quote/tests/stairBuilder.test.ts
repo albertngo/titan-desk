@@ -90,3 +90,14 @@ describe("the stair builder", () => {
     expect(r.lines[0].unitCostSnap).toBe(75);
   });
 });
+
+describe("a Stair Item's unit cost (2026-10-31)", () => {
+  it("is Labor Cost plus Material Cost, a blank counting as nothing, both blank as no cost", async () => {
+    const { stairCost } = await import("../src/lib/pricing/stairCost");
+    expect(stairCost(85, 100)).toBe(185);
+    expect(stairCost(85, null)).toBe(85);
+    expect(stairCost(null, 40)).toBe(40);
+    expect(stairCost(4.1, 0.2)).toBe(4.3);
+    expect(stairCost(null, null)).toBeNull();
+  });
+});

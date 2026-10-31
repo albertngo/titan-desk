@@ -22,6 +22,14 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-10-31",
+    kind: "fixed",
+    title: "Stair items cost labour plus material",
+    details: [
+      "A stair line's unit cost now adds the Stair Item's Material Cost to its Labor Cost, so the margin is right. Lines already on a quote keep the cost they were added with: rebuild the option from the Site sheet, or type the cost, to update them.",
+    ],
+  },
+  {
+    date: "2026-10-31",
     kind: "changed",
     title: "Stair Site Sheet v6",
     details: [

@@ -297,7 +297,9 @@ export const STAIR = {
   category: "fldOxeVyLo8XHV9zV",
   size: "fldrU1r8MKJzzLL1P",
   rate: "fldPFjFyKzHu0nxYx",
+  /** Labor Cost. A Stair Item's cost is this plus Material Cost (2026-10-31), as Airtable's own Profit formula has it. */
   cost: "fldX96S7DulWrGjUC",
+  materialCost: "fldmD89fOLP8N6L9I",
   active: "fldZwEDirc4fNjRIm",
 } as const;
 
