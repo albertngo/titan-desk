@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { NosingPiece, RailRun, SiteSheet } from "@/lib/sitesheet/sheet";
+import { sumParts, type NosingPiece, type RailRun, type SiteSheet } from "@/lib/sitesheet/sheet";
 
 /**
  * What was read, drawn as the paper Stair Site Sheet (v5) itself, one box for one box (Albert, 2026-10-29:
@@ -76,6 +76,16 @@ function useMarks({ get, edit, unclear }: Pick<PaperProps, "get" | "edit" | "unc
   const box = (path: string, label: string, w?: number) => (
     <input className="ssp-in" style={w ? { width: w } : undefined} inputMode="decimal" aria-label={label} value={raw(path)} onChange={(e) => edit(path, e.target.value.trim() === "" ? null : e.target.value)} />
   );
+  /** A count box that adds up (2026-10-31): "4+3+2" is written as counted and the total shown beside it. */
+  const sum = (path: string, label: string, w?: number) => {
+    const s = sumParts(raw(path));
+    return (
+      <span className="ssp-sumbox">
+        <input className="ssp-in" style={w ? { width: w } : undefined} inputMode="tel" aria-label={label} value={raw(path)} onChange={(e) => edit(path, e.target.value.trim() === "" ? null : e.target.value)} />
+        {s.parts > 1 && s.total !== null && <span className="ssp-sum" aria-label={`${label} adds up to ${s.total}`}>= {s.total}</span>}
+      </span>
+    );
+  };
   const line = (path: string, label: string, w: number) => (
     <input className="ssp-line" style={{ width: w }} aria-label={label} value={raw(path)} onChange={(e) => edit(path, e.target.value === "" ? null : e.target.value)} />
   );
@@ -110,7 +120,7 @@ function useMarks({ get, edit, unclear }: Pick<PaperProps, "get" | "edit" | "unc
   const code = (c: string) => <span className="code">{c}</span>;
   /** A wash on anything whose code Claude marked unclear. */
   const uc = (...codes: string[]) => (codes.some((c) => unclear.has(c)) ? " uc" : "");
-  return { box, line, bubble, tick, many, code, uc };
+  return { box, sum, line, bubble, tick, many, code, uc };
 }
 
 function Header({ page, ...p }: PaperProps) {
@@ -196,20 +206,20 @@ function PageOne(p: PaperProps) {
       </div>
 
       <div className="sec">
-        <h3><span className="c">B</span> Treads, main staircase <span className="hint">How many in each box · width = wall to wall</span></h3>
+        <h3><span className="c">B</span> Treads, main staircase <span className="hint">How many in each box · count in parts if easier: 4 + 3 · width = wall to wall</span></h3>
         <div className="sb">
           <table className="g">
             <thead>
-              <tr><th style={{ width: "30%" }}>Tread</th><th>36&quot;</th><th>42&quot;</th><th>48&quot;</th><th>Other width (write it)</th></tr>
+              <tr><th style={{ width: "21%" }}>Tread</th><th style={{ width: "20%" }}>36&quot;</th><th style={{ width: "20%" }}>42&quot;</th><th style={{ width: "20%" }}>48&quot;</th><th>Other width (write it)</th></tr>
             </thead>
             <tbody>
               {TREAD_ROWS.map(([t, name, sub, c]) => (
                 <tr key={t} className={m.uc(c)}>
                   <td className="k">{name} <small>{sub}</small>{m.code(c)}</td>
-                  <td>{m.box(`treads.${t}.w36`, `${name} 36`)}</td>
-                  <td>{m.box(`treads.${t}.w42`, `${name} 42`)}</td>
-                  <td>{m.box(`treads.${t}.w48`, `${name} 48`)}</td>
-                  <td className="ow">{m.box(`treads.${t}.other`, `${name} other count`, 34)} <span className="lbl">at</span> {m.box(`treads.${t}.otherWidth`, `${name} other width`, 34)}&quot;</td>
+                  <td>{m.sum(`treads.${t}.w36`, `${name} 36`)}</td>
+                  <td>{m.sum(`treads.${t}.w42`, `${name} 42`)}</td>
+                  <td>{m.sum(`treads.${t}.w48`, `${name} 48`)}</td>
+                  <td className="ow">{m.sum(`treads.${t}.other`, `${name} other count`, 44)} <span className="lbl">at</span> {m.box(`treads.${t}.otherWidth`, `${name} other width`, 30)}&quot;</td>
                 </tr>
               ))}
             </tbody>
@@ -226,33 +236,33 @@ function PageOne(p: PaperProps) {
           </div>
           <table className="g">
             <thead>
-              <tr><th style={{ width: "26%" }}>Special treads <small style={{ fontWeight: 500 }}>how many of each</small></th><th>Boxed</th><th>LSO</th><th>RSO</th><th>2 side open</th><th style={{ width: "22%" }}>Pizza only</th></tr>
+              <tr><th style={{ width: "21%" }}>Special treads <small style={{ fontWeight: 500 }}>how many of each</small></th><th style={{ width: "7%" }}>Boxed</th><th style={{ width: "17%" }}>LSO</th><th style={{ width: "17%" }}>RSO</th><th style={{ width: "17%" }}>2 side open</th><th>Pizza only</th></tr>
             </thead>
             <tbody>
               <tr className={m.uc("B6")}>
                 <td className="k">Pie shape <small>each winder tread</small>{m.code("B6")}</td>
                 <td className="x" />
-                <td>{m.box("pie.lso", "pie LSO")}</td>
-                <td>{m.box("pie.rso", "pie RSO")}</td>
-                <td>{m.box("pie.two", "pie 2 side open")}</td>
+                <td>{m.sum("pie.lso", "pie LSO")}</td>
+                <td>{m.sum("pie.rso", "pie RSO")}</td>
+                <td>{m.sum("pie.two", "pie 2 side open")}</td>
                 <td className="x" />
               </tr>
               <tr className={m.uc("B7")}>
-                <td className="k">Pizza set <small>sets · one 90° turn each</small>{m.code("B7")}</td>
+                <td className="k">Pizza set <small>how many sets · one 90° turn each</small>{m.code("B7")}</td>
                 <td className="x" />
                 <td className="x" />
                 <td className="x" />
-                <td>{m.tick("pizza.twoSide", "", "pizza 2 side open")}</td>
-                <td style={{ textAlign: "left", whiteSpace: "nowrap" }}>
-                  sets {m.box("pizza.sets", "pizza sets", 30)} {m.bubble("pizza.pieces", 2, "2-pc")} {m.bubble("pizza.pieces", 3, "3-pc")}
+                <td>{m.sum("pizza.two", "pizza sets 2 side open")}</td>
+                <td className="ow" style={{ textAlign: "left" }}>
+                  <span className="lbl">2-pc</span> {m.sum("pizza.pc2", "pizza 2-piece sets", 40)} <span className="lbl">3-pc</span> {m.sum("pizza.pc3", "pizza 3-piece sets", 40)}
                 </td>
               </tr>
               <tr className={m.uc("B8")}>
                 <td className="k">Bullnose <small>LSO / RSO std (extra large) · 2 side = custom</small>{m.code("B8")}</td>
                 <td className="x" />
-                <td>{m.box("bullnose.lso", "bullnose LSO")}</td>
-                <td>{m.box("bullnose.rso", "bullnose RSO")}</td>
-                <td>{m.box("bullnose.two", "bullnose 2 side open")}</td>
+                <td>{m.sum("bullnose.lso", "bullnose LSO")}</td>
+                <td>{m.sum("bullnose.rso", "bullnose RSO")}</td>
+                <td>{m.sum("bullnose.two", "bullnose 2 side open")}</td>
                 <td className="x" />
               </tr>
             </tbody>

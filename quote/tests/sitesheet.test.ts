@@ -4,7 +4,7 @@ import { buildCatalogue } from "../src/lib/editor/model";
 import type { StairRow } from "../src/lib/quotes/types";
 import { derive } from "../src/lib/sitesheet/derive";
 import { buildOptions } from "../src/lib/sitesheet/options";
-import { cleanSheet, parseStored, serializeStored, type SiteSheet } from "../src/lib/sitesheet/sheet";
+import { cleanSheet, parseStored, serializeStored, sumParts, type SiteSheet } from "../src/lib/sitesheet/sheet";
 
 /* Invented items, prices and sheets only (quote/CLAUDE.md rule 4). */
 
@@ -71,10 +71,29 @@ describe("cleaning what was read", () => {
     expect(s.treads.rso).toEqual({ w36: null, w42: 5, w48: null, other: null, otherWidth: null });
     expect(s.where).toEqual(["Main"]);
     expect(s.unclear).toEqual(["B6"]);
-    expect(s.pizza).toEqual({ sets: 1, twoSide: false, pieces: null });
+    // A sheet saved before 2026-10-31 (one sets box, a pieces bubble): unmarked pieces read as 3-piece, as before.
+    expect(s.pizza).toEqual({ two: null, pc2: null, pc3: 1 });
     // v5: pie and bullnose have no boxed column.
     expect(s.pie).toEqual({ boxed: null, lso: null, rso: 1, two: null });
     expect(cleanSheet(null).want.treads).toEqual([]);
+  });
+
+  it("adds up a count box written in parts, and refuses one it can't read (2026-10-31)", () => {
+    expect(sumParts("4+3+2")).toEqual({ total: 9, parts: 3 });
+    expect(sumParts(" 4 + 3 ")).toEqual({ total: 7, parts: 2 });
+    expect(sumParts("4 3")).toEqual({ total: 7, parts: 2 });
+    expect(sumParts("4+")).toEqual({ total: 4, parts: 1 });
+    expect(sumParts("6")).toEqual({ total: 6, parts: 1 });
+    expect(sumParts("4+x")).toEqual({ total: null, parts: 0 });
+    const s = cleanSheet({ treads: { lso: { w36: "4+3", w42: 2, other: "1 1", otherWidth: "40" } }, pie: { rso: "1+1" }, bullnose: { two: "2+1" }, pizza: { two: "1+1", pc2: "1", pc3: "2+1" } });
+    expect(s.treads.lso).toEqual({ w36: 7, w42: 2, w48: null, other: 2, otherWidth: 40 });
+    expect(s.pie.rso).toBe(2);
+    expect(s.bullnose.two).toBe(3);
+    expect(s.pizza).toEqual({ two: 2, pc2: 1, pc3: 3 });
+    // The width written beside Other is a width, never a sum.
+    expect(cleanSheet({ treads: { rso: { otherWidth: "40+2" } } }).treads.rso.otherWidth).toBeNull();
+    // Old saved pizza: a 2-piece set ticked 2 side open.
+    expect(cleanSheet({ pizza: { sets: 2, pieces: 2, twoSide: true } }).pizza).toEqual({ two: 2, pc2: 2, pc3: null });
   });
 
   it("round-trips through the stored field, and refuses text it didn't write", () => {
@@ -139,6 +158,22 @@ describe("what the app works out", () => {
     expect(derive(cleanSheet({ bullnose: { lso: 1, rso: 1, two: 2 } })).custom.bullnoses).toBe(2);
     // A 2-side-open pizza set takes 3 spindles a piece.
     expect(derive(cleanSheet({ pizza: { sets: 1, pieces: 3, twoSide: true } })).spindles.value).toBe(9);
+  });
+
+  it("reads pizza sets as 2-pc and 3-pc counts, with how many are 2 side open (2026-10-31)", () => {
+    const d = (pizza: object) => derive(cleanSheet({ pizza }));
+    expect(d({ pc2: 1, pc3: 2 })).toMatchObject({ pizzaSets: 3, treads: 8, custom: { pizzaSets: 1 } });
+    // The 2-side-open sets are taken as the 3-piece ones first: 1 two-piece + 2 three-piece 2 side open are custom.
+    expect(d({ pc2: 1, pc3: 2, two: 2 }).custom.pizzaSets).toBe(3);
+    expect(d({ pc2: 1, pc3: 2, two: 2 }).openSides).toBe(2);
+    // 2 side open alone: counted as 3-piece sets, as an unmarked set always was.
+    expect(d({ two: 1 })).toMatchObject({ pizzaSets: 1, treads: 3, custom: { pizzaSets: 1 } });
+    // More 2-side-open sets than the piece boxes add up to: the extra is 3-piece, and flagged.
+    const over = d({ pc3: 1, two: 2 });
+    expect(over.pizzaSets).toBe(2);
+    expect(over.flags.some((f) => f.startsWith("Pizza sets:"))).toBe(true);
+    // Spindles fallback: 2-side-open pieces take 3, the rest 2.
+    expect(d({ pc2: 1, pc3: 1, two: 1 }).spindles.value).toBe(3 * 3 + 2 * 2);
   });
 
   it("works out wall-rail brackets: the first 1 ft in, then one every 2 ft", () => {

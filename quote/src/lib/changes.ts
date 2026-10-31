@@ -22,6 +22,15 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-10-31",
+    kind: "changed",
+    title: "Site sheet: tread boxes add up; pizza sets by 2-pc and 3-pc",
+    details: [
+      "On the Site sheet tab, the tread grid (36\", 42\", 48\", Other) and the pie, pizza and bullnose boxes take a count in parts, like 4+3+2, and show the total beside it. The boxes are a little wider. Claude adds up numbers written in parts in one box on the paper too.",
+      "Pizza set: the 2 side open box is now how many of the sets are 2 side open (no tick), and Pizza only has a 2-pc box and a 3-pc box instead of one sets box. Sheets read before keep their sets.",
+    ],
+  },
+  {
+    date: "2026-10-31",
     kind: "removed",
     title: "One Send button on a draft",
     details: [
