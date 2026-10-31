@@ -3,7 +3,9 @@ import { getRecord, listByIds, listRecords, updateRecord, updateRecords, type Ai
 import { QUOTE, T, VERSION } from "@/lib/airtable/fields";
 import { fromAcceptance, serializeContract } from "@/lib/contract/model";
 import { ghlConfigured, pipelines } from "@/lib/ghl/client";
-import { buildLost, buildWon, wonStageId } from "@/lib/link/ghlRequest";
+import { buildContract, buildLost, buildWon, wonStageId } from "@/lib/link/ghlRequest";
+import { cleanPayments } from "@/lib/billing/doc";
+import { paymentsReaderOn, projectPayments } from "@/lib/notion/payments";
 import { makeConfigured, sendMessage, sendToGhl } from "@/lib/make/client";
 import { appendLog, firstNameOf, logLine } from "@/lib/quotes/history";
 import { ids, str } from "@/lib/quotes/values";
@@ -25,6 +27,7 @@ import { TERMS_PDF } from "./terms";
  *      (Quotes → Contract, pointers to the options taken) is this yes; any other version still out
  *      with the customer is Superseded;
  *   3. hand off: the GHL opportunity goes to Project Won with the accepted total (with HST) through
+ *      (new work added on a change, 2026-10-31: only its value moves, to the whole project's total)
  *      Make, which fires GHL's won workflow (Make 3710214: the Notion project, the WhatsApp post);
  *      then the acceptance email (stamped PDF and Project Expectations attached, the deposit request)
  *      and the text, by the channels the quote went out by.
@@ -52,6 +55,7 @@ export type AcceptTarget = {
     email: string | null;
     phone: string | null;
     versionIds: string[];
+    notionProjectUrl: string | null;
   } | null;
 };
 
@@ -60,7 +64,7 @@ const FIELDS = [VERSION.status, VERSION.validUntil, VERSION.customerToken, VERSI
 async function toTarget(r: AirtableRecord): Promise<AcceptTarget> {
   const f = r.fields;
   const quoteId = ids(f[VERSION.quote])[0];
-  const q = quoteId ? (await listByIds(T.quotes, [quoteId], [QUOTE.quoteNumber, QUOTE.ghlContactId, QUOTE.ghlOpportunityId, QUOTE.firstName, QUOTE.email, QUOTE.phone, QUOTE.versions]))[0] : undefined;
+  const q = quoteId ? (await listByIds(T.quotes, [quoteId], [QUOTE.quoteNumber, QUOTE.ghlContactId, QUOTE.ghlOpportunityId, QUOTE.firstName, QUOTE.email, QUOTE.phone, QUOTE.versions, QUOTE.notionProjectUrl]))[0] : undefined;
   return {
     versionId: r.id,
     status: str(f[VERSION.status]),
@@ -81,6 +85,7 @@ async function toTarget(r: AirtableRecord): Promise<AcceptTarget> {
           email: str(q.fields[QUOTE.email]),
           phone: str(q.fields[QUOTE.phone]),
           versionIds: ids(q.fields[QUOTE.versions]),
+          notionProjectUrl: str(q.fields[QUOTE.notionProjectUrl]),
         }
       : null,
   };
@@ -128,12 +133,14 @@ export type RecordResult = { ok: true; acceptance: Acceptance; handoff: Handoff 
 const HOW: Record<Acceptance["method"], string> = { link: "on their link", store: "in store, signed", staff: "on the customer's behalf" };
 
 /** Record the yes, then hand off. `who` goes in the edit log: the signed-in quoter, or "customer". */
-export async function recordAcceptance(target: AcceptTarget, a: Acceptance, who: string): Promise<RecordResult> {
+export async function recordAcceptance(target: AcceptTarget, accepted: Acceptance, who: string): Promise<RecordResult> {
   // Read again right before writing: a second Accept, or a send of a newer version, wins nothing.
   const fresh = await targetById(target.versionId);
   if (!fresh || fresh.status !== "Sent" || fresh.acceptance || fresh.token !== target.token) {
     return { ok: false, status: 409, message: "This quote was just accepted or changed. Reload the page to see where it stands." };
   }
+  // New work added to a project (2026-10-31): what has been received so far, so only what is due now is asked for.
+  const a: Acceptance = accepted.base ? { ...accepted, paid: await receivedSoFar(fresh.quote?.notionProjectUrl ?? null) } : accepted;
   const now = new Date(a.at);
   const added = a.addOns.length ? `, with ${a.addOns.map((x) => x.description).join(", ")}` : "";
   await updateRecord(T.versions, fresh.versionId, {
@@ -150,6 +157,16 @@ export async function recordAcceptance(target: AcceptTarget, a: Acceptance, who:
   }
   const handoff = await handOff(fresh.versionId);
   return { ok: true, acceptance: a, handoff };
+}
+
+/** What Notion's Master Payments Log shows received for the project; null when it can't be read. */
+async function receivedSoFar(projectUrl: string | null): Promise<number | null> {
+  if (!projectUrl || !paymentsReaderOn()) return null;
+  try {
+    return Math.round(cleanPayments(await projectPayments(projectUrl)).reduce((t, p) => t + p.amount, 0) * 100) / 100;
+  } catch {
+    return null;
+  }
 }
 
 /** Any other version still out with the customer can no longer be accepted: its link says a newer one replaced it. */
@@ -182,14 +199,19 @@ export async function handOff(versionId: string): Promise<Handoff> {
     else if (!t.quote?.contactId || !t.quote.opportunityId) {
       ghl = "failed";
       ghlMessage = "This quote isn't linked to a GHL opportunity. Link it, then retry.";
-    } else if (!ghlConfigured()) {
+    } else if (!a.base && !ghlConfigured()) {
       ghl = "failed";
       ghlMessage = "GHL reading isn't set up on this deployment, so the Project Won stage can't be found.";
     } else {
       try {
-        const stage = wonStageId(await pipelines());
-        if (!stage) throw new Error("GHL's Sales pipeline has no single Project Won stage.");
-        await sendToGhl(buildWon({ contactId: t.quote.contactId, opportunityId: t.quote.opportunityId, wonStageId: stage, total: a.totals.total, acceptedLink: staffQuoteLink(t.versionId) ?? links?.link ?? null }));
+        if (a.base) {
+          // New work on a project already won (2026-10-31): only the value moves, no second Won and no second project.
+          await sendToGhl(buildContract({ contactId: t.quote.contactId, opportunityId: t.quote.opportunityId, total: a.totals.total, link: staffQuoteLink(t.versionId) ?? links?.link ?? null }));
+        } else {
+          const stage = wonStageId(await pipelines());
+          if (!stage) throw new Error("GHL's Sales pipeline has no single Project Won stage.");
+          await sendToGhl(buildWon({ contactId: t.quote.contactId, opportunityId: t.quote.opportunityId, wonStageId: stage, total: a.totals.total, acceptedLink: staffQuoteLink(t.versionId) ?? links?.link ?? null }));
+        }
         ghl = "done";
       } catch (e) {
         ghl = "failed";
@@ -236,7 +258,7 @@ export async function handOff(versionId: string): Promise<Handoff> {
   }
 
   const handoff: Handoff = { at: new Date().toISOString(), ghl, ghlMessage, told, tellFailed: failed.join(" ") || null };
-  const line = `handed off: GHL ${ghl === "done" ? "won" : ghl === "off" ? "not updated (Make off)" : `not updated (${ghlMessage})`}; ${told.length ? `told by ${told.join(" and ").toLowerCase()}` : "nothing sent"}${handoff.tellFailed ? `; ${handoff.tellFailed}` : ""}`;
+  const line = `handed off: GHL ${ghl === "done" ? (a.base ? "value updated" : "won") : ghl === "off" ? "not updated (Make off)" : `not updated (${ghlMessage})`}; ${told.length ? `told by ${told.join(" and ").toLowerCase()}` : "nothing sent"}${handoff.tellFailed ? `; ${handoff.tellFailed}` : ""}`;
   await updateRecord(T.versions, t.versionId, {
     [VERSION.acceptance]: serializeAcceptance({ ...a, handoff }),
     [VERSION.editLog]: appendLog(t.editLog, logLine(new Date(), "app", line)),

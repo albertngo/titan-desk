@@ -1,7 +1,7 @@
 import { optionTotals, parityDiffs, stageAmountProblems, stageAmounts } from "@/lib/calc";
 import type { Quote } from "@/lib/quotes/types";
 import { defaultSchedule, payWords, scheduleProblems } from "@/lib/pricing/schedule";
-import type { Acceptance } from "@/lib/accept/plan";
+import { dueNow, picksOf, type Acceptance } from "@/lib/accept/plan";
 import { changeWords as changeLine } from "@/lib/change/diff";
 import { addDays, dollars, hstRow, isIsoDate, isRange, isSplit, scopeLeads, scopeOf, leadPrice, longDate, offersPdf, rangeText, rangeWhy, stageNote, stagesOf, type CopyOption, type CopyStage, type CustomerCopy } from "./copy";
 import { copyKind, flooringSummary, kindPhrase } from "./summary";
@@ -57,6 +57,29 @@ export function chosenWords(quote: Pick<Quote, "options">, ids: string[] | null 
   return nums.length === 1 ? `option ${nums[0]} only` : `options ${nums.slice(0, -1).join(", ")} and ${nums.at(-1)}`;
 }
 
+/**
+ * What stops a change going out with its options (2026-10-31, step 3 of the contract; vault
+ * 05_decisions/2026-10-30-quote-one-working-quote item 7). The first option is the project as agreed and always goes.
+ * Every other option is new work offered. With a Part (Basement, Main stairs…) it is one of the choices for that
+ * Part, which must be one the contract doesn't already cover (`contractParts`: each item's Part, else its scope), so a
+ * customer never takes a second option for something they already have. With no Part it is an addition on its own
+ * (Albert, 2026-10-31), taken or not beside anything else.
+ */
+export function changeOfferProblems(quote: Pick<Quote, "options">, ids: string[] | null, contractParts: string[]): string[] {
+  const [first] = quote.options;
+  if (!first) return [];
+  const out: string[] = [];
+  if (ids && !ids.includes(first.id)) out.push(`${first.name || "The first option"} is the project as agreed: it always goes with a change. Tick it on the Send card.`);
+  const covered = new Set(contractParts);
+  for (const o of chooseOptions(quote, ids).options) {
+    if (o.id === first.id) continue;
+    const name = o.name || "An option";
+    // No Part (2026-10-31): an addition on its own, which the customer can take beside anything else.
+    if (o.part && covered.has(o.part)) out.push(`${name} is for the ${o.part.toLowerCase()}, which the customer already has. Put that work on the first option, or untick it.`);
+  }
+  return out;
+}
+
 /** What stops one option going to the customer, or null. */
 export function optionProblem(quote: Pick<Quote, "discountRate" | "showHst" | "schedule">, o: Quote["options"][number]): string | null {
   const t = optionTotals(o.lines, quote.discountRate, quote.showHst);
@@ -72,7 +95,7 @@ export function optionProblem(quote: Pick<Quote, "discountRate" | "showHst" | "s
  * `skipOptions`: leave out the per-option checks, for the Send card, which applies optionProblem() to
  * whatever is ticked as the sender changes it. The send itself always runs every check.
  */
-export function sendProblems(quote: Quote, input: SendInput, ctx: { today: string; fingerprint: string; skipOptions?: boolean }): string[] {
+export function sendProblems(quote: Quote, input: SendInput, ctx: { today: string; fingerprint: string; skipOptions?: boolean; contractParts?: string[] }): string[] {
   const out: string[] = [];
   if (quote.status !== "Draft") out.push(`This version is ${quote.status ?? "not a draft"}. Only a draft is sent; save a new version to send changes.`);
   if (ctx.fingerprint !== input.base) out.push("This version changed since the page opened. Reload it and check it before sending.");
@@ -82,9 +105,10 @@ export function sendProblems(quote: Quote, input: SendInput, ctx: { today: strin
   if (quote.legacyLineCount > 0) out.push("Some lines are in the old A/B/C format and on no option. Move them onto an option first.");
   if (quote.options.length === 0) out.push("This version has no options.");
   if (quote.schedule) out.push(...scheduleProblems(quote.schedule));
-  // A change after acceptance (2026-10-27) is the accepted option, updated: one option, no good-until date.
-  if (quote.changeNo && quote.options.length !== 1) out.push("A change has one option: the one the customer accepted. Remove the others.");
   const ids = input.optionIds ?? null;
+  // A change after acceptance (2026-10-27) is the accepted option, updated, with no good-until date; since 2026-10-31 it
+  // may also offer new work for Parts the contract doesn't cover, for the customer to accept on its link.
+  if (quote.changeNo) out.push(...changeOfferProblems(quote, ids, ctx.contractParts ?? []));
   if (!ctx.skipOptions) {
     if (ids && quote.options.length > 0) {
       if (ids.length === 0) out.push("Choose at least one option to send.");
@@ -562,6 +586,19 @@ export function depositHow(deposit: Pick<CopyStage, "pay">, ctx: { etransfer: st
  * deposit request (GHL's own deposit text is switched off when this goes live), with the amount and
  * how to pay, and the rest of the schedule. The PM sets the date.
  */
+/** The new work a change offers, by name ("Basement vinyl and Basement oak"); null when it offers none (2026-10-31). */
+const offerNames = (copy: Pick<CustomerCopy, "options">): string | null => {
+  const names = copy.options.filter((o) => o.offer).map((o) => o.name);
+  return names.length ? (names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`) : null;
+};
+
+/** "The deposit on your whole project is now $4,900.00. You've paid $1,400.00, so $3,500.00 is due now." GSM-7 (straight quotes) for the text too. */
+export function dueWords(d: { deposit: number; paid: number | null; due: number }, fmt: (n: number) => string): string {
+  if (d.paid === null) return `The deposit on your whole project is now ${fmt(d.deposit)}, less anything you've already paid.`;
+  if (d.due === 0) return `The deposit on your whole project is now ${fmt(d.deposit)}. You've already paid ${fmt(d.paid)}, so nothing more is due now.`;
+  return `The deposit on your whole project is now ${fmt(d.deposit)}. You've paid ${fmt(d.paid)}, so ${fmt(d.due)} is due now.`;
+}
+
 export function acceptedEmailMessage(
   copy: CustomerCopy,
   a: Acceptance,
@@ -571,17 +608,23 @@ export function acceptedEmailMessage(
   options: { emailFrom?: string | null } = {},
 ): GhlMessage {
   const hi = greetingName(to.firstName);
-  const subject = `Accepted: your quote ${copy.quoteNumber} from ${copy.company.name}`;
+  // New work added to a project (2026-10-31): the same email, saying what was added and asking only for what is due now.
+  const added = Boolean(a.base);
+  const due = dueNow(a);
+  const subject = added ? `Added to your project: ${copy.quoteNumber} from ${copy.company.name}` : `Accepted: your quote ${copy.quoteNumber} from ${copy.company.name}`;
   const deposit = a.stages[0];
-  const preheader = `Your deposit is ${cad.format(deposit.amount ?? 0)}. ${depositHow(deposit, { etransfer: ctx.etransfer, quoteNumber: copy.quoteNumber })}`;
+  const preheader = added
+    ? `${dueWords(due, cad.format)} ${depositHow(deposit, { etransfer: ctx.etransfer, quoteNumber: copy.quoteNumber })}`
+    : `Your deposit is ${cad.format(deposit.amount ?? 0)}. ${depositHow(deposit, { etransfer: ctx.etransfer, quoteNumber: copy.quoteNumber })}`;
   const cell = (t: string, right = false, strong = false) =>
     `<td${right ? ' align="right"' : ""} style="padding:9px 0;border-bottom:1px solid ${C.hair};font-family:${SANS};font-size:15px;color:${strong ? C.ink : C.body};${strong ? "font-weight:600;" : ""}${right ? "white-space:nowrap;" : ""}">${t}</td>`;
   const what = [
-    `<tr>${cell(esc(a.option.name), false, true)}${cell("", true)}</tr>`,
+    ...(a.base ? [`<tr>${cell(`Your project as agreed: ${esc(a.base.name)}`)}${cell("", true)}</tr>`] : []),
+    ...(a.base ? picksOf(a).map((p) => `<tr>${cell(`Added: ${esc(p.name)}`, false, true)}${cell("", true)}</tr>`) : [`<tr>${cell(esc(a.option.name), false, true)}${cell("", true)}</tr>`]),
     ...a.addOns.map((x) => `<tr>${cell(`Added: ${esc(x.description)}`)}${cell(cad.format(x.amount), true)}</tr>`),
     `<tr>${cell("Price before HST")}${cell(cad.format(a.totals.subtotal), true)}</tr>`,
     `<tr>${cell(a.totals.hst ? "HST" : "HST not included")}${cell(a.totals.hst ? cad.format(a.totals.hst) : "", true)}</tr>`,
-    `<tr>${cell("Total", false, true)}${cell(cad.format(a.totals.total), true, true)}</tr>`,
+    `<tr>${cell(added ? "Project total" : "Total", false, true)}${cell(cad.format(a.totals.total), true, true)}</tr>`,
   ].join("");
   const card = (inner: string) =>
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.wash};border-radius:18px;"><tr><td style="padding:8px;">` +
@@ -595,17 +638,18 @@ export function acceptedEmailMessage(
   const body =
     row(
       eyebrow(`Accepted &middot; ${esc(copy.quoteNumber)}`) +
-        `<h1 class="h1" style="margin:0 0 16px;font-family:${SERIF};font-weight:400;font-size:30px;line-height:1.2;color:${C.ink};">${hi ? `Thank you, ${esc(hi)}.` : "Thank you."} Your quote is accepted.</h1>` +
+        `<h1 class="h1" style="margin:0 0 16px;font-family:${SERIF};font-weight:400;font-size:30px;line-height:1.2;color:${C.ink};">${hi ? `Thank you, ${esc(hi)}.` : "Thank you."} ${added ? "It&rsquo;s added to your project." : "Your quote is accepted."}</h1>` +
         para(`You accepted on ${esc(ctx.acceptedWhen)}.${attached ? ` ${attached.charAt(0).toUpperCase()}${attached.slice(1)} ${attached.includes(" and ") ? "are" : "is"} attached.` : ""}`),
       "40px 40px 20px",
     ) +
-    row(card(`<p style="margin:0 0 6px;font-family:${SERIF};font-size:20px;color:${C.ink};">What you accepted</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${what}</table>`), "0 40px 16px") +
+    row(card(`<p style="margin:0 0 6px;font-family:${SERIF};font-size:20px;color:${C.ink};">${added ? "Your project now" : "What you accepted"}</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${what}</table>`), "0 40px 16px") +
     row(
       card(
-        `<p style="margin:0 0 4px;font-family:${SANS};font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:${C.muted};">Your deposit</p>` +
-          `<p class="total" style="margin:0 0 10px;font-family:${SERIF};font-size:30px;color:${C.ink};">${cad.format(deposit.amount ?? 0)}</p>` +
+        `<p style="margin:0 0 4px;font-family:${SANS};font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:${C.muted};">${added ? "Due now" : "Your deposit"}</p>` +
+          `<p class="total" style="margin:0 0 10px;font-family:${SERIF};font-size:30px;color:${C.ink};">${cad.format(added ? due.due : (deposit.amount ?? 0))}</p>` +
+          (added ? para(esc(dueWords(due, cad.format)), 15, C.ink, "0 0 8px") : "") +
           para(esc(depositHow(deposit, { etransfer: ctx.etransfer, quoteNumber: copy.quoteNumber })), 15, C.ink, "0 0 8px") +
-          para("Nothing is final until the deposit is in. Once it is, your materials are ordered and your date is locked in.", 14, C.body, "0"),
+          para(added ? "Nothing new is ordered until it is in." : "Nothing is final until the deposit is in. Once it is, your materials are ordered and your date is locked in.", 14, C.body, "0"),
       ),
       "0 40px 16px",
     ) +
@@ -636,6 +680,15 @@ export function acceptedSmsMessage(copy: CustomerCopy, a: Acceptance, to: { cont
   const deposit = a.stages[0];
   const amount = cad.format(deposit.amount ?? 0);
   const how = deposit.pay === "onsite" ? "Please hand it to your project manager on site." : `Please e-transfer it to ${ctx.etransfer} and put ${copy.quoteNumber} in the message.`;
+  if (a.base) {
+    // New work added to a project (2026-10-31): what was added, and only what is due now.
+    const added = picksOf(a).map((p) => p.name).join(" and ");
+    return {
+      type: "SMS",
+      contactId: to.contactId,
+      message: `${hi ? `Hi ${hi}, ${whoFrom}.` : `Hi, ${whoFrom}.`} Thank you for adding ${added} to your project (${copy.quoteNumber}). ${dueWords(dueNow(a), cad.format)} ${how}\n\nYour project:\n${to.link}`,
+    };
+  }
   return {
     type: "SMS",
     contactId: to.contactId,
@@ -684,7 +737,11 @@ export function changeEmailMessage(copy: CustomerCopy, to: { contactId: string; 
         `</td></tr></table></td></tr></table>`,
       "0 40px 16px",
     ) +
-    row(button("View your updated quote", to.link), "12px 40px 10px") +
+    // New work offered with the change (2026-10-31): named here, chosen and accepted on the page.
+    (offerNames(copy)
+      ? row(para(`We&rsquo;ve also added new work you can choose: ${esc(offerNames(copy)!)}. Open your quote to see it and add what you&rsquo;d like.`, 15, C.ink, "0"), "0 40px 8px")
+      : "") +
+    row(button(offerNames(copy) ? "View your quote and choose" : "View your updated quote", to.link), "12px 40px 10px") +
     hairline() +
     row(eyebrow("Your payment schedule") + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${stages}</table>` + para("The payment schedule is worked out on the new total; what you&rsquo;ve already paid counts toward it.", 13, C.muted, "10px 0 0")) +
     hairline("22px 40px 28px") +
@@ -703,7 +760,7 @@ export function changeSmsMessage(copy: CustomerCopy, to: { contactId: string; fi
   return {
     type: "SMS",
     contactId: to.contactId,
-    message: `${hi ? `Hi ${hi}, ${whoFrom}.` : `Hi, ${whoFrom}.`} As we discussed, here is your updated quote ${copy.quoteNumber} (change ${c.no}). The new total is ${total}${copy.options[0].totals.hst ? " with HST" : ""}; the payments follow the new total, and what you've paid counts toward it.\n\nSee what changed:\n${to.link}\n\nIf anything isn't what we agreed, just reply.`,
+    message: `${hi ? `Hi ${hi}, ${whoFrom}.` : `Hi, ${whoFrom}.`} As we discussed, here is your updated quote ${copy.quoteNumber} (change ${c.no}). The new total is ${total}${copy.options[0].totals.hst ? " with HST" : ""}; the payments follow the new total, and what you've paid counts toward it.${offerNames(copy) ? ` We've also added new work you can choose on the page: ${offerNames(copy)}.` : ""}\n\nSee what changed:\n${to.link}\n\nIf anything isn't what we agreed, just reply.`,
   };
 }
 
