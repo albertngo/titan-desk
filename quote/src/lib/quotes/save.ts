@@ -131,9 +131,11 @@ export async function makeChange(versionId: string): Promise<SaveResult> {
   // The live options the contract points at (2026-10-30: each on its own version), and its stages as agreed.
   const sources = new Map<string, Quote | null>([[from.id, from]]);
   for (const id of contractVersions(contract)) if (!sources.has(id)) sources.set(id, await getQuote(id));
-  const taken = contract.items.map((it) => {
+  // A change's options are all the project (2026-10-31): a change that joined new work brings every option it sent.
+  const taken = contract.items.flatMap((it) => {
     const v = sources.get(it.versionId);
-    return it.ref ? v?.options.find((o) => o.id === it.ref) : v?.options.length === 1 ? v.options[0] : undefined;
+    if (it.via === "change" && v && v.options.filter((o) => !o.notOffered).length > 1) return v.options.filter((o) => !o.notOffered);
+    return [it.ref ? v?.options.find((o) => o.id === it.ref) : v?.options.length === 1 ? v.options[0] : undefined];
   });
   if (taken.length === 0 || taken.some((o) => !o)) return { ok: false, message: "The accepted option isn't on this version any more, so a change can't start from it." };
   const parts = taken as QuoteOption[];

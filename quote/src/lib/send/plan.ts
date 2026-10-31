@@ -2,7 +2,7 @@ import { optionTotals, parityDiffs, stageAmountProblems, stageAmounts } from "@/
 import type { Quote } from "@/lib/quotes/types";
 import { defaultSchedule, payWords, scheduleProblems } from "@/lib/pricing/schedule";
 import type { Acceptance } from "@/lib/accept/plan";
-import { changeWords as changeLine } from "@/lib/change/diff";
+import { changeWords as changeLine, paidLeft } from "@/lib/change/diff";
 import { addDays, dollars, hstRow, isIsoDate, isRange, isSplit, scopeLeads, scopeOf, leadPrice, longDate, offersPdf, rangeText, rangeWhy, stageNote, stagesOf, type CopyOption, type CopyStage, type CustomerCopy } from "./copy";
 import { copyKind, flooringSummary, kindPhrase } from "./summary";
 
@@ -57,6 +57,25 @@ export function chosenWords(quote: Pick<Quote, "options">, ids: string[] | null 
   return nums.length === 1 ? `option ${nums[0]} only` : `options ${nums.slice(0, -1).join(", ")} and ${nums.at(-1)}`;
 }
 
+/**
+ * What stops a change going out with its options (Albert, 2026-10-31, vault 05_decisions/2026-10-31-quote-changes-for-record).
+ * Everything on a change is part of the project when it is sent, for the record: the first option is the project as
+ * agreed and always goes; any other option is new work joining it (a basement, an extra), with or without a Part. Only
+ * new work for a Part the customer already has is refused (`contractParts`: each contract item's Part): that belongs
+ * on the first option.
+ */
+export function changeProblems(quote: Pick<Quote, "options">, ids: string[] | null, contractParts: string[]): string[] {
+  const [first] = quote.options;
+  if (!first) return [];
+  const out: string[] = [];
+  if (ids && !ids.includes(first.id)) out.push(`${first.name || "The first option"} is the project as agreed: it always goes with a change. Tick it on the Send card.`);
+  const covered = new Set(contractParts);
+  for (const o of chooseOptions(quote, ids).options) {
+    if (o.id !== first.id && o.part && covered.has(o.part)) out.push(`${o.name || "An option"} is for the ${o.part.toLowerCase()}, which the customer already has. Put that work on the first option.`);
+  }
+  return out;
+}
+
 /** What stops one option going to the customer, or null. */
 export function optionProblem(quote: Pick<Quote, "discountRate" | "showHst" | "schedule">, o: Quote["options"][number]): string | null {
   const t = optionTotals(o.lines, quote.discountRate, quote.showHst);
@@ -72,7 +91,7 @@ export function optionProblem(quote: Pick<Quote, "discountRate" | "showHst" | "s
  * `skipOptions`: leave out the per-option checks, for the Send card, which applies optionProblem() to
  * whatever is ticked as the sender changes it. The send itself always runs every check.
  */
-export function sendProblems(quote: Quote, input: SendInput, ctx: { today: string; fingerprint: string; skipOptions?: boolean }): string[] {
+export function sendProblems(quote: Quote, input: SendInput, ctx: { today: string; fingerprint: string; skipOptions?: boolean; contractParts?: string[] }): string[] {
   const out: string[] = [];
   if (quote.status !== "Draft") out.push(`This version is ${quote.status ?? "not a draft"}. Only a draft is sent; save a new version to send changes.`);
   if (ctx.fingerprint !== input.base) out.push("This version changed since the page opened. Reload it and check it before sending.");
@@ -82,9 +101,9 @@ export function sendProblems(quote: Quote, input: SendInput, ctx: { today: strin
   if (quote.legacyLineCount > 0) out.push("Some lines are in the old A/B/C format and on no option. Move them onto an option first.");
   if (quote.options.length === 0) out.push("This version has no options.");
   if (quote.schedule) out.push(...scheduleProblems(quote.schedule));
-  // A change after acceptance (2026-10-27) is the accepted option, updated: one option, no good-until date.
-  if (quote.changeNo && quote.options.length !== 1) out.push("A change has one option: the one the customer accepted. Remove the others.");
   const ids = input.optionIds ?? null;
+  // A change after acceptance (2026-10-27) has no good-until date; since 2026-10-31 everything on it is the project.
+  if (quote.changeNo) out.push(...changeProblems(quote, ids, ctx.contractParts ?? []));
   if (!ctx.skipOptions) {
     if (ids && quote.options.length > 0) {
       if (ids.length === 0) out.push("Choose at least one option to send.");
@@ -664,6 +683,10 @@ export function changeEmailMessage(copy: CustomerCopy, to: { contactId: string; 
     ...c.items.map((it) => `<tr>${cell(esc(changeLine(it)))}${cell("", true)}</tr>`),
     `<tr>${cell("Change, before HST", false, true)}${cell(signed(c.difference), true, true)}</tr>`,
     `<tr>${cell(`Total was ${cad.format(c.before.total)}, now`)}${cell(cad.format(o.totals.total), true, true)}</tr>`,
+    // What has been paid and what is left (2026-10-31), when the payments could be read.
+    ...(paidLeft(c, o.totals.total)
+      ? [`<tr>${cell("Paid so far")}${cell(cad.format(paidLeft(c, o.totals.total)!.paid), true)}</tr>`, `<tr>${cell("Left to pay", false, true)}${cell(cad.format(paidLeft(c, o.totals.total)!.left), true, true)}</tr>`]
+      : []),
   ].join("");
   const stages = stagesOf(o)
     .map((s, i) => `<tr>${cell(`${esc(s.label)}${stageNote(s) ? `<br><span style="font-size:13px;font-weight:400;color:${C.muted};">${esc(stageNote(s))}</span>` : ""}`)}${cell(s.amount !== null ? `${c.before.stages[i]?.amount != null && Math.abs((c.before.stages[i].amount ?? 0) - s.amount) > 0.004 ? `<span style="color:${C.muted};text-decoration:line-through;">${cad.format(c.before.stages[i].amount!)}</span> ` : ""}${cad.format(s.amount)}` : "", true)}</tr>`)
@@ -703,7 +726,7 @@ export function changeSmsMessage(copy: CustomerCopy, to: { contactId: string; fi
   return {
     type: "SMS",
     contactId: to.contactId,
-    message: `${hi ? `Hi ${hi}, ${whoFrom}.` : `Hi, ${whoFrom}.`} As we discussed, here is your updated quote ${copy.quoteNumber} (change ${c.no}). The new total is ${total}${copy.options[0].totals.hst ? " with HST" : ""}; the payments follow the new total, and what you've paid counts toward it.\n\nSee what changed:\n${to.link}\n\nIf anything isn't what we agreed, just reply.`,
+    message: `${hi ? `Hi ${hi}, ${whoFrom}.` : `Hi, ${whoFrom}.`} As we discussed, here is your updated quote ${copy.quoteNumber} (change ${c.no}). The new total is ${total}${copy.options[0].totals.hst ? " with HST" : ""}; the payments follow the new total, and what you've paid counts toward it.${paidLeft(c, copy.options[0].totals.total) ? ` Paid so far ${cad.format(paidLeft(c, copy.options[0].totals.total)!.paid)}, left to pay ${cad.format(paidLeft(c, copy.options[0].totals.total)!.left)}.` : ""}\n\nSee what changed:\n${to.link}\n\nIf anything isn't what we agreed, just reply.`,
   };
 }
 

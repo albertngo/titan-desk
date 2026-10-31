@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { notAcceptable } from "../src/lib/accept/plan";
-import { optionTotals, stageAmounts } from "../src/lib/calc";
-import { changeSummary, changeWords, diffOptions, itemDifference, signedMoney } from "../src/lib/change/diff";
+import { optionTotals, round2, stageAmounts } from "../src/lib/calc";
+import { joinChange } from "../src/lib/contract/model";
+import { changeSummary, changeWords, diffOptions, itemDifference, paidLeft, signedMoney } from "../src/lib/change/diff";
 import { swapMatches, swapOption, swapPreview, swapSource } from "../src/lib/change/swap";
 import type { EditorLine, EditorOption, EditorQuote } from "../src/lib/editor/model";
 import { money } from "../src/lib/format";
 import { fixedSchedule, restagedSchedule, scheduleProblems } from "../src/lib/pricing/schedule";
 import type { Quote, QuoteLine, QuoteOption } from "../src/lib/quotes/types";
-import { customerCopy, type CustomerCopy, type Letterhead } from "../src/lib/send/copy";
+import { customerCopy, stagesOf, type CustomerCopy, type Letterhead } from "../src/lib/send/copy";
 import { quotePdf } from "../src/lib/send/pdf";
 import { changeEmailMessage, changeSmsMessage, sendProblems } from "../src/lib/send/plan";
 
@@ -168,11 +169,17 @@ describe("the change's payment schedule", () => {
 });
 
 describe("sending a change", () => {
-  it("needs no good-until date, and only one option", () => {
+  it("needs no good-until date; any option after the first is new work joining the project, unless the customer already has its Part", () => {
     const ok = sendProblems(quote([install]), { base: "b", validUntil: null, channels: { email: true, sms: true } }, { today: "2026-11-10", fingerprint: "b" });
     expect(ok).toEqual([]);
-    const two = quote([install], { options: [option([install]), { ...option([stairs]), id: "recOPTVINYL000000", name: "Vinyl" }] });
-    expect(sendProblems(two, { base: "b", validUntil: null, channels: { email: true, sms: false } }, { today: "2026-11-10", fingerprint: "b" }).join(" ")).toMatch(/one option/);
+    const send = (q: ReturnType<typeof quote>, parts: string[], ids: string[] | null = null) =>
+      sendProblems(q, { base: "b", validUntil: null, channels: { email: true, sms: false }, optionIds: ids }, { today: "2026-11-10", fingerprint: "b", contractParts: parts }).join(" ");
+    const extra = quote([install], { options: [option([install]), { ...option([stairs]), id: "recOPTVINYL000000", name: "Vinyl" }] });
+    expect(send(extra, ["Flooring"])).toBe("");
+    const basement = quote([install], { options: [option([install]), { ...option([install]), id: "recOPTBASE0000000", name: "Basement vinyl", part: "Basement" }] });
+    expect(send(basement, ["Flooring"])).toBe("");
+    expect(send(basement, ["Upstairs", "Basement"])).toMatch(/already has/);
+    expect(send(basement, ["Flooring"], ["recOPTBASE0000000"])).toMatch(/always goes with a change/);
   });
 
   it("can never be accepted: it is sent for the record", () => {
@@ -339,5 +346,42 @@ describe("Swap option on a change", () => {
     const p = swapPreview(q, "recCHANGEOPT");
     expect(p.total).toBeCloseTo(1130, 2);
     expect(p.problems[0]).toMatch(/final payment would be less than nothing/);
+  });
+});
+
+/* Everything on a change is the project, for the record (Albert, 2026-10-31). */
+describe("new work on a change, for the record", () => {
+  const basement: QuoteOption = { ...option([line({ description: "Basement vinyl install", unitPriceSnap: 4 })]), id: "recOPTBASE0000000", name: "Basement vinyl", part: "Basement" };
+  const two = customerCopy(quote([install], { options: [option([install]), basement] }), at);
+
+  it("joins the change's options into one: totals added, the schedule restaged on the whole", () => {
+    const j = joinChange(two);
+    expect(j.options).toHaveLength(1);
+    expect(j.options[0].name).toBe("Oak + Basement vinyl");
+    expect(j.options[0].totals.total).toBe(round2(two.options[0].totals.total + two.options[1].totals.total));
+    expect(round2(stagesOf(j.options[0]).reduce((t, s2) => t + (s2.amount ?? 0), 0))).toBe(j.options[0].totals.total);
+    expect(j.options[0].sections.flatMap((x) => x.lines).map((l) => (l.kind === "item" ? l.description : ""))).toContain("Basement vinyl install");
+    // A change with one option is left as it is.
+    const one = customerCopy(quote([install]), at);
+    expect(joinChange(one)).toEqual(one);
+    // Never anything to accept.
+    expect(notAcceptable({ ...j, change: changeSummary(1, "2026-11-03", before, j.options[0]) }, "open", { id: "recTermsAAAAAAAAA", on: "2026-10-27" })).toMatch(/nothing to accept/);
+  });
+
+  it("says what has been paid and what is left, when the payments could be read", () => {
+    expect(paidLeft({ paid: 700 }, 2000)).toEqual({ paid: 700, left: 1300 });
+    expect(paidLeft({ paid: 2500 }, 2000)).toEqual({ paid: 2500, left: 0 });
+    expect(paidLeft({ paid: null }, 2000)).toBeNull();
+    expect(paidLeft({}, 2000)).toBeNull();
+    const j = joinChange(two);
+    const c: CustomerCopy = { ...j, change: { ...changeSummary(1, "2026-11-03", before, j.options[0]), paid: 500 } };
+    const to = { contactId: "ctc0000001", firstName: "Sam", link: "https://quote.example/c/x" };
+    const m = changeSmsMessage(c, to);
+    if (m.type !== "SMS") throw new Error("expected a text");
+    expect(m.message).toContain("Paid so far $500.00, left to pay");
+    expect(m.message).toMatch(/^[\x20-\x7e\n]+$/);
+    const e = changeEmailMessage(c, to);
+    if (e.type !== "Email") throw new Error("expected an email");
+    expect(e.html).toContain("Left to pay");
   });
 });

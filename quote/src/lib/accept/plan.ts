@@ -2,7 +2,7 @@ import { acceptedTotals, restageAmounts, round2, type AcceptedTotals } from "@/l
 import { defaultSchedule } from "@/lib/pricing/schedule";
 import type { Part, Scope } from "@/lib/quotes/types";
 import { partOf, scopeOf, stagesOf, type CopyItem, type CopyOption, type CopyStage, type CopyState, type CopyTotals, type CustomerCopy } from "@/lib/send/copy";
-import { contractView, fromAcceptance } from "@/lib/contract/model";
+import { contractView, frozenStages, fromAcceptance } from "@/lib/contract/model";
 import type { Terms } from "./terms";
 
 /**
@@ -137,12 +137,6 @@ function sumTotals(parts: CopyTotals[]): CopyTotals {
   return { preDiscount: add("preDiscount"), discount: add("discount"), subtotal: add("subtotal"), hst: add("hst"), total: add("total"), payment1: add("payment1"), payment2: add("payment2"), paymentFinal: add("paymentFinal") };
 }
 
-/** The frozen stages of the picks, added stage by stage, so a material deposit keeps the dollars of both. */
-export function frozenStages(parts: CopyOption[]): CopyStage[] {
-  const [first, ...rest] = parts.map(stagesOf);
-  if (!first) return [];
-  return first.map((s, i) => ({ ...s, amount: s.amount === null ? null : round2(s.amount + rest.reduce((a, st) => a + (st[i]?.amount ?? 0), 0)) }));
-}
 
 /* ---------- the signature ---------- */
 

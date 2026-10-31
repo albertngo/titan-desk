@@ -23,6 +23,7 @@ import { jobChoices } from "@/lib/quotes/link";
 import { billingState } from "@/lib/quotes/billing";
 import { partKey, scopeGroups } from "@/lib/quotes/scope";
 import { loadContract } from "@/lib/quotes/contract";
+import { contractParts } from "@/lib/contract/model";
 import { fromWords } from "@/lib/quotes/group";
 import { getQuote, getRateCard } from "@/lib/quotes/load";
 import { sheetReaderOn } from "@/lib/quotes/sitesheet";
@@ -79,10 +80,8 @@ export default async function QuotePage({
   // The option tabs mark what the customer took (2026-10-30), one per scope at most.
   // Put on contract (2026-10-30): on a quote with a contract, an option of a Part the contract covers can replace the one there.
   const contractId = quote.link?.contractVersionId ?? null;
-  const loadedContract = !customer && contractId && quote.link && !quote.changeNo ? await loadContract(quote.link.quoteRecordId) : null;
-  const putOn = loadedContract && contractId
-    ? { versionId: contractId, parts: new Set(loadedContract.contract.items.flatMap((i) => (i.part ? [i.part] : i.scope ? [i.scope] : ["Flooring", "Stairs"]))) }
-    : null;
+  const loadedContract = !customer && contractId && quote.link ? await loadContract(quote.link.quoteRecordId) : null;
+  const putOn = loadedContract && contractId && !quote.changeNo ? { versionId: contractId, parts: new Set(contractParts(loadedContract.contract)) } : null;
   const acceptedIds = new Set(agreed && quote.acceptance ? picksOf(quote.acceptance).flatMap((p) => (p.ref ? [p.ref] : [])) : []);
   const jobs = unlinked ? await jobChoices(unlinked.quoteRecordId) : null;
 
@@ -93,7 +92,7 @@ export default async function QuotePage({
   const draft = quote.status === "Draft";
   const [ready, link, from] = await Promise.all([sendingReady(), sentLink(quote.customerToken), sendsFrom()]);
   const problems = draft
-    ? sendProblems(quote, { base, validUntil: defaultUntil, channels: { email: !!quote.link?.email, sms: !!quote.link?.phone } }, { today, fingerprint: base, skipOptions: true })
+    ? sendProblems(quote, { base, validUntil: defaultUntil, channels: { email: !!quote.link?.email, sms: !!quote.link?.phone } }, { today, fingerprint: base, skipOptions: true, contractParts: loadedContract ? contractParts(loadedContract.contract) : [] })
     : [];
   // Which options go to the customer (2026-10-24): one tick each on the Send card, with its price before HST and any problem.
   // A preliminary goes as a range unless the sender picks the exact price (2026-10-27): the card shows whichever will go.

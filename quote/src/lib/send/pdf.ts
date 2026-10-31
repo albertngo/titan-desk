@@ -1,6 +1,6 @@
 import { parseSignature, type Acceptance } from "@/lib/accept/plan";
 import { termsLabel } from "@/lib/accept/terms";
-import { changeWords, signedMoney } from "@/lib/change/diff";
+import { changeWords, paidLeft, signedMoney } from "@/lib/change/diff";
 import type { Payment } from "@/lib/billing/doc";
 import { round2 } from "@/lib/calc";
 import { PAGE, PdfDoc, textWidth, wrap, type Rgb } from "./pdfDoc";
@@ -133,6 +133,7 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
       ...ch.items.flatMap((it) => wrap(changeWords(it), "R", 9, RIGHT - M - 24)),
       `Change, before HST: ${signedMoney(ch.difference, money)}`,
       `Total was ${money(ch.before.total)}, now ${money(copy.options[0].totals.total)}. The payment schedule is worked out on the new total; what you've already paid counts toward it.`,
+      ...(paidLeft(ch, copy.options[0].totals.total) ? [`Paid so far ${money(paidLeft(ch, copy.options[0].totals.total)!.paid)}; left to pay ${money(paidLeft(ch, copy.options[0].totals.total)!.left)}.`] : []),
     ];
     const h = lines.length * 12 + 30;
     room(h + 10);

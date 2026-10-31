@@ -1,4 +1,4 @@
-import { changeWords, itemDifference, signedMoney, type CopyChange } from "@/lib/change/diff";
+import { changeWords, itemDifference, paidLeft, signedMoney, type CopyChange } from "@/lib/change/diff";
 import { money, rate } from "@/lib/format";
 import { discountLabel, hstRow, isLump, isSplit, scopeHeading, scopeOf, scopesOf, itemHstNote, leadPrice, longDate, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyState, type CopyText, type CustomerCopy } from "@/lib/send/copy";
 
@@ -136,6 +136,12 @@ function ChangeBox({ c, o, lump }: { c: CopyChange; o: CopyOption; lump: boolean
         <div className="diff"><dt>Change, before HST</dt><dd>{signedMoney(c.difference, money)}</dd></div>
         <div><dt>Total was</dt><dd>{money(c.before.total)}</dd></div>
         <div className="now"><dt>Total now</dt><dd>{money(o.totals.total)}</dd></div>
+        {paidLeft(c, o.totals.total) && (
+          <>
+            <div><dt>Paid so far</dt><dd>{money(paidLeft(c, o.totals.total)!.paid)}</dd></div>
+            <div className="now"><dt>Left to pay</dt><dd>{money(paidLeft(c, o.totals.total)!.left)}</dd></div>
+          </>
+        )}
       </dl>
       {c.before.stages.length > 0 && (
         <div className="cq-pay">

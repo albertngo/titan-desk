@@ -27,7 +27,15 @@ export type CopyChange = {
   items: ChangeItem[];
   /** After minus before, before HST. */
   difference: number;
+  /** What Notion's Master Payments Log showed received when the change was sent (2026-10-31); null when unreadable, absent before then. */
+  paid?: number | null;
 };
+
+/** What has been paid and what is left on the new total (2026-10-31); null when the payments couldn't be read. */
+export function paidLeft(c: Pick<CopyChange, "paid">, total: number): { paid: number; left: number } | null {
+  if (c.paid === null || c.paid === undefined) return null;
+  return { paid: c.paid, left: Math.max(0, Math.round((total - c.paid) * 100) / 100) };
+}
 
 const key = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
 
