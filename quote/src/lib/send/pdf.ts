@@ -48,7 +48,24 @@ export function methodWords(a: Acceptance): string {
  * An invoice or receipt (Albert, 2026-10-30): the same drawing as the quote, titled and numbered as the document,
  * with the HST number, the payments received and the balance owing in place of the payment schedule.
  */
-export type BillStamp = { title: "INVOICE" | "RECEIPT"; number: string; issuedOn: string; asOf: string; project: string | null; hstNumber: string | null; payments: Payment[]; paid: number; balance: number; credit: number };
+export type BillStamp = {
+  title: "INVOICE" | "RECEIPT";
+  number: string;
+  issuedOn: string;
+  asOf: string;
+  project: string | null;
+  hstNumber: string | null;
+  payments: Payment[];
+  paid: number;
+  balance: number;
+  credit: number;
+  /** False: an overpayment shown as Paid in full, with no payment amounts listed (2026-10-31). */
+  itemised?: boolean;
+  /** Numbers this document replaced, each void (2026-10-31). */
+  replaces?: string[];
+  /** This document is void, replaced by another number (2026-10-31). */
+  voided?: { on: string; replacedBy: string } | null;
+};
 
 export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null, bill: BillStamp | null = null): Uint8Array<ArrayBuffer> {
   const doc = new PdfDoc(bill ? `Titan Flooring ${bill.title.toLowerCase()} ${bill.number}` : `Titan Flooring quote ${copy.quoteNumber}`);
@@ -87,7 +104,13 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
   } else doc.text(RIGHT, y - 16, bill ? bill.title : "QUOTE", { font: "B", size: 13, color: INK, align: "right" });
   let ry = y - (!bill && copy.basis === "Preliminary" ? 36 : 32);
   const meta = bill
-    ? [[bill.title === "INVOICE" ? "Invoice" : "Receipt", bill.number], ["Date", longDate(bill.issuedOn)], ["Quote", copy.quoteNumber], ...(bill.project ? [["Project", bill.project]] : [])]
+    ? [
+        [bill.title === "INVOICE" ? "Invoice" : "Receipt", bill.number],
+        ["Date", longDate(bill.issuedOn)],
+        ["Quote", copy.quoteNumber],
+        ...(bill.project ? [["Project", bill.project]] : []),
+        ...(bill.replaces ?? []).map((n) => ["Replaces", `${n} (void)`]),
+      ]
     : [["Quote", `${copy.quoteNumber}${copy.version !== null ? ` · v${copy.version}` : ""}`], ["Date", longDate(copy.sentOn)], ...(copy.validUntil ? [["Valid until", longDate(copy.validUntil)]] : [])];
   for (const [k, v] of meta) {
     doc.text(RIGHT - 110, ry, k, { size: 8.5, color: DIM, align: "right" });
@@ -97,6 +120,15 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
   y = Math.min(ly, ry) - 8;
   doc.line(M, y, RIGHT, y, RULE);
   y -= 18;
+
+  /* ---------- a void document (2026-10-31): said at the top, before anything else is read ---------- */
+  if (bill?.voided) {
+    const v = bill.voided;
+    const words = `VOID. Replaced by ${v.replacedBy.startsWith("R-") ? "receipt" : "invoice"} ${v.replacedBy} on ${longDate(v.on)}. Please keep that one instead.`;
+    doc.rect(M, y - 8, RIGHT - M, 24, INK);
+    doc.text(M + 10, y, words, { font: "B", size: 10, color: WHITE });
+    y -= 34;
+  }
 
   doc.text(M, y, bill ? "BILL TO" : "PREPARED FOR", { font: "B", size: 7.5, color: FAINT });
   y -= 14;
@@ -389,6 +421,7 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
 
   /** The payments received, as read from the payments log on the day it was exported, and what is left to pay. */
   function payments(b: BillStamp) {
+    if (b.itemised === false) return paidInFull(b);
     room(60 + b.payments.length * 14);
     y -= 6;
     doc.text(M, y, `PAYMENTS RECEIVED, AS OF ${longDate(b.asOf).toUpperCase()}`, { font: "B", size: 7.5, color: FAINT });
@@ -422,6 +455,24 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
     doc.rect(x0 - 8, y - 7, RIGHT - x0 + 8, 22, b.credit > 0 || b.balance > 0 ? BLUE : GREEN);
     doc.text(x0, y, b.credit > 0 ? "Credit" : b.balance > 0 ? "Balance owing" : "Paid in full", { font: "B", size: 11, color: [1, 1, 1] });
     doc.text(COL.amount - 4, y, money(b.credit > 0 ? b.credit : b.balance), { font: "B", size: 11, color: [1, 1, 1], align: "right" });
+    y -= 22;
+  }
+
+  /**
+   * An overpaid project with the credit hidden (Albert, 2026-10-31: "a good summary saying the balance has been paid
+   * in full"): no payment table and no amounts received, only that the balance is cleared.
+   */
+  function paidInFull(b: BillStamp) {
+    room(80);
+    y -= 6;
+    doc.text(M, y, `PAYMENT, AS OF ${longDate(b.asOf).toUpperCase()}`, { font: "B", size: 7.5, color: FAINT });
+    y -= 18;
+    doc.text(M + 6, y, "Payment received in full, with thanks. Nothing further is owing on this project.", { size: 9.5, color: INK });
+    y -= 26;
+    const x0 = 340;
+    doc.rect(x0 - 8, y - 7, RIGHT - x0 + 8, 22, GREEN);
+    doc.text(x0, y, "Paid in full", { font: "B", size: 11, color: [1, 1, 1] });
+    doc.text(COL.amount - 4, y, money(0), { font: "B", size: 11, color: [1, 1, 1], align: "right" });
     y -= 22;
   }
 }

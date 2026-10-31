@@ -6,7 +6,7 @@ import { makeChange, type SaveResult } from "@/lib/quotes/save";
 import { saveRooms } from "@/lib/quotes/rooms";
 import { saveSiteSheet } from "@/lib/quotes/sitesheet";
 import { resendQuote, sendQuote } from "@/lib/quotes/send";
-import { emailBilling, issueBilling, type BillingResult } from "@/lib/quotes/billing";
+import { emailBilling, issueBilling, type BillingChoice, type BillingResult } from "@/lib/quotes/billing";
 import type { ConfirmAddressResult, LinkJobResult, ResendResult, SaveRoomsResult, SendResult, SiteSheetResult } from "@/lib/quotes/types";
 
 /** Server actions for the quote page. Each checks the quoter allowlist inside. */
@@ -57,10 +57,10 @@ export async function saveSiteSheetAction(quoteRecordId: string, seen: string, s
 
 /* Invoices and receipts (2026-10-30). */
 
-export async function issueBillingAction(versionId: string): Promise<BillingResult> {
-  return issueBilling(String(versionId ?? ""));
+export async function issueBillingAction(versionId: string, choice: BillingChoice): Promise<BillingResult> {
+  return issueBilling(String(versionId ?? ""), { showCredit: choice?.showCredit === true });
 }
 
-export async function emailBillingAction(versionId: string): Promise<BillingResult> {
-  return emailBilling(String(versionId ?? ""));
+export async function emailBillingAction(versionId: string, choice: BillingChoice): Promise<BillingResult> {
+  return emailBilling(String(versionId ?? ""), { showCredit: choice?.showCredit === true });
 }

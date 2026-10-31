@@ -17,7 +17,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
   const { token, file } = await params;
   // The project's invoice or receipt (2026-10-30): drawn from the snapshot staff last exported, at its own file name only.
   if (BILLING_FILE.test(file)) {
-    const snap = await customerBilling(token);
+    const snap = await customerBilling(token, file);
     if (!snap || file !== billingFile(snap.kind, snap.number)) return new Response("Not found", { status: 404 });
     return pdfResponse(billingPdf(snap), file);
   }

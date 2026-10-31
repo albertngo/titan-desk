@@ -837,7 +837,7 @@ export function resendSmsMessage(copy: CustomerCopy, to: ResendTo, sender: Sende
  */
 export function billingEmailMessage(
   copy: CustomerCopy,
-  doc: { title: "Invoice" | "Receipt"; number: string; total: number; paid: number; balance: number; credit: number },
+  doc: { title: "Invoice" | "Receipt"; number: string; total: number; paid: number; balance: number; credit: number; itemised?: boolean },
   to: { contactId: string; firstName: string | null; pdfUrl: string },
   sender: Sender | null = null,
   options: { emailFrom?: string | null } = {},
@@ -846,12 +846,13 @@ export function billingEmailMessage(
   const word = doc.title.toLowerCase();
   const subject = `Your ${word} ${doc.number} from ${copy.company.name} (${copy.quoteNumber})`;
   const left = doc.credit > 0 ? `a credit of ${cad.format(doc.credit)}` : doc.balance > 0 ? `${cad.format(doc.balance)} left to pay` : "paid in full";
-  const preheader = `Total ${cad.format(doc.total)}, paid ${cad.format(doc.paid)}, ${left}.`;
+  const preheader = doc.itemised === false ? `Total ${cad.format(doc.total)}, paid in full.` : `Total ${cad.format(doc.total)}, paid ${cad.format(doc.paid)}, ${left}.`;
   const cell = (t: string, right = false, strong = false) =>
     `<td${right ? ' align="right"' : ""} style="padding:9px 0;border-bottom:1px solid ${C.hair};font-family:${SANS};font-size:15px;color:${strong ? C.ink : C.body};${strong ? "font-weight:600;" : ""}${right ? "white-space:nowrap;" : ""}">${t}</td>`;
   const rows = [
     `<tr>${cell("Total")}${cell(cad.format(doc.total), true)}</tr>`,
-    `<tr>${cell("Paid so far")}${cell(cad.format(doc.paid), true)}</tr>`,
+    // With the credit hidden (2026-10-31) the amount received isn't stated, only that it's paid in full.
+    ...(doc.itemised === false ? [] : [`<tr>${cell("Paid so far")}${cell(cad.format(doc.paid), true)}</tr>`]),
     `<tr>${cell(doc.credit > 0 ? "Credit" : doc.balance > 0 ? "Balance owing" : "Paid in full", false, true)}${cell(cad.format(doc.credit > 0 ? doc.credit : doc.balance), true, true)}</tr>`,
   ].join("");
   const signoff = sender?.firstName ? `${esc(sender.firstName)} &middot; ${esc(copy.company.name)}` : `The ${esc(copy.company.name)} team`;
@@ -859,7 +860,11 @@ export function billingEmailMessage(
     row(
       eyebrow(`${esc(doc.title)} &middot; ${esc(doc.number)}`) +
         `<h1 class="h1" style="margin:0 0 16px;font-family:${SERIF};font-weight:400;font-size:30px;line-height:1.2;color:${C.ink};">${hi ? `Hi ${esc(hi)}, here` : "Here"} is your ${word}.</h1>` +
-        para(`For your project, quote ${esc(copy.quoteNumber)}. It&rsquo;s attached as a PDF, with every payment we&rsquo;ve received so far.`),
+        para(
+          doc.itemised === false
+            ? `For your project, quote ${esc(copy.quoteNumber)}. It&rsquo;s attached as a PDF, as your record that the project is paid in full.`
+            : `For your project, quote ${esc(copy.quoteNumber)}. It&rsquo;s attached as a PDF, with every payment we&rsquo;ve received so far.`,
+        ),
       "40px 40px 16px",
     ) +
     row(

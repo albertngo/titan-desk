@@ -248,7 +248,7 @@ describe("customer links (no sign-in, customer deployment only)", () => {
 
   it("answers only on the customer deployment and only for a well-formed token, before touching Airtable", () => {
     const exported = text().match(/export async function \w+/g) ?? [];
-    const guarded = text().match(/export async function \w+\(token: string\)[^{]*\{\s*if \(!isCustomerDeployment\(\) \|\| !isToken\(token\)\) return null;/g) ?? [];
+    const guarded = text().match(/export async function \w+\(token: string(?:, \w+: string)?\)[^{]*\{\s*if \(!isCustomerDeployment\(\) \|\| !isToken\(token\)\) return null;/g) ?? [];
     // customerQuote and, since 2026-10-30, customerBilling (the invoice or receipt snapshot).
     expect(exported.length).toBe(2);
     expect(guarded.length).toBe(2);
@@ -421,9 +421,10 @@ describe("Notion payments (2026-10-30: read-only, for invoices and receipts)", (
     expect(all.filter((f) => /from ["']@\/lib\/notion\/payments["']/.test(f.text)).map((f) => f.rel).sort()).toEqual(["lib/quotes/billing.ts", "lib/quotes/send.ts"]);
   });
 
+  // TABLE[d.kind]: voiding the other kind's document when the contract's HST changed (2026-10-31), still Invoices / Receipts.
   it("the billing writer writes Invoices, Receipts and the version's history only", () => {
     const text = code(all.find((f) => f.rel === "lib/quotes/billing.ts")!.text);
-    for (const m of text.matchAll(/\b(?:createRecord|updateRecord)\(([^,]+)/g)) expect(["TABLE[c.kind]", "TABLE[r.snap.kind]", "T.versions"]).toContain(m[1].trim());
+    for (const m of text.matchAll(/\b(?:createRecord|updateRecord)\(([^,]+)/g)) expect(["TABLE[c.kind]", "TABLE[r.snap.kind]", "TABLE[d.kind]", "T.versions"]).toContain(m[1].trim());
     for (const m of text.matchAll(/updateRecord\(T\.versions[^)]*authorFields/g)) expect(m[0]).toContain("authorFields");
     expect(text).not.toMatch(/createRecords|updateRecords\(/);
   });

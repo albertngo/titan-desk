@@ -1131,6 +1131,7 @@ a.chip.accent:hover { text-decoration: underline; }
 .bill-pay { color: var(--fg-dim); }
 .bill-left { border-top: 1px solid var(--line); padding-top: 4px; font-weight: 600; }
 .bill-ask p { margin: 0 0 8px; font-size: 13px; }
+.bill-credit { display: flex; align-items: center; gap: 8px; font-size: 13px; }
 
 /* ---------- Swap option on a change (2026-10-30) ---------- */
 .swap-open { margin: 0; font-size: 12.5px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }

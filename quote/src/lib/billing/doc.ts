@@ -11,6 +11,15 @@ import type { CustomerCopy } from "@/lib/send/copy";
  * Notion's Master Payments Log, and the balance owing. Exporting again keeps the number and shows newer payments.
  * They are customer documents only: Lightspeed stays the sale of record and the A/R, and nothing here posts to
  * QuickBooks or Lightspeed. Pure; tested in tests/billing.test.ts.
+ *
+ * Two rules added 2026-10-31 (Albert):
+ *
+ * - **The HST flips after a number was issued.** A fluid switch, back and forth: each kind keeps its one number on
+ *   file, and the contract's HST decides which is current. A document the customer was emailed is marked void once
+ *   the other kind replaces it ("void, replaced by R-…", and the receipt says "Replaces INV-… (void)"); one never
+ *   emailed just stays in the background. Flipping back brings the old number back. See `billingPlan()`.
+ * - **An overpayment can be shown as Paid in full.** Staff choose per document whether the customer sees the credit;
+ *   when they don't, the document shows no payment amounts, only that the project is paid in full. See `shownTotals()`.
  */
 
 export type BillingKind = "invoice" | "receipt";
@@ -32,7 +41,18 @@ export type BillingSnapshot = {
   hstNumber: string | null;
   /** The project number once won (PP-509), else null. */
   project: string | null;
+  /**
+   * Whether an overpayment is shown as a credit (2026-10-31). False: the document says Paid in full and lists no
+   * payment amounts. Missing on documents exported before then, which showed the credit, so missing reads as true.
+   */
+  creditShown?: boolean;
+  /** The emailed documents this one replaced when the contract's HST changed (2026-10-31): their numbers, each now void. */
+  replaces?: string[];
+  /** Set once this document is void: replaced by another number after the contract's HST changed. */
+  voided?: Voided | null;
 };
+
+export type Voided = { on: string; by: string; replacedBy: string };
 
 /**
  * Invoice or receipt: an invoice only when the quote's Charge HST is on and no included line is marked as
@@ -81,6 +101,36 @@ export function billingTotals(s: Pick<BillingSnapshot, "copy" | "payments">): { 
   return { total, paid, balance: Math.max(0, left), credit: Math.max(0, -left) };
 }
 
+/**
+ * What the customer's document says (2026-10-31). With the credit hidden, an overpaid project reads as exactly paid:
+ * no credit, nothing owing, and no payment amounts listed (`itemised` false), so the document is a plain record that
+ * the project was paid in full. Staff still see the real credit on the quote page.
+ */
+export function shownTotals(s: Pick<BillingSnapshot, "copy" | "payments" | "creditShown">): { total: number; paid: number; balance: number; credit: number; itemised: boolean } {
+  const t = billingTotals(s);
+  if (t.credit > 0 && s.creditShown === false) return { total: t.total, paid: t.total, balance: 0, credit: 0, itemised: false };
+  return { ...t, itemised: true };
+}
+
+/** One of the project's Invoices or Receipts rows, as far as the plan needs it. */
+export type BillingRow = { kind: BillingKind; id: string; voided: boolean; emailed: boolean };
+
+/**
+ * Which row is the contract's document, and what happens to the other kind (Albert, 2026-10-31: "a fluid switch, back
+ * and forth. Whatever we email through, we'll include. Whatever we don't, stay in the background.").
+ *
+ * - `live`: the contract's kind's row, kept on file and reused, void or not (a voided one comes back when the HST
+ *   flips back). None: a number is issued.
+ * - `replaces`: every emailed row of the other kind. The customer holds those, so the live document names them.
+ * - `toVoid`: those of them not already marked void.
+ *
+ * A row of the other kind that was never emailed is left alone: it stays on file in the background.
+ */
+export function billingPlan<R extends BillingRow>(kind: BillingKind, rows: R[]): { live: R | null; replaces: R[]; toVoid: R[] } {
+  const replaces = rows.filter((r) => r.kind !== kind && r.emailed);
+  return { live: rows.find((r) => r.kind === kind) ?? null, replaces, toVoid: replaces.filter((r) => !r.voided) };
+}
+
 /** Payments in date order, undated last; amounts of zero or less are dropped (a refund is a person's call). */
 export function cleanPayments(rows: Payment[]): Payment[] {
   return rows
@@ -105,5 +155,11 @@ export function parseSnapshot(raw: string | null | undefined): BillingSnapshot |
 }
 
 /** One line for the row's Log and the version's Edit Log. */
-export const billingLogWhat = (s: Pick<BillingSnapshot, "kind" | "number" | "payments">, did: "exported" | "emailed") =>
-  `${s.kind} ${s.number} ${did}, ${s.payments.length} payment${s.payments.length === 1 ? "" : "s"}`;
+export const billingLogWhat = (s: Pick<BillingSnapshot, "kind" | "number" | "payments">, did: "exported" | "emailed", voided: string[] = []) =>
+  `${s.kind} ${s.number} ${did}, ${s.payments.length} payment${s.payments.length === 1 ? "" : "s"}${voided.length ? `; ${voided.join(", ")} void, replaced by it` : ""}`;
+
+/** The Log line on a document that was voided. */
+export const unvoidLogWhat = (k: BillingKind, number: string) => `${k} ${number} current again: the contract's HST changed back`;
+
+export const voidLogWhat = (k: BillingKind, number: string, replacedBy: string) =>
+  `${k} ${number} void: the contract's HST changed, so it is replaced by ${replacedBy.startsWith("R-") ? "receipt" : "invoice"} ${replacedBy}`;
