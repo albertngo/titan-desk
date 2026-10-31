@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
 
 /**
  * The options on a customer's quote, side by side (Albert, 2026-10-31: "it should stay in the same
@@ -27,10 +27,27 @@ export function OptionSwitcher({ label, heading, tabs, panels }: { label: string
   const id = useId();
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
 
+  const [from, setFrom] = useState<"left" | "right" | null>(null);
+  const row = useRef<HTMLDivElement>(null);
+  /** Where the option buttons sat on screen when one was pressed, so the page can be put back exactly there. */
+  const held = useRef<number | null>(null);
+
   const pick = (k: number, focus = false) => {
+    if (k === on) return;
+    held.current = row.current?.getBoundingClientRect().top ?? null;
+    setFrom(k > on ? "right" : "left");
     setOn(k);
-    if (focus) buttons.current[k]?.focus();
+    if (focus) buttons.current[k]?.focus({ preventScroll: true });
   };
+
+  // Switching never moves the page (Albert, 2026-10-31: "it doesn't scroll down into an odd place"): options of
+  // different lengths would otherwise shift what is on screen, so the buttons are kept where the finger left them.
+  useLayoutEffect(() => {
+    if (held.current === null || !row.current) return;
+    const drift = row.current.getBoundingClientRect().top - held.current;
+    held.current = null;
+    if (Math.abs(drift) > 1) window.scrollBy({ top: drift, behavior: "instant" as ScrollBehavior });
+  }, [on]);
   // Arrow keys move between options, as on any tab row.
   const onKey = (e: React.KeyboardEvent, k: number) => {
     const n = tabs.length;
@@ -46,7 +63,7 @@ export function OptionSwitcher({ label, heading, tabs, panels }: { label: string
       <p className="cq-switch-hint">
         {tabs.length} options. Tap one to see what it includes.
       </p>
-      <div className="cq-tabs" role="tablist" aria-label={label} style={{ "--n": Math.min(tabs.length, 3) } as React.CSSProperties}>
+      <div ref={row} className="cq-tabs" role="tablist" aria-label={label} style={{ "--n": Math.min(tabs.length, 3) } as React.CSSProperties}>
         {tabs.map((t, k) => (
           <button
             key={t.no}
@@ -74,7 +91,7 @@ export function OptionSwitcher({ label, heading, tabs, panels }: { label: string
         ))}
       </div>
       {panels.map((p, k) => (
-        <div key={k} role="tabpanel" id={`${id}-p${k}`} aria-labelledby={`${id}-t${k}`} className={`cq-panel${k === on ? " on" : ""}`}>
+        <div key={k} role="tabpanel" id={`${id}-p${k}`} aria-labelledby={`${id}-t${k}`} className={`cq-panel${k === on ? " on" : ""}`} data-from={k === on && from ? from : undefined}>
           {p}
         </div>
       ))}

@@ -626,10 +626,15 @@ a.chip.accent:hover { text-decoration: underline; }
 .cq-pickc .faint { font-size: 12px; }
 .cq-num { display: block; font-size: 13px; font-weight: 600; color: var(--fg-faint); }
 .cq-num b { color: var(--accent); font-weight: 700; }
-.cq-opt { overflow: hidden; scroll-margin-top: 12px; }
-.cq-opt > header { padding: 18px 18px 12px; position: relative; }
+/* An option is three cards with room between them (2026-10-31): what it is, what's included, price and payment. */
+.cq-opt { display: grid; gap: 14px; scroll-margin-top: 12px; }
+.cq-opt-head { padding: 18px 18px 16px; position: relative; }
 .cq-opt h2 { font-size: 20px; font-weight: 700; line-height: 1.25; padding-right: 110px; }
-.cq-opt > header p { color: var(--fg-dim); margin-top: 6px; font-size: 14px; white-space: pre-line; }
+.cq-opt-head p { color: var(--fg-dim); margin-top: 8px; font-size: 15px; white-space: pre-line; max-width: 65ch; }
+.cq-block { overflow: hidden; }
+.cq-bh { padding: 14px 18px 10px; font-size: 17px; font-weight: 700; color: var(--fg); }
+.cq-block > .cq-sec:first-of-type h3 { border-top: 0; }
+.cq-price .cq-totals { border-top: 0; background: none; padding-top: 4px; }
 .cq-rec { position: absolute; top: 18px; right: 18px; font-size: 11.5px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 10px; border-radius: 99px; }
 /* A contract of several options (2026-10-31): each part its own band, heading and price, so nothing reads as one list. */
 .cq-part { border-top: 3px solid var(--accent); margin-top: 10px; }
@@ -697,7 +702,13 @@ a.chip.accent:hover { text-decoration: underline; }
 .cq-li { font-size: 15px; }
 .cq-li .sub, .cq-li .q, .cq-pay .sub, .acc-sum .sub { font-size: 13.5px; }
 .cq-li .n, .cq-num, .cq-kicker, .cq-meta dt, .cq-pay h4, .cq-excl h4, .cq-sec h3, .cq-accept legend { font-size: 13px; }
-.cq-switch { display: grid; gap: 10px; }
+.cq-sec h3 { font-size: 14px; letter-spacing: 0; text-transform: none; color: var(--fg); padding: 10px 18px; }
+.cq-pay h4, .cq-excl h4 { font-size: 15px; letter-spacing: 0; text-transform: none; color: var(--fg); margin-bottom: 6px; }
+.cq-pay { font-size: 15px; gap: 8px; }
+.cq-totals dl div { font-size: 15px; }
+.cq-excl { font-size: 15px; }
+.cq-li { padding: 12px 18px; }
+.cq-switch { display: grid; gap: 10px; overflow-anchor: none; }
 .cq-switch .cq-scope { margin: 6px 0 0; font-size: 17px; font-weight: 700; }
 .cq-switch-hint { font-size: 14px; color: var(--fg-dim); }
 .cq-tabs { display: grid; grid-template-columns: repeat(var(--n, 2), minmax(0, 1fr)); gap: 8px; }
@@ -717,10 +728,14 @@ a.chip.accent:hover { text-decoration: underline; }
 .cq-tab.on .rec { background: var(--card); }
 /* A small arrow under the chosen option, pointing at its details. */
 .cq-tab.on::after { content: ""; position: absolute; left: 50%; bottom: -8px; width: 12px; height: 12px; margin-left: -6px; background: var(--accent-soft); border-right: 2px solid var(--accent); border-bottom: 2px solid var(--accent); transform: rotate(45deg); }
-.cq-panel { display: none; }
-.cq-panel.on { display: block; animation: cq-in .2s ease-out; }
-@keyframes cq-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) { .cq-panel.on { animation: none; } .cq-tab { transition: none; } }
+.cq-panel { display: none; overflow-anchor: none; }
+.cq-panel.on { display: block; margin-top: 10px; padding-top: 18px; border-top: 2px solid var(--line-strong); animation: cq-in .22s ease-out; }
+.cq-panel.on[data-from="right"] { animation-name: cq-in-r; }
+.cq-panel.on[data-from="left"] { animation-name: cq-in-l; }
+@keyframes cq-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cq-in-r { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+@keyframes cq-in-l { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .cq-panel.on { animation: none !important; } .cq-tab { transition: none; } }
 @media print {
   .cq-dl, .cq-preview, .cq-pick, .cq-tabs, .cq-switch-hint { display: none; }
   .cq-panel { display: block; margin-bottom: 16px; }
