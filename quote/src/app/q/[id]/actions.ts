@@ -51,8 +51,8 @@ export async function saveRoomsAction(quoteRecordId: string, seen: string, rooms
 }
 
 /** The Site sheet tab's Save check (2026-10-28): the fields as a person corrected them. */
-export async function saveSiteSheetAction(quoteRecordId: string, seen: string, sheet: unknown): Promise<SiteSheetResult> {
-  return saveSiteSheet(String(quoteRecordId ?? ""), String(seen ?? ""), sheet);
+export async function saveSiteSheetAction(quoteRecordId: string, seen: string, sheet: unknown, checked: boolean = true): Promise<SiteSheetResult> {
+  return saveSiteSheet(String(quoteRecordId ?? ""), String(seen ?? ""), sheet, checked !== false);
 }
 
 /* Invoices and receipts (2026-10-30). */

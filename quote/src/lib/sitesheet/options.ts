@@ -5,10 +5,13 @@ import { bracketsFor, derive, type Derived } from "./derive";
 import { TREAD_NAME, type SiteSheet, type TreadType, type WantTread } from "./sheet";
 
 /**
- * From a checked site sheet to priced stair options (Albert, 2026-10-28). One option per tread choice the
- * customer ticked under G1 that the conditions allow (Not sure = every one that is allowed), each priced
- * from the Stair Items card at the option's service level, in the Stairs section. Pure; tested in
- * tests/sitesheet.test.ts.
+ * From a site sheet to priced stair options (Albert, 2026-10-28). One option per tread choice the customer
+ * ticked under G1 (Not sure, or nothing ticked = every one), each priced from the Stair Items card at the
+ * option's service level, in the Stairs section. Pure; tested in tests/sitesheet.test.ts.
+ *
+ * The checks never stop an option (Albert, 2026-10-31: "the checks are just FYI: this is what we think, but
+ * never a restrictor for creating the stair option"). Where the rules below advise against one, it is still
+ * built, says why on a "Not advised" note, and is never the recommended one. Staff remove what they don't want.
  *
  * The rules, in Albert's words where he gave them:
  * - Sand & refinish only when wood caps are already on the surface. Carpet on top, or not known: not
@@ -76,7 +79,7 @@ export type BuiltOption = {
   notes: string[];
 };
 
-export type BuildResult = { options: BuiltOption[]; dropped: { kind: Exclude<WantTread, "unsure">; name: string; why: string }[]; derived: Derived };
+export type BuildResult = { options: BuiltOption[]; derived: Derived };
 
 const OPTION_NAME: Record<BuiltOption["kind"], string> = { caps: "New red oak caps", sand: "Sand & refinish", vinylTreads: "Vinyl treads", vinylSteps: "Vinyl steps" };
 
@@ -89,23 +92,23 @@ export function buildOptions(s: SiteSheet, catalogue: CardEntry[], level: Servic
   const find = (names: string[]) => names.map((x) => byName.get(x.toLowerCase())).find(Boolean) ?? null;
 
   const asked = new Set<WantTread>(s.want.treads);
-  const wanted = (k: BuiltOption["kind"]) => asked.has(k) || asked.has("unsure");
+  // Nothing ticked reads as Not sure: every option, so there is always something to build.
+  const wanted = (k: BuiltOption["kind"]) => asked.has(k) || asked.has("unsure") || asked.size === 0;
   const curved = s.shape === "Curved" || s.shape === "Spiral";
   const options: BuiltOption[] = [];
-  const dropped: BuildResult["dropped"] = [];
+  const add = (kind: BuiltOption["kind"], recommend: boolean, notAdvised: string | null) => {
+    const o = build(kind, s, d, find, level, recommend && !notAdvised);
+    if (notAdvised) o.notes.unshift(`Not advised: ${notAdvised} Built anyway; remove it if it doesn't apply.`);
+    options.push(o);
+  };
 
-  if (wanted("caps")) options.push(build("caps", s, d, find, level, curved));
-  if (wanted("sand")) {
-    if (s.onSteps === "Wood caps" || s.onSteps === "Painted wood") options.push(build("sand", s, d, find, level, false));
-    else dropped.push({ kind: "sand", name: OPTION_NAME.sand, why: s.onSteps === "Carpet" ? "Carpet is on the steps, and what's under it is almost never wood that can be sanded." : s.onSteps === null ? "The sheet doesn't say what's on the steps (A3), so sanding isn't offered." : `Sanding needs wood caps on the steps; the sheet says ${s.onSteps.toLowerCase()}.` });
-  }
-  if (wanted("vinylTreads")) {
-    if (!curved) options.push(build("vinylTreads", s, d, find, level, false));
-    else dropped.push({ kind: "vinylTreads", name: OPTION_NAME.vinylTreads, why: `A ${s.shape?.toLowerCase()} staircase takes no vinyl treads; vinyl steps are possible.` });
-  }
-  if (wanted("vinylSteps")) options.push(build("vinylSteps", s, d, find, level, false));
-  if (options.length && !options.some((o) => o.recommended)) options[0].recommended = options.length === 1;
-  return { options, dropped, derived: d };
+  if (wanted("caps")) add("caps", curved, null);
+  if (wanted("sand"))
+    add("sand", false, s.onSteps === "Wood caps" || s.onSteps === "Painted wood" ? null : s.onSteps === "Carpet" ? "carpet is on the steps, and what's under it is almost never wood that can be sanded." : s.onSteps === null ? "the sheet doesn't say what's on the steps (A3)." : `sanding needs wood caps on the steps; the sheet says ${s.onSteps.toLowerCase()}.`);
+  if (wanted("vinylTreads")) add("vinylTreads", false, curved ? `a ${s.shape?.toLowerCase()} staircase takes no vinyl treads; vinyl steps are possible.` : null);
+  if (wanted("vinylSteps")) add("vinylSteps", false, null);
+  if (options.length === 1 && !options[0].notes.some((n) => n.startsWith("Not advised"))) options[0].recommended = true;
+  return { options, derived: d };
 }
 
 function build(kind: BuiltOption["kind"], s: SiteSheet, d: Derived, find: (names: string[]) => Stair | null, level: ServiceLevel, recommend: boolean): BuiltOption {
@@ -125,7 +128,7 @@ function build(kind: BuiltOption["kind"], s: SiteSheet, d: Derived, find: (names
   const n = (v: number | null) => v ?? 0;
   const both = s.want.covers === "both";
 
-  if (s.onSteps === "Carpet" && kind !== "sand") add(ITEM_NAMES.carpetOff, d.treads + d.landings + (both ? d.sideTreads : 0), "Carpet removed from the stairs");
+  if (s.onSteps === "Carpet") add(ITEM_NAMES.carpetOff, d.treads + d.landings + (both ? d.sideTreads : 0), "Carpet removed from the stairs");
 
   // Treads
   if (kind === "caps") {

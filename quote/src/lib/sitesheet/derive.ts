@@ -174,7 +174,7 @@ export function derive(s: SiteSheet): Derived {
 
   if (s.totalTreads !== null && s.totalTreads !== treads) flags.push(`Total treads: the sheet says ${s.totalTreads}, the boxes add up to ${treads}.`);
   if (treads === 0) flags.push("No treads were read on the main staircase.");
-  if (s.want.treads.length === 0) flags.push("Nothing is ticked under What the customer wants (G1), so no option can be built. Tick one, or Not sure.");
+  if (s.want.treads.length === 0) flags.push("Nothing is ticked under What the customer wants (G1), so every option is built. Remove the ones they don't want.");
   if (s.where.includes("Side") && sideTreads === 0) flags.push("A side or half staircase is ticked, but its steps (B10) are blank.");
   if (s.shape === "Curved" || s.shape === "Spiral") flags.push(`${s.shape} staircase: new caps are recommended, and the curve has no piece on the card.`);
   if (s.onSteps === null) flags.push("What is on the steps now (A3) is blank, so sanding can't be offered.");
