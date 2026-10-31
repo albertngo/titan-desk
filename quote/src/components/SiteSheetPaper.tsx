@@ -254,7 +254,11 @@ function PageOne(p: PaperProps) {
                 <td className="x" />
                 <td className="x" />
                 <td className="x" />
-                <td className="ow">{m.sum("pizza.two", "pizza sets 2 side open", 40)} <span className="lbl">sets</span></td>
+                {/* How many of the 2-pc / 3-pc sets written beside it are 2 side open: part of them, never extra. */}
+                <td className="ow ssp-of">
+                  {m.sum("pizza.two", "how many of the pizza sets are 2 side open", 40)}
+                  <span className="ssp-of-l">of these sets <b aria-hidden>→</b></span>
+                </td>
                 <td className="ow" style={{ textAlign: "left" }}>
                   <span className="lbl">2-pc</span> {m.sum("pizza.pc2", "pizza 2-piece sets", 34)} <span className="lbl">3-pc</span> {m.sum("pizza.pc3", "pizza 3-piece sets", 34)}
                   {p.pizzaCustom > 0 && <span className="ssp-custom">{p.pizzaCustom} custom</span>}

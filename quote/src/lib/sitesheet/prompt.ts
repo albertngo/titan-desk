@@ -21,7 +21,7 @@ Page 1:
 - B1–B4 Treads grid: rows RSO (rso), LSO (lso), Boxed (boxed), 2 side open (two); columns 36", 42", 48", Other width. A number in "Other width" goes in "other"; if the width itself is written (e.g. "40") put it in otherWidth.
 - B5 Tread depth: standard 10-5/8" → 0; custom → the inches written.
 - B6 Pie shape: counts under LSO / RSO / 2 side open (Boxed is shaded; there is no turn box).
-- B7 Pizza set: under Pizza only, how many 2-piece sets (pizza.pc2, the "2-pc" box) and how many 3-piece sets (pizza.pc3, the "3-pc" box); under 2 side open, how many of those sets are 2 side open (pizza.two; they are already in the 2-pc / 3-pc counts, not extra). Blank → null. On an older print with one "sets" box, 2-pc / 3-pc bubbles and a 2-side-open tick: the sets go in pc2 when 2-pc is chosen, else pc3, and also in two when the tick is marked.
+- B7 Pizza set: under Pizza only, how many 2-piece sets (pizza.pc2, the "2-pc" box) and how many 3-piece sets (pizza.pc3, the "3-pc" box); under 2 side open (the box marked "of these sets →"), how many of those sets are 2 side open (pizza.two; they are already in the 2-pc / 3-pc counts, not extra). Blank → null. On an older print with one "sets" box, 2-pc / 3-pc bubbles and a 2-side-open tick: the sets go in pc2 when 2-pc is chosen, else pc3, and also in two when the tick is marked.
 - B8 Bullnose: counts under LSO / RSO / 2 side open (Boxed and Type are shaded).
 - B9 Total treads.
 - B10 Side / half staircase: steps, its tread type (RSO/LSO/Boxed/2 side open → rso/lso/boxed/two), width.
