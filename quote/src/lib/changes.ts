@@ -23,6 +23,15 @@ export const CHANGES: Change[] = [
   {
     date: "2026-10-31",
     kind: "changed",
+    title: "Send quote to customer; no Edit on a change already sent",
+    details: [
+      "The button under a draft and the Send card beside it now say Send quote to customer.",
+      "A change that has been sent, or replaced by a later change, no longer shows Edit. It stays as the customer received it, so the editor could never save it. Make a change, or open the newest change, to edit.",
+    ],
+  },
+  {
+    date: "2026-10-31",
+    kind: "changed",
     title: "Options stay separate on an accepted quote and its changes",
     details: [
       "When the customer has more than one option (say upstairs and the basement, or flooring and stairs), each one now keeps its own heading, description, work and price before HST on the quote page, the PDF, the invoice or receipt and the change email. Before, all their lines were run together in one list under a name like \"Upstairs + Basement\".",

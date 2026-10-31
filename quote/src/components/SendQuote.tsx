@@ -260,7 +260,7 @@ export function SendQuote({
 
   return (
     <section className="card sq" id="send" aria-labelledby="sq-h">
-      <div className="card-h" id="sq-h">Send to customer</div>
+      <div className="card-h" id="sq-h">Send quote to customer</div>
       <div className="card-b">
         {allProblems.length > 0 && (
           <div className="sq-msg warn">
