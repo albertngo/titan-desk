@@ -4,7 +4,7 @@ import { defaultSchedule, payWords, scheduleProblems } from "@/lib/pricing/sched
 import type { Acceptance } from "@/lib/accept/plan";
 import { changeWords as changeLine, paidLeft } from "@/lib/change/diff";
 import { addDays, dollars, hstRow, isIsoDate, isRange, isSplit, scopeLeads, scopeOf, leadPrice, longDate, offersPdf, rangeText, rangeWhy, stageNote, stagesOf, type CopyOption, type CopyStage, type CustomerCopy } from "./copy";
-import { copyKind, flooringSummary, kindPhrase } from "./summary";
+import { copyKind, kindPhrase } from "./summary";
 
 /**
  * Sending a quote (milestone 4, Albert 2026-10-15): the checks before anything leaves, and the
@@ -234,41 +234,15 @@ function button(label: string, href: string, primary = true): string {
   );
 }
 
-/** One option as a card in a cream tray: its name, what it includes with quantities, and the total set large. */
-function optionCard(o: CopyOption, copy: CustomerCopy, several: boolean): string {
-  const items: string[] = [];
-  const cell = (text: string, right = false) =>
-    `<td${right ? ' align="right"' : ""} style="padding:11px 0;border-bottom:1px solid ${C.hair};font-family:${SANS};font-size:${right ? 14 : 15}px;color:${right ? C.muted : C.body};${right ? "white-space:nowrap;" : ""}">${text}</td>`;
-  for (const line of flooringSummary(o)) {
-    const [label, rest] = line.split(/:\s(.*)/s);
-    if (!rest) continue;
-    if (/^Total /.test(label)) continue;
-    // "Carpet removal · 200 sq ft; Tile removal · 50 sq ft" → one row per item, quantity on the right.
-    for (const item of rest.split("; ")) {
-      const [what, qty] = item.split(" · ");
-      // "Removal · Remove existing laminate" says it twice: when the line already opens with the work, show it alone.
-      const stem = label.toLowerCase().replace(/al$/, "");
-      // Rate Card names carry their own section ("Refinish | SAND - Hardwood"), so they never take a prefix (2026-10-24).
-      const dup = what.includes(" | ") || what.toLowerCase().startsWith(stem) || (label === "Subfloor prep" && /^subfloor/i.test(what));
-      const amount = qty ? esc(qty.replace(/^\d+(?:\.\d+)?/, (n) => Number(n).toLocaleString("en-CA"))) : "included";
-      items.push(`<tr>${cell(dup ? esc(what) : `${esc(label)} &middot; ${esc(what)}`)}${cell(amount, true)}</tr>`);
-    }
-  }
-  const stairs = o.sections.find((s) => s.name === "Stairs");
-  const UNIT: Record<string, string> = { sqft: "sq ft", "linear ft": "lin ft", piece: "pcs", each: "each" };
-  for (const l of stairs?.lines ?? []) {
-    if (l.kind !== "item" || l.optional) continue;
-    const unit = l.uom ? UNIT[l.uom] : undefined;
-    items.push(`<tr>${cell(`Stairs &middot; ${esc(l.description)}`)}${cell(unit && l.qty ? `${esc(String(l.qty))} ${unit}` : "included", true)}</tr>`);
-  }
-  for (const raw of (o.description ?? "").split("\n")) {
-    const t = raw.trim();
-    if (t.startsWith("* ")) items.push(`<tr>${cell(esc(t.slice(2)))}${cell("", true)}</tr>`);
-  }
-  if (copy.timing) items.push(`<tr>${cell("Timing")}${cell(esc(copy.timing), true)}</tr>`);
+/**
+ * One option as a card in a cream tray: a title and the total set large, nothing else (Albert,
+ * 2026-10-31: "in the email I just want them to actually go into the link to see it"). What it
+ * includes, the materials and the payment schedule are on the quote page; the line under the total
+ * says so. Before then the card listed each line with its quantity and the timing.
+ */
+function optionCard(o: CopyOption, copy: CustomerCopy): string {
   const prelim = copy.basis === "Preliminary";
-  const badge = o.recommended && several ? `<span style="display:inline-block;padding:4px 10px;border-radius:999px;background:${C.cream};font-family:${SANS};font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:${C.accentDeep};font-weight:600;">Recommended</span>` : "";
-  const title = several ? `${isSplit(copy) ? `${scopeOf(o)} &middot; ` : ""}${esc(o.name)}` : prelim ? "What&rsquo;s included" : "Your quote";
+  const title = prelim ? "Your estimate" : "Your quote";
   const r = o.range;
   const totalLabel = r ? "Estimated range" : prelim ? "Rough total" : "Total";
   // Before HST, set large, with the HST and the with-HST total as two quiet lines under it (2026-10-24).
@@ -298,14 +272,18 @@ function optionCard(o: CopyOption, copy: CustomerCopy, several: boolean): string
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.wash};border-radius:18px;"><tr><td style="padding:8px;">` +
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.card};border:1px solid ${C.hair};border-radius:12px;">` +
     `<tr><td style="padding:22px 24px 6px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>` +
-    `<td style="font-family:${SERIF};font-size:20px;color:${C.ink};">${title}</td>${badge ? `<td align="right">${badge}</td>` : ""}</tr></table></td></tr>` +
-    (items.length ? `<tr><td style="padding:0 24px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${items.join("")}</table></td></tr>` : "") +
-    `<tr><td style="padding:18px 24px 22px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">` +
-    `${figure}${breakdown}</table></td></tr></table></td></tr></table>`
+    `<td style="font-family:${SERIF};font-size:20px;color:${C.ink};">${title}</td></tr></table></td></tr>` +
+    `<tr><td style="padding:12px 24px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">` +
+    `${figure}${breakdown}</table></td></tr>` +
+    `<tr><td style="padding:14px 24px 20px;font-family:${SANS};font-size:13px;line-height:1.5;color:${C.muted};">${ON_PAGE("What&rsquo;s included")}</td></tr>` +
+    `</table></td></tr></table>`
   );
 }
 
-/** Three or more options (2026-10-24): one card listing each option's name and its price before HST. */
+/** The line under the email's prices that sends the customer to the page for the rest (2026-10-31). */
+const ON_PAGE = (what: string) => `${what}, the materials and the payment schedule are on your quote page.`;
+
+/** Two or more options (three or more 2026-10-24, two since 2026-10-31): one card listing each option's name and its price before HST. */
 function optionList(copy: CustomerCopy): string {
   const prelim = copy.basis === "Preliminary";
   const rows = copy.options
@@ -315,9 +293,16 @@ function optionList(copy: CustomerCopy): string {
       const badge = o.recommended
         ? ` <span style="display:inline-block;margin-left:6px;padding:2px 8px;border-radius:999px;background:${C.cream};font-family:${SANS};font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:${C.accentDeep};font-weight:600;vertical-align:2px;">Recommended</span>`
         : "";
+      const name = `<span style="color:${C.muted};font-size:13px;">${isSplit(copy) ? `${scopeOf(o)} &middot; ` : ""}Option ${i + 1}</span><br>${esc(o.name)}${badge}`;
+      // A range is two figures: it goes under the name, so a phone never squeezes the name into a narrow column (2026-10-31).
+      if (o.range)
+        return (
+          `<tr><td colspan="2" style="padding:13px 0;border-bottom:1px solid ${C.hair};font-family:${SANS};font-size:15px;color:${C.ink};">${name}<br>` +
+          `<span style="display:inline-block;padding-top:6px;font-family:${SERIF};font-size:20px;color:${C.ink};white-space:nowrap;">${price}</span>` +
+          `<span style="font-family:${SANS};font-size:12px;color:${C.muted};"> ${esc(lead.tag)}</span></td></tr>`
+        );
       return (
-        `<tr><td style="padding:13px 0;border-bottom:1px solid ${C.hair};font-family:${SANS};font-size:15px;color:${C.ink};">` +
-        `<span style="color:${C.muted};font-size:13px;">${isSplit(copy) ? `${scopeOf(o)} &middot; ` : ""}Option ${i + 1}</span><br>${esc(o.name)}${badge}</td>` +
+        `<tr><td style="padding:13px 0;border-bottom:1px solid ${C.hair};font-family:${SANS};font-size:15px;color:${C.ink};">${name}</td>` +
         `<td align="right" valign="bottom" style="padding:13px 0;border-bottom:1px solid ${C.hair};white-space:nowrap;">` +
         `<span style="font-family:${SERIF};font-size:20px;color:${C.ink};">${price}</span>` +
         `<span style="font-family:${SANS};font-size:12px;color:${C.muted};"> ${esc(lead.tag)}</span></td></tr>`
@@ -329,7 +314,7 @@ function optionList(copy: CustomerCopy): string {
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.card};border:1px solid ${C.hair};border-radius:12px;">` +
     `<tr><td style="padding:22px 24px 4px;font-family:${SERIF};font-size:20px;color:${C.ink};">Your ${copy.options.length} options</td></tr>` +
     `<tr><td style="padding:0 24px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${rows}</table></td></tr>` +
-    `<tr><td style="padding:14px 24px 20px;font-family:${SANS};font-size:13px;line-height:1.5;color:${C.muted};">${isRange(copy) ? "Estimated ranges. " : prelim ? "Rough prices. " : ""}What each option includes, the HST and the payment schedule are on the quote page.</td></tr>` +
+    `<tr><td style="padding:14px 24px 20px;font-family:${SANS};font-size:13px;line-height:1.5;color:${C.muted};">${isRange(copy) ? "Estimated ranges. " : prelim ? "Rough prices. " : ""}${ON_PAGE("What each option includes")}</td></tr>` +
     `</table></td></tr></table>`
   );
 }
@@ -437,7 +422,7 @@ export function emailMessage(
   const preheader = split
     ? `${scopeLeads(copy, (n) => cad.format(n)).map((x) => `${x.scope} ${x.phrase}`).join(" · ")}${copy.validUntil ? ` · good until ${longDate(copy.validUntil)}` : ""}`
     : several
-    ? `${copy.options.length} options from ${ranged ? dollars(lowEnd) : cad.format(lowEnd)} ${low.tag}${copy.validUntil ? ` · good until ${longDate(copy.validUntil)}` : ""}`
+    ? `${copy.options.length} options to look at, from as low as ${ranged ? dollars(lowEnd) : cad.format(lowEnd)} ${low.tag}${copy.validUntil ? ` · good until ${longDate(copy.validUntil)}` : ""}`
     : r0
       ? `Estimated range ${rangeText(r0.low, r0.high)} ${leads[0].tag}`
       : `${prelim ? "Rough total" : "Total"} ${cad.format(leads[0].amount)} ${leads[0].tag}${copy.validUntil ? ` · good until ${longDate(copy.validUntil)}` : ""}`;
@@ -446,20 +431,23 @@ export function emailMessage(
   // A preliminary always goes before anyone has measured (Albert, 2026-10-27: a preliminary is solely a
   // quote before a visit or measurement; one sent after a measure is a measured quote), so it opens
   // generically. The "we've been to the home" switch (2026-10-24) is gone. Since 2026-10-27 it is a range.
-  const intro = prelim && ranged
+  // Several options (2026-10-31): the count and the lowest price, so the customer opens the page to compare.
+  const lowest = `${ranged ? dollars(lowEnd) : cad.format(lowEnd)} ${esc(low.tag)}`;
+  const intro = prelim && several && !split
+    ? `Thanks for telling us about your project. ${severalWords(copy.options.length, lowest)}, based on what you&rsquo;ve described. ${ranged ? `${esc(rangeWhy(copy))} ` : ""}Once you&rsquo;ve picked a material and we&rsquo;ve measured, we confirm the final price.`
+    : prelim && ranged
     ? `Thanks for telling us about your project. Here is a price range based on what you&rsquo;ve described. ${esc(rangeWhy(copy))} Once you&rsquo;ve picked a material and we&rsquo;ve measured, we confirm the final price.`
     : prelim
     ? `Thanks for telling us about your project. Here is a rough number based on what you&rsquo;ve described. Once you&rsquo;ve picked a material and we&rsquo;ve measured, we confirm the final price.`
     : split
       ? `Flooring and stairs are quoted side by side: take one option of each, or just one of them. Open the quote to see every detail and the payment schedule.`
     : several
-      ? `${copy.options.length} ways to do the work, side by side. Open the quote to see every detail and the payment schedule.`
+      ? `${severalWords(copy.options.length, lowest)}. Open the quote to see every detail and the payment schedule.`
       : `Everything we talked about is in the quote, with the payment schedule. Open it to see the detail.`;
 
-  // One or two options: a full card each. Three or more (2026-10-24): one compact list of names and prices,
-  // the detail on the quote page, so the email stays short however many options went.
-  const compact = copy.options.length >= 3;
-  const cards = compact ? row(optionList(copy), "0 40px 16px") : copy.options.map((o) => row(optionCard(o, copy, several), "0 40px 16px")).join("");
+  // Albert, 2026-10-31: the email gives the price and sends them to the page for the rest. Several options:
+  // one list of names and prices (from three since 2026-10-24, from two since 2026-10-31); one option: its price.
+  const cards = row(several ? optionList(copy) : optionCard(copy.options[0], copy), "0 40px 16px");
   // The PDF is never attached (Albert, 2026-10-27): an attachment is a copy we can never see opened. When the
   // sender offers it, it is downloaded from the quote page; otherwise the page has no PDF and the email says nothing.
   const under = [
@@ -532,9 +520,8 @@ export function smsMessage(copy: CustomerCopy, to: { contactId: string; firstNam
   const several = copy.options.length > 1;
   const kind = kindPhrase(copyKind(copy), false).replace(/ quote$/, "");
   const whoFrom = sender?.firstName ? `it's ${sender.firstName} from ${copy.company.name}` : `it's ${copy.company.name}`;
-  // Every amount before HST, "+ HST" after it (2026-10-24); with several options, the lowest.
+  // Every amount before HST, "+ HST" after it (2026-10-24); with several options, the lowest (lowestLead, below).
   const leads = copy.options.map((o) => leadPrice(copy, o.totals));
-  const low = leads.reduce((a, b) => (b.amount < a.amount ? b : a));
   const money = (n: number) => (Number.isInteger(n) ? `$${n.toLocaleString("en-CA")}` : cad.format(n));
   const first = hi ? `Hi ${hi}, ${whoFrom}.` : `Hi, ${whoFrom}.`;
   // Layout (Albert, 2026-10-24): the news, a blank line, "See the full details here:" with the link on
@@ -543,8 +530,12 @@ export function smsMessage(copy: CustomerCopy, to: { contactId: string; firstNam
   // Flooring and stairs (2026-10-28): each scope's price on its own, " to " for a range (GSM-7).
   const split = isSplit(copy);
   const scopeWords = scopeLeads(copy, money, " to ").map((x) => `${x.scope.toLowerCase()} ${x.phrase}`).join(", ");
+  const lowest = lowestLead(copy);
+  const fromWords = severalWords(copy.options.length, `${money(lowest.amount)} ${lowest.tag}`);
   const what = prelim && split
     ? `Thanks for telling us about your project. Your estimate: ${scopeWords}.`
+    : prelim && several
+    ? `Thanks for telling us about your project. ${fromWords}.`
     : prelim
     ? r0
       ? // A range (2026-10-27), with " to ": an en dash is not GSM-7.
@@ -553,16 +544,32 @@ export function smsMessage(copy: CustomerCopy, to: { contactId: string; firstNam
     : split
       ? `Your quote is ready: ${scopeWords}${copy.validUntil ? `, good until ${shortDate(copy.validUntil)}` : ""}.`
     : several
-      ? `${copy.options.length} options for your ${kind === "quote" ? "project" : kind} are ready to compare, from ${money(low.amount)} ${low.tag}${copy.validUntil ? `, good until ${shortDate(copy.validUntil)}` : ""}.`
+      ? `${fromWords}${copy.validUntil ? `, good until ${shortDate(copy.validUntil)}` : ""}.`
       : `Your ${kind === "quote" ? "" : `${kind} `}quote is ready, ${money(leads[0].amount)} ${leads[0].tag}${copy.validUntil ? `, good until ${shortDate(copy.validUntil)}` : ""}.`;
   const close = prelim
-    ? r0 || (split && isRange(copy))
+    ? several && !split
+      ? `Each option shows its ${isRange(copy) ? "price range" : "rough price"}. Any questions, just reply.`
+      : r0 || (split && isRange(copy))
       ? "The final price should land in that range. Any questions, just reply."
       : "We confirm the price once we've measured. Any questions, just reply."
     : several
       ? "Reply here with the one you'd like, or with any questions."
       : "Reply here if anything needs changing.";
   return { type: "SMS", contactId: to.contactId, message: `${first} ${what}\n\nSee the full details here:\n${to.link}\n\n${close}` };
+}
+
+/**
+ * The words for several options (Albert, 2026-10-31: "There are multiple options for you to take a look
+ * at, from as low as" the lowest): the count, and the lowest price before HST (a range's low end).
+ */
+export function severalWords(count: number, lowest: string): string {
+  return `There are ${count} options for you to take a look at, from as low as ${lowest}`;
+}
+
+/** The lowest price any option leads with: a range's low end, else its price before HST. */
+function lowestLead(copy: CustomerCopy): { amount: number; tag: string; ranged: boolean } {
+  const all = copy.options.map((o) => ({ amount: o.range?.low ?? leadPrice(copy, o.totals).amount, tag: leadPrice(copy, o.totals).tag, ranged: !!o.range }));
+  return all.reduce((a, b) => (b.amount < a.amount ? b : a));
 }
 
 /** "Nov 21" for a text. */

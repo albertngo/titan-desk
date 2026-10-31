@@ -240,8 +240,10 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   warm paper, the cream header band with the logo (the brand kit's horizontal lockup, Secondary
   Logo 2, shipped in `public/brand/` and served by the customer deployment, which the proxy lets
   through without a sign-in; `QUOTE_LOGO_URL` overrides it; with neither, the company name as a
-  wordmark), a serif headline, one card per option (what's included with quantities, the total set
-  large, Recommended badge), a pill button, the payment schedule in words on a measured quote, three
+  wordmark), a serif headline, the price (since 2026-10-31, Albert: "in the email I just want them to actually go into the link"):
+  one option is one card with its total set large and the price with HST, two or more are one list of names and prices
+  (`optionList()`, a range under its name), and no line, quantity or timing rows; the line under it sends them to the
+  page for what's included, the materials and the payment schedule; a pill button, the payment schedule in words on a measured quote, three
   "what happens next" steps (a preliminary links the in-store calendar on its showroom step (the separate in-store button went 2026-10-27, it said the same thing twice) and the
   in-home measurement calendar on its measure step; both GHL calendar ids in `src/lib/ghl/ids.ts`),
   and a transactional footer from the letterhead: no carousel, no click tracking, no unsubscribe. **No HST number** on the page, the PDF or the email (Albert, 2026-10-27: "This is just an estimate, so it's not like a formal invoice"); `QUOTE_COMPANY_HST` is no longer read. The
@@ -260,9 +262,12 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   edit log records "options 1 and 3". Only ticked options are checked, so a half-built option no
   longer blocks a send once it is unticked (`optionProblem()` / `chooseOptions()` in
   `src/lib/send/plan.ts`; the card passes `skipOptions` to `sendProblems()` and applies the per-option
-  check live, the send runs everything). The previews and PDF follow the ticks (`?options=`). **The
-  email lists three or more options compactly** (names and prices before HST; the detail is on the
-  page); one or two get a full card each. Tested in `tests/send.test.ts`.
+  check live, the send runs everything). The previews and PDF follow the ticks (`?options=`). **Several options are worded "There are N options for you to take a look at, from as low as" the
+  lowest price before HST** (Albert, 2026-10-31), in the email's intro and preheader and the text (a
+  preliminary: the lowest range's low end), via `severalWords()`; flooring-and-stairs quotes keep each
+  scope's own price. **The
+  email lists two or more options compactly** (names and prices before HST; the detail is on the
+  page; three or more since 2026-10-24, two since 2026-10-31). Tested in `tests/send.test.ts`.
 - **A preliminary goes as a range (Albert, 2026-10-27).** Customers took a preliminary's one number as
   the price, so a measured quote that came in higher read as a change. Everything the customer gets
   (email, text, page, PDF) shows the price before HST as a range instead: **3% under to 10% over, the top
