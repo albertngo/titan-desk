@@ -23,6 +23,16 @@ export const CHANGES: Change[] = [
   {
     date: "2026-10-31",
     kind: "changed",
+    title: "The quote email gives the price, the quote page gives the rest",
+    details: [
+      "The email no longer lists what each option includes (install, square footage, materials, timing). It shows the price or range and says what's included, the materials and the payment schedule are on the quote page, so the customer opens it to see them.",
+      "Two options are now listed the same way as three or more: each option's name and price in one short list. One option gets a single card with its price and the price with HST.",
+      "The quote page and the PDF are unchanged.",
+    ],
+  },
+  {
+    date: "2026-10-31",
+    kind: "changed",
     title: "Several options: \"from as low as\" in the email and the text",
     details: [
       "When a quote goes with two or more options, the email and the text now say \"There are 3 options for you to take a look at, from as low as $2,000 + HST\", using the lowest price (the low end of the lowest range on a preliminary).",

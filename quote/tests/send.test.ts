@@ -230,35 +230,24 @@ describe("the messages", () => {
     expect(m.html).toContain("November 14, 2026");
   });
 
-  it("says what is included, the way the old mobile-quote messages did, and the timing (2026-10-18; card rows since 2026-10-22)", () => {
+  it("gives one option's price and sends them to the page for what it includes (Albert, 2026-10-31)", () => {
     const q = quote({ basis: "Preliminary", link: { ...quote().link!, projectTiming: "Within 1 month" } });
     q.options[0].lines.push(line({ section: "Stairs", lineType: "Stairs", sourceKind: "manual", sourceId: null, hasSource: false, description: "Townhome – Vinyl treads", uom: "flat", qty: 1, unitPrice: 1500, unitPriceSnap: null, unitCostSnap: null, contractor: null }));
-    q.options[0].description = "* Townhome – Vinyl treads We'll install waterproof vinyl treads. The handrails will be sanded and refinished to match, and up to 50 spindles are included.";
+    q.options[0].description = "* Townhome – Vinyl treads We'll install waterproof vinyl treads.";
     q.options[0].airtable = { ...optionTotals(q.options[0].lines, 0.1, true) };
     const c = customerCopy(q, AT);
+    // The copy (page and PDF) keeps everything; only the email leaves it to the page.
     expect(c.timing).toBe("Within 1 month");
     expect(c.options[0].sections.map((s) => s.name)).toContain("Stairs");
     const m = emailMessage(c, to);
     if (m.type !== "Email") throw new Error();
     expect(m.subject).toBe("Your flooring and stairs estimate Q-9001 from Titan Flooring");
-    expect(m.html).toContain("What&rsquo;s included");
-    expect(m.html).toContain("Removal &middot; Carpet removal</td>");
-    expect(m.html).toContain(">200 sq ft</td>");
-    expect(m.html).toContain("Install &middot; Click install</td>");
-    // A line that already opens with the work is not prefixed, and a quantity gets its thousands separator.
-    const big = customerCopy(quote({ options: [option("One", [line({ section: "Removal", lineType: "Removal", description: "Remove old carpet", qty: 1500, unitPrice: 1, unitPriceSnap: null, unitCostSnap: null, contractor: null, sourceKind: "manual", sourceId: null, hasSource: false })])] }), AT);
-    const bm = emailMessage(big, to);
-    expect(bm.type === "Email" && bm.html).toContain(">Remove old carpet</td>");
-    expect(bm.type === "Email" && bm.html).toContain(">1,500 sq ft</td>");
-    // A Rate Card name carries its own section, so it is never prefixed (2026-10-24): no "Install · Refinish | SAND".
-    const rc = customerCopy(quote({ options: [option("One", [line({ section: "Install", description: "Refinish | SAND - Hardwood (Oak)", qty: 1333, unitPrice: 1, unitPriceSnap: null, unitCostSnap: null, contractor: null, sourceKind: "manual", sourceId: null, hasSource: false })])] }), AT);
-    const rm = emailMessage(rc, to);
-    expect(rm.type === "Email" && rm.html).toContain(">Refinish | SAND - Hardwood (Oak)</td>");
-    expect(rm.type === "Email" && rm.html).not.toContain("Install &middot; Refinish");
-    expect(m.html).toContain("Stairs &middot; Townhome – Vinyl treads</td>");
-    expect(m.html).toContain("Townhome – Vinyl treads We&#39;ll install waterproof vinyl treads. The handrails will be sanded and refinished to match, and up to 50 spindles are included.</td>");
-    expect(m.html).toContain(">Timing</td>");
-    expect(m.html).toContain(">Within 1 month</td>");
+    expect(m.html).toContain(">Your estimate</td>");
+    expect(m.html).toContain("What&rsquo;s included, the materials and the payment schedule are on your quote page.");
+    expect(m.html).not.toMatch(/Carpet removal|Click install|sq ft|Vinyl treads|Within 1 month|>Timing</);
+    expect(m.html).toContain(">With HST</td>");
+    const measured = emailMessage(customerCopy(quote(), AT), to);
+    expect(measured.type === "Email" && measured.html).toContain(">Your quote</td>");
     // A preliminary goes as a range since 2026-10-27.
     expect(m.html).toContain("Estimated range");
     const t = smsMessage(c, to);
@@ -843,7 +832,7 @@ describe("choosing which options go to the customer (2026-10-24)", () => {
     expect(t.type === "SMS" && t.message).toContain("Your flooring quote is ready");
   });
 
-  it("lists three or more options compactly in the email: names and prices, the detail on the page", () => {
+  it("lists two or more options compactly in the email: names and prices, the detail on the page (two since 2026-10-31)", () => {
     const q = three();
     q.options[2] = { ...option("Engineered hardwood", lines), id: C };
     const m = emailMessage(customerCopy(q, AT), to);
@@ -851,13 +840,13 @@ describe("choosing which options go to the customer (2026-10-24)", () => {
     expect(m.html).toContain("Your 3 options");
     expect(m.html).toContain("Option 3</span><br>Engineered hardwood");
     expect(m.html).toContain(">Recommended</span>");
-    expect(m.html).toContain("What each option includes, the HST and the payment schedule are on the quote page.");
+    expect(m.html).toContain("What each option includes, the materials and the payment schedule are on your quote page.");
     expect(m.html).not.toContain("What&rsquo;s included");
     expect(m.html).not.toContain(">With HST</td>");
-    // Two options still get a full card each.
+    // Two options are listed the same way (2026-10-31), no longer a full card each.
     const two = emailMessage(customerCopy(chooseOptions(q, [A, B]), AT), to);
-    expect(two.type === "Email" && two.html).not.toContain("Your 2 options");
-    expect(two.type === "Email" && two.html.match(/>With HST<\/td>/g)?.length).toBe(2);
+    expect(two.type === "Email" && two.html).toContain("Your 2 options");
+    expect(two.type === "Email" && two.html).not.toContain(">With HST</td>");
   });
 });
 
