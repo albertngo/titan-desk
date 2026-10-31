@@ -500,9 +500,10 @@ export default function Editor({
                 {i > 0 && <span className="tab-sep" aria-hidden />}
                 {all.length > 1 && <span className="tab-scope">{g.scope}</span>}
                 {g.options.map((o) => (
-                  <button key={o.id} className={o.notOffered ? "tab off" : "tab"} aria-current={option?.id === o.id ? "page" : undefined} onClick={() => setActiveId(o.id)} title={o.notOffered ? "Not offered: left off what the customer is sent" : undefined}>
+                  <button key={o.id} className={o.notOffered ? "tab off" : "tab"} aria-current={option?.id === o.id ? "page" : undefined} onClick={() => setActiveId(o.id)} title={o.notOffered ? "Not offered: never sent to the customer" : undefined}>
+                    {o.notOffered && <span className="t-off">Not offered</span>}
                     {o.part && <span className="t-part">{o.part}</span>}
-                    {o.name || "Untitled"}
+                    <span className="t-name">{o.name || "Untitled"}</span>
                     <span className="t-amt">{money(optionTotals(o.lines, quote.discountRate, quote.showHst).total)}</span>
                   </button>
                 ))}
@@ -523,7 +524,8 @@ export default function Editor({
 
           {option && t ? (
             <>
-              <section className="card">
+              {option.notOffered && <p className="no-offer-banner" role="note"><b>Not offered.</b> This option stays on the quote but is never sent to the customer. Untick Not offered below to send it.</p>}
+              <section className={option.notOffered ? "card no-offer-card" : "card"}>
                 <div className="ohead">
                   <div className="oname">
                     <TextCell className="in title" value={option.name} label="Option name" placeholder="Option name" onCommit={(v) => apply(updateOption(quote, option.id, { name: v }))} />

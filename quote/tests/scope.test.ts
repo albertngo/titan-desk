@@ -333,10 +333,11 @@ describe("Parts", () => {
     expect(cleanEditorQuote(set).options[0]).toMatchObject({ part: "Basement", notOffered: true });
   });
 
-  it("a Not offered option stays on the quote and off what is sent, unless the sender ticks it", () => {
+  it("a Not offered option stays on the quote and is never sent, even if named", () => {
     const q = quote({ options: [option("Oak", [line({})]), option("Old vinyl", [line({ unitPriceSnap: 8 })], { notOffered: true })] });
     expect(chooseOptions(q, null).options.map((o) => o.name)).toEqual(["Oak"]);
-    expect(chooseOptions(q, q.options.map((o) => o.id)).options).toHaveLength(2);
+    // Named, it still never goes (2026-10-31: a safeguard, not just a default).
+    expect(chooseOptions(q, q.options.map((o) => o.id)).options.map((o) => o.name)).toEqual(["Oak"]);
     expect(chosenWords(q, null)).toBe("option 1 only");
   });
 });

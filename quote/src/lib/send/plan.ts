@@ -44,9 +44,10 @@ export function parseOptionIds(raw: unknown): string[] | null {
 /** The quote with only the chosen options, in their order; null = all. An id not on the quote is ignored here and refused by sendProblems. */
 export function chooseOptions<Q extends Pick<Quote, "options">>(quote: Q, ids: string[] | null | undefined): Q {
   // Not named: every option still offered (2026-10-30: a Not offered one stays on the quote and off the copy).
+  // Named: still never a Not offered one (Albert, 2026-10-31: "as a safeguard, not even an option").
   if (!ids) return { ...quote, options: quote.options.filter((o) => !o.notOffered) };
   const keep = new Set(ids);
-  return { ...quote, options: quote.options.filter((o) => keep.has(o.id)) };
+  return { ...quote, options: quote.options.filter((o) => keep.has(o.id) && !o.notOffered) };
 }
 
 /** "options 1 and 3" for the edit log, numbered as the editor shows them; null when every option went. */
@@ -108,7 +109,9 @@ export function sendProblems(quote: Quote, input: SendInput, ctx: { today: strin
     if (ids && quote.options.length > 0) {
       if (ids.length === 0) out.push("Choose at least one option to send.");
       else if (ids.some((id) => !quote.options.some((o) => o.id === id))) out.push("An option you chose is no longer on this version. Reload the page.");
+      else if (ids.some((id) => quote.options.some((o) => o.id === id && o.notOffered))) out.push("An option you chose is marked Not offered, so it can't be sent. Reload the page.");
     }
+    if (quote.options.length > 0 && quote.options.every((o) => o.notOffered)) out.push("Every option is marked Not offered. Untick Not offered on the one to send.");
     // Only what goes to the customer is checked: an unticked draft option never blocks a send (2026-10-24).
     for (const o of chooseOptions(quote, ids).options) {
       const p = optionProblem(quote, o);

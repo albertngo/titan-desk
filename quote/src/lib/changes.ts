@@ -23,6 +23,16 @@ export const CHANGES: Change[] = [
   {
     date: "2026-10-31",
     kind: "changed",
+    title: "Not offered can't be sent; preliminary and old links are obvious",
+    details: [
+      "A Not offered option is greyed out, struck through and labelled Not offered on its tab, with a note above it. On the Send card it is shown but can't be ticked, so it can never go to the customer. Untick Not offered in the editor to send it.",
+      "A preliminary's customer page and PDF now open with the same solid blue PRELIMINARY ESTIMATE tag as the email.",
+      "A customer opening an older, replaced link sees a bold \"This is an older version of your quote\" box with a See the newer quote button.",
+    ],
+  },
+  {
+    date: "2026-10-31",
+    kind: "changed",
     title: "Send again: shorter messages, and right after sending",
     details: [
       "Send again… now shows on the Sent to customer card as soon as a preliminary or measured quote is sent, without reloading the page.",
