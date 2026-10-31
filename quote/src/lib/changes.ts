@@ -21,6 +21,16 @@ export type Change = {
 
 export const CHANGES: Change[] = [
   {
+    date: "2026-10-31",
+    kind: "new",
+    title: "Add new work to an accepted project",
+    details: [
+      "On a change, the first option is the project as agreed. Add another option after it and set its Part (Basement, Main stairs…) to offer new work; two options in one Part are a choice between them.",
+      "The customer gets the updated quote with a New work you can add section and chooses on the page (or in store, or you record it for them). It joins their project: the total and the payment schedule are on the whole job, GHL's value follows, and there is no second Won or Notion project.",
+      "The email and text ask only for what is due now: the deposit on the whole project less what Notion's Master Payments Log shows they've paid.",
+    ],
+  },
+  {
     date: "2026-10-30",
     kind: "new",
     title: "Photos tab: the job's CompanyCam photos in the app",

@@ -9,7 +9,7 @@ import { BOOKING_URLS } from "@/lib/ghl/ids";
 import { followUpTagBodies } from "@/lib/activity/track";
 import { parseAcceptance } from "@/lib/accept/plan";
 import { changeSummary } from "@/lib/change/diff";
-import { contractOn, contractVersions, fromChange, serializeContract } from "@/lib/contract/model";
+import { contractOn, contractParts, contractVersions, fromChange, serializeContract } from "@/lib/contract/model";
 import { buildContract } from "@/lib/link/ghlRequest";
 import { makeConfigured, sendMessage, sendToGhl, setFollowUpTags } from "@/lib/make/client";
 import { acceptedPdfName, COPY_MAX_CHARS, customerCopy, offersPdf, parseCopy, pdfName, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "@/lib/send/copy";
@@ -189,7 +189,9 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   // The freshest email and phone from GHL: that is where GHL will send it.
   const quote = await refreshFromGhl(loaded);
   const today = torontoToday(new Date());
-  const problems = sendProblems(quote, input, { today, fingerprint: fingerprint(fromQuote(quote)) });
+  // A change may offer new work only for Parts the contract doesn't cover (2026-10-31).
+  const current = quote.changeNo && quote.link ? await loadContract(quote.link.quoteRecordId) : null;
+  const problems = sendProblems(quote, input, { today, fingerprint: fingerprint(fromQuote(quote)), contractParts: current ? contractParts(current.contract) : [] });
   if (problems.length) return { ok: false, message: "Not sent.", problems };
 
   // A preliminary has no good-until date whatever was sent (Albert, 2026-10-22); its link never expires. Nor does a change (2026-10-27).

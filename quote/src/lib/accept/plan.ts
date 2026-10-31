@@ -1,7 +1,7 @@
 import { acceptedTotals, restageAmounts, round2, type AcceptedTotals } from "@/lib/calc";
 import { defaultSchedule } from "@/lib/pricing/schedule";
 import type { Part, Scope } from "@/lib/quotes/types";
-import { partOf, scopeOf, stagesOf, type CopyItem, type CopyOption, type CopyStage, type CopyState, type CopyTotals, type CustomerCopy } from "@/lib/send/copy";
+import { offersOf, partOf, scopeOf, stagesOf, type CopyItem, type CopyOption, type CopyStage, type CopyState, type CopyTotals, type CustomerCopy } from "@/lib/send/copy";
 import { contractView, fromAcceptance } from "@/lib/contract/model";
 import type { Terms } from "./terms";
 
@@ -65,6 +65,14 @@ export type Acceptance = {
   userAgent: string | null;
   handoff?: Handoff;
   cancelled?: { at: string; by: string; reason: string };
+  /**
+   * New work added to a project already under contract (2026-10-31): the change's first option, the project as
+   * agreed, which the picks join. `totals` and `stages` are then on the whole project, and `paid` is what Notion's
+   * Master Payments Log showed received when it was recorded (null when it couldn't be read), so the customer is
+   * asked only for what is due now. Absent on every first acceptance.
+   */
+  base?: { index: number; name: string; ref: string | null; scope: Scope | null; part?: Part };
+  paid?: number | null;
 };
 
 export type AcceptInput = {
@@ -171,7 +179,7 @@ export function notAcceptable(copy: CustomerCopy, state: CopyState, terms: Terms
   if (state === "expired") return "This quote is past its good-until date. Get in touch and we'll confirm the prices and send a fresh one.";
   if (state === "replaced") return "We've sent you a newer version of this quote. Accept that one instead.";
   if (state !== "open") return "This quote is no longer open.";
-  if (copy.change) return "This is your updated quote, for your records. There's nothing to accept.";
+  if (copy.change && offersOf(copy).length === 0) return "This is your updated quote, for your records. There's nothing to accept.";
   if (copy.basis !== "Measured") return "A preliminary estimate can't be accepted. We'll measure and send you a quote to accept.";
   return null;
 }
@@ -183,6 +191,8 @@ export function acceptProblems(copy: CustomerCopy, state: CopyState, input: Acce
   const out: string[] = [];
   const pick = pickProblem(copy, input.optionIndexes);
   if (pick) return [pick];
+  // On a change (2026-10-31) only the new work offered can be taken: the project itself is already agreed.
+  if (copy.change && input.optionIndexes.some((i) => !copy.options[i]?.offer)) return ["Choose from the new work offered below. The rest of your project is already agreed."];
   const offered = new Set(input.optionIndexes.flatMap((i) => addOnsOf(copy, i).map((a) => a.key)));
   if (input.addOns.some((k) => !offered.has(k))) out.push("An add-on you ticked isn't on the options you chose. Reload the page and try again.");
   if (input.name.length < 2 || !/\p{L}/u.test(input.name)) out.push("Type your full name.");
@@ -214,8 +224,12 @@ export function buildAcceptance(
   const parts = indexes.map((i) => copy.options[i]);
   const offered = indexes.flatMap((i) => addOnsOf(copy, i));
   const chosen = offered.filter((a) => input.addOns.includes(a.key));
-  const totals = acceptedTotals(sumTotals(parts.map((o) => o.totals)), chosen);
-  const frozen = frozenStages(parts);
+  // New work on a change (2026-10-31): the project as agreed (the change's first option) is part of the whole, so the
+  // totals and the schedule are on everything the customer will have.
+  const baseOption = copy.change ? copy.options[0] : undefined;
+  const whole = baseOption ? [baseOption, ...parts] : parts;
+  const totals = acceptedTotals(sumTotals(whole.map((o) => o.totals)), chosen);
+  const frozen = frozenStages(whole);
   const schedule = copy.paymentSchedule ?? defaultSchedule();
   // A copy frozen before schedules existed has the default's three stages; anything else is restaged from its own definition.
   const restaged = schedule.stages.length === frozen.length ? restageAmounts(schedule, frozen, totals.total) : restageAmounts(defaultSchedule(), frozen, totals.total);
@@ -237,7 +251,22 @@ export function buildAcceptance(
     recordedBy: ctx.method === "link" ? null : ctx.recordedBy,
     reason: ctx.method === "staff" ? input.reason : null,
     userAgent: ctx.userAgent ? ctx.userAgent.slice(0, 300) : null,
+    ...(baseOption
+      ? { base: { index: 0, name: baseOption.name, ref: baseOption.ref ?? null, scope: baseOption.scope === "Stairs" ? ("Stairs" as const) : null, ...(baseOption.part ? { part: baseOption.part } : {}) } }
+      : {}),
   };
+}
+
+/**
+ * What the customer is asked to pay now (2026-10-31). A first acceptance: the deposit. New work added to a project:
+ * the deposit on the whole project less what was already received, never below nothing; `paid` null means it
+ * couldn't be read, and the words say "less anything you've already paid" instead.
+ */
+export function dueNow(a: Pick<Acceptance, "stages" | "base" | "paid">): { deposit: number; paid: number | null; due: number } {
+  const deposit = a.stages[0]?.amount ?? 0;
+  if (!a.base) return { deposit, paid: null, due: deposit };
+  const paid = a.paid ?? null;
+  return { deposit, paid, due: paid === null ? deposit : Math.max(0, round2(deposit - paid)) };
 }
 
 /* ---------- the record, stored and read back ---------- */
