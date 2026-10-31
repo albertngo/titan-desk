@@ -685,8 +685,40 @@ a.chip.accent:hover { text-decoration: underline; }
 .cq-excl { padding: 14px 18px 18px; border-top: 1px solid var(--line); font-size: 14px; }
 .cq-excl ul { margin: 0; padding-left: 18px; color: var(--fg-dim); }
 .cq-legal { padding: 4px 0 0; text-align: center; font-size: 12px; color: var(--fg-faint); }
+/* Options side by side (Albert, 2026-10-31): a compact row of option buttons, the chosen one's details
+   right under it. Easy reading for any age: darker greys than the staff app (every grey here passes
+   WCAG AA on white), 16px body, 15px lines, nothing under 13px, and 44px tap targets. */
+.cq { --fg: #1f2933; --fg-dim: #4b5563; --fg-faint: #5f6b7a; font-size: 16px; line-height: 1.55; }
+.cq-li { font-size: 15px; }
+.cq-li .sub, .cq-li .q, .cq-pay .sub, .acc-sum .sub { font-size: 13.5px; }
+.cq-li .n, .cq-num, .cq-kicker, .cq-meta dt, .cq-pay h4, .cq-excl h4, .cq-sec h3, .cq-accept legend { font-size: 13px; }
+.cq-switch { display: grid; gap: 10px; }
+.cq-switch .cq-scope { margin: 6px 0 0; font-size: 17px; font-weight: 700; }
+.cq-switch-hint { font-size: 14px; color: var(--fg-dim); }
+.cq-tabs { display: grid; grid-template-columns: repeat(var(--n, 2), minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 520px) { .cq-tabs { grid-template-columns: repeat(min(var(--n, 2), 2), minmax(0, 1fr)); } }
+.cq-tab { font: inherit; text-align: left; display: grid; gap: 2px; align-content: start; min-height: 44px; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--card); color: var(--fg); cursor: pointer; position: relative; transition: border-color .2s, background .2s, box-shadow .2s, transform .08s; }
+.cq-tab:hover { border-color: var(--accent); }
+.cq-tab:active { transform: translateY(1px); }
+.cq-tab:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.cq-tab .top { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
+.cq-tab .no { font-size: 13px; font-weight: 700; color: var(--fg-dim); }
+.cq-tab .rec { font-size: 12px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 1px 8px; border-radius: 99px; }
+.cq-tab .nm { font-size: 15px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cq-tab .pr { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 4px; }
+.cq-tab .tg { font-size: 13px; color: var(--fg-dim); }
+.cq-tab.on { border: 2px solid var(--accent); padding: 9px 11px; background: var(--accent-soft); box-shadow: 0 2px 8px rgba(30, 111, 255, .14); }
+.cq-tab.on .no { color: var(--accent); }
+.cq-tab.on .rec { background: var(--card); }
+/* A small arrow under the chosen option, pointing at its details. */
+.cq-tab.on::after { content: ""; position: absolute; left: 50%; bottom: -8px; width: 12px; height: 12px; margin-left: -6px; background: var(--accent-soft); border-right: 2px solid var(--accent); border-bottom: 2px solid var(--accent); transform: rotate(45deg); }
+.cq-panel { display: none; }
+.cq-panel.on { display: block; animation: cq-in .2s ease-out; }
+@keyframes cq-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .cq-panel.on { animation: none; } .cq-tab { transition: none; } }
 @media print {
-  .cq-dl, .cq-preview, .cq-pick { display: none; }
+  .cq-dl, .cq-preview, .cq-pick, .cq-tabs, .cq-switch-hint { display: none; }
+  .cq-panel { display: block; margin-bottom: 16px; }
   .cq { background: #fff; }
   .cq-card { box-shadow: none; }
   .cq-opt { break-inside: auto; }

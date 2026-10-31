@@ -276,6 +276,14 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   scope's own price. **The
   email lists two or more options compactly** (names and prices before HST; the detail is on the
   page; three or more since 2026-10-24, two since 2026-10-31). Tested in `tests/send.test.ts`.
+- **Options side by side on the customer's page (Albert, 2026-10-31: "it should stay in the same section and just
+  show the different details instead of scrolling down … optimized for readability, especially for an older
+  generation").** With two or more options, `/c/<token>` and the staff Preview show a compact row of option
+  buttons (number, name, price, Recommended) and the chosen option's full details right under it; tapping another
+  swaps them in place (`src/components/OptionSwitcher.tsx`, a client component that only shows or hides panels
+  `CustomerQuote` drew on the server; no figure of its own). It starts on the recommended option, else the first;
+  flooring and stairs get one row each. Printing shows every option. Readability inside `.cq`: 16px body, 15px
+  lines, nothing under 13px, darker greys than the staff app, 44px tap targets. The PDF and email are unchanged.
 - **A preliminary goes as a range (Albert, 2026-10-27).** Customers took a preliminary's one number as
   the price, so a measured quote that came in higher read as a change. Everything the customer gets
   (email, text, page, PDF) shows the price before HST as a range instead: **3% under to 10% over, the top

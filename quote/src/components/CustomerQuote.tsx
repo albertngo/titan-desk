@@ -1,5 +1,6 @@
 import { changeWords, itemDifference, paidLeft, signedMoney, type CopyChange } from "@/lib/change/diff";
 import { money, rate } from "@/lib/format";
+import { OptionSwitcher } from "@/components/OptionSwitcher";
 import { discountLabel, hstRow, isLump, isSplit, scopeHeading, scopeOf, scopesOf, itemHstNote, leadPrice, longDate, partGroups, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyState, type CopyText, type CustomerCopy } from "@/lib/send/copy";
 
 /**
@@ -315,27 +316,32 @@ export function CustomerQuote({
           {isLump(copy) && <p className="cq-lump">Priced as one sum for the project. The items below show what it includes.</p>}
         </section>
 
-        {several &&
-          // With flooring and stairs options (2026-10-28), one row of cards per scope under its heading.
-          (isSplit(copy) ? scopesOf(copy) : [null]).map((scope) => (
-          <nav className="cq-pick" aria-label={scope ? scopeHeading(scope, 2) : "Options"} key={scope ?? "all"}>
-            {scope && <h2 className="cq-scope">{scopeHeading(scope, copy.options.filter((o) => scopeOf(o) === scope).length)}</h2>}
-            {copy.options.map((o, i) => (scope && scopeOf(o) !== scope ? null : (
-              <a key={i} href={`#option-${i + 1}`} className={`cq-card cq-pickc${o.recommended ? " rec" : ""}`}>
-                <span className="cq-num">Option {i + 1}{o.recommended && <b> · Recommended</b>}</span>
-                <span className="nm">{o.name}</span>
-                <span className="tot">{o.range ? rangeText(o.range.low, o.range.high) : money(leadPrice(copy, o.totals).amount)}</span>
-                <span className="faint">{leadPrice(copy, o.totals).tag}</span>
-              </a>
-            )))}
-          </nav>
-          ))}
-
         {copy.change && copy.options[0] && <ChangeBox c={copy.change} o={copy.options[0]} lump={isLump(copy)} />}
 
-        {copy.options.map((o, i) => (
-          <OptionBlock key={i} o={o} i={several ? i + 1 : null} copy={copy} />
-        ))}
+        {several ? (
+          // Options side by side (Albert, 2026-10-31): pick one and its details show right here, no scrolling
+          // down to it. With flooring and stairs options (2026-10-28), one switcher per scope under its heading.
+          (isSplit(copy) ? scopesOf(copy) : [null]).map((scope) => {
+            const mine = copy.options.map((o, i) => ({ o, i })).filter(({ o }) => !scope || scopeOf(o) === scope);
+            return (
+              <OptionSwitcher
+                key={scope ?? "all"}
+                label={scope ? scopeHeading(scope, mine.length) : "Your options"}
+                heading={scope ? scopeHeading(scope, mine.length) : null}
+                tabs={mine.map(({ o, i }) => ({
+                  no: i + 1,
+                  name: o.name,
+                  price: o.range ? rangeText(o.range.low, o.range.high) : money(leadPrice(copy, o.totals).amount),
+                  tag: leadPrice(copy, o.totals).tag,
+                  recommended: o.recommended,
+                }))}
+                panels={mine.map(({ o, i }) => <OptionBlock key={i} o={o} i={i + 1} copy={copy} />)}
+              />
+            );
+          })
+        ) : (
+          copy.options.map((o, i) => <OptionBlock key={i} o={o} i={null} copy={copy} />)
+        )}
 
         {after}
 

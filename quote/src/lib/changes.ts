@@ -22,6 +22,15 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-10-31",
+    kind: "changed",
+    title: "Customer's quote: options side by side",
+    details: [
+      "On the customer's link, the options are a row of buttons at the top. Tapping one shows that option's work and price right underneath, so nobody scrolls down to find it. It starts on the recommended option. Printing still shows every option.",
+      "The page is easier to read: slightly bigger text and darker grey for the small print.",
+    ],
+  },
+  {
+    date: "2026-10-31",
     kind: "fixed",
     title: "Stair items cost labour plus material",
     details: [
