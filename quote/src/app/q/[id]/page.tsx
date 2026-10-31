@@ -23,7 +23,6 @@ import { jobChoices } from "@/lib/quotes/link";
 import { billingState } from "@/lib/quotes/billing";
 import { partKey, scopeGroups } from "@/lib/quotes/scope";
 import { loadContract } from "@/lib/quotes/contract";
-import { contractParts } from "@/lib/contract/model";
 import { fromWords } from "@/lib/quotes/group";
 import { getQuote, getRateCard } from "@/lib/quotes/load";
 import { sheetReaderOn } from "@/lib/quotes/sitesheet";
@@ -80,9 +79,11 @@ export default async function QuotePage({
   // The option tabs mark what the customer took (2026-10-30), one per scope at most.
   // Put on contract (2026-10-30): on a quote with a contract, an option of a Part the contract covers can replace the one there.
   const contractId = quote.link?.contractVersionId ?? null;
-  const loadedContract = !customer && contractId && quote.link ? await loadContract(quote.link.quoteRecordId) : null;
-  const putOn = loadedContract && contractId && !quote.changeNo ? { versionId: contractId, parts: new Set(contractParts(loadedContract.contract)) } : null;
-  const acceptedIds = new Set(agreed && quote.acceptance ? [...picksOf(quote.acceptance), ...(quote.acceptance.base ? [quote.acceptance.base] : [])].flatMap((p) => (p.ref ? [p.ref] : [])) : []);
+  const loadedContract = !customer && contractId && quote.link && !quote.changeNo ? await loadContract(quote.link.quoteRecordId) : null;
+  const putOn = loadedContract && contractId
+    ? { versionId: contractId, parts: new Set(loadedContract.contract.items.flatMap((i) => (i.part ? [i.part] : i.scope ? [i.scope] : ["Flooring", "Stairs"]))) }
+    : null;
+  const acceptedIds = new Set(agreed && quote.acceptance ? picksOf(quote.acceptance).flatMap((p) => (p.ref ? [p.ref] : [])) : []);
   const jobs = unlinked ? await jobChoices(unlinked.quoteRecordId) : null;
 
   // Sending (milestone 4): what would stop it, decided by the same check the send runs.
@@ -92,7 +93,7 @@ export default async function QuotePage({
   const draft = quote.status === "Draft";
   const [ready, link, from] = await Promise.all([sendingReady(), sentLink(quote.customerToken), sendsFrom()]);
   const problems = draft
-    ? sendProblems(quote, { base, validUntil: defaultUntil, channels: { email: !!quote.link?.email, sms: !!quote.link?.phone } }, { today, fingerprint: base, skipOptions: true, contractParts: loadedContract ? contractParts(loadedContract.contract) : [] })
+    ? sendProblems(quote, { base, validUntil: defaultUntil, channels: { email: !!quote.link?.email, sms: !!quote.link?.phone } }, { today, fingerprint: base, skipOptions: true })
     : [];
   // Which options go to the customer (2026-10-24): one tick each on the Send card, with its price before HST and any problem.
   // A preliminary goes as a range unless the sender picks the exact price (2026-10-27): the card shows whichever will go.
@@ -142,18 +143,14 @@ export default async function QuotePage({
 
   // Acceptance (2026-10-27): on a measured version out with the customer, accept with them or for them;
   // once accepted, what was agreed and where the hand-off to GHL and Notion stands. Staff only.
-  // A change is accepted only for the new work it offers (2026-10-31); a change with none is for the record.
-  const acceptable = !customer && quote.status === "Sent" && quote.basis === "Measured" && !quote.acceptance;
+  const acceptable = !customer && quote.status === "Sent" && quote.basis === "Measured" && !quote.changeNo && !quote.acceptance;
   const [acceptGate, sentCopy] = acceptable ? await Promise.all([acceptReadiness(), previewCopy(quote.id)]) : [null, null];
-  const acceptOptions = sentCopy
-    ? sentCopy.options.flatMap((o, index) => (sentCopy.change && !o.offer ? [] : [{ index, name: o.name, subtotal: o.totals.subtotal, part: partOf(o), addOns: addOnsOf(sentCopy, index) }]))
-    : [];
   const acceptCard =
-    acceptable && sentCopy && acceptOptions.length > 0 ? (
+    acceptable && sentCopy ? (
       <AcceptForCustomer
         versionId={quote.id}
         link={link}
-        options={acceptOptions}
+        options={sentCopy.options.map((o, index) => ({ index, name: o.name, subtotal: o.totals.subtotal, part: partOf(o), addOns: addOnsOf(sentCopy, index) }))}
         customerName={[quote.link?.firstName, quote.link?.lastName].filter(Boolean).join(" ") || quote.customerName}
         terms={acceptGate?.terms ? { id: acceptGate.terms.id, label: termsLabel(acceptGate.terms.on) } : null}
         off={acceptGate?.off ?? null}

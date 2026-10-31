@@ -155,12 +155,10 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
   }
 
   /* ---------- options ---------- */
-  // A change's new work offered (2026-10-31) follows the project, titled as an addition, never numbered as an option.
-  const numbered = copy.options.filter((o) => !o.offer).length > 1;
   copy.options.forEach((o, i) => {
     if (i > 0) newPage();
     else room(160);
-    option(o.offer ? { ...o, name: `New work you can add: ${o.name}` } : o, numbered && !o.offer ? i + 1 : null);
+    option(o, copy.options.length > 1 ? i + 1 : null);
   });
   if (bill) payments(bill);
 
@@ -313,8 +311,7 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
       note: stageNote(s) ? wrap(stageNote(s), "R", 7.5, RIGHT - x1 - 90) : [],
     }));
     // An invoice or receipt shows what was paid instead of the schedule (payments(), below).
-    // New work offered with a change (2026-10-31) has no schedule of its own: the whole project has one.
-    if (bill || o.offer) pay.length = 0;
+    if (bill) pay.length = 0;
     room(rows.length * 15 + 42 + after.length * 15 + pay.reduce((a, p) => a + 13 + p.note.length * 10, 0) + 30);
     y -= 6;
     // A range's label and its two figures need a wider bar.

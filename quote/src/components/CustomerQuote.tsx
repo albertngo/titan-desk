@@ -84,8 +84,7 @@ function Totals({ o, copy }: { o: CopyOption; copy: CustomerCopy }) {
         <div><dt>{h.label}</dt><dd>{h.amount !== null ? money(h.amount) : "Not included"}</dd></div>
         {lead.addsHst && <div className="with"><dt>Total with HST</dt><dd>{money(t.total)}</dd></div>}
       </dl>
-      {/* New work offered (2026-10-31) has no schedule of its own: the Accept panel shows the whole project's. */}
-      {!o.offer && <Schedule o={o} title={`Payment schedule${lead.addsHst ? ", with HST" : ""}`} />}
+      <Schedule o={o} title={`Payment schedule${lead.addsHst ? ", with HST" : ""}`} />
     </div>
   );
 }
@@ -217,10 +216,7 @@ export function CustomerQuote({
   after?: React.ReactNode;
 }) {
   const c = copy.company;
-  // A change (2026-10-31) may offer new work beside the project as agreed: the project first, the offers after it.
-  const shown = copy.options.filter((o) => !o.offer);
-  const offered = copy.options.filter((o) => o.offer);
-  const several = shown.length > 1;
+  const several = copy.options.length > 1;
   const note = STATE_NOTE[state]?.(copy);
   const site = [copy.customer.siteAddress, copy.customer.siteCity].filter(Boolean).join(", ");
 
@@ -268,7 +264,6 @@ export function CustomerQuote({
         </section>
 
         {several &&
-          !copy.change &&
           // With flooring and stairs options (2026-10-28), one row of cards per scope under its heading.
           (isSplit(copy) ? scopesOf(copy) : [null]).map((scope) => (
           <nav className="cq-pick" aria-label={scope ? scopeHeading(scope, 2) : "Options"} key={scope ?? "all"}>
@@ -286,19 +281,9 @@ export function CustomerQuote({
 
         {copy.change && copy.options[0] && <ChangeBox c={copy.change} o={copy.options[0]} lump={isLump(copy)} />}
 
-        {shown.map((o, i) => (
+        {copy.options.map((o, i) => (
           <OptionBlock key={i} o={o} i={several ? i + 1 : null} copy={copy} />
         ))}
-
-        {offered.length > 0 && (
-          <section className="cq-offers" aria-labelledby="offers-h">
-            <h2 id="offers-h" className="cq-scope">New work you can add</h2>
-            <p className="faint">Your project above stays as agreed. Each of these is an addition you can choose; the totals shown are for that work on its own.</p>
-            {offered.map((o, i) => (
-              <OptionBlock key={i} o={o} i={null} copy={copy} />
-            ))}
-          </section>
-        )}
 
         {after}
 

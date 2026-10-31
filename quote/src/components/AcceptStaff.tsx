@@ -41,7 +41,7 @@ export function AcceptForCustomer({
   const [open, setOpen] = useState(false);
   // One option per Part (2026-10-30; per scope before then); nothing starts chosen unless there is one option.
   const parts = partKeys(options);
-  const [picks, setPicks] = useState<number[]>(options.length === 1 ? [options[0].index] : []);
+  const [picks, setPicks] = useState<number[]>(options.length === 1 ? [0] : []);
   const [ticked, setTicked] = useState<string[]>([]);
   const [name, setName] = useState(customerName ?? "");
   const [reason, setReason] = useState("");
@@ -240,7 +240,7 @@ export function AcceptedCard({
           <div className="acc-grp">
             <h4>Hand-off</h4>
             <ul className="handoff">
-              <li className={h?.ghl === "done" ? "good" : "warn"}>{h?.ghl === "done" ? (a.base ? "GHL: value updated to the new total" : "GHL: Project Won") : `GHL not moved yet${h?.ghlMessage ? `: ${h.ghlMessage}` : ""}`}</li>
+              <li className={h?.ghl === "done" ? "good" : "warn"}>{h?.ghl === "done" ? "GHL: Project Won" : `GHL not moved yet${h?.ghlMessage ? `: ${h.ghlMessage}` : ""}`}</li>
               <li className={projectNumber ? "good" : "faint"}>{projectNumber ? `Notion project ${projectNumber}` : "Notion project: waiting for its PP number"}</li>
               <li className={h?.told.length ? "good" : "warn"}>{h?.told.length ? `Customer told by ${h.told.join(" and ").toLowerCase()}` : "Customer not told yet"}{h?.tellFailed ? ` (${h.tellFailed})` : ""}</li>
             </ul>

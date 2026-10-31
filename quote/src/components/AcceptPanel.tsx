@@ -37,7 +37,6 @@ export function AcceptPanel({
   schedule,
   terms,
   defaultPicks,
-  base = null,
 }: {
   token: string;
   /** Opened from the staff app's "Accept with customer": a drawn signature is taken too. */
@@ -48,11 +47,6 @@ export function AcceptPanel({
   terms: { id: string; label: string; href: string };
   /** What starts chosen: an option index per Part. */
   defaultPicks: number[];
-  /**
-   * New work on a change (2026-10-31): the project as agreed, which whatever is picked joins. The total and the
-   * schedule shown are then on the whole project; null on a first acceptance.
-   */
-  base?: { subtotal: number; hst: number; frozen: { amount: number | null }[] } | null;
 }) {
   const router = useRouter();
   const [picks, setPicks] = useState<number[]>(defaultPicks);
@@ -68,13 +62,10 @@ export function AcceptPanel({
   const addOns = chosen.flatMap((x) => x.addOns);
 
   const totals = useMemo(() => {
-    const sent = { subtotal: (base?.subtotal ?? 0) + chosen.reduce((a, x) => a + x.subtotal, 0), hst: (base?.hst ?? 0) + chosen.reduce((a, x) => a + x.hst, 0) };
+    const sent = { subtotal: chosen.reduce((a, x) => a + x.subtotal, 0), hst: chosen.reduce((a, x) => a + x.hst, 0) };
     return acceptedTotals(sent, addOns.filter((a) => ticked.includes(a.key)));
-  }, [chosen, addOns, ticked, base]);
-  const frozen = useMemo(() => {
-    const parts = base ? [base, ...chosen] : chosen;
-    return (parts[0]?.frozen ?? []).map((st, i) => ({ amount: st.amount === null ? null : parts.reduce((a, x) => a + (x.frozen[i]?.amount ?? 0), 0) }));
-  }, [chosen, base]);
+  }, [chosen, addOns, ticked]);
+  const frozen = useMemo(() => (chosen[0]?.frozen ?? []).map((st, i) => ({ amount: st.amount === null ? null : chosen.reduce((a, x) => a + (x.frozen[i]?.amount ?? 0), 0) })), [chosen]);
   const stages = useMemo(() => restageAmounts(schedule, frozen, totals.total), [schedule, frozen, totals.total]);
   const ready = chosen.length > 0 && agreed && name.trim().length >= 2 && (!store || signature);
   /** Choose `index` for its Part (null = none for that Part), dropping the add-ons of what it replaces. */
@@ -96,8 +87,7 @@ export function AcceptPanel({
 
   return (
     <section className="cq-card cq-accept" aria-labelledby="acc-h">
-      <h2 id="acc-h">{base ? "Add to your project" : "Accept this quote"}</h2>
-      {base && <p className="acc-note">Your project as agreed stays as it is. Choose what to add; the total and the payment schedule below are for the whole project.</p>}
+      <h2 id="acc-h">Accept this quote</h2>
       {parts.map((part) => {
         const mine = options.filter((x) => x.part === part);
         const words = partWords(part);
@@ -105,12 +95,12 @@ export function AcceptPanel({
         const current = mine.find((x) => picks.includes(x.index))?.index ?? null;
         return (
           <fieldset className="acc-opts" key={part}>
-            <legend>{split || base ? words.which : "Which option?"}</legend>
+            <legend>{split ? words.which : "Which option?"}</legend>
             {mine.map((x) => (
               <label key={x.index} className={x.index === current ? "on" : undefined}>
                 <input type="radio" name={`acc-option-${part}`} checked={x.index === current} onChange={() => choose(part, x.index)} />
                 <span className="nm">
-                  {base ? x.name : `Option ${x.index + 1}: ${x.name}`}
+                  Option {x.index + 1}: {x.name}
                 </span>
                 <span className="amt">{money(x.subtotal)} before HST</span>
               </label>
@@ -146,7 +136,7 @@ export function AcceptPanel({
           <dd>{totals.hst ? money(totals.hst) : "Not included"}</dd>
         </div>
         <div className="tot">
-          <dt>{base ? "Project total" : "Total"}</dt>
+          <dt>Total</dt>
           <dd>{money(totals.total)}</dd>
         </div>
         {stages.map((s, i) => (
@@ -159,11 +149,7 @@ export function AcceptPanel({
           </div>
         ))}
       </dl>
-      <p className="acc-note">
-        {base
-          ? "What you've already paid counts toward the deposit: we send you what's due now the moment you accept."
-          : "Nothing is final until the deposit is in. We send you the details the moment you accept."}
-      </p>
+      <p className="acc-note">Nothing is final until the deposit is in. We send you the details the moment you accept.</p>
       <label className="acc-terms">
         <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
         <span>
@@ -185,7 +171,7 @@ export function AcceptPanel({
         </p>
       )}
       <button type="button" className="btn primary acc-go" disabled={!ready || busy} onClick={accept}>
-        {busy ? "Accepting…" : chosen.length === 0 ? "Choose an option" : base ? `Add ${chosen.map((x) => x.name).join(" and ")}` : options.length > 1 ? `Accept ${chosen.length > 1 ? "options" : "option"} ${chosen.map((x) => x.index + 1).join(" and ")}` : "Accept this quote"}
+        {busy ? "Accepting…" : chosen.length === 0 ? "Choose an option" : options.length > 1 ? `Accept ${chosen.length > 1 ? "options" : "option"} ${chosen.map((x) => x.index + 1).join(" and ")}` : "Accept this quote"}
       </button>
     </section>
   );

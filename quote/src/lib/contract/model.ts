@@ -55,13 +55,9 @@ const fullKey = (key: string, option: number) => (key.split(".").length === 2 ? 
 export function fromAcceptance(versionId: string, a: Acceptance): Contract {
   const picks = a.picks?.length ? a.picks : [{ ...a.option, scope: "Flooring" as Scope }];
   const keyed = a.addOns.map((x) => ({ ...x, key: fullKey(x.key, a.option.index) }));
-  // New work added on a change (2026-10-31): the change's first option, the project as agreed, comes first.
-  const base: ContractItem[] = a.base
-    ? [{ versionId, index: a.base.index, ref: a.base.ref, name: a.base.name, scope: a.base.scope, ...(a.base.part ? { part: a.base.part } : {}), addOns: [], via: "change", on: a.on }]
-    : [];
   return {
     v: CONTRACT_VERSION,
-    items: [...base, ...picks.map((p): ContractItem => ({
+    items: picks.map((p) => ({
       versionId,
       index: p.index,
       ref: p.ref,
@@ -71,7 +67,7 @@ export function fromAcceptance(versionId: string, a: Acceptance): Contract {
       addOns: keyed.filter((x) => x.key.startsWith(`${p.index}.`)),
       via: "accepted",
       on: a.on,
-    }))],
+    })),
     totals: a.totals,
     stages: a.stages,
   };
@@ -114,9 +110,6 @@ export function parseContract(raw: string | null | undefined): Contract | null {
 
 /** The versions whose frozen copies the contract points into. */
 export const contractVersions = (c: Contract) => [...new Set(c.items.map((i) => i.versionId))];
-
-/** What the contract covers, as Parts (2026-10-30): each item's Part, else its scope; a joined change counts as both scopes. */
-export const contractParts = (c: Contract): string[] => [...new Set(c.items.flatMap((i) => (i.part ? [i.part] : i.scope ? [i.scope] : ["Flooring", "Stairs"])))];
 
 /** The day the contract last changed: what "What changed since <date>" counts from. */
 export const contractOn = (c: Contract) => c.items.map((i) => i.on).sort().at(-1) ?? "";
