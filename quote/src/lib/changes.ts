@@ -22,6 +22,14 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-10-31",
+    kind: "fixed",
+    title: "Site sheet: iPhone photos (HEIC) read",
+    details: [
+      "Photos of the site sheet from an iPhone (HEIC) showed as broken images and Read failed with \"The server didn't answer\". Each photo is now turned into a small JPEG as soon as it is picked, so the preview shows and the photos send. The Read button says \"Getting photos ready…\" while that happens.",
+    ],
+  },
+  {
+    date: "2026-10-31",
     kind: "changed",
     title: "Site sheet: the pizza 2 side open box points at its sets",
     details: [

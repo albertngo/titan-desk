@@ -3,13 +3,13 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { saveSiteSheetAction } from "@/app/q/[id]/actions";
-import { shrinkImage } from "@/lib/bug/shrink";
 import { optionTotals } from "@/lib/calc";
 import { buildCatalogue, draftKey, type EditorQuote } from "@/lib/editor/model";
 import { money } from "@/lib/format";
 import type { RateCard, SiteSheetResult } from "@/lib/quotes/types";
 import { derive } from "@/lib/sitesheet/derive";
 import { buildOptions } from "@/lib/sitesheet/options";
+import { looksHeic, preparePhoto } from "@/lib/sitesheet/photo";
 import { cleanSheet, emptySheet, MAX_NOSINGS, MAX_RUNS, type NosingPiece, type RailRun, parseStored, type SiteSheet } from "@/lib/sitesheet/sheet";
 import { SiteSheetPaper } from "./SiteSheetPaper";
 
@@ -65,10 +65,23 @@ export function SiteSheetTab({
   // Picks add up (2026-10-28: only one photo could be attached): take page 1, then page 2, or choose several.
   // The input's FileList is live: clearing the input (so the same photo can be picked again) empties it, so it
   // is copied here, before the clear, never read later inside the state update (2026-10-28: a second photo was lost).
-  const addFiles = (input: HTMLInputElement) => {
-    const picked = Array.from(input.files ?? []).filter((x) => !x.type || x.type.startsWith("image/"));
+  // Each photo is made a small JPEG as it is picked (iPhone HEIC included, 2026-10-31), so the preview shows
+  // and the upload stays under Vercel's limit.
+  const [preparing, setPreparing] = useState(0);
+  const addFiles = async (input: HTMLInputElement) => {
+    const picked = Array.from(input.files ?? []).filter((x) => !x.type || x.type.startsWith("image/") || looksHeic(x));
     input.value = "";
-    setFiles((f) => [...f, ...picked].slice(0, MAX_PHOTOS));
+    if (picked.length === 0) return;
+    setMessage(null);
+    setPreparing((n) => n + picked.length);
+    try {
+      const ready = await Promise.all(picked.map((f) => preparePhoto(f, 2000, 0.85)));
+      const unreadable = ready.filter((f) => looksHeic(f)).length;
+      if (unreadable) setMessage({ text: `${unreadable === 1 ? "A photo" : `${unreadable} photos`} couldn't be converted from the iPhone's HEIC format. On the iPhone, set Settings → Camera → Formats to Most Compatible, or take it again here with Take a photo.`, bad: true });
+      setFiles((f) => [...f, ...ready.filter((x) => !looksHeic(x))].slice(0, MAX_PHOTOS));
+    } finally {
+      setPreparing((n) => n - picked.length);
+    }
   };
   const previews = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files]);
   useEffect(() => () => previews.forEach((u) => URL.revokeObjectURL(u)), [previews]);
@@ -94,9 +107,10 @@ export function SiteSheetTab({
       const form = new FormData();
       form.set("quoteRecordId", quoteRecordId);
       form.set("seen", seen);
-      for (const f of files) form.append("photos", await shrinkImage(f, 2000, 0.85));
+      for (const f of files) form.append("photos", f);
       const res = await fetch("/api/sitesheet", { method: "POST", body: form });
-      const r = (await res.json().catch(() => ({ ok: false, message: "The server didn't answer. Try again." }))) as SiteSheetResult;
+      const fallback = res.status === 413 ? "The photos are too large to send together. Read one page at a time." : "The server didn't answer. Try again.";
+      const r = (await res.json().catch(() => ({ ok: false, message: fallback }))) as SiteSheetResult;
       if (!r.ok) return setMessage({ text: r.message, bad: true });
       setSeen(r.saved);
       setSheet(parseStored(r.saved)?.sheet ?? emptySheet());
@@ -180,10 +194,10 @@ export function SiteSheetTab({
             </label>
             <label className={`btn${files.length >= MAX_PHOTOS ? " disabled" : ""}`}>
               Choose photos
-              <input type="file" accept="image/*" multiple hidden disabled={files.length >= MAX_PHOTOS} aria-label="Choose photos of the site sheet" onChange={(e) => addFiles(e.currentTarget)} />
+              <input type="file" accept="image/*,.heic,.heif" multiple hidden disabled={files.length >= MAX_PHOTOS} aria-label="Choose photos of the site sheet" onChange={(e) => addFiles(e.currentTarget)} />
             </label>
-            <button type="button" className="btn primary" disabled={files.length === 0 || reading} onClick={read}>
-              {reading ? "Reading… about a minute" : files.length ? `Read ${files.length} photo${files.length === 1 ? "" : "s"}` : stored ? "Read new photos" : "Read the sheet"}
+            <button type="button" className="btn primary" disabled={files.length === 0 || reading || preparing > 0} onClick={read}>
+              {reading ? "Reading… about a minute" : preparing > 0 ? "Getting photos ready…" : files.length ? `Read ${files.length} photo${files.length === 1 ? "" : "s"}` : stored ? "Read new photos" : "Read the sheet"}
             </button>
           </div>
           {files.length > 0 && (
