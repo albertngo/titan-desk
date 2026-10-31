@@ -113,13 +113,15 @@ describe("what the app works out", () => {
     expect(d.open).toEqual({ left: false, right: true });
   });
 
-  it("estimates spindles at 3 a foot of rail with pickets, on the steps and flat alike (Albert, 2026-10-28)", () => {
+  it("estimates spindles at 2 a foot of rail with pickets on the steps and 3 a foot on the flat (Albert, 2026-10-31)", () => {
     const d = derive(curved({ spindles: {} }));
-    expect(d.spindles).toEqual({ value: (15 + 8) * 3, how: "calculated", estimate: 69 });
+    expect(d.spindles).toEqual({ value: 15 * 2 + 8 * 3, how: "calculated", estimate: 54 });
     // A run with pickets on only part of it counts only those feet.
-    expect(derive(curved({ spindles: {}, runs: [{ ft: 15, where: "S", pickets: true }, { ft: 10, where: "F", picketFt: 4 }] })).spindles.value).toBe(45 + 12);
-    // His first real sheet: runs of 2, 5 and 5 ft with pickets make 12 ft, so 36 spindles.
-    expect(derive(curved({ spindles: {}, runs: [{ ft: 2, where: "F", pickets: true }, { ft: 5, where: "S", pickets: true }, { ft: 6, where: "W" }, { ft: 5, where: "S", pickets: true }] })).spindles.value).toBe(36);
+    expect(derive(curved({ spindles: {}, runs: [{ ft: 15, where: "S", pickets: true }, { ft: 10, where: "F", picketFt: 4 }] })).spindles.value).toBe(30 + 12);
+    // His first real sheet: 2 ft flat and 5 + 5 ft on the steps with pickets, so 6 + 20 = 26 spindles; the wall run adds none.
+    expect(derive(curved({ spindles: {}, runs: [{ ft: 2, where: "F", pickets: true }, { ft: 5, where: "S", pickets: true }, { ft: 6, where: "W" }, { ft: 5, where: "S", pickets: true }] })).spindles.value).toBe(26);
+    // Each side rounds up on its own: 5.5 ft on the steps is 11, 1.5 ft flat is 4.5, so 5.
+    expect(derive(curved({ spindles: {}, runs: [{ ft: 5.5, where: "S", pickets: true }, { ft: 1.5, where: "F", pickets: true }] })).spindles.value).toBe(11 + 5);
     // Stair runs with no pickets give no step spindles.
     expect(derive(curved({ spindles: {}, runs: [{ ft: 15, where: "S" }] })).spindles.value).toBe(0);
     // With no railing runs written at all, the per-step fallback: 2 a step, 3 a 2-side-open step.
