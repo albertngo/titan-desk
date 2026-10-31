@@ -258,10 +258,11 @@ export default async function QuotePage({
             )}
 
             {(quote.options.length > 0 || !customer) && (
-              <nav className="tabs" aria-label="Options">
+              <nav className={tabGroups.split ? "tabs split" : "tabs"} aria-label="Options">
                 {tabGroups.groups.map((g, i) => (
                   <Fragment key={g.scope}>
-                    {i > 0 && <span className="tab-sep" aria-hidden />}
+                    {/* Stairs start their own row (Albert, 2026-10-31), so flooring tabs never push them off to the right. */}
+                    {i > 0 && <span className="tab-break" aria-hidden />}
                     {tabGroups.split && <span className="tab-scope">{g.scope}</span>}
                     {g.options.map((o) => (
                       <Link

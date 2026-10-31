@@ -515,10 +515,11 @@ export default function Editor({
             </div>
           </section>
 
-          <nav className="tabs" aria-label="Options">
+          <nav className={scopeGroups(quote.options).split ? "tabs split" : "tabs"} aria-label="Options">
             {scopeGroups(quote.options).groups.map((g, i, all) => (
               <Fragment key={g.scope}>
-                {i > 0 && <span className="tab-sep" aria-hidden />}
+                {/* Stairs start their own row (Albert, 2026-10-31), so flooring tabs never push them off to the right. */}
+                {i > 0 && <span className="tab-break" aria-hidden />}
                 {all.length > 1 && <span className="tab-scope">{g.scope}</span>}
                 {g.options.map((o) => (
                   <button key={o.id} className={o.notOffered ? "tab off" : "tab"} aria-current={option?.id === o.id ? "page" : undefined} onClick={() => setActiveId(o.id)} title={o.notOffered ? "Not offered: never sent to the customer" : undefined}>

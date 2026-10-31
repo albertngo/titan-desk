@@ -1,5 +1,6 @@
 import { changeWords, itemDifference, paidLeft, signedMoney, type CopyChange } from "@/lib/change/diff";
 import { money, rate } from "@/lib/format";
+import { OptionSwitcher } from "@/components/OptionSwitcher";
 import { discountLabel, hstRow, isLump, isSplit, scopeHeading, scopeOf, scopesOf, itemHstNote, leadPrice, longDate, partGroups, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyState, type CopyText, type CustomerCopy } from "@/lib/send/copy";
 
 /**
@@ -189,9 +190,11 @@ function OptionBlock({ o, i, copy }: { o: CopyOption; i: number | null; copy: Cu
   const groups = partGroups(o);
   // A contract of several options (Albert, 2026-10-31): each keeps its own heading, words, work and price, then one total.
   const joined = groups.length > 1;
+  // Three cards, with space between them (Albert, 2026-10-31: "more separation between the actual details and the
+  // summaries"): what the option is, what it includes, and what it costs and when it is paid.
   return (
-    <section className="cq-card cq-opt" id={i ? `option-${i}` : undefined} aria-labelledby={`opt-h-${i ?? 0}`}>
-      <header>
+    <div className="cq-opt" id={i ? `option-${i}` : undefined}>
+      <section className="cq-card cq-opt-head" aria-labelledby={`opt-h-${i ?? 0}`}>
         <h2 id={`opt-h-${i ?? 0}`}>
           {i && <span className="cq-num">{isSplit(copy) ? `${scopeOf(o)} · ` : ""}Option {i}</span>}
           {joined ? "Your project" : o.name}
@@ -204,34 +207,40 @@ function OptionBlock({ o, i, copy }: { o: CopyOption; i: number | null; copy: Cu
         ) : (
           o.description && <p>{o.description}</p>
         )}
-      </header>
-      {groups.map((g, k) =>
-        g.part ? (
-          <div className="cq-part" key={k}>
-            <div className="cq-part-h">
-              <h3>
-                <span className="cq-num">Part {k + 1}</span>
-                {g.part.name}
-              </h3>
-              <span className="cq-part-p">
-                {money(g.part.subtotal)} <span className="faint">before HST</span>
-              </span>
+      </section>
+      <section className="cq-card cq-block" aria-label="What's included">
+        <h3 className="cq-bh">What&apos;s included</h3>
+        {groups.map((g, k) =>
+          g.part ? (
+            <div className="cq-part" key={k}>
+              <div className="cq-part-h">
+                <h3>
+                  <span className="cq-num">Part {k + 1}</span>
+                  {g.part.name}
+                </h3>
+                <span className="cq-part-p">
+                  {money(g.part.subtotal)} <span className="faint">before HST</span>
+                </span>
+              </div>
+              {g.part.description && <p className="cq-part-d">{g.part.description}</p>}
+              <Sections sections={g.sections} />
             </div>
-            {g.part.description && <p className="cq-part-d">{g.part.description}</p>}
-            <Sections sections={g.sections} />
+          ) : (
+            <Sections key={k} sections={g.sections} />
+          ),
+        )}
+        {o.exclusions.length > 0 && (
+          <div className="cq-excl">
+            <h4>Not included</h4>
+            <ul>{o.exclusions.map((e, k) => <li key={k}>{e}</li>)}</ul>
           </div>
-        ) : (
-          <Sections key={k} sections={g.sections} />
-        ),
-      )}
-      <Totals o={o} copy={copy} />
-      {o.exclusions.length > 0 && (
-        <div className="cq-excl">
-          <h4>Not included</h4>
-          <ul>{o.exclusions.map((e, k) => <li key={k}>{e}</li>)}</ul>
-        </div>
-      )}
-    </section>
+        )}
+      </section>
+      <section className="cq-card cq-block cq-price" aria-label="Price and payment">
+        <h3 className="cq-bh">Price and payment</h3>
+        <Totals o={o} copy={copy} />
+      </section>
+    </div>
   );
 }
 
@@ -315,27 +324,32 @@ export function CustomerQuote({
           {isLump(copy) && <p className="cq-lump">Priced as one sum for the project. The items below show what it includes.</p>}
         </section>
 
-        {several &&
-          // With flooring and stairs options (2026-10-28), one row of cards per scope under its heading.
-          (isSplit(copy) ? scopesOf(copy) : [null]).map((scope) => (
-          <nav className="cq-pick" aria-label={scope ? scopeHeading(scope, 2) : "Options"} key={scope ?? "all"}>
-            {scope && <h2 className="cq-scope">{scopeHeading(scope, copy.options.filter((o) => scopeOf(o) === scope).length)}</h2>}
-            {copy.options.map((o, i) => (scope && scopeOf(o) !== scope ? null : (
-              <a key={i} href={`#option-${i + 1}`} className={`cq-card cq-pickc${o.recommended ? " rec" : ""}`}>
-                <span className="cq-num">Option {i + 1}{o.recommended && <b> · Recommended</b>}</span>
-                <span className="nm">{o.name}</span>
-                <span className="tot">{o.range ? rangeText(o.range.low, o.range.high) : money(leadPrice(copy, o.totals).amount)}</span>
-                <span className="faint">{leadPrice(copy, o.totals).tag}</span>
-              </a>
-            )))}
-          </nav>
-          ))}
-
         {copy.change && copy.options[0] && <ChangeBox c={copy.change} o={copy.options[0]} lump={isLump(copy)} />}
 
-        {copy.options.map((o, i) => (
-          <OptionBlock key={i} o={o} i={several ? i + 1 : null} copy={copy} />
-        ))}
+        {several ? (
+          // Options side by side (Albert, 2026-10-31): pick one and its details show right here, no scrolling
+          // down to it. With flooring and stairs options (2026-10-28), one switcher per scope under its heading.
+          (isSplit(copy) ? scopesOf(copy) : [null]).map((scope) => {
+            const mine = copy.options.map((o, i) => ({ o, i })).filter(({ o }) => !scope || scopeOf(o) === scope);
+            return (
+              <OptionSwitcher
+                key={scope ?? "all"}
+                label={scope ? scopeHeading(scope, mine.length) : "Your options"}
+                heading={scope ? scopeHeading(scope, mine.length) : null}
+                tabs={mine.map(({ o, i }) => ({
+                  no: i + 1,
+                  name: o.name,
+                  price: o.range ? rangeText(o.range.low, o.range.high) : money(leadPrice(copy, o.totals).amount),
+                  tag: leadPrice(copy, o.totals).tag,
+                  recommended: o.recommended,
+                }))}
+                panels={mine.map(({ o, i }) => <OptionBlock key={i} o={o} i={i + 1} copy={copy} />)}
+              />
+            );
+          })
+        ) : (
+          copy.options.map((o, i) => <OptionBlock key={i} o={o} i={null} copy={copy} />)
+        )}
 
         {after}
 
