@@ -53,6 +53,8 @@ export const ITEM_NAMES = {
   pie: { L: ["recLgSuRKAnw2ycLg", "Pie Shape Step (Left)", "Pie Shape Step (Right)"], R: ["recgMATNTlBwgfr5K", "Pie Shape Step (Right)", "Pie Shape Step (Left)"] },
   corner: ["recEo06JIu1I2B7jm", "Corner Turn Steps (Right) - 3PC Set", "Corner Turn Set", "Corner Turn Steps (Left) - 3PC Set"],
   landing: ["recE1Hfg2Wq86PCPL", "Landing (3x3)", "Landing"],
+  // Two 3x3s in one item, for clarity (Albert, 2026-10-31).
+  landing3x6: ["recGlSSfQCF4SlVsP", "Landing (3x6)"],
   halfMoon: ["recjl6cQsM2YhyZRt", "1/2 Moon Landing", "1/2 Moon"],
   riser: ["rec0WAUmD4A8LowMB", "New Riser", "Riser"],
   sandSteps: ["recnYAG8K2Upy1rQR", "Keep Existing Steps (Sand + Stain)", "Task: Sand Steps"],
@@ -70,13 +72,10 @@ export const ITEM_NAMES = {
   stringPaint: ["rec4dOhd8fcJfHYIh", "2 Side Paint (White)", "Task: 2 Side Paint (White)"],
   stringSkin: ["recDTQT0pVFOWykrn", "2 Side Oak Skin (Glue and Stain)", "Task: 2 Side Oak Skin (Glue and Stain)"],
   stringSand: ["recnEZHtLFbPFohsV", "2 Side Oak (Sand & Stain)", "Task: 2 Side Oak (Sand & Stain)"],
-  // No Stair Item yet (2026-10-31): comes in as an unpriced line with a note until one is added.
-  carpetOff: ["Remove Carpet (Stairs)", "Task: Remove Carpet (Stairs)"],
   vinylTread: ["reclAw4QJ8WIp4n9r", "Vinyl Tread", "Vinyl Tread (Install)"],
   vinylFlooring: ["recQTWFiWvUpd8fBk", "Vinyl Flooring on Steps", "Task: Vinyl Flooring on Steps"],
   paintRisers: ["recGmnXAUUEfi4pCp", "Paint Risers White", "Task: Paint Risers White"],
   halfMoonSolid: ["recFut4r1tdIoYZHn", "Half Moon Solid One-Piece", "Half Moon Solid One-Piece (Upgrade)"],
-  bullnoseCustom: ["recxmhUmo3OJrFTJ5", "Bullnose Custom Size", "Bullnose Custom Size (Upcharge)"],
   wallBracket: ["recr6emYKw0NT77EE", "Wall Rail Bracket"],
   postRefinish: ["reczhRmxpz4Tf9h6Y", "Keep Existing Post (Refinished)", "Task: Refinish Post"],
   squareBullnose: ["recQrr6KQaKipdPOa", "Square Off Bullnose", "Task: Square Off Bullnose"],
@@ -130,10 +129,11 @@ export function buildOptions(s: SiteSheet, catalogue: CardEntry[], level: Servic
 function build(kind: BuiltOption["kind"], s: SiteSheet, d: Derived, find: (names: string[]) => Stair | null, level: ServiceLevel, recommend: boolean): BuiltOption {
   const lines: EditorLine[] = [];
   const notes: string[] = [];
-  const add = (names: string[], qty: number, what: string, area = "Main staircase", uom?: string) => {
+  const add = (names: string[], qty: number, what: string, area = "Main staircase", uom?: string, size?: string) => {
     if (!(qty > 0)) return;
     const e = find(names);
-    if (e) lines.push({ ...lineFromEntry(e, "Stairs", undefined, level), qty, area, ...(uom ? { uom } : {}) });
+    // A width written on the sheet names the line (2026-10-31: one line per width, same price, for clarity).
+    if (e) lines.push({ ...lineFromEntry(e, "Stairs", undefined, level), qty, area, ...(uom ? { uom } : {}), ...(size ? { description: `${e.name} (${size})` } : {}) });
     else gap(what, qty, area);
   };
   const gap = (what: string, qty: number, area = "Main staircase") => {
@@ -144,23 +144,30 @@ function build(kind: BuiltOption["kind"], s: SiteSheet, d: Derived, find: (names
   const n = (v: number | null) => v ?? 0;
   const both = s.want.covers === "both";
 
-  if (s.onSteps === "Carpet") add(ITEM_NAMES.carpetOff, d.treads + d.landings + (both ? d.sideTreads : 0), "Carpet removed from the stairs");
+  // No carpet-removal line: Titan charges nothing extra for it (Albert, 2026-10-31).
 
   // Treads
   if (kind === "caps") {
     for (const t of ["boxed", "lso", "rso", "two"] as TreadType[]) {
-      const grid = n(s.treads[t].w36) + n(s.treads[t].w42) + n(s.treads[t].w48) + n(s.treads[t].other);
-      add(ITEM_NAMES.step[t], grid, `Step (${TREAD_NAME[t]})`);
+      // One line per width written (Albert, 2026-10-31: "keep the pricing as is, just the different sizing for clarity").
+      const w = s.treads[t];
+      const other = w.otherWidth ? `${w.otherWidth}"` : "other width";
+      for (const [count, size] of [[w.w36, '36"'], [w.w42, '42"'], [w.w48, '48"'], [w.other, other]] as [number | null, string][])
+        add(ITEM_NAMES.step[t], n(count), `Step (${TREAD_NAME[t]}, ${size})`, "Main staircase", undefined, size);
       add(ITEM_NAMES.bullnose[t], n(s.bullnose[t]), `Bullnose (${TREAD_NAME[t]})`);
     }
-    add(ITEM_NAMES.bullnoseCustom, d.custom.bullnoses, "Custom-size bullnose (2 side open)");
+    // A 2-side-open bullnose is the custom bullnose: its own item, nothing on top (Albert, 2026-10-31).
     add(ITEM_NAMES.pie.L, n(s.pie.lso), "Pie shape step (left)");
     add(ITEM_NAMES.pie.R, n(s.pie.rso) + n(s.pie.two), "Pie shape step (right)");
-    add(ITEM_NAMES.corner, d.pizzaSets, "Corner turn set");
+    // A custom set and a solid half moon replace the standard piece, never sit on top of it (Albert, 2026-10-31).
+    add(ITEM_NAMES.corner, d.pizzaSets - d.custom.pizzaSets, "Corner turn set");
     add(ITEM_NAMES.pizzaCustom, d.custom.pizzaSets, "Custom corner turn set");
-    add(ITEM_NAMES.landing, d.landings, "Landing");
-    add(ITEM_NAMES.halfMoon, d.halfMoons, "Half moon");
-    if (d.halfMoons > 0 && s.halfMoons.solid) add(ITEM_NAMES.halfMoonSolid, d.halfMoons, "Half moon as one solid piece (instead of the nosing method)");
+    // A 3x6 is its own item, two 3x3s (Albert, 2026-10-31); an other-size landing is priced as a 3x3 and said so.
+    add(ITEM_NAMES.landing, n(s.landings.s3x3) + n(s.landings.other), "Landing (3x3)");
+    add(ITEM_NAMES.landing3x6, n(s.landings.s3x6), "Landing (3x6)");
+    if (n(s.landings.other) > 0) notes.push(`${n(s.landings.other)} landing${n(s.landings.other) === 1 ? "" : "s"} of another size priced as 3 × 3. Change it if it's bigger.`);
+    if (s.halfMoons.solid) add(ITEM_NAMES.halfMoonSolid, d.halfMoons, "Half moon as one solid piece");
+    else add(ITEM_NAMES.halfMoon, d.halfMoons, "Half moon");
     if (both && d.sideTreads > 0) add(ITEM_NAMES.step[s.side.type ?? "boxed"], d.sideTreads, "Side staircase step", "Side staircase");
     // New caps always come with new risers.
     add(ITEM_NAMES.riser, d.risers + (both && d.sideTreads ? d.sideTreads + 1 : 0), "New risers");
@@ -211,9 +218,11 @@ function build(kind: BuiltOption["kind"], s: SiteSheet, d: Derived, find: (names
   // Stringers, only where a side is open.
   if (d.openSides > 0) {
     const colour = kind === "sand" ? "white" : s.want.stringer;
-    if (colour === "white" || colour === "unsure") add(ITEM_NAMES.stringPaint, 1, "Paint stringers white");
+    // One per staircase, both sides included; D3 takes more (1.5) for a staircase with more stringer (Albert, 2026-10-31).
+    const sets = s.stringers.count ?? 1;
+    if (colour === "white" || colour === "unsure") add(ITEM_NAMES.stringPaint, sets, "Paint stringers white");
     // Stain on solid stringers is a sand & stain; on veneer, or when nobody knows, they're skinned in oak.
-    else if (colour === "stain") add(s.stringers.made === "Solid" ? ITEM_NAMES.stringSand : ITEM_NAMES.stringSkin, 1, "Stained stringers");
+    else if (colour === "stain") add(s.stringers.made === "Solid" ? ITEM_NAMES.stringSand : ITEM_NAMES.stringSkin, sets, "Stained stringers");
     if (colour === "unsure") notes.push("Stringer colour not decided: priced as painted white.");
   }
 

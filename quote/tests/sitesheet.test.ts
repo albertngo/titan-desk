@@ -216,11 +216,7 @@ describe("what the app works out", () => {
 
 describe("building options from what the customer wants", () => {
   it("uses the Stair Items created with blank prices (2026-10-28) as soon as they're priced", () => {
-    const priced = buildCatalogue([], [item("Task: Remove Carpet (Stairs)", 15), item("Task: Paint Risers White", 6), ...CARD.flatMap((e) => (e.kind === "stair" ? [{ id: e.recordId, name: e.name, category: null, size: null, rate: e.rate, cost: null }] : []))]);
-    const caps = buildOptions(curved({ want: { treads: ["caps"] } }), priced).options[0];
-    const carpet = caps.lines.find((l) => l.description === "Task: Remove Carpet (Stairs)")!;
-    expect([carpet.sourceKind, carpet.qty, carpet.unitPriceSnap]).toEqual(["stair", 13, 15]);
-    expect(caps.notes.some((x) => x.includes("no rate"))).toBe(false);
+    const priced = buildCatalogue([], [item("Task: Paint Risers White", 6), ...CARD.flatMap((e) => (e.kind === "stair" ? [{ id: e.recordId, name: e.name, category: null, size: null, rate: e.rate, cost: null }] : []))]);
     const sand = buildOptions(curved({ shape: "Straight", onSteps: "Wood caps", want: { treads: ["sand"] } }), priced).options[0];
     expect(sand.lines.find((l) => l.description === "Task: Paint Risers White")?.qty).toBe(14);
   });
@@ -232,8 +228,8 @@ describe("building options from what the customer wants", () => {
     expect(note("sand")).toMatch(/^Not advised: carpet/);
     expect(note("vinylTreads")).toMatch(/^Not advised: a curved staircase/);
     expect(r.options.filter((o) => o.recommended).map((o) => o.kind)).toEqual(["caps"]);
-    // Sanding over carpet takes the carpet off first.
-    expect(r.options.find((o) => o.kind === "sand")!.lines.some((l) => l.description === "Carpet removed from the stairs")).toBe(true);
+    // Carpet removal is never a line: it costs nothing extra (Albert, 2026-10-31).
+    expect(r.options.some((o) => o.lines.some((l) => /carpet/i.test(l.description)))).toBe(false);
     // Nothing ticked under G1 reads as Not sure.
     expect(buildOptions(curved({ want: { treads: [] } }), CARD).options).toHaveLength(4);
     // A tick the conditions advise against is still built, alone, and not recommended.
@@ -245,7 +241,7 @@ describe("building options from what the customer wants", () => {
     const caps = buildOptions(curved(), CARD).options[0];
     const by = Object.fromEntries(caps.lines.map((l) => [l.description, l.qty]));
     expect(by).toMatchObject({
-      "Step (Right Side Open)": 5,
+      'Step (Right Side Open) (42")': 5,
       "Bullnose (Right Side Open)": 1,
       "Pie Shape Step (Right)": 7,
       Riser: 14,
@@ -258,11 +254,6 @@ describe("building options from what the customer wants", () => {
     });
     expect(caps.lines.every((l) => l.section === "Stairs")).toBe(true);
     expect(caps.recommended).toBe(true);
-    // Carpet removal has no rate yet: a line with no price that says so, never a guess.
-    const carpet = caps.lines.find((l) => l.description === "Carpet removed from the stairs")!;
-    expect(carpet.sourceKind).toBe("manual");
-    expect(carpet.unitPrice ?? null).toBeNull();
-    expect(caps.notes.some((x) => x.startsWith("Carpet removed from the stairs: no rate"))).toBe(true);
     expect(optionTotals(caps.lines, 0, false).subtotal).toBe(5 * 120 + 200 + 7 * 130 + 14 * 10 + 8 * 20 + 15 * 35 + 38 * 20 + 2 * 150 + 18 * 20 + 100);
   });
 
@@ -283,11 +274,14 @@ describe("building options from what the customer wants", () => {
     expect(buildOptions(curved({ want: { treads: ["caps"] } }), CARD).options[0].lines.some((l) => l.description === "Square off bullnose")).toBe(false);
   });
 
-  it("custom pieces add their upcharge on top; the pie's open side picks left or right", () => {
-    const s = cleanSheet({ shape: "Quarter winder", treads: { lso: { w36: 4 } }, pie: { lso: 2, rso: 1 }, pizza: { sets: 1, pieces: 2 }, bullnose: { two: 1 }, want: { treads: ["caps"] } });
+  it("custom pieces replace the standard one, never sit on top; the pie's open side picks left or right (2026-10-31)", () => {
+    const s = cleanSheet({ shape: "Quarter winder", treads: { lso: { w36: 4 } }, pie: { lso: 2, rso: 1 }, pizza: { pc2: 1, pc3: 1 }, bullnose: { two: 1 }, want: { treads: ["caps"] } });
     const lines = buildOptions(s, CARD).options[0].lines;
     const by = Object.fromEntries(lines.map((l) => [l.description, l.qty]));
-    expect(by).toMatchObject({ "Corner Turn Steps (Right) - 3PC Set": 1, "Custom corner turn set": 1, "Custom-size bullnose (2 side open)": 1 });
+    // One standard set and one custom set (the 2-piece), not two standard plus an upcharge.
+    expect(by).toMatchObject({ "Corner Turn Steps (Right) - 3PC Set": 1, "Custom corner turn set": 1 });
+    // A 2-side-open bullnose is its own item, with nothing on top.
+    expect(lines.filter((l) => /bullnose/i.test(l.description))).toHaveLength(1);
     // The card has no left pie step, so the left ones take the right one's price; two lines, left first.
     expect(lines.filter((l) => l.description === "Pie Shape Step (Right)").map((l) => l.qty)).toEqual([2, 1]);
   });
@@ -327,10 +321,11 @@ describe("building options from what the customer wants", () => {
   });
 
   it("a pizza set is one corner-turn price per set, however many pieces", () => {
-    const s = cleanSheet({ shape: "Quarter winder", treads: { boxed: { w36: 10 } }, pizza: { sets: 1, pieces: 2 }, want: { treads: ["caps"] } });
+    const s = cleanSheet({ shape: "Quarter winder", treads: { boxed: { w36: 10 } }, pizza: { pc3: 2 }, want: { treads: ["caps"] } });
     const caps = buildOptions(s, CARD).options[0];
-    expect(caps.lines.find((l) => l.description === "Corner Turn Steps (Right) - 3PC Set")?.qty).toBe(1);
-    expect(derive(s).treads).toBe(12);
+    expect(caps.lines.find((l) => l.description === "Corner Turn Steps (Right) - 3PC Set")?.qty).toBe(2);
+    expect(derive(cleanSheet({ pizza: { pc2: 1 } })).treads).toBe(2);
+    expect(derive(s).treads).toBe(16);
     expect(derive(cleanSheet({ pizza: { sets: 2 } })).treads).toBe(6);
   });
 
@@ -367,6 +362,46 @@ describe("site sheet photos", () => {
   });
 });
 
+describe("Albert's answers on the Stair Items (2026-10-31)", () => {
+  const card = buildCatalogue([], [
+    { id: "recE1Hfg2Wq86PCPL", name: "Landing (3x3)", category: null, size: null, rate: 100, cost: null },
+    { id: "recGlSSfQCF4SlVsP", name: "Landing (3x6)", category: null, size: null, rate: 200, cost: null },
+    { id: "recjl6cQsM2YhyZRt", name: "1/2 Moon Landing", category: null, size: null, rate: 50, cost: null },
+    { id: "recFut4r1tdIoYZHn", name: "Half Moon Solid One-Piece", category: null, size: null, rate: 70, cost: null },
+    { id: "rec4dOhd8fcJfHYIh", name: "Stringers Paint White (per staircase)", category: null, size: null, rate: 10, cost: null },
+    { id: "recN7dcO7PWdhWFwb", name: "Step (Right Side Open)", category: null, size: '48"', rate: 5, cost: null },
+  ]);
+  const caps = (over: Partial<Record<string, unknown>>) => buildOptions(curved({ shape: "Straight", ...over, want: { treads: ["caps"], stringer: "white" } }), card).options[0].lines;
+  const qty = (lines: ReturnType<typeof caps>, name: string) => lines.filter((l) => l.description === name).map((l) => l.qty);
+
+  it("a 3x6 landing is its own item; another size is priced as a 3x3 and said so", () => {
+    const l = caps({ landings: { s3x3: 1, s3x6: 2, other: 1 } });
+    expect(qty(l, "Landing (3x3)")).toEqual([2]);
+    expect(qty(l, "Landing (3x6)")).toEqual([2]);
+    expect(buildOptions(curved({ landings: { other: 1 }, want: { treads: ["caps"] } }), card).options[0].notes.some((x) => x.includes("priced as 3 × 3"))).toBe(true);
+  });
+
+  it("a solid half moon replaces the 1/2 moon, never adds to it", () => {
+    expect(qty(caps({ halfMoons: { count: 1, solid: true } }), "1/2 Moon Landing")).toEqual([]);
+    expect(qty(caps({ halfMoons: { count: 1, solid: true } }), "Half Moon Solid One-Piece")).toEqual([1]);
+    expect(qty(caps({ halfMoons: { count: 1 } }), "1/2 Moon Landing")).toEqual([1]);
+  });
+
+  it("stringers are one per staircase, or the decimal written in D3", () => {
+    expect(qty(caps({}), "Stringers Paint White (per staircase)")).toEqual([1]);
+    expect(qty(caps({ stringers: { count: "1.5" } }), "Stringers Paint White (per staircase)")).toEqual([1.5]);
+  });
+
+  it("steps get one line per width, all at the item's one price", () => {
+    const l = caps({ treads: { rso: { w36: 3, w42: 2, other: 1, otherWidth: 40 } } });
+    expect(l.filter((x) => x.description.startsWith("Step")).map((x) => [x.description, x.qty, x.unitPriceSnap])).toEqual([
+      ['Step (Right Side Open) (36")', 3, 5],
+      ['Step (Right Side Open) (42")', 2, 5],
+      ['Step (Right Side Open) (40")', 1, 5],
+    ]);
+  });
+});
+
 describe("linking the site sheet to Stair Items (2026-10-31)", () => {
   // Every list's record id and today's name, at an invented price: what the live card looks like after the renames.
   const lists = Object.values(ITEM_NAMES).flatMap((v) => (Array.isArray(v) ? [v] : Object.values(v))).filter((l) => l.length > 0);
@@ -375,7 +410,7 @@ describe("linking the site sheet to Stair Items (2026-10-31)", () => {
     lists.filter((l) => l[0].startsWith("rec")).map((l) => ({ id: l[0], name: `${l[1]} (renamed again)`, category: null, size: null, rate: 10, cost: null })),
   );
 
-  it("finds every item by its record id, whatever it is called now; only carpet removal has no item", () => {
+  it("finds every item by its record id, whatever it is called now: nothing is left unpriced", () => {
     const everything = curved({
       shape: "Straight",
       onSteps: "Carpet",
@@ -393,7 +428,7 @@ describe("linking the site sheet to Stair Items (2026-10-31)", () => {
     });
     const built = buildOptions(everything, live).options;
     const unpriced = [...new Set(built.flatMap((o) => o.lines.filter((l) => l.sourceKind !== "stair").map((l) => l.description)))];
-    expect(unpriced).toEqual(["Carpet removed from the stairs"]);
+    expect(unpriced).toEqual([]);
     const refinish = buildOptions(curved({ shape: "Straight", onSteps: "Wood caps", stringers: { made: "Veneer" }, want: { treads: ["sand"], handrail: "refinish", posts: "refinish", spindles: "wood", stringer: "stain" } }), live).options[0];
     expect(refinish.lines.every((l) => l.sourceKind === "stair")).toBe(true);
   });

@@ -26,7 +26,7 @@ Page 1:
 - B9 Total treads.
 - B10 Side / half staircase: steps, its tread type (RSO/LSO/Boxed/2 side open → rso/lso/boxed/two), width.
 - C1 Landings: how many at 3×3 (s3x3), ≈3×6 (s3x6), Other (other). C2 Half moons: how many, nosing feet, and solid=true only if "Solid one-piece" is ticked (beside "Nosing method (default)").
-- D1 Stringers now: White, Stained, Other. D2 Made of: Veneer, Solid, Don't know (blank stays null).
+- D1 Stringers now: White, Stained, Other. D2 Made of: Veneer, Solid, Don't know (blank stays null). D3, if the sheet has it: how many staircases' worth of stringer (stringers.count, may be a decimal like 1.5; blank → null).
 
 Page 2:
 - E1 Nosing default for the staircase (nosingDefault): carpet true when "Carpet on the nosings now" is ticked; thickness ½" → "1/2", ¾" → "3/4", Not sure → "unsure"; depth: blank or Standard 4.5" → null, else the inches written.
@@ -70,7 +70,7 @@ export const SHEET_SCHEMA = {
     side: { type: "object", properties: { steps: N, type: choice(["rso", "lso", "boxed", "two"]), width: N } },
     landings: { type: "object", properties: { s3x3: N, s3x6: N, other: N } },
     halfMoons: { type: "object", properties: { count: N, nosingFt: N, solid: { type: "boolean" } } },
-    stringers: { type: "object", properties: { now: choice(["White", "Stained", "Other"]), made: choice(["Veneer", "Solid", "Don't know"]) } },
+    stringers: { type: "object", properties: { now: choice(["White", "Stained", "Other"]), made: choice(["Veneer", "Solid", "Don't know"]), count: N } },
     nosingDefault: { type: "object", properties: { carpet: { type: "boolean" }, thickness: choice(["1/2", "3/4", "unsure"]), depth: N } },
     nosings: { type: "array", maxItems: 10, items: { type: "object", properties: { ft: N, depth: N, thickness: choice(["1/2", "3/4"]), sand: { type: "boolean" } } } },
     runs: { type: "array", maxItems: 8, items: { type: "object", properties: { ft: N, where: choice(["S", "F", "W"]), curved: { type: "boolean" }, pickets: { type: "boolean" }, picketFt: N } } },
