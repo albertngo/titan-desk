@@ -8,7 +8,7 @@ import type { EditorLine, EditorOption, EditorQuote } from "../src/lib/editor/mo
 import { money } from "../src/lib/format";
 import { fixedSchedule, restagedSchedule, scheduleProblems } from "../src/lib/pricing/schedule";
 import type { Quote, QuoteLine, QuoteOption } from "../src/lib/quotes/types";
-import { customerCopy, offersOf, type CustomerCopy, type Letterhead } from "../src/lib/send/copy";
+import { customerCopy, isAddition, offersOf, pickKey, type CustomerCopy, type Letterhead } from "../src/lib/send/copy";
 import { quotePdf } from "../src/lib/send/pdf";
 import { acceptedEmailMessage, acceptedSmsMessage, changeEmailMessage, changeSmsMessage, dueWords, sendProblems } from "../src/lib/send/plan";
 
@@ -175,7 +175,8 @@ describe("sending a change", () => {
     const send = (q: ReturnType<typeof quote>, parts: string[], ids: string[] | null = null) =>
       sendProblems(q, { base: "b", validUntil: null, channels: { email: true, sms: false }, optionIds: ids }, { today: "2026-11-10", fingerprint: "b", contractParts: parts }).join(" ");
     const two = quote([install], { options: [option([install]), { ...option([stairs]), id: "recOPTVINYL000000", name: "Vinyl" }] });
-    expect(send(two, ["Flooring"])).toMatch(/set its Part/);
+    // No Part (2026-10-31): an addition on its own, never refused for that.
+    expect(send(two, ["Flooring"])).toBe("");
     const basement = quote([install], { options: [option([install]), { ...option([install]), id: "recOPTBASE0000000", name: "Basement vinyl", part: "Basement" }] });
     expect(send(basement, ["Flooring"])).toBe("");
     expect(send(basement, ["Upstairs", "Basement"])).toMatch(/already has/);
@@ -394,6 +395,19 @@ describe("new work offered with a change", () => {
     const first = buildAcceptance(customerCopy(quote([install], { changeNo: null, status: "Sent" }), at), input([0]), ctx);
     expect(first.base).toBeUndefined();
     expect(dueNow(first).due).toBe(first.stages[0].amount);
+  });
+
+  it("an offer with no Part is an addition on its own: any or all, beside a choice for a Part", () => {
+    const extra = (name: string, id: string): QuoteOption => ({ ...option([line({ description: `${name} work`, unitPriceSnap: 2 })]), id, name });
+    const q2 = quote([install], { status: "Sent", options: [option([install]), basement("Basement vinyl", 4, "recOPTBVINYL00000"), basement("Basement oak", 9, "recOPTBOAK0000000"), extra("Closet", "recOPTCLOSET00000"), extra("Shoe moulding", "recOPTSHOE0000000")] });
+    const c2: CustomerCopy = { ...customerCopy(q2, at), change: changeSummary(1, "2026-11-03", before, after) };
+    expect([3, 4].map((i) => pickKey(c2.options[i], i))).toEqual(["addition:3", "addition:4"]);
+    expect(isAddition(pickKey(c2.options[3], 3))).toBe(true);
+    expect(acceptProblems(c2, "open", input([3, 4]), { terms: TERMS, method: "link" })).toEqual([]);
+    expect(acceptProblems(c2, "open", input([1, 3, 4]), { terms: TERMS, method: "link" })).toEqual([]);
+    expect(acceptProblems(c2, "open", input([1, 2, 3]), { terms: TERMS, method: "link" })[0]).toMatch(/one option for the basement/);
+    const a = buildAcceptance(c2, input([3, 4]), ctx);
+    expect(fromAcceptance("recC", a).items.map((i) => i.name)).toEqual(["Oak", "Closet", "Shoe moulding"]);
   });
 
   it("the email and the text say what was added and what is due now; the change email names the offers", () => {

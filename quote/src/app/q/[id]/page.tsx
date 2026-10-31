@@ -39,7 +39,7 @@ import { acceptReadiness } from "@/lib/accept/staff";
 import { termsLabel } from "@/lib/accept/terms";
 import { ghlOpportunityUrl } from "@/lib/ghl/ids";
 import { logEntries } from "@/lib/quotes/history";
-import { addDays, leadPrice, offersPdf, partOf, priceRange, rangeText, torontoToday, VALID_DAYS } from "@/lib/send/copy";
+import { addDays, leadPrice, offersPdf, pickKey, priceRange, rangeText, torontoToday, VALID_DAYS } from "@/lib/send/copy";
 import { optionProblem, sendProblems } from "@/lib/send/plan";
 import { parseRooms } from "@/lib/rooms/log";
 
@@ -146,7 +146,7 @@ export default async function QuotePage({
   const acceptable = !customer && quote.status === "Sent" && quote.basis === "Measured" && !quote.acceptance;
   const [acceptGate, sentCopy] = acceptable ? await Promise.all([acceptReadiness(), previewCopy(quote.id)]) : [null, null];
   const acceptOptions = sentCopy
-    ? sentCopy.options.flatMap((o, index) => (sentCopy.change && !o.offer ? [] : [{ index, name: o.name, subtotal: o.totals.subtotal, part: partOf(o), addOns: addOnsOf(sentCopy, index) }]))
+    ? sentCopy.options.flatMap((o, index) => (sentCopy.change && !o.offer ? [] : [{ index, name: o.name, subtotal: o.totals.subtotal, part: pickKey(o, index), addOns: addOnsOf(sentCopy, index) }]))
     : [];
   const acceptCard =
     acceptable && sentCopy && acceptOptions.length > 0 ? (

@@ -356,6 +356,14 @@ export const offersOf = (copy: Pick<CustomerCopy, "options">): number[] => copy.
 /** What a frozen option is an alternative within (2026-10-30): its Part, else its scope. */
 export const partOf = (o: Pick<CopyOption, "scope" | "part">): string => o.part ?? scopeOf(o);
 
+/**
+ * What a frozen option is chosen within when accepting (2026-10-31): its Part, else its scope; new work offered with
+ * a change and given no Part is an addition, a choice of its own ("addition:<place>"), taken or not beside anything else.
+ */
+export const pickKey = (o: Pick<CopyOption, "scope" | "part" | "offer">, index: number): string => (o.offer && !o.part ? `${ADDITION}${index}` : partOf(o));
+const ADDITION = "addition:";
+export const isAddition = (key: string) => key.startsWith(ADDITION);
+
 /** The Parts a set of options offers, in the order they first appear. */
 export const partKeys = (options: { part: string }[]): string[] => [...new Set(options.map((o) => o.part))];
 

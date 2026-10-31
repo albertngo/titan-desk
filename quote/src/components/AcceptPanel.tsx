@@ -6,7 +6,7 @@ import { acceptAction } from "@/app/c/[token]/actions";
 import { acceptedTotals, restageAmounts } from "@/lib/calc";
 import { money } from "@/lib/format";
 import { payWords, type PaymentSchedule } from "@/lib/pricing/schedule";
-import { partKeys, partWords } from "@/lib/send/copy";
+import { isAddition, partKeys, partWords } from "@/lib/send/copy";
 
 /**
  * The Accept panel on a customer's quote (Albert, 2026-10-27). The customer picks the option, ticks
@@ -98,7 +98,7 @@ export function AcceptPanel({
     <section className="cq-card cq-accept" aria-labelledby="acc-h">
       <h2 id="acc-h">{base ? "Add to your project" : "Accept this quote"}</h2>
       {base && <p className="acc-note">Your project as agreed stays as it is. Choose what to add; the total and the payment schedule below are for the whole project.</p>}
-      {parts.map((part) => {
+      {parts.filter((part) => !isAddition(part)).map((part) => {
         const mine = options.filter((x) => x.part === part);
         const words = partWords(part);
         if (!split && mine.length < 2) return null;
@@ -124,6 +124,21 @@ export function AcceptPanel({
           </fieldset>
         );
       })}
+      {/* New work with no Part (2026-10-31): additions on their own, any or all, as tick boxes. */}
+      {options.some((x) => isAddition(x.part)) && (
+        <fieldset className="acc-adds">
+          <legend>{parts.some((p) => !isAddition(p)) ? "And add any of these" : "Add any of these"}</legend>
+          {options
+            .filter((x) => isAddition(x.part))
+            .map((x) => (
+              <label key={x.index}>
+                <input type="checkbox" checked={picks.includes(x.index)} onChange={(e) => choose(x.part, e.target.checked ? x.index : null)} />
+                <span className="nm">{x.name}</span>
+                <span className="amt">{money(x.subtotal)} before HST</span>
+              </label>
+            ))}
+        </fieldset>
+      )}
       {addOns.length > 0 && (
         <fieldset className="acc-adds">
           <legend>Add anything?</legend>

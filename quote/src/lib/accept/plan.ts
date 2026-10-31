@@ -1,7 +1,7 @@
 import { acceptedTotals, restageAmounts, round2, type AcceptedTotals } from "@/lib/calc";
 import { defaultSchedule } from "@/lib/pricing/schedule";
 import type { Part, Scope } from "@/lib/quotes/types";
-import { offersOf, partOf, scopeOf, stagesOf, type CopyItem, type CopyOption, type CopyStage, type CopyState, type CopyTotals, type CustomerCopy } from "@/lib/send/copy";
+import { offersOf, pickKey, scopeOf, stagesOf, type CopyItem, type CopyOption, type CopyStage, type CopyState, type CopyTotals, type CustomerCopy } from "@/lib/send/copy";
 import { contractView, fromAcceptance } from "@/lib/contract/model";
 import type { Terms } from "./terms";
 
@@ -129,7 +129,7 @@ const PART_LIMIT = 6;
 /** Why a set of options can't be taken together, or null: at least one, each on the copy, never two for one Part (2026-10-30; one scope before then). */
 export function pickProblem(copy: Pick<CustomerCopy, "options">, indexes: number[]): string | null {
   if (indexes.length === 0 || indexes.some((i) => !copy.options[i])) return "Choose the option you're accepting.";
-  const parts = indexes.map((i) => partOf(copy.options[i]));
+  const parts = indexes.map((i) => pickKey(copy.options[i], i));
   const twice = parts.find((p, i) => parts.indexOf(p) !== i);
   if (twice) return twice === "Flooring" || twice === "Stairs" ? `Choose one ${twice.toLowerCase()} option, not two.` : `Choose one option for the ${twice.toLowerCase()}, not two.`;
   return null;

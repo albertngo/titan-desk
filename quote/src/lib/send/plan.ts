@@ -60,9 +60,10 @@ export function chosenWords(quote: Pick<Quote, "options">, ids: string[] | null 
 /**
  * What stops a change going out with its options (2026-10-31, step 3 of the contract; vault
  * 05_decisions/2026-10-30-quote-one-working-quote item 7). The first option is the project as agreed and always goes.
- * Every other option is new work offered: it needs its own Part (Basement, Main stairs…), one the contract doesn't
- * already cover (`contractParts`: each item's Part, else its scope), so a customer never takes a second option for
- * something they already have.
+ * Every other option is new work offered. With a Part (Basement, Main stairs…) it is one of the choices for that
+ * Part, which must be one the contract doesn't already cover (`contractParts`: each item's Part, else its scope), so a
+ * customer never takes a second option for something they already have. With no Part it is an addition on its own
+ * (Albert, 2026-10-31), taken or not beside anything else.
  */
 export function changeOfferProblems(quote: Pick<Quote, "options">, ids: string[] | null, contractParts: string[]): string[] {
   const [first] = quote.options;
@@ -73,8 +74,8 @@ export function changeOfferProblems(quote: Pick<Quote, "options">, ids: string[]
   for (const o of chooseOptions(quote, ids).options) {
     if (o.id === first.id) continue;
     const name = o.name || "An option";
-    if (!o.part) out.push(`${name} is new work offered with this change: set its Part (Basement, Main stairs…) in the editor. Changes to what the customer has go on the first option.`);
-    else if (covered.has(o.part)) out.push(`${name} is for the ${o.part.toLowerCase()}, which the customer already has. Put that work on the first option, or untick it.`);
+    // No Part (2026-10-31): an addition on its own, which the customer can take beside anything else.
+    if (o.part && covered.has(o.part)) out.push(`${name} is for the ${o.part.toLowerCase()}, which the customer already has. Put that work on the first option, or untick it.`);
   }
   return out;
 }

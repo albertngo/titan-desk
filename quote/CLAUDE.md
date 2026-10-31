@@ -583,8 +583,10 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   Lines already on an option are untouched. Tested in `tests/stairGroups.test.ts`.
 - **New work after acceptance (Albert, 2026-10-31; step 3 of the contract; vault `05_decisions/2026-10-30-quote-one-working-quote`
   item 7).** A change may offer new work: its **first option is the project as agreed** and always goes; every other option
-  is an **offer**, which needs its own Part the contract doesn't cover (`changeOfferProblems()` in `send/plan.ts`, given
-  `contractParts()`); two offers in one Part are a choice. The copy keeps a change's order and marks offers
+  is an **offer**: with a Part, one of the choices for that Part, which must be one the contract doesn't cover
+  (`changeOfferProblems()` in `send/plan.ts`, given `contractParts()`); with **no Part, an addition on its own**
+  (Albert, same day), taken or not beside anything else (`pickKey()` / `isAddition()` in `copy.ts`; tick boxes in
+  the Accept panel). The copy keeps a change's order and marks offers
   (`CopyOption.offer`, `offersOf()`); the page, PDF and email show the project, then "New work you can add" (no schedule
   of their own), and the change email and text name them. A change with offers can be accepted on its link, in store or
   for them, for the offers only (`notAcceptable()` / `acceptProblems()`); the Accept panel's totals and schedule are on
