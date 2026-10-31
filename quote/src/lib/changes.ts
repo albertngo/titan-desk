@@ -23,6 +23,26 @@ export const CHANGES: Change[] = [
   {
     date: "2026-10-31",
     kind: "changed",
+    title: "Options stay separate on an accepted quote and its changes",
+    details: [
+      "When the customer has more than one option (say upstairs and the basement, or flooring and stairs), each one now keeps its own heading, description, work and price before HST on the quote page, the PDF, the invoice or receipt and the change email. Before, all their lines were run together in one list under a name like \"Upstairs + Basement\".",
+      "There is still one total and one payment schedule for the whole project.",
+      "Make a change now keeps each option as its own option in the editor, instead of joining them into one. Every option on a change goes to the customer, and no two options can be for the same part of the home.",
+      "A change already sent before today keeps how it looked. Make a change from it and send again to show the parts separately.",
+    ],
+  },
+  {
+    date: "2026-10-31",
+    kind: "changed",
+    title: "Editing an accepted quote is clearly marked; open counts always show",
+    details: [
+      "In the editor of a change, an amber band stays at the top of the screen (\"Accepted quote · Change 2\", whose quote it is and how far the total moves), the page has an amber edge, and the button says Save change 2.",
+      "On All quotes, every version shows how many times the customer opened it, one open included, and when last. A new draft no longer blanks Last opened: it shows the newest version the customer has, labelled with its version number.",
+    ],
+  },
+  {
+    date: "2026-10-31",
+    kind: "changed",
     title: "The quote email gives the price, the quote page gives the rest",
     details: [
       "The email no longer lists what each option includes (install, square footage, materials, timing). It shows the price or range and says what's included, the materials and the payment schedule are on the quote page, so the customer opens it to see them.",

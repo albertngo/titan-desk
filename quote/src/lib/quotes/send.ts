@@ -9,7 +9,7 @@ import { BOOKING_URLS } from "@/lib/ghl/ids";
 import { followUpTagBodies } from "@/lib/activity/track";
 import { parseAcceptance } from "@/lib/accept/plan";
 import { changeSummary } from "@/lib/change/diff";
-import { contractOn, contractParts, contractVersions, fromChange, joinChange, serializeContract } from "@/lib/contract/model";
+import { contractOn, contractVersions, fromChange, joinChange, serializeContract } from "@/lib/contract/model";
 import { cleanPayments } from "@/lib/billing/doc";
 import { paymentsReaderOn, projectPayments } from "@/lib/notion/payments";
 import { buildContract } from "@/lib/link/ghlRequest";
@@ -203,8 +203,7 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   // The freshest email and phone from GHL: that is where GHL will send it.
   const quote = await refreshFromGhl(loaded);
   const today = torontoToday(new Date());
-  const current = quote.changeNo && quote.link ? await loadContract(quote.link.quoteRecordId) : null;
-  const problems = sendProblems(quote, input, { today, fingerprint: fingerprint(fromQuote(quote)), contractParts: current ? contractParts(current.contract) : [] });
+  const problems = sendProblems(quote, input, { today, fingerprint: fingerprint(fromQuote(quote)) });
   if (problems.length) return { ok: false, message: "Not sent.", problems };
 
   // A preliminary has no good-until date whatever was sent (Albert, 2026-10-22); its link never expires. Nor does a change (2026-10-27).

@@ -2,7 +2,7 @@ import { restageAmounts, round2, type AcceptedTotals } from "@/lib/calc";
 import { defaultSchedule } from "@/lib/pricing/schedule";
 import type { Acceptance, AcceptedAddOn } from "@/lib/accept/plan";
 import type { Part, Scope } from "@/lib/quotes/types";
-import { scopeOf, stagesOf, type CopyOption, type CopySection, type CopyStage, type CopyTotals, type CustomerCopy } from "@/lib/send/copy";
+import { scopeOf, stagesOf, type CopyOption, type CopyPart, type CopySection, type CopyStage, type CopyTotals, type CustomerCopy } from "@/lib/send/copy";
 
 /**
  * The contract (Albert, 2026-10-30, vault 05_decisions/2026-10-30-quote-contract-from-any-version):
@@ -157,11 +157,15 @@ function sumTotals(parts: CopyTotals[]): CopyTotals {
 }
 
 /**
- * The contract as one copy: every item's option joined into one (the flooring's sections, then the
- * stairs', a section both have holding both, numbered through), ticked add-ons part of the work and
+ * The contract as one copy: one option holding every item's option, ticked add-ons part of the work and
  * the others left off, with the contract's totals and schedule. The rest of the copy (customer,
  * letterhead, terms) is the newest copy it points into. Null when a copy or an option it points at is
  * missing.
+ *
+ * The options stay apart (Albert, 2026-10-31: "if it is a different option, then in all emails and forms,
+ * it will remain separate"): with two or more, each keeps its own sections, tagged with its place in
+ * `parts` (its name, description and price before HST), and is drawn as its own block. Until then sections
+ * of the same name were merged, so a customer could not tell which line was for which part of the home.
  */
 export function contractView(c: Contract, copies: Record<string, CustomerCopy | null | undefined>): CustomerCopy | null {
   const parts = c.items.map((it) => ({ it, o: copies[it.versionId]?.options[it.index] }));
@@ -171,32 +175,37 @@ export function contractView(c: Contract, copies: Record<string, CustomerCopy | 
     .sort((a, b) => a.sentOn.localeCompare(b.sentOn))
     .at(-1)!;
   const options = parts.map((p) => p.o!);
+  const several = options.length > 1;
   const sections: CopySection[] = [];
+  const kept: CopyPart[] = [];
   let n = 0;
-  parts.forEach(({ it, o }) => {
+  parts.forEach(({ it, o }, pi) => {
+    let added = 0;
     o!.sections.forEach((s, si) => {
       const lines = s.lines.flatMap((l, li) => {
         if (l.kind !== "item" || !l.optional) return [l];
-        return it.addOns.some((x) => x.key === `${it.index}.${si}.${li}`) ? [{ ...l, optional: false, added: true }] : [];
+        const taken = it.addOns.find((x) => x.key === `${it.index}.${si}.${li}`);
+        if (!taken) return [];
+        added += taken.amount;
+        return [{ ...l, optional: false, added: true }];
       });
       if (lines.length === 0) return;
-      const into = sections.find((x) => x.name === s.name);
-      if (into) {
-        into.lines.push(...lines);
-        into.total = into.total === null || s.total === null ? null : round2(into.total + s.total);
-      } else sections.push({ ...s, lines: [...lines] });
+      sections.push(several ? { ...s, lines: [...lines], part: pi } : { ...s, lines: [...lines] });
     });
+    kept.push({ name: o!.name, description: o!.description, subtotal: round2(o!.totals.subtotal + added), ...(o!.scope ? { scope: o!.scope } : {}), ...(o!.part ? { part: o!.part } : {}) });
   });
   // Numbered through when options are joined; an add-on taken keeps no number, as before.
-  if (options.length > 1) for (const s of sections) s.lines = s.lines.map((l) => (l.kind === "item" && l.n !== null ? { ...l, n: ++n } : l));
+  if (several) for (const s of sections) s.lines = s.lines.map((l) => (l.kind === "item" && l.n !== null ? { ...l, n: ++n } : l));
   const extra = round2(c.items.reduce((sum, it) => sum + it.addOns.reduce((a, x) => a + x.amount, 0), 0));
   const sent = sumTotals(options.map((o) => o.totals));
   const pay = (i: number) => c.stages[i]?.amount ?? 0;
   const option: CopyOption = {
     ...options[0],
     name: options.map((o) => o.name).join(" + "),
-    description: options.map((o) => o.description).filter(Boolean).join("\n\n") || null,
+    // Each option's own words go with it (2026-10-31), never run together above all of them.
+    description: several ? null : options[0].description,
     sections,
+    ...(several ? { parts: kept } : {}),
     exclusions: [...new Set(options.flatMap((o) => o.exclusions))],
     recommended: false,
     totals: {

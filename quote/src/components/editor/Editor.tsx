@@ -195,6 +195,8 @@ export default function Editor({
 
   const option = quote.options.find((o) => o.id === activeId) ?? quote.options[0] ?? null;
   const t = option ? optionTotals(option.lines, quote.discountRate, quote.showHst) : null;
+  // A change is the whole project, every option of it (2026-10-31: options stay apart), so it compares as one sum.
+  const changeTotal = version.change ? quote.options.filter((o) => !o.notOffered).reduce((a, o) => a + optionTotals(o.lines, quote.discountRate, quote.showHst).total, 0) : null;
   // What this option would cost with each crew (lines set by hand stay as they are).
   const crews = useMemo(() => (option && !customer ? compareCrews(quote, option.id, pricing) : []), [quote, option, pricing, customer]);
 
@@ -410,10 +412,10 @@ export default function Editor({
               ? `You are changing ${quote.customerName ? `${quote.customerName}'s` : "the customer's"} accepted quote. When sent, it goes to them as the updated quote for their records.`
               : `This change to ${quote.customerName ? `${quote.customerName}'s` : "the customer's"} accepted quote was ${(version.status ?? "sent").toLowerCase()}.`}
           </span>
-          {version.change.contractTotal !== null && option && t && quote.options.length === 1 && (
-            <span className={`change-band-d ${t.total >= version.change.contractTotal ? "up" : "down"}`}>
-              {t.total - version.change.contractTotal >= 0 ? "+" : "−"}
-              {money(Math.abs(t.total - version.change.contractTotal))} vs contract, with HST
+          {version.change.contractTotal !== null && changeTotal !== null && (
+            <span className={`change-band-d ${changeTotal >= version.change.contractTotal ? "up" : "down"}`}>
+              {changeTotal - version.change.contractTotal >= 0 ? "+" : "−"}
+              {money(Math.abs(changeTotal - version.change.contractTotal))} vs contract, with HST
             </span>
           )}
         </div>
@@ -435,7 +437,7 @@ export default function Editor({
           {version.change && (
             <p className="change-note">
               Change {version.change.no} to the accepted quote. Edit the work as usual; the customer gets it as an updated quote, for their records, and the payment schedule is worked out again on the new total.
-              {" "}New work (a basement, an extra) can go on the first option or as another option after it: everything on a change is part of the project when it is sent, for the record, with nothing for the customer to accept.
+              {" "}Each option the customer has stays its own option, and the customer sees each one as its own part with its own price. New work (a basement, an extra) goes on the option it belongs to, or as a new option: everything on a change goes to the customer as part of the project, for the record, with nothing to accept.
             </p>
           )}
         </div>

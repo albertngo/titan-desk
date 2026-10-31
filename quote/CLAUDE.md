@@ -621,7 +621,18 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   has, from `contractParts()`). Sending **joins the change's options into one** (`joinChange()` in
   `src/lib/contract/model.ts`: totals added, the version's schedule restaged on the whole), so the page, PDF, email,
   What changed, the contract, GHL's value and invoices see one project, and Make a change later brings back every
-  option that change sent. The change copy carries **what has been paid** (`CopyChange.paid`, read from the Master
+  option that change sent. **The options stay apart (Albert, 2026-10-31, later: "all options should stay separate. If it is a
+  different option, then in all emails and forms, it will remain separate").** The money is still one contract (one
+  total, one schedule, one Won value, one invoice), but `contractView()` no longer merges same-name sections across
+  options: each option's sections carry its index (`CopySection.part`) and the joined option lists them in
+  `CopyOption.parts` (name, description, price before HST, add-ons taken included). The page, the PDF (and so the
+  invoice or receipt) and the change email draw each as its own part ("Your project", Part 1, Part 2…, each with its
+  price), through `partGroups()` in `send/copy.ts`; the HST-on-materials band is drawn once, on the last Materials
+  section, over all of them. **Make a change** keeps every option the contract has as its own option (`makeChange()`
+  in `save.ts`), never one "A + B" option. That replaces the first-option rule above: `changeProblems()` now
+  refuses a change that leaves any offered option unticked (it would drop off the contract unseen; remove it in the
+  editor instead) and two options for the same Part. A change frozen before this keeps its merged look until a new
+  change is sent. Tested in `tests/change.test.ts` and `tests/scope.test.ts`. The change copy carries **what has been paid** (`CopyChange.paid`, read from the Master
   Payments Log at send, null when unreadable), shown as Paid so far and Left to pay (`paidLeft()` in
   `src/lib/change/diff.ts`). The guard is a habit: a change goes out only after the customer's yes in person or by
   phone. Tested in `tests/change.test.ts`.

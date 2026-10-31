@@ -92,7 +92,7 @@ export default async function QuotePage({
   const draft = quote.status === "Draft";
   const [ready, link, from] = await Promise.all([sendingReady(), sentLink(quote.customerToken), sendsFrom()]);
   const problems = draft
-    ? sendProblems(quote, { base, validUntil: defaultUntil, channels: { email: !!quote.link?.email, sms: !!quote.link?.phone } }, { today, fingerprint: base, skipOptions: true, contractParts: loadedContract ? contractParts(loadedContract.contract) : [] })
+    ? sendProblems(quote, { base, validUntil: defaultUntil, channels: { email: !!quote.link?.email, sms: !!quote.link?.phone } }, { today, fingerprint: base, skipOptions: true })
     : [];
   // Which options go to the customer (2026-10-24): one tick each on the Send card, with its price before HST and any problem.
   // A preliminary goes as a range unless the sender picks the exact price (2026-10-27): the card shows whichever will go.

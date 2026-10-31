@@ -60,20 +60,22 @@ export function chosenWords(quote: Pick<Quote, "options">, ids: string[] | null 
 
 /**
  * What stops a change going out with its options (Albert, 2026-10-31, vault 05_decisions/2026-10-31-quote-changes-for-record).
- * Everything on a change is part of the project when it is sent, for the record: the first option is the project as
- * agreed and always goes; any other option is new work joining it (a basement, an extra), with or without a Part. Only
- * new work for a Part the customer already has is refused (`contractParts`: each contract item's Part): that belongs
- * on the first option.
+ * Everything on a change is part of the project when it is sent, for the record. Since the options stay apart
+ * (same day: "all options should stay separate"), Make a change carries each option the customer has as its own
+ * option, and new work (a basement, an extra) goes beside them. So every option on the change goes (one left off
+ * would drop off the contract unseen: remove it in the editor instead), and no two are for the same Part: the
+ * project has one of each, and a second would be an alternative, which a change never offers.
  */
-export function changeProblems(quote: Pick<Quote, "options">, ids: string[] | null, contractParts: string[]): string[] {
-  const [first] = quote.options;
-  if (!first) return [];
+export function changeProblems(quote: Pick<Quote, "options">, ids: string[] | null): string[] {
+  const offered = quote.options.filter((o) => !o.notOffered);
+  if (offered.length === 0) return [];
   const out: string[] = [];
-  if (ids && !ids.includes(first.id)) out.push(`${first.name || "The first option"} is the project as agreed: it always goes with a change. Tick it on the Send card.`);
-  const covered = new Set(contractParts);
-  for (const o of chooseOptions(quote, ids).options) {
-    if (o.id !== first.id && o.part && covered.has(o.part)) out.push(`${o.name || "An option"} is for the ${o.part.toLowerCase()}, which the customer already has. Put that work on the first option.`);
-  }
+  const sent = chooseOptions(quote, ids).options;
+  const left = offered.filter((o) => !sent.some((x) => x.id === o.id));
+  if (left.length) out.push(`Everything on a change is the project: tick ${left.map((o) => o.name || "every option").join(", ")} on the Send card, or remove from the change the work that is no longer in it.`);
+  const byPart = new Map<string, string[]>();
+  for (const o of sent) if (o.part) byPart.set(o.part, [...(byPart.get(o.part) ?? []), o.name || "An option"]);
+  for (const [part, names] of byPart) if (names.length > 1) out.push(`${names.join(" and ")} are both for the ${part.toLowerCase()}. The project has one of each: put that work on one option.`);
   return out;
 }
 
@@ -92,7 +94,7 @@ export function optionProblem(quote: Pick<Quote, "discountRate" | "showHst" | "s
  * `skipOptions`: leave out the per-option checks, for the Send card, which applies optionProblem() to
  * whatever is ticked as the sender changes it. The send itself always runs every check.
  */
-export function sendProblems(quote: Quote, input: SendInput, ctx: { today: string; fingerprint: string; skipOptions?: boolean; contractParts?: string[] }): string[] {
+export function sendProblems(quote: Quote, input: SendInput, ctx: { today: string; fingerprint: string; skipOptions?: boolean }): string[] {
   const out: string[] = [];
   if (quote.status !== "Draft") out.push(`This version is ${quote.status ?? "not a draft"}. Only a draft is sent; save a new version to send changes.`);
   if (ctx.fingerprint !== input.base) out.push("This version changed since the page opened. Reload it and check it before sending.");
@@ -104,7 +106,7 @@ export function sendProblems(quote: Quote, input: SendInput, ctx: { today: strin
   if (quote.schedule) out.push(...scheduleProblems(quote.schedule));
   const ids = input.optionIds ?? null;
   // A change after acceptance (2026-10-27) has no good-until date; since 2026-10-31 everything on it is the project.
-  if (quote.changeNo) out.push(...changeProblems(quote, ids, ctx.contractParts ?? []));
+  if (quote.changeNo) out.push(...changeProblems(quote, ids));
   if (!ctx.skipOptions) {
     if (ids && quote.options.length > 0) {
       if (ids.length === 0) out.push("Choose at least one option to send.");
@@ -719,6 +721,10 @@ export function changeEmailMessage(copy: CustomerCopy, to: { contactId: string; 
     ) +
     row(button("View your updated quote", to.link), "12px 40px 10px") +
     hairline() +
+    // Each option the project is made of, with its own price (Albert, 2026-10-31: "all options should stay separate").
+    (o.parts && o.parts.length > 1
+      ? row(eyebrow("Your project, part by part") + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${o.parts.map((p, i) => `<tr>${cell(`Part ${i + 1}: ${esc(p.name)}`)}${cell(`${cad.format(p.subtotal)} <span style="font-size:13px;font-weight:400;color:${C.muted};">before HST</span>`, true)}</tr>`).join("")}</table>`) + hairline()
+      : "") +
     row(eyebrow("Your payment schedule") + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${stages}</table>` + para("The payment schedule is worked out on the new total; what you&rsquo;ve already paid counts toward it.", 13, C.muted, "10px 0 0")) +
     hairline("22px 40px 28px") +
     row(para("If anything here isn&rsquo;t what we agreed, reply to this email.", 15, C.body, "0 0 4px") + para(signoff, 14, C.muted, "0 0 36px"));

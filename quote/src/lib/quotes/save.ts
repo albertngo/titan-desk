@@ -114,8 +114,8 @@ export async function saveAsNewVersion(versionId: string, raw: unknown, basis: s
  * Make a change after acceptance (Albert, 2026-10-27). The accepted version stays frozen; the change
  * is a new version of the same quote, numbered (Change No 1, 2, …), that starts as the contract
  * stands: only the accepted option, its ticked add-ons now part of the work and the others gone, and
- * (2026-10-28) a flooring option and a stairs option taken together joined into that one option, and
- * (2026-10-30) the contract's schedule restaged on the new total, not the difference on the final payment.
+ * (2026-10-28) a flooring option and a stairs option taken together joined into that one option (since
+ * 2026-10-31 each stays its own option), and (2026-10-30) the contract's schedule restaged on the new total, not the difference on the final payment.
  * Staff then edit it like any version and send it for the customer's records.
  */
 export async function makeChange(versionId: string): Promise<SaveResult> {
@@ -137,17 +137,19 @@ export async function makeChange(versionId: string): Promise<SaveResult> {
     if (it.via === "change" && v && v.options.filter((o) => !o.notOffered).length > 1) return v.options.filter((o) => !o.notOffered);
     return [it.ref ? v?.options.find((o) => o.id === it.ref) : v?.options.length === 1 ? v.options[0] : undefined];
   });
+  const parts0 = taken;
   if (taken.length === 0 || taken.some((o) => !o)) return { ok: false, message: "The accepted option isn't on this version any more, so a change can't start from it." };
-  const parts = taken as QuoteOption[];
-  // Two options taken together become one: the contract is one option from here on, with one schedule.
-  const option: QuoteOption = parts.length === 1 ? parts[0] : { ...parts[0], name: contract.items.map((i) => i.name).join(" + "), scope: null, part: null, recommended: false, description: parts.map((o) => o.description).filter(Boolean).join("\n\n") || null, lines: parts.flatMap((o) => o.lines) };
+  // Each option the customer has stays its own option on the change (Albert, 2026-10-31: "all options should stay
+  // separate"), so the customer can tell which work is for which part of the home; one schedule on the whole.
+  // Until then they were joined into one option here, every line in one list.
+  const parts = (taken as QuoteOption[]).map((o) => (parts0.length > 1 ? { ...o, recommended: false } : o));
   const stages = contract.stages;
   if (!stages.length) return { ok: false, message: "This version has no payment schedule to carry over." };
 
   // Ticked add-ons are part of the work now; the ones the customer didn't take are gone.
   const took = new Set(contract.items.flatMap((i) => i.addOns).map((a) => a.description.replace(/\s+/g, " ").trim().toLowerCase()));
-  const lines = option.lines.flatMap((l) => (l.include ? [l] : took.has((l.description ?? "").replace(/\s+/g, " ").trim().toLowerCase()) ? [{ ...l, include: true }] : []));
-  const edited = cleanEditorQuote({ ...fromQuote({ ...from, options: [{ ...option, lines }] }), schedule: restagedSchedule(stages) });
+  const kept = (o: QuoteOption) => o.lines.flatMap((l) => (l.include ? [l] : took.has((l.description ?? "").replace(/\s+/g, " ").trim().toLowerCase()) ? [{ ...l, include: true }] : []));
+  const edited = cleanEditorQuote({ ...fromQuote({ ...from, options: parts.map((o) => ({ ...o, lines: kept(o) })) }), schedule: restagedSchedule(stages) });
 
   const quote = await getRecord(T.quotes, from.link.quoteRecordId);
   const siblings = await listByIds(T.versions, ids(quote.fields[QUOTE.versions]), [VERSION.version, VERSION.changeNo, VERSION.status, VERSION.sentAt]);

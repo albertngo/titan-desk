@@ -626,6 +626,15 @@ a.chip.accent:hover { text-decoration: underline; }
 .cq-opt h2 { font-size: 20px; font-weight: 700; line-height: 1.25; padding-right: 110px; }
 .cq-opt > header p { color: var(--fg-dim); margin-top: 6px; font-size: 14px; white-space: pre-line; }
 .cq-rec { position: absolute; top: 18px; right: 18px; font-size: 11.5px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 10px; border-radius: 99px; }
+/* A contract of several options (2026-10-31): each part its own band, heading and price, so nothing reads as one list. */
+.cq-part { border-top: 3px solid var(--accent); margin-top: 10px; }
+.cq-part:first-of-type { margin-top: 0; }
+.cq-part-h { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; padding: 14px 18px 6px; background: var(--accent-soft); }
+.cq-part-h h3 { font-size: 17px; font-weight: 700; line-height: 1.3; color: var(--fg); }
+.cq-part-h .cq-num { color: var(--accent); font-size: 12px; letter-spacing: .04em; text-transform: uppercase; }
+.cq-part-p { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cq-part-p .faint { font-size: 12px; font-weight: 500; }
+.cq-part-d { padding: 0 18px 12px; background: var(--accent-soft); color: var(--fg-dim); font-size: 14px; white-space: pre-line; margin: 0; }
 .cq-sec h3 { display: flex; justify-content: space-between; gap: 8px; padding: 9px 18px; background: var(--head); font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--fg-dim); border-top: 1px solid var(--line); }
 .cq-sec h3 .st { font-variant-numeric: tabular-nums; letter-spacing: 0; }
 .cq-sec ul { list-style: none; margin: 0; padding: 0; }
