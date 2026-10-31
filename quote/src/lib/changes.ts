@@ -23,6 +23,14 @@ export const CHANGES: Change[] = [
   {
     date: "2026-10-31",
     kind: "changed",
+    title: "Stairs options on their own row",
+    details: [
+      "On a quote with both flooring and stairs options, the Stairs tabs now start a new row under the Flooring tabs on the quote page and in the editor, instead of sitting far off to the right.",
+    ],
+  },
+  {
+    date: "2026-10-31",
+    kind: "changed",
     title: "Customer's quote: options side by side",
     details: [
       "On the customer's link, the options are a row of buttons at the top. Tapping one shows that option's work and price right underneath, so nobody scrolls down to find it. It starts on the recommended option. Printing still shows every option.",
