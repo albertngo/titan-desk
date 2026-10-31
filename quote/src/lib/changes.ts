@@ -23,6 +23,14 @@ export const CHANGES: Change[] = [
   {
     date: "2026-10-31",
     kind: "changed",
+    title: "Site sheet: spindles at 2 a foot on the steps",
+    details: [
+      "Spindles are now worked out as 2 for every foot of handrail with pickets on the steps, and still 3 a foot on flat runs. A count written on the sheet still wins when it's higher.",
+    ],
+  },
+  {
+    date: "2026-10-31",
+    kind: "changed",
     title: "Stair Site Sheet v6",
     details: [
       "The printed site sheet is now v6: count boxes you can fill in parts, the pizza row as 2-pc and 3-pc counts with \"of these sets →\" for 2 side open, and a Staircases box under Stringers. The Site sheet tab shows v6. Photos of a v5 sheet still read.",

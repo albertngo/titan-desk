@@ -5,8 +5,9 @@ import { TREAD_TYPES, type SiteSheet, type TreadType, type WidthCounts } from ".
  * - risers: one per tread, one per landing (a half moon counts) and one for the top floor;
  * - open sides, and so the stringers and spindles that show, from the tread grid;
  * - spindles (Albert, 2026-10-28, after the first real sheet: "there should always be 3 spindles per foot of
- *   handrail"): 3 a foot of picket feet, on the steps and flat alike (a run's picket feet are written, or its
- *   whole length when Pickets is ticked). With no railing runs written at all, an open staircase falls back
+ *   handrail"; 2026-10-31: "on the steps, it should be x2 only. All flat runs x3"): 2 a foot of picket feet on
+ *   the steps, 3 a foot on the flat (a run's picket feet are written, or its whole length when Pickets is
+ *   ticked). With no railing runs written at all, an open staircase falls back
  *   to the per-step estimate (2 a step, 3 a 2-side-open step). More is always fine: a written count higher
  *   than this wins, and a written count lower than this is used but flagged to confirm;
  * - the rail check: the on-steps runs added up (a staircase's rail is often in pieces) against about
@@ -111,7 +112,8 @@ export function derive(s: SiteSheet): Derived {
   // Risers: one more than the steps, with every landing (and a half moon) counted as a step.
   const risers = treads > 0 ? treads + landings + halfMoons + 1 : 0;
 
-  // Spindles: 3 a foot of rail with pickets. Only with no runs written at all, the per-step fallback:
+  // Spindles: 2 a foot of rail with pickets on the steps, 3 a foot on the flat (Albert, 2026-10-31).
+  // Only with no runs written at all, the per-step fallback:
   // 2 on a one-side-open tread (pie and pizza pieces too), 3 on a 2-side-open one.
   const regular = by.rso + by.lso + (pizza - pz.twoSidePieces);
   const twoSided = by.two + pz.twoSidePieces;
@@ -119,7 +121,7 @@ export function derive(s: SiteSheet): Derived {
   const stepRuns = s.runs.filter((x) => x.where === "S");
   const flatPicketRuns = s.runs.filter((x) => x.where === "F" && picketFt(x) > 0);
   const stepPicketFt = stepRuns.reduce((t, x) => t + picketFt(x), 0);
-  const stepEstimate = s.runs.length === 0 ? (openSides > 0 ? regular * 2 + twoSided * 3 : 0) : Math.ceil(stepPicketFt * 3);
+  const stepEstimate = s.runs.length === 0 ? (openSides > 0 ? regular * 2 + twoSided * 3 : 0) : Math.ceil(stepPicketFt * 2);
   const holedFt = flatPicketRuns.reduce((t, x) => t + picketFt(x), 0);
   const flatEstimate = Math.ceil(holedFt * 3);
   const estimate = stepEstimate + flatEstimate;

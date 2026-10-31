@@ -441,8 +441,8 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   (uncertain ones are marked) and presses **Save check**. What was read is drawn as the paper sheet (v6) itself, one box for one box
   (Albert, 2026-10-29), each page beside its photo: `src/components/SiteSheetPaper.tsx`, styles scoped under `.ssp`; every bubble, tick
   and box on it is the control for that field, and a code Claude marked unclear is washed yellow. Change the sheet and this copy together. The app works out, never asks: risers = treads + one
-  per landing (a half moon counts) + one for the top floor; open sides from the grid; spindles from the railing runs (3 a foot of
-  rail with pickets, on the steps and flat alike, Albert after the first real sheet; with no runs written, 2 a step and 3 a 2-side-open step),
+  per landing (a half moon counts) + one for the top floor; open sides from the grid; spindles from the railing runs (2 a foot of
+  rail with pickets on the steps, 3 a foot on the flat, Albert 2026-10-31, replacing 3 a foot on both from 2026-10-28; with no runs written, 2 a step and 3 a 2-side-open step),
   holed nosings one per flat run with pickets, rail feet split straight / curved (curved priced from "Task: New
   Curved Handrail + Stain"), the on-steps runs added up and flagged when far from ~1.1 ft a tread (or twice that, both sides open), where a written count higher
   wins and a lower one is flagged; picket heights 36 / 39 alternating on the steps, 36 on the flat top; oak at
