@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { sumParts, type NosingPiece, type RailRun, type SiteSheet } from "@/lib/sitesheet/sheet";
 
 /**
- * What was read, drawn as the paper Stair Site Sheet (v5) itself, one box for one box (Albert, 2026-10-29:
+ * What was read, drawn as the paper Stair Site Sheet (v6, 2026-10-31) itself, one box for one box (Albert, 2026-10-29:
  * "make the extraction of what was read look exactly like the sheet that was filled out"). The same sections,
  * grids, codes and shaded cells as the printed page; each bubble, tick, box and line on it is the control for
  * that field: a filled bubble or tick reads as filled in. A code Claude couldn't read with confidence washes
@@ -130,7 +130,7 @@ function Header({ page, ...p }: PaperProps) {
   return (
     <div className="ph">
       <div className="tt">
-        TITAN FLOORING · Stair Site Sheet <small>v5 · page {page} of 2</small>
+        TITAN FLOORING · Stair Site Sheet <small>v6 · page {page} of 2</small>
       </div>
       <div className="ids">
         <span className={`f${m.uc("Q")}`}>

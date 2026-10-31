@@ -1,11 +1,11 @@
 /**
- * What Claude is told when it reads photos of the stair site sheet (v5), and the JSON schema its answer
+ * What Claude is told when it reads photos of the stair site sheet (v6, and the older v5), and the JSON schema its answer
  * follows, written into the message itself (see SHEET_PROMPT below). Pure data: src/lib/quotes/sitesheet.ts sends it,
  * src/lib/sitesheet/sheet.ts cleans the answer. The schema mirrors SiteSheet; cleanSheet() still checks
  * every value, so a wrong answer can't get in.
  */
 
-const INSTRUCTIONS = `You are reading photos of Titan Flooring's "Stair Site Sheet" (v5, two Letter pages), filled in by hand on site by a project manager. Read exactly what is written or marked. Never guess and never fill in a typical value: a box left blank is null.
+const INSTRUCTIONS = `You are reading photos of Titan Flooring's "Stair Site Sheet" (v6, or the older v5; two Letter pages), filled in by hand on site by a project manager. Read exactly what is written or marked. Never guess and never fill in a typical value: a box left blank is null.
 
 How the sheet is marked:
 - Round bubbles and square ticks are chosen when filled, ticked, crossed or circled. An empty bubble is not chosen.

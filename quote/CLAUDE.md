@@ -427,7 +427,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   Customer view has no tab and the customer deployment never reads it. Pure rules in
   `src/lib/rooms/log.ts`, tested in `tests/rooms.test.ts`.
 - **Site sheet (Albert, 2026-10-28).** A **Site sheet** tab on the quote page, beside Rooms, staff only. The PM
-  fills the two-page paper **Stair Site Sheet** (v5) on site: what is there (staircases, shape, what is on the
+  fills the two-page paper **Stair Site Sheet** (v6 since 2026-10-31; v5 sheets still read) on site: what is there (staircases, shape, what is on the
   steps, a tread grid of RSO / LSO / Boxed / 2 side open by 36 / 42 / 48", pie and bullnose by open
   side (LSO / RSO / 2 side open, never boxed), every count box in B1–B8 adding up a count written in parts ("4+3", `sumParts()`, Albert 2026-10-31: "count and write, not mentally add"; Claude adds parts written in one box on the paper), pizza sets as 2-pc and 3-pc counts plus how many of those are 2 side open (2026-10-31; custom = every 2-pc set and any 2 side open, shown on the row; the 2-side-open sets are taken as the 3-piece ones first, so custom pieces are never undercounted; an older stored sheet's single sets count is carried over in `cleanSheet()`),
   landings by size, half moons, stringers (White / Stained; a blank Made of reads as veneer), nosings as a
@@ -438,7 +438,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   model `claude-opus-5-5`, one JSON object in the answer's text, the schema written into the message in `src/lib/sitesheet/prompt.ts` (the model refuses a forced tool call and the structured-output setting refused the sheet's 70 nullable fields), read by `jsonFromText()` and then `cleanSheet()`; server-side fallback on a refusal), the
   photos go on **Quotes → Site Sheet Photos** and what was read on **Quotes → Site Sheet** (JSON, app-written,
   compare-and-swap like Rooms; `src/lib/quotes/sitesheet.ts`). A person checks every field beside the photos
-  (uncertain ones are marked) and presses **Save check**. What was read is drawn as the paper sheet itself, one box for one box
+  (uncertain ones are marked) and presses **Save check**. What was read is drawn as the paper sheet (v6) itself, one box for one box
   (Albert, 2026-10-29), each page beside its photo: `src/components/SiteSheetPaper.tsx`, styles scoped under `.ssp`; every bubble, tick
   and box on it is the control for that field, and a code Claude marked unclear is washed yellow. Change the sheet and this copy together. The app works out, never asks: risers = treads + one
   per landing (a half moon counts) + one for the top floor; open sides from the grid; spindles from the railing runs (3 a foot of

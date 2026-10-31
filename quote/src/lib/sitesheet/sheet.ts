@@ -1,7 +1,7 @@
 /**
  * The stair site sheet (Albert, 2026-10-28): the two-page paper form a PM fills in on site, photographed
  * into the quote and read by Claude into these fields. Its codes (A1…G8) are printed on the paper, so the
- * shape here follows the sheet box for box; sheet v5 (2026-10-28) is the reference. Pure, no I/O: cleanSheet() is the
+ * shape here follows the sheet box for box; sheet v6 (2026-10-31: count boxes that add up, pizza sets as 2-pc / 3-pc counts, D3 Staircases) is the reference; v5 sheets still read. Pure, no I/O: cleanSheet() is the
  * only way anything (the model's answer, the browser's edits) becomes a SiteSheet, and it never invents a
  * value: what it can't read is null. Tested in tests/sitesheet.test.ts.
  */

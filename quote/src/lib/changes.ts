@@ -23,6 +23,14 @@ export const CHANGES: Change[] = [
   {
     date: "2026-10-31",
     kind: "changed",
+    title: "Stair Site Sheet v6",
+    details: [
+      "The printed site sheet is now v6: count boxes you can fill in parts, the pizza row as 2-pc and 3-pc counts with \"of these sets →\" for 2 side open, and a Staircases box under Stringers. The Site sheet tab shows v6. Photos of a v5 sheet still read.",
+    ],
+  },
+  {
+    date: "2026-10-31",
+    kind: "changed",
     title: "Site sheet: custom pieces, landings, stringers and step widths",
     details: [
       "A custom corner turn set or a solid half moon now replaces the standard piece instead of being added on top. A 2-side-open bullnose is the custom bullnose, with nothing extra.",
