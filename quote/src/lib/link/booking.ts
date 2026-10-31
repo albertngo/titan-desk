@@ -21,6 +21,9 @@ import type { Parsed } from "./newQuote";
  *   one on a different opportunity never (match.ts). Two candidates: start a new one, say why.
  * - The site: the contact's address at the moment of booking is the confirmed site. Staff type
  *   the next appointment's address on the contact, which the booking texts read too.
+ * - Booked somewhere else (2026-10-31): when the quote it matched is confirmed at a different
+ *   address than the contact's now, the booking is probably a new project. That quote and its site
+ *   are left alone; a new quote is started unlinked and flagged, and no opportunity is made.
  * - The same address already confirmed on the customer's other open job is flagged, not blocked:
  *   two jobs at one address is normal, a contact left on the last job's address is not.
  */
@@ -132,6 +135,55 @@ export function opportunityUpdateBody(quoteNumber: string, site: { address: stri
     site.address && site.city ? { id: OPP_FIELDS.projectCity, field_value: site.city } : null,
   ].filter((f) => f !== null);
   return JSON.stringify({ customFields: fields });
+}
+
+// ---------- a booking somewhere else ----------
+
+/** The usual long and short street words, written one way so "Crt" and "Court" compare equal. */
+const STREET_WORDS: Record<string, string> = {
+  street: "st", str: "st", avenue: "ave", av: "ave", road: "rd", drive: "dr", court: "crt", ct: "crt",
+  crescent: "cres", cr: "cres", boulevard: "blvd", place: "pl", lane: "ln", terrace: "terr", ter: "terr",
+  circle: "cir", trail: "trl", parkway: "pkwy", square: "sq", highway: "hwy", gate: "gt", gardens: "gdns",
+  heights: "hts", grove: "grv", line: "line", sideroad: "sdrd", concession: "conc",
+  north: "n", south: "s", east: "e", west: "w", apartment: "apt", suite: "ste", unit: "unit",
+};
+
+const streetKey = (s: string | null | undefined) =>
+  norm(s)
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => STREET_WORDS[w] ?? w)
+    .join(" ");
+
+/**
+ * Whether two street addresses are the same place, read loosely: case, punctuation and the long or
+ * short street word ("Crt" / "Court") don't matter. A unit number does: another unit is another site.
+ */
+export function sameStreet(a: string | null | undefined, b: string | null | undefined): boolean {
+  const x = streetKey(a);
+  return x !== "" && x === streetKey(b);
+}
+
+/**
+ * Booked somewhere else (Albert, 2026-10-31): the quote the booking matched already has a confirmed
+ * site, and the contact's address now (where this appointment is) is a different one. That is
+ * probably another project for the same customer, so the booking leaves that quote and its site
+ * alone and starts a new quote, unlinked and flagged, for staff to link. A person decides; the
+ * booking never moves a confirmed site and never makes an opportunity on this guess.
+ */
+export function bookedElsewhere(quote: { siteAddress: string | null; addressStatus: string | null } | undefined, contactAddress: string | null): boolean {
+  if (!quote || quote.addressStatus !== "Confirmed" || !norm(quote.siteAddress) || !norm(contactAddress)) return false;
+  return !sameStreet(quote.siteAddress, contactAddress);
+}
+
+/** The note on the new quote, naming both addresses and what staff do in each case. */
+export function elsewhereNote(old: { quoteNumber: string | null; siteAddress: string | null }, booked: string): string {
+  const q = old.quoteNumber ?? "the customer's open quote";
+  return (
+    `booked at ${booked}, but ${q} is confirmed at ${old.siteAddress}. ` +
+    `If this is a new project, create its opportunity in GHL and link this quote to it; if it is ${q}'s job at a new address, ` +
+    `fix the address on ${q} (Fix address) and delete this quote.`
+  );
 }
 
 // ---------- the links Make sends back ----------

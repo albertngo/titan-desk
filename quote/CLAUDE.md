@@ -710,6 +710,14 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
    GHL opportunity through Make only when the contact had none open and none lost or abandoned in the
    last 90 days (that may be the job coming back: the quote is flagged for staff instead). An
    opportunity GHL sends that isn't open, or isn't in a project pipeline (a STORE order), is ignored.
+   **Booked somewhere else (Albert, 2026-10-31, "go with flag"):** when the quote a booking matches is
+   already Confirmed at a different street address than the contact's now (`bookedElsewhere()` /
+   `sameStreet()` in `src/lib/link/booking.ts`: case, punctuation and Crt/Court don't matter, a unit
+   does), the booking is probably a new project for the same customer. That quote, its site and its
+   opportunity are left alone; a new quote is started at the new address, unlinked and noted with both
+   addresses, and no opportunity is made. Make still makes its folder and CompanyCam project. Staff then
+   create the new opportunity and link it, or, if it was the same job at a new address, fix the address
+   and delete the new quote. A booking never moves a confirmed site.
    It answers `made: true` when the job's folder and CompanyCam project already exist (links on the
    quote, or a CompanyCam URL on the opportunity), and Make then skips making them.
 2c'. **A second path without a sign-in: `/api/activity` (2026-10-27)**, open tracking, called by the

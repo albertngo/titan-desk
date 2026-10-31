@@ -3,7 +3,7 @@ import { timingSafeEqual } from "node:crypto";
 import { createRecord, getRecord, updateRecord } from "@/lib/airtable/client";
 import { QUOTE, T } from "@/lib/airtable/fields";
 import { getContact, ghlConfigured, opportunitiesForContact } from "@/lib/ghl/client";
-import { alreadyMade, bookingDecision, opportunityUpdateBody, parseBooking, parseBookingLinks, pickOpportunity, projectJobs, recentlyClosed, sameSiteAs } from "@/lib/link/booking";
+import { alreadyMade, bookedElsewhere, bookingDecision, elsewhereNote, opportunityUpdateBody, parseBooking, parseBookingLinks, pickOpportunity, projectJobs, recentlyClosed, sameSiteAs } from "@/lib/link/booking";
 import { buildBookingOpportunity } from "@/lib/link/ghlRequest";
 import { displayPhone, normalizeEmail, quoteNumber } from "@/lib/link/identity";
 import { addressStatus } from "@/lib/link/lead";
@@ -73,12 +73,18 @@ export async function bookQuote(key: string | null, raw: unknown): Promise<Booki
   // A STORE order is never the job, even when GHL's Find Opportunity picks one.
   const opps = projectJobs(allOpps);
   const job = pickOpportunity(parsed.value.opportunityId, opps.filter((o) => o.status === "open"), recentlyClosed(opps, new Date()));
-  const opportunityId = job.kind === "use" ? job.id : null;
+  const jobId = job.kind === "use" ? job.id : null;
 
   // The contact's address now is where this appointment is: the confirmed site (2026-10-15).
   const site = { address: contact.address, city: contact.city };
   const siteFields = site.address ? { [QUOTE.siteAddress]: site.address, [QUOTE.siteCity]: site.city, [QUOTE.addressStatus]: "Confirmed" } : {};
-  const decision = bookingDecision(quotes, { opportunityId, contactId, phone: contact.phone, email: contact.email });
+  const matched = bookingDecision(quotes, { opportunityId: jobId, contactId, phone: contact.phone, email: contact.email });
+  // Booked somewhere else: leave that quote and its confirmed site alone, start a new one for staff to link.
+  const old = matched.kind === "create" ? undefined : quotes.find((q) => q.id === matched.id);
+  const elsewhere = bookedElsewhere(old, site.address);
+  const decision: typeof matched = elsewhere ? { kind: "create", note: elsewhereNote(old!, site.address!) } : matched;
+  // The job picked is that other quote's, so this one stays unlinked: staff link it, or make its opportunity.
+  const opportunityId = elsewhere ? null : jobId;
   const notes: string[] = [];
   if (decision.kind === "create" && decision.note) notes.push(decision.note);
   if (job.kind === "several") notes.push(`booked while the contact had ${job.ids.length} open opportunities; link this quote to the right one.`);
@@ -126,7 +132,7 @@ export async function bookQuote(key: string | null, raw: unknown): Promise<Booki
   // No opportunity at all: make one now, carrying the quote number and the site.
   let finalOpp = opportunityId;
   let opportunityBody: string | null = opportunityId ? opportunityUpdateBody(quoteNo, site) : null;
-  if (job.kind === "none" && makeConfigured()) {
+  if (job.kind === "none" && !elsewhere && makeConfigured()) {
     try {
       const sent = await sendToGhl(buildBookingOpportunity({ contactId, quoteNumber: quoteNo, name, site }));
       finalOpp = sent.opportunityId;

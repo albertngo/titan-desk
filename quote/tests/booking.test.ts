@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bookingDecision, opportunityUpdateBody, parseBooking, parseBookingLinks, pickOpportunity, projectJobs, alreadyMade, recentlyClosed, sameSiteAs, type SiteQuote } from "../src/lib/link/booking";
+import { bookedElsewhere, bookingDecision, elsewhereNote, opportunityUpdateBody, parseBooking, parseBookingLinks, pickOpportunity, projectJobs, alreadyMade, recentlyClosed, sameSiteAs, sameStreet, type SiteQuote } from "../src/lib/link/booking";
 import { OPP_FIELDS } from "../src/lib/ghl/ids";
 import type { QuoteKeys } from "../src/lib/link/match";
 
@@ -142,6 +142,45 @@ describe("booking: the site", () => {
     expect(JSON.parse(opportunityUpdateBody("Q-1011", { address: null, city: "Newtown" }))).toEqual({
       customFields: [{ id: OPP_FIELDS.quoteNumber, field_value: "Q-1011" }],
     });
+  });
+});
+
+describe("booking: booked somewhere else (a new project for the same customer)", () => {
+  const confirmed = { siteAddress: "5 Example Crt", addressStatus: "Confirmed" };
+
+  it("reads the same street loosely: case, punctuation and the street word", () => {
+    expect(sameStreet("5 Example Crt", "5 example court")).toBe(true);
+    expect(sameStreet("12 Sample St.", "12 SAMPLE STREET")).toBe(true);
+    expect(sameStreet("40 Test Ave N", "40 Test Avenue North")).toBe(true);
+  });
+
+  it("never reads another number, street or unit as the same place", () => {
+    expect(sameStreet("5 Example Crt", "7 Example Crt")).toBe(false);
+    expect(sameStreet("5 Example Crt", "5 Example Cres")).toBe(false);
+    expect(sameStreet("10 Sample St Unit 4", "10 Sample St Unit 5")).toBe(false);
+    expect(sameStreet("", "")).toBe(false);
+  });
+
+  it("flags a booking at a different address from the matched quote's confirmed site", () => {
+    expect(bookedElsewhere(confirmed, "88 Other Rd")).toBe(true);
+  });
+
+  it("treats the same address as a rebooking of the same job", () => {
+    expect(bookedElsewhere(confirmed, "5 example court")).toBe(false);
+  });
+
+  it("lets booking confirm a quote whose site isn't confirmed yet, and never guesses without an address", () => {
+    expect(bookedElsewhere({ siteAddress: "5 Example Crt", addressStatus: "Unconfirmed" }, "88 Other Rd")).toBe(false);
+    expect(bookedElsewhere({ siteAddress: null, addressStatus: "Confirmed" }, "88 Other Rd")).toBe(false);
+    expect(bookedElsewhere(confirmed, null)).toBe(false);
+    expect(bookedElsewhere(undefined, "88 Other Rd")).toBe(false);
+  });
+
+  it("names both addresses and both ways out in the note", () => {
+    const note = elsewhereNote({ quoteNumber: "Q-1010", siteAddress: "5 Example Crt" }, "88 Other Rd");
+    expect(note).toMatch(/booked at 88 Other Rd, but Q-1010 is confirmed at 5 Example Crt/);
+    expect(note).toMatch(/new project, create its opportunity/);
+    expect(note).toMatch(/Fix address/);
   });
 });
 
