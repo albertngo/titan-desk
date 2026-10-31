@@ -1,7 +1,7 @@
 import { NewQuote } from "@/components/NewQuote";
 import { TopBar } from "@/components/TopBar";
 import { requireQuoter } from "@/lib/auth";
-import { getQuickForm, getStairProfiles } from "@/lib/quotes/load";
+import { quickFormForBrowser } from "@/lib/quotes/quickOption";
 import type { NewQuoteKind } from "@/lib/link/newQuote";
 import { newQuoteSettings } from "@/lib/quotes/start";
 import { customerView } from "@/lib/view";
@@ -20,20 +20,12 @@ export default async function NewQuotePage({ searchParams }: { searchParams: Pro
   const kind = kindOf((await searchParams).kind);
   // The quick form's choices are only needed for a preliminary; a full quote opens empty in the editor.
   const prelim = kind === "preliminary";
-  const [{ ghlWrites }, quick, profileRows, customer] = await Promise.all([
+  const [{ ghlWrites }, { choices, profiles }, customer] = await Promise.all([
     newQuoteSettings(),
-    prelim ? getQuickForm().catch(() => []) : Promise.resolve([]),
-    prelim ? getStairProfiles().catch(() => []) : Promise.resolve([]),
+    // Charge rates only: costs and contractors never reach the browser.
+    prelim ? quickFormForBrowser() : Promise.resolve({ choices: [], profiles: [] }),
     customerView(),
   ]);
-  // Stair Profiles for the dropdown: the preset price only; cost and the builder's template stay on the server.
-  const profiles = profileRows.map(({ id, name, type, method, steps, price }) => ({ id, name, type, method, steps, price, cost: null }));
-  // The form needs charge rates only: costs and contractors never reach the browser.
-  const choices = quick.map((c) => ({
-    ...c,
-    parts: c.parts.map((p) => ({ ...p, cost: null, contractor: null })),
-    product: c.product ? { ...c.product, cost: null } : null,
-  }));
   return (
     <>
       <TopBar email={email} />

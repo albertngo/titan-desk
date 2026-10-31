@@ -403,6 +403,15 @@ export function addOption(q: EditorQuote, name = `Option ${q.options.length + 1}
   return { ...q, options: [...q.options, { id: newId("opt"), name, description: "", recommended: false, serviceLevel: "Standard", crew: null, lines: [] }] };
 }
 
+/**
+ * An option built elsewhere (the editor's + From quick form, 2026-10-31) added at the end, with
+ * fresh ids so it never shares a line id with the quote it joins.
+ */
+export function addBuiltOption(q: EditorQuote, built: { name: string; description: string; lines: EditorLine[] }): EditorQuote {
+  const option: EditorOption = { id: newId("opt"), name: built.name, description: built.description, recommended: false, serviceLevel: "Standard", crew: null, lines: built.lines.map((l) => ({ ...l, id: newId("line") })) };
+  return { ...q, options: [...q.options, option] };
+}
+
 /** A full, independent copy: changing the copy never changes the original (no shared lines). */
 export function duplicateOption(q: EditorQuote, optionId: string): EditorQuote {
   const src = q.options.find((o) => o.id === optionId);

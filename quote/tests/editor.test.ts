@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { lineFlags, lineTotal, optionTotals } from "../src/lib/calc";
 import {
+  addBuiltOption,
   addLine,
   addLines,
   addOption,
@@ -161,6 +162,17 @@ describe("lines", () => {
 });
 
 describe("options", () => {
+  it("an option from the quick form joins at the end, not recommended, with its own line ids (2026-10-31)", () => {
+    const q = blankQuote();
+    const l = { ...lineFromEntry(click, "Install"), id: "line_quick_1", qty: 100 };
+    const next = addBuiltOption(addBuiltOption(q, { name: "Install Hardwood", description: "", lines: [l] }), { name: "Install Tiles", description: "Main stairs", lines: [l] });
+    expect(next.options.map((o) => o.name)).toEqual([...q.options.map((o) => o.name), "Install Hardwood", "Install Tiles"]);
+    const [a, b] = next.options.slice(-2);
+    expect([a.recommended, b.description]).toEqual([false, "Main stairs"]);
+    expect(a.lines[0].id).not.toBe(b.lines[0].id);
+    expect(a.lines[0].qty).toBe(100);
+  });
+
   it("a duplicate is fully independent of the original", () => {
     let q = blankQuote();
     const a = q.options[0].id;

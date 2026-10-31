@@ -1138,3 +1138,10 @@ a.chip.accent:hover { text-decoration: underline; }
 .cam-tags { display: flex; flex-wrap: wrap; gap: 4px; }
 .cam-light-desc { display: block; margin-top: 3px; color: var(--fg); white-space: pre-wrap; }
 @media (max-width: 560px) { .cam-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; } .cam-b { padding: 12px; } }
+
+/* Several options from one quick form (2026-10-31): tabs over the Job card, and the editor's + From quick form panel. */
+.nq-tabs { flex-wrap: wrap; margin-bottom: 14px; }
+.nq-tab-x { color: var(--bad); }
+.nq-tab-x:hover { border-color: var(--bad); color: var(--bad); }
+.ed-quick { margin-top: 12px; }
+.ed-quick-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
