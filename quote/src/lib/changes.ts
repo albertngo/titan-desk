@@ -23,6 +23,15 @@ export const CHANGES: Change[] = [
   {
     date: "2026-10-31",
     kind: "changed",
+    title: "Several options: \"from as low as\" in the email and the text",
+    details: [
+      "When a quote goes with two or more options, the email and the text now say \"There are 3 options for you to take a look at, from as low as $2,000 + HST\", using the lowest price (the low end of the lowest range on a preliminary).",
+      "Fixes a preliminary text with several options, which quoted only the first option's range as if it were the only one.",
+    ],
+  },
+  {
+    date: "2026-10-31",
+    kind: "changed",
     title: "New work after acceptance is for the record, nothing to accept",
     details: [
       "Replaces the two entries below. On a change, new work (a basement, an extra) goes on the first option or as another option after it; everything on the change becomes part of the project when you send it. The customer gets the updated quote for their records, with nothing to pick or accept.",

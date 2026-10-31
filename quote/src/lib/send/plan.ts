@@ -434,7 +434,7 @@ export function emailMessage(
   const preheader = split
     ? `${scopeLeads(copy, (n) => cad.format(n)).map((x) => `${x.scope} ${x.phrase}`).join(" · ")}${copy.validUntil ? ` · good until ${longDate(copy.validUntil)}` : ""}`
     : several
-    ? `${copy.options.length} options from ${ranged ? dollars(lowEnd) : cad.format(lowEnd)} ${low.tag}${copy.validUntil ? ` · good until ${longDate(copy.validUntil)}` : ""}`
+    ? `${copy.options.length} options to look at, from as low as ${ranged ? dollars(lowEnd) : cad.format(lowEnd)} ${low.tag}${copy.validUntil ? ` · good until ${longDate(copy.validUntil)}` : ""}`
     : r0
       ? `Estimated range ${rangeText(r0.low, r0.high)} ${leads[0].tag}`
       : `${prelim ? "Rough total" : "Total"} ${cad.format(leads[0].amount)} ${leads[0].tag}${copy.validUntil ? ` · good until ${longDate(copy.validUntil)}` : ""}`;
@@ -443,14 +443,18 @@ export function emailMessage(
   // A preliminary always goes before anyone has measured (Albert, 2026-10-27: a preliminary is solely a
   // quote before a visit or measurement; one sent after a measure is a measured quote), so it opens
   // generically. The "we've been to the home" switch (2026-10-24) is gone. Since 2026-10-27 it is a range.
-  const intro = prelim && ranged
+  // Several options (2026-10-31): the count and the lowest price, so the customer opens the page to compare.
+  const lowest = `${ranged ? dollars(lowEnd) : cad.format(lowEnd)} ${esc(low.tag)}`;
+  const intro = prelim && several && !split
+    ? `Thanks for telling us about your project. ${severalWords(copy.options.length, lowest)}, based on what you&rsquo;ve described. ${ranged ? `${esc(rangeWhy(copy))} ` : ""}Once you&rsquo;ve picked a material and we&rsquo;ve measured, we confirm the final price.`
+    : prelim && ranged
     ? `Thanks for telling us about your project. Here is a price range based on what you&rsquo;ve described. ${esc(rangeWhy(copy))} Once you&rsquo;ve picked a material and we&rsquo;ve measured, we confirm the final price.`
     : prelim
     ? `Thanks for telling us about your project. Here is a rough number based on what you&rsquo;ve described. Once you&rsquo;ve picked a material and we&rsquo;ve measured, we confirm the final price.`
     : split
       ? `Flooring and stairs are quoted side by side: take one option of each, or just one of them. Open the quote to see every detail and the payment schedule.`
     : several
-      ? `${copy.options.length} ways to do the work, side by side. Open the quote to see every detail and the payment schedule.`
+      ? `${severalWords(copy.options.length, lowest)}. Open the quote to see every detail and the payment schedule.`
       : `Everything we talked about is in the quote, with the payment schedule. Open it to see the detail.`;
 
   // One or two options: a full card each. Three or more (2026-10-24): one compact list of names and prices,
@@ -529,9 +533,8 @@ export function smsMessage(copy: CustomerCopy, to: { contactId: string; firstNam
   const several = copy.options.length > 1;
   const kind = kindPhrase(copyKind(copy), false).replace(/ quote$/, "");
   const whoFrom = sender?.firstName ? `it's ${sender.firstName} from ${copy.company.name}` : `it's ${copy.company.name}`;
-  // Every amount before HST, "+ HST" after it (2026-10-24); with several options, the lowest.
+  // Every amount before HST, "+ HST" after it (2026-10-24); with several options, the lowest (lowestLead, below).
   const leads = copy.options.map((o) => leadPrice(copy, o.totals));
-  const low = leads.reduce((a, b) => (b.amount < a.amount ? b : a));
   const money = (n: number) => (Number.isInteger(n) ? `$${n.toLocaleString("en-CA")}` : cad.format(n));
   const first = hi ? `Hi ${hi}, ${whoFrom}.` : `Hi, ${whoFrom}.`;
   // Layout (Albert, 2026-10-24): the news, a blank line, "See the full details here:" with the link on
@@ -540,8 +543,12 @@ export function smsMessage(copy: CustomerCopy, to: { contactId: string; firstNam
   // Flooring and stairs (2026-10-28): each scope's price on its own, " to " for a range (GSM-7).
   const split = isSplit(copy);
   const scopeWords = scopeLeads(copy, money, " to ").map((x) => `${x.scope.toLowerCase()} ${x.phrase}`).join(", ");
+  const lowest = lowestLead(copy);
+  const fromWords = severalWords(copy.options.length, `${money(lowest.amount)} ${lowest.tag}`);
   const what = prelim && split
     ? `Thanks for telling us about your project. Your estimate: ${scopeWords}.`
+    : prelim && several
+    ? `Thanks for telling us about your project. ${fromWords}.`
     : prelim
     ? r0
       ? // A range (2026-10-27), with " to ": an en dash is not GSM-7.
@@ -550,16 +557,32 @@ export function smsMessage(copy: CustomerCopy, to: { contactId: string; firstNam
     : split
       ? `Your quote is ready: ${scopeWords}${copy.validUntil ? `, good until ${shortDate(copy.validUntil)}` : ""}.`
     : several
-      ? `${copy.options.length} options for your ${kind === "quote" ? "project" : kind} are ready to compare, from ${money(low.amount)} ${low.tag}${copy.validUntil ? `, good until ${shortDate(copy.validUntil)}` : ""}.`
+      ? `${fromWords}${copy.validUntil ? `, good until ${shortDate(copy.validUntil)}` : ""}.`
       : `Your ${kind === "quote" ? "" : `${kind} `}quote is ready, ${money(leads[0].amount)} ${leads[0].tag}${copy.validUntil ? `, good until ${shortDate(copy.validUntil)}` : ""}.`;
   const close = prelim
-    ? r0 || (split && isRange(copy))
+    ? several && !split
+      ? `Each option shows its ${isRange(copy) ? "price range" : "rough price"}. Any questions, just reply.`
+      : r0 || (split && isRange(copy))
       ? "The final price should land in that range. Any questions, just reply."
       : "We confirm the price once we've measured. Any questions, just reply."
     : several
       ? "Reply here with the one you'd like, or with any questions."
       : "Reply here if anything needs changing.";
   return { type: "SMS", contactId: to.contactId, message: `${first} ${what}\n\nSee the full details here:\n${to.link}\n\n${close}` };
+}
+
+/**
+ * The words for several options (Albert, 2026-10-31: "There are multiple options for you to take a look
+ * at, from as low as" the lowest): the count, and the lowest price before HST (a range's low end).
+ */
+export function severalWords(count: number, lowest: string): string {
+  return `There are ${count} options for you to take a look at, from as low as ${lowest}`;
+}
+
+/** The lowest price any option leads with: a range's low end, else its price before HST. */
+function lowestLead(copy: CustomerCopy): { amount: number; tag: string; ranged: boolean } {
+  const all = copy.options.map((o) => ({ amount: o.range?.low ?? leadPrice(copy, o.totals).amount, tag: leadPrice(copy, o.totals).tag, ranged: !!o.range }));
+  return all.reduce((a, b) => (b.amount < a.amount ? b : a));
 }
 
 /** "Nov 21" for a text. */

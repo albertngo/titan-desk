@@ -260,7 +260,10 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   edit log records "options 1 and 3". Only ticked options are checked, so a half-built option no
   longer blocks a send once it is unticked (`optionProblem()` / `chooseOptions()` in
   `src/lib/send/plan.ts`; the card passes `skipOptions` to `sendProblems()` and applies the per-option
-  check live, the send runs everything). The previews and PDF follow the ticks (`?options=`). **The
+  check live, the send runs everything). The previews and PDF follow the ticks (`?options=`). **Several options are worded "There are N options for you to take a look at, from as low as" the
+  lowest price before HST** (Albert, 2026-10-31), in the email's intro and preheader and the text (a
+  preliminary: the lowest range's low end), via `severalWords()`; flooring-and-stairs quotes keep each
+  scope's own price. **The
   email lists three or more options compactly** (names and prices before HST; the detail is on the
   page); one or two get a full card each. Tested in `tests/send.test.ts`.
 - **A preliminary goes as a range (Albert, 2026-10-27).** Customers took a preliminary's one number as

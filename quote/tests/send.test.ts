@@ -307,7 +307,7 @@ describe("the messages", () => {
     const mm = emailMessage(two, to);
     expect(mm.type === "Email" && mm.html).toContain(">Recommended</span>");
     expect(mm.type === "Email" && mm.html).toContain("View and compare your quote");
-    expect(mm.type === "Email" && mm.html).toContain("2 ways to do the work");
+    expect(mm.type === "Email" && mm.html).toContain("There are 2 options for you to take a look at, from as low as $684.00 + HST.");
   });
 
   it("leads every amount before HST, with the HST and the with-HST total under it (2026-10-24)", () => {
@@ -333,7 +333,7 @@ describe("the messages", () => {
     const pricier = option("Oak", quote().options[0].lines.map((l) => ({ ...l, unitPrice: (l.unitPrice ?? 0) * 2, unitPriceSnap: l.unitPriceSnap === null ? null : l.unitPriceSnap * 2 })));
     pricier.airtable = optionTotals(pricier.lines, 0.1, true);
     const two = smsMessage(customerCopy(quote({ options: [pricier, quote().options[0]] }), AT), to);
-    expect(two.type === "SMS" && two.message).toContain("from $684 + HST");
+    expect(two.type === "SMS" && two.message).toContain("There are 2 options for you to take a look at, from as low as $684 + HST");
   });
 
   it("always opens a preliminary generically: a preliminary is before any visit (2026-10-27)", () => {
@@ -393,7 +393,7 @@ describe("the messages", () => {
     );
     const two = customerCopy(quote({ options: [quote().options[0], option("Oak", quote().options[0].lines)] }), AT);
     const pair = smsMessage(two, to, me);
-    expect(pair.type === "SMS" && pair.message).toContain("2 options for your flooring are ready to compare, from $684 + HST, good until Nov 14.\n\nSee the full details here:\n");
+    expect(pair.type === "SMS" && pair.message).toContain("There are 2 options for you to take a look at, from as low as $684 + HST, good until Nov 14.\n\nSee the full details here:\n");
     // No curly quotes or emoji anywhere: one would switch the text to UCS-2 and halve each segment.
     for (const t of [m, measured]) expect(t.type === "SMS" && /^[\x20-\x7e\n]*$/.test(t.message)).toBe(true);
   });
@@ -670,7 +670,20 @@ describe("a preliminary goes as a range (Albert, 2026-10-27)", () => {
     if (m.type !== "Email") throw new Error();
     expect(m.html).toContain("$660 &ndash; $760");
     expect(m.html).toContain("Estimated ranges. What each option includes");
-    expect(m.html).toContain("3 options from $660 + HST");
+    expect(m.html).toContain("3 options to look at, from as low as $660 + HST");
+    expect(m.html).toContain("There are 3 options for you to take a look at, from as low as $660 + HST, based on what you&rsquo;ve described.");
+  });
+
+  it("texts several options as how many and from as low as the lowest range's low end (2026-10-31)", () => {
+    const lines = quote().options[0].lines;
+    const pricier = lines.map((l) => ({ ...l, unitPrice: (l.unitPrice ?? 0) * 2, unitPriceSnap: l.unitPriceSnap === null ? null : l.unitPriceSnap * 2 }));
+    const t = smsMessage(customerCopy(quote({ basis: "Preliminary", options: [option("Oak", pricier), option("Vinyl", lines)] }), AT), to);
+    if (t.type !== "SMS") throw new Error();
+    expect(t.message).toContain("Thanks for telling us about your project. There are 2 options for you to take a look at, from as low as $660 + HST.");
+    // Never the first option's range alone, as if it were the only one.
+    expect(t.message).not.toMatch(/estimate is \$/);
+    expect(t.message).toContain("Each option shows its price range. Any questions, just reply.");
+    expect(t.message).toMatch(/^[\x20-\x7e\n]*$/);
   });
 
   it("texts the range in GSM-7, with \"to\" instead of a dash", () => {
