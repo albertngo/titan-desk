@@ -26,6 +26,8 @@ export default async function EditQuotePage({ params, searchParams }: { params: 
     const draft = await workingDraftOf(loaded);
     if (draft) redirect(`/q/${draft.id}/edit`);
   }
+  // A change that has gone out is never edited (2026-10-31): the quote page offers no Edit, and a typed URL lands there too.
+  if (loaded.changeNo && loaded.status !== "Draft") redirect(`/q/${loaded.id}`);
   const quote = await refreshFromGhl(loaded);
   const initial = fromQuote(quote);
   // A change after acceptance (2026-10-27): the editor shows how far it moves the contract's total.
