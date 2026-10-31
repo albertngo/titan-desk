@@ -26,6 +26,8 @@ export type PaperProps = {
   unclear: Set<string>;
   /** What the tread boxes add up to, shown beside B9. */
   treadsAddUp: number;
+  /** Pizza sets that need a custom piece: every 2-piece set, and any 2 side open (derive.ts). */
+  pizzaCustom: number;
 };
 
 const PAGE_PX = 816; // 8.5in
@@ -210,7 +212,7 @@ function PageOne(p: PaperProps) {
         <div className="sb">
           <table className="g">
             <thead>
-              <tr><th style={{ width: "21%" }}>Tread</th><th style={{ width: "20%" }}>36&quot;</th><th style={{ width: "20%" }}>42&quot;</th><th style={{ width: "20%" }}>48&quot;</th><th>Other width (write it)</th></tr>
+              <tr><th style={{ width: "19%" }}>Tread</th><th style={{ width: "19%" }}>36&quot;</th><th style={{ width: "19%" }}>42&quot;</th><th style={{ width: "19%" }}>48&quot;</th><th>Other width (write it)</th></tr>
             </thead>
             <tbody>
               {TREAD_ROWS.map(([t, name, sub, c]) => (
@@ -219,7 +221,7 @@ function PageOne(p: PaperProps) {
                   <td>{m.sum(`treads.${t}.w36`, `${name} 36`)}</td>
                   <td>{m.sum(`treads.${t}.w42`, `${name} 42`)}</td>
                   <td>{m.sum(`treads.${t}.w48`, `${name} 48`)}</td>
-                  <td className="ow">{m.sum(`treads.${t}.other`, `${name} other count`, 44)} <span className="lbl">at</span> {m.box(`treads.${t}.otherWidth`, `${name} other width`, 30)}&quot;</td>
+                  <td className="ow">{m.sum(`treads.${t}.other`, `${name} other count`, 40)} <span className="lbl">at</span> {m.box(`treads.${t}.otherWidth`, `${name} other width`, 30)}&quot;</td>
                 </tr>
               ))}
             </tbody>
@@ -236,7 +238,7 @@ function PageOne(p: PaperProps) {
           </div>
           <table className="g">
             <thead>
-              <tr><th style={{ width: "21%" }}>Special treads <small style={{ fontWeight: 500 }}>how many of each</small></th><th style={{ width: "7%" }}>Boxed</th><th style={{ width: "17%" }}>LSO</th><th style={{ width: "17%" }}>RSO</th><th style={{ width: "17%" }}>2 side open</th><th>Pizza only</th></tr>
+              <tr><th style={{ width: "21%" }}>Special treads <small style={{ fontWeight: 500 }}>how many of each</small></th><th style={{ width: "7%" }}>Boxed</th><th style={{ width: "15%" }}>LSO</th><th style={{ width: "15%" }}>RSO</th><th style={{ width: "17%" }}>2 side open</th><th>Pizza only</th></tr>
             </thead>
             <tbody>
               <tr className={m.uc("B6")}>
@@ -248,13 +250,14 @@ function PageOne(p: PaperProps) {
                 <td className="x" />
               </tr>
               <tr className={m.uc("B7")}>
-                <td className="k">Pizza set <small>how many sets · one 90° turn each</small>{m.code("B7")}</td>
+                <td className="k">Pizza set <small>how many sets · one 90° turn each</small><small>custom: every 2-pc · any 2 side open</small>{m.code("B7")}</td>
                 <td className="x" />
                 <td className="x" />
                 <td className="x" />
-                <td>{m.sum("pizza.two", "pizza sets 2 side open")}</td>
+                <td className="ow">{m.sum("pizza.two", "pizza sets 2 side open", 40)} <span className="lbl">sets</span></td>
                 <td className="ow" style={{ textAlign: "left" }}>
-                  <span className="lbl">2-pc</span> {m.sum("pizza.pc2", "pizza 2-piece sets", 40)} <span className="lbl">3-pc</span> {m.sum("pizza.pc3", "pizza 3-piece sets", 40)}
+                  <span className="lbl">2-pc</span> {m.sum("pizza.pc2", "pizza 2-piece sets", 34)} <span className="lbl">3-pc</span> {m.sum("pizza.pc3", "pizza 3-piece sets", 34)}
+                  {p.pizzaCustom > 0 && <span className="ssp-custom">{p.pizzaCustom} custom</span>}
                 </td>
               </tr>
               <tr className={m.uc("B8")}>

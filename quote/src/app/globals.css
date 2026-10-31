@@ -1089,9 +1089,10 @@ a.chip.accent:hover { text-decoration: underline; }
 /* a count box that adds up: what was written, then its total (2026-10-31) */
 .ssp .ssp-sumbox { display: inline-flex; align-items: center; gap: 3pt; width: 100%; justify-content: center; }
 .ssp td.ow .ssp-sumbox { width: auto; }
-.ssp .ssp-sumbox > .ssp-in { flex: 1 1 auto; }
-.ssp td.ow .ssp-sumbox > .ssp-in { flex: none; }
+.ssp .ssp-sumbox > .ssp-in { flex: 1 1 auto; min-width: 52px; }
+.ssp td.ow .ssp-sumbox > .ssp-in { flex: none; min-width: 0; }
 .ssp td:not(.ow) > .ssp-sumbox > .ssp-in { border-bottom: 0; }
+.ssp .ssp-custom { display: block; margin-top: 2pt; font: 700 8pt/1 Inter, system-ui, sans-serif; color: #8a4b00; }
 .ssp .ssp-sum { flex: none; font: 700 9pt/1 Inter, system-ui, sans-serif; color: var(--ink); background: var(--thead); border-radius: 2pt; padding: 2pt 3pt; white-space: nowrap; }
 .ssp .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 6pt; }
 .ssp .notes { flex: 1; min-height: 46pt; border: 1.5px solid var(--rule); border-radius: 3pt; padding: 4pt 6pt; display: grid; grid-template-rows: auto 1fr; gap: 2pt; }

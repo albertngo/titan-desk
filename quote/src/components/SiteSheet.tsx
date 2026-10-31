@@ -224,7 +224,7 @@ export function SiteSheetTab({
                     <p className="faint">No photo {page} on the quote.</p>
                   )}
                 </div>
-                <SiteSheetPaper page={page} sheet={sheet} get={(path) => get(sheet, path)} edit={edit} pieces={pieces} runs={runs} setPiece={setPiece} setRun={setRun} unclear={unclear} treadsAddUp={d.treads} />
+                <SiteSheetPaper page={page} sheet={sheet} get={(path) => get(sheet, path)} edit={edit} pieces={pieces} runs={runs} setPiece={setPiece} setRun={setRun} unclear={unclear} treadsAddUp={d.treads} pizzaCustom={d.custom.pizzaSets} />
               </div>
             ))}
             {photos.length > 2 && (
