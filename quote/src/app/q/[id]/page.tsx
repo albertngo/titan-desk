@@ -77,6 +77,9 @@ export default async function QuotePage({
   const unlinked = quote.link && !quote.link.ghlOpportunityId ? quote.link : null;
   // The accepted quote has no Edit (2026-10-30): it changes only through Make a change, as the editor says.
   const agreed = Boolean(quote.acceptance && !quote.acceptance.cancelled);
+  // A change that has gone out (Sent, or Superseded by a later change) has no Edit either (2026-10-31): the editor
+  // could not save it, so the button only raised "why can't I save?". The newest change is where edits go.
+  const locked = agreed || Boolean(quote.changeNo && quote.status !== "Draft");
   // The option tabs mark what the customer took (2026-10-30), one per scope at most.
   // Put on contract (2026-10-30): on a quote with a contract, an option of a Part the contract covers can replace the one there.
   const contractId = quote.link?.contractVersionId ?? null;
@@ -227,7 +230,7 @@ export default async function QuotePage({
               {/* The label already ends in "v4"; only an unlabelled version needs the number. */}
               {quote.version !== null && !(quote.quoteId ?? "").endsWith(`v${quote.version}`) && ` · v${quote.version}`}
               {madeFrom && ` · ${madeFrom}`}
-              {!agreed && (
+              {!locked && (
                 <>
                   {" · "}
                   <Link href={`/q/${quote.id}/edit`}>Edit this quote</Link>
@@ -344,7 +347,7 @@ export default async function QuotePage({
                 discountRate={quote.discountRate}
                 showHst={quote.showHst}
                 quoteNotes={quote.notes}
-                editHref={agreed ? null : `/q/${quote.id}/edit`}
+                editHref={locked ? null : `/q/${quote.id}/edit`}
                 customer={customer}
                 lumpSum={quote.itemised !== true}
                 sendable={draft}
