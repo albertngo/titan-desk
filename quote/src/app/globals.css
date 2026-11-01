@@ -1378,3 +1378,12 @@ table.cmp th { font-size: 12.5px; font-weight: 500; color: var(--fg-dim); text-t
 
 /* All quotes: column headings in sentence case and a darker grey, like the line tables. */
 .ql-head { background: var(--card); font-size: 12.5px; font-weight: 500; letter-spacing: 0; text-transform: none; }
+
+/* Totals at the bottom of an option's lines, right-aligned like an invoice (Albert, 2026-11-01: "the totals should
+   be at the bottom for intuitiveness"). Quote page and editor. */
+.ov-foot { display: flex; justify-content: flex-end; padding: 14px 16px 18px; border-top: 1px solid var(--line-strong); background: var(--card-2); }
+.ov-foot-in { width: min(100%, 400px); display: grid; }
+.ov-foot .ov-row { padding: 6px 4px; border-bottom: 0; font-size: 14px; }
+.ov-foot .ov-row .k { color: var(--fg-dim); }
+.ov-foot .ov-total { margin-top: 8px; border-radius: 10px; padding: 12px 14px; }
+.ov-foot .ov-accept { margin-top: 12px; padding: 12px 4px 0; border-top: 1px solid var(--line); }
