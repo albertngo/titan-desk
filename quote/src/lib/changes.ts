@@ -23,6 +23,15 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-01",
     kind: "changed",
+    title: "One look across the app",
+    details: [
+      "Every screen now follows the editor's new layout: cards with plain headings, softer buttons, and one light-blue selected state for every tab.",
+      "The quote page has the same header as the editor, with Edit quote at the top right, and the same options panel: Flooring and Stairs rows on the left, Rooms, Site sheet, Photos and Analysis in a column on the right. Its line table shows each work section as its own block.",
+    ],
+  },
+  {
+    date: "2026-11-01",
+    kind: "changed",
     title: "Editor: a cleaner layout",
     details: [
       "Save and Discard sit at the top of the editor and stay in view as you scroll. The options are one panel, and each work section is its own block that ends with + Add to that section.",
