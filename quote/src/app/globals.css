@@ -234,6 +234,10 @@ table.items tr.off td { color: var(--fg-faint); }
 
 /* ---------- analysis ---------- */
 .an { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+/* Flooring and Stairs compared apart (2026-11-01): each scope's two tables sit together, the scopes a clear gap apart. */
+.an-grp { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; min-width: 0; }
+.an-grp:not(.plain) + .an-grp { margin-top: 12px; padding-top: 20px; border-top: 2px solid var(--line-strong); }
+.an-grp .card-h b { color: var(--fg); font-weight: 700; }
 table.cmp { border-collapse: collapse; width: 100%; min-width: 520px; font-size: 13px; }
 table.cmp th { text-align: right; font-size: 11px; font-weight: 600; color: var(--fg-faint); padding: 10px 12px; border-bottom: 1px solid var(--line-strong); }
 table.cmp th:first-child { text-align: left; }

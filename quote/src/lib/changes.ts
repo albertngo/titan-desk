@@ -23,6 +23,14 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-01",
     kind: "changed",
+    title: "Analysis compares flooring and stairs apart",
+    details: [
+      "On a quote with both flooring and stairs options, the Analysis tab shows Options side by side and Where the options differ once for the flooring options and once for the stairs options, so the best margin and the differences are only ever between like options.",
+    ],
+  },
+  {
+    date: "2026-11-01",
+    kind: "changed",
     title: "Editor: adding an option sits on the right",
     details: [
       "In the editor, + Add option and + From quick form are now their own column on the right, behind a light line, instead of sitting in the row with the Flooring and Stairs tabs.",
