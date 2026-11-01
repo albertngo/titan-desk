@@ -119,6 +119,19 @@ h1, h2, h3, p { margin: 0; }
 .tabs.split { flex-wrap: wrap; row-gap: 8px; overflow-x: visible; }
 .tabs.split .tab-scope { width: 72px; padding-left: 0; }
 .tab-break { flex: 0 0 100%; height: 0; }
+/* Editor (2026-11-01): option tabs on the left, + Add option / + From quick form in their own column on the
+   right behind a light rule, so adding never sits in the middle of the Flooring and Stairs rows. */
+.ed-tabs { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; }
+.ed-opts { display: grid; gap: 8px; min-width: 0; }
+.tab-grp { display: flex; align-items: flex-start; gap: 6px; }
+.tab-grp .tab-scope { width: 72px; flex: none; padding: 10px 0 0; }
+.tab-grp-t { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.ed-tabs-add { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding-left: 12px; border-left: 1px solid var(--line-strong); }
+.ed-tabs-add .tab { justify-content: center; }
+@media (max-width: 640px) {
+  .ed-tabs { grid-template-columns: minmax(0, 1fr); }
+  .ed-tabs-add { flex-direction: row; padding: 10px 0 0; border-left: 0; border-top: 1px solid var(--line-strong); }
+}
 .tab:hover { border-color: var(--accent); color: var(--accent); }
 .tab[aria-current="page"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .tab[aria-current="page"] .t-amt { color: rgba(255, 255, 255, .8); }

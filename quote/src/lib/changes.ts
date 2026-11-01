@@ -21,6 +21,14 @@ export type Change = {
 
 export const CHANGES: Change[] = [
   {
+    date: "2026-11-01",
+    kind: "changed",
+    title: "Editor: adding an option sits on the right",
+    details: [
+      "In the editor, + Add option and + From quick form are now their own column on the right, behind a light line, instead of sitting in the row with the Flooring and Stairs tabs.",
+    ],
+  },
+  {
     date: "2026-10-31",
     kind: "changed",
     title: "Customer's quote: each group of options in its own frame",

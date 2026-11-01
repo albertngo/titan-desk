@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { addChoices, sectionLinesInOrder, stairGroupLabel, stairGroups, type AddChoice } from "@/lib/editor/stairGroups";
-import { Fragment, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { quickFormAction, quickOptionAction, saveAsNewVersionAction, saveVersionAction } from "@/app/q/[id]/edit/actions";
 import { estimateWork, initialWork, QuickWork, workInput, type WorkState } from "@/components/QuickWork";
 import type { QuickChoice, QuickProfile } from "@/lib/quick/plan";
@@ -515,12 +515,15 @@ export default function Editor({
             </div>
           </section>
 
-          <nav className={scopeGroups(quote.options).split ? "tabs split" : "tabs"} aria-label="Options">
+          {/* Options on the left; adding one is a separate column on the right behind a light rule (Albert, 2026-11-01). */}
+          <nav className="ed-tabs" aria-label="Options">
+            <div className="ed-opts">
             {scopeGroups(quote.options).groups.map((g, i, all) => (
-              <Fragment key={g.scope}>
-                {/* Stairs start their own row (Albert, 2026-10-31), so flooring tabs never push them off to the right. */}
-                {i > 0 && <span className="tab-break" aria-hidden />}
+              // Each scope is its own row, its label in a fixed column so wrapped tabs still line up (2026-11-01);
+              // Stairs start their own row (Albert, 2026-10-31), so flooring tabs never push them off to the right.
+              <div className="tab-grp" key={g.scope}>
                 {all.length > 1 && <span className="tab-scope">{g.scope}</span>}
+                <div className="tab-grp-t">
                 {g.options.map((o) => (
                   <button key={o.id} className={o.notOffered ? "tab off" : "tab"} aria-current={option?.id === o.id ? "page" : undefined} onClick={() => setActiveId(o.id)} title={o.notOffered ? "Not offered: never sent to the customer" : undefined}>
                     {o.notOffered && <span className="t-off">Not offered</span>}
@@ -529,9 +532,11 @@ export default function Editor({
                     <span className="t-amt">{money(optionTotals(o.lines, quote.discountRate, quote.showHst).total)}</span>
                   </button>
                 ))}
-              </Fragment>
+                </div>
+              </div>
             ))}
-            {quote.options.length > 0 && <span className="tab-sep" aria-hidden />}
+            </div>
+            <div className="ed-tabs-add">
             <button
               className="tab"
               onClick={() => {
@@ -562,6 +567,7 @@ export default function Editor({
             >
               {quick === "loading" ? "Opening…" : "+ From quick form"}
             </button>
+            </div>
           </nav>
 
           {quickNote && <div className="banner warn" role="status">{quickNote}</div>}
