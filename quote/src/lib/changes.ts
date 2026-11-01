@@ -22,6 +22,15 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-01",
+    kind: "new",
+    title: "Typed lines are saved to the Rate Card for review",
+    details: [
+      "When a quote is sent, each typed line on it (one not picked from the Rate Card or Stair Items) is saved there for next time: switched off and marked Needs Review, with a note saying which quote it came from. Tick Active and set it to OK in Airtable to make it pickable.",
+      "If a row with the same name already exists, nothing new is made. Either way, the row's Typed On column lists every quote line that used it, with the price charged, so you can check nothing was charged wrongly.",
+    ],
+  },
+  {
+    date: "2026-11-01",
     kind: "changed",
     title: "Totals at the bottom of the option",
     details: [

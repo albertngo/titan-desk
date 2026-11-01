@@ -698,6 +698,20 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   a later step can hand stair and measurement photos to Claude (not built: that would go through
   `src/lib/anthropic/client.ts`, a reviewed change to rule 2e). Pure reading in `src/lib/companycam/photos.ts`, tested
   in `tests/companycam.test.ts`; screen `src/components/CompanyCamPhotos.tsx`.
+- **Typed lines saved for next time, and logged (Albert, 2026-11-01: "When we add custom items and the quote ends
+  up being SENT… make it so that those items are created for next time use and make them 'require review'… There
+  should be a log of where it was used so I can ensure it wasn't wrongly charged").** After a quote is sent (never
+  stopping it), each typed line on the options that went out (`sourceKind` manual, priced, with words; never a
+  Private line, exclusion or note) is matched by name (case, spacing and punctuation ignored; a Rate Card row also by
+  Labor Type) to an existing Rate Card or Stair Items row, Active or not; with no match one new row is made per
+  distinct item, **switched off and Needs Review**: Rate Card key "Labor Type | words | (typed)", Labor Type from the
+  section (Prep as Install, so the picker shows it there), the unit if the card offers it, Titan Rate the price, the
+  cost in Labor Cost (Material Cost for a material), and a Product Note saying which quote and who; a stairs line
+  becomes a Stair Item the same way (no category). Existing rows are only linked, never changed. Every typed line is
+  linked to its row (Quote Lines → **Custom Rate Item** / **Custom Stair Item**), so the row's **Typed On** and **Typed
+  On (detail)** (Quote Lines → Typed Usage: quote, words, unit price, total) are the usage log. Albert approves a row
+  by ticking Active and setting OK, and it is then pickable like any other. Pure rules in `src/lib/catalog/typed.ts`,
+  tested in `tests/customItems.test.ts`; writer `src/lib/quotes/customItems.ts`.
 - **All quotes (2026-10-15).** One row per quote, its versions folded under it (newest first),
   and a search over name, quote and project number, city, email and phone digits. Grouping and
   search are pure, in `src/lib/quotes/group.ts`, tested in `tests/group.test.ts`. Since 2026-10-28
@@ -722,7 +736,11 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
    (POST) and update (PATCH) records, never delete or replace, and `write()` refuses any
    table outside `WRITABLE_TABLES` (Quotes, Quote Versions, Quote Options, Quote Lines, Invoices, Receipts).
    Only the files listed in the boundary test's `WRITERS` may call it. Never a write to the
-   catalogue, Rate Card or Stair Items from this app.
+   catalogue from this app. **One exception for the Rate Card and Stair Items (Albert, 2026-11-01):**
+   `createReviewRecord()` in the client may CREATE a row there (`REVIEW_TABLES`), and only one switched off and
+   marked Needs Review (`REVIEW_MARKS`: Active unticked, Import Status / Review Status = Needs Review), without
+   typecast; never an update, never a delete. Only `src/lib/quotes/customItems.ts` calls it. The boundary test pins
+   all of this.
 2a. **One file talks to GHL, and only reads:** `src/lib/ghl/client.ts`, `server-only`, GET
    only, the only reader of `QUOTE_GHL_TOKEN` (used for contacts.readonly, opportunities.readonly,
    conversations.readonly and conversations/message.readonly; since 2026-10-27 users.readonly, to tag

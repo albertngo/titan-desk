@@ -1,6 +1,6 @@
 import "server-only";
 import { isCustomerDeployment } from "@/lib/mode";
-import { BASE_ID, WRITABLE_TABLES } from "./fields";
+import { BASE_ID, REVIEW_MARKS, REVIEW_TABLES, WRITABLE_TABLES } from "./fields";
 
 /**
  * The ONLY file in quote/ that talks to Airtable, and the only one that reads
@@ -10,7 +10,11 @@ import { BASE_ID, WRITABLE_TABLES } from "./fields";
  * and only ever to the four quote tables in WRITABLE_TABLES: `write()` refuses any other table
  * before a request leaves the server, and refuses everything on the customer deployment, whose
  * token is read-only anyway (src/lib/mode.ts). There is no delete and no PUT. tests/boundary.test.ts
- * enforces all of this, so a catalogue, Rate Card or Stair Items write can never ship.
+ * enforces all of this, so a catalogue write can never ship.
+ *
+ * One exception (Albert, 2026-11-01): `createReviewRecord()` may CREATE a Rate Card or Stair Items row, and only one
+ * switched off and marked Needs Review (REVIEW_MARKS), for a typed line on a sent quote. No update, no delete, and
+ * nothing else in this file can reach those tables.
  */
 
 const API = "https://api.airtable.com/v0";
@@ -49,8 +53,8 @@ async function get(path: string, params: URLSearchParams): Promise<unknown> {
   return res.json();
 }
 
-async function write(method: "POST" | "PATCH", table: string, path: string, body: unknown): Promise<unknown> {
-  if (!WRITABLE_TABLES.includes(table)) throw new AirtableError(`Refused: the quote app never writes to ${table}`, 403);
+async function write(method: "POST" | "PATCH", table: string, path: string, body: unknown, review = false): Promise<unknown> {
+  if (!WRITABLE_TABLES.includes(table) && !(review && method === "POST" && path === table && REVIEW_TABLES.includes(table))) throw new AirtableError(`Refused: the quote app never writes to ${table}`, 403);
   if (isCustomerDeployment()) throw new AirtableError("Refused: the customer deployment never writes", 403);
   const res = await fetch(`${API}/${BASE_ID}/${path}`, {
     method,
@@ -89,6 +93,17 @@ export async function uploadAttachment(table: string, id: string, fieldId: strin
 /** Create one record in a quote table. Select options are matched by name (typecast). Returns it with computed fields. */
 export async function createRecord(table: string, fields: Record<string, unknown>): Promise<AirtableRecord> {
   return (await write("POST", table, table, { fields, typecast: true, returnFieldsByFieldId: true })) as AirtableRecord;
+}
+
+/**
+ * Create one row in the Rate Card or Stair Items for review (2026-11-01): refused unless it is switched off and marked
+ * Needs Review. No typecast, so a select value must already be one of Airtable's own. The only way into those tables.
+ */
+export async function createReviewRecord(table: string, fields: Record<string, unknown>): Promise<AirtableRecord> {
+  const marks = REVIEW_MARKS[table];
+  if (!REVIEW_TABLES.includes(table) || !marks) throw new AirtableError(`Refused: ${table} is not a review table`, 403);
+  if (!marks.every(([f, v]) => fields[f] === v)) throw new AirtableError("Refused: a new card row must be switched off and marked Needs Review", 403);
+  return (await write("POST", table, table, { fields, typecast: false, returnFieldsByFieldId: true }, true)) as AirtableRecord;
 }
 
 /** Change the given fields of one record in a quote table; every other field is left alone. */

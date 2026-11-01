@@ -26,6 +26,15 @@ export const T = {
  */
 export const WRITABLE_TABLES: readonly string[] = [T.quotes, T.versions, T.options, T.lines, T.invoices, T.receipts];
 
+/**
+ * The one exception for the Rate Card and Stair Items (Albert, 2026-11-01: typed items on a sent quote are "created
+ * for next time use" and "require review"): the app may CREATE a row there, only through `createReviewRecord()` in
+ * the client, only switched off and marked Needs Review (`REVIEW_MARKS`), and never update or delete one. The
+ * catalogue is never written. Rate Card and Stair Items ids are defined below; the strings are repeated here so this
+ * list sits beside WRITABLE_TABLES.
+ */
+export const REVIEW_TABLES: readonly string[] = ["tblGBGezZfBWhEgmu", "tbltRm9tL6r5brZn2"];
+
 /** Quotes table: one row per quote. Customer fields are display copies; GHL owns them. */
 export const QUOTE = {
   legacyId: "fldzAQG3cQOleJ52Y",
@@ -208,6 +217,9 @@ export const LINE = {
   installMaterial: "fldLHVDiQWa3lOIcq",
   /** 2026-10-20: the Stair Profiles row a preliminary's staircase line was priced from. */
   stairProfile: "fldx3bE8kRnoGRRwu",
+  /** 2026-11-01: a typed line on a sent quote, matched to or saved as a Rate Card / Stair Items row for review. App-written. */
+  customRateItem: "fldliwYLyyjA6ZjZQ",
+  customStairItem: "fldWFwcybcdL2mnfN",
   /** 2026-10-28: lookup of the Stair Item's Category, for grouping the Stairs section. Read only. */
   stairCategory: "fldSFOxH6jcSqDxLL",
   // Airtable's own per-line results — read only for the parity check.
@@ -255,6 +267,13 @@ export const RATE = {
   materialGroup: "fldskxNatiyqheLSd",
   /** 2026-10-16: the Install Material a line starts with, added on top of the Titan Rate and Total Cost (labour only, 2026-10-28). */
   defaultMaterial: "fldKoeawws0YkMo78",
+  // Written only when the app creates a row for review (2026-11-01, `createReviewRecord()`).
+  rateKey: "fld4Di8ZJG9hoYg26",
+  laborCost: "fldnkv18xLCBdSQMW",
+  materialCost: "fldbF5AXtXeyk6VWl",
+  /** Import Status: OK / Needs Review. A row the app makes is always Needs Review. */
+  importStatus: "fldt43qJAQUirdaQ7",
+  productNote: "fldttQIgxw4WpiGec",
 } as const;
 
 /** Install Materials (2026-10-16), read-only: what a Rate Card job's material can be swapped for. */
@@ -301,7 +320,22 @@ export const STAIR = {
   cost: "fldX96S7DulWrGjUC",
   materialCost: "fldmD89fOLP8N6L9I",
   active: "fldZwEDirc4fNjRIm",
+  note: "fldSnyFju6GA8vBZZ",
+  /** Review Status (2026-11-01): OK / Needs Review. A row the app makes is always Needs Review. */
+  reviewStatus: "fldtGHMDHiTMc3uS4",
 } as const;
+
+/** What every row the app creates in a review table must carry (2026-11-01): switched off and Needs Review. */
+export const REVIEW_MARKS: Readonly<Record<string, readonly (readonly [string, unknown])[]>> = {
+  tblGBGezZfBWhEgmu: [
+    ["fld2ZHDbhu8PYIJFe", false],
+    ["fldt43qJAQUirdaQ7", "Needs Review"],
+  ],
+  tbltRm9tL6r5brZn2: [
+    ["fldZwEDirc4fNjRIm", false],
+    ["fldtGHMDHiTMc3uS4", "Needs Review"],
+  ],
+};
 
 /**
  * Quick Quote Choices (created 2026-10-15): one row per choice on the quick, preliminary form.
