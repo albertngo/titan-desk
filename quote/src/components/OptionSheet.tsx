@@ -249,9 +249,19 @@ export function OptionSheet({
             </table>
           </div>
         )}
+        {/* Totals at the bottom of the lines, as on an invoice (Albert, 2026-11-01: "the totals should be at the bottom for intuitiveness"). */}
+        <div className="ov-foot">
+          <div className="ov-foot-in">
+            <div className="ov-row"><span className="k">Pre-discount</span><span className="v">{money(t.preDiscount)}</span></div>
+            <div className="ov-row"><span className="k">Discount ({pct(discountRate * 100, 0)})</span><span className="v">{money(t.discount)}</span></div>
+            <div className="ov-row"><span className="k">Subtotal</span><span className="v">{money(t.subtotal)}</span></div>
+            <div className="ov-row"><span className="k">HST{showHst ? " (13%)" : t.hst ? " (materials only)" : " (off)"}</span><span className="v">{money(t.hst)}</span></div>
+            <div className="ov-total"><span>Total</span><span className="v">{money(t.total)}</span></div>
+          </div>
+        </div>
       </section>
 
-      <div className="duo">
+      <div>
         <section className="card">
           <div className="card-h">Notes</div>
           <div className="card-b notes">
@@ -270,14 +280,6 @@ export function OptionSheet({
           </div>
         </section>
 
-        <section className="card">
-          <div className="card-h">Quote overview</div>
-          <div className="ov-row bullet"><span className="k">Pre-discount</span><span className="v">{money(t.preDiscount)}</span></div>
-          <div className="ov-row bullet"><span className="k">Discount ({pct(discountRate * 100, 0)})</span><span className="v">{money(t.discount)}</span></div>
-          <div className="ov-row bullet"><span className="k">Subtotal</span><span className="v">{money(t.subtotal)}</span></div>
-          <div className="ov-row bullet"><span className="k">HST{showHst ? " (13%)" : t.hst ? " (materials only)" : " (off)"}</span><span className="v">{money(t.hst)}</span></div>
-          <div className="ov-total"><span>Total</span><span className="v">{money(t.total)}</span></div>
-        </section>
       </div>
 
       {/* Sending is the Send card beside the sheet only; no second button here (Albert, 2026-10-31). */}

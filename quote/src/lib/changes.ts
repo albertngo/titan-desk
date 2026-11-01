@@ -23,6 +23,14 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-01",
     kind: "changed",
+    title: "Totals at the bottom of the option",
+    details: [
+      "On the quote page and in the editor, the option's totals (pre-discount, discount, subtotal, HST and the total) now sit at the bottom of its lines, right-aligned like an invoice, instead of in a card beside the notes. In the editor, Accepted price sits right under them.",
+    ],
+  },
+  {
+    date: "2026-11-01",
+    kind: "changed",
     title: "One look across the app",
     details: [
       "Every screen now follows the editor's new layout: cards with plain headings, softer buttons, and one light-blue selected state for every tab.",
