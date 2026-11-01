@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { RATE_TABLE, STAIR_TABLE, T, WRITABLE_TABLES } from "../src/lib/airtable/fields";
+import { RATE, RATE_TABLE, REVIEW_MARKS, REVIEW_TABLES, STAIR, STAIR_TABLE, T, WRITABLE_TABLES } from "../src/lib/airtable/fields";
 
 /**
  * Structural rules for the quoting app, checked on the source text so a mistake fails CI
@@ -12,7 +12,7 @@ const SRC = path.resolve(__dirname, "../src");
 const CLIENT = "lib/airtable/client.ts";
 const GHL = "lib/ghl/client.ts";
 /** The only files allowed to create or update Airtable records. Adding one is a reviewed decision. */
-const WRITERS = ["lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/accept/record.ts", "lib/quotes/sitesheet.ts", "lib/quotes/billing.ts"];
+const WRITERS = ["lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/accept/record.ts", "lib/quotes/sitesheet.ts", "lib/quotes/billing.ts", "lib/quotes/customItems.ts"];
 const CATALOGUE = "tblfLXD3zkSdNQGbS";
 
 function files(dir: string): string[] {
@@ -40,7 +40,8 @@ describe("Airtable boundary", () => {
     const client = code(all.find((f) => f.rel === CLIENT)!.text);
     for (const verb of ["PUT", "DELETE"]) expect(client).not.toMatch(new RegExp(`["'\`]${verb}["'\`]`));
     // Every write goes through write(), which refuses any table outside WRITABLE_TABLES.
-    expect(client).toMatch(/if \(!WRITABLE_TABLES\.includes\(table\)\) throw/);
+    // write() refuses any table outside WRITABLE_TABLES, except a review-only POST of a whole new record (2026-11-01).
+    expect(client).toMatch(/if \(!WRITABLE_TABLES\.includes\(table\) && !\(review && method === "POST" && path === table && REVIEW_TABLES\.includes\(table\)\)\) throw/);
     // The customer deployment never writes, whatever its token allows.
     expect(client).toMatch(/if \(isCustomerDeployment\(\)\) throw/);
     // Three requests in the whole file: get(), write() and, since 2026-10-28, uploadAttachment() (the site
@@ -54,6 +55,20 @@ describe("Airtable boundary", () => {
   it("writes to the four quote tables and Invoices / Receipts (2026-10-30) only, never the catalogue, Rate Card or Stair Items", () => {
     expect([...WRITABLE_TABLES].sort()).toEqual([T.quotes, T.versions, T.options, T.lines, T.invoices, T.receipts].sort());
     for (const t of [RATE_TABLE, STAIR_TABLE, CATALOGUE]) expect(WRITABLE_TABLES).not.toContain(t);
+  });
+
+  it("creates Rate Card / Stair Items rows for review only: switched off, Needs Review, from one file, never an update (2026-11-01)", () => {
+    expect([...REVIEW_TABLES].sort()).toEqual([RATE_TABLE, STAIR_TABLE].sort());
+    expect(REVIEW_TABLES).not.toContain(CATALOGUE);
+    expect(REVIEW_MARKS[RATE_TABLE]).toEqual([[RATE.active, false], [RATE.importStatus, "Needs Review"]]);
+    expect(REVIEW_MARKS[STAIR_TABLE]).toEqual([[STAIR.active, false], [STAIR.reviewStatus, "Needs Review"]]);
+    const client = code(all.find((f) => f.rel === CLIENT)!.text);
+    // The one function that passes review = true: it checks the table and the marks before anything leaves.
+    expect(client.match(/, true\)\) as AirtableRecord/g)?.length).toBe(1);
+    expect(client).toMatch(/export async function createReviewRecord\([^)]*\)[^{]*\{\s*const marks = REVIEW_MARKS\[table\];\s*if \(!REVIEW_TABLES\.includes\(table\) \|\| !marks\) throw[^\n]*\n\s*if \(!marks\.every\(\(\[f, v\]\) => fields\[f\] === v\)\) throw[^\n]*\n\s*return \(await write\("POST", table, table, /);
+    const callers = all.filter((f) => f.rel !== CLIENT && /\bcreateReviewRecord\(/.test(code(f.text))).map((f) => f.rel);
+    expect(callers).toEqual(["lib/quotes/customItems.ts"]);
+    expect(all.find((f) => f.rel === "lib/quotes/customItems.ts")!.text).toMatch(/^import "server-only";/m);
   });
 
   it("creates and updates records from the allowed files only", () => {

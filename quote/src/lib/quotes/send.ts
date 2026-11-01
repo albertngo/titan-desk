@@ -1,4 +1,5 @@
 import "server-only";
+import { saveTypedItems } from "@/lib/quotes/customItems";
 import { listByIds, updateRecord, updateRecords } from "@/lib/airtable/client";
 import { QUOTE, T, VERSION } from "@/lib/airtable/fields";
 import { requireQuoter, requireQuoterPerson } from "@/lib/auth";
@@ -308,6 +309,13 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   }
   // A change is the contract now (2026-10-27): the quote points at it, and GHL's value (and, through Make, Notion's) follows it.
   if (copy.change) notes.push(...(await recordContract(quote, copy, link)));
+  // Typed lines on what went out are saved for next time and logged (Albert, 2026-11-01): new ones as Rate Card / Stair
+  // Items rows, switched off and Needs Review, and every one linked to its row. Never stops a send.
+  try {
+    await saveTypedItems(chooseOptions(quote, input.optionIds).options, { quoteLabel: quote.quoteId ?? "a quote", by: sender, on: today });
+  } catch {
+    notes.push("Typed lines couldn't be saved to the Rate Card for review; the quote itself went out.");
+  }
   const warning = [...failed.map((f) => `Not sent by ${f}`), ...notes].join(" ") || null;
   return { ok: true, link, sentTo, warning };
 }

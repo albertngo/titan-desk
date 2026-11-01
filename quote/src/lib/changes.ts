@@ -23,6 +23,21 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-01",
     kind: "changed",
+    title: "Editor: unit cost in its own column again",
+    details: ["In the editor, Unit cost is its own column beside Unit price again, instead of sitting under the price. The margin stays under the line total."],
+  },
+  {
+    date: "2026-11-01",
+    kind: "new",
+    title: "Typed lines are saved to the Rate Card for review",
+    details: [
+      "When a quote is sent, each typed line on it (one not picked from the Rate Card or Stair Items) is saved there for next time: switched off and marked Needs Review, with a note saying which quote it came from. Tick Active and set it to OK in Airtable to make it pickable.",
+      "If a row with the same name already exists, nothing new is made. Either way, the row's Typed On column lists every quote line that used it, with the price charged, so you can check nothing was charged wrongly.",
+    ],
+  },
+  {
+    date: "2026-11-01",
+    kind: "changed",
     title: "Totals at the bottom of the option",
     details: [
       "On the quote page and in the editor, the option's totals (pre-discount, discount, subtotal, HST and the total) now sit at the bottom of its lines, right-aligned like an invoice, instead of in a card beside the notes. In the editor, Accepted price sits right under them.",
