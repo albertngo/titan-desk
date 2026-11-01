@@ -1,6 +1,7 @@
 import { SECTIONS, lineFlags, optionTotals, sectionTotals, type OptionTotals } from "@/lib/calc";
 import { money, pct } from "@/lib/format";
 import type { Quote } from "@/lib/quotes/types";
+import { scopeGroups } from "@/lib/quotes/scope";
 import { AcceptedPrice } from "./AcceptedPrice";
 
 const METRICS: { key: keyof OptionTotals; label: string; best?: "max"; internal?: true }[] = [
@@ -33,13 +34,35 @@ export function Analysis({ quote, customer }: { quote: Quote; customer: boolean 
       </div>
     );
 
+  // Flooring and stairs are compared apart (Albert, 2026-11-01: "Analysis should split flooring and stairs
+  // comparisons as well"): a stairs option is never the best flooring margin, and a section that only one scope has
+  // never reads as "differs". One quote of one scope is the same two tables as before.
+  const { split, groups } = scopeGroups(quote.options);
+  return (
+    <div className="an">
+      {accepted}
+      {groups.map((g) => (
+        <Compare
+          key={g.scope}
+          title={split ? `${g.scope} options` : null}
+          opts={opts.filter((x) => g.options.some((o) => o.id === x.o.id))}
+          customer={customer}
+        />
+      ))}
+    </div>
+  );
+}
+
+type Row = { o: Quote["options"][number]; t: OptionTotals; s: Map<string, number>; flags: number };
+
+function Compare({ title, opts, customer }: { title: string | null; opts: Row[]; customer: boolean }) {
   const sections = [...SECTIONS.filter((s) => s !== "Exclusions"), "Unsorted"].filter((s) =>
     opts.some((x) => (x.s.get(s) ?? 0) !== 0),
   );
 
   return (
-    <div className="an">
-      {accepted}
+    <div className={title ? "an-grp" : "an-grp plain"}>
+      {title && <h2 className="an-grp-h">{title}</h2>}
       <section className="card">
       <div className="card-h">Options side by side</div>
       <div className="tbl-wrap">
@@ -80,6 +103,7 @@ export function Analysis({ quote, customer }: { quote: Quote; customer: boolean 
       </div>
       </section>
 
+      {opts.length > 1 && (
       <section className="card">
       <div className="card-h">Where the options differ</div>
       <div className="tbl-wrap">
@@ -111,6 +135,7 @@ export function Analysis({ quote, customer }: { quote: Quote; customer: boolean 
         </table>
       </div>
       </section>
+      )}
     </div>
   );
 }

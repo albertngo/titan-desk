@@ -119,6 +119,19 @@ h1, h2, h3, p { margin: 0; }
 .tabs.split { flex-wrap: wrap; row-gap: 8px; overflow-x: visible; }
 .tabs.split .tab-scope { width: 72px; padding-left: 0; }
 .tab-break { flex: 0 0 100%; height: 0; }
+/* Editor (2026-11-01): option tabs on the left, + Add option / + From quick form in their own column on the
+   right behind a light rule, so adding never sits in the middle of the Flooring and Stairs rows. */
+.ed-tabs { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; }
+.ed-opts { display: grid; gap: 8px; min-width: 0; }
+.tab-grp { display: flex; align-items: flex-start; gap: 6px; }
+.tab-grp .tab-scope { width: 72px; flex: none; padding: 10px 0 0; }
+.tab-grp-t { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.ed-tabs-add { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding-left: 12px; border-left: 1px solid var(--line-strong); }
+.ed-tabs-add .tab { justify-content: center; }
+@media (max-width: 640px) {
+  .ed-tabs { grid-template-columns: minmax(0, 1fr); }
+  .ed-tabs-add { flex-direction: row; padding: 10px 0 0; border-left: 0; border-top: 1px solid var(--line-strong); }
+}
 .tab:hover { border-color: var(--accent); color: var(--accent); }
 .tab[aria-current="page"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 .tab[aria-current="page"] .t-amt { color: rgba(255, 255, 255, .8); }
@@ -221,6 +234,13 @@ table.items tr.off td { color: var(--fg-faint); }
 
 /* ---------- analysis ---------- */
 .an { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+/* Flooring and Stairs compared apart (2026-11-01): each scope's two tables sit together, the scopes a clear gap apart. */
+.an-grp { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; min-width: 0; }
+/* Each scope framed on its own (2026-11-01, Albert: "so its more separate"): a tinted box, a firm border, a
+   header band with the scope's name and a blue edge, and a wide gap before the next scope. */
+.an-grp:not(.plain) { padding: 0 12px 12px; background: #eaf0f8; border: 2px solid #c4d0e0; border-radius: 12px; }
+.an-grp:not(.plain) + .an-grp { margin-top: 20px; }
+.an-grp-h { margin: 0 -12px; padding: 12px 16px; font-size: 17px; font-weight: 800; color: var(--fg); background: var(--card); border-bottom: 2px solid #c4d0e0; border-left: 6px solid var(--accent); border-radius: 10px 10px 0 0; }
 table.cmp { border-collapse: collapse; width: 100%; min-width: 520px; font-size: 13px; }
 table.cmp th { text-align: right; font-size: 11px; font-weight: 600; color: var(--fg-faint); padding: 10px 12px; border-bottom: 1px solid var(--line-strong); }
 table.cmp th:first-child { text-align: left; }
@@ -708,9 +728,15 @@ a.chip.accent:hover { text-decoration: underline; }
 .cq-totals dl div { font-size: 15px; }
 .cq-excl { font-size: 15px; }
 .cq-li { padding: 12px 18px; }
-.cq-switch { display: grid; gap: 10px; overflow-anchor: none; }
-.cq-switch .cq-scope { margin: 6px 0 0; font-size: 17px; font-weight: 700; }
-.cq-switch-hint { font-size: 14px; color: var(--fg-dim); }
+/* Each group of options is one framed section (2026-10-31): a tinted box with a firm border, a header band
+   with the group's name, then its option buttons and the chosen option's details, all inside the frame.
+   Flooring and Stairs sit apart with a clear gap. */
+.cq-switch { display: grid; gap: 12px; overflow-anchor: none; background: #eaf0f8; border: 2px solid #c4d0e0; border-radius: 14px; padding: 0 14px 16px; margin-top: 8px; }
+.cq-switch + .cq-switch { margin-top: 28px; }
+.cq-switch-h { margin: 0 -14px; padding: 14px 16px 12px; background: var(--card); border-bottom: 2px solid #c4d0e0; border-radius: 12px 12px 0 0; border-left: 6px solid var(--accent); }
+.cq-switch-h h2 { font-size: 22px; font-weight: 800; line-height: 1.2; letter-spacing: -.01em; color: var(--fg); }
+.cq-switch-hint { font-size: 14.5px; color: var(--fg-dim); margin-top: 4px; }
+@media (max-width: 520px) { .cq-switch { padding: 0 10px 12px; } .cq-switch-h { margin: 0 -10px; } }
 .cq-tabs { display: grid; grid-template-columns: repeat(var(--n, 2), minmax(0, 1fr)); gap: 8px; }
 @media (max-width: 520px) { .cq-tabs { grid-template-columns: repeat(min(var(--n, 2), 2), minmax(0, 1fr)); } }
 .cq-tab { font: inherit; text-align: left; display: grid; gap: 2px; align-content: start; min-height: 44px; padding: 10px 12px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--card); color: var(--fg); cursor: pointer; position: relative; transition: border-color .2s, background .2s, box-shadow .2s, transform .08s; }
@@ -727,9 +753,9 @@ a.chip.accent:hover { text-decoration: underline; }
 .cq-tab.on .no { color: var(--accent); }
 .cq-tab.on .rec { background: var(--card); }
 /* A small arrow under the chosen option, pointing at its details. */
-.cq-tab.on::after { content: ""; position: absolute; left: 50%; bottom: -8px; width: 12px; height: 12px; margin-left: -6px; background: var(--accent-soft); border-right: 2px solid var(--accent); border-bottom: 2px solid var(--accent); transform: rotate(45deg); }
+.cq-tab.on::after { content: ""; position: absolute; left: 50%; bottom: -8px; z-index: 1; width: 12px; height: 12px; margin-left: -6px; background: var(--accent-soft); border-right: 2px solid var(--accent); border-bottom: 2px solid var(--accent); transform: rotate(45deg); }
 .cq-panel { display: none; overflow-anchor: none; }
-.cq-panel.on { display: block; margin-top: 10px; padding-top: 18px; border-top: 2px solid var(--line-strong); animation: cq-in .22s ease-out; }
+.cq-panel.on { display: block; margin-top: 10px; padding-top: 18px; border-top: 2px dashed #b3c1d4; animation: cq-in .22s ease-out; }
 .cq-panel.on[data-from="right"] { animation-name: cq-in-r; }
 .cq-panel.on[data-from="left"] { animation-name: cq-in-l; }
 @keyframes cq-in { from { opacity: 0; } to { opacity: 1; } }
@@ -1247,3 +1273,74 @@ a.chip.accent:hover { text-decoration: underline; }
 .nq-tab-x:hover { border-color: var(--bad); color: var(--bad); }
 .ed-quick { margin-top: 12px; }
 .ed-quick-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+
+/* ---------- Editor, option C (Albert, 2026-11-01: "less AI slop, more refined and ease of use") ----------
+   One look for the whole editor: a compact header with Save, options in their own panel, the option as one
+   sheet with each work section a block of its own, price and cost in one column, and a sidebar with the money
+   and a short customer-and-terms card. Scoped to .ed-* and table.items.edit, so the quote page is untouched. */
+.ed-head { align-items: center; gap: 12px 16px; margin-bottom: 18px; }
+.ed-head .crumb { font-size: 13px; color: var(--fg-dim); margin-bottom: 2px; }
+.ed-head h1 { font-size: 22px; font-weight: 650; letter-spacing: -.01em; }
+.ed-head .ed-hint { font-size: 13px; color: var(--fg-dim); margin-top: 4px; max-width: 70ch; }
+.ed-head .actions { flex-wrap: nowrap; }
+.ed-head .btn { padding: 8px 14px; font-size: 13.5px; border-radius: 10px; }
+.page:not(.is-change) .ed-head { position: sticky; top: 0; z-index: 4; margin: -20px calc(-1 * clamp(16px, 2.5vw, 32px)) 18px; padding: 14px clamp(16px, 2.5vw, 32px) 12px; background: color-mix(in srgb, var(--bg) 94%, transparent); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); }
+@media (max-width: 760px) { .ed-head .actions { flex-wrap: wrap; } }
+
+.ed-layout { grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; }
+@media (max-width: 1080px) { .ed-layout { grid-template-columns: minmax(0, 1fr); } }
+.ed-side { display: grid; gap: 16px; align-content: start; min-width: 0; }
+.ed-side .card, .ed-layout .card { border-radius: 12px; }
+.ed-cust .card-b { display: grid; gap: 4px; padding: 14px 16px; font-size: 13.5px; }
+.ed-cust .who { font-size: 15px; }
+.ed-cust .where { color: var(--fg); overflow-wrap: anywhere; }
+.ed-cust .chip { justify-self: start; }
+.ed-cust dl { margin: 10px 0 0; padding-top: 10px; border-top: 1px solid var(--line); display: grid; gap: 6px; }
+.ed-cust dl div { display: flex; justify-content: space-between; gap: 12px; }
+.ed-cust dt { color: var(--fg-dim); }
+.ed-cust dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.ed-cust .ed-edit { justify-self: start; margin-top: 8px; color: var(--accent); font-weight: 600; }
+
+/* Options panel: one card, two-line option buttons, a quiet selected state. */
+.ed-tabs { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; box-shadow: var(--shadow); }
+.ed-tabs .tab { display: grid; gap: 1px; align-content: start; text-align: left; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--line-strong); background: var(--card); color: var(--fg); min-width: 150px; white-space: normal; }
+.ed-tabs .tab .t-name { font-size: 13.5px; font-weight: 550; line-height: 1.3; }
+.ed-tabs .tab .t-amt { font-size: 12.5px; color: var(--fg-dim); font-variant-numeric: tabular-nums; }
+.ed-tabs .tab .t-part, .ed-tabs .tab .t-off { justify-self: start; }
+.ed-tabs .tab:hover { border-color: var(--accent); color: var(--fg); }
+.ed-tabs .tab[aria-current="page"] { background: var(--accent-soft); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); color: var(--fg); }
+.ed-tabs .tab[aria-current="page"] .t-amt, .ed-tabs .tab[aria-current="page"] .t-part { color: var(--fg-dim); }
+.ed-tabs .tab-grp .tab-scope { font-size: 12.5px; letter-spacing: 0; text-transform: none; color: var(--fg); font-weight: 650; padding-top: 10px; }
+.ed-tabs .tab-grp + .tab-grp { padding-top: 10px; border-top: 1px solid var(--line); }
+.ed-tabs-add .tab { min-width: 0; border-style: dashed; background: var(--card-2); color: var(--fg-dim); text-align: center; justify-content: center; }
+
+/* The option: a sheet whose head reads as a document heading, not a form. */
+.ed-opt .ohead { padding: 18px 20px 16px; gap: 8px; }
+.ed-opt .in.title { font-size: 20px; font-weight: 650; letter-spacing: -.01em; border-color: transparent; padding: 4px 6px; margin-left: -6px; background: none; }
+.ed-opt .in.area { border-color: transparent; padding: 6px; margin-left: -6px; background: none; color: var(--fg-dim); font-size: 14px; min-height: 48px; }
+.ed-opt .in.title:hover, .ed-opt .in.area:hover { border-color: var(--line-strong); }
+.ed-opt .in.title:focus, .ed-opt .in.area:focus { border-color: var(--accent); background: var(--card); color: var(--fg); outline: 0; }
+.ed-opt .obar { gap: 8px 10px; padding-top: 4px; font-size: 13px; }
+.ed-opt .obar .check-in { padding: 4px 10px; border-radius: 8px; background: var(--card-2); border: 1px solid var(--line); }
+
+/* The table: fewer columns, darker headings, each section a block of its own. */
+table.items.edit th { font-size: 12.5px; font-weight: 500; color: var(--fg-dim); text-transform: none; letter-spacing: 0; }
+table.items.edit th + th, table.items.edit td + td { border-left: 0; }
+table.items.edit tr.sect td { background: var(--card) !important; font-size: 15px; font-weight: 650; letter-spacing: 0; text-transform: none; color: var(--fg); padding: 16px 12px 8px; border-top: 8px solid var(--bg); border-bottom: 1px solid var(--line-strong); }
+table.items.edit tbody tr.sect:first-child td { border-top: 0; }
+table.items.edit tr.sect .r { font-size: 14px; color: var(--fg); }
+table.items.edit tr.subsect td { font-size: 12.5px; color: var(--fg-dim); font-weight: 600; }
+table.items.edit tr.sect-add td { border-bottom: 0; padding: 4px 8px 10px; }
+.addrow { font: inherit; font-size: 13px; font-weight: 600; border: 0; background: none; color: var(--accent); padding: 4px 0; cursor: pointer; }
+.addrow:hover { text-decoration: underline; }
+table.items.edit .costin { margin-top: 6px; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 2px 6px; }
+table.items.edit .costin .lbl { font-size: 12px; color: var(--fg-dim); }
+table.items.edit .costin .sub, table.items.edit .costin .matin { flex-basis: 100%; text-align: right; }
+table.items.edit .sub.mg { display: block; font-size: 12px; font-weight: 500; color: var(--fg-dim); }
+
+/* Customer and terms, folded under the option: a summary line when closed. */
+.ed-terms > summary { cursor: pointer; list-style: none; display: flex; gap: 8px; align-items: center; }
+.ed-terms > summary::-webkit-details-marker { display: none; }
+.ed-terms > summary::before { content: "▸"; color: var(--fg-dim); transition: transform .15s; }
+.ed-terms[open] > summary::before { transform: rotate(90deg); }
+.ed-terms > summary .right { margin-left: auto; font-weight: 500; color: var(--fg-dim); }
