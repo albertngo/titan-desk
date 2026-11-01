@@ -22,6 +22,12 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-01",
+    kind: "changed",
+    title: "Editor: unit cost in its own column again",
+    details: ["In the editor, Unit cost is its own column beside Unit price again, instead of sitting under the price. The margin stays under the line total."],
+  },
+  {
+    date: "2026-11-01",
     kind: "new",
     title: "Typed lines are saved to the Rate Card for review",
     details: [

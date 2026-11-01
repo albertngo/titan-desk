@@ -363,6 +363,19 @@ export default function Editor({
             </div>
           )}
         </td>
+        {/* Unit cost in its own column again (Albert, 2026-11-01: "Can unit cost and price be on different row"). Staff only. */}
+        {!customer && (
+          <td className="r">
+            <NumCell value={l.costOverride} label="Unit cost" placeholder={l.unitCostSnap !== null ? rate(l.unitCostSnap) : "cost"} onCommit={(v) => upd({ costOverride: v })} />
+            {l.unitCostSnap !== null && l.costOverride !== null && <span className="sub">card {money(l.unitCostSnap)}</span>}
+            {split && (
+              <div className="matin" title="The material's cost per unit, on top of the labour. Blank follows the card.">
+                <NumCell value={split.cost} label="Material unit cost" placeholder={rate(split.cardCost)} onCommit={(v) => setMat({ cost: v })} />
+                <span className="sub">material · labour {money(split.labourCost)}</span>
+              </div>
+            )}
+          </td>
+        )}
         <td className="r">
           <NumCell value={l.unitPrice} label="Unit price" placeholder={l.unitPriceSnap !== null ? rate(l.unitPriceSnap) : "price"} onCommit={(v) => upd({ unitPrice: v })} />
           {/* The card figure is the box's placeholder, so it is only spelled out once typed over or marked up (2026-11-01). */}
@@ -375,20 +388,6 @@ export default function Editor({
             <div className="matin" title="The material's price per unit, on top of the labour. Blank follows the card.">
               <NumCell value={split.price} label="Material unit price" placeholder={rate(split.cardPrice)} onCommit={(v) => setMat({ price: v })} />
               {!customer && <span className="sub">material · labour {money(split.labourPrice)}</span>}
-            </div>
-          )}
-          {/* Cost sits under the price it is set against (Option C, 2026-11-01), so the table loses two columns. */}
-          {!customer && (
-            <div className="costin">
-              <span className="lbl">cost</span>
-              <NumCell value={l.costOverride} label="Unit cost" placeholder={l.unitCostSnap !== null ? rate(l.unitCostSnap) : "cost"} onCommit={(v) => upd({ costOverride: v })} />
-              {l.unitCostSnap !== null && l.costOverride !== null && <span className="sub">card {money(l.unitCostSnap)}</span>}
-              {split && (
-                <div className="matin" title="The material's cost per unit, on top of the labour. Blank follows the card.">
-                  <NumCell value={split.cost} label="Material unit cost" placeholder={rate(split.cardCost)} onCommit={(v) => setMat({ cost: v })} />
-                  <span className="sub">material · labour {money(split.labourCost)}</span>
-                </div>
-              )}
             </div>
           )}
         </td>
@@ -752,14 +751,15 @@ export default function Editor({
                         <th>Item</th>
                         {!customer && <th>Contractor</th>}
                         <th className="r">Quantity</th>
-                        <th className="r">{customer ? "Unit price" : "Unit price / cost"}</th>
+                        {!customer && <th className="r">Unit cost</th>}
+                        <th className="r">Unit price</th>
                         <th className="r">Line total</th>
                       </tr>
                     </thead>
                     <tbody>
                       {sectionsShown.length === 0 && (
                         <tr>
-                          <td colSpan={customer ? 5 : 6} className="empty">No lines yet. Pick a type of work below to add the first one.</td>
+                          <td colSpan={customer ? 5 : 7} className="empty">No lines yet. Pick a type of work below to add the first one.</td>
                         </tr>
                       )}
                       {sectionsShown.flatMap((s) => {
@@ -768,7 +768,7 @@ export default function Editor({
                         const sum = lines.reduce((a, l) => a + (lineTotal(l) ?? 0), 0) + rollup;
                         return [
                           <tr className="sect" key={`s-${s}`}>
-                            <td colSpan={customer ? 4 : 5}>
+                            <td colSpan={customer ? 4 : 6}>
                               {s}{" "}
                               {s === PRIVATE_SECTION && !customer && (
                                 <span className="priv-as" title="These lines are never itemised for the customer. On the page, the PDF and the email they roll up into one row in Other with this name and their total.">
@@ -791,7 +791,7 @@ export default function Editor({
                                 ...(g.heading
                                   ? [
                                       <tr className="subsect" key={`g-${g.group ?? "other"}`}>
-                                        <td colSpan={customer ? 5 : 6}>{stairGroupLabel(g.group)}</td>
+                                        <td colSpan={customer ? 5 : 7}>{stairGroupLabel(g.group)}</td>
                                       </tr>,
                                     ]
                                   : []),
@@ -815,7 +815,7 @@ export default function Editor({
                             ? [
                                 <tr className="sect-add" key={`a-${s}`}>
                                   <td />
-                                  <td colSpan={customer ? 4 : 5}>
+                                  <td colSpan={customer ? 4 : 6}>
                                     <button className="addrow" onClick={() => setPicking({ label: s, section: s, ...(optionScope(option) === "Stairs" && s === PRIVATE_SECTION ? { stairsOnly: true as const } : {}) })}>
                                       + Add to {s === PRIVATE_SECTION ? "Private" : s.toLowerCase()}
                                     </button>
