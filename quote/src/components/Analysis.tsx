@@ -59,12 +59,12 @@ function Compare({ title, opts, customer }: { title: string | null; opts: Row[];
   const sections = [...SECTIONS.filter((s) => s !== "Exclusions"), "Unsorted"].filter((s) =>
     opts.some((x) => (x.s.get(s) ?? 0) !== 0),
   );
-  const head = (words: string) => (title ? <><b>{title}</b> · {words}</> : words);
 
   return (
     <div className={title ? "an-grp" : "an-grp plain"}>
+      {title && <h2 className="an-grp-h">{title}</h2>}
       <section className="card">
-      <div className="card-h">{head("Options side by side")}</div>
+      <div className="card-h">Options side by side</div>
       <div className="tbl-wrap">
         <table className="cmp">
           <thead>
@@ -105,7 +105,7 @@ function Compare({ title, opts, customer }: { title: string | null; opts: Row[];
 
       {opts.length > 1 && (
       <section className="card">
-      <div className="card-h">{head("Where the options differ")}</div>
+      <div className="card-h">Where the options differ</div>
       <div className="tbl-wrap">
         <table className="cmp">
           <thead>
