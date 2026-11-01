@@ -23,6 +23,24 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-01",
     kind: "changed",
+    title: "Editor: a cleaner layout",
+    details: [
+      "Save and Discard sit at the top of the editor and stay in view as you scroll. The options are one panel, and each work section is its own block that ends with + Add to that section.",
+      "Unit cost now sits under the unit price and the margin under the line total, so the table is narrower. The card figure shows inside the box and is spelled out only when you type over it.",
+      "Customer and terms moved to a short card on the right; press Edit terms to open the discount, HST and payment schedule under the option.",
+    ],
+  },
+  {
+    date: "2026-11-01",
+    kind: "changed",
+    title: "Analysis: flooring and stairs framed apart",
+    details: [
+      "The flooring and stairs comparisons on the Analysis tab are each in their own framed box with a heading.",
+    ],
+  },
+  {
+    date: "2026-11-01",
+    kind: "changed",
     title: "Analysis compares flooring and stairs apart",
     details: [
       "On a quote with both flooring and stairs options, the Analysis tab shows Options side by side and Where the options differ once for the flooring options and once for the stairs options, so the best margin and the differences are only ever between like options.",

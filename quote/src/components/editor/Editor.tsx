@@ -242,6 +242,11 @@ export default function Editor({
     setActiveId(initial.options[0]?.id ?? null);
   };
 
+  // The short lines the sidebar and the folded terms show (Option C, 2026-11-01).
+  const termsRef = useRef<HTMLDetailsElement>(null);
+  const payLine = option && t ? stageAmounts(quote.schedule ?? defaultSchedule(), option.lines, quote.discountRate, quote.showHst, t.total).map((x) => x.pct).join(" / ") : "35 / 35 / 30";
+  const termsLine = [quote.discountRate ? `${pct(quote.discountRate * 100, 1)} off` : "No discount", quote.showHst ? "HST charged" : "HST off", `payment ${payLine}`].join(" · ");
+
   // Customer view leaves the Private section out and shows its total as one row in Other (2026-10-22).
   const hidden = option && customer ? privateRollup(option.lines) : 0;
   const sectionsShown: string[] = option
@@ -358,21 +363,10 @@ export default function Editor({
             </div>
           )}
         </td>
-        {!customer && (
-          <td className="r">
-            <NumCell value={l.costOverride} label="Unit cost" placeholder={l.unitCostSnap !== null ? rate(l.unitCostSnap) : "cost"} onCommit={(v) => upd({ costOverride: v })} />
-            {l.unitCostSnap !== null && <span className="sub">card {money(l.unitCostSnap)}</span>}
-            {split && (
-              <div className="matin" title="The material's cost per unit, on top of the labour. Blank follows the card.">
-                <NumCell value={split.cost} label="Material unit cost" placeholder={rate(split.cardCost)} onCommit={(v) => setMat({ cost: v })} />
-                <span className="sub">material · labour {money(split.labourCost)}</span>
-              </div>
-            )}
-          </td>
-        )}
         <td className="r">
           <NumCell value={l.unitPrice} label="Unit price" placeholder={l.unitPriceSnap !== null ? rate(l.unitPriceSnap) : "price"} onCommit={(v) => upd({ unitPrice: v })} />
-          {!customer && l.unitPriceSnap !== null && (
+          {/* The card figure is the box's placeholder, so it is only spelled out once typed over or marked up (2026-11-01). */}
+          {!customer && l.unitPriceSnap !== null && (l.unitPrice !== null || (levelOf(option) === "Premium" && levelApplies(l))) && (
             <span className="sub">
               {levelOf(option) === "Premium" && levelApplies(l) ? `card +${Math.round(PREMIUM_MARKUP * 100)}%` : "card"} {money(l.unitPriceSnap)}
             </span>
@@ -383,10 +377,24 @@ export default function Editor({
               {!customer && <span className="sub">material · labour {money(split.labourPrice)}</span>}
             </div>
           )}
+          {/* Cost sits under the price it is set against (Option C, 2026-11-01), so the table loses two columns. */}
+          {!customer && (
+            <div className="costin">
+              <span className="lbl">cost</span>
+              <NumCell value={l.costOverride} label="Unit cost" placeholder={l.unitCostSnap !== null ? rate(l.unitCostSnap) : "cost"} onCommit={(v) => upd({ costOverride: v })} />
+              {l.unitCostSnap !== null && l.costOverride !== null && <span className="sub">card {money(l.unitCostSnap)}</span>}
+              {split && (
+                <div className="matin" title="The material's cost per unit, on top of the labour. Blank follows the card.">
+                  <NumCell value={split.cost} label="Material unit cost" placeholder={rate(split.cardCost)} onCommit={(v) => setMat({ cost: v })} />
+                  <span className="sub">material · labour {money(split.labourCost)}</span>
+                </div>
+              )}
+            </div>
+          )}
         </td>
-        {!customer && <td className="r muted">{pct(margin, 0)}</td>}
         <td className="r amt">
           {l.include ? money(total) : <span className="note">optional</span>}
+          {!customer && margin !== null && <span className="sub mg">{pct(margin, 0)} margin</span>}
           <label className="inc" title="Untick to show this line as an optional extra, outside the total.">
             <input type="checkbox" checked={l.include} onChange={(e) => upd({ include: e.target.checked })} /> in total
           </label>
@@ -420,20 +428,20 @@ export default function Editor({
           )}
         </div>
       )}
-      <div className="pagehead">
+      {/* Option C (Albert, 2026-11-01): a compact header with the status and Save always at the top. */}
+      <div className="pagehead ed-head">
         <div className="titles">
-          <Link href={backHref} className="crumb">← Back</Link>
-          <h1>{quote.quoteRecordId ? `Edit · ${quote.customerName || "No customer"}` : "New quote"}</h1>
-          <p>
-            {version.label ?? (version.version !== null ? `v${version.version}` : "Quote")}
-            {version.basis && ` · ${version.basis}`}
-            {" · "}
-            {isDraft
-              ? "Changes are kept on this device until you save."
-              : version.agreed || version.change
-                ? `This version is ${version.status ?? "locked"}. To change what was agreed, use Make a change on the quote page.`
-                : `This version was sent (${(version.status ?? "locked").toLowerCase()}), so it stays as the customer saw it: saving starts the next draft, with every option carried over.`}
-          </p>
+          <Link href={backHref} className="crumb">
+            ← {[version.label ?? (version.version !== null ? `v${version.version}` : null), version.basis].filter(Boolean).join(" · ") || "Back"}
+          </Link>
+          <h1>{quote.quoteRecordId ? quote.customerName || "No customer" : "New quote"}</h1>
+          {!isDraft && (
+            <p className="ed-hint">
+              {version.agreed || version.change
+                ? `This version is ${(version.status ?? "locked").toLowerCase()}. To change what was agreed, use Make a change on the quote page.`
+                : `Sent (${(version.status ?? "locked").toLowerCase()}): saving starts the next draft, with every option carried over.`}
+            </p>
+          )}
           {version.change && (
             <p className="change-note">
               Change {version.change.no} to the accepted quote. Edit the work as usual; the customer gets it as an updated quote, for their records, and the payment schedule is worked out again on the new total.
@@ -444,7 +452,48 @@ export default function Editor({
         <span className={`status ${changed ? "Sent" : "Draft"}`}>
           {changed ? `Unsaved changes${savedAt ? ` · kept ${new Date(savedAt).toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit" })}` : ""}` : "No changes"}
         </span>
+        <div className="actions">
+          <button className="btn" onClick={discard} disabled={!changed && !restoredAt}>Discard</button>
+          {/* One working quote (2026-10-30): no Save as new version. A sent version saves as the next draft;
+              a change, or the agreed quote, is never copied into an ordinary version (2026-10-27): Make a change is the way. */}
+          {!isDraft && !version.change && !version.agreed && (
+            <span className="saveas">
+              <select className="in" value={basis} onChange={(e) => setBasis(e.target.value)} aria-label="The next draft is" title="Whether the next draft is a preliminary or a measured quote" disabled={saving}>
+                {BASES.map((b) => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </select>
+              <button className="btn primary" onClick={saveAsNew} disabled={saving || !changed}>
+                {saving ? "Saving…" : "Save as the next draft"}
+              </button>
+            </span>
+          )}
+          {!isDraft && (version.change || version.agreed) && (
+            <Link href={backHref} className="btn primary">
+              Back to the quote
+            </Link>
+          )}
+          {isDraft && (
+            <button className="btn primary" onClick={save} disabled={saving || !changed}>
+              {saving ? "Saving…" : version.change ? `Save change ${version.change.no}` : "Save"}
+            </button>
+          )}
+        </div>
       </div>
+      {saveError && (
+        <p className="card banner bad save-error" role="alert">
+          {saveError.message}
+          {/* Airtable moved on under this draft: keep this device's work as the next draft, and the other becomes Superseded. */}
+          {saveError.conflict && !version.change && !version.agreed && (
+            <>
+              {" "}
+              <button type="button" className="btn" onClick={saveAsNew} disabled={saving}>
+                Save mine as the next draft
+              </button>
+            </>
+          )}
+        </p>
+      )}
 
       {restoredAt && (
         <p className="card banner warn restored">
@@ -453,68 +502,12 @@ export default function Editor({
         </p>
       )}
 
-      <div className={`layout${option && t ? "" : " full"}`}>
+      <div className="layout ed-layout">
         <div className="stack">
           {/* Swap option (2026-10-30): the customer changed their mind on which option; sent for record like any change. */}
           {isDraft && version.change && swap && option && (
             <SwapOption source={swap} quote={quote} option={option} contractTotal={version.change.contractTotal} apply={apply} preselect={swapTo} />
           )}
-          <section className="card">
-            <div className="card-h">Customer and terms</div>
-            <div className="card-b form">
-              <div className="ro-strip">
-                <span className="who">{quote.customerName || <span className="faint">No customer</span>}</span>
-                <span className="where">
-                  {[quote.siteAddress, quote.siteCity].filter(Boolean).join(", ") || <span className="faint">No address yet</span>}
-                </span>
-                {quote.addressStatus === "Unconfirmed" && <span className="chip warn">Address unconfirmed</span>}
-                <span className="note">
-                  Change these on the GHL contact (after Won, in the Notion project), not here.{" "}
-                  {quote.ghlContactId && (
-                    <a href={ghlContactUrl(quote.ghlContactId)} target="_blank" rel="noreferrer">
-                      Open in GHL ↗
-                    </a>
-                  )}
-                  {(() => {
-                    // A confirmed site is fixed on the opportunity, not the contact: point the right way.
-                    const fix = fixAddressLink(quote);
-                    return fix && fix.href !== (quote.ghlContactId ? ghlContactUrl(quote.ghlContactId) : null) ? (
-                      <>
-                        {" · "}
-                        <a href={fix.href} target="_blank" rel="noreferrer" title={fix.hint}>
-                          Fix address ↗
-                        </a>
-                      </>
-                    ) : null;
-                  })()}
-                </span>
-              </div>
-              <label>
-                Discount %
-                <NumCell
-                  value={Math.round(quote.discountRate * 1000) / 10}
-                  label="Discount percent"
-                  placeholder="0"
-                  onCommit={(v) => apply(setTerms(quote, { discountRate: Math.max(0, Math.min(100, v ?? 0)) / 100 }))}
-                />
-              </label>
-              <label title="Prints beside the Discount row on the customer's page and PDF, e.g. “Fall promotion”.">
-                Discount reason
-                <TextCell value={quote.discountReason ?? ""} placeholder="e.g. Fall promotion" label="Discount reason" onCommit={(v) => apply(setTerms(quote, { discountReason: v.trim() || null }))} />
-              </label>
-              <label className="check-in" title="Labour and everything else. Each material line has its own HST box, which this never changes.">
-                <input type="checkbox" checked={quote.showHst} onChange={(e) => apply(setTerms(quote, { showHst: e.target.checked }))} /> Charge HST (13%)
-              </label>
-              {/* The payment schedule (Albert, 2026-10-27): one per version, frozen when it is sent. */}
-              <ScheduleEditor
-                schedule={quote.schedule ?? null}
-                onChange={(next) => apply(setSchedule(quote, next))}
-                suggestMaterials={quote.options.some((o) => suggestsMaterialDeposit(o.lines, quote.showHst))}
-                amounts={option && t ? stageAmounts(quote.schedule ?? defaultSchedule(), option.lines, quote.discountRate, quote.showHst, t.total) : []}
-              />
-            </div>
-          </section>
-
           {/* Options on the left; adding one is a separate column on the right behind a light rule (Albert, 2026-11-01). */}
           <nav className="ed-tabs" aria-label="Options">
             <div className="ed-opts">
@@ -610,7 +603,7 @@ export default function Editor({
           {option && t ? (
             <>
               {option.notOffered && <p className="no-offer-banner" role="note"><b>Not offered.</b> This option stays on the quote but is never sent to the customer. Untick Not offered below to send it.</p>}
-              <section className={option.notOffered ? "card no-offer-card" : "card"}>
+              <section className={option.notOffered ? "card ed-opt no-offer-card" : "card ed-opt"}>
                 <div className="ohead">
                   <div className="oname">
                     <TextCell className="in title" value={option.name} label="Option name" placeholder="Option name" onCommit={(v) => apply(updateOption(quote, option.id, { name: v }))} />
@@ -759,16 +752,14 @@ export default function Editor({
                         <th>Item</th>
                         {!customer && <th>Contractor</th>}
                         <th className="r">Quantity</th>
-                        {!customer && <th className="r">Unit cost</th>}
-                        <th className="r">Unit price</th>
-                        {!customer && <th className="r">Margin</th>}
+                        <th className="r">{customer ? "Unit price" : "Unit price / cost"}</th>
                         <th className="r">Line total</th>
                       </tr>
                     </thead>
                     <tbody>
                       {sectionsShown.length === 0 && (
                         <tr>
-                          <td colSpan={customer ? 5 : 8} className="empty">No lines yet. Pick a type of work below to add the first one.</td>
+                          <td colSpan={customer ? 5 : 6} className="empty">No lines yet. Pick a type of work below to add the first one.</td>
                         </tr>
                       )}
                       {sectionsShown.flatMap((s) => {
@@ -777,14 +768,8 @@ export default function Editor({
                         const sum = lines.reduce((a, l) => a + (lineTotal(l) ?? 0), 0) + rollup;
                         return [
                           <tr className="sect" key={`s-${s}`}>
-                            <td colSpan={customer ? 4 : 7}>
+                            <td colSpan={customer ? 4 : 5}>
                               {s}{" "}
-                              {/* The inline Add follows the option's scope (2026-10-30): a stairs option adds only to Stairs and Private (stair items or typed), a flooring option never to Stairs. */}
-                              {(optionScope(option) === "Stairs" ? s === "Stairs" || s === PRIVATE_SECTION : s !== "Stairs") && (
-                                <button className="addinline" onClick={() => setPicking({ label: s, section: s, ...(optionScope(option) === "Stairs" && s === PRIVATE_SECTION ? { stairsOnly: true as const } : {}) })}>
-                                  + Add
-                                </button>
-                              )}
                               {s === PRIVATE_SECTION && !customer && (
                                 <span className="priv-as" title="These lines are never itemised for the customer. On the page, the PDF and the email they roll up into one row in Other with this name and their total.">
                                   Not itemised for the customer. Shown as{" "}
@@ -806,7 +791,7 @@ export default function Editor({
                                 ...(g.heading
                                   ? [
                                       <tr className="subsect" key={`g-${g.group ?? "other"}`}>
-                                        <td colSpan={customer ? 5 : 8}>{stairGroupLabel(g.group)}</td>
+                                        <td colSpan={customer ? 5 : 6}>{stairGroupLabel(g.group)}</td>
                                       </tr>,
                                     ]
                                   : []),
@@ -821,6 +806,20 @@ export default function Editor({
                                   <td className="r">—</td>
                                   <td className="r">—</td>
                                   <td className="r"><b>{money(rollup)}</b></td>
+                                </tr>,
+                              ]
+                            : []),
+                          // "+ Add to …" closes each section (Option C, 2026-11-01). It follows the option's scope (2026-10-30):
+                          // a stairs option adds only to Stairs and Private (stair items or typed), a flooring option never to Stairs.
+                          ...((optionScope(option) === "Stairs" ? s === "Stairs" || s === PRIVATE_SECTION : s !== "Stairs")
+                            ? [
+                                <tr className="sect-add" key={`a-${s}`}>
+                                  <td />
+                                  <td colSpan={customer ? 4 : 5}>
+                                    <button className="addrow" onClick={() => setPicking({ label: s, section: s, ...(optionScope(option) === "Stairs" && s === PRIVATE_SECTION ? { stairsOnly: true as const } : {}) })}>
+                                      + Add to {s === PRIVATE_SECTION ? "Private" : s.toLowerCase()}
+                                    </button>
+                                  </td>
                                 </tr>,
                               ]
                             : []),
@@ -910,50 +909,100 @@ export default function Editor({
             </section>
           )}
 
-          <div className="actions">
-            <button className="btn" onClick={discard} disabled={!changed && !restoredAt}>Discard changes</button>
-            {/* One working quote (2026-10-30): no Save as new version. A sent version saves as the next draft;
-                a change, or the agreed quote, is never copied into an ordinary version (2026-10-27): Make a change is the way. */}
-            {!isDraft && !version.change && !version.agreed && (
-            <span className="saveas">
-              <select className="in" value={basis} onChange={(e) => setBasis(e.target.value)} aria-label="The next draft is" title="Whether the next draft is a preliminary or a measured quote" disabled={saving}>
-                {BASES.map((b) => (
-                  <option key={b} value={b}>{b}</option>
-                ))}
-              </select>
-              <button className="btn primary" onClick={saveAsNew} disabled={saving || !changed}>
-                {saving ? "Saving…" : "Save as the next draft"}
-              </button>
-            </span>
-            )}
-            {!isDraft && (version.change || version.agreed) && (
-              <Link href={backHref} className="btn primary">
-                Back to the quote
-              </Link>
-            )}
-            {isDraft && (
-              <button className="btn primary" onClick={save} disabled={saving || !changed}>
-                {saving ? "Saving…" : version.change ? `Save change ${version.change.no}` : "Save"}
-              </button>
-            )}
-          </div>
-          {saveError && (
-            <p className="card banner bad save-error" role="alert">
-              {saveError.message}
-              {/* Airtable moved on under this draft: keep this device's work as the next draft, and the other becomes Superseded. */}
-              {saveError.conflict && !version.change && !version.agreed && (
-                <>
-                  {" "}
-                  <button type="button" className="btn" onClick={saveAsNew} disabled={saving}>
-                    Save mine as the next draft
-                  </button>
-                </>
-              )}
-            </p>
-          )}
+          <details className="card ed-terms" ref={termsRef} id="ed-terms">
+            <summary className="card-h">
+              Customer and terms <span className="right">{termsLine}</span>
+            </summary>
+            <div className="card-b form">
+              <div className="ro-strip">
+                <span className="who">{quote.customerName || <span className="faint">No customer</span>}</span>
+                <span className="where">
+                  {[quote.siteAddress, quote.siteCity].filter(Boolean).join(", ") || <span className="faint">No address yet</span>}
+                </span>
+                {quote.addressStatus === "Unconfirmed" && <span className="chip warn">Address unconfirmed</span>}
+                <span className="note">
+                  Change these on the GHL contact (after Won, in the Notion project), not here.{" "}
+                  {quote.ghlContactId && (
+                    <a href={ghlContactUrl(quote.ghlContactId)} target="_blank" rel="noreferrer">
+                      Open in GHL ↗
+                    </a>
+                  )}
+                  {(() => {
+                    // A confirmed site is fixed on the opportunity, not the contact: point the right way.
+                    const fix = fixAddressLink(quote);
+                    return fix && fix.href !== (quote.ghlContactId ? ghlContactUrl(quote.ghlContactId) : null) ? (
+                      <>
+                        {" · "}
+                        <a href={fix.href} target="_blank" rel="noreferrer" title={fix.hint}>
+                          Fix address ↗
+                        </a>
+                      </>
+                    ) : null;
+                  })()}
+                </span>
+              </div>
+              <label>
+                Discount %
+                <NumCell
+                  value={Math.round(quote.discountRate * 1000) / 10}
+                  label="Discount percent"
+                  placeholder="0"
+                  onCommit={(v) => apply(setTerms(quote, { discountRate: Math.max(0, Math.min(100, v ?? 0)) / 100 }))}
+                />
+              </label>
+              <label title="Prints beside the Discount row on the customer's page and PDF, e.g. “Fall promotion”.">
+                Discount reason
+                <TextCell value={quote.discountReason ?? ""} placeholder="e.g. Fall promotion" label="Discount reason" onCommit={(v) => apply(setTerms(quote, { discountReason: v.trim() || null }))} />
+              </label>
+              <label className="check-in" title="Labour and everything else. Each material line has its own HST box, which this never changes.">
+                <input type="checkbox" checked={quote.showHst} onChange={(e) => apply(setTerms(quote, { showHst: e.target.checked }))} /> Charge HST (13%)
+              </label>
+              {/* The payment schedule (Albert, 2026-10-27): one per version, frozen when it is sent. */}
+              <ScheduleEditor
+                schedule={quote.schedule ?? null}
+                onChange={(next) => apply(setSchedule(quote, next))}
+                suggestMaterials={quote.options.some((o) => suggestsMaterialDeposit(o.lines, quote.showHst))}
+                amounts={option && t ? stageAmounts(quote.schedule ?? defaultSchedule(), option.lines, quote.discountRate, quote.showHst, t.total) : []}
+              />
+            </div>
+          </details>
+
+
         </div>
 
-        {option && t && <Financials schedule={quote.schedule ?? null} lines={option.lines} t={t} discountRate={quote.discountRate} showHst={quote.showHst} agrees={null} customer={customer} />}
+        <aside className="ed-side">
+          {option && t && <Financials schedule={quote.schedule ?? null} lines={option.lines} t={t} discountRate={quote.discountRate} showHst={quote.showHst} agrees={null} customer={customer} />}
+          <section className="card ed-cust">
+            <div className="card-h">Customer and terms</div>
+            <div className="card-b">
+              <b className="who">{quote.customerName || <span className="faint">No customer</span>}</b>
+              <span className="where">{[quote.siteAddress, quote.siteCity].filter(Boolean).join(", ") || <span className="faint">No address yet</span>}</span>
+              {quote.addressStatus === "Unconfirmed" && <span className="chip warn">Address unconfirmed</span>}
+              {quote.ghlContactId && (
+                <a href={ghlContactUrl(quote.ghlContactId)} target="_blank" rel="noreferrer">
+                  Open in GHL ↗
+                </a>
+              )}
+              <dl>
+                <div><dt>Discount</dt><dd>{quote.discountRate ? `${pct(quote.discountRate * 100, 1)}${quote.discountReason ? `, ${quote.discountReason}` : ""}` : "None"}</dd></div>
+                <div><dt>HST</dt><dd>{quote.showHst ? "Charged, 13%" : "Off (materials keep their own)"}</dd></div>
+                <div><dt>Payment</dt><dd>{payLine}</dd></div>
+              </dl>
+              <button
+                type="button"
+                className="linkbtn ed-edit"
+                onClick={() => {
+                  const d = termsRef.current;
+                  if (!d) return;
+                  d.open = true;
+                  d.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+              >
+                Edit terms
+              </button>
+            </div>
+          </section>
+        </aside>
       </div>
 
       {picking && option && (
