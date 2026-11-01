@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Fragment } from "react";
 import { notFound } from "next/navigation";
 import { AcceptedCard, AcceptForCustomer, ChangeCard, PutOnContract } from "@/components/AcceptStaff";
 import { AddressScan } from "@/components/AddressScan";
@@ -221,7 +220,8 @@ export default async function QuotePage({
       {/* The customer's GHL conversation, docked to the right edge: staff only, so Customer view never has it, and never on a quote with no contact. */}
       {!customer && quote.link?.ghlContactId && <ConversationDrawer contactId={quote.link.ghlContactId} />}
       <div className="page">
-        <div className="pagehead">
+        {/* Option C everywhere (Albert, 2026-11-01): the same compact header as the editor, the main action on the right. */}
+        <div className="pagehead ed-head">
           <div className="titles">
             <Link href="/" className="crumb">← All quotes</Link>
             <h1>{quote.customerName ?? "No customer"}</h1>
@@ -230,18 +230,17 @@ export default async function QuotePage({
               {/* The label already ends in "v4"; only an unlabelled version needs the number. */}
               {quote.version !== null && !(quote.quoteId ?? "").endsWith(`v${quote.version}`) && ` · v${quote.version}`}
               {madeFrom && ` · ${madeFrom}`}
-              {!locked && (
-                <>
-                  {" · "}
-                  <Link href={`/q/${quote.id}/edit`}>Edit this quote</Link>
-                </>
-              )}
             </p>
           </div>
           {quote.status && <span className={`status ${quote.status}`}>{quote.status}</span>}
+          {!locked && (
+            <div className="actions">
+              <Link className="btn primary" href={`/q/${quote.id}/edit`}>Edit quote</Link>
+            </div>
+          )}
         </div>
 
-        <div className={`layout${option && totals ? "" : " full"}`}>
+        <div className={`layout ed-layout${option && totals ? "" : " full"}`}>
           <div className="stack">
             {unlinked && jobs && <LinkJob quoteRecordId={unlinked.quoteRecordId} quoteNumber={unlinked.quoteNumber} jobs={jobs} />}
 
@@ -258,51 +257,59 @@ export default async function QuotePage({
             )}
 
             {(quote.options.length > 0 || !customer) && (
-              <nav className={tabGroups.split ? "tabs split" : "tabs"} aria-label="Options">
-                {tabGroups.groups.map((g, i) => (
-                  <Fragment key={g.scope}>
-                    {/* Stairs start their own row (Albert, 2026-10-31), so flooring tabs never push them off to the right. */}
-                    {i > 0 && <span className="tab-break" aria-hidden />}
-                    {tabGroups.split && <span className="tab-scope">{g.scope}</span>}
-                    {g.options.map((o) => (
-                      <Link
-                        key={o.id}
-                        className={["tab", acceptedIds.has(o.id) ? "accepted" : "", o.notOffered ? "off" : ""].filter(Boolean).join(" ")}
-                        href={`/q/${quote.id}?opt=${o.id}`}
-                        aria-current={option?.id === o.id ? "page" : undefined}
-                        title={o.notOffered ? "Not offered: never sent to the customer" : undefined}
-                      >
-                        {acceptedIds.has(o.id) && <span className="t-acc">✓ Accepted</span>}
-                        {o.notOffered && <span className="t-off">Not offered</span>}
-                        {o.part && <span className="t-part">{o.part}</span>}
-                        <span className="t-name">{o.name}</span>
-                        <span className="t-amt">{money(optionTotals(o.lines, quote.discountRate, quote.showHst).total)}</span>
+              // The same options panel as the editor (2026-11-01): one row per scope, its label in a fixed column, and the
+              // quote's other tabs (Rooms, Site sheet, Photos, Analysis) in their own column on the right.
+              <nav className="ed-tabs" aria-label="Options">
+                <div className="ed-opts">
+                  {tabGroups.groups.map((g) => (
+                    <div className="tab-grp" key={g.scope}>
+                      {tabGroups.split && <span className="tab-scope">{g.scope}</span>}
+                      <div className="tab-grp-t">
+                        {g.options.map((o) => (
+                          <Link
+                            key={o.id}
+                            className={["tab", acceptedIds.has(o.id) ? "accepted" : "", o.notOffered ? "off" : ""].filter(Boolean).join(" ")}
+                            href={`/q/${quote.id}?opt=${o.id}`}
+                            aria-current={option?.id === o.id ? "page" : undefined}
+                            title={o.notOffered ? "Not offered: never sent to the customer" : undefined}
+                          >
+                            {acceptedIds.has(o.id) && <span className="t-acc">✓ Accepted</span>}
+                            {o.notOffered && <span className="t-off">Not offered</span>}
+                            {o.part && <span className="t-part">{o.part}</span>}
+                            <span className="t-name">{o.name}</span>
+                            <span className="t-amt">{money(optionTotals(o.lines, quote.discountRate, quote.showHst).total)}</span>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  {quote.options.length === 0 && <p className="faint">No options yet.</p>}
+                </div>
+                {(!customer || quote.options.length > 0) && (
+                  <div className="ed-tabs-add ed-tools">
+                    {!customer && (
+                      <Link className="tab" href={`/q/${quote.id}?opt=rooms`} aria-current={showRooms ? "page" : undefined}>
+                        <span className="t-name">Rooms</span>
+                        {roomsLog.rooms.length > 0 && <span className="t-amt">{roomsLog.rooms.length}</span>}
                       </Link>
-                    ))}
-                  </Fragment>
-                ))}
-                {quote.options.length > 0 && !customer && <span className="tab-sep" aria-hidden />}
-                {!customer && (
-                  <Link className="tab rooms" href={`/q/${quote.id}?opt=rooms`} aria-current={showRooms ? "page" : undefined}>
-                    Rooms
-                    {roomsLog.rooms.length > 0 && <span className="t-amt">{roomsLog.rooms.length}</span>}
-                  </Link>
-                )}
-                {!customer && (
-                  <Link className="tab sheet" href={`/q/${quote.id}?opt=sheet`} aria-current={showSheet ? "page" : undefined}>
-                    Site sheet
-                    {sheetStored && <span className="t-amt">{sheetStored.checked ? "checked" : "to check"}</span>}
-                  </Link>
-                )}
-                {!customer && camUrl && (
-                  <Link className="tab photos" href={`/q/${quote.id}?opt=photos`} aria-current={showPhotos ? "page" : undefined}>
-                    Photos
-                  </Link>
-                )}
-                {quote.options.length > 0 && (
-                  <Link className="tab anal" href={`/q/${quote.id}?opt=analysis`} aria-current={showAnalysis ? "page" : undefined}>
-                    Analysis
-                  </Link>
+                    )}
+                    {!customer && (
+                      <Link className="tab" href={`/q/${quote.id}?opt=sheet`} aria-current={showSheet ? "page" : undefined}>
+                        <span className="t-name">Site sheet</span>
+                        {sheetStored && <span className="t-amt">{sheetStored.checked ? "checked" : "to check"}</span>}
+                      </Link>
+                    )}
+                    {!customer && camUrl && (
+                      <Link className="tab" href={`/q/${quote.id}?opt=photos`} aria-current={showPhotos ? "page" : undefined}>
+                        <span className="t-name">Photos</span>
+                      </Link>
+                    )}
+                    {quote.options.length > 0 && (
+                      <Link className="tab" href={`/q/${quote.id}?opt=analysis`} aria-current={showAnalysis ? "page" : undefined}>
+                        <span className="t-name">Analysis</span>
+                      </Link>
+                    )}
+                  </div>
                 )}
               </nav>
             )}

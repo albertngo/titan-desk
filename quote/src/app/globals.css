@@ -1344,3 +1344,37 @@ table.items.edit .sub.mg { display: block; font-size: 12px; font-weight: 500; co
 .ed-terms > summary::before { content: "▸"; color: var(--fg-dim); transition: transform .15s; }
 .ed-terms[open] > summary::before { transform: rotate(90deg); }
 .ed-terms > summary .right { margin-left: auto; font-weight: 500; color: var(--fg-dim); }
+
+/* ---------- Option C across the whole app (Albert, 2026-11-01: "match all the screens to follow the picked C
+   option… so the app stays consistent throughout") ----------
+   The editor's look made the default: rounder cards with plain white headings in sentence case, softer buttons,
+   one quiet selected state for every tab, darker column headings, and each work section of a line table its own
+   block. Later rules win, so this block overrides the older defaults above it. */
+.card { border-radius: 12px; }
+.card-h { background: var(--card); color: var(--fg); font-size: 13.5px; font-weight: 650; letter-spacing: 0; text-transform: none; padding: 12px 16px; border-radius: 12px 12px 0 0; }
+.card-h .right { color: var(--fg-dim); }
+.btn { border-radius: 10px; font-size: 13.5px; }
+.btn.small { border-radius: 8px; }
+.pagehead h1 { font-size: 22px; font-weight: 650; letter-spacing: -.01em; }
+.pagehead .crumb { font-size: 13px; color: var(--fg-dim); }
+.pagehead p { font-size: 13.5px; }
+.pageacts { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* Every tab: rounded, and selected is a light blue fill with a blue edge, never a solid blue pill. */
+.tab { border-radius: 10px; }
+.tab[aria-current="page"] { background: var(--accent-soft); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); color: var(--fg); }
+.tab[aria-current="page"] .t-amt, .tab[aria-current="page"] .t-part { color: var(--fg-dim); }
+.tab.accepted[aria-current="page"] { box-shadow: inset 0 0 0 1px var(--good); border-color: var(--good); background: var(--good-soft); }
+.ed-tools .tab { border-style: solid; background: var(--card); color: var(--fg); min-width: 120px; text-align: left; justify-content: start; }
+
+/* Line tables (the quote page, previews): the same section blocks as the editor. */
+table.items th { font-size: 12.5px; font-weight: 500; color: var(--fg-dim); text-transform: none; letter-spacing: 0; }
+table.items th + th, table.items td + td { border-left: 0; }
+table.items tr.sect td { background: var(--card) !important; font-size: 15px; font-weight: 650; letter-spacing: 0; text-transform: none; color: var(--fg); padding: 16px 12px 8px; border-top: 8px solid var(--bg); border-bottom: 1px solid var(--line-strong); }
+table.items tbody tr.sect:first-child td { border-top: 0; }
+table.items tr.sect .r { font-size: 14px; color: var(--fg); }
+table.items tr.subsect td { font-size: 12.5px; color: var(--fg-dim); font-weight: 600; }
+table.cmp th { font-size: 12.5px; font-weight: 500; color: var(--fg-dim); text-transform: none; letter-spacing: 0; }
+
+/* All quotes: column headings in sentence case and a darker grey, like the line tables. */
+.ql-head { background: var(--card); font-size: 12.5px; font-weight: 500; letter-spacing: 0; text-transform: none; }
