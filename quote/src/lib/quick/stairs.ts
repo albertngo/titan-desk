@@ -2,12 +2,13 @@ import { manualLine, type EditorLine } from "@/lib/editor/model";
 import type { StairProfileRow } from "@/lib/quotes/types";
 
 /**
- * Stair profiles on the preliminary (Albert, 2026-10-18; presets 2026-10-20). The GHL mobile
- * quote priced stairs by "profile" (Wood on Main Stairs, Sand Steps…) at a preset price, and a
- * ChatGPT step turned the profile into a customer-facing description. Here a profile is a Stair
- * Profiles row in Airtable (a name, a stair type, a method, a preset price and cost) and the
- * description is the old prompt's rules written out from the type and method, so the same profile
- * always produces the same words. Pure, no I/O; tested in tests/stairs.test.ts.
+ * Stair profiles on the preliminary (Albert, 2026-10-18; presets 2026-10-20; Stair Item lines
+ * 2026-11-02). The GHL mobile quote priced stairs by "profile" (Wood on Main Stairs, Sand Steps…) at
+ * a preset price, and a ChatGPT step turned the profile into a customer-facing description. Here a
+ * profile is a Stair Profiles row in Airtable (a name, a stair type, a method, its Stair Items and
+ * preset counts; the lines are made in src/lib/quick/plan.ts) and the description is the old
+ * prompt's rules written out from the type and method, so the same profile always produces the same
+ * words. Pure, no I/O; tested in tests/stairs.test.ts.
  *
  * The phrases are customer copy, not data: change them here and they change everywhere. The
  * prices are data: they live on the rows, never here.
@@ -77,11 +78,12 @@ export function stairProfileLine(type: StairType, method: StairMethod, price: nu
 export const profileOf = (row: Pick<StairProfileRow, "type" | "method">): StairProfile => ({ type: row.type, method: row.method });
 
 /**
- * One staircase priced from a Stair Profiles row (2026-10-20): the preset price and cost as the
- * card figures, an override only when staff typed a different price. The row is the line's source,
- * so the editor's builder can later expand it into Stair Item lines; Premium never marks it up.
+ * One staircase at a Stair Profiles row's stored price and cost (2026-10-20). Since 2026-11-02 only
+ * for a row with no Stair Items linked yet, so the preliminary keeps working while the links are
+ * filled in; no typed price. The row is the line's source, so the editor's builder can still expand
+ * it into Stair Item lines; Premium never marks it up.
  */
-export function profileLine(row: Pick<StairProfileRow, "id" | "name" | "price" | "cost">, override: number | null): EditorLine {
+export function profileLine(row: Pick<StairProfileRow, "id" | "name" | "price" | "cost">): EditorLine {
   return {
     ...manualLine("Stairs", row.name),
     sourceKind: "profile",
@@ -90,7 +92,7 @@ export function profileLine(row: Pick<StairProfileRow, "id" | "name" | "price" |
     qty: 1,
     unitPriceSnap: row.price,
     unitCostSnap: row.cost,
-    unitPrice: override,
+    unitPrice: null,
     hasSource: true,
   };
 }

@@ -4,18 +4,18 @@ import { useMemo, useState, useTransition } from "react";
 import { searchProductsAction } from "@/app/new/actions";
 import { optionTotals } from "@/lib/calc";
 import { money } from "@/lib/format";
-import { amountUnit, baseboardDefault, baseboardFollow, BUILDINGS, buildPreliminary, choiceRate, GROUP_ROWS, parseWork, QUICK_GROUPS, rowTotal, stairTotal, type QuickChoice, type QuickGroup, type QuickProduct, type QuickProfile } from "@/lib/quick/plan";
+import { amountUnit, baseboardDefault, baseboardFollow, BUILDINGS, buildPreliminary, choiceRate, GROUP_ROWS, parseWork, QUICK_GROUPS, rowTotal, type QuickChoice, type QuickGroup, type QuickProduct, type QuickProfile } from "@/lib/quick/plan";
 import { METHOD_PHRASE, modifierFor, STAIR_ROWS } from "@/lib/quick/stairs";
 
 export type PickedProduct = Pick<QuickProduct, "recordId" | "sku" | "name" | "rate">;
 export type WorkRow = { key: string; group: QuickGroup; choiceId: string; amount: string; product: PickedProduct | null };
-/** One staircase on the form: the Stair Profiles row picked, and a different price only if typed. */
-export type StairRowState = { key: string; profileId: string; price: string };
+/** One staircase on the form: the Stair Profiles row picked (no typed price since 2026-11-02). */
+export type StairRowState = { key: string; profileId: string };
 export type WorkState = { rows: WorkRow[]; stairs: StairRowState[]; extraCost: string; description: string; building: string };
 
 let n = 0;
 const newRow = (group: QuickGroup): WorkRow => ({ key: `r${++n}`, group, choiceId: "", amount: "", product: null });
-const newStair = (): StairRowState => ({ key: `s${++n}`, profileId: "", price: "" });
+const newStair = (): StairRowState => ({ key: `s${++n}`, profileId: "" });
 
 export function initialWork(choices: QuickChoice[]): WorkState {
   const groups = QUICK_GROUPS.filter((g) => choices.some((c) => c.group === g));
@@ -27,11 +27,11 @@ const toNumber = (s: string) => {
   return Number.isFinite(v) && v > 0 ? v : null;
 };
 
-/** What New quote sends: which choice and how much, which staircase and its price, never a card price. */
+/** What New quote sends: which choice and how much, which staircase, never a price. */
 export function workInput(w: WorkState) {
   return {
     rows: w.rows.filter((r) => r.choiceId).map((r) => ({ choiceId: r.choiceId, amount: toNumber(r.amount), productId: r.product?.recordId ?? null })),
-    stairs: w.stairs.filter((s) => s.profileId).map((s) => ({ profileId: s.profileId, price: toNumber(s.price) })),
+    stairs: w.stairs.filter((s) => s.profileId).map((s) => ({ profileId: s.profileId })),
     extraCost: toNumber(w.extraCost),
     description: w.description,
     building: w.building || null,
@@ -74,7 +74,7 @@ const clean = (s: string) => s.replace(/[$,\s]/g, "");
  * 2026-10-18): Flooring, then Stairs, then anything else; each work group folds to one line that
  * says what is in it; short lists are chips; square footage can be copied from Install. Choices
  * and prices come from Airtable (Quick Quote Choices); the server re-prices on create. Stairs are
- * Stair Profiles rows at a preset price, a typed price only as an override (src/lib/quick/stairs.ts).
+ * Stair Profiles rows, each adding its preset Stair Item lines (2026-11-02, src/lib/quick/plan.ts).
  */
 export function QuickWork({
   choices,
@@ -153,7 +153,7 @@ export function QuickWork({
 
   const stairWords = (s: StairRowState) => {
     const p = profileById.get(s.profileId);
-    return p ? `${p.name} · ${money(stairTotal(p, toNumber(s.price)))}` : null;
+    return p ? `${p.name} · ${money(p.total)}` : null;
   };
   const stairSummary = value.stairs.map(stairWords).filter(Boolean).join(" · ");
 
@@ -248,7 +248,6 @@ export function QuickWork({
         </h3>
         {value.stairs.map((s, i) => {
           const profile = profileById.get(s.profileId) ?? null;
-          const override = toNumber(s.price);
           return (
             <div key={s.key} className="qw-stair">
               <div className="qw-stair-h">
@@ -269,16 +268,12 @@ export function QuickWork({
               )}
               {profile && (
                 <div className="qw-amt-row">
-                  <label className="qw-money">
-                    <span className="k">Different price (optional)</span>
-                    <span className="qw-amt">
-                      <input className="in" inputMode="decimal" placeholder={String(profile.price)} aria-label={`Staircase ${i + 1} price override`} value={s.price} onChange={(e) => setStair(s.key, { price: e.target.value })} />
-                      <span>$</span>
-                    </span>
-                  </label>
+                  <span className="qw-rate">
+                    {profile.storedPrice ? "Stored price: link this row's Stair Items in Stair Profiles to add them instead" : `Adds ${profile.lines.map((l) => `${l.qty} × ${l.description}`).join(" · ")}`}
+                  </span>
                   <span className="qw-price" aria-label={`Staircase ${i + 1} price`}>
-                    <span className="qw-rate">{override !== null ? `preset ${money(profile.price)}` : `preset${profile.steps ? ` · ${profile.steps} steps` : ""}`}</span>
-                    <b>{money(stairTotal(profile, override))}</b>
+                    <span className="qw-rate">{`${profile.storedPrice ? "preset" : "Stair Items"}${profile.steps ? ` · ${profile.steps} steps` : ""}`}</span>
+                    <b>{money(profile.total)}</b>
                   </span>
                 </div>
               )}
@@ -290,7 +285,7 @@ export function QuickWork({
             </div>
           );
         })}
-        {profiles.length === 0 && <p className="note">No staircase profiles are set up yet. Add rows to Stair Profiles in Airtable.</p>}
+        {profiles.length === 0 && <p className="note">No staircase profiles are ready yet. A Stair Profiles row shows here when its linked Stair Items are all active and priced (or, with none linked yet, when it has a stored price).</p>}
         {profiles.length > 0 && value.stairs.length < STAIR_ROWS && (
           <button type="button" className="linkbtn qw-add" onClick={() => set({ stairs: [...value.stairs, newStair()] })}>
             + {value.stairs.length === 0 ? "Add a staircase" : "Another staircase"}

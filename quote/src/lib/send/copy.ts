@@ -283,6 +283,7 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
   const sections: CopySection[] = [];
   for (const name of sectionNames(o.lines)) {
     const lines: (CopyItem | CopyText)[] = [];
+    const merged = new Map<string, CopyItem>();
     let total = 0;
     for (const l of o.lines.filter((x) => sectionOf(x) === name)) {
       const note = clean([l.area, l.clientNote].filter(Boolean).join(" · "));
@@ -304,10 +305,23 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
       // Stairs are always one price (Albert, 2026-10-28): a breakdown itemises the flooring only.
       const lump = (lumpSum || name === "Stairs") && l.include;
       const showQty = !lump || LUMP_QTY_SECTIONS.has(name);
-      lines.push({
+      // One wording, one line (Albert, 2026-11-02: "consolidate the steps to just be one generic step … and then just combine
+      // the quantity"): Stair Items that share a Customer Wording read as one line, their quantities and amounts added.
+      const wording = name === "Stairs" ? clean(l.customerWording) : null;
+      const key = wording ? [wording.toLowerCase(), l.include, note ?? "", chargesHst(l, showHst)].join("|") : null;
+      const same = key ? merged.get(key) : undefined;
+      if (same) {
+        same.qty = same.qty !== null && qty !== null ? round2(same.qty + qty) : null;
+        same.amount = same.amount !== null ? round2(same.amount + amount) : null;
+        if (same.unitPrice !== price) same.unitPrice = null;
+        same.minimum = false;
+        same.wastePct = null;
+        continue;
+      }
+      const item: CopyItem = {
         kind: "item",
         n: l.include ? ++n : null,
-        description: clean(l.description) ?? "Item",
+        description: wording ?? clean(l.description) ?? "Item",
         note,
         qty: showQty ? qty : null,
         uom: showQty ? clean(l.uom) : null,
@@ -317,7 +331,9 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
         amount: lump ? null : amount,
         optional: !l.include,
         ...(chargesHst(l, showHst) !== showHst ? { hst: showHst ? ("none" as const) : ("plus" as const) } : {}),
-      });
+      };
+      lines.push(item);
+      if (key) merged.set(key, item);
     }
     if (lines.length) sections.push({ name: name === "Unsorted" ? "Other" : name, total: lumpSum || name === "Stairs" ? null : round2(total), lines });
   }

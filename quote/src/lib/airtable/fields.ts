@@ -222,6 +222,8 @@ export const LINE = {
   customStairItem: "fldWFwcybcdL2mnfN",
   /** 2026-10-28: lookup of the Stair Item's Category, for grouping the Stairs section. Read only. */
   stairCategory: "fldSFOxH6jcSqDxLL",
+  /** 2026-11-02: lookup of the Stair Item's Customer Wording; the customer copy merges lines that share it. Read only. */
+  stairWording: "fldbhcMQLCGVMq3XC",
   // Airtable's own per-line results — read only for the parity check.
   lineTotal: "fldtr6qmdjmWc1YFM",
   lineCost: "fld64HUgwqcRso3Br",
@@ -288,9 +290,9 @@ export const MATERIAL = {
 
 /**
  * Stair Profiles (created 2026-10-20): one row per staircase on the preliminary's dropdown, with
- * the preset price and cost (the old GHL mobile-quote options), the stair type and method the
- * customer description is written from, and six links to Stair Items the editor's builder
- * multiplies. Read-only here; the preset is a stored price by design (Albert, 2026-10-20).
+ * the stair type and method the customer description is written from, six links to Stair Items and
+ * the preset counts they are multiplied by (2026-11-02: the preliminary adds those Stair Item lines;
+ * the stored price and cost are the old GHL figures, read only for lines made before). Read-only here.
  */
 export const PROFILE_TABLE = "tblyRK2dJf4in5NW0";
 export const PROFILE = {
@@ -308,6 +310,20 @@ export const PROFILE = {
   perHandrailFt: "fld4SlG2nrbJvfYcr",
   perSpindle: "fldUjDQvUIjYB6VHr",
   perPost: "fld56yJLtiGsBdlU4",
+  /** 2026-11-02: each step type's own piece; Per step is what every step gets. */
+  perBoxed: "fldzREAhou4bs6LQN",
+  perCurved: "fldgHYbd2Rnbv9Tlv",
+  perNosingFt: "fldivcgjfcsAiqAoz",
+  perLanding: "fldLKs273JkUcQ0Jw",
+  /** 2026-11-02: what the preliminary's staircase assumes beyond its steps; blank = 0. */
+  presetBoxed: "fldRLTaiLL5gk3B2i",
+  presetOpenSides: "fldixLY9XBGwkCml5",
+  presetCurved: "fldnjlU1PRNZeTyK8",
+  presetHandrailFt: "fldeiaYVi2IIpd37c",
+  presetNosingFt: "fldofXtjKqsNrNwDM",
+  presetLandings: "fldpijJx6Q3E2UfDU",
+  presetSpindles: "fldrqXaGxmJM4rZHI",
+  presetPosts: "fld377QxIdjw4DqGs",
 } as const;
 
 export const STAIR_TABLE = "tbltRm9tL6r5brZn2";

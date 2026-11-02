@@ -199,7 +199,7 @@ describe("what the browser sends, cleaned", () => {
 
   it("saves a preset staircase linked to its Stair Profiles row, and reads the kind back (2026-10-20)", () => {
     const row = { id: "recProf000000000A", name: "Wood on main stairs", price: 4000, cost: 2600 };
-    const f = lineFields(profileLine(row, 4200), 1);
+    const f = lineFields({ ...profileLine(row), unitPrice: 4200 }, 1);
     expect(f).toMatchObject({ [LINE.section]: "Stairs", [LINE.lineType]: "Stairs", [LINE.uom]: "each", [LINE.qty]: 1, [LINE.unitPriceSnap]: 4000, [LINE.unitCostSnap]: 2600, [LINE.unitPrice]: 4200, [LINE.stairProfile]: [row.id], [LINE.stairItem]: [], [LINE.rateItem]: [], [LINE.product]: [] });
     const q = cleanEditorQuote({ options: [O({ id: "o", lines: [L({ id: "l", sourceKind: "profile", sourceId: row.id, section: "Stairs", lineType: "Stairs", uom: "each" })] })] });
     expect(q.options[0].lines[0]).toMatchObject({ sourceKind: "profile", sourceId: row.id, hasSource: true });

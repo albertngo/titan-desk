@@ -12,13 +12,12 @@ describe("stair profiles (2026-10-18)", () => {
     for (const bad of ["Main stairs", "Attic – Sand & stain", "Main stairs – Carpet", "Click install", "", null]) expect(parseProfile(bad)).toBeNull();
   });
 
-  it("prices a staircase from a Stair Profiles row: preset as the card figures, the row as the source, a typed price as the override (2026-10-20)", () => {
+  it("prices an unlinked Stair Profiles row at its stored figures, the row as the source, no typed price (2026-11-02)", () => {
     const row = { id: "recProf000000000A", name: "Wood on main stairs", type: "Main stairs" as const, method: "Solid red oak caps" as const, price: 4000, cost: 2600 };
-    const l = profileLine(row, null);
+    const l = profileLine(row);
     expect([l.section, l.lineType, l.sourceKind, l.sourceId, l.hasSource, l.uom, l.qty, l.unitPriceSnap, l.unitCostSnap, l.unitPrice, l.description]).toEqual(["Stairs", "Stairs", "profile", row.id, true, "each", 1, 4000, 2600, null, "Wood on main stairs"]);
     expect(lineTotal(l)).toBe(4000);
     expect(lineFlags(l)).toEqual([]);
-    expect(lineTotal(profileLine(row, 4500))).toBe(4500);
     expect(profileOf(row)).toEqual({ type: "Main stairs", method: "Solid red oak caps" });
   });
 

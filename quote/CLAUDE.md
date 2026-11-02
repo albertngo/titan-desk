@@ -148,25 +148,39 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   stored on a choice and never taken from the browser: the server re-prices from Airtable at
   create time. A choice whose linked row is inactive or unpriced is left off the form. Rules:
   `src/lib/quick/plan.ts`, tested in `tests/quick.test.ts`.
-- **Stairs on the preliminary (Albert, 2026-10-18; presets 2026-10-20).** A staircase is a row of the
-  read-only Airtable table **Stair Profiles** (`PROFILE_TABLE`): a customer-facing name, a stair type
-  (Main stairs / Townhome / Basement / Half staircase), a method (Sand & stain / Solid red oak caps /
-  Vinyl treads / Vinyl flooring), the step count the price assumes, a **preset price and cost** (the
-  old GHL dropdown's numbers; a stored price by design, so the preliminary shows a margin), and six
-  links to Stair Items for the builder. The form is one dropdown per staircase, up to three, with
-  "Different price" as the only override; the line it makes has the row as its source (Quote Lines →
-  **Stair Profile**, `sourceKind: "profile"`), the preset as its card figures, and is never marked up
-  by Premium. The customer-facing phrases live in code, `src/lib/quick/stairs.ts` (copy, not data),
-  and the old GHL stairs prompt is written out there as `stairDescription()` from each row's type and
-  method: one bullet per staircase, the stair type's sentence, the closing sentence only when no
-  staircase got one. Create writes it into the option's description. A row with an unknown type or
-  method, or no price, is left off. With no rows at all the editor's picker falls back to type ×
-  method at a typed price. Tested in `tests/quick.test.ts` and `tests/stairs.test.ts`.
+- **Stairs on the preliminary (Albert, 2026-10-18; presets 2026-10-20; Stair Item lines 2026-11-02).** A staircase
+  is a row of the read-only Airtable table **Stair Profiles** (`PROFILE_TABLE`): a customer-facing name, a stair type
+  (Main stairs / Townhome / Basement / Half staircase), a method (Sand & stain / Solid red oak caps / Vinyl treads /
+  Vinyl flooring), the step count, links to Stair Items and the **preset counts** that multiply them: Per step (what
+  every step gets: risers, sanding) × the steps; **each step type its own piece** (Albert, 2026-11-02: "most of the
+  price changes are from the number of steps and the type of steps"): Per boxed step × Preset Boxed Steps (blank = the
+  steps not open-side or curved), Per open side × Preset Open Side Steps, Per curved step × Preset Curved Steps (pie /
+  winder); Per staircase × 1; Per landing × Preset Landings; Per handrail ft × Preset Handrail Ft; Per nosing ft × Preset Nosing Ft (one decimal);
+  Per spindle × Preset Spindles; Per post × Preset Posts (blank = 0). No step type is ever taken out of a Per step item:
+  "New Riser" is filed under category step, which is why the old rule (an open-side piece replacing the step piece in
+  Per step) is gone; link the plain step piece to Per boxed step. The form is one dropdown per staircase, up to three, with no price of its own. **Since 2026-11-02
+  (Albert: "once it processes through, it will add the preset items on the stair items for that particular selection";
+  "remove different price, numbered labels are fine")** a pick adds the profile's Stair Item lines, `expandProfile()`
+  with `defaultInput()` (steps + preset counts) at Standard, worked out once per form by `quickProfiles()` in
+  `src/lib/quick/plan.ts` from today's card (`getQuickProfiles()` in `load.ts`; the browser gets them through
+  `browserProfiles()`, no cost). The form shows what it adds and the total. A profile with no links, one linking an item
+  the card no longer offers, or one that comes to no line is left off. **The changeover:** a row with no Stair Items
+  linked at all keeps its stored Price as one preset line (`profileLine()`, no typed price, `storedPrice` on the form)
+  until its links are set; with no stored price it is left off. Lines are labelled with the stair type, numbered
+  when an option has two of one type ("Main stairs 1", `stairAreas()`). Being Stair Item lines, Premium marks them up like
+  any labour from the card. **Different price is gone**; a price sent with a staircase is ignored. The stored Price and
+  Cost on Stair Profiles are the old GHL figures, read for the changeover and for preset lines made before
+  (`sourceKind: "profile"`, which still load, save and price as they were). The customer-facing phrases live in code, `src/lib/quick/stairs.ts` (copy,
+  not data), and the old GHL stairs prompt is written out there as `stairDescription()` from each row's type and method:
+  one bullet per staircase, the stair type's sentence, the closing sentence only when no staircase got one. Create
+  writes it into the option's description. With no rows at all the editor's picker falls back to type × method at a
+  typed price. Tested in `tests/quick.test.ts`, `tests/stairs.test.ts` and `tests/stairBuilder.test.ts`.
 - **The stair builder (Albert, 2026-10-20).** In the editor's Stairs picker, picking a Stair Profile
-  opens the builder: steps (the row's default), open-side steps, handrail feet, spindles and posts.
-  `expandProfile()` in `src/lib/editor/stairBuilder.ts` multiplies the row's six "Per …" links into
-  Stair Item lines priced from the card at the option's service level (an open-side step takes the
-  place of a plain step piece but still counts for risers and sanding; a zero count makes no line; an
+  opens the builder: steps, boxed / open-side / curved steps, landings, handrail and nosing feet, spindles and posts, starting
+  from the row's step count and preset counts (2026-11-02).
+  `expandProfile()` in `src/lib/editor/stairBuilder.ts` multiplies the row's "Per …" links into
+  Stair Item lines priced from the card at the option's service level (each step type counts its own piece, Per step
+  counts every step (2026-11-02); a zero count makes no line; an
   item the card no longer offers is reported, never guessed; a row with no links says so). **Add
   staircase** adds the lines and, when ticked, replaces the preliminary's preset line for that
   profile (`addLines()` in `src/lib/editor/model.ts`), so the measured quote is an edit of the
@@ -180,6 +194,13 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   Stairs lines go to the customer with no quantity, unit price or amount and no section total, on every copy
   (`copyOption()` in `copy.ts`). The site sheet's nosing is one line in linear feet of "Accents: Nosing"
   ($30/ft on the card); picket-hole nosing is the same item.
+- **One wording, one line for the customer (Albert, 2026-11-02: "I don't want to confuse the customer with the
+  different types of steps involved… consolidate the steps to just be one generic step… and then just combine the
+  quantity").** Stair Items → **Customer Wording** (text; blank = the item's name), read on Quote Lines through the
+  lookup **Stair Customer Wording**. In the customer copy (`copyOption()` in `copy.ts`, so the link, PDF, email and
+  What changed) Stairs lines that share a wording, the same area, the same included / add-on state and the same HST
+  read as one line with that wording, quantities and amounts added (a unit price only when every piece had the same).
+  Staff screens keep every piece. Tested in `tests/send.test.ts`.
 - **A Stair Item's cost is Labor Cost + Material Cost (Albert, 2026-10-31)**, as Airtable's own Profit / Margin %
   on Stair Items has it; `stairCost()` in `src/lib/pricing/stairCost.ts`, read in `getRateCard()`. A line keeps the cost
   it was added with (Unit Cost Snap), so lines made before keep labour only until rebuilt or retyped.

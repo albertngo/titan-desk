@@ -21,6 +21,8 @@ export type QuoteLine = LineInput & {
   materialId?: string | null;
   /** The Stair Item's Category (Quote Lines → Stair Category, 2026-10-28), for grouping the Stairs section; display only. */
   stairCategory?: string | null;
+  /** The Stair Item's Customer Wording (Quote Lines → Stair Customer Wording, 2026-11-02): customer copy only. */
+  customerWording?: string | null;
   clientNote: string | null;
   sortOrder: number | null;
   /** Airtable's own Line Total / Line Cost, for the per-line parity check. */
@@ -178,9 +180,29 @@ export type StairRow = {
 };
 
 /** Which Stair Items a profile expands into, by record id, and what each list is counted per. */
-export type StairTemplate = { perStep: string[]; perStaircase: string[]; perOpenSide: string[]; perHandrailFt: string[]; perSpindle: string[]; perPost: string[] };
+export type StairTemplate = {
+  perStep: string[];
+  /** 2026-11-02: each step type's own piece (Step (2 Side Close), Pie Shape Step…); optional so older fixtures read. */
+  perBoxed?: string[];
+  perOpenSide: string[];
+  perCurved?: string[];
+  perStaircase: string[];
+  perHandrailFt: string[];
+  /** 2026-11-02: counted per foot of nosing, per landing; optional so older fixtures read. */
+  perNosingFt?: string[];
+  perLanding?: string[];
+  perSpindle: string[];
+  perPost: string[];
+};
 
-/** A Stair Profiles row (2026-10-20): a preset-priced staircase for the preliminary, and the builder's template. */
+/** What a preset staircase assumes beyond its steps (2026-11-02): blank in Airtable reads as 0, a blank boxed count as null (the rest of the steps). */
+export type StairPreset = { boxedSteps: number | null; openSideSteps: number; curvedSteps: number; handrailFt: number; nosingFt: number; landings: number; spindles: number; posts: number };
+
+/**
+ * A Stair Profiles row (2026-10-20): a preset staircase for the preliminary and the builder's template.
+ * Since 2026-11-02 the preliminary expands it into Stair Item lines from the template and the preset
+ * counts; `price` and `cost` are the old stored GHL figures, kept only for lines made before.
+ */
 export type StairProfileRow = {
   id: string;
   name: string;
@@ -188,10 +210,11 @@ export type StairProfileRow = {
   method: StairMethod;
   /** The step count the preset assumes; the builder's default. */
   steps: number | null;
-  price: number;
+  price: number | null;
   cost: number | null;
   sort: number;
   template: StairTemplate;
+  preset: StairPreset;
 };
 
 export type RateCard = { rates: RateRow[]; stairs: StairRow[]; materials?: MaterialRow[]; profiles?: StairProfileRow[] };

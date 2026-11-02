@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { optionTotals } from "../src/lib/calc";
-import { amountUnit, BASEBOARD_PER_SQFT, baseboardDefault, baseboardFollow, buildPreliminary, choiceRate, distinctNames, MAX_QUICK_OPTIONS, optionName, parseWorks, parseWork, QUICK_GROUPS, rowTotal, stairTotal, workIsEmpty, type QuickChoice, type QuickPart, type QuickProduct } from "../src/lib/quick/plan";
+import { buildCatalogue } from "../src/lib/editor/model";
+import type { StairProfileRow, StairRow } from "../src/lib/quotes/types";
+import { amountUnit, BASEBOARD_PER_SQFT, baseboardDefault, baseboardFollow, buildPreliminary, choiceRate, distinctNames, MAX_QUICK_OPTIONS, optionName, parseWorks, parseWork, QUICK_GROUPS, browserProfiles, quickProfiles, rowTotal, stairAreas, workIsEmpty, type QuickChoice, type QuickPart, type QuickProduct } from "../src/lib/quick/plan";
 
 // INVENTED rates, costs, ids and products only: this repo is public.
 const part = (o: Partial<QuickPart> & { recordId: string }): QuickPart => ({ kind: "rate", labourType: "Install", spec: "SPEC", description: "Install | SPEC", contractor: "Crew A", uom: "sqft", rate: 2, cost: 1, minCharge: null, ...o });
@@ -95,26 +97,84 @@ describe("quick form: the lines it becomes", () => {
   });
 });
 
-describe("quick form: staircases (2026-10-20)", () => {
-  const MAIN = { id: "recProfMain00000A", name: "Wood on main stairs", type: "Main stairs" as const, method: "Solid red oak caps" as const, steps: 13, price: 4000, cost: 2600 };
-  const HALF = { id: "recProfHalf00000A", name: "Half staircase, sanded", type: "Half staircase" as const, method: "Sand & stain" as const, steps: 5, price: 700, cost: 400 };
-  const profiles = new Map([MAIN, HALF].map((p) => [p.id, p]));
+describe("quick form: staircases (2026-10-20; Stair Item lines 2026-11-02)", () => {
+  // Invented items, prices and ids only (quote/CLAUDE.md rule 4).
+  const item = (id: string, name: string, category: string, rate: number, cost: number): StairRow => ({ id, name, category, size: null, rate, cost });
+  const CAP = item("recCap0000000000A", "Step: Oak Cap", "step", 150, 70);
+  const RISER = item("recRiser00000000A", "Riser", "riser", 15, 6);
+  const SPINDLE = item("recSpindle000000A", "Iron Spindle", "railing", 25, 4);
+  const SAND = item("recSand000000000A", "Task: Sand Steps", "task", 90, 40);
+  const cat = buildCatalogue([], [CAP, RISER, SPINDLE, SAND]);
+  const row = (id: string, p: Partial<StairProfileRow>): StairProfileRow => ({
+    id,
+    name: "Wood on main stairs",
+    type: "Main stairs",
+    method: "Solid red oak caps",
+    steps: 13,
+    price: 4000,
+    cost: 2600,
+    sort: 1,
+    preset: { boxedSteps: null, openSideSteps: 0, curvedSteps: 0, handrailFt: 0, nosingFt: 0, landings: 0, spindles: 0, posts: 0 },
+    template: { perStep: [], perStaircase: [], perOpenSide: [], perHandrailFt: [], perSpindle: [], perPost: [] },
+    ...p,
+  });
+  const MAIN_ROW = row("recProfMain00000A", { template: { perStep: [CAP.id, RISER.id], perStaircase: [], perOpenSide: [], perHandrailFt: [], perSpindle: [SPINDLE.id], perPost: [] }, preset: { boxedSteps: null, openSideSteps: 0, curvedSteps: 0, handrailFt: 0, nosingFt: 0, landings: 0, spindles: 30, posts: 0 } });
+  const HALF_ROW = row("recProfHalf00000A", { name: "Half staircase, sanded", type: "Half staircase", method: "Sand & stain", steps: 5, template: { perStep: [SAND.id], perStaircase: [], perOpenSide: [], perHandrailFt: [], perSpindle: [], perPost: [] } });
+  const EMPTY_ROW = row("recProfEmpty0000A", { name: "Not set up", price: null });
+  const UNLINKED_ROW = row("recProfUnlinked0A", { name: "Old preset", price: 3100, cost: 2000 });
+  const GONE_ROW = row("recProfGone00000A", { name: "Links a dead item", template: { perStep: [CAP.id, "recGone000000000A"], perStaircase: [], perOpenSide: [], perHandrailFt: [], perSpindle: [], perPost: [] } });
+  const offered = quickProfiles([MAIN_ROW, HALF_ROW, EMPTY_ROW, GONE_ROW, UNLINKED_ROW], cat);
+  const profiles = new Map(offered.map((p) => [p.id, p]));
+  const MAIN = profiles.get(MAIN_ROW.id)!;
 
-  it("keeps a staircase's profile id, and a typed price only as an override; anything else is dropped", () => {
-    const w = parseWork({ stairs: [{ profileId: MAIN.id, price: 4500 }, { profileId: HALF.id }, { profileId: "nope", price: 1 }, { type: "Townhome", method: "Vinyl treads", price: 10 }, "x"] });
-    expect(w.stairs).toEqual([{ profileId: MAIN.id, price: 4500 }, { profileId: HALF.id, price: null }]);
+  it("offers a profile only when every Stair Item it links is on the card, with its preset lines and their total", () => {
+    expect(offered.map((p) => p.id)).toEqual([MAIN_ROW.id, HALF_ROW.id, UNLINKED_ROW.id]);
+    expect(MAIN.storedPrice).toBe(false);
+    expect(MAIN.lines.map((l) => [l.description, l.qty, l.unitPriceSnap, l.unitCostSnap])).toEqual([
+      ["Step: Oak Cap", 13, 150, 70],
+      ["Riser", 13, 15, 6],
+      ["Iron Spindle", 30, 25, 4],
+    ]);
+    expect(MAIN.total).toBe(13 * 150 + 13 * 15 + 30 * 25);
+  });
+
+  it("keeps a row with no Stair Items linked at its stored price, one line and no typed price, until its links are set", () => {
+    const old = profiles.get(UNLINKED_ROW.id)!;
+    expect([old.storedPrice, old.total]).toEqual([true, 3100]);
+    expect(old.lines.map((l) => [l.sourceKind, l.sourceId, l.unitPriceSnap, l.unitCostSnap, l.unitPrice])).toEqual([["profile", UNLINKED_ROW.id, 3100, 2000, null]]);
+    expect(buildPreliminary(choices, parseWork({ stairs: [{ profileId: UNLINKED_ROW.id, price: 9999 }] }), new Map(), profiles).lines.map((l) => [l.description, l.unitPrice, l.area])).toEqual([["Old preset", null, "Main stairs"]]);
+  });
+
+  it("sends the browser charge rates only, never a cost", () => {
+    const b = browserProfiles(offered);
+    expect(b.flatMap((p) => p.lines.map((l) => l.unitCostSnap))).toEqual(b.flatMap((p) => p.lines.map(() => null)));
+    expect(b[0].total).toBe(MAIN.total);
+  });
+
+  it("keeps a staircase's profile id and nothing else: a price sent with it is ignored", () => {
+    const w = parseWork({ stairs: [{ profileId: MAIN.id, price: 4500 }, { profileId: HALF_ROW.id }, { profileId: "nope", price: 1 }, { type: "Townhome", method: "Vinyl treads", price: 10 }, "x"] });
+    expect(w.stairs).toEqual([{ profileId: MAIN.id }, { profileId: HALF_ROW.id }]);
     expect(parseWork({ stairs: Array(5).fill({ profileId: MAIN.id }) }).stairs).toHaveLength(3);
   });
 
-  it("prices each staircase from its profile's preset, with the row as the line's source, or the override when typed", () => {
-    const { lines, skipped } = buildPreliminary(choices, parseWork({ stairs: [{ profileId: MAIN.id }, { profileId: HALF.id, price: 650 }] }), new Map(), profiles);
+  it("adds each staircase's preset Stair Item lines, priced from the card, in the Stairs section", () => {
+    const { lines, skipped } = buildPreliminary(choices, parseWork({ stairs: [{ profileId: MAIN.id }, { profileId: HALF_ROW.id }] }), new Map(), profiles);
     expect(skipped).toEqual([]);
-    expect(lines.map((l) => [l.section, l.lineType, l.sourceKind, l.sourceId, l.uom, l.qty, l.unitPriceSnap, l.unitCostSnap, l.unitPrice, l.description, l.hasSource])).toEqual([
-      ["Stairs", "Stairs", "profile", MAIN.id, "each", 1, 4000, 2600, null, "Wood on main stairs", true],
-      ["Stairs", "Stairs", "profile", HALF.id, "each", 1, 700, 400, 650, "Half staircase, sanded", true],
+    expect(lines.map((l) => [l.section, l.sourceKind, l.sourceId, l.qty, l.unitPriceSnap, l.unitPrice, l.area])).toEqual([
+      ["Stairs", "stair", CAP.id, 13, 150, null, "Main stairs"],
+      ["Stairs", "stair", RISER.id, 13, 15, null, "Main stairs"],
+      ["Stairs", "stair", SPINDLE.id, 30, 25, null, "Main stairs"],
+      ["Stairs", "stair", SAND.id, 5, 90, null, "Half staircase"],
     ]);
-    expect(optionTotals(lines, 0, false).preDiscount).toBe(4000 + 650);
-    expect([stairTotal(MAIN, null), stairTotal(MAIN, 4500)]).toEqual([4000, 4500]);
+    expect(optionTotals(lines, 0, false).preDiscount).toBe(MAIN.total + 5 * 90);
+    expect(new Set(lines.map((l) => l.id)).size).toBe(lines.length);
+  });
+
+  it("numbers two staircases of the same type so the measure can tell them apart", () => {
+    expect(stairAreas(["Main stairs", "Basement", "Main stairs"])).toEqual(["Main stairs 1", "Basement", "Main stairs 2"]);
+    const { lines } = buildPreliminary(choices, parseWork({ stairs: [{ profileId: MAIN.id }, { profileId: MAIN.id }] }), new Map(), profiles);
+    expect([...new Set(lines.map((l) => l.area))]).toEqual(["Main stairs 1", "Main stairs 2"]);
+    expect(new Set(lines.map((l) => l.id)).size).toBe(lines.length);
   });
 
   it("skips and names a profile that is no longer on the form", () => {

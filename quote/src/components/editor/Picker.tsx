@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { optionTotals } from "@/lib/calc";
 import { bestContractor, entryLabel, lineFromEntry, manualLine, rateSnap, searchCatalogue, SECTION_LABOUR, type CardEntry, type EditorLine } from "@/lib/editor/model";
-import { defaultInput, expandProfile, type BuilderInput } from "@/lib/editor/stairBuilder";
+import { defaultInput, expandProfile, stepSplit, type BuilderInput } from "@/lib/editor/stairBuilder";
 import { stairGroupLabel, stairGroupOf } from "@/lib/editor/stairGroups";
 import { money } from "@/lib/format";
 import { levelPrice, type ServiceLevel } from "@/lib/pricing/service";
@@ -15,8 +15,12 @@ const CODE_PROFILES = STAIR_TYPES.flatMap((type) => STAIR_METHODS.map((method) =
 
 const COUNTS: [keyof BuilderInput, string][] = [
   ["steps", "Steps"],
+  ["boxedSteps", "Boxed steps"],
   ["openSideSteps", "Open-side steps"],
+  ["curvedSteps", "Curved steps"],
   ["handrailFt", "Handrail (ft)"],
+  ["nosingFt", "Nosing (ft)"],
+  ["landings", "Landings"],
   ["spindles", "Spindles"],
   ["posts", "Posts"],
 ];
@@ -64,7 +68,7 @@ export function Picker({
 }) {
   const [q, setQ] = useState("");
   const [building, setBuilding] = useState<StairProfileRow | null>(null);
-  const [input, setInput] = useState<BuilderInput>({ steps: 0, openSideSteps: 0, handrailFt: 0, spindles: 0, posts: 0 });
+  const [input, setInput] = useState<BuilderInput>({ steps: 0, boxedSteps: null, openSideSteps: 0, curvedSteps: 0, handrailFt: 0, nosingFt: 0, landings: 0, spindles: 0, posts: 0 });
   const [replace, setReplace] = useState(true);
   const [all, setAll] = useState(false);
   const narrowed = category !== null || stairsOnly;
@@ -121,12 +125,17 @@ export function Picker({
               {COUNTS.map(([k, label]) => (
                 <label key={k}>
                   {label}
-                  <input className="in" inputMode="numeric" value={input[k] || ""} placeholder="0" onChange={(e) => setInput({ ...input, [k]: Number(e.target.value.replace(/[^\d.]/g, "")) || 0 })} />
+                  {k === "boxedSteps" ? (
+                    // Blank = the rest of the steps (2026-11-02); the placeholder says how many that is.
+                    <input className="in" inputMode="numeric" value={input.boxedSteps ?? ""} placeholder={String(stepSplit({ ...input, boxedSteps: null }).boxed)} onChange={(e) => { const v = e.target.value.replace(/[^\d.]/g, ""); setInput({ ...input, boxedSteps: v === "" ? null : Number(v) || 0 }); }} />
+                  ) : (
+                    <input className="in" inputMode="numeric" value={input[k] || ""} placeholder="0" onChange={(e) => setInput({ ...input, [k]: Number(e.target.value.replace(/[^\d.]/g, "")) || 0 })} />
+                  )}
                 </label>
               ))}
             </div>
             {built.untemplated ? (
-              <p className="sb-msg warn">This profile has no Stair Items linked yet. Set its Per step, Per staircase and other links in Airtable (Stair Profiles), then come back.</p>
+              <p className="sb-msg warn">This profile has no Stair Items linked yet. Set its Per step, Per boxed step and other links in Airtable (Stair Profiles), then come back.</p>
             ) : (
               <>
                 <ul className="sb-lines">
@@ -161,7 +170,7 @@ export function Picker({
                 <button className="pick" onClick={() => startBuilding(p)}>
                   <span className="nm">{p.name}</span>
                   <span className="mt">
-                    Preset {money(p.price)}{p.steps ? ` for ${p.steps} steps` : ""} · build it into Stair Item lines
+                    {p.steps ? `${p.steps} steps · ` : ""}build it into Stair Item lines
                   </span>
                 </button>
               </li>

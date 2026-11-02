@@ -1,6 +1,7 @@
 import { optionTotals, round2 } from "@/lib/calc";
 import { PRIVATE_SECTION } from "@/lib/calc";
-import { LINE_TYPE, type EditorLine } from "@/lib/editor/model";
+import { LINE_TYPE, type CardEntry, type EditorLine } from "@/lib/editor/model";
+import { defaultInput, expandProfile } from "@/lib/editor/stairBuilder";
 import type { StairProfileRow } from "@/lib/quotes/types";
 import { profileLine, STAIR_ROWS } from "./stairs";
 
@@ -89,12 +90,56 @@ export function choiceRate(c: QuickChoice, product: QuickProduct | null = null):
 // ---------- what the browser sends ----------
 
 export type QuickRow = { choiceId: string; amount: number | null; productId: string | null };
-/** One staircase: which Stair Profiles row, and a different price only when staff typed one. */
-export type StairWork = { profileId: string; price: number | null };
+/** One staircase: which Stair Profiles row. No typed price since 2026-11-02 (Albert: "remove different price"). */
+export type StairWork = { profileId: string };
 export type QuickWork = { rows: QuickRow[]; stairs: StairWork[]; extraCost: number | null; description: string; building: string | null };
 
-/** A Stair Profiles row as the form needs it. The browser gets these with `cost` null. */
-export type QuickProfile = Pick<StairProfileRow, "id" | "name" | "type" | "method" | "steps" | "price" | "cost">;
+/**
+ * A Stair Profiles row as the form needs it (2026-11-02): the Stair Item lines it adds, worked out
+ * from its template and preset counts, and their total. The browser gets the lines with no cost.
+ */
+export type QuickProfile = Pick<StairProfileRow, "id" | "name" | "type" | "method" | "steps"> & {
+  lines: EditorLine[];
+  total: number;
+  /** True while the row has no Stair Items linked: one line at its old stored price (the changeover). */
+  storedPrice: boolean;
+};
+
+/**
+ * Every profile the form can offer, expanded into its preset Stair Item lines (Albert, 2026-11-02:
+ * "once it processes through, it will add the preset items on the stair items for that particular
+ * selection"). One linking an item the card no longer offers, or that comes to no line, is left off:
+ * it is never priced from part of its items. The changeover: a row with no Stair Items linked at all
+ * keeps its old stored price as one line until its links are set, and is left off without one.
+ */
+export function quickProfiles(rows: StairProfileRow[], catalogue: CardEntry[]): QuickProfile[] {
+  return rows.flatMap((p): QuickProfile[] => {
+    const head = { id: p.id, name: p.name, type: p.type, method: p.method, steps: p.steps };
+    const r = expandProfile(p, defaultInput(p), catalogue);
+    if (r.untemplated) return p.price === null ? [] : [{ ...head, lines: [profileLine(p)], total: p.price, storedPrice: true }];
+    if (r.missing.length > 0 || r.lines.length === 0) return [];
+    return [{ ...head, lines: r.lines, total: optionTotals(r.lines, 0, false).preDiscount, storedPrice: false }];
+  });
+}
+
+/** The same profiles for the browser: charge rates only, no cost. */
+export const browserProfiles = (ps: QuickProfile[]): QuickProfile[] => ps.map((p) => ({ ...p, lines: p.lines.map((l) => ({ ...l, unitCostSnap: null, costOverride: null, manualCost: null })) }));
+
+/**
+ * What each staircase's lines are labelled (Quote Lines → Area): the stair type, numbered when an
+ * option has two of the same ("Main stairs 1", "Main stairs 2"), so the measure can tell them apart.
+ */
+export function stairAreas(types: string[]): string[] {
+  const count = new Map<string, number>();
+  for (const t of types) count.set(t, (count.get(t) ?? 0) + 1);
+  const seen = new Map<string, number>();
+  return types.map((t) => {
+    if ((count.get(t) ?? 0) < 2) return t;
+    const n = (seen.get(t) ?? 0) + 1;
+    seen.set(t, n);
+    return `${t} ${n}`;
+  });
+}
 
 export const BUILDINGS = ["House", "Townhouse", "Condo / Apartment", "Commercial"] as const;
 
@@ -110,10 +155,10 @@ export function parseWork(raw: unknown): QuickWork {
     const productId = typeof o.productId === "string" && REC.test(o.productId) ? o.productId : null;
     return [{ choiceId: o.choiceId, amount: amountOf(o.amount), productId }];
   });
-  // A staircase is a profile id; a typed price is kept only as an override. Anything else is dropped, never guessed.
+  // A staircase is a profile id, nothing else: a price sent with it is ignored (2026-11-02). Anything malformed is dropped, never guessed.
   const stairs = (Array.isArray(r.stairs) ? r.stairs : []).slice(0, STAIR_ROWS).flatMap((x): StairWork[] => {
     const o = (x && typeof x === "object" ? x : {}) as Record<string, unknown>;
-    return typeof o.profileId === "string" && REC.test(o.profileId) ? [{ profileId: o.profileId, price: amountOf(o.price) }] : [];
+    return typeof o.profileId === "string" && REC.test(o.profileId) ? [{ profileId: o.profileId }] : [];
   });
   const building = typeof r.building === "string" && (BUILDINGS as readonly string[]).includes(r.building) ? r.building : null;
   return { rows, stairs, extraCost: amountOf(r.extraCost), description: typeof r.description === "string" ? r.description.trim().slice(0, 2000) : "", building };
@@ -184,7 +229,8 @@ export function optionName(installs: string[], materials: string[], hasStairs: b
 /**
  * The preliminary's lines. A row needs an amount unless every part is flat; a material row needs a
  * product (its chosen one, else the standard one). Rows that can't be priced are skipped and named.
- * Each staircase becomes one Stairs line at its profile's preset price (or the typed override).
+ * Each staircase becomes its profile's preset Stair Item lines (2026-11-02), priced from the card,
+ * labelled by stair type (numbered when two share one).
  */
 export function buildPreliminary(choices: QuickChoice[], work: QuickWork, products: Map<string, QuickProduct>, profiles: Map<string, QuickProfile> = new Map()): BuildResult {
   const byId = new Map(choices.map((c) => [c.id, c]));
@@ -252,15 +298,16 @@ export function buildPreliminary(choices: QuickChoice[], work: QuickWork, produc
       });
     }
   }
-  for (const s of work.stairs) {
+  const picked = work.stairs.flatMap((s) => {
     const p = profiles.get(s.profileId);
-    if (!p) {
-      skipped.push("a staircase profile that's no longer on the form");
-      continue;
-    }
-    lines.push(profileLine(p, s.price));
+    if (!p) skipped.push("a staircase profile that's no longer on the form");
+    return p ? [p] : [];
+  });
+  const areas = stairAreas(picked.map((p) => p.type));
+  picked.forEach((p, i) => {
+    for (const l of p.lines) lines.push({ ...l, id: lineId(), area: areas[i] });
     stairs = true;
-  }
+  });
   // The preliminary's additional cost is a Private line (Albert, 2026-10-22): the customer sees it as the one rolled-up "Additional work" row, never itemised.
   if (work.extraCost !== null) {
     lines.push({ ...blank(PRIVATE_SECTION), sourceKind: "manual", description: "Additional work", uom: "flat", qty: 1, unitPrice: work.extraCost });
@@ -303,8 +350,6 @@ export function rowTotal(choices: QuickChoice[], row: QuickRow, products: Map<st
   return lines.length === 0 ? null : optionTotals(lines, 0, false).preDiscount;
 }
 
-/** What one staircase row shows beside its dropdown: the preset, or the price staff typed over it. */
-export const stairTotal = (p: Pick<QuickProfile, "price">, override: number | null): number => override ?? p.price;
 
 // ---------- baseboards follow the install (Albert, 2026-10-22) ----------
 

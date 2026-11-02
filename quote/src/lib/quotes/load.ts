@@ -3,7 +3,8 @@ import { stairCost } from "@/lib/pricing/stairCost";
 import { requireQuoter } from "@/lib/auth";
 import { AirtableError, getRecord, listByIds, listRecords, type AirtableRecord } from "@/lib/airtable/client";
 import { CAT, CATALOGUE_TABLE, LINE, MATERIAL, MATERIAL_TABLE, OPTION, PROFILE, PROFILE_TABLE, QUICK, QUICK_TABLE, QUOTE, RATE, RATE_TABLE, STAIR, STAIR_TABLE, T, VERSION } from "@/lib/airtable/fields";
-import { QUICK_GROUPS, type QuickChoice, type QuickGroup, type QuickPart, type QuickProduct } from "@/lib/quick/plan";
+import { QUICK_GROUPS, quickProfiles, type QuickChoice, type QuickGroup, type QuickPart, type QuickProduct, type QuickProfile } from "@/lib/quick/plan";
+import { buildCatalogue } from "@/lib/editor/model";
 import { parseAcceptance } from "@/lib/accept/plan";
 import { cleanSchedule } from "@/lib/pricing/schedule";
 import { isStairMethod, isStairType } from "@/lib/quick/stairs";
@@ -116,6 +117,7 @@ function toLine(r: AirtableRecord): QuoteLine {
     contractor: str(f[LINE.contractor]),
     materialId: ids(f[LINE.installMaterial])[0] ?? null,
     stairCategory: lookupText(f[LINE.stairCategory]),
+    customerWording: lookupText(f[LINE.stairWording]),
     clientNote: str(f[LINE.clientNote]),
     sortOrder: num(f[LINE.sortOrder]),
     airtableTotal: num(f[LINE.lineTotal]),
@@ -273,7 +275,8 @@ export async function getQuote(id: string): Promise<Quote | null> {
 
 /**
  * Active Stair Profiles (2026-10-20), in their order. A row whose type or method isn't one the app
- * knows, or that has no price, is left off rather than priced or described wrongly.
+ * knows is left off rather than described wrongly. Since 2026-11-02 a row needs no stored price: the
+ * preliminary prices it from its Stair Items (`quickProfiles()` in src/lib/quick/plan.ts).
  */
 async function loadProfiles(): Promise<StairProfileRow[]> {
   const recs = await listRecords(PROFILE_TABLE, { fields: Object.values(PROFILE), filterByFormula: `{${PROFILE.active}}` });
@@ -283,8 +286,7 @@ async function loadProfiles(): Promise<StairProfileRow[]> {
       const name = str(f[PROFILE.name]);
       const type = str(f[PROFILE.stairType]);
       const method = str(f[PROFILE.method]);
-      const price = num(f[PROFILE.price]);
-      if (!name || !isStairType(type) || !isStairMethod(method) || price === null) return [];
+      if (!name || !isStairType(type) || !isStairMethod(method)) return [];
       return [
         {
           id: r.id,
@@ -292,14 +294,28 @@ async function loadProfiles(): Promise<StairProfileRow[]> {
           type,
           method,
           steps: num(f[PROFILE.steps]),
-          price,
+          price: num(f[PROFILE.price]),
           cost: num(f[PROFILE.cost]),
           sort: num(f[PROFILE.sort]) ?? 999,
+          preset: {
+            boxedSteps: num(f[PROFILE.presetBoxed]),
+            openSideSteps: num(f[PROFILE.presetOpenSides]) ?? 0,
+            curvedSteps: num(f[PROFILE.presetCurved]) ?? 0,
+            handrailFt: num(f[PROFILE.presetHandrailFt]) ?? 0,
+            nosingFt: num(f[PROFILE.presetNosingFt]) ?? 0,
+            landings: num(f[PROFILE.presetLandings]) ?? 0,
+            spindles: num(f[PROFILE.presetSpindles]) ?? 0,
+            posts: num(f[PROFILE.presetPosts]) ?? 0,
+          },
           template: {
             perStep: ids(f[PROFILE.perStep]),
             perStaircase: ids(f[PROFILE.perStaircase]),
+            perBoxed: ids(f[PROFILE.perBoxed]),
             perOpenSide: ids(f[PROFILE.perOpenSide]),
+            perCurved: ids(f[PROFILE.perCurved]),
             perHandrailFt: ids(f[PROFILE.perHandrailFt]),
+            perNosingFt: ids(f[PROFILE.perNosingFt]),
+            perLanding: ids(f[PROFILE.perLanding]),
             perSpindle: ids(f[PROFILE.perSpindle]),
             perPost: ids(f[PROFILE.perPost]),
           },
@@ -356,6 +372,16 @@ export async function otherVersionsOf(q: Quote, exclude: string[], limit = 4): P
 export async function getStairProfiles(): Promise<StairProfileRow[]> {
   await requireQuoter();
   return loadProfiles();
+}
+
+/**
+ * The preliminary's staircase dropdown (2026-11-02): each Stair Profile expanded into its preset Stair
+ * Item lines from today's card, costs included (quoters only; `browserProfiles()` strips them).
+ */
+export async function getQuickProfiles(): Promise<QuickProfile[]> {
+  await requireQuoter();
+  const card = await getRateCard();
+  return quickProfiles(card.profiles ?? [], buildCatalogue([], card.stairs));
 }
 
 /** Active Rate Card rows, Stair Items, Install Materials and Stair Profiles, for the editor. Costs included: quoters only. */
