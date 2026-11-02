@@ -11,7 +11,7 @@ import { makeConfigured, sendToGhl } from "@/lib/make/client";
 import type { CustomerSearch, FoundCustomer, StartResult } from "./types";
 import { buildPreliminary, distinctNames, parseWorks, type QuickWork } from "@/lib/quick/plan";
 import { profileOf, stairDescription } from "@/lib/quick/stairs";
-import { getQuickForm, getStairProfiles, quickProducts } from "./load";
+import { getQuickForm, getQuickProfiles, quickProducts } from "./load";
 import { firstVersion, quotesByOpportunity } from "./records";
 import { fillVersion } from "./save";
 import { num, str } from "./values";
@@ -229,7 +229,7 @@ async function fillFromQuickForm(quoteId: string, versionId: string, works: Quic
  */
 export async function buildQuickOptions(works: QuickWork[]) {
   await requireQuoter();
-  const [choices, products, profileRows] = await Promise.all([getQuickForm(), quickProducts(works.flatMap((w) => w.rows.flatMap((r) => (r.productId ? [r.productId] : [])))), getStairProfiles()]);
+  const [choices, products, profileRows] = await Promise.all([getQuickForm(), quickProducts(works.flatMap((w) => w.rows.flatMap((r) => (r.productId ? [r.productId] : [])))), getQuickProfiles()]);
   const profiles = new Map(profileRows.map((p) => [p.id, p]));
   const built = works.map((w) => ({ w, b: buildPreliminary(choices, w, products, profiles) }));
   const names = distinctNames(built.map(({ b }) => b));

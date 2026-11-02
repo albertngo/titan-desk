@@ -1,8 +1,8 @@
 import "server-only";
 import { requireQuoter } from "@/lib/auth";
 import type { EditorLine } from "@/lib/editor/model";
-import { parseWork, workIsEmpty, type QuickChoice, type QuickProfile } from "@/lib/quick/plan";
-import { getQuickForm, getStairProfiles } from "./load";
+import { browserProfiles, parseWork, workIsEmpty, type QuickChoice, type QuickProfile } from "@/lib/quick/plan";
+import { getQuickForm, getQuickProfiles } from "./load";
 import { buildQuickOptions } from "./start";
 
 /**
@@ -14,15 +14,15 @@ import { buildQuickOptions } from "./start";
 /** The quick form's choices and staircase profiles as the browser may see them: charge rates only, no cost, no contractor. */
 export async function quickFormForBrowser(): Promise<{ choices: QuickChoice[]; profiles: QuickProfile[] }> {
   await requireQuoter();
-  const [quick, profileRows] = await Promise.all([getQuickForm().catch(() => []), getStairProfiles().catch(() => [])]);
+  const [quick, profiles] = await Promise.all([getQuickForm().catch(() => []), getQuickProfiles().catch(() => [])]);
   return {
     choices: quick.map((c) => ({
       ...c,
       parts: c.parts.map((p) => ({ ...p, cost: null, contractor: null })),
       product: c.product ? { ...c.product, cost: null } : null,
     })),
-    // The preset price only; cost and the builder's template stay on the server.
-    profiles: profileRows.map(({ id, name, type, method, steps, price }) => ({ id, name, type, method, steps, price, cost: null })),
+    // Each staircase's preset Stair Item lines at charge rates; cost and the template stay on the server.
+    profiles: browserProfiles(profiles),
   };
 }
 

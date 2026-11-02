@@ -21,6 +21,31 @@ export type Change = {
 
 export const CHANGES: Change[] = [
   {
+    date: "2026-11-02",
+    kind: "changed",
+    title: "Preliminary stairs add their Stair Items",
+    details: [
+      "Picking a staircase on a preliminary now adds that staircase's Stair Item lines (steps, risers, spindles and so on, from its Stair Profiles row) priced from the card, instead of one line at a fixed price. The form shows what it adds and the total.",
+      "The measured quote is the same lines with the counts corrected. Two staircases of the same type are labelled Main stairs 1 and Main stairs 2.",
+      "Each Stair Profiles row now has preset counts in Airtable: boxed, open-side and curved steps (each with its own Per … step link, so each type is priced as its own piece), handrail feet, nosing feet (with Per nosing ft), spindles and posts. Until a row's Stair Items are linked it still adds one line at its old stored price.",
+    ],
+  },
+  {
+    date: "2026-11-02",
+    kind: "new",
+    title: "Customers see one line per kind of stair work",
+    details: [
+      "Give a Stair Item a Customer Wording in Airtable (for example \"Solid red oak tread caps\" on every step piece) and the customer's quote link, PDF and email show all those pieces as one line with that wording, quantities added. Boxed, open-side and pie steps no longer show as separate things.",
+      "Your screens still show every piece. Items with no Customer Wording show their own name, as before.",
+    ],
+  },
+  {
+    date: "2026-11-02",
+    kind: "removed",
+    title: "Preliminary stairs: Different price",
+    details: ["The Different price box under each staircase is gone. Change a quantity or price in the editor instead, as on any quote."],
+  },
+  {
     date: "2026-11-01",
     kind: "changed",
     title: "Editor: unit cost in its own column again",

@@ -586,6 +586,32 @@ describe("lump sum (2026-10-22)", () => {
     expect(stairs).toMatchObject({ name: "Stairs", total: null });
     expect(stairs.lines[0]).toMatchObject({ kind: "item", description: "Step", qty: null, unitPrice: null, amount: null });
   });
+
+  it("shows step pieces that share a Customer Wording as one line, quantities and add-on amounts added (Albert, 2026-11-02)", () => {
+    const st = (p: Partial<QuoteLine>) => line({ section: "Stairs", lineType: "Stairs", sourceKind: "stair", uom: "piece", area: "Main stairs", ...p });
+    const lines = [
+      st({ id: "a", description: "Step (2 Side Close)", customerWording: "Solid red oak tread caps", qty: 9, unitPriceSnap: 160 }),
+      st({ id: "b", description: "Step (Left Side Open)", customerWording: "Solid red oak tread caps", qty: 2, unitPriceSnap: 205 }),
+      st({ id: "c", description: "Pie Shape Step (Left)", customerWording: " solid red oak TREAD caps ", qty: 2, unitPriceSnap: 205 }),
+      st({ id: "d", description: "Riser", qty: 13, unitPriceSnap: 12 }),
+      // Another staircase stays its own line; so does an add-on.
+      st({ id: "e", description: "Step (2 Side Close)", customerWording: "Solid red oak tread caps", qty: 5, unitPriceSnap: 160, area: "Basement" }),
+      st({ id: "f", description: "Step (2 Side Open)", customerWording: "Solid red oak tread caps", qty: 1, unitPriceSnap: 250, include: false }),
+      st({ id: "g", description: "Step (Right Side Open)", customerWording: "Solid red oak tread caps", qty: 1, unitPriceSnap: 205, include: false }),
+    ];
+    const stairs = customerCopy(quote({ options: [option("A", lines, 0, true)] }), AT).options[0].sections.find((x) => x.name === "Stairs")!;
+    expect(stairs.lines.map((l) => (l.kind === "item" ? [l.description, l.note, l.n, l.amount, l.optional] : null))).toEqual([
+      ["Solid red oak tread caps", "Main stairs", 1, null, false],
+      ["Riser", "Main stairs", 2, null, false],
+      ["Solid red oak tread caps", "Basement", 3, null, false],
+      ["Solid red oak tread caps", "Main stairs", null, 455, true],
+    ]);
+    const addOn = stairs.lines[3];
+    expect(addOn.kind === "item" && addOn.unitPrice).toBeNull();
+    // Flooring is never merged, wording or not.
+    const floor = customerCopy(quote({ options: [option("A", [line({ id: "x", customerWording: "Same" }), line({ id: "y", customerWording: "Same" })], 0, true)] }), AT);
+    expect(floor.options[0].sections[0].lines).toHaveLength(2);
+  });
 });
 
 describe("a preliminary goes as a range (Albert, 2026-10-27)", () => {
