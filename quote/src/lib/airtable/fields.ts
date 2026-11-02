@@ -314,12 +314,14 @@ export const PROFILE = {
   perBoxed: "fldzREAhou4bs6LQN",
   perCurved: "fldgHYbd2Rnbv9Tlv",
   perNosingFt: "fldivcgjfcsAiqAoz",
+  perLanding: "fldLKs273JkUcQ0Jw",
   /** 2026-11-02: what the preliminary's staircase assumes beyond its steps; blank = 0. */
   presetBoxed: "fldRLTaiLL5gk3B2i",
   presetOpenSides: "fldixLY9XBGwkCml5",
   presetCurved: "fldnjlU1PRNZeTyK8",
   presetHandrailFt: "fldeiaYVi2IIpd37c",
   presetNosingFt: "fldofXtjKqsNrNwDM",
+  presetLandings: "fldpijJx6Q3E2UfDU",
   presetSpindles: "fldrqXaGxmJM4rZHI",
   presetPosts: "fld377QxIdjw4DqGs",
 } as const;

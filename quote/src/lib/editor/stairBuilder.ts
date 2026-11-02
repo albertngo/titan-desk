@@ -6,8 +6,8 @@ import type { StairProfileRow } from "@/lib/quotes/types";
  * The stair builder (Albert, 2026-10-20): turns a Stair Profiles row and a few counts into the
  * INQ's bill of pieces, as Stair Item lines in the Stairs section. The row's links say which items
  * are counted per step (every step: risers, sanding), per boxed / open-side / curved step (each
- * type's own step piece, 2026-11-02), per staircase, per foot of handrail, per foot of nosing
- * (2026-11-02), per spindle and per post;
+ * type's own step piece, 2026-11-02), per staircase, per foot of handrail, per foot of nosing, per
+ * landing (2026-11-02), per spindle and per post;
  * the counts come from the row's presets or the person measuring. Pure, no I/O; tested in
  * tests/stairBuilder.test.ts. Nothing is guessed: an item the card no longer offers is reported.
  */
@@ -21,6 +21,8 @@ export type BuilderInput = {
   handrailFt: number;
   /** Linear feet of nosing (2026-11-02). */
   nosingFt: number;
+  /** Landings (2026-11-02). */
+  landings: number;
   spindles: number;
   posts: number;
 };
@@ -36,6 +38,7 @@ export const defaultInput = (p: Pick<StairProfileRow, "steps" | "preset">): Buil
   curvedSteps: p.preset?.curvedSteps ?? 0,
   handrailFt: p.preset?.handrailFt ?? 0,
   nosingFt: p.preset?.nosingFt ?? 0,
+  landings: p.preset?.landings ?? 0,
   spindles: p.preset?.spindles ?? 0,
   posts: p.preset?.posts ?? 0,
 });
@@ -64,7 +67,7 @@ export function stepSplit(input: BuilderInput): { steps: number; boxed: number; 
 /** `area` labels every line (the stair type by default; "Main stairs 2" when a quote has two, 2026-11-02). */
 export function expandProfile(p: StairProfileRow, input: BuilderInput, catalogue: CardEntry[], level: ServiceLevel = "Standard", area: string = p.type): BuilderResult {
   const t = p.template;
-  const untemplated = [t.perStep, t.perBoxed, t.perOpenSide, t.perCurved, t.perStaircase, t.perHandrailFt, t.perNosingFt, t.perSpindle, t.perPost].every((ids) => (ids ?? []).length === 0);
+  const untemplated = [t.perStep, t.perBoxed, t.perOpenSide, t.perCurved, t.perStaircase, t.perHandrailFt, t.perNosingFt, t.perLanding, t.perSpindle, t.perPost].every((ids) => (ids ?? []).length === 0);
   const entries = new Map(catalogue.flatMap((e) => (e.kind === "stair" ? [[e.recordId, e] as const] : [])));
   const { steps, boxed, open, curved } = stepSplit(input);
   // Each step type counts its own piece; Per step is what every step gets, whatever its type (risers, sanding).
@@ -76,6 +79,7 @@ export function expandProfile(p: StairProfileRow, input: BuilderInput, catalogue
     [t.perStaircase, 1],
     [t.perHandrailFt, whole(input.handrailFt)],
     [t.perNosingFt ?? [], feet(input.nosingFt)],
+    [t.perLanding ?? [], whole(input.landings)],
     [t.perSpindle, whole(input.spindles)],
     [t.perPost, whole(input.posts)],
   ];

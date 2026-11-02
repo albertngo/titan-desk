@@ -20,6 +20,7 @@ const COUNTS: [keyof BuilderInput, string][] = [
   ["curvedSteps", "Curved steps"],
   ["handrailFt", "Handrail (ft)"],
   ["nosingFt", "Nosing (ft)"],
+  ["landings", "Landings"],
   ["spindles", "Spindles"],
   ["posts", "Posts"],
 ];
@@ -67,7 +68,7 @@ export function Picker({
 }) {
   const [q, setQ] = useState("");
   const [building, setBuilding] = useState<StairProfileRow | null>(null);
-  const [input, setInput] = useState<BuilderInput>({ steps: 0, boxedSteps: null, openSideSteps: 0, curvedSteps: 0, handrailFt: 0, nosingFt: 0, spindles: 0, posts: 0 });
+  const [input, setInput] = useState<BuilderInput>({ steps: 0, boxedSteps: null, openSideSteps: 0, curvedSteps: 0, handrailFt: 0, nosingFt: 0, landings: 0, spindles: 0, posts: 0 });
   const [replace, setReplace] = useState(true);
   const [all, setAll] = useState(false);
   const narrowed = category !== null || stairsOnly;

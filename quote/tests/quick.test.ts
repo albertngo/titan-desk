@@ -114,11 +114,11 @@ describe("quick form: staircases (2026-10-20; Stair Item lines 2026-11-02)", () 
     price: 4000,
     cost: 2600,
     sort: 1,
-    preset: { boxedSteps: null, openSideSteps: 0, curvedSteps: 0, handrailFt: 0, nosingFt: 0, spindles: 0, posts: 0 },
+    preset: { boxedSteps: null, openSideSteps: 0, curvedSteps: 0, handrailFt: 0, nosingFt: 0, landings: 0, spindles: 0, posts: 0 },
     template: { perStep: [], perStaircase: [], perOpenSide: [], perHandrailFt: [], perSpindle: [], perPost: [] },
     ...p,
   });
-  const MAIN_ROW = row("recProfMain00000A", { template: { perStep: [CAP.id, RISER.id], perStaircase: [], perOpenSide: [], perHandrailFt: [], perSpindle: [SPINDLE.id], perPost: [] }, preset: { boxedSteps: null, openSideSteps: 0, curvedSteps: 0, handrailFt: 0, nosingFt: 0, spindles: 30, posts: 0 } });
+  const MAIN_ROW = row("recProfMain00000A", { template: { perStep: [CAP.id, RISER.id], perStaircase: [], perOpenSide: [], perHandrailFt: [], perSpindle: [SPINDLE.id], perPost: [] }, preset: { boxedSteps: null, openSideSteps: 0, curvedSteps: 0, handrailFt: 0, nosingFt: 0, landings: 0, spindles: 30, posts: 0 } });
   const HALF_ROW = row("recProfHalf00000A", { name: "Half staircase, sanded", type: "Half staircase", method: "Sand & stain", steps: 5, template: { perStep: [SAND.id], perStaircase: [], perOpenSide: [], perHandrailFt: [], perSpindle: [], perPost: [] } });
   const EMPTY_ROW = row("recProfEmpty0000A", { name: "Not set up", price: null });
   const UNLINKED_ROW = row("recProfUnlinked0A", { name: "Old preset", price: 3100, cost: 2000 });

@@ -155,7 +155,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   every step gets: risers, sanding) × the steps; **each step type its own piece** (Albert, 2026-11-02: "most of the
   price changes are from the number of steps and the type of steps"): Per boxed step × Preset Boxed Steps (blank = the
   steps not open-side or curved), Per open side × Preset Open Side Steps, Per curved step × Preset Curved Steps (pie /
-  winder); Per staircase × 1; Per handrail ft × Preset Handrail Ft; Per nosing ft × Preset Nosing Ft (one decimal);
+  winder); Per staircase × 1; Per landing × Preset Landings; Per handrail ft × Preset Handrail Ft; Per nosing ft × Preset Nosing Ft (one decimal);
   Per spindle × Preset Spindles; Per post × Preset Posts (blank = 0). No step type is ever taken out of a Per step item:
   "New Riser" is filed under category step, which is why the old rule (an open-side piece replacing the step piece in
   Per step) is gone; link the plain step piece to Per boxed step. The form is one dropdown per staircase, up to three, with no price of its own. **Since 2026-11-02
@@ -176,7 +176,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   writes it into the option's description. With no rows at all the editor's picker falls back to type × method at a
   typed price. Tested in `tests/quick.test.ts`, `tests/stairs.test.ts` and `tests/stairBuilder.test.ts`.
 - **The stair builder (Albert, 2026-10-20).** In the editor's Stairs picker, picking a Stair Profile
-  opens the builder: steps, boxed / open-side / curved steps, handrail and nosing feet, spindles and posts, starting
+  opens the builder: steps, boxed / open-side / curved steps, landings, handrail and nosing feet, spindles and posts, starting
   from the row's step count and preset counts (2026-11-02).
   `expandProfile()` in `src/lib/editor/stairBuilder.ts` multiplies the row's "Per …" links into
   Stair Item lines priced from the card at the option's service level (each step type counts its own piece, Per step

@@ -27,7 +27,7 @@ export const CHANGES: Change[] = [
     details: [
       "Picking a staircase on a preliminary now adds that staircase's Stair Item lines (steps, risers, spindles and so on, from its Stair Profiles row) priced from the card, instead of one line at a fixed price. The form shows what it adds and the total.",
       "The measured quote is the same lines with the counts corrected. Two staircases of the same type are labelled Main stairs 1 and Main stairs 2.",
-      "Each Stair Profiles row now has preset counts in Airtable: boxed, open-side and curved steps (each with its own Per … step link, so each type is priced as its own piece), handrail feet, nosing feet (with Per nosing ft), spindles and posts. Until a row's Stair Items are linked it still adds one line at its old stored price.",
+      "Each Stair Profiles row now has preset counts in Airtable: boxed, open-side and curved steps (each with its own Per … step link, so each type is priced as its own piece), landings (with Per landing), handrail feet, nosing feet (with Per nosing ft), spindles and posts. Until a row's Stair Items are linked it still adds one line at its old stored price.",
     ],
   },
   {

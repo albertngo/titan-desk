@@ -188,14 +188,15 @@ export type StairTemplate = {
   perCurved?: string[];
   perStaircase: string[];
   perHandrailFt: string[];
-  /** 2026-11-02: counted per foot of nosing; optional so older fixtures read. */
+  /** 2026-11-02: counted per foot of nosing, per landing; optional so older fixtures read. */
   perNosingFt?: string[];
+  perLanding?: string[];
   perSpindle: string[];
   perPost: string[];
 };
 
 /** What a preset staircase assumes beyond its steps (2026-11-02): blank in Airtable reads as 0, a blank boxed count as null (the rest of the steps). */
-export type StairPreset = { boxedSteps: number | null; openSideSteps: number; curvedSteps: number; handrailFt: number; nosingFt: number; spindles: number; posts: number };
+export type StairPreset = { boxedSteps: number | null; openSideSteps: number; curvedSteps: number; handrailFt: number; nosingFt: number; landings: number; spindles: number; posts: number };
 
 /**
  * A Stair Profiles row (2026-10-20): a preset staircase for the preliminary and the builder's template.

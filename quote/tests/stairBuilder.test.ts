@@ -27,19 +27,19 @@ const profile = (template: Partial<StairProfileRow["template"]>, p: Partial<Stai
   price: 4000,
   cost: 2600,
   sort: 1,
-  preset: { boxedSteps: null, openSideSteps: 0, curvedSteps: 0, handrailFt: 0, nosingFt: 0, spindles: 0, posts: 0 },
+  preset: { boxedSteps: null, openSideSteps: 0, curvedSteps: 0, handrailFt: 0, nosingFt: 0, landings: 0, spindles: 0, posts: 0 },
   template: { perStep: [], perStaircase: [], perOpenSide: [], perHandrailFt: [], perSpindle: [], perPost: [], ...template },
   ...p,
 });
 
 const WOOD = profile({ perStep: [RISER.id], perBoxed: [STEP.id], perOpenSide: [OPEN.id], perCurved: [PIE.id], perStaircase: [NOSING.id], perHandrailFt: [RAIL.id], perSpindle: [SPINDLE.id], perPost: [POST.id] });
-const input = (p: Partial<BuilderInput> = {}): BuilderInput => ({ steps: 13, boxedSteps: null, openSideSteps: 0, curvedSteps: 0, handrailFt: 0, nosingFt: 0, spindles: 0, posts: 0, ...p });
+const input = (p: Partial<BuilderInput> = {}): BuilderInput => ({ steps: 13, boxedSteps: null, openSideSteps: 0, curvedSteps: 0, handrailFt: 0, nosingFt: 0, landings: 0, spindles: 0, posts: 0, ...p });
 
 describe("the stair builder", () => {
   it("starts from the profile's step count and its preset counts (2026-11-02), blanks as nothing and boxed as the rest", () => {
     expect(defaultInput(WOOD)).toEqual(input());
     expect(defaultInput(profile({}, { steps: null })).steps).toBe(13);
-    const preset = { boxedSteps: 9, openSideSteps: 1, curvedSteps: 3, handrailFt: 12, nosingFt: 4.5, spindles: 30, posts: 2 };
+    const preset = { boxedSteps: 9, openSideSteps: 1, curvedSteps: 3, handrailFt: 12, nosingFt: 4.5, landings: 1, spindles: 30, posts: 2 };
     expect(defaultInput(profile({}, { preset }))).toEqual({ steps: 13, ...preset });
   });
 
@@ -76,6 +76,12 @@ describe("the stair builder", () => {
     const r = expandProfile(profile({ perNosingFt: [NOSING.id] }), input({ nosingFt: 4.46 }), cat);
     expect(r.lines.map((l) => [l.description, l.qty])).toEqual([["Accents: Nosing", 4.5]]);
     expect(expandProfile(profile({ perNosingFt: [NOSING.id] }), input(), cat).lines).toEqual([]);
+  });
+
+  it("counts landings by the landing (2026-11-02)", () => {
+    const LANDING = item("recLanding000000A", "Landing (3x3)", "landing", 270, 120);
+    const r = expandProfile(profile({ perLanding: [LANDING.id] }), input({ landings: 2 }), buildCatalogue([], [LANDING]));
+    expect(r.lines.map((l) => [l.description, l.qty])).toEqual([["Landing (3x3)", 2]]);
   });
 
   it("makes no line for a zero count, rounds counts to whole pieces, and never a negative", () => {
