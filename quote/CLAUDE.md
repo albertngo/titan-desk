@@ -330,7 +330,8 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   never more than $3,000 over** (same day, Albert: a measured quote rarely comes in lower, people read a
   range from its low end, and 10% of a big job is too wide), each end rounded outward to a round figure
   ($10 steps under $1,000, $50 under $10,000, $100 above; `priceRange()` in `src/lib/send/copy.ts`), the
-  range with HST under it (the same range with the HST on it), no HST amount, no discount rows, and the
+  range with HST under it (the same range with the HST on it), no HST amount, the discount as its rate and
+  reason only ("Included in the range", 2026-11-03; there were no discount rows before), and the
   payment schedule in shares of the final price. The words stay the same apart from "a price range" for
   "a rough number" and one passage (`rangeWhy()`): the final price can be expected to fall within it, and
   what the measure confirms decides where in it they land. The text says "$5,250 to $6,000" (an en dash is
@@ -426,8 +427,8 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   and one price for the project, **no line price or breakdown**: counted lines keep their words and
   lose unit price and amount; only Install, Removal, Prep and Materials lines keep a quantity, for
   clarity about the scope (`LUMP_QTY_SECTIONS` in `calc.ts`); sections lose their total; the totals
-  block shows price before HST, HST and total with the payment schedule and no discount rows (the
-  discount is in the price); optional add-ons keep their price, since they are not in it; the
+  block shows the price before the discount and the discount (2026-11-03; before that there were no discount
+  rows), then price before HST, HST and total with the payment schedule; optional add-ons keep their price, since they are not in it; the
   Private section's roll-up row is not shown at all, its amount being inside the one price. **The
   choice is made when sending**, on a measured quote only (a preliminary is always a lump sum,
   2026-10-27): the Send card offers *Lump sum only* (default) or *Send breakdown*,
@@ -458,6 +459,15 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   a percent. **Discount reason** (Quote Versions → Discount Reason, 2026-10-22) is the customer's
   words for why, printed beside the Discount row on the page and the PDF (`discountLabel()` in
   `copy.ts`); it is part of the frozen copy and the save fingerprint.
+- **The customer always sees the discount (Albert, 2026-11-03: "All quote links and PDF should show the
+  client what the discounts are").** Every customer page (`/c/<token>`, the staff Preview) and every PDF
+  shows the discount rows above the price when the version has a discount: itemised as before ("Subtotal
+  before discount", then "Discount (10%) · reason" in dollars), a lump sum the same way ("Price before
+  discount"), and a preliminary's range as the rate and reason with "Included in the range", never a
+  dollar amount, since that would give away the exact price the range hides. It is drawn from the
+  frozen copy's totals, which always carried the discount, so links already sent show it too. One rule
+  for the page and the PDF: `discountRows()` in `copy.ts`; a long reason wraps in the PDF. The email and
+  the text are unchanged: they lead with the price only. Tested in `tests/send.test.ts`.
 - **If they accept a price (Albert, 2026-10-22).** The Analysis tab opens with a card where staff type
   the pre-tax amount the customer agreed to, or a discount %, and see the discount it implies against
   the list price and the cost, profit and margin left, beside the quote as it stands. Analysis only:

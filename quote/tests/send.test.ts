@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, copyRange, copyState, customerCopy, discountLabel, hstRow, hstWord, isRange, longDate, offersPdf, parseCopy, pdfName, prelimNote, priceRange, rangeText, rangeWhy, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "../src/lib/send/copy";
+import { addDays, copyRange, copyState, customerCopy, discountLabel, discountRows, hstRow, hstWord, isRange, longDate, offersPdf, parseCopy, pdfName, prelimNote, priceRange, rangeText, rangeWhy, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "../src/lib/send/copy";
 import { chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, greetingName, isToken, newToken, optionProblem, parseOptionIds, parseResend, resendEmailMessage, resendKind, resendProblems, resendSmsMessage, sendProblems, smsMessage, type SendInput } from "../src/lib/send/plan";
 import { encode, textWidth, wrap } from "../src/lib/send/pdfDoc";
 import { quotePdf } from "../src/lib/send/pdf";
@@ -524,6 +524,39 @@ describe("the Private section (2026-10-22)", () => {
   });
 });
 
+describe("the discount on every page and PDF (Albert, 2026-11-03)", () => {
+  const money = (n: number) => `$${n.toFixed(2)}`;
+  it("shows the price before the discount and the discount on an itemised quote and a lump sum alike", () => {
+    const itemised = customerCopy(quote({ itemised: true, discountReason: "Fall promotion" }), AT);
+    const lump = customerCopy(quote({ itemised: false, discountReason: "Fall promotion" }), AT);
+    const t = lump.options[0].totals;
+    expect(t.discount).toBeLessThan(0);
+    expect(discountRows(lump, lump.options[0], money)).toEqual([
+      { label: "Price before discount", value: money(t.preDiscount), disc: false },
+      { label: "Discount (10%) · Fall promotion", value: money(t.discount), disc: true },
+    ]);
+    expect(discountRows(itemised, itemised.options[0], money).map((d) => d.label)).toEqual(["Subtotal before discount", "Discount (10%) · Fall promotion"]);
+  });
+
+  it("gives a range the rate and the reason only, never an exact figure", () => {
+    const c = customerCopy(quote({ basis: "Preliminary", discountReason: "Fall promotion" }), AT);
+    expect(c.options[0].range).toBeDefined();
+    expect(discountRows(c, c.options[0], money)).toEqual([{ label: "Discount (10%) · Fall promotion", value: "Included in the range", disc: true }]);
+  });
+
+  it("shows nothing when there is no discount", () => {
+    const c = customerCopy(quote({ discountRate: 0, itemised: false, options: [option("A", [line({})], 0)] }), AT);
+    expect(discountRows(c, c.options[0], money)).toEqual([]);
+  });
+
+  it("wraps a long reason in the PDF instead of running it into the amount", () => {
+    const reason = "Returning customer, referred by a neighbour, and booked during the fall promotion window";
+    const pdf = new TextDecoder("latin1").decode(quotePdf(customerCopy(quote({ itemised: false, discountReason: reason }), AT)));
+    expect(pdf).not.toContain(reason);
+    expect(pdf).toContain("window");
+  });
+});
+
 describe("discount reason (2026-10-22)", () => {
   it("prints beside the Discount row on the page and the PDF when one was given, and is absent otherwise", () => {
     const withReason = customerCopy(quote({ discountReason: "  Fall promotion " }), AT);
@@ -557,7 +590,9 @@ describe("lump sum (2026-10-22)", () => {
     expect(o.totals).toEqual(customerCopy(quote(), AT).options[0].totals);
     const pdf = new TextDecoder("latin1").decode(quotePdf(c));
     expect(pdf).not.toContain("Unit price");
-    expect(pdf).not.toContain("Discount");
+    // The discount shows on a lump sum too (Albert, 2026-11-03): the price before it, then the discount.
+    expect(pdf).toContain("(Price before discount)");
+    expect(pdf).toMatch(/Discount \\?\(10%\\?\)/);
     expect(pdf).toContain("(Price before HST)"); // leads before HST, like the email (2026-10-24)
     expect(pdf).toContain("(Total with HST)");
     expect(pdf).toContain("one sum for the project");
@@ -712,15 +747,16 @@ describe("a preliminary goes as a range (Albert, 2026-10-27)", () => {
     expect(long.type === "SMS" && long.message.length).toBeLessThanOrEqual(306);
   });
 
-  it("draws the range in the PDF, with the payment schedule in shares and no discount rows", () => {
-    // The fixtures are itemised with a 10% discount: a measured PDF shows the discount, a preliminary's does not.
+  it("draws the range in the PDF, with the payment schedule in shares and the discount as a rate", () => {
+    // The fixtures carry a 10% discount: a measured PDF shows it in dollars, a preliminary's as its rate only (2026-11-03).
     const pdf = pdfText(customerCopy(prelim(), AT));
     expect(pdf).toContain("Estimated range before HST");
     expect(pdf).toContain("On the final price");
     expect(pdf).toContain("PAYMENT SCHEDULE, ON THE FINAL PRICE");
     expect(pdf).toContain("The balance");
     expect(pdf).toContain("can be expected to fall"); // the note wraps, so only its opening is on one line
-    expect(pdf).not.toContain("Subtotal before discount");
+    expect(pdf).not.toContain("before discount");
+    expect(pdf).toContain("Included in the range");
     expect(pdf).not.toContain("772.92");
     expect(pdfText(customerCopy(quote(), AT))).toContain("Subtotal before discount");
   });

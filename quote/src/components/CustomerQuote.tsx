@@ -1,7 +1,7 @@
 import { changeWords, itemDifference, paidLeft, signedMoney, type CopyChange } from "@/lib/change/diff";
 import { money, rate } from "@/lib/format";
 import { OptionSwitcher } from "@/components/OptionSwitcher";
-import { discountLabel, hstRow, isLump, isSplit, scopeHeading, scopeOf, scopesOf, itemHstNote, leadPrice, longDate, partGroups, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyState, type CopyText, type CustomerCopy } from "@/lib/send/copy";
+import { discountRows, hstRow, isLump, isSplit, scopeHeading, scopeOf, scopesOf, itemHstNote, leadPrice, longDate, partGroups, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyState, type CopyText, type CustomerCopy } from "@/lib/send/copy";
 
 /**
  * The quote as the customer sees it, drawn from the frozen customer copy only. Used by the
@@ -56,12 +56,17 @@ function Totals({ o, copy }: { o: CopyOption; copy: CustomerCopy }) {
   const h = hstRow(copy, t);
   const lead = leadPrice(copy, t);
   const r = o.range;
-  // A preliminary's range (Albert, 2026-10-27): no exact figure anywhere, so no discount rows, no HST amount
-  // and a payment schedule in shares of the final price.
+  // Every page shows the discount (Albert, 2026-11-03); `discountRows()` decides how.
+  const disc = discountRows(copy, o, money).map((d) => (
+    <div key={d.label} className={d.disc ? "disc" : undefined}><dt>{d.label}</dt><dd>{d.value}</dd></div>
+  ));
+  // A preliminary's range (Albert, 2026-10-27): no exact figure anywhere, so the discount as a rate, no HST
+  // amount and a payment schedule in shares of the final price.
   if (r) {
     return (
       <div className="cq-totals">
         <dl>
+          {disc}
           <div className="total range"><dt>Estimated range <span className="tag">before HST</span></dt><dd>{rangeText(r.low, r.high)}</dd></div>
           <div><dt>{h.label}</dt><dd>{h.amount !== null ? "On the final price" : "Not included"}</dd></div>
           {lead.addsHst && <div className="with"><dt>With HST</dt><dd>{rangeText(r.lowWithHst, r.highWithHst)}</dd></div>}
@@ -73,13 +78,7 @@ function Totals({ o, copy }: { o: CopyOption; copy: CustomerCopy }) {
   return (
     <div className="cq-totals">
       <dl>
-        {/* Lump sum: no breakdown of the price, so no discount rows either; the price is the price. */}
-        {!isLump(copy) && t.discount !== 0 && (
-          <>
-            <div><dt>Subtotal before discount</dt><dd>{money(t.preDiscount)}</dd></div>
-            <div className="disc"><dt>{discountLabel(copy)}</dt><dd>{money(t.discount)}</dd></div>
-          </>
-        )}
+        {disc}
         {/* Leads before HST, like the email and the text (Albert, 2026-10-24); the tax and the total with it follow. */}
         <div className="total"><dt>{isLump(copy) ? "Price" : "Subtotal"} <span className="tag">before HST</span></dt><dd>{money(t.subtotal)}</dd></div>
         <div><dt>{h.label}</dt><dd>{h.amount !== null ? money(h.amount) : "Not included"}</dd></div>
