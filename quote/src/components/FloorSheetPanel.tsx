@@ -7,7 +7,7 @@ import { draftKey, type EditorQuote } from "@/lib/editor/model";
 import { floorPlan, previewChoices, roomsFromSheet, sheetSkus } from "@/lib/floorsheet/plan";
 import { cleanFloorSheet, MAX_ROOMS, parseFloorStored, type FloorSheet } from "@/lib/floorsheet/sheet";
 import { parseRooms } from "@/lib/rooms/log";
-import { CamDraw } from "./CamDraw";
+import { SheetSource } from "./SheetSource";
 import { FloorSheetPaper } from "./FloorSheetPaper";
 
 /**
@@ -75,21 +75,30 @@ export function FloorSheetPanel({
   const unclear = new Set(clean.unclear);
   const roomsNow = parseRooms(roomsSeen).rooms.length;
 
-  const drawn = (saved: string, ph: Photo[] | undefined) => {
-    setSeen(saved);
-    setSheet(toRaw(parseFloorStored(saved)?.sheet ?? cleanFloorSheet({})));
-    if (ph) setPhotos(ph);
-    setMessage({ text: "Drawn. Check every box against the photo (Open image), then Save check.", bad: false });
-  };
-
-  const draw = camLinked ? <CamDraw quoteRecordId={quoteRecordId} seen={seen} kind="flooring" max={2} label={stored ? "Draw again" : "Draw from CompanyCam image"} onRead={(r) => drawn(r.saved, r.photos)} /> : null;
+  // The same three ways in as the stair sheet (Albert, 2026-11-03): Take a photo, Choose photos, Draw from CompanyCam image.
+  const source = (
+    <SheetSource
+      quoteRecordId={quoteRecordId}
+      seen={seen}
+      kind="flooring"
+      camLinked={camLinked}
+      hasSheet={Boolean(stored)}
+      hint="Photograph the flooring site sheet flat and in good light, with the four black corner squares in the picture."
+      onRead={(r, how) => {
+        setSeen(r.saved);
+        setSheet(toRaw(parseFloorStored(r.saved)?.sheet ?? cleanFloorSheet({})));
+        if (r.photos) setPhotos(r.photos);
+        setMessage({ text: `${how === "companycam" ? "Drawn" : "Read"}. Check every box against the photo (Open image), then Save check.${r.note ? ` ${r.note}` : ""}`, bad: false });
+      }}
+    />
+  );
 
   if (!stored) {
     return (
       <section className="card fs" aria-label="Flooring sheet">
         <div className="card-h">Flooring sheet</div>
-        <div className="card-b fs-source">
-          {draw ?? <span className="faint">Link a CompanyCam project to this quote to draw the flooring sheet from its photo.</span>}
+        <div className="card-b">
+          {source}
           {message && <p className={message.bad ? "ss-msg bad" : "ss-msg ok"} role="status">{message.text}</p>}
         </div>
       </section>
@@ -164,7 +173,7 @@ export function FloorSheetPanel({
       <div className="card-b fs-body">
         <div className="fs-source">
           <span>
-            Drawn from {stored.cam.length ? "CompanyCam image" : "a photo"}
+            {stored.cam.length ? "Drawn from CompanyCam image" : "Read from a photo"}
             {taken && <span className="faint"> · taken {taken}</span>}
           </span>
           {photos.map((p, i) => (
@@ -177,9 +186,9 @@ export function FloorSheetPanel({
               Open in CompanyCam{all.length > 1 ? ` ${i + 1}` : ""} ↗
             </a>
           ))}
-          {draw}
           {clean.unclear.length > 0 && <b className="fs-unclear-note">{clean.unclear.length} marked in yellow to check</b>}
         </div>
+        {source}
 
         <FloorSheetPaper get={(path) => getAt(sheet, path)} edit={(path, v) => setSheet((s) => setAt(s, path, v))} unclear={unclear} />
 

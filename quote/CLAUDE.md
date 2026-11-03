@@ -509,8 +509,11 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   point to check against real jobs, not built.
 - **Site sheets from CompanyCam, and the Flooring Site Sheet (Albert, 2026-11-03: "build the sheets from companycam into rooms
   and flooring lines. No car check yet. Just the upload of the sheets from companycam. We can choose which one it is").** On a
-  quote whose CompanyCam link gives a project, each sheet has a **Draw from CompanyCam image** link (`src/components/CamDraw.tsx`;
-  the flooring sheet at the top of the tab, the stair sheet's beside its upload buttons). It opens the job's photos in place
+  quote whose CompanyCam link gives a project, each sheet has a **Draw from CompanyCam image** button (`src/components/CamDraw.tsx`;
+  the flooring sheet at the top of the tab). **Both sheets take photos the same three ways (Albert, 2026-11-03: "an option to
+  still take a photo, choose photos, or draw from [a CompanyCam] image… Those should be the same"):** Take a photo, Choose photos
+  and Draw from CompanyCam image, in one shared row, `src/components/SheetSource.tsx`; an upload says which sheet it is
+  (`kind` in the form, `readSiteSheet(…, kind)`), and a flooring sheet read from an upload keeps no CompanyCam source. It opens the job's photos in place
   (`camSheetPhotosAction` → `sheetCamPhotos()` in `src/lib/quotes/sitesheet.ts`, the quote's link read from Airtable, never the
   browser), tagged or described "Site Sheet" ticked first (`looksLikeSheet()`); staff pick the page(s) and it is read as the
   sheet the link sits on. `/api/sitesheet` takes a JSON body `{quoteRecordId, seen, photoIds,

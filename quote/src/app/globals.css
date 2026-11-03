@@ -1226,7 +1226,6 @@ a.chip.accent:hover { text-decoration: underline; }
 .ss-acts { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 6px; }
 
 /* Draw from CompanyCam image (2026-11-03): a link on a sheet that opens the job's photos in place */
-.cam-draw-link { font-weight: 600; }
 .cam-draw { flex-basis: 100%; border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; display: grid; gap: 8px; background: var(--card-2); }
 .cam-draw-h { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; font-size: 13px; }
 .cam-pick-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; max-height: 420px; overflow-y: auto; }

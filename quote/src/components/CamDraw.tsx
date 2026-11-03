@@ -73,7 +73,7 @@ export function CamDraw({
 
   if (!open) {
     return (
-      <button type="button" className="linkbtn cam-draw-link" onClick={show}>
+      <button type="button" className="btn" onClick={show}>
         {label}
       </button>
     );

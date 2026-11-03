@@ -11,7 +11,7 @@ export const maxDuration = 120;
 /**
  * Read a site sheet (2026-10-28): a signed-in quoter sends photos of the stair site sheet (shrunk in the
  * browser to stay under Vercel's 4.5 MB request limit); they are read into fields and kept on the quote.
- * Since 2026-11-03 a JSON body instead names photos on the job's CompanyCam project and which sheet they are
+ * Since 2026-11-03 an upload can be either sheet (`kind`), and a JSON body instead names photos on the job's CompanyCam project and which sheet they are
  * (`kind`: stairs or flooring); the server downloads them itself. Staff app only, behind sign-in like every
  * other path; the readers check the quoter again.
  */
@@ -32,6 +32,6 @@ export async function POST(request: NextRequest) {
   const seen = String(form.get("seen") ?? "");
   const files = form.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0);
   const photos: PhotoIn[] = await Promise.all(files.map(async (f) => ({ name: f.name || "photo", type: f.type, bytes: new Uint8Array(await f.arrayBuffer()) })));
-  const result = await readSiteSheet(quoteRecordId, seen, photos);
+  const result = await readSiteSheet(quoteRecordId, seen, photos, form.get("kind") === "flooring" ? "flooring" : "stairs");
   return NextResponse.json(result, { status: result.ok ? 200 : 400 });
 }

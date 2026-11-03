@@ -23,6 +23,15 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-03",
     kind: "changed",
+    title: "Both site sheets take photos the same three ways",
+    details: [
+      "The Flooring sheet now has Take a photo and Choose photos, like the Stair sheet, beside Draw from CompanyCam image. Pick or take the photo, then Read the sheet.",
+      "Draw from CompanyCam image is a button on both sheets now, next to the other two.",
+    ],
+  },
+  {
+    date: "2026-11-03",
+    kind: "changed",
     title: "Analysis on a phone reads as cards",
     details: [
       "On a phone the Analysis tab's tables, and the If they accept a price table, show each figure as a card with one line per option, so nothing scrolls sideways. \"Where the options differ\" marks each card differs or same.",
