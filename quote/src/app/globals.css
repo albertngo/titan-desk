@@ -1412,3 +1412,118 @@ table.cmp th { font-size: 12.5px; font-weight: 500; color: var(--fg-dim); text-t
 .ov-foot .ov-row .k { color: var(--fg-dim); }
 .ov-foot .ov-total { margin-top: 8px; border-radius: 10px; padding: 12px 14px; }
 .ov-foot .ov-accept { margin-top: 12px; padding: 12px 4px 0; border-top: 1px solid var(--line); }
+
+/* ---------- The editor on a phone (Albert, 2026-11-03: "the wording and the outline of the UI are a little too
+   cramped"; picked from the three-screen mockup). Phone widths only: every rule that changes the look sits under
+   max-width 640px (760px for the Conversation button), so a desktop or an iPad looks exactly as before. The few
+   rules outside a media query only hide the phone-only pieces. Built to the UI UX Pro Max mobile checks: 44px
+   touch targets, 8px between them, 16px inputs, nothing fixed over the content, safe areas respected. ---------- */
+.viewsw-eye, .conv-slot, .ed-quick-x, .ed-quick-est { display: none; }
+/* The quick form's buttons moved out of the scrolling body (they pin to the bottom on a phone): same spacing as before. */
+.ed-quick > .card-b { padding-bottom: 14px; }
+.ed-quick-foot { margin-top: 0; padding: 0 16px 16px; }
+
+@media (max-width: 760px) {
+  /* The Conversation button in the page, under the header, instead of the tab on the screen's edge. */
+  .conv-tab.has-slot { display: none; }
+  .conv-slot { display: block; margin: 0 0 16px; }
+  .conv-slot-btn { all: unset; box-sizing: border-box; width: 100%; min-height: 48px; padding: 8px 14px; display: flex; align-items: center; gap: 10px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--card); color: var(--fg); font-size: 15px; cursor: pointer; }
+  .conv-slot-btn svg { flex: none; color: var(--fg-dim); }
+  .conv-slot-btn .conv-slot-n { margin-right: auto; font-size: 13.5px; color: var(--fg-dim); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .conv-slot-btn:hover, .conv-slot-btn.on { border-color: var(--accent); }
+  .conv-slot-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+}
+
+@media (max-width: 640px) {
+  /* Top bar: the switch keeps an eye instead of its words; every button 44px. */
+  .topbar-in { gap: 2px; padding: 6px 8px 6px 16px; }
+  .tb-sep { display: none; }
+  .viewsw { min-height: 44px; padding: 0 10px; gap: 8px; }
+  .viewsw-lbl { display: none; }
+  .viewsw-eye { display: block; flex: none; }
+  .tb-btn { min-height: 44px; min-width: 44px; justify-content: center; }
+  .acct-btn { min-height: 44px; }
+
+  /* Header: back link, then the name with Save beside it, then the status; Discard only once there are changes. */
+  .ed-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; row-gap: 6px; align-items: end; }
+  .page:not(.is-change) .ed-head { margin-bottom: 14px; padding-top: 10px; padding-bottom: 10px; }
+  .ed-head .titles { grid-column: 1; grid-row: 1; }
+  .ed-head h1 { font-size: 23px; line-height: 1.2; overflow-wrap: anywhere; }
+  .ed-head .crumb { font-size: 13.5px; min-height: 24px; display: inline-flex; align-items: center; }
+  .ed-head .actions { grid-column: 2; grid-row: 1; flex-wrap: nowrap; }
+  .ed-head .actions:has(.saveas) { grid-column: 1 / -1; grid-row: 3; flex-wrap: wrap; justify-content: stretch; }
+  .ed-head .actions:has(.saveas) .saveas { flex: 1 1 100%; }
+  .ed-head .actions:has(.saveas) .saveas .btn { flex: 1 1 auto; justify-content: center; }
+  .ed-head .status { grid-column: 1 / -1; grid-row: 2; justify-self: start; font-size: 12.5px; padding: 3px 10px; }
+  .ed-head .btn { min-height: 44px; padding: 0 18px; font-size: 15px; justify-content: center; }
+  .ed-head .saveas .in { min-height: 44px; font-size: 16px; }
+  .ed-head .ed-discard.idle { display: none; }
+
+  /* Options: tabs two to a row, each scope's label above its row; the two ways to add stacked full width,
+     the quick form first. The "No options" card says the same as the panel, so it goes. */
+  .ed-tabs { padding: 14px; border-radius: 14px; }
+  .ed-opts:empty { display: none; }
+  .ed-opts:empty + .ed-tabs-add { border-top: 0; padding-top: 0; }
+  .tab-grp { flex-direction: column; align-items: stretch; gap: 6px; }
+  .tab-grp .tab-scope, .ed-tabs .tab-grp .tab-scope { width: auto; padding: 0; font-size: 14px; }
+  .tab-grp-t { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .ed-tabs .tab { min-width: 0; min-height: 52px; padding: 8px 12px; border-radius: 12px; }
+  .ed-tabs .tab .t-name { font-size: 14.5px; }
+  .ed-tabs .tab .t-amt { font-size: 13.5px; }
+  .ed-tabs-add { flex-direction: column; gap: 10px; }
+  .ed-tabs-add .tab { min-height: 52px; padding: 10px 14px; border-radius: 12px; font-size: 15px; font-weight: 600; justify-content: flex-start; text-align: left; }
+  .ed-tabs-add .ed-add-quick { order: -1; border: 1.5px solid var(--accent); background: var(--accent-soft); color: var(--fg); }
+  .ed-empty { display: none; }
+
+  /* Customer and terms once, not twice: the folded copy under the option shows only once Edit terms opens it. */
+  details.ed-terms:not([open]) { display: none; }
+  details.ed-terms { scroll-margin-top: 140px; }
+  .ed-cust .card-b { font-size: 15px; gap: 6px; }
+  .ed-cust dl div { padding: 3px 0; }
+  .ed-cust .ed-edit { justify-self: stretch; min-height: 44px; margin-top: 10px; border: 1px solid var(--line-strong); border-radius: 10px; text-align: center; font-size: 15px; color: #1759d6; }
+
+  /* The quick form becomes a full-screen sheet: a close button and title on top, the work scrolling in the
+     middle, the estimate with Cancel and Add this option pinned at the bottom. The page under it holds still. */
+  html:has(.ed-quick), html:has(.ed-quick) body { overflow: hidden; }
+  .ed-quick { position: fixed; inset: 0; z-index: 46; margin: 0; border: 0; border-radius: 0; box-shadow: none; display: flex; flex-direction: column; background: var(--card); }
+  .ed-quick > .card-h { flex: none; min-height: 60px; padding: calc(8px + env(safe-area-inset-top, 0px)) 16px 8px 4px; border-radius: 0; gap: 4px; font-size: 16px; }
+  .ed-quick > .card-h .right { display: none; }
+  .ed-quick-t { font-weight: 650; }
+  .ed-quick-x { display: grid; place-items: center; flex: none; width: 44px; height: 44px; border: 0; border-radius: 10px; background: none; color: var(--fg-dim); cursor: pointer; }
+  .ed-quick-x:hover { background: var(--head); color: var(--fg); }
+  .ed-quick-x:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .ed-quick > .card-b { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 20px 16px 28px; }
+  .ed-quick-foot { flex: none; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 10px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line-strong); background: var(--card); box-shadow: 0 -8px 24px rgba(20, 30, 45, .08); }
+  .ed-quick-est { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 14px; color: var(--fg-dim); }
+  .ed-quick-est b { font-size: 22px; font-weight: 700; color: #1759d6; font-variant-numeric: tabular-nums; letter-spacing: -.01em; white-space: nowrap; }
+  .ed-quick-foot .btn { min-height: 50px; justify-content: center; font-size: 16px; border-radius: 12px; }
+
+  /* The quick form's work inside the sheet: one level of boxes, bigger words and targets. Scoped to the sheet,
+     so New quote's own quick form is unchanged. */
+  .ed-quick .qw { gap: 28px; }
+  .ed-quick .qw-part { gap: 10px; }
+  .ed-quick .qw-part-h { font-size: 19px; font-weight: 650; border-bottom: 0; padding-bottom: 2px; }
+  .ed-quick .qw-part-h .qw-wg-sum { margin-left: auto; font-size: 14px; }
+  .ed-quick .qw-wg { border-radius: 14px; }
+  .ed-quick .qw-wg[open] { border-color: var(--accent); box-shadow: inset 0 0 0 .5px var(--accent); }
+  .ed-quick .qw-wg > summary { grid-template-columns: minmax(0, 1fr) 16px; column-gap: 12px; row-gap: 1px; min-height: 56px; padding: 10px 14px; border-radius: 14px; }
+  .ed-quick .qw-wg[open] > summary { background: #f5f8ff; border-radius: 13px 13px 0 0; }
+  .ed-quick .qw-wg > summary .nm { grid-column: 1; font-size: 16px; }
+  .ed-quick .qw-wg > summary .qw-wg-sum { grid-column: 1; font-size: 14px; white-space: normal; color: #4f5a67; }
+  .ed-quick .qw-wg > summary .qw-wg-sum.faint { color: var(--fg-dim); }
+  .ed-quick .qw-wg > summary::after { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+  .ed-quick .qw-wg-b { padding: 6px 14px 14px; gap: 14px; }
+  .ed-quick .qw-chips { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .ed-quick .qw-chip { min-height: 52px; padding: 8px 12px; border-radius: 10px; font-size: 15px; line-height: 1.25; text-align: left; }
+  .ed-quick .qw-chip.on { background: var(--accent-soft); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); color: #0f3f99; }
+  .ed-quick .in, .ed-quick .qw-row select.in, .ed-quick .qw-amt input { min-height: 48px; font-size: 16px; border-radius: 10px; }
+  .ed-quick .qw-amt-row { gap: 10px; }
+  .ed-quick .qw-amt-row .qw-amt { flex: 1 1 150px; }
+  .ed-quick .qw-price .qw-rate { font-size: 13px; }
+  .ed-quick .qw-price b { font-size: 16px; }
+  .ed-quick .qw-same, .ed-quick .qw-add { min-height: 44px; font-size: 15px; font-weight: 600; color: #1759d6; }
+  .ed-quick .qw-x { width: 44px; height: 44px; }
+  .ed-quick .qw-stair { padding: 14px; border-radius: 14px; }
+  .ed-quick .qw-stair-h .nm, .ed-quick .qw-field .k, .ed-quick .qw-money .k, .ed-quick .qw-desc { font-size: 14px; }
+  .ed-quick .qw-prod { font-size: 14px; padding: 8px 12px; border-radius: 10px; }
+}
