@@ -1257,6 +1257,17 @@ a.chip.accent:hover { text-decoration: underline; }
 .fs-unclear-note { color: var(--warn); font-weight: 600; }
 .fs-shots { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 10px; }
 .fs-shots li { display: grid; gap: 4px; font-size: 12px; }
+/* The flooring sheet beside its photo and actions (2026-11-03); the side stays in view while the sheet scrolls. */
+.fs-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 340px); gap: 16px; align-items: start; }
+.fs-side { display: grid; gap: 12px; min-width: 0; position: sticky; top: 12px; }
+.fs-acts { display: grid; gap: 8px; }
+.fs-acts .btn { width: 100%; justify-content: center; }
+.fs-side .fs-shots { display: grid; gap: 8px; }
+.fs-side .fs-shots img { width: 100%; max-width: none; aspect-ratio: auto; max-height: 52vh; object-fit: contain; background: var(--card-2); }
+@media (max-width: 1100px) {
+  .fs-cols { grid-template-columns: minmax(0, 1fr); }
+  .fs-side { position: static; order: -1; }
+}
 .fs-shots img { width: 180px; max-width: 40vw; aspect-ratio: 3 / 4; object-fit: cover; display: block; border: 1px solid var(--line); border-radius: var(--radius); }
 .ss-start-over { margin-left: auto; }
 
