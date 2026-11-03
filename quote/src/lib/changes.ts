@@ -23,6 +23,15 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-03",
     kind: "changed",
+    title: "Pick the pipeline and stage for a new opportunity",
+    details: [
+      "Choosing \"+ New opportunity\" on Link to Opportunity now shows a Pipeline and a Stage to pick from, so the opportunity goes exactly where it belongs (for example the Sales Pipeline at Meeting (Scheduled)).",
+      "It starts on Lead Qualification at the quote's timing stage, as before, when the quote has a timing. Only the project pipelines are offered, and never Project Won: a quote gets there when the customer accepts it.",
+    ],
+  },
+  {
+    date: "2026-11-03",
+    kind: "changed",
     title: "Both site sheets take photos the same three ways",
     details: [
       "The Flooring sheet now has Take a photo and Choose photos, like the Stair sheet, beside Draw from CompanyCam image. Pick or take the photo, then Read the sheet.",

@@ -61,12 +61,17 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   Linked. Rules: `src/lib/link/linkJob.ts`, tested in `tests/linkJob.test.ts`.
   **+ New opportunity (Albert, 2026-11-03: "create the opportunity on the screen… same thing as in the
   preliminary")** is the card's last choice, for a quote that is a different job from every one listed
-  (another unit at the same building). `createJobForQuote()` in `src/lib/quotes/link.ts` makes it the way a
-  preliminary's is (`buildNewJob()` in `src/lib/link/ghlRequest.ts`): Lead Qualification at the stage the
-  quote's timing gives (the card asks when the quote has none, and keeps the answer on the quote), the shared
-  name, the quote number, the site only if confirmed, the quote's CompanyCam link; the contact is left alone.
-  Make's `new-opportunity` route, as booking uses, so nothing changed in Make; the quote is marked Linked only
-  once Make returns the new id. Tested in `tests/ghlRequest.test.ts`.
+  (another unit at the same building). **Staff pick its pipeline and stage** (same day: "an option to pick
+  where and what pipeline and what stage… it should not be [Won], because the only way for that to happen is
+  if someone accepts a quote"): the project pipelines only, never STORE, every stage but Won (`placements()`
+  in `src/lib/link/linkJob.ts`), starting on Lead Qualification at the quote's timing stage when it has one
+  (`defaultPlacement()`), and checked again on the server against GHL's own list (`checkPlacement()`). A sent
+  quote the customer said yes to outside the app is linked and then accepted for them (Acceptance), which is
+  what moves it to Won. `createJobForQuote()` in `src/lib/quotes/link.ts` makes it (`buildNewJob()` in
+  `src/lib/link/ghlRequest.ts`): the shared name, the quote number, the site only if confirmed, the quote's
+  CompanyCam link; the contact is left alone. Make's `new-opportunity` route, as booking uses, so nothing
+  changed in Make; the quote is marked Linked only once Make returns the new id. Tested in
+  `tests/linkJob.test.ts` and `tests/ghlRequest.test.ts`.
 - **Confirm address (Albert, 2026-10-15).** Linking never confirms an address; booking does, and so
   does **Confirm address** on the quote page, for a site checked with the customer some other way.
   It confirms only the address the person saw (refused if it changed since the page opened), never

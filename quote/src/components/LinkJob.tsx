@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { createJobAction, linkToJobAction } from "@/app/q/[id]/actions";
-import { isTiming, stageFor, TIMINGS } from "@/lib/link/lead";
 import type { JobChoice, JobChoices } from "@/lib/quotes/types";
 
 /** The card's own choice for "none of these: make a new opportunity" (2026-11-03). */
@@ -53,19 +52,21 @@ function Option({ o, picked, onPick }: { o: JobChoice; picked: boolean; onPick: 
 export function LinkJob({ quoteRecordId, quoteNumber, jobs }: { quoteRecordId: string; quoteNumber: string | null; jobs: JobChoices }) {
   const router = useRouter();
   const [picked, setPicked] = useState<string | null>(null);
-  const [timing, setTiming] = useState<string | null>(null);
+  const offered = jobs.ok ? jobs.placements : [];
+  const [pipelineId, setPipelineId] = useState<string>(jobs.ok ? (jobs.startAt?.pipelineId ?? "") : "");
+  const [stageId, setStageId] = useState<string>(jobs.ok ? (jobs.startAt?.stageId ?? "") : "");
   const [error, setError] = useState<string | null>(null);
   const [linking, startLink] = useTransition();
 
-  const ownTiming = jobs.ok ? jobs.timing : null;
-  const newTiming = ownTiming ?? timing;
   const making = picked === NEW;
+  const pipeline = offered.find((p) => p.id === pipelineId);
+  const placed = Boolean(pipeline?.stages.some((st) => st.id === stageId));
 
   function link() {
-    if (!picked || (making && !newTiming)) return;
+    if (!picked || (making && !placed)) return;
     setError(null);
     startLink(async () => {
-      const r = making ? await createJobAction(quoteRecordId, newTiming) : await linkToJobAction(quoteRecordId, picked);
+      const r = making ? await createJobAction(quoteRecordId, { pipelineId, stageId }) : await linkToJobAction(quoteRecordId, picked);
       if (r.ok) router.refresh();
       else setError(r.message);
     });
@@ -103,34 +104,51 @@ export function LinkJob({ quoteRecordId, quoteNumber, jobs }: { quoteRecordId: s
             {jobs.choices.map((o) => (
               <Option key={o.id} o={o} picked={picked === o.id} onPick={() => pick(o.id)} />
             ))}
-            {jobs.choices.length > 0 && (
+            {offered.length > 0 && jobs.choices.length > 0 && (
               <div className="opp-or" aria-hidden="true">
                 <span>or</span>
               </div>
             )}
-            <label className={`lj-opt new${making ? " on" : ""}`}>
-              <input type="radio" name="link-opportunity" checked={making} onChange={() => pick(NEW)} />
-              <span className="nm">+ New opportunity</span>
-              <span className="mt">
-                (1) PROJECT: Lead Qualification
-                {isTiming(newTiming) ? ` · ${stageFor(newTiming)}, from the timing (${newTiming})` : ", at the stage its timing gives"}
-              </span>
-              <span className="mt">When this is a different job from all of these: another unit, another address</span>
-            </label>
+            {offered.length > 0 && (
+              <label className={`lj-opt new${making ? " on" : ""}`}>
+                <input type="radio" name="link-opportunity" checked={making} onChange={() => pick(NEW)} />
+                <span className="nm">+ New opportunity</span>
+                <span className="mt">When this is a different job from all of these: another unit, another address</span>
+              </label>
+            )}
           </fieldset>
         )}
-        {making && !ownTiming && (
-          <div className="lj-msg">
-            <p>When are they planning to do the project? It sets the new opportunity&apos;s stage.</p>
-            <div className="nq-seg" role="radiogroup" aria-label="Project timing">
-              {TIMINGS.map((t) => (
-                <label key={t} className={`nq-seg-b${timing === t ? " on" : ""}`}>
-                  <input type="radio" name="lj-timing" checked={timing === t} onChange={() => setTiming(t)} />
-                  <span className="nm">{t}</span>
-                  <span className={`chip ${stageFor(t) === "Hot" ? "bad" : stageFor(t) === "Warm" ? "warn" : ""}`}>{stageFor(t)}</span>
-                </label>
-              ))}
-            </div>
+        {jobs.ok && offered.length === 0 && (
+          <p className="lj-msg warn">GHL&apos;s pipelines couldn&apos;t be read, so a new opportunity can&apos;t be made from here. Reload the page to try again.</p>
+        )}
+        {making && (
+          <div className="lj-new">
+            <label>
+              <span>Pipeline</span>
+              <select
+                className="in"
+                value={pipelineId}
+                onChange={(e) => {
+                  setPipelineId(e.target.value);
+                  setStageId("");
+                }}
+              >
+                <option value="">Pick a pipeline</option>
+                {offered.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Stage</span>
+              <select className="in" value={stageId} disabled={!pipeline} onChange={(e) => setStageId(e.target.value)}>
+                <option value="">Pick a stage</option>
+                {pipeline?.stages.map((st) => (
+                  <option key={st.id} value={st.id}>{st.name}</option>
+                ))}
+              </select>
+            </label>
+            <p className="faint">Won isn&apos;t offered: a quote gets there when the customer accepts it.</p>
           </div>
         )}
         {choice?.reopen && <p className="lj-msg warn">This opportunity is {choice.status}. Linking sets it back to Open in GHL.</p>}
@@ -142,7 +160,7 @@ export function LinkJob({ quoteRecordId, quoteNumber, jobs }: { quoteRecordId: s
           <span className="faint">
             {jobs.ok && !jobs.canLink ? "Linking isn't switched on for this deployment." : "GHL gets the quote number, the confirmed site and the CompanyCam link."}
           </span>
-          <button className="btn primary" type="button" disabled={!picked || (making && !newTiming) || linking || !(jobs.ok && jobs.canLink)} onClick={link}>
+          <button className="btn primary" type="button" disabled={!picked || (making && !placed) || linking || !(jobs.ok && jobs.canLink)} onClick={link}>
             {linking ? (making ? "Creating…" : "Linking…") : making ? "Create and link" : "Link this quote"}
           </button>
         </div>

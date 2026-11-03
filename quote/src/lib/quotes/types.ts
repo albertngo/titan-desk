@@ -1,4 +1,5 @@
 import type { LineInput, OptionTotals } from "@/lib/calc";
+import type { Placement, PlacementPipeline } from "@/lib/link/linkJob";
 import type { Message } from "@/lib/conversation/thread";
 import type { GhlContact } from "@/lib/ghl/types";
 import type { Acceptance } from "@/lib/accept/plan";
@@ -285,10 +286,13 @@ export type JobChoice = {
 };
 
 /**
- * `timing` is the quote's own "when are they planning to do it" answer, which sets a new
- * opportunity's lead stage (2026-11-03); null when the quote has none, and the card asks.
+ * For a new opportunity (2026-11-03): `placements` are the project pipelines and their stages staff
+ * may pick (never Won), empty when GHL's pipeline list couldn't be read; `startAt` is where the card
+ * starts, Lead Qualification at the quote's timing stage, or null to make staff pick.
  */
-export type JobChoices = { ok: true; canLink: boolean; timing: string | null; choices: JobChoice[] } | { ok: false; message: string };
+export type JobChoices =
+  | { ok: true; canLink: boolean; placements: PlacementPipeline[]; startAt: Placement | null; choices: JobChoice[] }
+  | { ok: false; message: string };
 
 export type LinkJobResult = { ok: true } | { ok: false; message: string };
 
