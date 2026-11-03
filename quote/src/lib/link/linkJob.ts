@@ -1,5 +1,7 @@
-import { ghlContactUrl, ghlOpportunityUrl } from "@/lib/ghl/ids";
+import { ghlContactUrl, ghlOpportunityUrl, LEAD_STAGE_IDS, LEADS_PIPELINE_ID, PROJECT_PIPELINE_IDS, PROJECT_WON_STAGE_NAME } from "@/lib/ghl/ids";
+import type { GhlPipeline } from "@/lib/ghl/types";
 import { projectJobs, REVIVE_WINDOW_DAYS } from "./booking";
+import { isTiming, stageFor } from "./lead";
 
 /**
  * Linking a quote that says Needs linking (2026-10-15). Pure, no I/O: which of the customer's
@@ -37,6 +39,52 @@ export function linkChoices<T extends JobCandidate>(opps: T[], taken: Map<string
     .filter((o) => o.status === "open" || closedLately(o))
     .map((o) => ({ ...o, reopen: o.status !== "open", takenBy: taken.has(o.id) ? (taken.get(o.id) ?? "another quote") : null }))
     .sort((a, b) => Number(b.status === "open") - Number(a.status === "open") || (b.statusChangedAt ?? "").localeCompare(a.statusChangedAt ?? ""));
+}
+
+// ---------- a new opportunity from the card (2026-11-03) ----------
+
+/** Where a new opportunity may go: a project pipeline and one of its stages. */
+export type Placement = { pipelineId: string; stageId: string };
+export type PlacementPipeline = { id: string; name: string; stages: { id: string; name: string }[] };
+
+/** The Won stage is reached only by a customer accepting a quote (Albert, 2026-11-03), never picked here. */
+const isWonStage = (name: string) => PROJECT_WON_STAGE_NAME.test(name);
+
+/**
+ * The pipelines and stages staff may pick for a new opportunity (Albert, 2026-11-03: "an option to pick
+ * where and what pipeline and what stage"): the project pipelines in their usual order, never a STORE
+ * order, every stage but Won. A pipeline GHL didn't list, or that is left with no stage, is dropped.
+ */
+export function placements(list: GhlPipeline[]): PlacementPipeline[] {
+  return PROJECT_PIPELINE_IDS.flatMap((id) => {
+    const p = list.find((x) => x.id === id);
+    const stages = p?.stages.filter((st) => !isWonStage(st.name)) ?? [];
+    return p && stages.length ? [{ id: p.id, name: p.name, stages }] : [];
+  });
+}
+
+/**
+ * What the card starts on: where a preliminary would put it, Lead Qualification at the stage the
+ * quote's timing gives, when the quote has a timing and that stage is offered; otherwise nothing, and
+ * staff pick.
+ */
+export function defaultPlacement(offered: PlacementPipeline[], timing: string | null): Placement | null {
+  if (!isTiming(timing)) return null;
+  const stageId = LEAD_STAGE_IDS[stageFor(timing)];
+  const lead = offered.find((p) => p.id === LEADS_PIPELINE_ID);
+  return lead?.stages.some((st) => st.id === stageId) ? { pipelineId: LEADS_PIPELINE_ID, stageId } : null;
+}
+
+/** Checked on the server against GHL's own list: the pick, with its names, or why it can't be used. */
+export function checkPlacement(
+  offered: PlacementPipeline[],
+  pick: { pipelineId?: unknown; stageId?: unknown } | null | undefined,
+): { ok: true; pipelineId: string; stageId: string; pipeline: string; stage: string } | { ok: false; message: string } {
+  const pipe = offered.find((p) => p.id === pick?.pipelineId);
+  if (!pipe) return { ok: false, message: "Pick a project pipeline for the new opportunity." };
+  const stage = pipe.stages.find((st) => st.id === pick?.stageId);
+  if (!stage) return { ok: false, message: `Pick a stage in ${pipe.name}. Won isn't offered: a quote gets there when the customer accepts it.` };
+  return { ok: true, pipelineId: pipe.id, stageId: stage.id, pipeline: pipe.name, stage: stage.name };
 }
 
 // ---------- fixing a wrong address ----------

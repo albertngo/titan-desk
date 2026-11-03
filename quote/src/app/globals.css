@@ -466,6 +466,12 @@ table.items.edit .desc { font-weight: 500; }
 .lj-opt input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .lj-opt .nm { font-weight: 600; font-size: 13.5px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lj-opt .mt { grid-column: 2 / -1; font-size: 12px; color: var(--fg-dim); overflow-wrap: anywhere; }
+/* + New opportunity (2026-11-03): where it goes, picked under the list. */
+.lj-new { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--card-2); }
+.lj-new label { display: grid; gap: 4px; min-width: 0; }
+.lj-new label > span { font-size: 12px; font-weight: 600; color: var(--fg-dim); }
+.lj-new select { width: 100%; min-width: 0; }
+.lj-new p { grid-column: 1 / -1; font-size: 12px; margin: 0; }
 .lj-opt.taken { cursor: default; background: var(--card-2); border-style: dashed; }
 .lj-opt.taken:hover { border-color: var(--line-strong); }
 .lj-opt.taken .nm, .lj-opt.taken .mt { color: var(--fg-faint); }

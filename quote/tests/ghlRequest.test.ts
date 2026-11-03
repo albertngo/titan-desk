@@ -153,10 +153,10 @@ describe("Address arrived (2026-10-27): the address from their messages goes on 
   });
 });
 
-describe("a new opportunity from the Link to Opportunity card (2026-11-03): made as a preliminary's is", () => {
-  const job = { contactId: "conJANE00001", quoteNumber: "Q-1234", name: "Jane Doe - 1126 - Q-1234", timing: "Within 1 month" as const, site: null, companyCamUrl: null };
+describe("a new opportunity from the Link to Opportunity card (2026-11-03): in the pipeline and stage staff picked", () => {
+  const job = { contactId: "conJANE00001", quoteNumber: "Q-1234", name: "Jane Doe - 1126 - Q-1234", pipelineId: SALES_PIPELINE_ID, stageId: MEETING_SCHEDULED_STAGE_ID, site: null, companyCamUrl: null };
 
-  it("goes into Lead Qualification at the timing's stage, open, named with the shared name, contact untouched", () => {
+  it("goes where it was put, open, named with the shared name, contact untouched", () => {
     const r = buildNewJob(job);
     expect(r.mode).toBe("new-opportunity");
     expect(r.contactId).toBe("conJANE00001");
@@ -164,19 +164,13 @@ describe("a new opportunity from the Link to Opportunity card (2026-11-03): made
     expect(parse(r.contactBody)).toEqual({});
     expect(parse(r.oppBody)).toEqual({
       locationId: GHL_LOCATION_ID,
-      pipelineId: LEADS_PIPELINE_ID,
-      pipelineStageId: LEAD_STAGE_IDS.Hot,
+      pipelineId: SALES_PIPELINE_ID,
+      pipelineStageId: MEETING_SCHEDULED_STAGE_ID,
       name: "Jane Doe - 1126 - Q-1234",
       status: "open",
       contactId: "conJANE00001",
       customFields: [{ id: OPP_FIELDS.quoteNumber, field_value: "Q-1234" }],
     });
-  });
-
-  it("follows the timing like a preliminary: 1 to 3 months is Warm, 3+ and Not sure are Cold", () => {
-    expect(parse(buildNewJob({ ...job, timing: "1 to 3 months" }).oppBody).pipelineStageId).toBe(LEAD_STAGE_IDS.Warm);
-    expect(parse(buildNewJob({ ...job, timing: "3+ months" }).oppBody).pipelineStageId).toBe(LEAD_STAGE_IDS.Cold);
-    expect(parse(buildNewJob({ ...job, timing: "Not sure" }).oppBody).pipelineStageId).toBe(LEAD_STAGE_IDS.Cold);
   });
 
   it("carries a confirmed site and the quote's CompanyCam link when it has them", () => {

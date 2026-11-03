@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { OPP_FIELDS } from "../src/lib/ghl/ids";
+import { LEAD_STAGE_IDS, OPP_FIELDS } from "../src/lib/ghl/ids";
 import { buildLinkJob } from "../src/lib/link/ghlRequest";
-import { confirmAddressCheck, fixAddressLink, linkChoices, type JobCandidate } from "../src/lib/link/linkJob";
+import { checkPlacement, confirmAddressCheck, defaultPlacement, fixAddressLink, linkChoices, placements, type JobCandidate } from "../src/lib/link/linkJob";
 
 // INVENTED ids, names and addresses only: this repo is public.
 const LEADS = "z7ZevSnG9HnGMzC9nSHp";
@@ -120,5 +120,57 @@ describe("where a wrong address is fixed (2026-10-21)", () => {
 
   it("gives nothing when there is no contact to go to", () => {
     expect(fixAddressLink({ ...base, ghlContactId: null, ghlOpportunityId: null })).toBeNull();
+  });
+});
+
+describe("where a new opportunity goes (Albert, 2026-11-03): staff pick the pipeline and stage, never Won", () => {
+  const ghl = [
+    { id: STORE, name: "STORE: Material Pipeline", stages: [{ id: "st-store", name: "New order" }] },
+    { id: SALES, name: "(2) PROJECT: Sales Pipeline", stages: [{ id: "st-meet", name: "*Meeting (Scheduled)* CCAM|GHL" }, { id: "st-won", name: "2. *Project Won* " }] },
+    {
+      id: LEADS,
+      name: "(1) PROJECT: Lead Qualification",
+      stages: [
+        { id: LEAD_STAGE_IDS.Hot, name: "0c. ASAP (Hot)" },
+        { id: LEAD_STAGE_IDS.Warm, name: "0b. Later Date (Warm)" },
+        { id: LEAD_STAGE_IDS.Cold, name: "0b. Far Out (Cold)" },
+      ],
+    },
+  ];
+  const offered = placements(ghl);
+
+  it("offers the project pipelines in their usual order, never STORE, and never the Won stage", () => {
+    expect(offered.map((p) => p.id)).toEqual([LEADS, SALES]);
+    expect(offered[1].stages.map((st) => st.id)).toEqual(["st-meet"]);
+  });
+
+  it("drops a pipeline GHL didn't list or that has no stage left", () => {
+    expect(placements([{ id: SALES, name: "Sales", stages: [{ id: "st-won", name: "2. *Project Won* " }] }])).toEqual([]);
+    expect(placements([])).toEqual([]);
+  });
+
+  it("starts where a preliminary would put it, from the quote's timing; with no timing staff pick", () => {
+    expect(defaultPlacement(offered, "Within 1 month")).toEqual({ pipelineId: LEADS, stageId: LEAD_STAGE_IDS.Hot });
+    expect(defaultPlacement(offered, "3+ months")).toEqual({ pipelineId: LEADS, stageId: LEAD_STAGE_IDS.Cold });
+    expect(defaultPlacement(offered, null)).toBeNull();
+    expect(defaultPlacement(offered, "someday")).toBeNull();
+  });
+
+  it("accepts a stage of the picked pipeline, with its names", () => {
+    expect(checkPlacement(offered, { pipelineId: SALES, stageId: "st-meet" })).toEqual({
+      ok: true,
+      pipelineId: SALES,
+      stageId: "st-meet",
+      pipeline: "(2) PROJECT: Sales Pipeline",
+      stage: "*Meeting (Scheduled)* CCAM|GHL",
+    });
+  });
+
+  it("refuses Won, a STORE pipeline, a stage from another pipeline, or nothing picked", () => {
+    expect(checkPlacement(offered, { pipelineId: SALES, stageId: "st-won" }).ok).toBe(false);
+    expect(checkPlacement(offered, { pipelineId: STORE, stageId: "st-store" }).ok).toBe(false);
+    expect(checkPlacement(offered, { pipelineId: SALES, stageId: LEAD_STAGE_IDS.Hot }).ok).toBe(false);
+    expect(checkPlacement(offered, null).ok).toBe(false);
+    expect(checkPlacement(offered, { pipelineId: 7, stageId: [] }).ok).toBe(false);
   });
 });

@@ -16,8 +16,8 @@ export async function linkToJobAction(quoteRecordId: string, opportunityId: stri
   return linkToJob(String(quoteRecordId ?? ""), String(opportunityId ?? ""));
 }
 
-export async function createJobAction(quoteRecordId: string, timing: string | null): Promise<LinkJobResult> {
-  return createJobForQuote(String(quoteRecordId ?? ""), timing);
+export async function createJobAction(quoteRecordId: string, pick: { pipelineId: string; stageId: string }): Promise<LinkJobResult> {
+  return createJobForQuote(String(quoteRecordId ?? ""), pick);
 }
 
 export async function confirmAddressAction(quoteRecordId: string, shown: string): Promise<ConfirmAddressResult> {

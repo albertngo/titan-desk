@@ -153,20 +153,21 @@ export function buildLinkJob(i: {
 /**
  * A new opportunity for a quote that says Needs linking (Albert, 2026-11-03: "create the opportunity
  * on the screen… same thing as in the preliminary"), for a customer whose listed opportunities are
- * other jobs (another unit at the same building). Made the way a preliminary's is: the Lead
- * Qualification pipeline at the stage its timing answer gives, named with the shared name, carrying
- * the quote number, the site only if confirmed, and the quote's CompanyCam link. Same
- * "new-opportunity" route through Make; the contact is left as it is (an empty update).
+ * other jobs (another unit at the same building). In the pipeline and stage staff picked (same day:
+ * "an option to pick where and what pipeline and what stage"; checked by checkPlacement() in
+ * linkJob.ts, never Won), named with the shared name, carrying the quote number, the site only if
+ * confirmed, and the quote's CompanyCam link. Same "new-opportunity" route through Make; the contact is
+ * left as it is (an empty update).
  */
 export function buildNewJob(i: {
   contactId: string;
   quoteNumber: string;
   name: string;
-  timing: Timing;
+  pipelineId: string;
+  stageId: string;
   site: { address: string | null; city: string | null } | null;
   companyCamUrl: string | null;
 }): GhlRequest {
-  const stage = stageToSet(i.timing, { isNew: true, pipelineId: null }, LEADS_PIPELINE_ID)!;
   return {
     mode: "new-opportunity",
     contactId: i.contactId,
@@ -174,8 +175,8 @@ export function buildNewJob(i: {
     contactBody: JSON.stringify({}),
     oppBody: JSON.stringify({
       locationId: GHL_LOCATION_ID,
-      pipelineId: LEADS_PIPELINE_ID,
-      pipelineStageId: LEAD_STAGE_IDS[stage],
+      pipelineId: i.pipelineId,
+      pipelineStageId: i.stageId,
       name: i.name,
       status: "open",
       contactId: i.contactId,
