@@ -113,8 +113,8 @@ function Row({ l, n, customer, lump }: { l: QuoteLine; n: number | undefined; cu
         {(l.area || l.clientNote) && <span className="sub">{[l.area, l.clientNote].filter(Boolean).join(" · ")}</span>}
         {!customer && flags.length > 0 && <div>{flags.map((f) => <span key={f} className={`flag ${f}`}>{f}</span>)}</div>}
       </td>
-      {!customer && <td className="muted">{l.contractor ?? "—"}</td>}
-      <td className="r">
+      {!customer && <td className="muted" data-label="Contractor">{l.contractor ?? "—"}</td>}
+      <td className="r" data-label="Quantity">
         {lump && !LUMP_QTY_SECTIONS.has(sectionOf(l)) ? null : (
           <>
             {rate(l.qty)} <span className="faint">{l.uom ?? ""}</span>
@@ -123,23 +123,23 @@ function Row({ l, n, customer, lump }: { l: QuoteLine; n: number | undefined; cu
         )}
       </td>
       {!customer && (
-        <td className="r">
+        <td className="r" data-label="Cost">
           <span className={costOvr || l.manualCost ? "chgd" : "muted"}>{money(cost)}</span>
           {costOvr && <span className="sub">card {money(l.unitCostSnap)}/unit, now {money(costUsed(l))}</span>}
           {!!l.manualCost && <span className="sub">manual line cost</span>}
         </td>
       )}
       {!lump && (
-        <td className="r">
+        <td className="r" data-label="Unit price">
           <span className={rateOvr && !customer ? "chgd" : undefined}>{money(priceUsed(l))}</span>
           {rateOvr && !customer && <span className="sub">card {money(l.unitPriceSnap)}</span>}
         </td>
       )}
-      {!customer && <td className="r muted">{pct(margin, 0)}</td>}
+      {!customer && <td className="r muted" data-label="Margin">{pct(margin, 0)}</td>}
       {lump ? (
-        <td className="r amt">{l.include ? "" : <span className="note">optional · {money(total)}</span>}</td>
+        <td className="r amt" data-label="Line total">{l.include ? "" : <span className="note">optional · {money(total)}</span>}</td>
       ) : (
-        <td className="r amt">{l.include ? money(total) : <span className="note">optional</span>}</td>
+        <td className="r amt" data-label="Line total">{l.include ? money(total) : <span className="note">optional</span>}</td>
       )}
     </tr>
   );
@@ -234,7 +234,7 @@ export function OptionSheet({
                       : lines.map((l) => <Row key={l.id} l={l} n={nums.get(l.id)} customer={customer} lump={lump} />)),
                     ...(rollup > 0
                       ? [
-                          <tr key="private-rollup">
+                          <tr key="private-rollup" className="rollup">
                             <td className="idx">{i + 1}</td>
                             <td>{option.privateLabel ?? DEFAULT_PRIVATE_LABEL}</td>
                             <td className="r">—</td>
