@@ -78,6 +78,11 @@ export const QUOTE = {
   siteSheetPhotos: "fldVyJRpAY5Mr8Obn",
   /** 2026-10-28: what was read from the site sheet and what staff checked, JSON (src/lib/sitesheet/sheet.ts). */
   siteSheet: "fldDmKVwRWRZ6tsEc",
+  /**
+   * 2026-11-03 (Albert): a short staff-only label, "Unit 1204 · kitchen + hall", shown under the customer on All
+   * quotes so several quotes for one customer at one address can be told apart. Never in the customer copy.
+   */
+  description: "fldEZNhUAPfh3U97x",
   /** 2026-10-30: the quote's invoice or receipt (the inverse links of Invoices → Quote and Receipts → Quote). */
   invoices: "fldYN32jS4YqbfBFf",
   receipts: "fldpnMqQnH8ipaWTT",

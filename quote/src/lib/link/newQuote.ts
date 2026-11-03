@@ -1,6 +1,7 @@
 import { displayPhone, normalizeEmail, normalizePhone } from "./identity";
 import { isTiming, type Timing } from "./lead";
 import { isOrigin, type Origin } from "./origin";
+import { cleanDescription } from "@/lib/quotes/group";
 
 /**
  * What the New quote screen sends, checked before anything is written. Pure, no I/O.
@@ -41,6 +42,8 @@ export type NewQuoteRequest = {
   basis: Basis;
   /** Where they found us (2026-10-27), or null when not picked; anything off the list reads as not picked. */
   origin: Origin | null;
+  /** The quote's description (2026-11-03): staff's short label for All quotes, e.g. "Unit 1204 · kitchen + hall"; null when blank. */
+  description: string | null;
 };
 
 export type Parsed<T> = { ok: true; value: T } | { ok: false; message: string };
@@ -64,8 +67,9 @@ export function parseNewQuote(raw: unknown): Parsed<NewQuoteRequest> {
 
   const basis: Basis = r.kind === "measured" ? "Measured" : "Preliminary";
   const origin = isOrigin(r.origin) ? r.origin : null;
+  const description = cleanDescription(r.description);
   if (contactId) {
-    return { ok: true, value: { contactId, opportunityId, timing: r.timing, addressConfirmed: r.addressConfirmed === true, newCustomer: null, forceNew: false, basis, origin } };
+    return { ok: true, value: { contactId, opportunityId, timing: r.timing, addressConfirmed: r.addressConfirmed === true, newCustomer: null, forceNew: false, basis, origin, description } };
   }
   if (opportunityId) return { ok: false, message: "Pick the customer before their opportunity." };
 
@@ -92,6 +96,7 @@ export function parseNewQuote(raw: unknown): Parsed<NewQuoteRequest> {
       forceNew: r.forceNew === true,
       basis,
       origin,
+      description,
     },
   };
 }

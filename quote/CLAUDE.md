@@ -741,6 +741,15 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   fold-out between Newest first (the default) and By origin, each version nested under its source
   (`versionTree()`); the choice is kept in localStorage on that device only.
 
+- **Quote Description (Albert, 2026-11-03: "When we are quoting lets say; AMICA Stephen. It is ALWAYS at 200
+  Kenneth… But a different unit; or a description of the rooms involved").** Quotes → **Quote Description** (one line,
+  at most `DESCRIPTION_MAX` characters, `cleanDescription()` in `src/lib/quotes/group.ts`) is a staff-only label shown
+  under the customer's name on All quotes and searched there. Typed on New quote (optional) or in the quote page
+  header (`src/components/QuoteDescription.tsx`; click to edit, blank clears it), saved by `saveDescription()` in
+  `src/lib/quotes/describe.ts` (a writer, Quotes table only, compare-and-swap like Rooms). Never in Customer view and
+  never in the customer copy. It does not change the shared name (`displayName()`), which stays fixed once a folder
+  has it. Tested in `tests/group.test.ts` and `tests/link.test.ts`.
+
 - **Report a bug (2026-10-28).** The header's Report a bug (staff only, hidden in Customer view and
   until `NOTION_BUG_TOKEN` is set) posts a summary, an urgency and up to five screenshots (shrunk in
   the browser to stay under Vercel's 4.5 MB body limit) to `/api/bug`. That signed-in route makes

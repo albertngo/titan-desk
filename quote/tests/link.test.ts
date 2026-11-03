@@ -59,6 +59,14 @@ describe("is this \"new\" customer already in GHL?", () => {
     const r = parseNewQuote({ timing: "Not sure", forceNew: true, newCustomer: { lastName: "Doe", email: "jane@example.com" } });
     expect(r.ok && r.value.forceNew).toBe(true);
   });
+  it("carries an optional description, cleaned, for both kinds of customer (2026-11-03)", () => {
+    const picked = parseNewQuote({ timing: "Not sure", contactId: "abcDEF123456", description: "  Unit 101 ·  kitchen " });
+    expect(picked.ok && picked.value.description).toBe("Unit 101 · kitchen");
+    const fresh = parseNewQuote({ timing: "Not sure", newCustomer: { lastName: "Doe", email: "jane@example.com" }, description: "Unit 2304" });
+    expect(fresh.ok && fresh.value.description).toBe("Unit 2304");
+    const none = parseNewQuote({ timing: "Not sure", contactId: "abcDEF123456", description: "   " });
+    expect(none.ok && none.value.description).toBeNull();
+  });
 });
 
 describe("matching a quote", () => {
@@ -137,7 +145,7 @@ describe("the New quote form", () => {
     const r = parseNewQuote({ contactId: "abcDEF123456", opportunityId: "oppXYZ987654", timing: "1 to 3 months", addressConfirmed: true });
     expect(r).toEqual({
       ok: true,
-      value: { contactId: "abcDEF123456", opportunityId: "oppXYZ987654", timing: "1 to 3 months", addressConfirmed: true, newCustomer: null, forceNew: false, basis: "Preliminary", origin: null },
+      value: { contactId: "abcDEF123456", opportunityId: "oppXYZ987654", timing: "1 to 3 months", addressConfirmed: true, newCustomer: null, forceNew: false, basis: "Preliminary", origin: null, description: null },
     });
     const n = parseNewQuote({ contactId: "abcDEF123456", opportunityId: "", timing: "Not sure" });
     expect(n.ok && n.value.opportunityId).toBeNull();
@@ -186,6 +194,7 @@ describe("the New quote form", () => {
         forceNew: false,
         basis: "Preliminary",
         origin: null,
+        description: null,
       },
     });
   });

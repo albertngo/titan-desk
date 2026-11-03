@@ -32,7 +32,22 @@ export type QuoteHead = {
   projectNumber: string | null;
   linkStatus: string | null;
   addressStatus: string | null;
+  /** Quotes → Quote Description (2026-11-03): staff's short label for this quote, e.g. "Unit 1204 · kitchen + hall". */
+  description?: string | null;
 };
+
+/** The longest Quote Description kept: a label for the list, not the project notes. */
+export const DESCRIPTION_MAX = 120;
+
+/**
+ * A Quote Description as it is stored (2026-11-03): one line, spaces collapsed, at most DESCRIPTION_MAX
+ * characters, and null when nothing is left, so clearing the box clears the field.
+ */
+export function cleanDescription(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const s = v.replace(/\s+/g, " ").trim().slice(0, DESCRIPTION_MAX).trim();
+  return s || null;
+}
 
 export type QuoteGroup = QuoteHead & {
   /** Newest version first. The first one is what opening the quote shows. */
@@ -98,7 +113,7 @@ const byNewest = (a: VersionRow, b: VersionRow) => (b.version ?? 0) - (a.version
 /** Versions grouped under their quote. A version with no quote is a group of its own. */
 export function groupVersions(versions: (VersionRow & { quoteRecordId: string | null })[], heads: Map<string, QuoteHead>): QuoteGroup[] {
   const groups = new Map<string, QuoteGroup>();
-  const blank = (id: string | null): QuoteHead => ({ quoteRecordId: id, quoteNumber: null, customerName: null, siteCity: null, phone: null, email: null, projectNumber: null, linkStatus: null, addressStatus: null });
+  const blank = (id: string | null): QuoteHead => ({ quoteRecordId: id, quoteNumber: null, customerName: null, siteCity: null, phone: null, email: null, projectNumber: null, linkStatus: null, addressStatus: null, description: null });
   for (const { quoteRecordId, ...v } of versions) {
     const key = quoteRecordId ?? `version:${v.id}`;
     const g = groups.get(key) ?? { ...(quoteRecordId ? (heads.get(quoteRecordId) ?? blank(quoteRecordId)) : blank(null)), versions: [], latestAt: "" };
@@ -114,13 +129,13 @@ const words = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/
 
 /**
  * Does the group match what was typed? Every word must appear somewhere: the customer, the quote
- * or project number, the city, the email, a version label, or the phone (digits only, so
+ * or project number, the city, the email, the quote's description, a version label, or the phone (digits only, so
  * "416 555" finds +14165550199).
  */
 export function matchesSearch(g: QuoteGroup, query: string): boolean {
   const q = words(query);
   if (q.length === 0) return true;
-  const hay = [g.customerName, g.quoteNumber, g.projectNumber, g.siteCity, g.email, ...g.versions.map((v) => v.label)]
+  const hay = [g.customerName, g.quoteNumber, g.projectNumber, g.siteCity, g.email, g.description, ...g.versions.map((v) => v.label)]
     .filter(Boolean)
     .join(" ")
     .toLowerCase()

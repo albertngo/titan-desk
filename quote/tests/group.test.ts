@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ago, fromLabel, fromWords, groupVersions, inFilter, lastSentVersion, matchesSearch, openedOn, opensWords, versionTree, type QuoteHead, type VersionRow } from "../src/lib/quotes/group";
+import { ago, cleanDescription, DESCRIPTION_MAX, fromLabel, fromWords, groupVersions, inFilter, lastSentVersion, matchesSearch, openedOn, opensWords, versionTree, type QuoteHead, type VersionRow } from "../src/lib/quotes/group";
 
 // INVENTED people and numbers only: this repo is public.
 const V = (o: Partial<VersionRow> & { id: string; quoteRecordId: string | null }): VersionRow & { quoteRecordId: string | null } => ({ label: null, version: 1, status: "Draft", basis: "Preliminary", optionCount: 1, createdTime: "2026-10-01T00:00:00Z", ...o });
@@ -142,5 +142,36 @@ describe("Last opened follows the version the customer has (2026-10-31)", () => 
   });
   it("always gives the count, one open included", () => {
     expect([opensWords(1), opensWords(4)]).toEqual(["1 open", "4 opens"]);
+  });
+});
+
+describe("Quote Description (2026-11-03)", () => {
+  // Invented: one customer, one building, two units.
+  const both = groupVersions(
+    [V({ id: "a1", quoteRecordId: "recA" }), V({ id: "b1", quoteRecordId: "recB" })],
+    new Map([
+      ["recA", H({ quoteRecordId: "recA", customerName: "Pat Example", description: "Unit 101 · kitchen" })],
+      ["recB", H({ quoteRecordId: "recB", customerName: "Pat Example", description: "Unit 2304 · whole unit" })],
+    ]),
+  );
+
+  it("is searched, so a unit or a room finds the right quote", () => {
+    const [a, b] = [both.find((g) => g.quoteRecordId === "recA")!, both.find((g) => g.quoteRecordId === "recB")!];
+    expect(matchesSearch(a, "pat 101")).toBe(true);
+    expect(matchesSearch(b, "pat 101")).toBe(false);
+    expect(matchesSearch(b, "2304")).toBe(true);
+    expect(matchesSearch(a, "kitchen")).toBe(true);
+  });
+
+  it("a version with no quote has none", () => {
+    expect(groupVersions([V({ id: "x", quoteRecordId: null })], new Map())[0].description).toBeNull();
+  });
+
+  it("is kept as one short line, and blank clears it", () => {
+    expect(cleanDescription("  Unit 1204 \n kitchen  +  hall ")).toBe("Unit 1204 kitchen + hall");
+    expect(cleanDescription("   ")).toBeNull();
+    expect(cleanDescription(null)).toBeNull();
+    expect(cleanDescription(42)).toBeNull();
+    expect(cleanDescription("x".repeat(500))).toHaveLength(DESCRIPTION_MAX);
   });
 });
