@@ -22,6 +22,24 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-03",
+    kind: "changed",
+    title: "Analysis on a phone reads as cards",
+    details: [
+      "On a phone the Analysis tab's tables, and the If they accept a price table, show each figure as a card with one line per option, so nothing scrolls sideways. \"Where the options differ\" marks each card differs or same.",
+    ],
+  },
+  {
+    date: "2026-11-03",
+    kind: "changed",
+    title: "On a phone: a menu along the bottom, and lines as cards",
+    details: [
+      "On a phone the top bar is replaced by a bar along the bottom: Quotes, New (preliminary or measured), Customer view, and More for What's new, Report a bug and signing out.",
+      "In the editor and on the quote page each line is now a card: the item on top, contractor, quantity, cost and price two to a row, and the line total at the bottom. No more scrolling sideways.",
+      "All quotes, the Rooms, Site sheet, Photos and Analysis buttons, and every box and button across the app are bigger on a phone, and typing no longer makes the iPhone zoom in. Computers and tablets look the same as before.",
+    ],
+  },
+  {
+    date: "2026-11-03",
     kind: "new",
     title: "See which version of the app you're on",
     details: [

@@ -4,14 +4,19 @@ import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { CUSTOMER_VIEW, VIEW_COOKIE } from "@/lib/viewMode";
 
+/** Writes the Customer view cookie for this device. The caller refreshes the page so the server renders it. */
+export function writeCustomerView(on: boolean) {
+  document.cookie = on
+    ? `${VIEW_COOKIE}=${CUSTOMER_VIEW}; path=/; max-age=31536000; samesite=lax; secure`
+    : `${VIEW_COOKIE}=; path=/; max-age=0; samesite=lax; secure`;
+}
+
 /** The Customer view switch in the top bar: hides cost, margin and profit on every page of this device. */
 export function ViewSwitch({ on }: { on: boolean }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   function toggle() {
-    document.cookie = on
-      ? `${VIEW_COOKIE}=; path=/; max-age=0; samesite=lax; secure`
-      : `${VIEW_COOKIE}=${CUSTOMER_VIEW}; path=/; max-age=31536000; samesite=lax; secure`;
+    writeCustomerView(!on);
     start(() => router.refresh());
   }
   return (

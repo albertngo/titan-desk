@@ -1615,3 +1615,120 @@ table.cmp th { font-size: 12.5px; font-weight: 500; color: var(--fg-dim); text-t
   .qw-foot .est .faint { flex-basis: 100%; font-size: 13px; color: var(--fg-dim); }
   .qw-foot .btn { width: 100%; min-height: 50px; margin: 0; justify-content: center; font-size: 16px; border-radius: 12px; }
 }
+
+/* ---------- Every page on a phone (Albert, 2026-11-03: "do this on all pages… especially the edit quote page";
+   the menu as a bottom tab bar). Phone widths only (max-width 640px), so a computer or a tablet looks exactly as
+   before; outside the media query the tab bar is only hidden. ---------- */
+.bnav, .bnav-sheet, .bnav-back { display: none; }
+
+@media (max-width: 640px) {
+  /* The menu: a tab bar along the bottom (Quotes, New, Customer view, More) instead of the top bar. */
+  .topbar { display: none; }
+  body:has(.bnav) { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
+  .bnav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 39; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; padding: 4px 6px calc(4px + env(safe-area-inset-bottom, 0px)); background: var(--card); border-top: 1px solid var(--line-strong); box-shadow: 0 -4px 16px rgba(20, 30, 45, .06); }
+  .bnav-b { all: unset; box-sizing: border-box; display: grid; justify-items: center; align-content: center; gap: 3px; min-height: 54px; border-radius: 12px; font-size: 12px; font-weight: 600; color: var(--fg-dim); text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .bnav-b svg { width: 22px; height: 22px; }
+  .bnav-b[aria-current="page"], .bnav-b.here, .bnav-b[aria-expanded="true"] { color: #1759d6; }
+  .bnav-b[aria-checked="true"] { color: #1759d6; background: var(--accent-soft); }
+  .bnav-b:active { background: var(--head); }
+  .bnav-b:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .bnav-b:disabled { opacity: .6; }
+  .bnav-back { display: block; position: fixed; inset: 0; z-index: 38; background: rgba(20, 30, 45, .28); }
+  .bnav-sheet { display: grid; gap: 2px; position: fixed; left: 8px; right: 8px; bottom: calc(70px + env(safe-area-inset-bottom, 0px)); z-index: 39; padding: 8px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 12px 32px rgba(20, 30, 45, .18); }
+  .bnav-item, .bnav-sheet .tb-btn { all: unset; box-sizing: border-box; display: grid; gap: 2px; width: 100%; min-height: 52px; padding: 12px 14px; border-radius: 12px; font-size: 16px; font-weight: 600; color: var(--fg); cursor: pointer; }
+  .bnav-sheet .tb-btn { display: flex; align-items: center; gap: 10px; }
+  .bnav-sheet .tb-btn .lbl { display: inline; }
+  .bnav-item span { font-size: 13.5px; font-weight: 400; color: var(--fg-dim); }
+  .bnav-item:active, .bnav-sheet .tb-btn:active { background: var(--head); }
+  .bnav-item:focus-visible, .bnav-sheet .tb-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .bnav-em { display: grid; gap: 2px; margin-top: 4px; padding: 10px 14px; border-top: 1px solid var(--line); font-size: 13px; color: var(--fg-dim); }
+  .bnav-em b { color: var(--fg); font-size: 14px; overflow-wrap: anywhere; }
+  .bnav-sheet form { margin: 0; }
+  /* New quote's estimate bar sits above the tab bar. */
+  .qw-foot { bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
+
+  /* Every page: boxes to type in at 16px (an iPhone zooms on anything smaller) and buttons a thumb can hit. */
+  .in, .cell-in, .ql-search input, .page textarea, .page select { font-size: 16px; }
+  .in, select.in { min-height: 44px; }
+  .btn { min-height: 44px; justify-content: center; }
+  .btn.small { min-height: 40px; }
+  .chip-btn { min-height: 40px; font-size: 14px; }
+  .card { border-radius: 14px; }
+  .card-h { font-size: 15px; }
+
+  /* Lines as cards, on the editor and the quote page: the item across the top, the figures two to a row under
+     their own labels, the line total last. Section headings and "+ Add to …" stay rows between them. */
+  .tbl-wrap:has(> table.items) { overflow: visible; }
+  table.items, table.items tbody { display: block; min-width: 0; }
+  table.items thead { display: none; }
+  table.items tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 14px; border-bottom: 1px solid var(--line); }
+  table.items tbody tr:nth-child(even) td { background: none; }
+  table.items td, table.items.edit td { display: block; min-width: 0; padding: 0; border: 0; text-align: left; font-size: 15px; }
+  table.items td.idx { display: none; }
+  table.items td:not([data-label]) { grid-column: 1 / -1; }
+  table.items td[data-label]:empty { display: none; }
+  table.items td[data-label]::before { content: attr(data-label); display: block; margin-bottom: 4px; font-size: 12.5px; font-weight: 500; color: var(--fg-dim); }
+  table.items td.r .cell-in, table.items .qty { width: 100%; justify-content: flex-start; }
+  table.items .cell-in { min-height: 44px; border-radius: 10px; }
+  table.items.edit .item { min-width: 0; }
+  table.items.edit .desc { font-size: 16px; }
+  table.items .sub { font-size: 13px; }
+  table.items .subins { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; margin-top: 8px; }
+  table.items tbody tr { position: relative; }
+  table.items td.item { padding-right: 56px; }
+  table.items .subins .rowbtns { position: absolute; top: 8px; right: 8px; }
+  table.items .cell-in.mini { border: 1px solid var(--line-strong); padding: 8px 10px; background: var(--card); }
+  table.items .iconbtn { width: 44px; height: 44px; font-size: 15px; border-radius: 10px; }
+  table.items .wastein { justify-content: flex-start; margin-top: 8px; }
+  table.items .wastein .cell-in { width: 100%; font-size: 16px; padding: 6px 10px; }
+  table.items .mat select.cell-in { max-width: none; width: 100%; font-size: 16px; }
+  table.items .mat { flex-wrap: wrap; font-size: 13px; }
+  table.items.edit select.cell-in { min-width: 0; width: 100%; }
+  table.items td.amt { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; padding-top: 12px; border-top: 1px dashed var(--line-strong); font-size: 17px; }
+  table.items td.amt::before { margin: 0 auto 0 0; font-size: 14px; }
+  table.items td.amt .sub.mg { display: inline; }
+  table.items .inc { margin-top: 0; min-height: 32px; font-size: 13.5px; color: var(--fg-dim); }
+  table.items .inc input { width: 20px; height: 20px; }
+  table.items tr.sect, table.items.edit tr.sect { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 18px 14px 10px; border-top: 8px solid var(--bg); border-bottom: 1px solid var(--line-strong); }
+  table.items tbody tr.sect:first-child { border-top: 0; }
+  table.items tr.sect td, table.items.edit tr.sect td { padding: 0; border: 0; font-size: 16px; }
+  table.items tr.sect td.r { white-space: nowrap; }
+  table.items tr.subsect { padding: 10px 14px 2px; border-bottom: 0; }
+  table.items tr.subsect td { padding: 0; }
+  table.items tr.sect-add { padding: 6px 14px 14px; border-bottom: 0; }
+  table.items tr.sect-add td:first-child { display: none; }
+  table.items .addrow { min-height: 44px; font-size: 15px; }
+  table.items tr.rollup { display: flex; justify-content: space-between; gap: 12px; }
+  table.items tr.rollup td.r:not(:last-child) { display: none; }
+  .ov-foot { padding: 14px 14px 18px; }
+  .ov-foot .ov-row { font-size: 15px; }
+
+  /* Quote page: Rooms, Site sheet, Photos and Analysis two to a row; comparison tables at a readable size. */
+  .ed-tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .ed-tools .tab { min-width: 0; min-height: 48px; margin-left: 0; }
+  /* Analysis and Accepted price tables as cards (Albert, 2026-11-03: "make the Analysis tables cards too"): each
+     row is a card with the figure on top and one line per option (or per column) under it, value on the right. */
+  .tbl-wrap:has(> table.cmp) { overflow: visible; }
+  table.cmp, table.cmp tbody { display: block; min-width: 0; font-size: 15px; }
+  table.cmp thead { display: none; }
+  table.cmp tr { position: relative; display: block; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  table.cmp tr:last-child { border-bottom: 0; }
+  table.cmp td, table.cmp td + td { display: block; padding: 0; border: 0; text-align: right; }
+  table.cmp td:first-child { padding: 0 0 6px; font-size: 15px; font-weight: 650; color: var(--fg); }
+  table.cmp td[data-label] { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 5px 0; }
+  table.cmp td[data-label]::before { content: attr(data-label); flex: 1 1 auto; min-width: 0; text-align: left; font-weight: 400; color: var(--fg-dim); overflow-wrap: anywhere; }
+  table.cmp td[data-label]:empty { display: none; }
+  table.cmp td.cmp-st { position: absolute; top: 12px; right: 16px; padding: 2px 10px; border-radius: 999px; background: var(--head); font-size: 12.5px; font-weight: 600; }
+  table.cmp td.cmp-st.diff { background: var(--warn-soft); color: var(--warn); }
+
+  /* All quotes: no initials badge, so the name gets the room; bigger rows, filters and version links. */
+  .ql-av { display: none; }
+  .ql-row { grid-template-columns: 40px minmax(0, 1fr) auto; padding: 12px 14px 12px 4px; font-size: 14px; }
+  .ql-latest, .ql-flags, .ql-seen { grid-column: 2 / -1; }
+  .ql-who .cust { font-size: 16px; }
+  .ql-who .ql-desc, .ql-row .mt, .ql-num > span:first-child { font-size: 13.5px; }
+  .ql-tog { width: 40px; height: 40px; margin-left: 0; }
+  .ql-f { min-height: 40px; font-size: 13.5px; }
+  .ql-v { min-height: 44px; font-size: 14px; }
+  .ql-vs { margin-left: 30px; }
+}

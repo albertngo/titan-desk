@@ -325,7 +325,7 @@ export default function Editor({
           {!customer && flags.length > 0 && <div>{flags.map((f) => <span key={f} className={`flag ${f}`}>{f}</span>)}</div>}
         </td>
         {!customer && (
-          <td>
+          <td data-label="Contractor">
             {contractors.length > 1 ? (
               <select
                 className="cell-in"
@@ -345,7 +345,7 @@ export default function Editor({
             {crewMark(l)}
           </td>
         )}
-        <td className="r">
+        <td className="r" data-label="Quantity">
           <div className="qty">
             <NumCell value={l.qty} label="Quantity" placeholder="0" onCommit={(v) => upd({ qty: v })} />
             {l.sourceKind === "manual" ? (
@@ -365,7 +365,7 @@ export default function Editor({
         </td>
         {/* Unit cost in its own column again (Albert, 2026-11-01: "Can unit cost and price be on different row"). Staff only. */}
         {!customer && (
-          <td className="r">
+          <td className="r" data-label="Unit cost">
             <NumCell value={l.costOverride} label="Unit cost" placeholder={l.unitCostSnap !== null ? rate(l.unitCostSnap) : "cost"} onCommit={(v) => upd({ costOverride: v })} />
             {l.unitCostSnap !== null && l.costOverride !== null && <span className="sub">card {money(l.unitCostSnap)}</span>}
             {split && (
@@ -376,7 +376,7 @@ export default function Editor({
             )}
           </td>
         )}
-        <td className="r">
+        <td className="r" data-label="Unit price">
           <NumCell value={l.unitPrice} label="Unit price" placeholder={l.unitPriceSnap !== null ? rate(l.unitPriceSnap) : "price"} onCommit={(v) => upd({ unitPrice: v })} />
           {/* The card figure is the box's placeholder, so it is only spelled out once typed over or marked up (2026-11-01). */}
           {!customer && l.unitPriceSnap !== null && (l.unitPrice !== null || (levelOf(option) === "Premium" && levelApplies(l))) && (
@@ -391,7 +391,7 @@ export default function Editor({
             </div>
           )}
         </td>
-        <td className="r amt">
+        <td className="r amt" data-label="Line total">
           {l.include ? money(total) : <span className="note">optional</span>}
           {!customer && margin !== null && <span className="sub mg">{pct(margin, 0)} margin</span>}
           <label className="inc" title="Untick to show this line as an optional extra, outside the total.">
@@ -755,6 +755,7 @@ export default function Editor({
                 </div>
 
                 <div className="tbl-wrap">
+                  {/* On a phone each line is a card, its cells labelled from data-label (2026-11-03, globals.css). */}
                   <table className="items edit">
                     <thead>
                       <tr>
@@ -811,7 +812,7 @@ export default function Editor({
                             : lines.map(row)),
                           ...(rollup > 0
                             ? [
-                                <tr key="private-rollup">
+                                <tr key="private-rollup" className="rollup">
                                   <td className="idx">{numberOf.size + 1}</td>
                                   <td>{option.privateLabel ?? DEFAULT_PRIVATE_LABEL}</td>
                                   <td className="r">—</td>

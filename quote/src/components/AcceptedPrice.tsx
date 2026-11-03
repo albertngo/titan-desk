@@ -110,9 +110,9 @@ export function AcceptedPrice({ options, discountRate, showHst }: { options: Opt
                     return (
                       <tr key={r.key}>
                         <td>{r.label}</td>
-                        <td>{cell(now, r)}</td>
-                        <td className={r.key === "profit" || r.key === "marginPct" ? "best" : undefined}>{cell(at.t, r)}</td>
-                        <td className={same ? "same" : "diff"}>{d === null || same ? "" : r.money === false ? `${d > 0 ? "+" : ""}${pct(d)}` : `${d > 0 ? "+" : ""}${money(d)}`}</td>
+                        <td data-label="Quote today">{cell(now, r)}</td>
+                        <td data-label="At accepted price" className={r.key === "profit" || r.key === "marginPct" ? "best" : undefined}>{cell(at.t, r)}</td>
+                        <td data-label="Change" className={same ? "same" : "diff"}>{d === null || same ? "" : r.money === false ? `${d > 0 ? "+" : ""}${pct(d)}` : `${d > 0 ? "+" : ""}${money(d)}`}</td>
                       </tr>
                     );
                   })}
