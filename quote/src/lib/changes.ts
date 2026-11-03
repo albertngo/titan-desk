@@ -22,6 +22,14 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-03",
+    kind: "changed",
+    title: "New opportunity stands apart from the existing ones",
+    details: [
+      "On Link to Opportunity and on New quote's customer step, \"+ New opportunity\" now sits under an \"or\" line with a dashed blue outline, so it's clear it makes a new opportunity rather than picking one of the customer's.",
+    ],
+  },
+  {
+    date: "2026-11-03",
     kind: "new",
     title: "Make a new opportunity from Link to Opportunity",
     details: [

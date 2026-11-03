@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- a plain Node script run by hand (see README.md); Playwright loads through require in cloud sessions. */
 const { chromium } = require('playwright');
 (async () => {
   const b = await chromium.launch();

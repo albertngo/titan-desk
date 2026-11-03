@@ -469,6 +469,13 @@ table.items.edit .desc { font-weight: 500; }
 .lj-opt.taken { cursor: default; background: var(--card-2); border-style: dashed; }
 .lj-opt.taken:hover { border-color: var(--line-strong); }
 .lj-opt.taken .nm, .lj-opt.taken .mt { color: var(--fg-faint); }
+/* "+ New opportunity" set apart from the existing ones (Albert, 2026-11-03): an "or" rule above it, a dashed accent
+   outline and accent label, so it reads as making something rather than one of the list. Filled like the rest once picked. */
+.opp-or { display: flex; align-items: center; gap: 10px; color: var(--fg-faint); font-size: 12px; margin: 2px 0; }
+.opp-or::before, .opp-or::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+.lj-opt.new, .nq-opp.new { border-style: dashed; border-color: var(--accent); background: transparent; }
+.lj-opt.new .nm, .nq-opp.new .nm { color: var(--accent); }
+.lj-opt.new.on, .nq-opp.new:has(input:checked) { border-style: solid; background: var(--accent-soft); }
 .lj-dot { width: 16px; height: 16px; border-radius: 50%; border: 1.5px dashed var(--line-strong); }
 .lj-st { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: var(--fg-dim); white-space: nowrap; }
 .lj-st i { width: 7px; height: 7px; border-radius: 50%; background: var(--fg-faint); }
