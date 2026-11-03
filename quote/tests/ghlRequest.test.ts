@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CONTACT_ORIGIN_FIELD, CONTACT_TIMING_FIELD, GHL_LOCATION_ID, LEAD_STAGE_IDS, LEADS_PIPELINE_ID, MEETING_SCHEDULED_STAGE_ID, OPP_FIELDS, SALES_PIPELINE_ID } from "../src/lib/ghl/ids";
-import { buildBookingOpportunity, buildContactAddress, buildGhlRequest, CONTACT_ID_SLOT, type GhlRequestInput } from "../src/lib/link/ghlRequest";
+import { buildBookingOpportunity, buildContactAddress, buildGhlRequest, buildNewJob, CONTACT_ID_SLOT, type GhlRequestInput } from "../src/lib/link/ghlRequest";
 
 // INVENTED customer and ids only: this repo is public.
 const base: GhlRequestInput = {
@@ -150,5 +150,42 @@ describe("Address arrived (2026-10-27): the address from their messages goes on 
     expect(parse(kept.contactBody)).toEqual({ address1: "55 Elm Cres #4" });
     const bare = buildContactAddress({ contactId: "abcDEF123456", opportunityId: "oppXYZ987654", quoteNumber: "Q-1234", address: { line1: "55 Elm Cres", city: null, postalCode: null }, contact: { city: null } });
     expect(parse(bare.contactBody)).toEqual({ address1: "55 Elm Cres" });
+  });
+});
+
+describe("a new opportunity from the Link to Opportunity card (2026-11-03): made as a preliminary's is", () => {
+  const job = { contactId: "conJANE00001", quoteNumber: "Q-1234", name: "Jane Doe - 1126 - Q-1234", timing: "Within 1 month" as const, site: null, companyCamUrl: null };
+
+  it("goes into Lead Qualification at the timing's stage, open, named with the shared name, contact untouched", () => {
+    const r = buildNewJob(job);
+    expect(r.mode).toBe("new-opportunity");
+    expect(r.contactId).toBe("conJANE00001");
+    expect(r.opportunityId).toBeNull();
+    expect(parse(r.contactBody)).toEqual({});
+    expect(parse(r.oppBody)).toEqual({
+      locationId: GHL_LOCATION_ID,
+      pipelineId: LEADS_PIPELINE_ID,
+      pipelineStageId: LEAD_STAGE_IDS.Hot,
+      name: "Jane Doe - 1126 - Q-1234",
+      status: "open",
+      contactId: "conJANE00001",
+      customFields: [{ id: OPP_FIELDS.quoteNumber, field_value: "Q-1234" }],
+    });
+  });
+
+  it("follows the timing like a preliminary: 1 to 3 months is Warm, 3+ and Not sure are Cold", () => {
+    expect(parse(buildNewJob({ ...job, timing: "1 to 3 months" }).oppBody).pipelineStageId).toBe(LEAD_STAGE_IDS.Warm);
+    expect(parse(buildNewJob({ ...job, timing: "3+ months" }).oppBody).pipelineStageId).toBe(LEAD_STAGE_IDS.Cold);
+    expect(parse(buildNewJob({ ...job, timing: "Not sure" }).oppBody).pipelineStageId).toBe(LEAD_STAGE_IDS.Cold);
+  });
+
+  it("carries a confirmed site and the quote's CompanyCam link when it has them", () => {
+    const r = buildNewJob({ ...job, site: { address: "12 Example St #4", city: "Oakville" }, companyCamUrl: "https://app.companycam.com/projects/123" });
+    expect(parse(r.oppBody).customFields).toEqual([
+      { id: OPP_FIELDS.quoteNumber, field_value: "Q-1234" },
+      { id: OPP_FIELDS.projectAddress, field_value: "12 Example St #4" },
+      { id: OPP_FIELDS.projectCity, field_value: "Oakville" },
+      { id: OPP_FIELDS.companyCamUrl, field_value: "https://app.companycam.com/projects/123" },
+    ]);
   });
 });

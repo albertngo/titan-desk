@@ -151,6 +151,43 @@ export function buildLinkJob(i: {
 }
 
 /**
+ * A new opportunity for a quote that says Needs linking (Albert, 2026-11-03: "create the opportunity
+ * on the screen… same thing as in the preliminary"), for a customer whose listed opportunities are
+ * other jobs (another unit at the same building). Made the way a preliminary's is: the Lead
+ * Qualification pipeline at the stage its timing answer gives, named with the shared name, carrying
+ * the quote number, the site only if confirmed, and the quote's CompanyCam link. Same
+ * "new-opportunity" route through Make; the contact is left as it is (an empty update).
+ */
+export function buildNewJob(i: {
+  contactId: string;
+  quoteNumber: string;
+  name: string;
+  timing: Timing;
+  site: { address: string | null; city: string | null } | null;
+  companyCamUrl: string | null;
+}): GhlRequest {
+  const stage = stageToSet(i.timing, { isNew: true, pipelineId: null }, LEADS_PIPELINE_ID)!;
+  return {
+    mode: "new-opportunity",
+    contactId: i.contactId,
+    opportunityId: null,
+    contactBody: JSON.stringify({}),
+    oppBody: JSON.stringify({
+      locationId: GHL_LOCATION_ID,
+      pipelineId: LEADS_PIPELINE_ID,
+      pipelineStageId: LEAD_STAGE_IDS[stage],
+      name: i.name,
+      status: "open",
+      contactId: i.contactId,
+      customFields: [
+        ...oppFields(i.quoteNumber, i.site ?? { address: null, city: null }),
+        ...(i.companyCamUrl ? [{ id: OPP_FIELDS.companyCamUrl, field_value: i.companyCamUrl }] : []),
+      ],
+    }),
+  };
+}
+
+/**
  * The booking step's one GHL write of its own: a job whose appointment was confirmed with no
  * opportunity gets one, in the Sales pipeline's Meeting (Scheduled) stage, already carrying the
  * quote number and the site. Same "new-opportunity" route through Make as a new quote; the
