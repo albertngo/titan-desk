@@ -62,8 +62,11 @@ function checkPhotos(photos: PhotoIn[]): string | null {
   return null;
 }
 
-/** Uploaded photos of the stair sheet (the original way, 2026-10-28). */
-export async function readSiteSheet(quoteRecordId: string, seen: string, photos: PhotoIn[]): Promise<SiteSheetResult> {
+/**
+ * Photos uploaded from the device (the original way, 2026-10-28, for the stair sheet; since 2026-11-03 for the
+ * flooring sheet too, Albert: "an option to still take a photo, choose photos, or draw from [a CompanyCam] image").
+ */
+export async function readSiteSheet(quoteRecordId: string, seen: string, photos: PhotoIn[], kind: SheetKind = "stairs"): Promise<SiteSheetResult> {
   const email = await requireQuoter();
   if (!REC_ID.test(quoteRecordId)) return { ok: false, message: "This quote isn't in Airtable any more." };
   if (!readerOn()) return { ok: false, message: "Reading site sheets isn't set up yet: the staff app needs its Claude key." };
@@ -71,8 +74,8 @@ export async function readSiteSheet(quoteRecordId: string, seen: string, photos:
   if (bad) return { ok: false, message: bad };
   const now = await current(quoteRecordId);
   if ("error" in now) return { ok: false, message: now.error };
-  if (now.raw !== seen) return { ok: false, message: "Someone else saved a site sheet on this quote since the page opened. Reload to see it." };
-  return readStairs(quoteRecordId, email, photos);
+  if ((kind === "flooring" ? now.floorRaw : now.raw) !== seen) return { ok: false, message: `Someone else saved a ${kind === "flooring" ? "flooring" : "stair"} sheet on this quote since the page opened. Reload to see it.` };
+  return kind === "flooring" ? readFlooring(quoteRecordId, email, photos, []) : readStairs(quoteRecordId, email, photos);
 }
 
 /** The job's CompanyCam photos for the Site sheet tab's picker, newest first; ones tagged or described as a site sheet are marked. */

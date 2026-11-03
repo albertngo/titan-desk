@@ -1,17 +1,16 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { saveSiteSheetAction } from "@/app/q/[id]/actions";
 import { optionTotals } from "@/lib/calc";
 import { buildCatalogue, draftKey, type EditorQuote } from "@/lib/editor/model";
 import { money } from "@/lib/format";
-import type { RateCard, SiteSheetResult } from "@/lib/quotes/types";
+import type { RateCard } from "@/lib/quotes/types";
 import { derive } from "@/lib/sitesheet/derive";
 import { buildOptions } from "@/lib/sitesheet/options";
-import { looksHeic, preparePhoto } from "@/lib/sitesheet/photo";
 import { cleanSheet, emptySheet, MAX_NOSINGS, MAX_RUNS, type NosingPiece, type RailRun, parseStored, type SiteSheet } from "@/lib/sitesheet/sheet";
-import { CamDraw } from "./CamDraw";
+import { SheetSource } from "./SheetSource";
 import { FloorSheetPanel } from "./FloorSheetPanel";
 import { SiteSheetPaper } from "./SiteSheetPaper";
 
@@ -36,9 +35,6 @@ function set(s: SiteSheet, path: Path, value: unknown): SiteSheet {
   o[keys[keys.length - 1]] = value;
   return out as unknown as SiteSheet;
 }
-
-/** Both pages, with room for a retake or a close-up. */
-const MAX_PHOTOS = 4;
 
 export function SiteSheetTab({
   quoteRecordId,
@@ -73,32 +69,7 @@ export function SiteSheetTab({
   const stored = useMemo(() => parseStored(seen), [seen]);
   const [sheet, setSheet] = useState<SiteSheet>(() => stored?.sheet ?? emptySheet());
   const [photos, setPhotos] = useState<Photo[]>(photos0);
-  const [files, setFiles] = useState<File[]>([]);
-  // Picks add up (2026-10-28: only one photo could be attached): take page 1, then page 2, or choose several.
-  // The input's FileList is live: clearing the input (so the same photo can be picked again) empties it, so it
-  // is copied here, before the clear, never read later inside the state update (2026-10-28: a second photo was lost).
-  // Each photo is made a small JPEG as it is picked (iPhone HEIC included, 2026-10-31), so the preview shows
-  // and the upload stays under Vercel's limit.
-  const [preparing, setPreparing] = useState(0);
-  const addFiles = async (input: HTMLInputElement) => {
-    const picked = Array.from(input.files ?? []).filter((x) => !x.type || x.type.startsWith("image/") || looksHeic(x));
-    input.value = "";
-    if (picked.length === 0) return;
-    setMessage(null);
-    setPreparing((n) => n + picked.length);
-    try {
-      const ready = await Promise.all(picked.map((f) => preparePhoto(f, 2000, 0.85)));
-      const unreadable = ready.filter((f) => looksHeic(f)).length;
-      if (unreadable) setMessage({ text: `${unreadable === 1 ? "A photo" : `${unreadable} photos`} couldn't be converted from the iPhone's HEIC format. On the iPhone, set Settings → Camera → Formats to Most Compatible, or take it again here with Take a photo.`, bad: true });
-      setFiles((f) => [...f, ...ready.filter((x) => !looksHeic(x))].slice(0, MAX_PHOTOS));
-    } finally {
-      setPreparing((n) => n - picked.length);
-    }
-  };
-  const previews = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files]);
-  useEffect(() => () => previews.forEach((u) => URL.revokeObjectURL(u)), [previews]);
   const [message, setMessage] = useState<{ text: string; bad: boolean } | null>(null);
-  const [reading, setReading] = useState(false);
   const [saving, startSave] = useTransition();
   const router = useRouter();
 
@@ -110,29 +81,6 @@ export function SiteSheetTab({
   const dirty = JSON.stringify(clean) !== JSON.stringify(stored?.sheet ?? emptySheet());
   const unclear = new Set(sheet.unclear);
   const edit = (path: Path, v: unknown) => setSheet((s) => set(s, path, v));
-
-  async function read() {
-    if (files.length === 0) return;
-    setReading(true);
-    setMessage(null);
-    try {
-      const form = new FormData();
-      form.set("quoteRecordId", quoteRecordId);
-      form.set("seen", seen);
-      for (const f of files) form.append("photos", f);
-      const res = await fetch("/api/sitesheet", { method: "POST", body: form });
-      const fallback = res.status === 413 ? "The photos are too large to send together. Read one page at a time." : "The server didn't answer. Try again.";
-      const r = (await res.json().catch(() => ({ ok: false, message: fallback }))) as SiteSheetResult;
-      if (!r.ok) return setMessage({ text: r.message, bad: true });
-      setSeen(r.saved);
-      setSheet(parseStored(r.saved)?.sheet ?? emptySheet());
-      if (r.photos) setPhotos(r.photos);
-      setFiles([]);
-      setMessage({ text: `Read. Check every field against the photo, then Save check.${r.note ? ` ${r.note}` : ""}`, bad: false });
-    } finally {
-      setReading(false);
-    }
-  }
 
   function save() {
     setMessage(null);
@@ -218,52 +166,21 @@ export function SiteSheetTab({
           Stair sheet
           {stored && <span className="right faint">{stored.checked ? "checked" : "read, not checked yet"} · {stored.by} · {new Date(stored.at).toLocaleString("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>}
         </div>
-        <div className="card-b ss-up">
-          <p className="faint">{camLinked ? "Or upload photos of both pages of the stair site sheet from this device" : "Photograph both pages of the stair site sheet"}, flat and in good light, with the four black corner squares in the picture.</p>
-          <div className="ss-up-row">
-            {/* The camera takes one shot at a time; the library allows several. Both add to the list. */}
-            <label className={`btn${files.length >= MAX_PHOTOS ? " disabled" : ""}`}>
-              Take a photo
-              <input type="file" accept="image/*" capture="environment" hidden disabled={files.length >= MAX_PHOTOS} aria-label="Take a photo of a page" onChange={(e) => addFiles(e.currentTarget)} />
-            </label>
-            <label className={`btn${files.length >= MAX_PHOTOS ? " disabled" : ""}`}>
-              Choose photos
-              <input type="file" accept="image/*,.heic,.heif" multiple hidden disabled={files.length >= MAX_PHOTOS} aria-label="Choose photos of the site sheet" onChange={(e) => addFiles(e.currentTarget)} />
-            </label>
-            {camLinked && (
-              <CamDraw
-                quoteRecordId={quoteRecordId}
-                seen={seen}
-                kind="stairs"
-                label={stored ? "Draw again from CompanyCam image" : "Draw from CompanyCam image"}
-                onRead={(r) => {
-                  setSeen(r.saved);
-                  setSheet(parseStored(r.saved)?.sheet ?? emptySheet());
-                  if (r.photos) setPhotos(r.photos);
-                  setFiles([]);
-                  setMessage({ text: `Drawn. Check every field against the photo, then Save check.${r.note ? ` ${r.note}` : ""}`, bad: false });
-                }}
-              />
-            )}
-            <button type="button" className="btn primary" disabled={files.length === 0 || reading || preparing > 0} onClick={read}>
-              {reading ? "Reading… about a minute" : preparing > 0 ? "Getting photos ready…" : files.length ? `Read ${files.length} photo${files.length === 1 ? "" : "s"}` : stored ? "Read new photos" : "Read the sheet"}
-            </button>
-          </div>
-          {files.length > 0 && (
-            <ul className="ss-picked" aria-label="Photos to read">
-              {files.map((f, i) => (
-                <li key={`${f.name}-${i}`}>
-                  {/* eslint-disable-next-line @next/next/no-img-element -- a local preview, not a served image */}
-                  <img src={previews[i]} alt={`Page ${i + 1}`} />
-                  <span>Page {i + 1}</span>
-                  <button type="button" className="linkbtn" aria-label={`Remove page ${i + 1}`} onClick={() => setFiles(files.filter((_, j) => j !== i))}>
-                    ×
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-          {stored && files.length > 0 && <p className="faint">Reading new photos replaces the fields below (the old photos stay on the quote).</p>}
+        <div className="card-b">
+          <SheetSource
+            quoteRecordId={quoteRecordId}
+            seen={seen}
+            kind="stairs"
+            camLinked={camLinked}
+            hasSheet={Boolean(stored)}
+            hint="Photograph both pages of the stair site sheet, flat and in good light, with the four black corner squares in the picture."
+            onRead={(r, how) => {
+              setSeen(r.saved);
+              setSheet(parseStored(r.saved)?.sheet ?? emptySheet());
+              if (r.photos) setPhotos(r.photos);
+              setMessage({ text: `${how === "companycam" ? "Drawn" : "Read"}. Check every field against the photo, then Save check.${r.note ? ` ${r.note}` : ""}`, bad: false });
+            }}
+          />
           {message && <p className={message.bad ? "ss-msg bad" : "ss-msg ok"} role="status">{message.text}</p>}
         </div>
       </section>
