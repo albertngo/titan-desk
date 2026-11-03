@@ -1,7 +1,8 @@
 # Site sheets (printable masters)
 
-The paper sheets a PM fills on site, photographs into CompanyCam (tagged **Site Sheet**), and the quote app
-reads. Print them on Letter, one sided.
+The paper sheets a PM fills on site. Print them on Letter, one sided. Planned: the PM photographs them into
+CompanyCam (tagged **Site Sheet**) and the quote app reads them from there; today only the stair sheet is read,
+from photos uploaded in the Site sheet tab.
 
 | File | What it is |
 |---|---|
