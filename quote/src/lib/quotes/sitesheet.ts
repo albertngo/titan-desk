@@ -89,7 +89,7 @@ export async function sheetCamPhotos(quoteRecordId: string): Promise<CamSheetPho
   const r = await loadCompanyCam(now.camUrl);
   if (!r.ok) return { ok: false, message: r.message };
   const photos = [...r.photos].sort((a, b) => (b.at ?? "").localeCompare(a.at ?? ""));
-  return { ok: true, more: r.more, photos: photos.map((p) => ({ id: p.id, thumb: p.thumb, web: p.plain.web ?? p.web, pageUrl: p.pageUrl, at: p.at, by: p.by, description: p.description, tags: p.tags, sheet: looksLikeSheet(p) })) };
+  return { ok: true, more: r.more, photos: photos.map((p) => ({ id: p.id, thumb: p.thumb, web: p.plain.original ?? p.plain.web ?? p.web, pageUrl: p.pageUrl, at: p.at, by: p.by, description: p.description, tags: p.tags, sheet: looksLikeSheet(p) })) };
 }
 
 /**
@@ -112,7 +112,11 @@ export async function readFromCompanyCam(quoteRecordId: string, seen: string, ph
   const bad = checkPhotos(photos);
   if (bad) return { ok: false, message: bad };
   const cam = got.images.map((i) => ({ id: i.id, pageUrl: i.pageUrl, at: i.at }));
-  return kind === "flooring" ? readFlooring(quoteRecordId, email, photos, cam) : readStairs(quoteRecordId, email, photos, cam);
+  const r = await (kind === "flooring" ? readFlooring(quoteRecordId, email, photos, cam) : readStairs(quoteRecordId, email, photos, cam));
+  const small = got.images.filter((i) => i.small).length;
+  // Only CompanyCam's 400 px copy could be had: say so, since a sheet read at that size is often half blank.
+  if (r.ok && small) return { ...r, note: [r.note, `${small === 1 ? "The photo was" : `${small} photos were`} read from CompanyCam's small copy, so check the sheet closely, or take a photo here instead.`].filter(Boolean).join(" ") };
+  return r;
 }
 
 async function ask(photos: PhotoIn[], prompt: string): Promise<{ answer: unknown; images: ImageIn[] } | { message: string }> {

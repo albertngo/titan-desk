@@ -195,8 +195,8 @@ describe("CompanyCam boundary (2026-10-30: the job's photos on the quote page)",
     expect(client.match(/request\([^)]*, true\)/g)?.length).toBe(1);
     // The loader downloads only the addresses CompanyCam gave for a photo on the quote's own project.
     const loader = code(all.find((f) => f.rel === LOADER)!.text);
-    expect(loader).toMatch(/imageBytes\(uri\)/);
-    expect(loader).toMatch(/for \(const uri of \[p\.plain\.original, p\.plain\.web\]\)/);
+    // Since 2026-11-03 the original (shrunk on the server when large), then the small web copy as a last resort.
+    expect(loader.match(/imageBytes\(([^)]*)\)/g)?.sort()).toEqual(["imageBytes(p.plain.original)", "imageBytes(p.plain.web)"]);
   });
 
   it("is read live and stored nowhere, reached only from the loader, and the loader only from the quote page", () => {
