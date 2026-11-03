@@ -11,6 +11,8 @@ import { derive } from "@/lib/sitesheet/derive";
 import { buildOptions } from "@/lib/sitesheet/options";
 import { looksHeic, preparePhoto } from "@/lib/sitesheet/photo";
 import { cleanSheet, emptySheet, MAX_NOSINGS, MAX_RUNS, type NosingPiece, type RailRun, parseStored, type SiteSheet } from "@/lib/sitesheet/sheet";
+import { CamDraw } from "./CamDraw";
+import { FloorSheetPanel } from "./FloorSheetPanel";
 import { SiteSheetPaper } from "./SiteSheetPaper";
 
 /**
@@ -47,6 +49,10 @@ export function SiteSheetTab({
   base,
   card,
   enabled,
+  camLinked = false,
+  floorRaw = "",
+  floorPhotos: floorPhotos0 = [],
+  roomsRaw = "",
 }: {
   quoteRecordId: string;
   versionId: string;
@@ -56,6 +62,12 @@ export function SiteSheetTab({
   base: string;
   card: RateCard;
   enabled: boolean;
+  /** The quote links a CompanyCam project (2026-11-03): sheets can be picked from its photos. */
+  camLinked?: boolean;
+  /** Quotes → Flooring Sheet as stored, its photos, and Quotes → Rooms as stored (for Copy rooms). */
+  floorRaw?: string;
+  floorPhotos?: Photo[];
+  roomsRaw?: string;
 }) {
   const [seen, setSeen] = useState(raw);
   const stored = useMemo(() => parseStored(seen), [seen]);
@@ -189,13 +201,25 @@ export function SiteSheetTab({
 
   return (
     <div className="ss">
+      {/* The flooring sheet (2026-11-03) at the top of the page: drawn from its CompanyCam photo, checked on the paper copy. */}
+      <FloorSheetPanel
+        quoteRecordId={quoteRecordId}
+        raw={floorRaw}
+        photos={floorPhotos0}
+        roomsRaw={roomsRaw}
+        initial={initial}
+        base={base}
+        versionId={versionId}
+        camLinked={camLinked}
+      />
+
       <section className="card">
         <div className="card-h">
-          Site sheet
+          Stair sheet
           {stored && <span className="right faint">{stored.checked ? "checked" : "read, not checked yet"} · {stored.by} · {new Date(stored.at).toLocaleString("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>}
         </div>
         <div className="card-b ss-up">
-          <p className="faint">Photograph both pages of the stair site sheet, flat and in good light, with the four black corner squares in the picture.</p>
+          <p className="faint">{camLinked ? "Or upload photos of both pages of the stair site sheet from this device" : "Photograph both pages of the stair site sheet"}, flat and in good light, with the four black corner squares in the picture.</p>
           <div className="ss-up-row">
             {/* The camera takes one shot at a time; the library allows several. Both add to the list. */}
             <label className={`btn${files.length >= MAX_PHOTOS ? " disabled" : ""}`}>
@@ -206,6 +230,21 @@ export function SiteSheetTab({
               Choose photos
               <input type="file" accept="image/*,.heic,.heif" multiple hidden disabled={files.length >= MAX_PHOTOS} aria-label="Choose photos of the site sheet" onChange={(e) => addFiles(e.currentTarget)} />
             </label>
+            {camLinked && (
+              <CamDraw
+                quoteRecordId={quoteRecordId}
+                seen={seen}
+                kind="stairs"
+                label={stored ? "Draw again from CompanyCam image" : "Draw from CompanyCam image"}
+                onRead={(r) => {
+                  setSeen(r.saved);
+                  setSheet(parseStored(r.saved)?.sheet ?? emptySheet());
+                  if (r.photos) setPhotos(r.photos);
+                  setFiles([]);
+                  setMessage({ text: `Drawn. Check every field against the photo, then Save check.${r.note ? ` ${r.note}` : ""}`, bad: false });
+                }}
+              />
+            )}
             <button type="button" className="btn primary" disabled={files.length === 0 || reading || preparing > 0} onClick={read}>
               {reading ? "Reading… about a minute" : preparing > 0 ? "Getting photos ready…" : files.length ? `Read ${files.length} photo${files.length === 1 ? "" : "s"}` : stored ? "Read new photos" : "Read the sheet"}
             </button>

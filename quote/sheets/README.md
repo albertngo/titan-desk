@@ -1,8 +1,9 @@
 # Site sheets (printable masters)
 
-The paper sheets a PM fills on site. Print them on Letter, one sided. Planned: the PM photographs them into
-CompanyCam (tagged **Site Sheet**) and the quote app reads them from there; today only the stair sheet is read,
-from photos uploaded in the Site sheet tab.
+The paper sheets a PM fills on site. Print them on Letter, one sided. The PM photographs them into CompanyCam
+(tagged **Site Sheet**), and the quote's **Site sheet** tab reads them from there (From CompanyCam: tick the pages,
+then Read as flooring sheet or Read as stair sheet, since 2026-11-03). Uploading photos in the tab still works for
+the stair sheet.
 
 | File | What it is |
 |---|---|
@@ -16,8 +17,9 @@ The stair sheet's source isn't in this repo, only the PDF. Its on-screen copy is
 Site sheet rule in `../CLAUDE.md`). Replace the PDF here when the printed sheet changes, with the version in
 its file name.
 
-**The app doesn't read the flooring sheet yet.** v1 is for the team to start using. Reading it from
-CompanyCam into Rooms and the flooring lines, and the car check with **Send measured**, are the next build.
+**The flooring sheet is read into a check view** (since 2026-11-03), and from there into the Rooms tab and priced
+flooring options in the editor. Its reading instructions are `src/lib/floorsheet/prompt.ts` and its shape
+`src/lib/floorsheet/sheet.ts`: change them with the sheet. The car check with **Send measured** is not built.
 Decision and rules: titan-vault `05_decisions/2026-11-03-measured-quote-from-site-sheets.md`.
 
 To change the flooring sheet, edit the HTML, then rebuild the PDF (Playwright is preinstalled in cloud sessions):

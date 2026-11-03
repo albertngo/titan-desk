@@ -22,6 +22,16 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-03",
+    kind: "new",
+    title: "Site sheets straight from CompanyCam, and the flooring sheet read into rooms and options",
+    details: [
+      "The Site sheet tab now starts with the Flooring sheet. On a quote with a CompanyCam project, click Draw from CompanyCam image, pick the photo (photos tagged or described \"Site Sheet\" are ticked for you), and it's read. The stair sheet has the same link beside its upload buttons, so the photos never need uploading twice.",
+      "What was read is drawn as the paper Flooring Site Sheet itself, box for box, with anything Claude wasn't sure of in yellow: tap a bubble or tick to change it, type in a box to fix it, then Save check. Open image (a new tab) and Open in CompanyCam at the top show the photo it came from.",
+      "Copy rooms to the Rooms tab puts the sheet's rooms there (it replaces what's on the Rooms tab). Build flooring options prices the sheet the way a preliminary is priced and adds the options to the editor, where you review and save them. Different floors on different levels are one option; a room ticked for both floors (or left blank with two floors written) gives two options to compare.",
+    ],
+  },
+  {
+    date: "2026-11-03",
     kind: "changed",
     title: "New quote on a phone has more room too",
     details: [

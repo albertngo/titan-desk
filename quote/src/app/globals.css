@@ -1213,6 +1213,54 @@ a.chip.accent:hover { text-decoration: underline; }
 .ss-drop { font-size: 12.5px; color: var(--fg-dim); margin: 4px 0 8px; }
 .ss-acts { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 6px; }
 
+/* Draw from CompanyCam image (2026-11-03): a link on a sheet that opens the job's photos in place */
+.cam-draw-link { font-weight: 600; }
+.cam-draw { flex-basis: 100%; border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; display: grid; gap: 8px; background: var(--card-2); }
+.cam-draw-h { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; font-size: 13px; }
+.cam-pick-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; max-height: 420px; overflow-y: auto; }
+.cam-pick-p { position: relative; display: grid; width: 100%; padding: 0; border: 2px solid var(--line); border-radius: var(--radius); background: var(--card); cursor: pointer; overflow: hidden; text-align: left; }
+.cam-pick-p img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; display: block; max-width: 100%; }
+.cam-pick-p.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.cam-pick-p:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.cam-pick-n { position: absolute; top: 6px; left: 6px; background: var(--accent); color: var(--accent-ink); font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 999px; }
+.cam-pick-tag { position: absolute; top: 6px; right: 6px; background: var(--card); color: var(--fg); font-size: 10.5px; font-weight: 600; padding: 2px 6px; border-radius: 999px; border: 1px solid var(--line-strong); }
+.cam-pick-when { font-size: 11px; color: var(--fg-dim); padding: 4px 6px; line-height: 1.3; }
+
+/* The flooring sheet (2026-11-03): the source strip at the top, then the paper copy full width */
+.fs-body { display: grid; gap: 12px; }
+.fs-source { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; font-size: 13px; }
+.fs-source a { font-weight: 600; }
+.fs-result h4 { margin: 0 0 6px; font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--fg-faint); }
+.fs-result ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; font-size: 13px; }
+.fs-unclear-note { color: var(--warn); font-weight: 600; }
+
+/* The flooring paper copy (2026-11-03): the printed Flooring Site Sheet v1 (quote/sheets/flooring-site-sheet-v1.html), box for box, on the stair copy's .ssp styles */
+.ssp .fsp .fsp-who { gap: 10pt; }
+.ssp .fsp .tip { font-size: 7.8pt; color: var(--ink-2); }
+.ssp .fsp table.fsp-rooms th small { display: block; font-weight: 500; color: var(--ink-2); font-size: 7pt; }
+.ssp .fsp table.fsp-rooms th, .ssp .fsp table.fsp-rooms td { height: 18pt; padding: 1pt 3pt; }
+.ssp .fsp table.fsp-rooms td.cd { width: 20pt; }
+.ssp .fsp table.fsp-rooms td.room { text-align: left; width: 124pt; }
+.ssp .fsp table.fsp-rooms td.room .ssp-in { text-align: left; font-size: 10.5pt; }
+.ssp .fsp table.fsp-rooms td.num { width: 44pt; }
+.ssp .fsp table.fsp-rooms td.lv, .ssp .fsp table.fsp-rooms td.fn { white-space: nowrap; font-size: 7.6pt; color: var(--ink-2); }
+.ssp .fsp table.fsp-rooms td.lv .o, .ssp .fsp table.fsp-rooms td.fn .o { gap: 1.5pt; margin: 0 1.5pt; }
+.ssp .fsp table.fsp-rooms td.lv .o::before, .ssp .fsp table.fsp-rooms td.fn .o::before { width: 8pt; height: 8pt; }
+.ssp .fsp table.fsp-rooms td.lv .o.on, .ssp .fsp table.fsp-rooms td.fn .o.on { color: var(--ink); }
+.ssp .fsp table.fsp-rooms td.fsp-rm .o::before { width: 10pt; height: 10pt; }
+.ssp .fsp table.fsp-rooms td.nf { white-space: nowrap; font-weight: 800; font-size: 9pt; background: #f6f6f6; }
+.ssp .fsp table.fsp-rooms td.nf .o { margin: 0 2pt; gap: 2pt; }
+.ssp .fsp table.fsp-rooms th.nf { background: var(--ink); color: var(--paper); }
+.ssp .fsp table.fsp-rooms th.nf small { color: #ccc; }
+.ssp .fsp .fsp-opts { display: grid; grid-template-columns: 1fr 1fr; }
+.ssp .fsp .fsp-opt { padding: 4pt 6pt; display: grid; gap: 4pt; align-content: start; }
+.ssp .fsp .fsp-opt + .fsp-opt { border-left: 1.5px dashed var(--ink-2); }
+.ssp .fsp .fsp-oh { font-weight: 800; font-size: 9.5pt; display: flex; justify-content: space-between; align-items: baseline; }
+.ssp .fsp .fsp-oh small { font-weight: 500; color: var(--ink-2); font-size: 7.6pt; }
+.ssp .fsp .fsp-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 2pt 6pt; border-radius: 2pt; }
+.ssp .fsp .fsp-k2 { font-weight: 700; display: flex; gap: 5pt; align-items: baseline; border-radius: 2pt; }
+.ssp .fsp .fsp-shared { border-top: 1.5px solid var(--rule); }
+
 /* Send again (2026-10-30) */
 .sq-again { margin-top: 10px; display: grid; gap: 8px; justify-items: start; }
 .sq-again.open { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; justify-items: stretch; }

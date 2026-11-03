@@ -88,7 +88,15 @@ export type QuoteLink = {
   siteSheet?: string;
   /** Quotes → Site Sheet Photos, with addresses fresh from this read. */
   siteSheetPhotos?: { url: string; name: string }[];
+  /** Quotes → Flooring Sheet (2026-11-03), exactly as stored; read with parseFloorStored(). Absent reads as empty. */
+  floorSheet?: string;
+  /** Quotes → Flooring Sheet Photos, with addresses fresh from this read. */
+  floorSheetPhotos?: { url: string; name: string }[];
 };
+
+/** A CompanyCam photo as the Site sheet tab's picker shows it (2026-11-03): no address it could be downloaded from. */
+export type CamSheetPhoto = { id: string; thumb: string; at: string | null; by: string | null; description: string | null; tags: string[]; sheet: boolean };
+export type CamSheetPhotosResult = { ok: true; photos: CamSheetPhoto[]; more: boolean } | { ok: false; message: string };
 
 export type QuoteActivity = {
   tracked: boolean;

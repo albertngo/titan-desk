@@ -35,7 +35,7 @@ const PAGE_PX = 816; // 8.5in
 /** Scales the Letter-width page down to its column, never up, and never below a size a finger can tap: on a
  * phone the page scrolls sideways inside its own frame instead (pinch to zoom works too). */
 const MIN_SCALE = 0.62;
-function useFit() {
+export function useFit() {
   const box = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   useEffect(() => {
