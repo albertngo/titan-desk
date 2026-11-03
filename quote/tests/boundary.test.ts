@@ -12,7 +12,7 @@ const SRC = path.resolve(__dirname, "../src");
 const CLIENT = "lib/airtable/client.ts";
 const GHL = "lib/ghl/client.ts";
 /** The only files allowed to create or update Airtable records. Adding one is a reviewed decision. */
-const WRITERS = ["lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/accept/record.ts", "lib/quotes/sitesheet.ts", "lib/quotes/billing.ts", "lib/quotes/customItems.ts"];
+const WRITERS = ["lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/describe.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/accept/record.ts", "lib/quotes/sitesheet.ts", "lib/quotes/billing.ts", "lib/quotes/customItems.ts"];
 const CATALOGUE = "tblfLXD3zkSdNQGbS";
 
 function files(dir: string): string[] {
@@ -87,7 +87,7 @@ describe("Airtable boundary", () => {
   });
 
   it("keeps the client, the loaders and the auth check server-only", () => {
-    for (const rel of [CLIENT, GHL, "lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/customer.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/activity/relay.ts", "lib/quotes/acceptClient.ts", "lib/accept/record.ts", "lib/accept/accept.ts", "lib/accept/staff.ts", "lib/accept/live.ts", "lib/quotes/sitesheet.ts", "lib/anthropic/client.ts", "lib/quotes/billing.ts", "lib/notion/payments.ts", "lib/companycam/client.ts", "lib/quotes/companycam.ts", "lib/auth.ts"]) {
+    for (const rel of [CLIENT, GHL, "lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/describe.ts", "lib/quotes/customer.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/activity/relay.ts", "lib/quotes/acceptClient.ts", "lib/accept/record.ts", "lib/accept/accept.ts", "lib/accept/staff.ts", "lib/accept/live.ts", "lib/quotes/sitesheet.ts", "lib/anthropic/client.ts", "lib/quotes/billing.ts", "lib/notion/payments.ts", "lib/companycam/client.ts", "lib/quotes/companycam.ts", "lib/auth.ts"]) {
       expect(all.find((f) => f.rel === rel)!.text).toMatch(/^import "server-only";/m);
     }
   });

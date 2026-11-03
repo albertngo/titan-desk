@@ -12,6 +12,7 @@ import type { CustomerSearch, FoundCustomer } from "@/lib/quotes/types";
 import { money } from "@/lib/format";
 import { Conversation } from "./Conversation";
 import { copyWork, estimateWork, initialWork, QuickWork, workInput, type WorkState } from "./QuickWork";
+import { DESCRIPTION_MAX } from "@/lib/quotes/group";
 
 type Choice = { contactId: string; opportunityId: string | null } | { newCustomer: true } | null;
 
@@ -39,6 +40,8 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
   const [confirmed, setConfirmed] = useState(false);
   /** Where they found us (2026-10-27): preliminaries only; fills Quote Origin and Source in GHL where blank. */
   const [origin, setOrigin] = useState("");
+  /** The quote's description (2026-11-03): optional, staff only, shown under the name on All quotes. */
+  const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
   /** Set when a "new" customer turned out to be in GHL already; the matches are in `result`. */
   const [dupeNote, setDupeNote] = useState<string | null>(null);
@@ -69,7 +72,7 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
 
   function create(forceNew = false) {
     setError(null);
-    const shared = { timing, kind: prelim ? "preliminary" : "measured", works: prelim ? works.map(workInput) : undefined, origin: prelim && origin ? origin : undefined };
+    const shared = { timing, kind: prelim ? "preliminary" : "measured", works: prelim ? works.map(workInput) : undefined, origin: prelim && origin ? origin : undefined, description: description.trim() || undefined };
     const input = picked
       ? { ...shared, contactId: picked.contact.id, opportunityId: (choice as { opportunityId: string | null }).opportunityId, addressConfirmed: confirmed }
       : { ...shared, newCustomer: nc, forceNew };
@@ -321,6 +324,18 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
               </label>
             ))}
           </div>
+          {/* Quote Description (2026-11-03): several quotes for one customer at one address (a building's units) read apart on All quotes. */}
+          <label className="nq-site nq-desc">
+            <span className="nq-site-h">Description <span className="faint">(optional, staff only)</span></span>
+            <input
+              className="in"
+              value={description}
+              maxLength={DESCRIPTION_MAX}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="e.g. Unit 1204 · kitchen + hall"
+            />
+            <span className="note">Shows under the customer&apos;s name on All quotes. The customer never sees it. You can change it later on the quote page.</span>
+          </label>
         </div>
       </section>
 

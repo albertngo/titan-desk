@@ -298,6 +298,8 @@ table.cmp td:first-child { text-align: left; color: var(--fg-dim); }
 .ql-row:hover .cust { color: var(--accent); }
 .ql-who .cust:focus-visible { outline: 0; }
 .ql-who .cust:focus-visible::after { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 4px; }
+/* Quote Description (2026-11-03): between the name and the phone, darker than the meta line so it reads first. */
+.ql-who .ql-desc { font-size: 12.5px; color: var(--fg-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ql-num > span:first-child { font-family: var(--mono); font-size: 12.5px; color: var(--fg); }
 .ql-row .mt, .ql-v .mt { font-size: 12px; color: var(--fg-faint); overflow-wrap: anywhere; }
 .ql-latest, .ql-flags { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
@@ -567,6 +569,7 @@ table.items.edit .desc { font-weight: 500; }
 .nq-newtoggle { justify-self: start; color: var(--accent); }
 .nq-site { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
 .nq-site-h { font-size: 12px; font-weight: 600; color: var(--fg-dim); }
+.nq-desc { margin-top: 14px; }
 .nq-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 12px; }
 .nq-form label { display: grid; gap: 4px; font-size: 12.5px; color: var(--fg-dim); }
 .nq-seg { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
@@ -1281,6 +1284,21 @@ a.chip.accent:hover { text-decoration: underline; }
 .ed-head { align-items: center; gap: 12px 16px; margin-bottom: 18px; }
 .ed-head .crumb { font-size: 13px; color: var(--fg-dim); margin-bottom: 2px; }
 .ed-head h1 { font-size: 22px; font-weight: 650; letter-spacing: -.01em; }
+/* Quote Description (2026-11-03): one quiet line under the name; click to edit in place. */
+.ed-head .qd { margin-top: 6px; }
+.qd-show, .qd-add { display: inline-flex; align-items: baseline; gap: 8px; max-width: 100%; padding: 2px 6px; margin-left: -6px; border: 0; border-radius: 6px; background: none; font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
+.qd-show { color: var(--fg); }
+.qd-show .qd-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.qd-show .qd-edit { font-size: 12px; color: var(--fg-faint); }
+.qd-show:hover, .qd-add:hover { background: var(--accent-soft); }
+.qd-show:hover .qd-edit { color: var(--accent); }
+.qd-add { color: var(--fg-faint); font-size: 13px; }
+.qd-add:hover { color: var(--accent); }
+.qd-form { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; max-width: 560px; }
+.qd-form input { flex: 1 1 240px; min-width: 0; padding: 6px 10px; font: inherit; font-size: 14px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--card, #fff); color: var(--fg); }
+.qd-form input:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+.qd-hint, .qd-err { flex-basis: 100%; margin: 0; font-size: 12px; color: var(--fg-faint); }
+.qd-err { color: var(--bad, #c0392b); }
 .ed-head .ed-hint { font-size: 13px; color: var(--fg-dim); margin-top: 4px; max-width: 70ch; }
 .ed-head .actions { flex-wrap: nowrap; }
 .ed-head .btn { padding: 8px 14px; font-size: 13.5px; border-radius: 10px; }

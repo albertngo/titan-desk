@@ -26,7 +26,7 @@ export async function listQuoteGroups(): Promise<QuoteGroup[]> {
       fields: [VERSION.label, VERSION.version, VERSION.status, VERSION.basis, VERSION.quote, VERSION.options, VERSION.openedCount, VERSION.lastOpenedAt, VERSION.trackActivity, VERSION.supersedes, VERSION.changeNo],
     }),
     listRecords(T.quotes, {
-      fields: [QUOTE.customerName, QUOTE.lastName, QUOTE.firstName, QUOTE.siteCity, QUOTE.quoteNumber, QUOTE.linkStatus, QUOTE.addressStatus, QUOTE.phone, QUOTE.email, QUOTE.projectNumber],
+      fields: [QUOTE.customerName, QUOTE.lastName, QUOTE.firstName, QUOTE.siteCity, QUOTE.quoteNumber, QUOTE.linkStatus, QUOTE.addressStatus, QUOTE.phone, QUOTE.email, QUOTE.projectNumber, QUOTE.description],
     }),
   ]);
   const heads = new Map<string, QuoteHead>(
@@ -42,6 +42,7 @@ export async function listQuoteGroups(): Promise<QuoteGroup[]> {
         projectNumber: str(q.fields[QUOTE.projectNumber]),
         linkStatus: str(q.fields[QUOTE.linkStatus]),
         addressStatus: str(q.fields[QUOTE.addressStatus]),
+        description: str(q.fields[QUOTE.description]),
       },
     ]),
   );
@@ -185,6 +186,7 @@ function linkOf(r: AirtableRecord): QuoteLink {
     companyCamUrl: str(f[QUOTE.companyCamUrl]),
     projectNumber: str(f[QUOTE.projectNumber]),
     notionProjectUrl: str(f[QUOTE.notionProjectUrl]),
+    description: str(f[QUOTE.description]),
     contractVersionId: ids(f[QUOTE.contractVersion])[0] ?? null,
     rooms: roomsRaw(f[QUOTE.rooms]),
     siteSheet: sheetRaw(f[QUOTE.siteSheet]),

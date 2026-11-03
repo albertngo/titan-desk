@@ -21,6 +21,16 @@ export type Change = {
 
 export const CHANGES: Change[] = [
   {
+    date: "2026-11-03",
+    kind: "new",
+    title: "A description for each quote",
+    details: [
+      "Give a quote a short description, like \"Unit 1204 · kitchen + hall\", and All quotes shows it under the customer's name. Several quotes for one customer at the same building are now easy to tell apart.",
+      "Add or change it at the top of the quote page (click \"+ Add a description\", or click the description to edit it), or type it in the Description box on New quote. Search finds it too.",
+      "Staff only: the customer never sees it, and it isn't in the quote link, PDF, email or text.",
+    ],
+  },
+  {
     date: "2026-11-02",
     kind: "changed",
     title: "Preliminary stairs add their Stair Items",

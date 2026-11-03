@@ -78,6 +78,8 @@ export type QuoteLink = {
   companyCamUrl: string | null;
   projectNumber: string | null;
   notionProjectUrl: string | null;
+  /** Quotes → Quote Description (2026-11-03): staff's short label for the quote, shown on All quotes. Absent reads as none. */
+  description?: string | null;
   /** Quotes → Contract Version (2026-10-27): the version that is the contract now; null before acceptance. */
   contractVersionId?: string | null;
   /** Quotes → Rooms (2026-10-27), exactly as stored: the Rooms tab's log, read with parseRooms(). Absent reads as empty. */
@@ -284,6 +286,9 @@ export type ConfirmAddressResult = { ok: true } | { ok: false; message: string }
 
 /** `saved` is the field's new text, so the page carries on from it without reloading. */
 export type SaveRoomsResult = { ok: true; saved: string } | { ok: false; message: string };
+
+/** The quote's description (src/lib/quotes/describe.ts): what is stored now, null when cleared. */
+export type SaveDescriptionResult = { ok: true; saved: string | null } | { ok: false; message: string };
 
 /* ---------- the Site sheet tab (src/lib/quotes/sitesheet.ts) ---------- */
 

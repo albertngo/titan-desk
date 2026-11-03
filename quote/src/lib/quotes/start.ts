@@ -147,6 +147,8 @@ export async function startQuote(raw: unknown): Promise<StartResult> {
       [QUOTE.firstName]: who.first,
       [QUOTE.lastName]: who.last,
       [QUOTE.customerName]: [who.first, who.last].filter(Boolean).join(" ") || null,
+      // The quote's description (2026-11-03), when one was typed: a staff-only label for All quotes.
+      ...(req.description ? { [QUOTE.description]: req.description } : {}),
       [QUOTE.phone]: who.phone,
       [QUOTE.email]: who.email,
       [QUOTE.siteAddress]: who.address,

@@ -143,7 +143,7 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Name, Q-number, city or phone"
+            placeholder="Name, Q-number, description, city or phone"
             aria-label="Search quotes"
             autoComplete="off"
             enterKeyHint="search"
@@ -209,6 +209,8 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
                   <span className="ql-av" aria-hidden>{initials(g.customerName)}</span>
                   <div className="ql-who">
                     <Link className="cust" href={`/q/${latest.id}`}>{g.customerName ?? "No customer"}</Link>
+                    {/* Quote Description (2026-11-03): tells apart several quotes for one customer at one address. */}
+                    {g.description && <span className="ql-desc" title={g.description}>{g.description}</span>}
                     {sub && <span className="mt">{sub}</span>}
                   </div>
                   <div className="ql-num">

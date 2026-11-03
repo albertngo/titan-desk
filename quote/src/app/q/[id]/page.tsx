@@ -30,6 +30,7 @@ import { parseStored } from "@/lib/sitesheet/sheet";
 import { refreshFromGhl } from "@/lib/quotes/refresh";
 import { loadCompanyCam } from "@/lib/quotes/companycam";
 import { customerView } from "@/lib/view";
+import { QuoteDescription } from "@/components/QuoteDescription";
 import { fromQuote } from "@/lib/editor/model";
 import { fingerprint } from "@/lib/quotes/savePlan";
 import { previewCopy, sendingReady, sendsFrom, sentLink } from "@/lib/quotes/send";
@@ -231,6 +232,8 @@ export default async function QuotePage({
               {quote.version !== null && !(quote.quoteId ?? "").endsWith(`v${quote.version}`) && ` · v${quote.version}`}
               {madeFrom && ` · ${madeFrom}`}
             </p>
+            {/* Quote Description (2026-11-03): staff's label for this quote on All quotes. Never in Customer view. */}
+            {!customer && quote.link && <QuoteDescription key={quote.link.quoteRecordId} quoteRecordId={quote.link.quoteRecordId} initial={quote.link.description ?? null} />}
           </div>
           {quote.status && <span className={`status ${quote.status}`}>{quote.status}</span>}
           {!locked && (
