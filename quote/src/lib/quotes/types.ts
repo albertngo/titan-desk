@@ -96,7 +96,7 @@ export type QuoteLink = {
 };
 
 /** A CompanyCam photo as the Site sheet tab's picker shows it (2026-11-03): no address it could be downloaded from. */
-/** `web` is the plain web-size copy, for a sheet's preview (2026-11-03). */
+/** `web` is the plain full-size image, for a sheet's preview (2026-11-03; CompanyCam's own "web" copy is only 400 px). */
 export type CamSheetPhoto = { id: string; thumb: string; web: string; pageUrl: string | null; at: string | null; by: string | null; description: string | null; tags: string[]; sheet: boolean };
 export type CamSheetPhotosResult = { ok: true; photos: CamSheetPhoto[]; more: boolean } | { ok: false; message: string };
 

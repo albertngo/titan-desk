@@ -33,11 +33,13 @@ export async function loadCompanyCam(companyCamUrl: string | null): Promise<Comp
 }
 
 /** A site sheet photo downloaded for reading (2026-11-03): the types the reader and Airtable both take. */
-export type SheetImage = { id: string; name: string; type: "image/jpeg" | "image/png" | "image/webp"; bytes: Uint8Array; pageUrl: string | null; at: string | null };
+export type SheetImage = { id: string; name: string; type: "image/jpeg" | "image/png" | "image/webp"; bytes: Uint8Array; pageUrl: string | null; at: string | null; small: boolean };
 export type SheetImagesResult = { ok: true; images: SheetImage[] } | { ok: false; message: string };
 const SHEET_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 /** Under the reader's 5 MB a photo and Airtable's upload limit, with room for base64. */
 const SHEET_MAX_BYTES = 3_700_000;
+/** The longest side a sheet is read at, as a photo taken in the app is (`preparePhoto()`, 2000 px). */
+const SHEET_EDGE = 2000;
 
 /**
  * The photos staff picked on the Site sheet tab, downloaded from the quote's own CompanyCam project (Albert,
@@ -68,17 +70,47 @@ export async function sheetImages(companyCamUrl: string | null, photoIds: string
   }
 }
 
-async function plainImage(p: CamPhoto): Promise<Pick<SheetImage, "type" | "bytes"> | null> {
-  for (const uri of [p.plain.original, p.plain.web]) {
-    if (!uri) continue;
+/**
+ * The plain original, made a JPEG of at most 2000 px on its longest side (Albert, 2026-11-03: "how come the resolution
+ * on the company cam image is so low?"). CompanyCam's "web" copy is only 400 px, too small to read a sheet's boxes, and it
+ * was used whenever the original was over 3.7 MB, which a phone photo often is. It is now only the last resort, marked
+ * `small` so the screen can say so.
+ */
+async function plainImage(p: CamPhoto): Promise<Pick<SheetImage, "type" | "bytes" | "small"> | null> {
+  if (p.plain.original) {
     try {
-      const { type, bytes } = await imageBytes(uri);
-      if ((SHEET_TYPES as readonly string[]).includes(type) && bytes.byteLength <= SHEET_MAX_BYTES) return { type: type as SheetImage["type"], bytes };
+      const { type, bytes } = await imageBytes(p.plain.original);
+      const fit = await fitForReading(bytes);
+      if (fit) return { type: "image/jpeg", bytes: fit, small: false };
+      if ((SHEET_TYPES as readonly string[]).includes(type) && bytes.byteLength <= SHEET_MAX_BYTES) return { type: type as SheetImage["type"], bytes, small: false };
+    } catch (e) {
+      console.error("site sheet original", e instanceof Error ? e.message.slice(0, 200) : typeof e);
+    }
+  }
+  if (p.plain.web) {
+    try {
+      const { type, bytes } = await imageBytes(p.plain.web);
+      if ((SHEET_TYPES as readonly string[]).includes(type) && bytes.byteLength <= SHEET_MAX_BYTES) return { type: type as SheetImage["type"], bytes, small: true };
     } catch {
-      // try the smaller copy
+      // nothing left to try
     }
   }
   return null;
+}
+
+/** Turned upright by its EXIF, shrunk to fit 2000 px (never enlarged), JPEG at 85%. Null when it can't be decoded. */
+async function fitForReading(bytes: Uint8Array): Promise<Uint8Array | null> {
+  try {
+    const { default: sharp } = await import("sharp");
+    for (const quality of [85, 75, 65]) {
+      const out = await sharp(bytes, { failOn: "none" }).rotate().resize({ width: SHEET_EDGE, height: SHEET_EDGE, fit: "inside", withoutEnlargement: true }).jpeg({ quality, mozjpeg: true }).toBuffer();
+      if (out.byteLength <= SHEET_MAX_BYTES) return new Uint8Array(out);
+    }
+    return null;
+  } catch (e) {
+    console.error("site sheet resize", e instanceof Error ? e.message.slice(0, 200) : typeof e);
+    return null;
+  }
 }
 
 async function read(id: string, url: string): Promise<CompanyCamResult> {

@@ -1252,12 +1252,13 @@ a.chip.accent:hover { text-decoration: underline; }
 .fs-body { display: grid; gap: 12px; }
 .fs-source { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; font-size: 13px; }
 .fs-source a { font-weight: 600; }
-.fs-result h4 { margin: 0 0 6px; font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--fg-faint); }
-.fs-result ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; font-size: 13px; }
 .fs-unclear-note { color: var(--warn); font-weight: 600; }
-.fs-shots { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 10px; }
-.fs-shots li { display: grid; gap: 4px; font-size: 12px; }
-.fs-shots img { width: 180px; max-width: 40vw; aspect-ratio: 3 / 4; object-fit: cover; display: block; border: 1px solid var(--line); border-radius: var(--radius); }
+/* The flooring sheet, left to right like the stair sheet (2026-11-03): photo | sheet in .ss-pair, next steps on the
+   right in .ss-result (sticky on a wide screen, like the stair sheet's); on a narrow screen the next steps come first. */
+.fs-acts { display: grid; gap: 8px; margin: 12px 0 8px; }
+.fs-acts .btn { width: 100%; justify-content: center; }
+.fs-works { margin: 0; padding-left: 20px; display: grid; gap: 4px; font-size: 13px; }
+@media (max-width: 1280px) { .fs-side { order: -1; } }
 .ss-start-over { margin-left: auto; }
 
 /* The flooring paper copy (2026-11-03): the printed Flooring Site Sheet v1 (quote/sheets/flooring-site-sheet-v1.html), box for box, on the stair copy's .ssp styles */

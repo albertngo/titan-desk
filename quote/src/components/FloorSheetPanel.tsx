@@ -174,6 +174,9 @@ export function FloorSheetPanel({
 
   const taken = when(stored.cam[0]?.at ?? null);
   const shots = previews.filter((p) => p !== null);
+  const shot = shots[0] ?? null;
+  // A read that came back with no rooms and no new floor: most likely the wrong photo, or one too blurry to read.
+  const blank = clean.rooms.length === 0 && preview.works.length === 0;
 
   return (
     <section className="card fs" aria-label="Flooring sheet">
@@ -199,48 +202,71 @@ export function FloorSheetPanel({
           ))}
           {clean.unclear.length > 0 && <b className="fs-unclear-note">{clean.unclear.length} marked in yellow to check</b>}
         </div>
-        {shots.length > 0 && (
-          <ul className="fs-shots" aria-label="The photo this sheet was read from">
-            {shots.map((p) => (
-              <li key={p.url}>
-                <a href={p.url} target="_blank" rel="noreferrer" title="Open full size">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- the sheet's own photo, on the quote or in CompanyCam */}
-                  <img src={p.url} alt={`Photo ${p.page} of the flooring sheet`} />
-                </a>
-                <span className="faint">{p.from === "companycam" ? "CompanyCam's copy" : "On the quote"}</span>
-              </li>
-            ))}
-          </ul>
-        )}
         {source}
 
-        <FloorSheetPaper get={(path) => getAt(sheet, path)} edit={(path, v) => setSheet((s) => setAt(s, path, v))} unclear={unclear} />
+        {/* Left to right like the stair sheet (Albert, 2026-11-03: "the left side is the image itself, the middle is the
+            information drawn, and then the right side is the next steps"), on the stair sheet's own classes. The next
+            steps stay in view while the sheet scrolls. */}
+        <div className="ss-cols fs-cols">
+          <div className="ss-check">
+            <div className={`ss-pair${shot ? "" : " solo"}`}>
+              {shot ? (
+                <figure className="ss-shot">
+                  <a href={shot.url} target="_blank" rel="noreferrer" title="Open full size">
+                    {/* eslint-disable-next-line @next/next/no-img-element -- the sheet's own photo, on the quote or in CompanyCam */}
+                    <img src={shot.url} alt="The flooring sheet, as photographed" />
+                  </a>
+                  <figcaption className="faint">
+                    {shot.from === "companycam" ? "CompanyCam's copy" : "On the quote"} ·{" "}
+                    <a href={shot.url} target="_blank" rel="noreferrer">Open full size ↗</a>
+                  </figcaption>
+                </figure>
+              ) : (
+                <p className="faint ss-noshot">No photo of the sheet to compare against.</p>
+              )}
+              <FloorSheetPaper get={(path) => getAt(sheet, path)} edit={(path, v) => setSheet((s) => setAt(s, path, v))} unclear={unclear} />
+            </div>
+            {shots.length > 1 && (
+              <div className="ss-more">
+                {shots.slice(1).map((p) => (
+                  <a key={p.url} href={p.url} target="_blank" rel="noreferrer" title={`Photo ${p.page}`}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={p.url} alt={`Photo ${p.page} of the flooring sheet`} />
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
 
-        <div className="fs-result">
-          <h4>What it builds</h4>
-          {preview.works.length === 0 ? (
-            <p className="faint">Nothing yet: tick a new floor (W1) and give the rooms their square feet.</p>
-          ) : (
-            <ol>
-              {preview.works.map((w, i) => (
-                <li key={i}>
-                  {w.description || "Removal, prep and baseboards only"} <span className="faint">· {w.rows.length} row{w.rows.length === 1 ? "" : "s"}</span>
-                </li>
-              ))}
-            </ol>
-          )}
-          {preview.notes.length > 0 && <ul className="ss-flags">{preview.notes.map((n) => <li key={n}>{n}</li>)}</ul>}
+          <section className="card ss-result fs-side" aria-label="Next steps">
+            <div className="card-h">What it builds</div>
+            <div className="card-b">
+              {preview.works.length === 0 ? (
+                <p className="faint">{blank ? "Nothing was read from this photo. Check it's the flooring sheet, then Draw again or Start over, or fill the sheet in by hand." : "Nothing yet: tick a new floor (W1) and give the rooms their square feet."}</p>
+              ) : (
+                <ol className="fs-works">
+                  {preview.works.map((w, i) => (
+                    <li key={i}>
+                      {w.description || "Removal, prep and baseboards only"} <span className="faint">· {w.rows.length} row{w.rows.length === 1 ? "" : "s"}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+              {preview.notes.length > 0 && <ul className="ss-flags">{preview.notes.map((n) => <li key={n}>{n}</li>)}</ul>}
+              {message && <p className={message.bad ? "ss-msg bad" : "ss-msg ok"} role="status">{message.text}</p>}
+              <div className="fs-acts">
+                <button type="button" className="btn primary" disabled={busy || preview.works.length === 0} onClick={build} title={preview.works.length === 0 ? "Tick a new floor (W1) and give the rooms their square feet first" : undefined}>
+                  Build flooring options →
+                </button>
+                <button type="button" className="btn" disabled={busy || (!dirty && stored.checked)} onClick={() => save(true)}>{busy ? "Working…" : stored.checked && !dirty ? "Checked" : "Save check"}</button>
+                <button type="button" className="btn" disabled={busy || clean.rooms.length === 0} onClick={copyRooms} title={clean.rooms.length === 0 ? "No rooms on the sheet yet" : roomsNow ? `Replaces the ${roomsNow} room${roomsNow === 1 ? "" : "s"} on the Rooms tab` : undefined}>
+                  {roomsNow ? `Replace the Rooms tab (${roomsNow}) with these rooms` : "Copy rooms to the Rooms tab"}
+                </button>
+              </div>
+              <p className="faint">Build prices the sheet the way a preliminary is priced (the quick form&apos;s choices and standard products) and adds the options to this quote in the editor, at Standard. Review them there and save. It never needs Save check first: edits are kept as it builds.</p>
+            </div>
+          </section>
         </div>
-
-        {message && <p className={message.bad ? "ss-msg bad" : "ss-msg ok"} role="status">{message.text}</p>}
-        <div className="ss-acts">
-          <button type="button" className="btn" disabled={busy || (!dirty && stored.checked)} onClick={() => save(true)}>{busy ? "Working…" : "Save check"}</button>
-          <button type="button" className="btn" disabled={busy || clean.rooms.length === 0} onClick={copyRooms} title={roomsNow ? `Replaces the ${roomsNow} room${roomsNow === 1 ? "" : "s"} on the Rooms tab` : undefined}>
-            {roomsNow ? `Replace the Rooms tab (${roomsNow}) with these rooms` : "Copy rooms to the Rooms tab"}
-          </button>
-          <button type="button" className="btn primary" disabled={busy || preview.works.length === 0} onClick={build}>Build flooring options →</button>
-        </div>
-        <p className="faint">Build prices the sheet the way a preliminary is priced (the quick form&apos;s choices and standard products) and adds the options to this quote in the editor, at Standard. Review them there and save.</p>
       </div>
     </section>
   );
