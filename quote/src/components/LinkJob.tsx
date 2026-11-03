@@ -103,7 +103,12 @@ export function LinkJob({ quoteRecordId, quoteNumber, jobs }: { quoteRecordId: s
             {jobs.choices.map((o) => (
               <Option key={o.id} o={o} picked={picked === o.id} onPick={() => pick(o.id)} />
             ))}
-            <label className={`lj-opt${making ? " on" : ""}`}>
+            {jobs.choices.length > 0 && (
+              <div className="opp-or" aria-hidden="true">
+                <span>or</span>
+              </div>
+            )}
+            <label className={`lj-opt new${making ? " on" : ""}`}>
               <input type="radio" name="link-opportunity" checked={making} onChange={() => pick(NEW)} />
               <span className="nm">+ New opportunity</span>
               <span className="mt">

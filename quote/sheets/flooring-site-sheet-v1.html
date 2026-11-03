@@ -1,0 +1,285 @@
+<title>Flooring Site Sheet</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap">
+<style>
+/* Layout: the printed Letter page on the left at true scale (shrunk to fit), the review notes beside it; stacked on a phone. */
+:root {
+  --bg: #eef1f5; --fg: #17202b; --muted: #5a6573; --line: #d3d9e1; --card: #ffffff; --accent: #1e6fff; --flag: #8a4b00; --flag-bg: #fff4e0;
+  --sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #12171e; --fg: #e6ebf1; --muted: #9aa6b4; --line: #2c3540; --card: #1a212b; --accent: #5b95ff; --flag: #ffc46b; --flag-bg: #3a2a10; color-scheme: dark } }
+:root[data-theme="dark"] { --bg: #12171e; --fg: #e6ebf1; --muted: #9aa6b4; --line: #2c3540; --card: #1a212b; --accent: #5b95ff; --flag: #ffc46b; --flag-bg: #3a2a10; color-scheme: dark }
+
+body { background: var(--bg); color: var(--fg); font-family: var(--sans); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1320px; margin: 0 auto; padding-block: 28px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 20px; }
+header.top h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -.01em; text-wrap: balance; }
+header.top p { margin: 4px 0 0; color: var(--muted); max-width: 70ch; }
+.layout { display: grid; grid-template-columns: minmax(0, 816px) minmax(0, 1fr); gap: 24px; align-items: start; }
+@media (max-width: 1100px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+.fit { min-width: 0; overflow: hidden; }
+.side { min-width: 0; display: grid; gap: 16px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; }
+.card h2 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 700; }
+.card p { margin: 0 0 8px; }
+.card ul, .card ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.card li { min-width: 0; }
+.card code, .side .c { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--accent); }
+.map { width: 100%; border-collapse: collapse; font-size: 14px; }
+.map td { border-top: 1px solid var(--line); padding: 7px 6px 7px 0; vertical-align: top; }
+.map td:first-child { white-space: nowrap; width: 1%; padding-right: 12px; }
+.map tr:first-child td { border-top: 0; }
+.q li { padding: 2px 0; }
+.flag { background: var(--flag-bg); color: var(--flag); border-radius: 4px; padding: 0 5px; font-weight: 600; font-size: 13px; white-space: nowrap; }
+
+/* ---------- The paper. Deliberately one look (white paper, black ink) in both themes, like the stair sheet in the app. ---------- */
+.ssp { --ink: #111; --ink-2: #555; --rule: #222; --paper: #fff; --hatch: #ddd; --thead: #eee; width: 816px; color: var(--ink); transform-origin: top left; }
+.page { width: 816px; height: 1056px; box-sizing: border-box; background: var(--paper); color: var(--ink); box-shadow: 0 2px 14px rgba(20,30,45,.18); border: 1px solid #d6d6d6; position: relative; padding: .38in .45in; font-size: 9.6pt; line-height: 1.25; display: flex; flex-direction: column; gap: 6pt; font-family: var(--sans); }
+.page h3, .page p { margin: 0; }
+.reg { position: absolute; width: 18px; height: 18px; background: var(--ink); }
+.reg.tl { top: .18in; left: .18in; } .reg.tr { top: .18in; right: .18in; } .reg.bl { bottom: .18in; left: .18in; } .reg.br { bottom: .18in; right: .18in; }
+.ph { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4pt 12pt; align-items: end; border-bottom: 2px solid var(--rule); padding-bottom: 5pt; }
+.ph .tt { font-size: 14pt; font-weight: 800; letter-spacing: .02em; }
+.ph .tt small { font-size: 8.5pt; font-weight: 600; color: var(--ink-2); letter-spacing: 0; margin-left: 6pt; }
+.ph .ids { display: flex; gap: 10pt; align-items: end; }
+.lbl { font-size: 8pt; color: var(--ink-2); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.f { display: inline-flex; flex-direction: column; gap: 1pt; }
+.qbox { display: inline-flex; align-items: center; gap: 2pt; font-weight: 800; font-size: 11pt; }
+.qbox i { display: inline-block; width: 15pt; height: 19pt; border: 1px solid var(--ink); }
+.line { display: inline-block; border-bottom: 1px solid var(--ink); height: 16pt; }
+.sec { border: 1.5px solid var(--rule); border-radius: 3pt; }
+.sec > h3 { display: flex; align-items: baseline; gap: 6pt; background: var(--ink); color: var(--paper); font-size: 9.5pt; padding: 2.5pt 6pt; letter-spacing: .03em; font-weight: 700; }
+.sec > h3 .c { font-family: var(--mono); font-size: 8.5pt; }
+.sec > h3 .hint { margin-left: auto; font-weight: 500; font-size: 7.5pt; opacity: .85; }
+.sec.want { border-width: 2.5px; }
+.sb { padding: 4pt 6pt; display: grid; gap: 4pt; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 3pt 9pt; }
+.row > .k { font-weight: 700; min-width: 74pt; }
+.code { font-family: var(--mono); font-size: 7.6pt; color: var(--ink-2); font-weight: 700; }
+.o { display: inline-flex; align-items: center; gap: 3pt; white-space: nowrap; }
+.o::before { content: ""; width: 9pt; height: 9pt; border: 1.2px solid var(--ink); border-radius: 50%; display: inline-block; flex: none; box-sizing: border-box; }
+.o.sq::before { border-radius: 1.5pt; }
+.tip { font-size: 7.8pt; color: var(--ink-2); }
+table.g { border-collapse: collapse; width: 100%; font-size: 9pt; }
+table.g th, table.g td { border: 1px solid var(--ink); padding: 1pt 3pt; text-align: center; height: 18pt; }
+table.g th { background: var(--thead); font-size: 8pt; font-weight: 700; line-height: 1.1; }
+table.g th small { display: block; font-weight: 500; color: var(--ink-2); font-size: 7pt; }
+table.g td.cd { width: 20pt; }
+table.g td.room { width: 150pt; }
+table.g td.lv, table.g td.fn { white-space: nowrap; font-size: 7.6pt; color: var(--ink-2); }
+table.g td.lv .o, table.g td.fn .o { gap: 1.5pt; margin: 0 1.5pt; }
+table.g td.lv .o::before, table.g td.fn .o::before { width: 8pt; height: 8pt; }
+table.g td.num { width: 52pt; }
+table.g td.rm .o::before { width: 10pt; height: 10pt; }
+table.g td.nf { white-space: nowrap; font-weight: 800; font-size: 9pt; background: #f6f6f6; }
+table.g td.nf .o { margin: 0 2pt; gap: 2pt; }
+table.g th.nf { background: var(--ink); color: var(--paper); }
+table.g th.nf small { color: #ccc; }
+table.g td.x { background: repeating-linear-gradient(135deg, var(--paper) 0 4pt, var(--hatch) 4pt 5pt); }
+.opts { display: grid; grid-template-columns: 1fr 1fr; }
+.opt { padding: 4pt 6pt; display: grid; gap: 4pt; align-content: start; }
+.opt + .opt { border-left: 1.5px dashed var(--ink-2); }
+.opt .oh { font-weight: 800; font-size: 9.5pt; display: flex; justify-content: space-between; align-items: baseline; }
+.opt .oh small { font-weight: 500; color: var(--ink-2); font-size: 7.6pt; }
+.choices { display: grid; grid-template-columns: 1fr 1fr; gap: 2pt 6pt; }
+.k2 { font-weight: 700; display: flex; gap: 5pt; align-items: baseline; }
+.shared { border-top: 1.5px solid var(--rule); }
+.notes { flex: 1; min-height: 30pt; border: 1.5px solid var(--rule); border-radius: 3pt; padding: 4pt 6pt; }
+.foot { display: flex; justify-content: space-between; gap: 10pt; font-size: 8pt; color: var(--ink-2); border-top: 1px solid var(--ink); padding-top: 3pt; }
+.foot b { color: var(--ink); }
+@page { size: letter; margin: 0; }
+@media print {
+  body { background: #fff; }
+  header.top, .side { display: none !important; }
+  .wrap { display: block; padding: 0; max-width: none; }
+  .layout { display: block; }
+  .fit { height: auto !important; overflow: visible; }
+  .ssp { transform: none !important; }
+  .page { box-shadow: none; border: 0; height: 11in; overflow: hidden; }
+  html, body, :root { margin: 0 !important; padding: 0 !important; }
+}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>Flooring Site Sheet</h1>
+    <p>Version 1, 2026-11-03, for the team. One page that goes on top of the two-page Stair Site Sheet. The PM fills it on site, photographs it into CompanyCam with the stair pages, and the app turns it into the measured quote.</p>
+  </header>
+
+  <div class="layout">
+    <div class="fit" id="fit">
+      <div class="ssp" id="paper">
+        <section class="page" aria-label="Flooring Site Sheet, printed page">
+          <i class="reg tl"></i><i class="reg tr"></i><i class="reg bl"></i><i class="reg br"></i>
+
+          <div class="ph">
+            <div class="tt">FLOORING SITE SHEET <small>v1 · goes on top of the Stair Site Sheet</small></div>
+            <div class="ids">
+              <span class="f"><span class="lbl">Quote</span><span class="qbox">Q-<i></i><i></i><i></i><i></i></span></span>
+            </div>
+            <div class="row" style="gap:10pt">
+              <span class="f"><span class="lbl">Customer</span><span class="line" style="width:200pt"></span></span>
+              <span class="f"><span class="lbl">Date</span><span class="line" style="width:80pt"></span></span>
+              <span class="f"><span class="lbl">PM</span><span class="line" style="width:90pt"></span></span>
+            </div>
+          </div>
+
+          <div class="sec">
+            <h3><span class="c">R</span> ROOMS <span class="hint">one row a room · never add up, the app does</span></h3>
+            <div class="sb">
+              <div class="row">
+                <span class="k"><span class="code">R0</span> Measured with</span>
+                <span class="o">Laser</span><span class="o">Moasure</span><span class="o">Tape</span>
+                <span class="tip">Moasure: the number in brackets (ft²) is Sq ft, the other is Linear ft.</span>
+              </div>
+              <table class="g">
+                <thead>
+                  <tr>
+                    <th></th>
+                    <th>Room</th>
+                    <th>Level</th>
+                    <th>Sq ft</th>
+                    <th>Linear ft<small>baseboard run</small></th>
+                    <th>Floor there now</th>
+                    <th>Remove<small>blank = customer</small></th>
+                    <th class="nf">New floor<small>blank = all floors</small></th>
+                  </tr>
+                </thead>
+                <tbody id="rooms"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="sec want">
+            <h3><span class="c">W</span> WHAT THE CUSTOMER WANTS <span class="hint">tick each room's New floor above · floor 2 only if needed</span></h3>
+            <div class="opts">
+              <div class="opt" id="opt1"></div>
+              <div class="opt" id="opt2"></div>
+            </div>
+            <div class="sb shared">
+              <div class="row">
+                <span class="k"><span class="code">W3</span> Baseboards</span>
+                <span class="o">None</span><span class="o">Reinstall existing</span><span class="o">New</span>
+                <span class="tip" style="margin:0 2pt">→</span>
+                <span class="o">Baseboard</span><span class="o">Shoe</span><span class="o">Both</span>
+              </div>
+              <div class="row">
+                <span class="k"><span class="code">W4</span> Subfloor</span>
+                <span class="o sq">Screw-down</span>
+                <span class="tip">New:</span>
+                <span class="o">¾" ply</span><span class="o">¾" OSB</span><span class="o">½" ply</span><span class="o">½" OSB</span>
+                <span>sq ft <span class="line" style="width:44pt"></span></span>
+                <span class="tip">blank = all rooms</span>
+              </div>
+              <div class="row">
+                <span class="k"><span class="code">W5</span> Disposal</span>
+                <span class="o">General (bin / takeaway)</span><span class="o">Condo / apartment</span><span class="o">Large (2 bins)</span>
+                <span class="tip">blank = customer disposes</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="notes"><span class="lbl"><span class="code">N2</span> Notes</span></div>
+
+          <div class="foot">
+            <span>Photograph this page and the stair pages in <b>CompanyCam</b>, tag <b>Site Sheet</b>.</span>
+            <span>Titan Flooring · Flooring Site Sheet v1</span>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <aside class="side">
+      <div class="card">
+        <h2>How each box becomes the quote</h2>
+        <table class="map">
+          <tr><td><span class="c">R1–R12</span></td><td>One room each on the <b>Rooms</b> tab. Measured with comes from <span class="c">R0</span>, once for the sheet.</td></tr>
+          <tr><td><span class="c">New floor</span></td><td>Each floor gets its own <b>Install</b> and <b>Material</b> lines at the sum of its rooms' sq ft, labelled with those rooms or their level ("Upper: vinyl", "Main: engineered"). A blank room gets every floor written below.</td></tr>
+          <tr><td><span class="c">Blank or both</span></td><td>With two floors written, those rooms are a choice, so the quote gets two options: one with Floor 1 there, one with Floor 2. A room ticked 1 or 2 stays that way in both.</td></tr>
+          <tr><td><span class="c">Remove</span></td><td>Ticked rooms, grouped by Floor there now: Carpet or Lam/Vin → "Carpet / Laminate / Vinyl"; Wood → "Hardwood / Parquet"; Tile/ply → "Tiles on Plywood"; Tile/conc → "Tiles on Concrete". No tick, no removal line.</td></tr>
+          <tr><td><span class="c">W1</span></td><td>One tick names the material and its install. Vinyl, laminate and engineered click → the click install; tile → tiles; herringbone vinyl → herringbone; engineered ¾", solid and herringbone engineered take the Nail down / Nail + glue tick. Sand &amp; stain and Buff &amp; polish have no material.</td></tr>
+          <tr><td><span class="c">W2</span></td><td><b>Standard</b> (or blank) uses the quick form's standard product for that floor (e.g. STD-LVP-7MM for vinyl click). <b>Customer supplies</b>: install only, no material line. <b>SKU</b>: that catalogue product, named in the car check; a SKU not in the catalogue comes in unpriced, never guessed.</td></tr>
+          <tr><td><span class="c">W3</span></td><td>Baseboard lines at the sum of Linear ft for the rooms. Reinstall uses the Labor rows, New uses Mat + Labor. No Linear ft written: the quick form's ⅓-of-sq-ft default, flagged.</td></tr>
+          <tr><td><span class="c">W4–W5</span></td><td>Subfloor and Disposal lines. Disposal left blank means no disposal line (the customer takes it away). Anything with no Rate Card row comes in unpriced with a note.</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Three ways to tick it</h2>
+        <table class="map">
+          <tr><td><b>One floor</b></td><td>Fill Floor 1. No ticks in New floor. One option.</td></tr>
+          <tr><td><b>Vinyl or hardwood everywhere</b></td><td>Floor 1 vinyl, Floor 2 hardwood. No ticks. Two options to compare. The usual case.</td></tr>
+          <tr><td><b>Vinyl up, engineered main</b></td><td>Floor 1 vinyl, Floor 2 engineered. Upper rooms tick 1, main rooms tick 2. One option, one price, both floors in it.</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>In the car</h2>
+        <ol>
+          <li>Open the quote, press <b>Prepare measured quote</b>. The app finds the Site Sheet photos in CompanyCam.</li>
+          <li>Every field is shown on this sheet's picture beside its photo (your call: all fields, at first). Boxes Claude wasn't sure of are washed yellow.</li>
+          <li>The new total sits beside the preliminary's, with any warnings.</li>
+          <li><b>Send measured</b>. The follow-up tags and marketing links go out as they do today.</li>
+        </ol>
+      </div>
+
+      <div class="card">
+        <h2>Settled 2026-11-03</h2>
+        <ul class="q">
+          <li>Two floors on one sheet are enough.</li>
+          <li>Floors are set room by room, as the PM measures. A blank room gets every floor written, so "vinyl or hardwood everywhere" needs no ticks; different levels tick 1 or 2.</li>
+          <li>Blank Remove or Disposal means the customer does it: no line.</li>
+          <li>Transitions, furniture and appliances are off for now; added later if needed.</li>
+          <li>Tile on plywood and tile on concrete are recorded apart. <span class="flag">Open: both choices point at the same Rate Card row today</span></li>
+          <li>Material: standard by default, customer supplies, or a SKU written on site.</li>
+          <li>Kept simple so the team can start with it.</li>
+          <li>Herringbone engineered has its own Install row in Quick Quote Choices (added 2026-11-03). <span class="flag">Open: link its Rate Card row, then tick Active</span></li>
+        </ul>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+(function () {
+  var body = document.getElementById("rooms");
+  var levels = ["B", "M", "U"];
+  var floors = ["Carpet", "Lam/Vin", "Wood", "Tile/ply", "Tile/conc"];
+  var html = "";
+  for (var i = 1; i <= 12; i++) {
+    html += "<tr><td class=\"cd\"><span class=\"code\">R" + i + "</span></td><td class=\"room\"></td>" +
+      "<td class=\"lv\">" + levels.map(function (l) { return "<span class=\"o\">" + l + "</span>"; }).join("") + "</td>" +
+      "<td class=\"num\"></td><td class=\"num\"></td>" +
+      "<td class=\"fn\">" + floors.map(function (f) { return "<span class=\"o\">" + f + "</span>"; }).join("") + "</td>" +
+      "<td class=\"rm\"><span class=\"o sq\"></span></td>" +
+      "<td class=\"nf\"><span class=\"o\">1</span><span class=\"o\">2</span></td></tr>";
+  }
+  body.innerHTML = html;
+
+  function option(n) {
+    return "<div class=\"oh\">Floor " + n + (n === 2 ? " <small>only if needed</small>" : "") + "</div>" +
+      "<div class=\"k2\"><span class=\"code\">W1</span> New floor <span class=\"tip\">tick one</span></div>" +
+      "<div class=\"choices\">" +
+        ["Vinyl click", "Waterproof laminate", "Engineered click", "Engineered &frac34;&quot;", "Solid hardwood", "Porcelain tile", "Herringbone vinyl", "Herringbone engineered", "Sand &amp; stain existing", "Buff &amp; polish only"]
+          .map(function (c) { return "<span class=\"o\">" + c + "</span>"; }).join("") +
+      "</div>" +
+      "<div class=\"row\"><span class=\"tip\">Nailed wood:</span><span class=\"o\">Nail down</span><span class=\"o\">Nail + glue</span></div>" +
+      "<div class=\"k2\"><span class=\"code\">W2</span> Material <span class=\"tip\">blank = standard</span></div>" +
+      "<div class=\"row\"><span class=\"o\">Standard</span><span class=\"o\">Customer supplies</span></div>" +
+      "<div class=\"row\"><span class=\"tip\">or SKU</span><span class=\"line\" style=\"flex:1;min-width:70pt\"></span></div>";
+  }
+  document.getElementById("opt1").innerHTML = option(1);
+  document.getElementById("opt2").innerHTML = option(2);
+
+  // Shrink the Letter page to its column, never enlarge it.
+  var fit = document.getElementById("fit"), paper = document.getElementById("paper");
+  function size() {
+    var s = Math.min(1, fit.clientWidth / 816);
+    paper.style.transform = "scale(" + s + ")";
+    fit.style.height = (1056 * s + 4) + "px";
+  }
+  size();
+  if (window.ResizeObserver) new ResizeObserver(size).observe(fit); else window.addEventListener("resize", size);
+})();
+</script>
