@@ -6,6 +6,10 @@
  * value: what it can't read is null. Tested in tests/sitesheet.test.ts.
  */
 
+import { cleanCam, cleanFiles, type CamSource } from "./source";
+
+export type { CamSource };
+
 export const SHAPES = ["Straight", "Quarter turn", "Quarter winder", "U landing", "Curved", "Spiral", "Double winder", "Half landing"] as const;
 export type Shape = (typeof SHAPES)[number];
 export const ON_STEPS = ["Carpet", "Wood caps", "Painted wood", "Vinyl", "Other"] as const;
@@ -216,6 +220,9 @@ export type StoredSheet = {
   at: string;
   /** True once a person has pressed Save check; a fresh read is unchecked. */
   checked: boolean;
+  /** The CompanyCam photos it was drawn from, and the copies it attached to the quote (2026-11-03, `source.ts`). */
+  cam: CamSource[];
+  files: string[];
 };
 
 export const sheetRaw = (v: unknown): string => (typeof v === "string" ? v : "");
@@ -225,12 +232,12 @@ export function parseStored(raw: string): StoredSheet | null {
   try {
     const o = obj(JSON.parse(raw));
     if (o.v !== 1) return null;
-    return { sheet: cleanSheet(o.sheet), by: text(o.by, 120) ?? "", at: text(o.at, 40) ?? "", checked: o.checked === true };
+    return { sheet: cleanSheet(o.sheet), by: text(o.by, 120) ?? "", at: text(o.at, 40) ?? "", checked: o.checked === true, cam: cleanCam(o.cam), files: cleanFiles(o.files) };
   } catch {
     return null;
   }
 }
 
 export function serializeStored(s: StoredSheet): string {
-  return JSON.stringify({ v: 1, sheet: cleanSheet(s.sheet), by: s.by, at: s.at, checked: s.checked });
+  return JSON.stringify({ v: 1, sheet: cleanSheet(s.sheet), by: s.by, at: s.at, checked: s.checked, cam: cleanCam(s.cam), files: cleanFiles(s.files) });
 }

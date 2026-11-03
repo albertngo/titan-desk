@@ -5,9 +5,11 @@ import { ClaudeError, readerOn, readJson, type ImageIn } from "@/lib/anthropic/c
 import { requireQuoter } from "@/lib/auth";
 import { looksLikeSheet } from "@/lib/companycam/photos";
 import { FLOOR_PROMPT } from "@/lib/floorsheet/prompt";
-import { cleanFloorSheet, floorSheetRaw, parseFloorStored, serializeFloorStored, type CamSource } from "@/lib/floorsheet/sheet";
+import { cleanFloorSheet, floorSheetRaw, parseFloorStored, serializeFloorStored } from "@/lib/floorsheet/sheet";
+import type { CamSource } from "@/lib/sitesheet/source";
 import { SHEET_PROMPT } from "@/lib/sitesheet/prompt";
-import { cleanSheet, serializeStored, sheetRaw } from "@/lib/sitesheet/sheet";
+import { cleanSheet, parseStored, serializeStored, sheetRaw } from "@/lib/sitesheet/sheet";
+import { attachName } from "@/lib/sitesheet/source";
 import { loadCompanyCam, sheetImages } from "@/lib/quotes/companycam";
 import type { CamSheetPhotosResult, SiteSheetResult } from "./types";
 
@@ -75,7 +77,7 @@ export async function readSiteSheet(quoteRecordId: string, seen: string, photos:
   const now = await current(quoteRecordId);
   if ("error" in now) return { ok: false, message: now.error };
   if ((kind === "flooring" ? now.floorRaw : now.raw) !== seen) return { ok: false, message: `Someone else saved a ${kind === "flooring" ? "flooring" : "stair"} sheet on this quote since the page opened. Reload to see it.` };
-  return kind === "flooring" ? readFlooring(quoteRecordId, email, photos, []) : readStairs(quoteRecordId, email, photos);
+  return kind === "flooring" ? readFlooring(quoteRecordId, email, photos, []) : readStairs(quoteRecordId, email, photos, []);
 }
 
 /** The job's CompanyCam photos for the Site sheet tab's picker, newest first; ones tagged or described as a site sheet are marked. */
@@ -87,7 +89,7 @@ export async function sheetCamPhotos(quoteRecordId: string): Promise<CamSheetPho
   const r = await loadCompanyCam(now.camUrl);
   if (!r.ok) return { ok: false, message: r.message };
   const photos = [...r.photos].sort((a, b) => (b.at ?? "").localeCompare(a.at ?? ""));
-  return { ok: true, more: r.more, photos: photos.map((p) => ({ id: p.id, thumb: p.thumb, at: p.at, by: p.by, description: p.description, tags: p.tags, sheet: looksLikeSheet(p) })) };
+  return { ok: true, more: r.more, photos: photos.map((p) => ({ id: p.id, thumb: p.thumb, web: p.plain.web ?? p.web, pageUrl: p.pageUrl, at: p.at, by: p.by, description: p.description, tags: p.tags, sheet: looksLikeSheet(p) })) };
 }
 
 /**
@@ -109,7 +111,8 @@ export async function readFromCompanyCam(quoteRecordId: string, seen: string, ph
   const photos: PhotoIn[] = got.images.map((i) => ({ name: i.name, type: i.type, bytes: i.bytes }));
   const bad = checkPhotos(photos);
   if (bad) return { ok: false, message: bad };
-  return kind === "flooring" ? readFlooring(quoteRecordId, email, photos, got.images.map((i) => ({ id: i.id, pageUrl: i.pageUrl, at: i.at }))) : readStairs(quoteRecordId, email, photos);
+  const cam = got.images.map((i) => ({ id: i.id, pageUrl: i.pageUrl, at: i.at }));
+  return kind === "flooring" ? readFlooring(quoteRecordId, email, photos, cam) : readStairs(quoteRecordId, email, photos, cam);
 }
 
 async function ask(photos: PhotoIn[], prompt: string): Promise<{ answer: unknown; images: ImageIn[] } | { message: string }> {
@@ -123,46 +126,57 @@ async function ask(photos: PhotoIn[], prompt: string): Promise<{ answer: unknown
   }
 }
 
-/** The photos go on the quote whatever happens next, so the sheet can always be checked against them. Returns how many failed. */
-async function attach(quoteRecordId: string, field: string, prefix: string, photos: PhotoIn[], images: ImageIn[]): Promise<number> {
+/**
+ * The photos go on the quote whatever happens next, so the sheet can always be checked against them. Each gets the
+ * name `names[i]`, which the stored sheet keeps so the page shows this read's copies (2026-11-03). Returns how many
+ * failed; a failure is logged with Airtable's own answer (never the photo), since the screen only says how many.
+ */
+async function attach(quoteRecordId: string, field: string, names: string[], photos: PhotoIn[], images: ImageIn[]): Promise<number> {
   let failed = 0;
-  const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-");
   for (const [i, p] of photos.entries()) {
     try {
-      await uploadAttachment(T.quotes, quoteRecordId, field, { contentType: p.type, filename: `${prefix}-${stamp}-${i + 1}.${p.type.split("/")[1].replace("jpeg", "jpg")}`, base64: images[i].base64 });
-    } catch {
+      await uploadAttachment(T.quotes, quoteRecordId, field, { contentType: p.type, filename: names[i], base64: images[i].base64 });
+    } catch (e) {
       failed++;
+      console.error("site sheet photo didn't attach:", { bytes: p.bytes.byteLength, type: p.type, error: e instanceof Error ? e.message.slice(0, 300) : typeof e });
     }
   }
   return failed;
 }
 
-async function readStairs(quoteRecordId: string, email: string, photos: PhotoIn[]): Promise<SiteSheetResult> {
+const noteFor = (failed: number, cam: boolean) =>
+  failed ? `${failed} photo${failed === 1 ? "" : "s"} didn't attach to the quote${cam ? ", so the preview is CompanyCam's own copy" : ""}.` : undefined;
+
+async function readStairs(quoteRecordId: string, email: string, photos: PhotoIn[], cam: CamSource[]): Promise<SiteSheetResult> {
   const read = await ask(photos, SHEET_PROMPT);
   if ("message" in read) return { ok: false, message: read.message };
-  const saved = serializeStored({ sheet: cleanSheet(read.answer), by: email, at: new Date().toISOString(), checked: false });
-  const failed = await attach(quoteRecordId, QUOTE.siteSheetPhotos, "site-sheet", photos, read.images);
+  const at = new Date();
+  const files = photos.map((p, i) => attachName("site-sheet", at, i, p.type));
+  const saved = serializeStored({ sheet: cleanSheet(read.answer), by: email, at: at.toISOString(), checked: false, cam, files });
+  const failed = await attach(quoteRecordId, QUOTE.siteSheetPhotos, files, photos, read.images);
   try {
     await updateRecord(T.quotes, quoteRecordId, { [QUOTE.siteSheet]: saved });
   } catch (e) {
     return { ok: false, message: `The sheet was read but not saved (${e instanceof Error ? e.message.slice(0, 120) : "error"}). Try again.` };
   }
   const photosNow = await photosOf(quoteRecordId, QUOTE.siteSheetPhotos);
-  return { ok: true, saved, photos: photosNow, note: failed ? `${failed} photo${failed === 1 ? "" : "s"} didn't attach to the quote.` : undefined };
+  return { ok: true, saved, photos: photosNow, note: noteFor(failed, cam.length > 0) };
 }
 
 async function readFlooring(quoteRecordId: string, email: string, photos: PhotoIn[], cam: CamSource[]): Promise<SiteSheetResult> {
   const read = await ask(photos, FLOOR_PROMPT);
   if ("message" in read) return { ok: false, message: read.message };
-  const saved = serializeFloorStored({ sheet: cleanFloorSheet(read.answer), by: email, at: new Date().toISOString(), checked: false, cam });
-  const failed = await attach(quoteRecordId, QUOTE.floorSheetPhotos, "flooring-sheet", photos, read.images);
+  const at = new Date();
+  const files = photos.map((p, i) => attachName("flooring-sheet", at, i, p.type));
+  const saved = serializeFloorStored({ sheet: cleanFloorSheet(read.answer), by: email, at: at.toISOString(), checked: false, cam, files });
+  const failed = await attach(quoteRecordId, QUOTE.floorSheetPhotos, files, photos, read.images);
   try {
     await updateRecord(T.quotes, quoteRecordId, { [QUOTE.floorSheet]: saved });
   } catch (e) {
     return { ok: false, message: `The sheet was read but not saved (${e instanceof Error ? e.message.slice(0, 120) : "error"}). Try again.` };
   }
   const photosNow = await photosOf(quoteRecordId, QUOTE.floorSheetPhotos);
-  return { ok: true, saved, photos: photosNow, note: failed ? `${failed} photo${failed === 1 ? "" : "s"} didn't attach to the quote.` : undefined };
+  return { ok: true, saved, photos: photosNow, note: noteFor(failed, cam.length > 0) };
 }
 
 /** `checked` false (2026-10-31): Build stair options keeping unsaved edits without saying a person checked the sheet. */
@@ -172,7 +186,8 @@ export async function saveSiteSheet(quoteRecordId: string, seen: string, input: 
   const now = await current(quoteRecordId);
   if ("error" in now) return { ok: false, message: now.error };
   if (now.raw !== seen) return { ok: false, message: "Someone else saved this site sheet since the page opened, so yours wasn't saved. Reload and check it again." };
-  const saved = serializeStored({ sheet: cleanSheet(input), by: email, at: new Date().toISOString(), checked });
+  const was = parseStored(now.raw);
+  const saved = serializeStored({ sheet: cleanSheet(input), by: email, at: new Date().toISOString(), checked, cam: was?.cam ?? [], files: was?.files ?? [] });
   try {
     await updateRecord(T.quotes, quoteRecordId, { [QUOTE.siteSheet]: saved });
   } catch (e) {
@@ -188,13 +203,32 @@ export async function saveFloorSheet(quoteRecordId: string, seen: string, input:
   const now = await current(quoteRecordId);
   if ("error" in now) return { ok: false, message: now.error };
   if (now.floorRaw !== seen) return { ok: false, message: "Someone else saved this flooring sheet since the page opened, so yours wasn't saved. Reload and check it again." };
-  const saved = serializeFloorStored({ sheet: cleanFloorSheet(input), by: email, at: new Date().toISOString(), checked, cam: parseFloorStored(now.floorRaw)?.cam ?? [] });
+  const saved = serializeFloorStored({ sheet: cleanFloorSheet(input), by: email, at: new Date().toISOString(), checked, cam: parseFloorStored(now.floorRaw)?.cam ?? [], files: parseFloorStored(now.floorRaw)?.files ?? [] });
   try {
     await updateRecord(T.quotes, quoteRecordId, { [QUOTE.floorSheet]: saved });
   } catch (e) {
     return { ok: false, message: `The check wasn't saved (${e instanceof Error ? e.message.slice(0, 120) : "error"}). Try again.` };
   }
   return { ok: true, saved };
+}
+
+/**
+ * Start over (Albert, 2026-11-03: "options to start over… if it's already been drawn, then there should be an option to
+ * do it again"): clears what was read from one sheet so it can be drawn or read afresh. Compare-and-swap like a save, so
+ * it never clears someone else's newer read. The photos stay on the quote; nothing else changes.
+ */
+export async function clearSheet(quoteRecordId: string, seen: string, kind: SheetKind): Promise<SiteSheetResult> {
+  await requireQuoter();
+  if (!REC_ID.test(quoteRecordId)) return { ok: false, message: "This quote isn't in Airtable any more." };
+  const now = await current(quoteRecordId);
+  if ("error" in now) return { ok: false, message: now.error };
+  if ((kind === "flooring" ? now.floorRaw : now.raw) !== seen) return { ok: false, message: "Someone else saved this sheet since the page opened, so nothing was cleared. Reload to see it." };
+  try {
+    await updateRecord(T.quotes, quoteRecordId, { [kind === "flooring" ? QUOTE.floorSheet : QUOTE.siteSheet]: "" });
+  } catch (e) {
+    return { ok: false, message: `The sheet wasn't cleared (${e instanceof Error ? e.message.slice(0, 120) : "error"}). Try again.` };
+  }
+  return { ok: true, saved: "" };
 }
 
 async function photosOf(quoteRecordId: string, field: string): Promise<{ url: string; name: string }[]> {

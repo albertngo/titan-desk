@@ -13,6 +13,7 @@ import { cleanSheet, emptySheet, MAX_NOSINGS, MAX_RUNS, type NosingPiece, type R
 import { SheetSource } from "./SheetSource";
 import { FloorSheetPanel } from "./FloorSheetPanel";
 import { SiteSheetPaper } from "./SiteSheetPaper";
+import { useSheetPreviews } from "./useSheetPreviews";
 
 /**
  * The Site sheet tab (Albert, 2026-10-28). Upload photos of the stair site sheet; Claude reads them into
@@ -71,6 +72,8 @@ export function SiteSheetTab({
   const [photos, setPhotos] = useState<Photo[]>(photos0);
   const [message, setMessage] = useState<{ text: string; bad: boolean } | null>(null);
   const [saving, startSave] = useTransition();
+  // The photo each page is checked against (2026-11-03): this read's copy on the quote, else its CompanyCam photo.
+  const { previews, remember } = useSheetPreviews(quoteRecordId, stored, photos, camLinked);
   const router = useRouter();
 
   const catalogue = useMemo(() => buildCatalogue(card.rates, card.stairs, card.materials), [card]);
@@ -173,8 +176,15 @@ export function SiteSheetTab({
             kind="stairs"
             camLinked={camLinked}
             hasSheet={Boolean(stored)}
+            preselect={stored?.cam.map((c) => c.id) ?? []}
             hint="Photograph both pages of the stair site sheet, flat and in good light, with the four black corner squares in the picture."
-            onRead={(r, how) => {
+            onCleared={() => {
+              setSeen("");
+              setSheet(emptySheet());
+              setMessage({ text: "Cleared. Draw or read the stair sheet again.", bad: false });
+            }}
+            onRead={(r, how, picked) => {
+              remember(picked);
               setSeen(r.saved);
               setSheet(parseStored(r.saved)?.sheet ?? emptySheet());
               if (r.photos) setPhotos(r.photos);
@@ -192,29 +202,42 @@ export function SiteSheetTab({
               <b>What was read</b>, drawn on the sheet: check each page against its photo. Tap a bubble or tick to change it; tap a filled one again to clear it.
               {sheet.unclear.length > 0 && <span className="ss-unclear-note"> {sheet.unclear.length} marked in yellow to check.</span>}
             </div>
-            {([1, 2] as const).map((page) => (
-              <div className="ss-pair" key={page}>
-                <div className="ss-shot">
-                  {photos[page - 1] ? (
-                    <a href={photos[page - 1].url} target="_blank" rel="noreferrer" title="Open full size">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={photos[page - 1].url} alt={`Photo ${page}: ${photos[page - 1].name}`} />
-                    </a>
+            {([1, 2] as const).map((page) => {
+              const shot = previews[page - 1] ?? null;
+              return (
+                <div className={`ss-pair${shot ? "" : " solo"}`} key={page}>
+                  {shot ? (
+                    <figure className="ss-shot">
+                      <a href={shot.href} target="_blank" rel="noreferrer" title={shot.from === "companycam" ? "Open in CompanyCam" : "Open full size"}>
+                        {/* eslint-disable-next-line @next/next/no-img-element -- the sheet's own photo, on the quote or in CompanyCam */}
+                        <img src={shot.url} alt={`Page ${page} of the stair sheet, as photographed`} />
+                      </a>
+                      <figcaption className="faint">
+                        Page {page} · {shot.from === "companycam" ? "CompanyCam's copy" : "on the quote"} ·{" "}
+                        <a href={shot.href} target="_blank" rel="noreferrer">
+                          {shot.from === "companycam" ? "Open in CompanyCam" : "Open full size"} ↗
+                        </a>
+                      </figcaption>
+                    </figure>
                   ) : (
-                    <p className="faint">No photo {page} on the quote.</p>
+                    <p className="faint ss-noshot">No photo of page {page} to compare against{page === 2 && previews.length === 1 ? ": only one photo was read" : ""}.</p>
                   )}
+                  <SiteSheetPaper page={page} sheet={sheet} get={(path) => get(sheet, path)} edit={edit} pieces={pieces} runs={runs} setPiece={setPiece} setRun={setRun} unclear={unclear} treadsAddUp={d.treads} pizzaCustom={d.custom.pizzaSets} />
                 </div>
-                <SiteSheetPaper page={page} sheet={sheet} get={(path) => get(sheet, path)} edit={edit} pieces={pieces} runs={runs} setPiece={setPiece} setRun={setRun} unclear={unclear} treadsAddUp={d.treads} pizzaCustom={d.custom.pizzaSets} />
-              </div>
-            ))}
-            {photos.length > 2 && (
+              );
+            })}
+            {previews.length > 2 && (
               <div className="ss-more">
-                {photos.slice(2).map((ph) => (
-                  <a key={ph.url} href={ph.url} target="_blank" rel="noreferrer" title="Open full size">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={ph.url} alt={ph.name} />
-                  </a>
-                ))}
+                {previews.slice(2).flatMap((ph) =>
+                  ph
+                    ? [
+                        <a key={ph.url} href={ph.href} target="_blank" rel="noreferrer" title={`Photo ${ph.page}`}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={ph.url} alt={`Photo ${ph.page} of the stair sheet`} />
+                        </a>,
+                      ]
+                    : [],
+                )}
               </div>
             )}
           </div>

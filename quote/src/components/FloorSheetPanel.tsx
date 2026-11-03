@@ -9,6 +9,7 @@ import { cleanFloorSheet, MAX_ROOMS, parseFloorStored, type FloorSheet } from "@
 import { parseRooms } from "@/lib/rooms/log";
 import { SheetSource } from "./SheetSource";
 import { FloorSheetPaper } from "./FloorSheetPaper";
+import { useSheetPreviews } from "./useSheetPreviews";
 
 /**
  * The Flooring Site Sheet on the Site sheet tab (Albert, 2026-11-03). At the top, "Draw from CompanyCam image": pick
@@ -67,6 +68,8 @@ export function FloorSheetPanel({
   const [message, setMessage] = useState<{ text: string; bad: boolean } | null>(null);
   const [busy, start] = useTransition();
   const router = useRouter();
+  // The photo the sheet is checked against (2026-11-03), shown at the top: this read's copy, else its CompanyCam photo.
+  const { previews, remember } = useSheetPreviews(quoteRecordId, stored, photos, camLinked);
 
   const clean = useMemo(() => cleanFloorSheet(sheet), [sheet]);
   // Only the server can look a SKU up, so the preview takes every SKU as found; Build gives the real answer.
@@ -83,8 +86,15 @@ export function FloorSheetPanel({
       kind="flooring"
       camLinked={camLinked}
       hasSheet={Boolean(stored)}
+      preselect={stored?.cam.map((c) => c.id) ?? []}
       hint="Photograph the flooring site sheet flat and in good light, with the four black corner squares in the picture."
-      onRead={(r, how) => {
+      onCleared={() => {
+        setSeen("");
+        setSheet(toRaw(cleanFloorSheet({})));
+        setMessage({ text: "Cleared. Draw or read the flooring sheet again.", bad: false });
+      }}
+      onRead={(r, how, picked) => {
+        remember(picked);
         setSeen(r.saved);
         setSheet(toRaw(parseFloorStored(r.saved)?.sheet ?? cleanFloorSheet({})));
         if (r.photos) setPhotos(r.photos);
@@ -163,6 +173,7 @@ export function FloorSheetPanel({
   }
 
   const taken = when(stored.cam[0]?.at ?? null);
+  const shots = previews.filter((p) => p !== null);
 
   return (
     <section className="card fs" aria-label="Flooring sheet">
@@ -176,9 +187,9 @@ export function FloorSheetPanel({
             {stored.cam.length ? "Drawn from CompanyCam image" : "Read from a photo"}
             {taken && <span className="faint"> · taken {taken}</span>}
           </span>
-          {photos.map((p, i) => (
+          {shots.map((p) => (
             <a key={p.url} href={p.url} target="_blank" rel="noreferrer">
-              Open image{photos.length > 1 ? ` ${i + 1}` : ""} ↗
+              Open image{shots.length > 1 ? ` ${p.page}` : ""} ↗
             </a>
           ))}
           {stored.cam.filter((c) => c.pageUrl).map((c, i, all) => (
@@ -188,6 +199,19 @@ export function FloorSheetPanel({
           ))}
           {clean.unclear.length > 0 && <b className="fs-unclear-note">{clean.unclear.length} marked in yellow to check</b>}
         </div>
+        {shots.length > 0 && (
+          <ul className="fs-shots" aria-label="The photo this sheet was read from">
+            {shots.map((p) => (
+              <li key={p.url}>
+                <a href={p.url} target="_blank" rel="noreferrer" title="Open full size">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- the sheet's own photo, on the quote or in CompanyCam */}
+                  <img src={p.url} alt={`Photo ${p.page} of the flooring sheet`} />
+                </a>
+                <span className="faint">{p.from === "companycam" ? "CompanyCam's copy" : "On the quote"}</span>
+              </li>
+            ))}
+          </ul>
+        )}
         {source}
 
         <FloorSheetPaper get={(path) => getAt(sheet, path)} edit={(path, v) => setSheet((s) => setAt(s, path, v))} unclear={unclear} />

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { SiteSheetResult } from "@/lib/quotes/types";
+import { clearSheetAction } from "@/app/q/[id]/actions";
+import type { CamSheetPhoto, SiteSheetResult } from "@/lib/quotes/types";
 import { looksHeic, preparePhoto } from "@/lib/sitesheet/photo";
 import { CamDraw } from "./CamDraw";
 
@@ -11,6 +12,10 @@ import { CamDraw } from "./CamDraw";
  * the same"): Take a photo and Choose photos upload from this device (each made a small JPEG as it is picked, iPhone
  * HEIC included), Draw from CompanyCam image picks it from the job's CompanyCam project. Either way it is read as
  * this sheet. The sheet's own screen shows what was read; this only gets the photos in.
+ *
+ * Once a sheet is read, each way in says "again", and Start over (Albert, 2026-11-03: "options to start over… if it's
+ * already been drawn, then there should be an option to do it again") clears what was read, after asking, so the
+ * sheet starts fresh. The photos stay on the quote.
  */
 
 const MAX_PHOTOS = 4;
@@ -23,6 +28,8 @@ export function SheetSource({
   camLinked,
   hasSheet,
   onRead,
+  onCleared,
+  preselect = [],
   hint,
 }: {
   quoteRecordId: string;
@@ -32,13 +39,32 @@ export function SheetSource({
   camLinked: boolean;
   /** A sheet is already read: the buttons say "again" and reading replaces it. */
   hasSheet: boolean;
-  onRead: (r: Ok, how: "upload" | "companycam") => void;
+  onRead: (r: Ok, how: "upload" | "companycam", picked: CamSheetPhoto[]) => void;
+  /** Start over went through: the sheet's field is blank again. */
+  onCleared: () => void;
+  /** The CompanyCam photos the sheet was last drawn from. */
+  preselect?: string[];
   hint: string;
 }) {
   const [files, setFiles] = useState<File[]>([]);
   const [preparing, setPreparing] = useState(0);
   const [reading, setReading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [clearing, setClearing] = useState(false);
+
+  async function startOver() {
+    if (!window.confirm(`Start over on the ${kind === "flooring" ? "flooring" : "stair"} sheet? What was read is cleared, your checks included, so it can be drawn or read again. The photos stay on the quote.`)) return;
+    setClearing(true);
+    setMessage(null);
+    try {
+      const r = await clearSheetAction(quoteRecordId, seen, kind).catch(() => null);
+      if (!r || !r.ok) return setMessage(r?.message ?? "The server didn't answer. Try again.");
+      setFiles([]);
+      onCleared();
+    } finally {
+      setClearing(false);
+    }
+  }
 
   // Picks add up (2026-10-28: only one photo could be attached): take page 1, then page 2, or choose several.
   // The input's FileList is live: clearing the input (so the same photo can be picked again) empties it, so it
@@ -76,7 +102,7 @@ export function SheetSource({
       const r = (await res.json().catch(() => ({ ok: false, message: fallback }))) as SiteSheetResult;
       if (!r.ok) return setMessage(r.message);
       setFiles([]);
-      onRead(r, "upload");
+      onRead(r, "upload", []);
     } finally {
       setReading(false);
     }
@@ -90,17 +116,36 @@ export function SheetSource({
       <div className="ss-up-row">
         {/* The camera takes one shot at a time; the library allows several. Both add to the list. */}
         <label className={`btn${full ? " disabled" : ""}`}>
-          Take a photo
+          {hasSheet ? "Take a new photo" : "Take a photo"}
           <input type="file" accept="image/*" capture="environment" hidden disabled={full} aria-label={`Take a photo of the ${kind === "flooring" ? "flooring" : "stair"} sheet`} onChange={(e) => addFiles(e.currentTarget)} />
         </label>
         <label className={`btn${full ? " disabled" : ""}`}>
           Choose photos
           <input type="file" accept="image/*,.heic,.heif" multiple hidden disabled={full} aria-label={`Choose photos of the ${kind === "flooring" ? "flooring" : "stair"} sheet`} onChange={(e) => addFiles(e.currentTarget)} />
         </label>
-        {camLinked && <CamDraw quoteRecordId={quoteRecordId} seen={seen} kind={kind} max={kind === "flooring" ? 2 : 4} label={hasSheet ? "Draw again from CompanyCam image" : "Draw from CompanyCam image"} onRead={(r) => { setFiles([]); onRead(r, "companycam"); }} />}
+        {camLinked && (
+          <CamDraw
+            quoteRecordId={quoteRecordId}
+            seen={seen}
+            kind={kind}
+            max={kind === "flooring" ? 2 : 4}
+            again={hasSheet}
+            preselect={preselect}
+            label={hasSheet ? "Draw again from CompanyCam image" : "Draw from CompanyCam image"}
+            onRead={(r, picked) => {
+              setFiles([]);
+              onRead(r, "companycam", picked);
+            }}
+          />
+        )}
         <button type="button" className="btn primary" disabled={files.length === 0 || reading || preparing > 0} onClick={read}>
           {reading ? "Reading… about a minute" : preparing > 0 ? "Getting photos ready…" : files.length ? `Read ${files.length} photo${files.length === 1 ? "" : "s"}` : hasSheet ? "Read new photos" : "Read the sheet"}
         </button>
+        {hasSheet && (
+          <button type="button" className="btn ss-start-over" disabled={clearing || reading} onClick={startOver}>
+            {clearing ? "Clearing…" : "Start over"}
+          </button>
+        )}
       </div>
       {files.length > 0 && (
         <ul className="ss-picked" aria-label="Photos to read">

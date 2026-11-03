@@ -9,6 +9,9 @@ import type { CamSheetPhoto, SiteSheetResult } from "@/lib/quotes/types";
  * photos right there, newest first, the ones tagged or described as a site sheet ticked; staff pick the page(s) of
  * this sheet and it is read. The server downloads the photos itself from the quote's own project, by id: no image
  * passes through the browser, and nothing is written to CompanyCam.
+ *
+ * The list is read again each time it opens (2026-11-03: the flooring sheet's picker once opened empty, holding an
+ * earlier answer), the last list showing meanwhile, and an empty or failed read always says so.
  */
 
 const MAX = 4;
@@ -20,14 +23,20 @@ export function CamDraw({
   onRead,
   label = "Draw from CompanyCam image",
   max = MAX,
+  preselect = [],
+  again = false,
 }: {
   quoteRecordId: string;
   /** What the page opened with in this sheet's field, so a read never replaces someone else's. */
   seen: string;
   kind: "stairs" | "flooring";
-  onRead: (r: Extract<SiteSheetResult, { ok: true }>) => void;
+  onRead: (r: Extract<SiteSheetResult, { ok: true }>, picked: CamSheetPhoto[]) => void;
   label?: string;
   max?: number;
+  /** The photos the sheet was last drawn from, ticked again so drawing it again is one press. */
+  preselect?: string[];
+  /** A sheet is already drawn: the button says so. */
+  again?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [photos, setPhotos] = useState<CamSheetPhoto[] | null>(null);
@@ -40,15 +49,24 @@ export function CamDraw({
   async function show() {
     setOpen(true);
     setMessage(null);
-    if (photos) return;
     setLoading(true);
     try {
       const r = await camSheetPhotosAction(quoteRecordId).catch(() => null);
-      if (!r || !r.ok) return setMessage(r?.message ?? "CompanyCam didn't answer. Try again.");
+      if (!r || typeof r !== "object" || (r.ok && !Array.isArray(r.photos))) return setMessage("CompanyCam didn't answer. Try again.");
+      if (!r.ok) return setMessage(r.message || "CompanyCam didn't answer. Try again.");
+      const had = new Set((photos ?? []).map((p) => p.id));
       setPhotos(r.photos);
       setMore(r.more);
-      setPicked(r.photos.filter((p) => p.sheet).slice(0, max).map((p) => p.id));
-      if (r.photos.length === 0) setMessage("This job's CompanyCam project has no photos yet.");
+      setPicked((now) => {
+        const there = new Set(r.photos.map((p) => p.id));
+        const keep = now.filter((id) => there.has(id));
+        if (keep.length) return keep;
+        const last = preselect.filter((id) => there.has(id));
+        if (last.length) return last.slice(0, max);
+        // Ticked for you: ones tagged or described as a site sheet, new since the list was last read first.
+        const sheets = r.photos.filter((p) => p.sheet);
+        return [...sheets.filter((p) => !had.has(p.id)), ...sheets.filter((p) => had.has(p.id))].slice(0, max).map((p) => p.id);
+      });
     } finally {
       setLoading(false);
     }
@@ -62,7 +80,8 @@ export function CamDraw({
       const r = (await res.json().catch(() => ({ ok: false, message: "The server didn't answer. Try again." }))) as SiteSheetResult;
       if (!r.ok) return setMessage(r.message);
       setOpen(false);
-      onRead(r);
+      const byId = new Map((photos ?? []).map((p) => [p.id, p]));
+      onRead(r, picked.flatMap((id) => byId.get(id) ?? []));
     } finally {
       setReading(false);
     }
@@ -84,7 +103,8 @@ export function CamDraw({
         <b>{kind === "flooring" ? "Pick the flooring sheet photo" : "Pick the stair sheet's pages, page 1 first"}</b>
         <button type="button" className="linkbtn" onClick={() => setOpen(false)} disabled={reading}>Cancel</button>
       </div>
-      {loading && <p className="faint">Loading the job&apos;s photos…</p>}
+      {loading && <p className="faint">{photos?.length ? "Checking CompanyCam for new photos…" : "Loading the job's photos…"}</p>}
+      {!loading && !message && photos?.length === 0 && <p className="faint">This job&apos;s CompanyCam project has no photos yet. <button type="button" className="linkbtn" onClick={show}>Look again</button></p>}
       {photos && photos.length > 0 && (
         <>
           <ul className="cam-pick-grid">
@@ -106,13 +126,17 @@ export function CamDraw({
           {more && <p className="faint">Only the newest 600 photos are shown.</p>}
           <div className="ss-up-row">
             <button type="button" className="btn primary" disabled={picked.length === 0 || reading} onClick={draw}>
-              {reading ? "Reading… about a minute" : `Draw from ${picked.length > 1 ? `these ${picked.length} photos` : "this photo"}`}
+              {reading ? "Reading… about a minute" : `${again ? "Draw again" : "Draw"} from ${picked.length > 1 ? `these ${picked.length} photos` : picked.length === 1 ? "this photo" : "the photo"}`}
             </button>
-            <span className="faint">Drawing replaces what is on this sheet now. The photo is copied onto the quote.</span>
+            <span className="faint">{again ? "Drawing again replaces what is on this sheet now, your checks included." : "The photo is copied onto the quote."}</span>
           </div>
         </>
       )}
-      {message && <p className="ss-msg bad" role="status">{message}</p>}
+      {message && (
+        <p className="ss-msg bad" role="status">
+          {message} <button type="button" className="linkbtn" onClick={show} disabled={loading}>Try again</button>
+        </p>
+      )}
     </div>
   );
 }
