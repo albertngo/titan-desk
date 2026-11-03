@@ -23,6 +23,14 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-03",
     kind: "changed",
+    title: "Analysis on a phone reads as cards",
+    details: [
+      "On a phone the Analysis tab's tables, and the If they accept a price table, show each figure as a card with one line per option, so nothing scrolls sideways. \"Where the options differ\" marks each card differs or same.",
+    ],
+  },
+  {
+    date: "2026-11-03",
+    kind: "changed",
     title: "On a phone: a menu along the bottom, and lines as cards",
     details: [
       "On a phone the top bar is replaced by a bar along the bottom: Quotes, New (preliminary or measured), Customer view, and More for What's new, Report a bug and signing out.",

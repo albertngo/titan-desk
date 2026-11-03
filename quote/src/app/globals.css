@@ -1706,8 +1706,20 @@ table.cmp th { font-size: 12.5px; font-weight: 500; color: var(--fg-dim); text-t
   /* Quote page: Rooms, Site sheet, Photos and Analysis two to a row; comparison tables at a readable size. */
   .ed-tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .ed-tools .tab { min-width: 0; min-height: 48px; margin-left: 0; }
-  table.cmp { font-size: 14px; }
-  table.cmp th { font-size: 12.5px; }
+  /* Analysis and Accepted price tables as cards (Albert, 2026-11-03: "make the Analysis tables cards too"): each
+     row is a card with the figure on top and one line per option (or per column) under it, value on the right. */
+  .tbl-wrap:has(> table.cmp) { overflow: visible; }
+  table.cmp, table.cmp tbody { display: block; min-width: 0; font-size: 15px; }
+  table.cmp thead { display: none; }
+  table.cmp tr { position: relative; display: block; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  table.cmp tr:last-child { border-bottom: 0; }
+  table.cmp td, table.cmp td + td { display: block; padding: 0; border: 0; text-align: right; }
+  table.cmp td:first-child { padding: 0 0 6px; font-size: 15px; font-weight: 650; color: var(--fg); }
+  table.cmp td[data-label] { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 5px 0; }
+  table.cmp td[data-label]::before { content: attr(data-label); flex: 1 1 auto; min-width: 0; text-align: left; font-weight: 400; color: var(--fg-dim); overflow-wrap: anywhere; }
+  table.cmp td[data-label]:empty { display: none; }
+  table.cmp td.cmp-st { position: absolute; top: 12px; right: 16px; padding: 2px 10px; border-radius: 999px; background: var(--head); font-size: 12.5px; font-weight: 600; }
+  table.cmp td.cmp-st.diff { background: var(--warn-soft); color: var(--warn); }
 
   /* All quotes: no initials badge, so the name gets the room; bigger rows, filters and version links. */
   .ql-av { display: none; }
