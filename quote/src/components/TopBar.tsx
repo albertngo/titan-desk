@@ -3,6 +3,7 @@ import { bugReportsOn } from "@/lib/bug/notion";
 import { CHANGES } from "@/lib/changes";
 import { customerView } from "@/lib/view";
 import { AccountMenu } from "./AccountMenu";
+import { BuildLine } from "./BuildLine";
 import { ReportBug } from "./ReportBug";
 import { ViewSwitch } from "./ViewSwitch";
 
@@ -10,6 +11,8 @@ export async function TopBar({ email }: { email: string }) {
   const customer = await customerView();
   return (
     <header className="topbar">
+      {/* Which build is running (2026-11-03): internal, so not while a customer is looking. */}
+      {!customer && <BuildLine />}
       <div className="topbar-in">
         <Link href="/" className="brand">
           <span className="brand-mark">T</span>
