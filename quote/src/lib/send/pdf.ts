@@ -4,7 +4,7 @@ import { changeWords, paidLeft, signedMoney } from "@/lib/change/diff";
 import type { Payment } from "@/lib/billing/doc";
 import { round2 } from "@/lib/calc";
 import { PAGE, PdfDoc, textWidth, wrap, type Rgb } from "./pdfDoc";
-import { discountLabel, hstRow, isLump, isSplit, scopeOf, itemHstNote, leadPrice, longDate, partGroups, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyText, type CustomerCopy } from "./copy";
+import { discountRows, hstRow, isLump, isSplit, scopeOf, itemHstNote, leadPrice, longDate, partGroups, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyText, type CustomerCopy } from "./copy";
 
 /**
  * The quote as a PDF, drawn from the customer copy only (never from live lines), so the file
@@ -361,12 +361,9 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
   function totals(o: CopyOption) {
     const t = o.totals;
     const r = o.range;
-    const rows: [string, string, boolean][] = [];
-    // Lump sum: no breakdown of the price, so no discount rows either; nor on a range, which has no exact figure (2026-10-27).
-    if (t.discount !== 0 && !isLump(copy) && !r) {
-      rows.push(["Subtotal before discount", money(t.preDiscount), false]);
-      rows.push([discountLabel(copy), money(t.discount), false]);
-    }
+    const rows: [string, string, boolean][] = []; // label, amount, is the discount
+    // Every PDF shows the discount (Albert, 2026-11-03): lump sum and range too; a range as a rate, never an exact figure.
+    for (const d of discountRows(copy, o, money)) rows.push([d.label, d.value, d.disc]);
     // Leads before HST, like the email and the text (Albert, 2026-10-24): the blue bar is the price
     // before HST; the tax and the total with it follow under it.
     const lead = leadPrice(copy, t);
@@ -383,14 +380,16 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
     }));
     // An invoice or receipt shows what was paid instead of the schedule (payments(), below).
     if (bill) pay.length = 0;
-    room(rows.length * 15 + 42 + after.length * 15 + pay.reduce((a, p) => a + 13 + p.note.length * 10, 0) + 30);
-    y -= 6;
     // A range's label and its two figures need a wider bar.
     const x0 = r ? 300 : 340;
-    for (const [k, v] of rows) {
-      doc.text(x0, y, k, { size: 9, color: DIM });
+    // A discount's reason can be long: its label wraps clear of the amount instead of running into it.
+    const wrapped = rows.map(([k, v]) => ({ k: wrap(k, "R", 9, COL.amount - 4 - x0 - textWidth(v, "R", 9) - 10), v }));
+    room(wrapped.reduce((a, w) => a + 15 + (w.k.length - 1) * 11, 0) + 42 + after.length * 15 + pay.reduce((a, p) => a + 13 + p.note.length * 10, 0) + 30);
+    y -= 6;
+    for (const { k, v } of wrapped) {
       doc.text(COL.amount - 4, y, v, { size: 9, color: INK, align: "right" });
-      y -= 15;
+      k.forEach((l, i) => doc.text(x0, y - i * 11, l, { size: 9, color: DIM }));
+      y -= 15 + (k.length - 1) * 11;
     }
     y -= 8;
     doc.rect(x0 - 8, y - 7, RIGHT - x0 + 8, 22, BLUE);

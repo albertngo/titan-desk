@@ -137,7 +137,8 @@ export type CustomerCopy = {
    * How the price is shown (2026-10-22). "lump", the default for every version since that day: the
    * customer sees what the work includes and one price for the project; counted lines carry no
    * unit price or amount, quantities stay on the scope sections only, sections carry no total,
-   * there are no discount rows, add-ons keep their price. "itemised": everything. Absent = itemised,
+   * the discount is shown above the price (2026-11-03; there were no discount rows before), add-ons
+   * keep their price. "itemised": everything. Absent = itemised,
    * for copies frozen before this existed.
    */
   pricing?: "lump" | "itemised";
@@ -469,6 +470,24 @@ export const isLump = (copy: Pick<CustomerCopy, "pricing">) => copy.pricing === 
 /** The Discount row's label: the rate, and the reason when one was given ("Discount (10%) · Fall promotion"). */
 export const discountLabel = (copy: Pick<CustomerCopy, "discountRate" | "discountReason">) =>
   `Discount (${Math.round(copy.discountRate * 1000) / 10}%)${copy.discountReason ? ` · ${copy.discountReason}` : ""}`;
+
+/**
+ * The discount rows above an option's price (Albert, 2026-11-03: "All quote links and PDF should show the
+ * client what the discounts are"). Every customer page and PDF shows them: itemised, lump sum and a
+ * preliminary's range alike; none when there is no discount. A lump sum shows the price before the
+ * discount and the discount, so the one price still reads as the price. A range never shows an exact
+ * figure (2026-10-27): its discount gives the rate and the reason, and says it is already in the range,
+ * since a dollar amount would give the exact price away.
+ */
+export function discountRows(copy: Pick<CustomerCopy, "discountRate" | "discountReason" | "pricing">, o: Pick<CopyOption, "totals" | "range">, money: (n: number) => string): { label: string; value: string; disc: boolean }[] {
+  const t = o.totals;
+  if (t.discount === 0) return [];
+  if (o.range) return [{ label: discountLabel(copy), value: "Included in the range", disc: true }];
+  return [
+    { label: `${isLump(copy) ? "Price" : "Subtotal"} before discount`, value: money(t.preDiscount), disc: false },
+    { label: discountLabel(copy), value: money(t.discount), disc: true },
+  ];
+}
 
 /** Under an option's total: what it includes. */
 export const hstWord = (copy: Pick<CustomerCopy, "showHst">, t: Pick<CopyTotals, "hst">) =>
