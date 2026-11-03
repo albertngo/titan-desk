@@ -41,6 +41,17 @@ h1, h2, h3, p { margin: 0; }
 .linkbtn { font: inherit; font-size: 13px; background: none; border: 0; color: var(--fg-dim); cursor: pointer; padding: 0; }
 .linkbtn:hover { color: var(--accent); }
 .topbar form { margin: 0; }
+/* Build line (2026-11-03): which build is running, a thin strip above the top bar. */
+.buildline { display: flex; align-items: baseline; gap: 6px; padding: 3px clamp(16px, 2.5vw, 32px); background: var(--head); border-bottom: 1px solid var(--line); font-size: 11.5px; line-height: 1.4; color: var(--fg-dim); white-space: nowrap; overflow: hidden; }
+.buildline a { color: var(--fg); font-weight: 600; flex: none; }
+.buildline a:hover { color: var(--accent); }
+.buildline a:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 3px; }
+.buildline .bl-k { color: var(--fg-faint); flex: none; }
+.buildline .bl-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.buildline .bl-when { flex: none; }
+.buildline .bl-when::before, .buildline .bl-title::before { content: "· "; color: var(--fg-faint); }
+.buildline .bl-sha { margin-left: auto; padding-left: 8px; font-family: var(--mono); font-weight: 500; color: var(--fg-dim); }
+@media print { .buildline { display: none; } }
 /* Top bar groups (2026-10-28): view · help · account, a thin line between each. */
 .tb-group { display: flex; align-items: center; gap: 4px; }
 .tb-sep { width: 1px; height: 22px; background: var(--line-strong); margin: 0 4px; flex: none; }
@@ -844,6 +855,7 @@ a.chip.accent:hover { text-decoration: underline; }
 /* On a wide screen the page makes room beside the open panel instead of being covered. */
 @media (min-width: 1200px) {
   html[data-conv-open="1"] .page { padding-right: calc(440px + clamp(16px, 2.5vw, 32px)); }
+  html[data-conv-open="1"] .buildline { padding-right: calc(440px + clamp(16px, 2.5vw, 32px)); }
   html[data-conv-open="1"] .topbar-in { padding-right: calc(440px + clamp(16px, 2.5vw, 32px)); }
 }
 @media (prefers-reduced-motion: reduce) { .conv-tab { transition: none; } }

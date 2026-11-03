@@ -23,6 +23,15 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-03",
     kind: "new",
+    title: "See which version of the app you're on",
+    details: [
+      "A thin line at the very top of every page says which update is running: its PR number and title, when it was last updated, and the commit, each linking to GitHub.",
+      "If it doesn't match the latest change you expect, the app hasn't picked up the update yet: reload. It is hidden in Customer view.",
+    ],
+  },
+  {
+    date: "2026-11-03",
+    kind: "new",
     title: "Site sheets straight from CompanyCam, and the flooring sheet read into rooms and options",
     details: [
       "The Site sheet tab now starts with the Flooring sheet. On a quote with a CompanyCam project, click Draw from CompanyCam image, pick the photo (photos tagged or described \"Site Sheet\" are ticked for you), and it's read. The stair sheet has the same link beside its upload buttons, so the photos never need uploading twice.",
