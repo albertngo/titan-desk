@@ -544,7 +544,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   printed v1 box for box on the stair copy's `.ssp` styles plus `.fsp`, every bubble, tick and box the control for its field,
   unsure codes washed yellow; change the printed sheet and this copy together. The photo took no column at first (same call: "it could just
   be at the top of the page"): the panel's top line says when it was taken and links **Open image** (a new tab) and **Open in
-  CompanyCam**, and **Draw again**. Beside the paper since 2026-11-03, below on a phone (`src/components/FloorSheetPanel.tsx`): the photo, what it builds, **Save
+  CompanyCam**, and **Draw again**. Beside the paper since 2026-11-03, above it on a phone (`src/components/FloorSheetPanel.tsx`): the photo, what it builds, **Save
   check**; **Copy rooms to the Rooms tab** (replaces the Rooms tab through `saveRooms()`, `roomsFromSheet()`); **Build flooring
   options** prices it on the server like a preliminary (`floorOptions()` in `src/lib/quotes/quickOption.ts`: `floorPlan()` makes
   quick-form works, `buildQuickOptions()` prices them, writes nothing) and adds them to the editor's draft as Flooring options. The
