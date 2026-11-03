@@ -330,6 +330,10 @@ export default async function QuotePage({
                   base={base}
                   card={sheetCard}
                   enabled={sheetOn}
+                  camLinked={Boolean(camUrl)}
+                  floorRaw={quote.link.floorSheet ?? ""}
+                  floorPhotos={quote.link.floorSheetPhotos ?? []}
+                  roomsRaw={quote.link.rooms ?? ""}
                 />
               ) : (
                 <section className="card">

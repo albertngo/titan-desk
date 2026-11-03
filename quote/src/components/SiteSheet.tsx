@@ -11,6 +11,9 @@ import { derive } from "@/lib/sitesheet/derive";
 import { buildOptions } from "@/lib/sitesheet/options";
 import { looksHeic, preparePhoto } from "@/lib/sitesheet/photo";
 import { cleanSheet, emptySheet, MAX_NOSINGS, MAX_RUNS, type NosingPiece, type RailRun, parseStored, type SiteSheet } from "@/lib/sitesheet/sheet";
+import { parseFloorStored } from "@/lib/floorsheet/sheet";
+import { CamSheetPicker } from "./CamSheetPicker";
+import { FloorSheetPanel } from "./FloorSheetPanel";
 import { SiteSheetPaper } from "./SiteSheetPaper";
 
 /**
@@ -47,6 +50,10 @@ export function SiteSheetTab({
   base,
   card,
   enabled,
+  camLinked = false,
+  floorRaw = "",
+  floorPhotos: floorPhotos0 = [],
+  roomsRaw = "",
 }: {
   quoteRecordId: string;
   versionId: string;
@@ -56,11 +63,21 @@ export function SiteSheetTab({
   base: string;
   card: RateCard;
   enabled: boolean;
+  /** The quote links a CompanyCam project (2026-11-03): sheets can be picked from its photos. */
+  camLinked?: boolean;
+  /** Quotes → Flooring Sheet as stored, its photos, and Quotes → Rooms as stored (for Copy rooms). */
+  floorRaw?: string;
+  floorPhotos?: Photo[];
+  roomsRaw?: string;
 }) {
   const [seen, setSeen] = useState(raw);
   const stored = useMemo(() => parseStored(seen), [seen]);
   const [sheet, setSheet] = useState<SiteSheet>(() => stored?.sheet ?? emptySheet());
   const [photos, setPhotos] = useState<Photo[]>(photos0);
+  // The flooring sheet (2026-11-03): the panel keeps its own edits; a new read from CompanyCam starts it afresh.
+  const [floorSeen, setFloorSeen] = useState(floorRaw);
+  const [floorPhotos, setFloorPhotos] = useState<Photo[]>(floorPhotos0);
+  const [floorRead, setFloorRead] = useState(0);
   const [files, setFiles] = useState<File[]>([]);
   // Picks add up (2026-10-28: only one photo could be attached): take page 1, then page 2, or choose several.
   // The input's FileList is live: clearing the input (so the same photo can be picked again) empties it, so it
@@ -189,13 +206,46 @@ export function SiteSheetTab({
 
   return (
     <div className="ss">
+      {camLinked && (
+        <CamSheetPicker
+          quoteRecordId={quoteRecordId}
+          stairSeen={seen}
+          floorSeen={floorSeen}
+          onRead={(kind, r) => {
+            if (kind === "flooring") {
+              setFloorSeen(r.saved);
+              setFloorPhotos(r.photos ?? []);
+              setFloorRead((n) => n + 1);
+              return;
+            }
+            setSeen(r.saved);
+            setSheet(parseStored(r.saved)?.sheet ?? emptySheet());
+            if (r.photos) setPhotos(r.photos);
+          }}
+        />
+      )}
+
+      {parseFloorStored(floorSeen) && (
+        <FloorSheetPanel
+          key={floorRead}
+          quoteRecordId={quoteRecordId}
+          raw={floorSeen}
+          onSaved={setFloorSeen}
+          photos={floorPhotos}
+          roomsRaw={roomsRaw}
+          initial={initial}
+          base={base}
+          versionId={versionId}
+        />
+      )}
+
       <section className="card">
         <div className="card-h">
-          Site sheet
+          Stair sheet
           {stored && <span className="right faint">{stored.checked ? "checked" : "read, not checked yet"} · {stored.by} · {new Date(stored.at).toLocaleString("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>}
         </div>
         <div className="card-b ss-up">
-          <p className="faint">Photograph both pages of the stair site sheet, flat and in good light, with the four black corner squares in the picture.</p>
+          <p className="faint">{camLinked ? "Or upload photos of both pages of the stair site sheet from this device" : "Photograph both pages of the stair site sheet"}, flat and in good light, with the four black corner squares in the picture.</p>
           <div className="ss-up-row">
             {/* The camera takes one shot at a time; the library allows several. Both add to the list. */}
             <label className={`btn${files.length >= MAX_PHOTOS ? " disabled" : ""}`}>

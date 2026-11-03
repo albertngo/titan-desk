@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { byDay, projectIdOf, toPhoto, toPhotos, toProject } from "../src/lib/companycam/photos";
+import { byDay, looksLikeSheet, projectIdOf, toPhoto, toPhotos, toProject } from "../src/lib/companycam/photos";
 
 // INVENTED photos only: this repo is public.
 const uris = (prefix: string, annotated = false) => [
@@ -50,7 +50,19 @@ describe("CompanyCam photos", () => {
       full: "https://img.example.com/a/o.jpg",
       annotated: false,
       pageUrl: "https://app.companycam.com/photos/1001",
+      plain: { original: "https://img.example.com/a/o.jpg", web: "https://img.example.com/a/w.jpg" },
     });
+  });
+
+  it("keeps the plain copies for reading a sheet, even when the shown copy is marked up", () => {
+    const p = toPhoto(raw({ uris: uris("b", true) }))!;
+    expect(p.plain).toEqual({ original: "https://img.example.com/b/o.jpg", web: "https://img.example.com/b/w.jpg" });
+  });
+
+  it("spots a photo tagged or described as a site sheet", () => {
+    expect(looksLikeSheet({ tags: ["Site Sheet"], description: null })).toBe(true);
+    expect(looksLikeSheet({ tags: [], description: "flooring sitesheet page 1" })).toBe(true);
+    expect(looksLikeSheet({ tags: ["stairs"], description: "Main stairs, left side open" })).toBe(false);
   });
 
   it("shows the marked-up copy when there is one", () => {

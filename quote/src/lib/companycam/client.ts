@@ -8,12 +8,18 @@ import { toPhotos, toProject, type CamPhoto, type CamProject } from "./photos";
  * the staff deployment only. Server-only, GET only: tests/boundary.test.ts fails on a write verb
  * here. A CompanyCam access token is not scoped, so this file is the limit: it reads one project
  * and its photos and nothing else. Making projects stays Make's job (3453735).
+ *
+ * Since 2026-11-03 (Albert: site sheets read from CompanyCam) it also downloads a photo's image for
+ * the Site sheet tab. That is the same one GET, without the token: the token goes to the API only,
+ * never to the image host, and only an address CompanyCam itself gave for the photo is fetched.
  */
 
 const BASE = "https://api.companycam.com/v2";
 const PER_PAGE = 50;
 /** At most this many pages a read (600 photos); past it the tab says so and links CompanyCam. */
 const MAX_PAGES = 12;
+/** A photo larger than this is never downloaded whole (a phone's original is a few MB). */
+const MAX_IMAGE_BYTES = 15_000_000;
 
 export class CompanyCamError extends Error {
   constructor(
@@ -30,16 +36,21 @@ export const NOT_CONFIGURED = "CompanyCam photos aren't set up for this app yet 
 
 export const companyCamConfigured = () => !isCustomerDeployment() && Boolean(process.env.QUOTE_COMPANYCAM_TOKEN?.trim());
 
-async function get(path: string, params: Record<string, string> = {}): Promise<unknown> {
+/** The one request: a GET to the API with the token, or to an image address CompanyCam gave, without it. */
+async function request(url: string, api: boolean): Promise<Response> {
   const token = process.env.QUOTE_COMPANYCAM_TOKEN?.trim();
   if (!token || isCustomerDeployment()) throw new CompanyCamError(NOT_CONFIGURED, null);
-  const qs = new URLSearchParams(params).toString();
-  const res = await fetch(`${BASE}${path}${qs ? `?${qs}` : ""}`, {
+  return fetch(url, {
     method: "GET",
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    headers: api ? { Authorization: `Bearer ${token}`, Accept: "application/json" } : { Accept: "image/jpeg, image/png, image/webp" },
     cache: "no-store",
-    signal: AbortSignal.timeout(10_000),
+    signal: AbortSignal.timeout(api ? 10_000 : 20_000),
   });
+}
+
+async function get(path: string, params: Record<string, string> = {}): Promise<unknown> {
+  const qs = new URLSearchParams(params).toString();
+  const res = await request(`${BASE}${path}${qs ? `?${qs}` : ""}`, true);
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new CompanyCamError(`CompanyCam ${res.status} on ${path}: ${body.slice(0, 200)}`, res.status);
@@ -61,4 +72,19 @@ export async function projectPhotos(id: string): Promise<{ photos: CamPhoto[]; m
     if (n < PER_PAGE) return { photos, more: false };
   }
   return { photos, more: true };
+}
+
+/**
+ * One photo's image, from an address in CompanyCam's own answer for that photo (`CamPhoto.plain`), never one a
+ * browser sent. No token goes with it. The type is what the image host says it is.
+ */
+export async function imageBytes(uri: string): Promise<{ type: string; bytes: Uint8Array }> {
+  if (!/^https:\/\//.test(uri)) throw new CompanyCamError("Not a CompanyCam image address.", null);
+  const res = await request(uri, false);
+  if (!res.ok) throw new CompanyCamError(`CompanyCam image ${res.status}`, res.status);
+  const length = Number(res.headers.get("content-length") ?? "0");
+  if (length > MAX_IMAGE_BYTES) throw new CompanyCamError("CompanyCam image too large", null);
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  if (bytes.byteLength > MAX_IMAGE_BYTES) throw new CompanyCamError("CompanyCam image too large", null);
+  return { type: (res.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase(), bytes };
 }

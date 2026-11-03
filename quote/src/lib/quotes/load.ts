@@ -9,6 +9,7 @@ import { parseAcceptance } from "@/lib/accept/plan";
 import { cleanSchedule } from "@/lib/pricing/schedule";
 import { isStairMethod, isStairType } from "@/lib/quick/stairs";
 import { roomsRaw } from "@/lib/rooms/log";
+import { floorSheetRaw } from "@/lib/floorsheet/sheet";
 import { sheetRaw } from "@/lib/sitesheet/sheet";
 import { partValue, scopeValue } from "./scope";
 import { workingDraft } from "./savePlan";
@@ -191,6 +192,8 @@ function linkOf(r: AirtableRecord): QuoteLink {
     rooms: roomsRaw(f[QUOTE.rooms]),
     siteSheet: sheetRaw(f[QUOTE.siteSheet]),
     siteSheetPhotos: photosOf(f[QUOTE.siteSheetPhotos]),
+    floorSheet: floorSheetRaw(f[QUOTE.floorSheet]),
+    floorSheetPhotos: photosOf(f[QUOTE.floorSheetPhotos]),
   };
 }
 
@@ -494,6 +497,19 @@ export async function quickProducts(recordIds: string[]): Promise<Map<string, Qu
   if (recordIds.length === 0) return new Map();
   const recs = await listByIds(CATALOGUE_TABLE, recordIds, Object.values(CAT));
   return new Map(recs.filter((r) => r.fields[CAT.active] !== false).flatMap((r) => { const p = toProduct(r); return p ? [[p.recordId, p] as const] : []; }));
+}
+
+/**
+ * Active catalogue products by exact SKU, case ignored (2026-11-03: a SKU written on the flooring sheet). Keyed by
+ * the upper-case SKU asked for. A SKU not found is simply absent: the caller never swaps in another product.
+ */
+export async function productsBySku(skus: string[]): Promise<Map<string, string>> {
+  await requireQuoter();
+  const wanted = [...new Set(skus.map((s) => s.toUpperCase().replace(/[^A-Z0-9 ._\-/]/g, "")).filter(Boolean))].slice(0, 4);
+  if (wanted.length === 0) return new Map();
+  const formula = `AND({${CAT.active}},OR(${wanted.map((s) => `UPPER({${CAT.sku}})='${s}'`).join(",")}))`;
+  const recs = await listRecords(CATALOGUE_TABLE, { fields: Object.values(CAT), filterByFormula: formula });
+  return new Map(recs.flatMap((r) => { const p = toProduct(r); return p && wanted.includes(p.sku.toUpperCase()) ? [[p.sku.toUpperCase(), p.recordId] as const] : []; }));
 }
 
 /** Active catalogue products whose SKU, name or collection contains every word typed. At most 12. */

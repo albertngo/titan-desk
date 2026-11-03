@@ -78,6 +78,10 @@ export const QUOTE = {
   siteSheetPhotos: "fldVyJRpAY5Mr8Obn",
   /** 2026-10-28: what was read from the site sheet and what staff checked, JSON (src/lib/sitesheet/sheet.ts). */
   siteSheet: "fldDmKVwRWRZ6tsEc",
+  /** 2026-11-03: what was read from the Flooring Site Sheet and what staff checked, JSON (src/lib/floorsheet/sheet.ts). App-written only. */
+  floorSheet: "flduz7gPcqgWmi2VE",
+  /** 2026-11-03: the Flooring Site Sheet photos that were read, copied from CompanyCam. Attachments, app-written only. */
+  floorSheetPhotos: "fldU4W8cXXqVpi1Is",
   /**
    * 2026-11-03 (Albert): a short staff-only label, "Unit 1204 · kitchen + hall", shown under the customer on All
    * quotes so several quotes for one customer at one address can be told apart. Never in the customer copy.

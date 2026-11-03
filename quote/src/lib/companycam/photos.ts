@@ -23,7 +23,15 @@ export type CamPhoto = {
   annotated: boolean;
   /** The photo's own page in CompanyCam. */
   pageUrl: string | null;
+  /**
+   * The plain copies, without the PM's markup (2026-11-03): what a site sheet is read from, so a drawing never
+   * covers a box. The server downloads one of these, never an address a browser sent.
+   */
+  plain: { original: string | null; web: string | null };
 };
+
+/** A photo tagged or described as a site sheet (Albert, 2026-11-03: the PM tags them "Site Sheet"). Ticked first in the picker. */
+export const looksLikeSheet = (p: Pick<CamPhoto, "tags" | "description">): boolean => [...p.tags, p.description ?? ""].some((t) => /site\s*sheet/i.test(t));
 
 export type CamProject = { id: string; name: string | null; address: string | null; url: string };
 
@@ -85,6 +93,7 @@ export function toPhoto(raw: unknown): CamPhoto | null {
     full,
     annotated,
     pageUrl: https(p.photo_url),
+    plain: { original: uris.get("original") ?? null, web: uris.get("web") ?? null },
   };
 }
 
