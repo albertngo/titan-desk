@@ -1498,32 +1498,60 @@ table.cmp th { font-size: 12.5px; font-weight: 500; color: var(--fg-dim); text-t
   .ed-quick-est b { font-size: 22px; font-weight: 700; color: #1759d6; font-variant-numeric: tabular-nums; letter-spacing: -.01em; white-space: nowrap; }
   .ed-quick-foot .btn { min-height: 50px; justify-content: center; font-size: 16px; border-radius: 12px; }
 
-  /* The quick form's work inside the sheet: one level of boxes, bigger words and targets. Scoped to the sheet,
-     so New quote's own quick form is unchanged. */
-  .ed-quick .qw { gap: 28px; }
-  .ed-quick .qw-part { gap: 10px; }
-  .ed-quick .qw-part-h { font-size: 19px; font-weight: 650; border-bottom: 0; padding-bottom: 2px; }
-  .ed-quick .qw-part-h .qw-wg-sum { margin-left: auto; font-size: 14px; }
-  .ed-quick .qw-wg { border-radius: 14px; }
-  .ed-quick .qw-wg[open] { border-color: var(--accent); box-shadow: inset 0 0 0 .5px var(--accent); }
-  .ed-quick .qw-wg > summary { grid-template-columns: minmax(0, 1fr) 16px; column-gap: 12px; row-gap: 1px; min-height: 56px; padding: 10px 14px; border-radius: 14px; }
-  .ed-quick .qw-wg[open] > summary { background: #f5f8ff; border-radius: 13px 13px 0 0; }
-  .ed-quick .qw-wg > summary .nm { grid-column: 1; font-size: 16px; }
-  .ed-quick .qw-wg > summary .qw-wg-sum { grid-column: 1; font-size: 14px; white-space: normal; color: #4f5a67; }
-  .ed-quick .qw-wg > summary .qw-wg-sum.faint { color: var(--fg-dim); }
-  .ed-quick .qw-wg > summary::after { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
-  .ed-quick .qw-wg-b { padding: 6px 14px 14px; gap: 14px; }
-  .ed-quick .qw-chips { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  .ed-quick .qw-chip { min-height: 52px; padding: 8px 12px; border-radius: 10px; font-size: 15px; line-height: 1.25; text-align: left; }
-  .ed-quick .qw-chip.on { background: var(--accent-soft); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); color: #0f3f99; }
-  .ed-quick .in, .ed-quick .qw-row select.in, .ed-quick .qw-amt input { min-height: 48px; font-size: 16px; border-radius: 10px; }
-  .ed-quick .qw-amt-row { gap: 10px; }
-  .ed-quick .qw-amt-row .qw-amt { flex: 1 1 150px; }
-  .ed-quick .qw-price .qw-rate { font-size: 13px; }
-  .ed-quick .qw-price b { font-size: 16px; }
-  .ed-quick .qw-same, .ed-quick .qw-add { min-height: 44px; font-size: 15px; font-weight: 600; color: #1759d6; }
-  .ed-quick .qw-x { width: 44px; height: 44px; }
-  .ed-quick .qw-stair { padding: 14px; border-radius: 14px; }
-  .ed-quick .qw-stair-h .nm, .ed-quick .qw-field .k, .ed-quick .qw-money .k, .ed-quick .qw-desc { font-size: 14px; }
-  .ed-quick .qw-prod { font-size: 14px; padding: 8px 12px; border-radius: 10px; }
+  /* The quick form's work, in the editor's sheet and on New quote (2026-11-03, Albert: "do the same for the New
+     quote quick form"): one level of boxes, bigger words and targets. */
+  :is(.ed-quick, .newq) .qw { gap: 28px; }
+  :is(.ed-quick, .newq) .qw-part { gap: 10px; }
+  :is(.ed-quick, .newq) .qw-part-h { font-size: 19px; font-weight: 650; border-bottom: 0; padding-bottom: 2px; }
+  :is(.ed-quick, .newq) .qw-part-h .qw-wg-sum { margin-left: auto; font-size: 14px; }
+  :is(.ed-quick, .newq) .qw-wg { border-radius: 14px; }
+  :is(.ed-quick, .newq) .qw-wg[open] { border-color: var(--accent); box-shadow: inset 0 0 0 .5px var(--accent); }
+  :is(.ed-quick, .newq) .qw-wg > summary { grid-template-columns: minmax(0, 1fr) 16px; column-gap: 12px; row-gap: 1px; min-height: 56px; padding: 10px 14px; border-radius: 14px; }
+  :is(.ed-quick, .newq) .qw-wg[open] > summary { background: #f5f8ff; border-radius: 13px 13px 0 0; }
+  :is(.ed-quick, .newq) .qw-wg > summary .nm { grid-column: 1; font-size: 16px; }
+  :is(.ed-quick, .newq) .qw-wg > summary .qw-wg-sum { grid-column: 1; font-size: 14px; white-space: normal; color: #4f5a67; }
+  :is(.ed-quick, .newq) .qw-wg > summary .qw-wg-sum.faint { color: var(--fg-dim); }
+  :is(.ed-quick, .newq) .qw-wg > summary::after { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+  :is(.ed-quick, .newq) .qw-wg-b { padding: 6px 14px 14px; gap: 14px; }
+  :is(.ed-quick, .newq) .qw-chips { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  :is(.ed-quick, .newq) .qw-chip { min-height: 52px; padding: 8px 12px; border-radius: 10px; font-size: 15px; line-height: 1.25; text-align: left; }
+  :is(.ed-quick, .newq) .qw-chip.on { background: var(--accent-soft); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); color: #0f3f99; }
+  :is(.ed-quick, .newq) .in, :is(.ed-quick, .newq) .qw-row select.in, :is(.ed-quick, .newq) .qw-amt input { min-height: 48px; font-size: 16px; border-radius: 10px; }
+  :is(.ed-quick, .newq) .qw-amt-row { gap: 10px; }
+  :is(.ed-quick, .newq) .qw-amt-row .qw-amt { flex: 1 1 150px; }
+  :is(.ed-quick, .newq) .qw-price .qw-rate { font-size: 13px; }
+  :is(.ed-quick, .newq) .qw-price b { font-size: 16px; }
+  :is(.ed-quick, .newq) .qw-same, :is(.ed-quick, .newq) .qw-add { min-height: 44px; font-size: 15px; font-weight: 600; color: #1759d6; }
+  :is(.ed-quick, .newq) .qw-x { width: 44px; height: 44px; }
+  :is(.ed-quick, .newq) .qw-stair { padding: 14px; border-radius: 14px; }
+  :is(.ed-quick, .newq) .qw-stair-h .nm, :is(.ed-quick, .newq) .qw-field .k, :is(.ed-quick, .newq) .qw-money .k, :is(.ed-quick, .newq) .qw-desc { font-size: 14px; }
+  :is(.ed-quick, .newq) .qw-prod { font-size: 14px; padding: 8px 12px; border-radius: 10px; }
+}
+
+/* New quote on a phone (Albert, 2026-11-03): the same quick form as the editor's sheet (the shared rules above),
+   option tabs two to a row, and the estimate with Create pinned at the bottom laid out like the sheet's footer.
+   Phone widths only; the page is a page, not a sheet, so it scrolls as before. */
+@media (max-width: 640px) {
+  .newq .card { border-radius: 14px; }
+  .newq .card-h { font-size: 15px; padding: 14px 16px; flex-wrap: wrap; row-gap: 2px; }
+  .newq .card-h .right { margin-left: 0; flex-basis: 100%; font-size: 13.5px; }
+  .newq .card-b { padding: 16px 12px; }
+  .newq .qw-wg-b { padding: 6px 12px 12px; }
+  .nq-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .nq-tabs .tab-sep { display: none; }
+  .nq-tabs .tab { display: grid; gap: 1px; align-content: center; min-width: 0; min-height: 52px; padding: 8px 12px; border-radius: 12px; font-size: 14.5px; text-align: left; white-space: normal; }
+  .nq-tabs .tab .t-amt { font-size: 13.5px; }
+  .nq-tabs .nq-tab-x { grid-column: 1 / -1; text-align: center; }
+  .nq-search .btn, .nq-foot .btn { min-height: 48px; font-size: 15px; justify-content: center; }
+  .nq-who { padding: 12px 14px; font-size: 15px; }
+  .nq-who .mt, .nq-opp .mt { font-size: 13.5px; }
+  .nq-opp { padding: 12px; font-size: 15px; }
+  .nq-opps legend, .nq-site-h, .nq-form label { font-size: 14px; }
+  .nq-newtoggle { min-height: 44px; font-size: 15px; font-weight: 600; }
+  .nq-seg-b { min-height: 52px; padding: 10px 14px; font-size: 15px; border-radius: 12px; }
+  .qw-foot { bottom: 0; margin: 0 -16px; max-width: none; display: grid; gap: 10px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); border-width: 1px 0 0; border-radius: 14px 14px 0 0; box-shadow: 0 -8px 24px rgba(20, 30, 45, .08); }
+  .qw-foot .est { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; column-gap: 12px; font-size: 14px; }
+  .qw-foot .est b { font-size: 22px; color: #1759d6; }
+  .qw-foot .est .faint { flex-basis: 100%; font-size: 13px; color: var(--fg-dim); }
+  .qw-foot .btn { width: 100%; min-height: 50px; margin: 0; justify-content: center; font-size: 16px; border-radius: 12px; }
 }

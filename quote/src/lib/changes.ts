@@ -23,6 +23,16 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-03",
     kind: "changed",
+    title: "New quote on a phone has more room too",
+    details: [
+      "The Job step's quick form matches the editor's: bigger choices two to a row, bigger boxes to type in, and each work section's name above what's in it.",
+      "Option tabs sit two to a row, and the estimate and Create stay at the bottom of the screen with the price set large.",
+      "The customer and timeline steps get bigger buttons and boxes. Computers and tablets look the same as before.",
+    ],
+  },
+  {
+    date: "2026-11-03",
+    kind: "changed",
     title: "The editor on a phone has more room",
     details: [
       "On a phone the header is shorter: Save sits beside the customer's name, and Discard only shows once there are changes to discard.",
