@@ -452,7 +452,8 @@ export default function Editor({
           {changed ? `Unsaved changes${savedAt ? ` · kept ${new Date(savedAt).toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit" })}` : ""}` : "No changes"}
         </span>
         <div className="actions">
-          <button className="btn" onClick={discard} disabled={!changed && !restoredAt}>Discard</button>
+          {/* On a phone Discard shows only once there is something to discard (2026-11-03). */}
+          <button className={`btn ed-discard${!changed && !restoredAt ? " idle" : ""}`} onClick={discard} disabled={!changed && !restoredAt}>Discard</button>
           {/* One working quote (2026-10-30): no Save as new version. A sent version saves as the next draft;
               a change, or the agreed quote, is never copied into an ordinary version (2026-10-27): Make a change is the way. */}
           {!isDraft && !version.change && !version.agreed && (
@@ -479,6 +480,8 @@ export default function Editor({
           )}
         </div>
       </div>
+      {/* On a phone the Conversation button sits here, in the page, instead of on the screen's edge (2026-11-03). */}
+      <div id="conv-slot" className="conv-slot" />
       {saveError && (
         <p className="card banner bad save-error" role="alert">
           {saveError.message}
@@ -530,7 +533,7 @@ export default function Editor({
             </div>
             <div className="ed-tabs-add">
             <button
-              className="tab"
+              className="tab ed-add-blank"
               onClick={() => {
                 const next = addOption(quote);
                 apply(next);
@@ -540,7 +543,7 @@ export default function Editor({
               + Add option
             </button>
             <button
-              className="tab"
+              className="tab ed-add-quick"
               aria-expanded={quick !== null}
               disabled={quick === "loading"}
               title="Build an option with the preliminary's quick form"
@@ -566,14 +569,23 @@ export default function Editor({
           {quick !== null && quick !== "loading" && (() => {
             const est = estimateWork(quick.choices, quick.profiles, quick.work);
             return (
+              // On a phone this is a full-screen sheet with the estimate and Add pinned at the bottom (2026-11-03, globals.css).
               <section className="card ed-quick" aria-label="New option from the quick form">
                 <div className="card-h">
-                  New option from the quick form
+                  <button type="button" className="ed-quick-x" onClick={() => setQuick(null)} disabled={addingQuick} aria-label="Close the quick form">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden><path d="M6 6l12 12M18 6 6 18" /></svg>
+                  </button>
+                  <span className="ed-quick-t">New option from the quick form</span>
                   <span className="right">{est.lines > 0 ? `${est.name} · ${money(est.total)} before discount and HST` : "Pick the work"}</span>
                 </div>
                 <div className="card-b">
                   <QuickWork choices={quick.choices} profiles={quick.profiles} value={quick.work} onChange={(w) => setQuick({ ...quick, work: w })} quoteWide="hidden" />
+                </div>
                   <div className="ed-quick-foot">
+                    <span className="ed-quick-est" aria-live="polite">
+                      <span>{est.lines > 0 ? "Estimate, before discount and HST" : "Pick the work"}</span>
+                      {est.lines > 0 && <b>{money(est.total)}</b>}
+                    </span>
                     <button type="button" className="btn" onClick={() => setQuick(null)} disabled={addingQuick}>Cancel</button>
                     <button
                       type="button"
@@ -594,7 +606,6 @@ export default function Editor({
                       {addingQuick ? "Adding…" : "Add this option"}
                     </button>
                   </div>
-                </div>
               </section>
             );
           })()}
@@ -906,7 +917,7 @@ export default function Editor({
               </div>
             </>
           ) : (
-            <section className="card">
+            <section className="card ed-empty">
               <p className="empty">No options. Use “+ Add option” to start one.</p>
             </section>
           )}

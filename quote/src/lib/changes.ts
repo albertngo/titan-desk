@@ -23,6 +23,17 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-03",
     kind: "changed",
+    title: "The editor on a phone has more room",
+    details: [
+      "On a phone the header is shorter: Save sits beside the customer's name, and Discard only shows once there are changes to discard.",
+      "The Conversation button now sits under the header instead of on the edge of the screen, so it no longer covers buttons.",
+      "+ From quick form opens full screen, with bigger choices two to a row and the estimate, Cancel and Add this option kept at the bottom.",
+      "Customer and terms shows once, and options sit two to a row. Computers and tablets look the same as before.",
+    ],
+  },
+  {
+    date: "2026-11-03",
+    kind: "changed",
     title: "New opportunity stands apart from the existing ones",
     details: [
       "On Link to Opportunity and on New quote's customer step, \"+ New opportunity\" now sits under an \"or\" line with a dashed blue outline, so it's clear it makes a new opportunity rather than picking one of the customer's.",
