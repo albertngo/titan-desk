@@ -33,7 +33,7 @@ export async function loadCompanyCam(companyCamUrl: string | null): Promise<Comp
 }
 
 /** A site sheet photo downloaded for reading (2026-11-03): the types the reader and Airtable both take. */
-export type SheetImage = { id: string; name: string; type: "image/jpeg" | "image/png" | "image/webp"; bytes: Uint8Array };
+export type SheetImage = { id: string; name: string; type: "image/jpeg" | "image/png" | "image/webp"; bytes: Uint8Array; pageUrl: string | null; at: string | null };
 export type SheetImagesResult = { ok: true; images: SheetImage[] } | { ok: false; message: string };
 const SHEET_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 /** Under the reader's 5 MB a photo and Airtable's upload limit, with room for base64. */
@@ -59,7 +59,7 @@ export async function sheetImages(companyCamUrl: string | null, photoIds: string
       if (!p) return { ok: false, message: "A photo you picked isn't on this job's CompanyCam project any more. Load the photos again." };
       const img = await plainImage(p);
       if (!img) return { ok: false, message: `Photo ${i + 1} couldn't be downloaded from CompanyCam as a JPEG, PNG or WebP small enough to read.` };
-      images.push({ id: pid, name: `companycam-${pid}.${img.type.split("/")[1].replace("jpeg", "jpg")}`, ...img });
+      images.push({ id: pid, name: `companycam-${pid}.${img.type.split("/")[1].replace("jpeg", "jpg")}`, pageUrl: p.pageUrl, at: p.at, ...img });
     }
     return { ok: true, images };
   } catch (e) {

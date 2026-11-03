@@ -5,7 +5,7 @@ import { ClaudeError, readerOn, readJson, type ImageIn } from "@/lib/anthropic/c
 import { requireQuoter } from "@/lib/auth";
 import { looksLikeSheet } from "@/lib/companycam/photos";
 import { FLOOR_PROMPT } from "@/lib/floorsheet/prompt";
-import { cleanFloorSheet, floorSheetRaw, parseFloorStored, serializeFloorStored } from "@/lib/floorsheet/sheet";
+import { cleanFloorSheet, floorSheetRaw, parseFloorStored, serializeFloorStored, type CamSource } from "@/lib/floorsheet/sheet";
 import { SHEET_PROMPT } from "@/lib/sitesheet/prompt";
 import { cleanSheet, serializeStored, sheetRaw } from "@/lib/sitesheet/sheet";
 import { loadCompanyCam, sheetImages } from "@/lib/quotes/companycam";
@@ -106,7 +106,7 @@ export async function readFromCompanyCam(quoteRecordId: string, seen: string, ph
   const photos: PhotoIn[] = got.images.map((i) => ({ name: i.name, type: i.type, bytes: i.bytes }));
   const bad = checkPhotos(photos);
   if (bad) return { ok: false, message: bad };
-  return kind === "flooring" ? readFlooring(quoteRecordId, email, photos, ids) : readStairs(quoteRecordId, email, photos);
+  return kind === "flooring" ? readFlooring(quoteRecordId, email, photos, got.images.map((i) => ({ id: i.id, pageUrl: i.pageUrl, at: i.at }))) : readStairs(quoteRecordId, email, photos);
 }
 
 async function ask(photos: PhotoIn[], prompt: string): Promise<{ answer: unknown; images: ImageIn[] } | { message: string }> {
@@ -148,10 +148,10 @@ async function readStairs(quoteRecordId: string, email: string, photos: PhotoIn[
   return { ok: true, saved, photos: photosNow, note: failed ? `${failed} photo${failed === 1 ? "" : "s"} didn't attach to the quote.` : undefined };
 }
 
-async function readFlooring(quoteRecordId: string, email: string, photos: PhotoIn[], photoIds: string[]): Promise<SiteSheetResult> {
+async function readFlooring(quoteRecordId: string, email: string, photos: PhotoIn[], cam: CamSource[]): Promise<SiteSheetResult> {
   const read = await ask(photos, FLOOR_PROMPT);
   if ("message" in read) return { ok: false, message: read.message };
-  const saved = serializeFloorStored({ sheet: cleanFloorSheet(read.answer), by: email, at: new Date().toISOString(), checked: false, photoIds });
+  const saved = serializeFloorStored({ sheet: cleanFloorSheet(read.answer), by: email, at: new Date().toISOString(), checked: false, cam });
   const failed = await attach(quoteRecordId, QUOTE.floorSheetPhotos, "flooring-sheet", photos, read.images);
   try {
     await updateRecord(T.quotes, quoteRecordId, { [QUOTE.floorSheet]: saved });
@@ -185,7 +185,7 @@ export async function saveFloorSheet(quoteRecordId: string, seen: string, input:
   const now = await current(quoteRecordId);
   if ("error" in now) return { ok: false, message: now.error };
   if (now.floorRaw !== seen) return { ok: false, message: "Someone else saved this flooring sheet since the page opened, so yours wasn't saved. Reload and check it again." };
-  const saved = serializeFloorStored({ sheet: cleanFloorSheet(input), by: email, at: new Date().toISOString(), checked, photoIds: parseFloorStored(now.floorRaw)?.photoIds ?? [] });
+  const saved = serializeFloorStored({ sheet: cleanFloorSheet(input), by: email, at: new Date().toISOString(), checked, cam: parseFloorStored(now.floorRaw)?.cam ?? [] });
   try {
     await updateRecord(T.quotes, quoteRecordId, { [QUOTE.floorSheet]: saved });
   } catch (e) {

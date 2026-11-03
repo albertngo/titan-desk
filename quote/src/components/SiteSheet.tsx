@@ -11,8 +11,7 @@ import { derive } from "@/lib/sitesheet/derive";
 import { buildOptions } from "@/lib/sitesheet/options";
 import { looksHeic, preparePhoto } from "@/lib/sitesheet/photo";
 import { cleanSheet, emptySheet, MAX_NOSINGS, MAX_RUNS, type NosingPiece, type RailRun, parseStored, type SiteSheet } from "@/lib/sitesheet/sheet";
-import { parseFloorStored } from "@/lib/floorsheet/sheet";
-import { CamSheetPicker } from "./CamSheetPicker";
+import { CamDraw } from "./CamDraw";
 import { FloorSheetPanel } from "./FloorSheetPanel";
 import { SiteSheetPaper } from "./SiteSheetPaper";
 
@@ -74,10 +73,6 @@ export function SiteSheetTab({
   const stored = useMemo(() => parseStored(seen), [seen]);
   const [sheet, setSheet] = useState<SiteSheet>(() => stored?.sheet ?? emptySheet());
   const [photos, setPhotos] = useState<Photo[]>(photos0);
-  // The flooring sheet (2026-11-03): the panel keeps its own edits; a new read from CompanyCam starts it afresh.
-  const [floorSeen, setFloorSeen] = useState(floorRaw);
-  const [floorPhotos, setFloorPhotos] = useState<Photo[]>(floorPhotos0);
-  const [floorRead, setFloorRead] = useState(0);
   const [files, setFiles] = useState<File[]>([]);
   // Picks add up (2026-10-28: only one photo could be attached): take page 1, then page 2, or choose several.
   // The input's FileList is live: clearing the input (so the same photo can be picked again) empties it, so it
@@ -206,38 +201,17 @@ export function SiteSheetTab({
 
   return (
     <div className="ss">
-      {camLinked && (
-        <CamSheetPicker
-          quoteRecordId={quoteRecordId}
-          stairSeen={seen}
-          floorSeen={floorSeen}
-          onRead={(kind, r) => {
-            if (kind === "flooring") {
-              setFloorSeen(r.saved);
-              setFloorPhotos(r.photos ?? []);
-              setFloorRead((n) => n + 1);
-              return;
-            }
-            setSeen(r.saved);
-            setSheet(parseStored(r.saved)?.sheet ?? emptySheet());
-            if (r.photos) setPhotos(r.photos);
-          }}
-        />
-      )}
-
-      {parseFloorStored(floorSeen) && (
-        <FloorSheetPanel
-          key={floorRead}
-          quoteRecordId={quoteRecordId}
-          raw={floorSeen}
-          onSaved={setFloorSeen}
-          photos={floorPhotos}
-          roomsRaw={roomsRaw}
-          initial={initial}
-          base={base}
-          versionId={versionId}
-        />
-      )}
+      {/* The flooring sheet (2026-11-03) at the top of the page: drawn from its CompanyCam photo, checked on the paper copy. */}
+      <FloorSheetPanel
+        quoteRecordId={quoteRecordId}
+        raw={floorRaw}
+        photos={floorPhotos0}
+        roomsRaw={roomsRaw}
+        initial={initial}
+        base={base}
+        versionId={versionId}
+        camLinked={camLinked}
+      />
 
       <section className="card">
         <div className="card-h">
@@ -256,6 +230,21 @@ export function SiteSheetTab({
               Choose photos
               <input type="file" accept="image/*,.heic,.heif" multiple hidden disabled={files.length >= MAX_PHOTOS} aria-label="Choose photos of the site sheet" onChange={(e) => addFiles(e.currentTarget)} />
             </label>
+            {camLinked && (
+              <CamDraw
+                quoteRecordId={quoteRecordId}
+                seen={seen}
+                kind="stairs"
+                label={stored ? "Draw again from CompanyCam image" : "Draw from CompanyCam image"}
+                onRead={(r) => {
+                  setSeen(r.saved);
+                  setSheet(parseStored(r.saved)?.sheet ?? emptySheet());
+                  if (r.photos) setPhotos(r.photos);
+                  setFiles([]);
+                  setMessage({ text: `Drawn. Check every field against the photo, then Save check.${r.note ? ` ${r.note}` : ""}`, bad: false });
+                }}
+              />
+            )}
             <button type="button" className="btn primary" disabled={files.length === 0 || reading || preparing > 0} onClick={read}>
               {reading ? "Reading… about a minute" : preparing > 0 ? "Getting photos ready…" : files.length ? `Read ${files.length} photo${files.length === 1 ? "" : "s"}` : stored ? "Read new photos" : "Read the sheet"}
             </button>

@@ -509,17 +509,23 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   point to check against real jobs, not built.
 - **Site sheets from CompanyCam, and the Flooring Site Sheet (Albert, 2026-11-03: "build the sheets from companycam into rooms
   and flooring lines. No car check yet. Just the upload of the sheets from companycam. We can choose which one it is").** On a
-  quote whose CompanyCam link gives a project, the Site sheet tab opens with **From CompanyCam** (`src/components/CamSheetPicker.tsx`):
-  Load the job's photos (`camSheetPhotosAction` → `sheetCamPhotos()` in `src/lib/quotes/sitesheet.ts`, the quote's link read from
-  Airtable, never the browser), tick up to four pages (photos tagged or described "Site Sheet" ticked first, `looksLikeSheet()`),
-  then **Read as flooring sheet** or **Read as stair sheet**. `/api/sitesheet` takes a JSON body `{quoteRecordId, seen, photoIds,
+  quote whose CompanyCam link gives a project, each sheet has a **Draw from CompanyCam image** link (`src/components/CamDraw.tsx`;
+  the flooring sheet at the top of the tab, the stair sheet's beside its upload buttons). It opens the job's photos in place
+  (`camSheetPhotosAction` → `sheetCamPhotos()` in `src/lib/quotes/sitesheet.ts`, the quote's link read from Airtable, never the
+  browser), tagged or described "Site Sheet" ticked first (`looksLikeSheet()`); staff pick the page(s) and it is read as the
+  sheet the link sits on. `/api/sitesheet` takes a JSON body `{quoteRecordId, seen, photoIds,
   kind}`; `readFromCompanyCam()` checks each id is a photo on that project (`sheetImages()` in `src/lib/quotes/companycam.ts`) and
   downloads the **plain** copy (no markup, `CamPhoto.plain`): the original when it is under 3.7 MB, else the web size. No image
   passes through the browser. A stair read then goes exactly as an upload does. Uploading from the device stays. **The Flooring Site
   Sheet** (`quote/sheets/flooring-site-sheet-v1.pdf`; vault `05_decisions/2026-11-03-measured-quote-from-site-sheets`) is read by
   Claude with `src/lib/floorsheet/prompt.ts` into `cleanFloorSheet()` (`src/lib/floorsheet/sheet.ts`), kept on **Quotes → Flooring
   Sheet** (JSON, app-written, compare-and-swap, with the CompanyCam photo ids) and its photos on **Quotes → Flooring Sheet Photos**
-  (both made 2026-11-03). `src/components/FloorSheetPanel.tsx` shows it beside the photo, box for box, unsure codes yellow; **Save
+  (both made 2026-11-03), with each photo's CompanyCam page and time taken. **It is drawn as the paper sheet itself (Albert,
+  2026-11-03: "the sheet should look 1:1 to the copy online. Easier to compare")**: `src/components/FloorSheetPaper.tsx`, the
+  printed v1 box for box on the stair copy's `.ssp` styles plus `.fsp`, every bubble, tick and box the control for its field,
+  unsure codes washed yellow; change the printed sheet and this copy together. The photo takes no column (same call: "it could just
+  be at the top of the page"): the panel's top line says when it was taken and links **Open image** (a new tab) and **Open in
+  CompanyCam**, and **Draw again**. Under the paper (`src/components/FloorSheetPanel.tsx`): what it builds, **Save
   check**; **Copy rooms to the Rooms tab** (replaces the Rooms tab through `saveRooms()`, `roomsFromSheet()`); **Build flooring
   options** prices it on the server like a preliminary (`floorOptions()` in `src/lib/quotes/quickOption.ts`: `floorPlan()` makes
   quick-form works, `buildQuickOptions()` prices them, writes nothing) and adds them to the editor's draft as Flooring options. The

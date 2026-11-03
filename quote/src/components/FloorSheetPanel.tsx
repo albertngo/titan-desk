@@ -5,69 +5,64 @@ import { useMemo, useState, useTransition } from "react";
 import { floorOptionsAction, saveFloorSheetAction, saveRoomsAction } from "@/app/q/[id]/actions";
 import { draftKey, type EditorQuote } from "@/lib/editor/model";
 import { floorPlan, previewChoices, roomsFromSheet, sheetSkus } from "@/lib/floorsheet/plan";
-import {
-  BASE_HOW,
-  BASE_PIECE,
-  cleanFloorSheet,
-  DISPOSAL_NAME,
-  DISPOSALS,
-  emptyWant,
-  FLOOR_NAME,
-  FLOORS,
-  LEVEL_CODES,
-  MAX_ROOMS,
-  measure,
-  MEASURED_WITH,
-  NAILED,
-  NO_MATERIAL,
-  NOW,
-  NOW_NAME,
-  parseFloorStored,
-  SUBFLOOR_NAME,
-  SUBFLOOR_SHEETS,
-  type FloorRoom,
-  type FloorSheet,
-  type FloorWant,
-} from "@/lib/floorsheet/sheet";
+import { cleanFloorSheet, MAX_ROOMS, parseFloorStored, type FloorSheet } from "@/lib/floorsheet/sheet";
 import { parseRooms } from "@/lib/rooms/log";
+import { CamDraw } from "./CamDraw";
+import { FloorSheetPaper } from "./FloorSheetPaper";
 
 /**
- * The Flooring Site Sheet on the Site sheet tab (Albert, 2026-11-03: "build the sheets from companycam into rooms
- * and flooring lines"). What Claude read, beside the photo, for a person to check box for box; then Copy rooms
- * puts its rooms on the Rooms tab, and Build flooring options prices the sheet on the server like a preliminary
- * (floorOptionsAction) and adds the options to the editor's draft, where they are reviewed and saved as usual.
- * Nothing here writes a quote line. No car check or sending yet (Albert, same day).
+ * The Flooring Site Sheet on the Site sheet tab (Albert, 2026-11-03). At the top, "Draw from CompanyCam image": pick
+ * the photo, it is read, and the link then opens that photo (a new tab) or its page in CompanyCam. Below, what was
+ * read drawn as the paper sheet itself, 1:1 ("easier to compare"), every mark the control for its field. Then Copy
+ * rooms puts its rooms on the Rooms tab, and Build flooring options prices it on the server like a preliminary
+ * (floorOptionsAction) and adds the options to the editor's draft, reviewed and saved there as usual. Nothing here
+ * writes a quote line. No car check or sending yet.
  */
 
-const BASE_HOW_NAME = { none: "None", reinstall: "Reinstall existing", new: "New" } as const;
-const BASE_PIECE_NAME = { baseboard: "Baseboard", shoe: "Shoe", both: "Both" } as const;
-const LEVEL_NAME = { B: "Basement", M: "Main", U: "Upper" } as const;
+type Photo = { url: string; name: string };
+type Raw = Record<string, unknown>;
 
-const blankRoom = (): FloorRoom => ({ name: null, level: null, sqft: null, linearFt: null, now: null, remove: false, floors: [] });
+/** The sheet as the paper edits it: every room row present (blank ones too), boxes as typed. Cleaned when used. */
+function toRaw(s: FloorSheet): Raw {
+  const rooms = [...s.rooms, ...Array.from({ length: Math.max(0, MAX_ROOMS - s.rooms.length) }, () => ({ name: null, level: null, sqft: null, linearFt: null, now: null, remove: false, floors: [] }))];
+  return structuredClone({ ...s, rooms }) as unknown as Raw;
+}
+function getAt(o: Raw, path: string): unknown {
+  return path.split(".").reduce<unknown>((x, k) => (x && typeof x === "object" ? (x as Raw)[k] : undefined), o);
+}
+function setAt(o: Raw, path: string, value: unknown): Raw {
+  const keys = path.split(".");
+  const out = structuredClone(o);
+  let x: Raw = out;
+  for (const k of keys.slice(0, -1)) x = x[k] as Raw;
+  x[keys[keys.length - 1]] = value;
+  return out;
+}
+const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : null);
 
 export function FloorSheetPanel({
   quoteRecordId,
   raw,
-  photos,
+  photos: photos0,
   roomsRaw,
   initial,
   base,
   versionId,
-  onSaved,
+  camLinked,
 }: {
   quoteRecordId: string;
   raw: string;
-  /** Tells the tab what is saved now, so its next read from CompanyCam compares against it. */
-  onSaved?: (saved: string) => void;
-  photos: { url: string; name: string }[];
+  photos: Photo[];
   roomsRaw: string;
   initial: EditorQuote;
   base: string;
   versionId: string;
+  camLinked: boolean;
 }) {
   const [seen, setSeen] = useState(raw);
   const stored = useMemo(() => parseFloorStored(seen), [seen]);
-  const [sheet, setSheet] = useState<FloorSheet>(() => stored?.sheet ?? cleanFloorSheet({}));
+  const [sheet, setSheet] = useState<Raw>(() => toRaw(stored?.sheet ?? cleanFloorSheet({})));
+  const [photos, setPhotos] = useState<Photo[]>(photos0);
   const [roomsSeen, setRoomsSeen] = useState(roomsRaw);
   const [message, setMessage] = useState<{ text: string; bad: boolean } | null>(null);
   const [busy, start] = useTransition();
@@ -77,29 +72,41 @@ export function FloorSheetPanel({
   // Only the server can look a SKU up, so the preview takes every SKU as found; Build gives the real answer.
   const preview = useMemo(() => floorPlan(clean, previewChoices(), new Map(sheetSkus(clean).map((k) => [k, "preview"]))), [clean]);
   const dirty = JSON.stringify(clean) !== JSON.stringify(stored?.sheet ?? cleanFloorSheet({}));
-  const unclear = new Set(sheet.unclear);
+  const unclear = new Set(clean.unclear);
   const roomsNow = parseRooms(roomsSeen).rooms.length;
-  const totalSqft = Math.round(clean.rooms.reduce((s, r) => s + (r.sqft ?? 0), 0) * 100) / 100;
-  const totalFt = Math.round(clean.rooms.reduce((s, r) => s + (r.linearFt ?? 0), 0) * 100) / 100;
 
-  if (!stored) return null;
+  const drawn = (saved: string, ph: Photo[] | undefined) => {
+    setSeen(saved);
+    setSheet(toRaw(parseFloorStored(saved)?.sheet ?? cleanFloorSheet({})));
+    if (ph) setPhotos(ph);
+    setMessage({ text: "Drawn. Check every box against the photo (Open image), then Save check.", bad: false });
+  };
 
-  const setRoom = (i: number, patch: Partial<FloorRoom>) => setSheet((s) => ({ ...s, rooms: s.rooms.map((r, j) => (j === i ? { ...r, ...patch } : r)) }));
-  const setWant = (i: 0 | 1, patch: Partial<FloorWant>) => setSheet((s) => ({ ...s, want: s.want.map((w, j) => (j === i ? { ...w, ...patch } : w)) as [FloorWant, FloorWant] }));
-  const u = (code: string) => (unclear.has(code) ? " fs-unclear" : "");
+  const draw = camLinked ? <CamDraw quoteRecordId={quoteRecordId} seen={seen} kind="flooring" max={2} label={stored ? "Draw again" : "Draw from CompanyCam image"} onRead={(r) => drawn(r.saved, r.photos)} /> : null;
+
+  if (!stored) {
+    return (
+      <section className="card fs" aria-label="Flooring sheet">
+        <div className="card-h">Flooring sheet</div>
+        <div className="card-b fs-source">
+          {draw ?? <span className="faint">Link a CompanyCam project to this quote to draw the flooring sheet from its photo.</span>}
+          {message && <p className={message.bad ? "ss-msg bad" : "ss-msg ok"} role="status">{message.text}</p>}
+        </div>
+      </section>
+    );
+  }
 
   function save(checked = true, then?: () => void) {
     setMessage(null);
     start(async () => {
       const r = await saveFloorSheetAction(quoteRecordId, seen, { ...clean, unclear: checked ? [] : clean.unclear }, checked);
-      if (!r.ok) {
+      if (r.ok) {
+        setSeen(r.saved);
+        setSheet(toRaw(parseFloorStored(r.saved)?.sheet ?? clean));
+        if (!then) setMessage({ text: "Checked and saved.", bad: false });
+      } else {
         setMessage({ text: r.message, bad: true });
         if (!then) return;
-      } else {
-        setSeen(r.saved);
-        onSaved?.(r.saved);
-        setSheet(parseFloorStored(r.saved)?.sheet ?? clean);
-        if (!then) setMessage({ text: "Checked and saved.", bad: false });
       }
       then?.();
     });
@@ -146,197 +153,61 @@ export function FloorSheetPanel({
     else go();
   }
 
-  const want = (i: 0 | 1) => {
-    const w = sheet.want[i];
-    const code = (c: string) => u(c);
-    return (
-      <fieldset className="fs-want" key={i}>
-        <legend>Floor {i + 1}</legend>
-        <label className={`fs-f${code("W1")}`}>
-          <span>W1 New floor</span>
-          <select value={w.floor ?? ""} onChange={(e) => setWant(i, { floor: (e.target.value || null) as FloorWant["floor"] })}>
-            <option value="">{i === 0 ? "Not ticked" : "Not used"}</option>
-            {FLOORS.map((f) => <option key={f} value={f}>{FLOOR_NAME[f]}</option>)}
-          </select>
-        </label>
-        {w.floor && NAILED.includes(w.floor) && (
-          <label className="fs-f">
-            <span>Nailed wood</span>
-            <select value={w.nail ?? ""} onChange={(e) => setWant(i, { nail: (e.target.value || null) as FloorWant["nail"] })}>
-              <option value="">Not ticked (nail down)</option>
-              <option value="nail">Nail down</option>
-              <option value="nailGlue">Nail + glue</option>
-            </select>
-          </label>
-        )}
-        {w.floor && !NO_MATERIAL.includes(w.floor) && (
-          <>
-            <label className={`fs-f${code("W2")}`}>
-              <span>W2 Material</span>
-              <select value={w.material === "customer" ? "customer" : w.sku !== null ? "sku" : "standard"} onChange={(e) => setWant(i, e.target.value === "customer" ? { material: "customer", sku: null } : e.target.value === "sku" ? { material: null, sku: w.sku ?? "" } : { material: "standard", sku: null })}>
-                <option value="standard">Standard</option>
-                <option value="customer">Customer supplies</option>
-                <option value="sku">A SKU</option>
-              </select>
-            </label>
-            {w.material !== "customer" && w.sku !== null && (
-              <label className="fs-f">
-                <span>SKU</span>
-                <input value={w.sku} onChange={(e) => setWant(i, { sku: e.target.value })} placeholder="As written on the sheet" />
-              </label>
-            )}
-          </>
-        )}
-        {i === 1 && sheet.want[1].floor && (
-          <button type="button" className="linkbtn" onClick={() => setWant(1, emptyWant())}>Clear Floor 2</button>
-        )}
-      </fieldset>
-    );
-  };
+  const taken = when(stored.cam[0]?.at ?? null);
 
   return (
     <section className="card fs" aria-label="Flooring sheet">
       <div className="card-h">
         Flooring sheet
-        <span className="right faint">{stored.checked ? "checked" : "read, not checked yet"} · {stored.by} · {new Date(stored.at).toLocaleString("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
+        <span className="right faint">{stored.checked ? "checked" : "read, not checked yet"} · {stored.by} · {when(stored.at)}</span>
       </div>
-      <div className="card-b fs-cols">
-        <div className="fs-shots">
-          {photos.length === 0 && <p className="faint">No flooring sheet photo on the quote.</p>}
-          {photos.map((p) => (
-            <a key={p.url} href={p.url} target="_blank" rel="noreferrer" title="Open full size">
-              {/* eslint-disable-next-line @next/next/no-img-element -- an Airtable attachment, its address expires */}
-              <img src={p.url} alt={p.name} />
+      <div className="card-b fs-body">
+        <div className="fs-source">
+          <span>
+            Drawn from {stored.cam.length ? "CompanyCam image" : "a photo"}
+            {taken && <span className="faint"> · taken {taken}</span>}
+          </span>
+          {photos.map((p, i) => (
+            <a key={p.url} href={p.url} target="_blank" rel="noreferrer">
+              Open image{photos.length > 1 ? ` ${i + 1}` : ""} ↗
             </a>
           ))}
+          {stored.cam.filter((c) => c.pageUrl).map((c, i, all) => (
+            <a key={c.id} href={c.pageUrl!} target="_blank" rel="noreferrer">
+              Open in CompanyCam{all.length > 1 ? ` ${i + 1}` : ""} ↗
+            </a>
+          ))}
+          {draw}
+          {clean.unclear.length > 0 && <b className="fs-unclear-note">{clean.unclear.length} marked in yellow to check</b>}
         </div>
 
-        <div className="fs-form">
-          <p className="faint">
-            Check each box against the photo.{sheet.unclear.length > 0 && <b className="fs-unclear-note"> {sheet.unclear.length} marked in yellow to check.</b>}
-          </p>
-          <label className={`fs-f fs-inline${u("R0")}`}>
-            <span>R0 Measured with</span>
-            <select value={sheet.measuredWith ?? ""} onChange={(e) => setSheet((s) => ({ ...s, measuredWith: (e.target.value || null) as FloorSheet["measuredWith"] }))}>
-              <option value="">Not ticked</option>
-              {MEASURED_WITH.map((m) => <option key={m}>{m}</option>)}
-            </select>
-          </label>
+        <FloorSheetPaper get={(path) => getAt(sheet, path)} edit={(path, v) => setSheet((s) => setAt(s, path, v))} unclear={unclear} />
 
-          <div className="fs-tablewrap">
-            <table className="fs-rooms">
-              <thead>
-                <tr><th></th><th>Room</th><th>Level</th><th>Sq ft</th><th>Linear ft</th><th>Floor there now</th><th>Remove</th><th>New floor</th><th></th></tr>
-              </thead>
-              <tbody>
-                {sheet.rooms.map((r, i) => (
-                  <tr key={i} className={u(`R${i + 1}`).trim()}>
-                    <td className="fs-code">R{i + 1}</td>
-                    <td><input aria-label={`R${i + 1} room`} value={r.name ?? ""} onChange={(e) => setRoom(i, { name: e.target.value || null })} /></td>
-                    <td>
-                      <select aria-label={`R${i + 1} level`} value={r.level ?? ""} onChange={(e) => setRoom(i, { level: (e.target.value || null) as FloorRoom["level"] })}>
-                        <option value="">–</option>
-                        {LEVEL_CODES.map((l) => <option key={l} value={l}>{LEVEL_NAME[l]}</option>)}
-                      </select>
-                    </td>
-                    <td><input aria-label={`R${i + 1} sq ft`} inputMode="decimal" className="fs-num" defaultValue={r.sqft ?? ""} key={`s${i}-${r.sqft}`} onBlur={(e) => setRoom(i, { sqft: measure(e.target.value) })} /></td>
-                    <td><input aria-label={`R${i + 1} linear ft`} inputMode="decimal" className="fs-num" defaultValue={r.linearFt ?? ""} key={`l${i}-${r.linearFt}`} onBlur={(e) => setRoom(i, { linearFt: measure(e.target.value) })} /></td>
-                    <td className="fs-now">
-                      <select aria-label={`R${i + 1} floor there now`} value={r.now ?? ""} onChange={(e) => setRoom(i, { now: (e.target.value || null) as FloorRoom["now"] })}>
-                        <option value="">–</option>
-                        {NOW.map((n) => <option key={n} value={n}>{NOW_NAME[n]}</option>)}
-                      </select>
-                    </td>
-                    <td className="fs-c"><input type="checkbox" aria-label={`R${i + 1} remove`} checked={r.remove} onChange={(e) => setRoom(i, { remove: e.target.checked })} /></td>
-                    <td className="fs-c fs-nf">
-                      {([1, 2] as const).map((f) => (
-                        <label key={f}>
-                          <input type="checkbox" checked={r.floors.includes(f)} onChange={(e) => setRoom(i, { floors: (e.target.checked ? [...r.floors, f] : r.floors.filter((x) => x !== f)).sort() as FloorRoom["floors"] })} />
-                          {f}
-                        </label>
-                      ))}
-                    </td>
-                    <td><button type="button" className="linkbtn" aria-label={`Remove row R${i + 1}`} onClick={() => setSheet((s) => ({ ...s, rooms: s.rooms.filter((_, j) => j !== i) }))}>×</button></td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr>
-                  <td></td>
-                  <td>{sheet.rooms.length < MAX_ROOMS && <button type="button" className="linkbtn" onClick={() => setSheet((s) => ({ ...s, rooms: [...s.rooms, blankRoom()] }))}>+ Add room</button>}</td>
-                  <td className="faint">Total</td>
-                  <td><b>{totalSqft}</b></td>
-                  <td><b>{totalFt}</b></td>
-                  <td colSpan={4} className="faint">New floor blank = every floor written below</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-
-          <div className="fs-wants">{want(0)}{want(1)}</div>
-
-          <div className="fs-shared">
-            <label className={`fs-f${u("W3")}`}>
-              <span>W3 Baseboards</span>
-              <span className="fs-pair">
-                <select value={sheet.baseboards.how ?? ""} onChange={(e) => setSheet((s) => ({ ...s, baseboards: { ...s.baseboards, how: (e.target.value || null) as FloorSheet["baseboards"]["how"] } }))}>
-                  <option value="">Not ticked</option>
-                  {BASE_HOW.map((b) => <option key={b} value={b}>{BASE_HOW_NAME[b]}</option>)}
-                </select>
-                <select aria-label="Baseboard piece" value={sheet.baseboards.piece ?? ""} onChange={(e) => setSheet((s) => ({ ...s, baseboards: { ...s.baseboards, piece: (e.target.value || null) as FloorSheet["baseboards"]["piece"] } }))}>
-                  <option value="">Piece not ticked</option>
-                  {BASE_PIECE.map((b) => <option key={b} value={b}>{BASE_PIECE_NAME[b]}</option>)}
-                </select>
-              </span>
-            </label>
-            <label className={`fs-f${u("W4")}`}>
-              <span>W4 Subfloor</span>
-              <span className="fs-pair">
-                <label className="fs-tick"><input type="checkbox" checked={sheet.subfloor.screw} onChange={(e) => setSheet((s) => ({ ...s, subfloor: { ...s.subfloor, screw: e.target.checked } }))} /> Screw-down</label>
-                <select aria-label="New subfloor" value={sheet.subfloor.sheet ?? ""} onChange={(e) => setSheet((s) => ({ ...s, subfloor: { ...s.subfloor, sheet: (e.target.value || null) as FloorSheet["subfloor"]["sheet"] } }))}>
-                  <option value="">No new subfloor</option>
-                  {SUBFLOOR_SHEETS.map((x) => <option key={x} value={x}>{SUBFLOOR_NAME[x]}</option>)}
-                </select>
-                <input aria-label="Subfloor sq ft" inputMode="decimal" className="fs-num" placeholder="all rooms" defaultValue={sheet.subfloor.sqft ?? ""} key={`sub-${sheet.subfloor.sqft}`} onBlur={(e) => setSheet((s) => ({ ...s, subfloor: { ...s.subfloor, sqft: measure(e.target.value) } }))} />
-              </span>
-            </label>
-            <label className={`fs-f${u("W5")}`}>
-              <span>W5 Disposal</span>
-              <select value={sheet.disposal ?? ""} onChange={(e) => setSheet((s) => ({ ...s, disposal: (e.target.value || null) as FloorSheet["disposal"] }))}>
-                <option value="">Blank: the customer disposes</option>
-                {DISPOSALS.map((d) => <option key={d} value={d}>{DISPOSAL_NAME[d]}</option>)}
-              </select>
-            </label>
-            <label className={`fs-f fs-notes${u("N2")}`}>
-              <span>N2 Notes</span>
-              <textarea rows={2} value={sheet.notes ?? ""} onChange={(e) => setSheet((s) => ({ ...s, notes: e.target.value || null }))} />
-            </label>
-          </div>
-
-          <div className="fs-result">
-            <h4>What it builds</h4>
-            {preview.works.length === 0 ? (
-              <p className="faint">Nothing yet: tick a new floor (W1) and give the rooms their square feet.</p>
-            ) : (
-              <ol>
-                {preview.works.map((w, i) => (
-                  <li key={i}>{w.description || "Removal, prep and baseboards only"} <span className="faint">· {w.rows.length} row{w.rows.length === 1 ? "" : "s"}</span></li>
-                ))}
-              </ol>
-            )}
-            {preview.notes.length > 0 && <ul className="ss-flags">{preview.notes.map((n) => <li key={n}>{n}</li>)}</ul>}
-          </div>
-
-          {message && <p className={message.bad ? "ss-msg bad" : "ss-msg ok"} role="status">{message.text}</p>}
-          <div className="ss-acts">
-            <button type="button" className="btn" disabled={busy || (!dirty && stored.checked)} onClick={() => save(true)}>{busy ? "Working…" : "Save check"}</button>
-            <button type="button" className="btn" disabled={busy || clean.rooms.length === 0} onClick={copyRooms} title={roomsNow ? `Replaces the ${roomsNow} room${roomsNow === 1 ? "" : "s"} on the Rooms tab` : undefined}>
-              {roomsNow ? `Replace the Rooms tab (${roomsNow}) with these rooms` : "Copy rooms to the Rooms tab"}
-            </button>
-            <button type="button" className="btn primary" disabled={busy || preview.works.length === 0} onClick={build}>Build flooring options →</button>
-          </div>
-          <p className="faint">Build prices the sheet the way a preliminary is priced (the quick form&apos;s choices and standard products) and adds the options to this quote in the editor, at Standard. Review them there and save.</p>
+        <div className="fs-result">
+          <h4>What it builds</h4>
+          {preview.works.length === 0 ? (
+            <p className="faint">Nothing yet: tick a new floor (W1) and give the rooms their square feet.</p>
+          ) : (
+            <ol>
+              {preview.works.map((w, i) => (
+                <li key={i}>
+                  {w.description || "Removal, prep and baseboards only"} <span className="faint">· {w.rows.length} row{w.rows.length === 1 ? "" : "s"}</span>
+                </li>
+              ))}
+            </ol>
+          )}
+          {preview.notes.length > 0 && <ul className="ss-flags">{preview.notes.map((n) => <li key={n}>{n}</li>)}</ul>}
         </div>
+
+        {message && <p className={message.bad ? "ss-msg bad" : "ss-msg ok"} role="status">{message.text}</p>}
+        <div className="ss-acts">
+          <button type="button" className="btn" disabled={busy || (!dirty && stored.checked)} onClick={() => save(true)}>{busy ? "Working…" : "Save check"}</button>
+          <button type="button" className="btn" disabled={busy || clean.rooms.length === 0} onClick={copyRooms} title={roomsNow ? `Replaces the ${roomsNow} room${roomsNow === 1 ? "" : "s"} on the Rooms tab` : undefined}>
+            {roomsNow ? `Replace the Rooms tab (${roomsNow}) with these rooms` : "Copy rooms to the Rooms tab"}
+          </button>
+          <button type="button" className="btn primary" disabled={busy || preview.works.length === 0} onClick={build}>Build flooring options →</button>
+        </div>
+        <p className="faint">Build prices the sheet the way a preliminary is priced (the quick form&apos;s choices and standard products) and adds the options to this quote in the editor, at Standard. Review them there and save.</p>
       </div>
     </section>
   );
