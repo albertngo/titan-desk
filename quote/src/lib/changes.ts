@@ -22,6 +22,16 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-03",
+    kind: "fixed",
+    title: "Site sheets: the photo beside the sheet, Draw again and Start over",
+    details: [
+      "Draw from CompanyCam image on the Flooring sheet checks CompanyCam again every time it opens, so it no longer opens empty, and says so when the job has no photos.",
+      "After a sheet is drawn, each page shows the photo it was read from beside it (the flooring sheet's at the top). If the copy didn't attach to the quote, CompanyCam's own photo is shown instead of a blank space.",
+      "Once a sheet is read, Draw again from CompanyCam image opens with the same photos ticked, and Start over clears what was read so you can draw or read it fresh. The photos stay on the quote.",
+    ],
+  },
+  {
+    date: "2026-11-03",
     kind: "changed",
     title: "Pick the pipeline and stage for a new opportunity",
     details: [

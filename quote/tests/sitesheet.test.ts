@@ -6,6 +6,7 @@ import { derive } from "../src/lib/sitesheet/derive";
 import { buildOptions, ITEM_NAMES } from "../src/lib/sitesheet/options";
 import { looksHeic } from "../src/lib/sitesheet/photo";
 import { cleanSheet, parseStored, serializeStored, sumParts, type SiteSheet } from "../src/lib/sitesheet/sheet";
+import { attachName, camStillNeeded, cleanFiles, previewsFor } from "../src/lib/sitesheet/source";
 
 /* Invented items, prices and sheets only (quote/CLAUDE.md rule 4). */
 
@@ -98,8 +99,12 @@ describe("cleaning what was read", () => {
   });
 
   it("round-trips through the stored field, and refuses text it didn't write", () => {
-    const stored = { sheet: curved(), by: "pm@example.com", at: "2026-10-28T12:00:00.000Z", checked: true };
+    const stored = { sheet: curved(), by: "pm@example.com", at: "2026-10-28T12:00:00.000Z", checked: true, cam: [{ id: "77", pageUrl: "https://app.companycam.com/photos/77", at: null }], files: ["site-sheet-2026-11-03-19-40-12-1.jpg"] };
     expect(parseStored(serializeStored(stored))).toEqual(stored);
+    // A sheet stored before 2026-11-03 has neither.
+    const old = parseStored(JSON.stringify({ v: 1, sheet: curved(), by: "pm@example.com", at: "2026-10-28T12:00:00.000Z", checked: false }))!;
+    expect(old.cam).toEqual([]);
+    expect(old.files).toEqual([]);
     expect(parseStored("hello")).toBeNull();
     expect(parseStored("")).toBeNull();
   });
@@ -440,5 +445,43 @@ describe("linking the site sheet to Stair Items (2026-10-31)", () => {
     const names = wood.lines.map((l) => l.description);
     expect(names).toContain("New Stain Wood Spindles (w/material) (renamed again)");
     expect(names.some((x) => x.includes("Iron"))).toBe(false);
+  });
+});
+
+describe("the photo each page is checked against (2026-11-03)", () => {
+  const cam = [{ id: "11", pageUrl: "https://app.companycam.com/photos/11", at: null }, { id: "12", pageUrl: null, at: null }];
+  const old = { url: "https://dl.airtable.test/old", name: "site-sheet-2026-10-30-10-00-00-1.jpg" };
+  const p1 = { url: "https://dl.airtable.test/p1", name: "site-sheet-2026-11-03-19-40-12-1.jpg" };
+
+  it("shows this read's copy on the quote, never an older read's", () => {
+    const stored = { cam: [], files: [p1.name, "site-sheet-2026-11-03-19-40-12-2.jpg"] };
+    const v = previewsFor(stored, [old, p1], new Map());
+    expect(v[0]).toMatchObject({ page: 1, url: p1.url, from: "quote" });
+    // Page 2 didn't attach and wasn't from CompanyCam: no preview, rather than the old read's photo.
+    expect(v[1]).toBeNull();
+  });
+
+  it("falls back to the CompanyCam photo when the copy didn't attach", () => {
+    const stored = { cam, files: [p1.name, "site-sheet-2026-11-03-19-40-12-2.jpg"] };
+    expect(camStillNeeded(stored, [old, p1])).toEqual(["12"]);
+    const v = previewsFor(stored, [old, p1], new Map([["12", "https://img.companycam.test/12.jpg"]]));
+    expect(v[0]?.from).toBe("quote");
+    // No CompanyCam page kept: the image itself opens.
+    expect(v[1]).toMatchObject({ page: 2, url: "https://img.companycam.test/12.jpg", href: "https://img.companycam.test/12.jpg", from: "companycam" });
+    const w = previewsFor({ cam, files: [] }, [], new Map([["11", "https://img.companycam.test/11.jpg"]]));
+    expect(w[0]?.href).toBe("https://app.companycam.com/photos/11");
+    expect(w[1]).toBeNull();
+  });
+
+  it("keeps the old behaviour for a sheet read before either was kept", () => {
+    expect(previewsFor({ cam: [], files: [] }, [old, p1], new Map()).map((p) => p?.url)).toEqual([old.url, p1.url]);
+    expect(previewsFor(null, [old], new Map())).toEqual([]);
+  });
+
+  it("names each attached page uniquely, and keeps only names it makes", () => {
+    const at = new Date("2026-11-03T19:40:12.345Z");
+    expect(attachName("site-sheet", at, 0, "image/jpeg")).toBe("site-sheet-2026-11-03-19-40-12-1.jpg");
+    expect(attachName("flooring-sheet", at, 1, "image/webp")).toBe("flooring-sheet-2026-11-03-19-40-12-2.webp");
+    expect(cleanFiles(["ok-1.jpg", "../x", 5, "Bad Name.jpg"])).toEqual(["ok-1.jpg"]);
   });
 });

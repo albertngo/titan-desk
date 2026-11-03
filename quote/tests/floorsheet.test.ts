@@ -40,8 +40,9 @@ describe("cleaning a flooring sheet", () => {
 
   it("stores and reads back with the CompanyCam photos it came from", () => {
     const cam = [{ id: "1001", pageUrl: "https://app.companycam.com/photos/1001", at: "2026-11-03T14:05:00.000Z" }, { id: "1002", pageUrl: "https://evil.example.com/photos/1002", at: null }];
-    const raw = serializeFloorStored({ sheet: sheet(), by: "pm@example.com", at: "2026-11-03T15:00:00.000Z", checked: false, cam });
+    const raw = serializeFloorStored({ sheet: sheet(), by: "pm@example.com", at: "2026-11-03T15:00:00.000Z", checked: false, cam, files: ["flooring-sheet-2026-11-03-15-00-00-1.jpg"] });
     const back = parseFloorStored(raw)!;
+    expect(back.files).toEqual(["flooring-sheet-2026-11-03-15-00-00-1.jpg"]);
     expect(back.sheet).toEqual(sheet());
     // Only a CompanyCam photo page is kept as a link.
     expect(back.cam).toEqual([cam[0], { id: "1002", pageUrl: null, at: null }]);

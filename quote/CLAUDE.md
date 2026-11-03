@@ -524,7 +524,16 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   sheet the link sits on. `/api/sitesheet` takes a JSON body `{quoteRecordId, seen, photoIds,
   kind}`; `readFromCompanyCam()` checks each id is a photo on that project (`sheetImages()` in `src/lib/quotes/companycam.ts`) and
   downloads the **plain** copy (no markup, `CamPhoto.plain`): the original when it is under 3.7 MB, else the web size. No image
-  passes through the browser. A stair read then goes exactly as an upload does. Uploading from the device stays. **The Flooring Site
+  passes through the browser. A stair read then goes exactly as an upload does. Uploading from the device stays. **What a page
+  is checked against, Draw again, Start over (Albert, same day: "a preview of the uploaded photo that it's comparing against";
+  "if it's already been drawn, then there should be an option to do it again").** A read keeps, on both sheets' JSON, the
+  CompanyCam photos it came from (`cam`) and the names of the copies it attached (`files`, `attachName()`, unique to the
+  second); `previewsFor()` in `src/lib/sitesheet/source.ts` (tested in `tests/sitesheet.test.ts`) gives each page this read's
+  copy, else the CompanyCam photo (asked of CompanyCam once by `useSheetPreviews()`, never stored), else nothing, and a page
+  with nothing takes no column. The stair sheet shows it beside each page; the flooring sheet at the top. A sheet read
+  before keeps showing the quote's photos as it did. A failed attach is logged with Airtable's answer. The picker reads
+  CompanyCam again every time it opens (it once opened empty on a held answer) and ticks the last draw's photos again.
+  **Start over** clears the sheet's field (`clearSheet()`, compare-and-swap, after a confirm); the photos stay. **The Flooring Site
   Sheet** (`quote/sheets/flooring-site-sheet-v1.pdf`; vault `05_decisions/2026-11-03-measured-quote-from-site-sheets`) is read by
   Claude with `src/lib/floorsheet/prompt.ts` into `cleanFloorSheet()` (`src/lib/floorsheet/sheet.ts`), kept on **Quotes → Flooring
   Sheet** (JSON, app-written, compare-and-swap, with the CompanyCam photo ids) and its photos on **Quotes → Flooring Sheet Photos**

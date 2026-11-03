@@ -6,6 +6,8 @@
  * or false. Tested in tests/floorsheet.test.ts.
  */
 
+import { cleanCam, cleanFiles, type CamSource } from "../sitesheet/source";
+
 export const MAX_ROOMS = 12;
 export const LEVEL_CODES = ["B", "M", "U"] as const;
 export type LevelCode = (typeof LEVEL_CODES)[number];
@@ -155,9 +157,9 @@ export function cleanFloorSheet(v: unknown): FloorSheet {
 }
 
 /** A CompanyCam photo a sheet was drawn from: its id, its page in CompanyCam, and when it was taken. */
-export type CamSource = { id: string; pageUrl: string | null; at: string | null };
+export type { CamSource };
 /** What is kept on the quote (Quotes → Flooring Sheet): the sheet, who read or checked it and when, and the CompanyCam photos it came from. */
-export type StoredFloorSheet = { sheet: FloorSheet; by: string; at: string; checked: boolean; cam: CamSource[] };
+export type StoredFloorSheet = { sheet: FloorSheet; by: string; at: string; checked: boolean; cam: CamSource[]; files: string[] };
 
 export const floorSheetRaw = (v: unknown): string => (typeof v === "string" ? v : "");
 
@@ -166,23 +168,13 @@ export function parseFloorStored(raw: string): StoredFloorSheet | null {
   try {
     const o = obj(JSON.parse(raw));
     if (o.v !== 1) return null;
-    return { sheet: cleanFloorSheet(o.sheet), by: text(o.by, 120) ?? "", at: text(o.at, 40) ?? "", checked: o.checked === true, cam: cleanCam(o.cam) };
+    return { sheet: cleanFloorSheet(o.sheet), by: text(o.by, 120) ?? "", at: text(o.at, 40) ?? "", checked: o.checked === true, cam: cleanCam(o.cam), files: cleanFiles(o.files) };
   } catch {
     return null;
   }
 }
 
 export function serializeFloorStored(s: StoredFloorSheet): string {
-  return JSON.stringify({ v: 1, sheet: cleanFloorSheet(s.sheet), by: s.by, at: s.at, checked: s.checked, cam: cleanCam(s.cam) });
+  return JSON.stringify({ v: 1, sheet: cleanFloorSheet(s.sheet), by: s.by, at: s.at, checked: s.checked, cam: cleanCam(s.cam), files: cleanFiles(s.files) });
 }
 
-/** Only a CompanyCam photo page is kept as a link (https://app.companycam.com/photos/<id>). */
-export function cleanCam(v: unknown): CamSource[] {
-  return (Array.isArray(v) ? v : []).slice(0, 4).flatMap((x) => {
-    const o = obj(x);
-    const id = typeof o.id === "string" && /^\d{1,15}$/.test(o.id) ? o.id : null;
-    if (!id) return [];
-    const page = typeof o.pageUrl === "string" && /^https:\/\/app\.companycam\.com\/photos\/\d{1,15}(?:[/?#]|$)/.test(o.pageUrl) ? o.pageUrl : null;
-    return [{ id, pageUrl: page, at: text(o.at, 40) }];
-  });
-}
