@@ -224,9 +224,14 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
                             </label>
                           ),
                         )}
-                        <label className="nq-opp">
+                        {opportunities.length > 0 && (
+                          <div className="opp-or" aria-hidden="true">
+                            <span>or</span>
+                          </div>
+                        )}
+                        <label className="nq-opp new">
                           <input type="radio" name="nq-opp" checked={(choice as { opportunityId: string | null }).opportunityId === null} onChange={() => choose({ contactId: contact.id, opportunityId: null })} />
-                          <span className="nm">New opportunity for this customer</span>
+                          <span className="nm">+ New opportunity for this customer</span>
                           <span className="mt">Different work from anything listed above</span>
                         </label>
                       </fieldset>

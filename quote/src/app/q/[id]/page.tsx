@@ -242,6 +242,8 @@ export default async function QuotePage({
             </div>
           )}
         </div>
+        {/* On a phone the Conversation button sits here instead of on the screen's edge (2026-11-03). */}
+        <div id="conv-slot" className="conv-slot" />
 
         <div className={`layout ed-layout${option && totals ? "" : " full"}`}>
           <div className="stack">
@@ -330,6 +332,10 @@ export default async function QuotePage({
                   base={base}
                   card={sheetCard}
                   enabled={sheetOn}
+                  camLinked={Boolean(camUrl)}
+                  floorRaw={quote.link.floorSheet ?? ""}
+                  floorPhotos={quote.link.floorSheetPhotos ?? []}
+                  roomsRaw={quote.link.rooms ?? ""}
                 />
               ) : (
                 <section className="card">

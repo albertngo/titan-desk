@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { conversationAction } from "@/app/actions/conversation";
 import { callLength, emailPeek, photos, summarize, type Attachment, type Message, type ThreadSummary } from "@/lib/conversation/thread";
 import { ghlContactUrl } from "@/lib/ghl/ids";
@@ -39,6 +40,13 @@ const serverOpen = () => false;
 /** The inline card (New quote) and the side drawer (quote page, editor) each remember their own state. */
 const CARD = openStore("quote_conv_open");
 const DRAWER = openStore("quote_conv_drawer");
+
+/* The page's place for the Conversation button on a phone (2026-11-03): the editor and the quote page
+   render an empty #conv-slot under their header; below 760px the button goes there and the tab on the
+   screen's edge is hidden (globals.css), so nothing floats over the quote. A page with no slot keeps the tab. */
+const noSubscribe = () => () => {};
+const findSlot = () => document.getElementById("conv-slot");
+const noSlot = () => null;
 
 /* ---------- loading ---------- */
 
@@ -126,6 +134,7 @@ export function ConversationDrawer({ contactId }: { contactId: string }) {
   const open = clickedOpen ?? savedOpen;
   const summary = summarize(result?.ok ? result.messages : []);
   const ghlUrl = (result?.ok && result.ghlUrl) || ghlContactUrl(contactId);
+  const slot = useSyncExternalStore(noSubscribe, findSlot, noSlot);
 
   function toggle() {
     const next = !open;
@@ -153,11 +162,27 @@ export function ConversationDrawer({ contactId }: { contactId: string }) {
 
   return (
     <>
-      <button type="button" className={`conv-tab${open ? " on" : ""}`} onClick={toggle} aria-expanded={open} aria-controls="conv-panel">
+      <button type="button" className={`conv-tab${open ? " on" : ""}${slot ? " has-slot" : ""}`} onClick={toggle} aria-expanded={open} aria-controls="conv-panel">
         <span>Conversation</span>
         {summary.total > 0 && <span className="conv-tab-n">{summary.total}</span>}
         {summary.photos > 0 && <span className="conv-tab-n photo">{summary.photos} photo{summary.photos === 1 ? "" : "s"}</span>}
       </button>
+      {slot &&
+        createPortal(
+          <button type="button" className={`conv-slot-btn${open ? " on" : ""}`} onClick={toggle} aria-expanded={open} aria-controls="conv-panel">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden>
+              <path d="M4 5h16v11H9l-5 4z" />
+            </svg>
+            <b>Conversation</b>
+            <span className="conv-slot-n">
+              {[summary.total > 0 ? `${summary.total} message${summary.total === 1 ? "" : "s"}` : null, summary.photos > 0 ? `${summary.photos} photo${summary.photos === 1 ? "" : "s"}` : null].filter(Boolean).join(" · ")}
+            </span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M9 6l6 6-6 6" />
+            </svg>
+          </button>,
+          slot,
+        )}
       {open && (
         <aside id="conv-panel" className="conv-panel" aria-label="Conversation with the customer">
           <div className="card-h conv-h">

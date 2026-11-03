@@ -31,6 +31,81 @@ export const CHANGES: Change[] = [
   },
   {
     date: "2026-11-03",
+    kind: "changed",
+    title: "Both site sheets take photos the same three ways",
+    details: [
+      "The Flooring sheet now has Take a photo and Choose photos, like the Stair sheet, beside Draw from CompanyCam image. Pick or take the photo, then Read the sheet.",
+      "Draw from CompanyCam image is a button on both sheets now, next to the other two.",
+    ],
+  },
+  {
+    date: "2026-11-03",
+    kind: "changed",
+    title: "Analysis on a phone reads as cards",
+    details: [
+      "On a phone the Analysis tab's tables, and the If they accept a price table, show each figure as a card with one line per option, so nothing scrolls sideways. \"Where the options differ\" marks each card differs or same.",
+    ],
+  },
+  {
+    date: "2026-11-03",
+    kind: "changed",
+    title: "On a phone: a menu along the bottom, and lines as cards",
+    details: [
+      "On a phone the top bar is replaced by a bar along the bottom: Quotes, New (preliminary or measured), Customer view, and More for What's new, Report a bug and signing out.",
+      "In the editor and on the quote page each line is now a card: the item on top, contractor, quantity, cost and price two to a row, and the line total at the bottom. No more scrolling sideways.",
+      "All quotes, the Rooms, Site sheet, Photos and Analysis buttons, and every box and button across the app are bigger on a phone, and typing no longer makes the iPhone zoom in. Computers and tablets look the same as before.",
+    ],
+  },
+  {
+    date: "2026-11-03",
+    kind: "new",
+    title: "See which version of the app you're on",
+    details: [
+      "A thin line at the very top of every page says which update is running: its PR number and title, when it was last updated, and the commit, each linking to GitHub.",
+      "If it doesn't match the latest change you expect, the app hasn't picked up the update yet: reload. It is hidden in Customer view.",
+    ],
+  },
+  {
+    date: "2026-11-03",
+    kind: "new",
+    title: "Site sheets straight from CompanyCam, and the flooring sheet read into rooms and options",
+    details: [
+      "The Site sheet tab now starts with the Flooring sheet. On a quote with a CompanyCam project, click Draw from CompanyCam image, pick the photo (photos tagged or described \"Site Sheet\" are ticked for you), and it's read. The stair sheet has the same link beside its upload buttons, so the photos never need uploading twice.",
+      "What was read is drawn as the paper Flooring Site Sheet itself, box for box, with anything Claude wasn't sure of in yellow: tap a bubble or tick to change it, type in a box to fix it, then Save check. Open image (a new tab) and Open in CompanyCam at the top show the photo it came from.",
+      "Copy rooms to the Rooms tab puts the sheet's rooms there (it replaces what's on the Rooms tab). Build flooring options prices the sheet the way a preliminary is priced and adds the options to the editor, where you review and save them. Different floors on different levels are one option; a room ticked for both floors (or left blank with two floors written) gives two options to compare.",
+    ],
+  },
+  {
+    date: "2026-11-03",
+    kind: "changed",
+    title: "New quote on a phone has more room too",
+    details: [
+      "The Job step's quick form matches the editor's: bigger choices two to a row, bigger boxes to type in, and each work section's name above what's in it.",
+      "Option tabs sit two to a row, and the estimate and Create stay at the bottom of the screen with the price set large.",
+      "The customer and timeline steps get bigger buttons and boxes. Computers and tablets look the same as before.",
+    ],
+  },
+  {
+    date: "2026-11-03",
+    kind: "changed",
+    title: "The editor on a phone has more room",
+    details: [
+      "On a phone the header is shorter: Save sits beside the customer's name, and Discard only shows once there are changes to discard.",
+      "The Conversation button now sits under the header instead of on the edge of the screen, so it no longer covers buttons.",
+      "+ From quick form opens full screen, with bigger choices two to a row and the estimate, Cancel and Add this option kept at the bottom.",
+      "Customer and terms shows once, and options sit two to a row. Computers and tablets look the same as before.",
+    ],
+  },
+  {
+    date: "2026-11-03",
+    kind: "changed",
+    title: "New opportunity stands apart from the existing ones",
+    details: [
+      "On Link to Opportunity and on New quote's customer step, \"+ New opportunity\" now sits under an \"or\" line with a dashed blue outline, so it's clear it makes a new opportunity rather than picking one of the customer's.",
+    ],
+  },
+  {
+    date: "2026-11-03",
     kind: "new",
     title: "Make a new opportunity from Link to Opportunity",
     details: [

@@ -41,6 +41,17 @@ h1, h2, h3, p { margin: 0; }
 .linkbtn { font: inherit; font-size: 13px; background: none; border: 0; color: var(--fg-dim); cursor: pointer; padding: 0; }
 .linkbtn:hover { color: var(--accent); }
 .topbar form { margin: 0; }
+/* Build line (2026-11-03): which build is running, a thin strip above the top bar. */
+.buildline { display: flex; align-items: baseline; gap: 6px; padding: 3px clamp(16px, 2.5vw, 32px); background: var(--head); border-bottom: 1px solid var(--line); font-size: 11.5px; line-height: 1.4; color: var(--fg-dim); white-space: nowrap; overflow: hidden; }
+.buildline a { color: var(--fg); font-weight: 600; flex: none; }
+.buildline a:hover { color: var(--accent); }
+.buildline a:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 3px; }
+.buildline .bl-k { color: var(--fg-faint); flex: none; }
+.buildline .bl-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.buildline .bl-when { flex: none; }
+.buildline .bl-when::before, .buildline .bl-title::before { content: "· "; color: var(--fg-faint); }
+.buildline .bl-sha { margin-left: auto; padding-left: 8px; font-family: var(--mono); font-weight: 500; color: var(--fg-dim); }
+@media print { .buildline { display: none; } }
 /* Top bar groups (2026-10-28): view · help · account, a thin line between each. */
 .tb-group { display: flex; align-items: center; gap: 4px; }
 .tb-sep { width: 1px; height: 22px; background: var(--line-strong); margin: 0 4px; flex: none; }
@@ -475,6 +486,13 @@ table.items.edit .desc { font-weight: 500; }
 .lj-opt.taken { cursor: default; background: var(--card-2); border-style: dashed; }
 .lj-opt.taken:hover { border-color: var(--line-strong); }
 .lj-opt.taken .nm, .lj-opt.taken .mt { color: var(--fg-faint); }
+/* "+ New opportunity" set apart from the existing ones (Albert, 2026-11-03): an "or" rule above it, a dashed accent
+   outline and accent label, so it reads as making something rather than one of the list. Filled like the rest once picked. */
+.opp-or { display: flex; align-items: center; gap: 10px; color: var(--fg-faint); font-size: 12px; margin: 2px 0; }
+.opp-or::before, .opp-or::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+.lj-opt.new, .nq-opp.new { border-style: dashed; border-color: var(--accent); background: transparent; }
+.lj-opt.new .nm, .nq-opp.new .nm { color: var(--accent); }
+.lj-opt.new.on, .nq-opp.new:has(input:checked) { border-style: solid; background: var(--accent-soft); }
 .lj-dot { width: 16px; height: 16px; border-radius: 50%; border: 1.5px dashed var(--line-strong); }
 .lj-st { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: var(--fg-dim); white-space: nowrap; }
 .lj-st i { width: 7px; height: 7px; border-radius: 50%; background: var(--fg-faint); }
@@ -843,6 +861,7 @@ a.chip.accent:hover { text-decoration: underline; }
 /* On a wide screen the page makes room beside the open panel instead of being covered. */
 @media (min-width: 1200px) {
   html[data-conv-open="1"] .page { padding-right: calc(440px + clamp(16px, 2.5vw, 32px)); }
+  html[data-conv-open="1"] .buildline { padding-right: calc(440px + clamp(16px, 2.5vw, 32px)); }
   html[data-conv-open="1"] .topbar-in { padding-right: calc(440px + clamp(16px, 2.5vw, 32px)); }
 }
 @media (prefers-reduced-motion: reduce) { .conv-tab { transition: none; } }
@@ -1212,6 +1231,53 @@ a.chip.accent:hover { text-decoration: underline; }
 .ss-drop { font-size: 12.5px; color: var(--fg-dim); margin: 4px 0 8px; }
 .ss-acts { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 6px; }
 
+/* Draw from CompanyCam image (2026-11-03): a link on a sheet that opens the job's photos in place */
+.cam-draw { flex-basis: 100%; border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; display: grid; gap: 8px; background: var(--card-2); }
+.cam-draw-h { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; font-size: 13px; }
+.cam-pick-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; max-height: 420px; overflow-y: auto; }
+.cam-pick-p { position: relative; display: grid; width: 100%; padding: 0; border: 2px solid var(--line); border-radius: var(--radius); background: var(--card); cursor: pointer; overflow: hidden; text-align: left; }
+.cam-pick-p img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; display: block; max-width: 100%; }
+.cam-pick-p.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.cam-pick-p:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.cam-pick-n { position: absolute; top: 6px; left: 6px; background: var(--accent); color: var(--accent-ink); font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 999px; }
+.cam-pick-tag { position: absolute; top: 6px; right: 6px; background: var(--card); color: var(--fg); font-size: 10.5px; font-weight: 600; padding: 2px 6px; border-radius: 999px; border: 1px solid var(--line-strong); }
+.cam-pick-when { font-size: 11px; color: var(--fg-dim); padding: 4px 6px; line-height: 1.3; }
+
+/* The flooring sheet (2026-11-03): the source strip at the top, then the paper copy full width */
+.fs-body { display: grid; gap: 12px; }
+.fs-source { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; font-size: 13px; }
+.fs-source a { font-weight: 600; }
+.fs-result h4 { margin: 0 0 6px; font-size: 11.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--fg-faint); }
+.fs-result ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; font-size: 13px; }
+.fs-unclear-note { color: var(--warn); font-weight: 600; }
+
+/* The flooring paper copy (2026-11-03): the printed Flooring Site Sheet v1 (quote/sheets/flooring-site-sheet-v1.html), box for box, on the stair copy's .ssp styles */
+.ssp .fsp .fsp-who { gap: 10pt; }
+.ssp .fsp .tip { font-size: 7.8pt; color: var(--ink-2); }
+.ssp .fsp table.fsp-rooms th small { display: block; font-weight: 500; color: var(--ink-2); font-size: 7pt; }
+.ssp .fsp table.fsp-rooms th, .ssp .fsp table.fsp-rooms td { height: 18pt; padding: 1pt 3pt; }
+.ssp .fsp table.fsp-rooms td.cd { width: 20pt; }
+.ssp .fsp table.fsp-rooms td.room { text-align: left; width: 124pt; }
+.ssp .fsp table.fsp-rooms td.room .ssp-in { text-align: left; font-size: 10.5pt; }
+.ssp .fsp table.fsp-rooms td.num { width: 44pt; }
+.ssp .fsp table.fsp-rooms td.lv, .ssp .fsp table.fsp-rooms td.fn { white-space: nowrap; font-size: 7.6pt; color: var(--ink-2); }
+.ssp .fsp table.fsp-rooms td.lv .o, .ssp .fsp table.fsp-rooms td.fn .o { gap: 1.5pt; margin: 0 1.5pt; }
+.ssp .fsp table.fsp-rooms td.lv .o::before, .ssp .fsp table.fsp-rooms td.fn .o::before { width: 8pt; height: 8pt; }
+.ssp .fsp table.fsp-rooms td.lv .o.on, .ssp .fsp table.fsp-rooms td.fn .o.on { color: var(--ink); }
+.ssp .fsp table.fsp-rooms td.fsp-rm .o::before { width: 10pt; height: 10pt; }
+.ssp .fsp table.fsp-rooms td.nf { white-space: nowrap; font-weight: 800; font-size: 9pt; background: #f6f6f6; }
+.ssp .fsp table.fsp-rooms td.nf .o { margin: 0 2pt; gap: 2pt; }
+.ssp .fsp table.fsp-rooms th.nf { background: var(--ink); color: var(--paper); }
+.ssp .fsp table.fsp-rooms th.nf small { color: #ccc; }
+.ssp .fsp .fsp-opts { display: grid; grid-template-columns: 1fr 1fr; }
+.ssp .fsp .fsp-opt { padding: 4pt 6pt; display: grid; gap: 4pt; align-content: start; }
+.ssp .fsp .fsp-opt + .fsp-opt { border-left: 1.5px dashed var(--ink-2); }
+.ssp .fsp .fsp-oh { font-weight: 800; font-size: 9.5pt; display: flex; justify-content: space-between; align-items: baseline; }
+.ssp .fsp .fsp-oh small { font-weight: 500; color: var(--ink-2); font-size: 7.6pt; }
+.ssp .fsp .fsp-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 2pt 6pt; border-radius: 2pt; }
+.ssp .fsp .fsp-k2 { font-weight: 700; display: flex; gap: 5pt; align-items: baseline; border-radius: 2pt; }
+.ssp .fsp .fsp-shared { border-top: 1.5px solid var(--rule); }
+
 /* Send again (2026-10-30) */
 .sq-again { margin-top: 10px; display: grid; gap: 8px; justify-items: start; }
 .sq-again.open { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; justify-items: stretch; }
@@ -1411,3 +1477,263 @@ table.cmp th { font-size: 12.5px; font-weight: 500; color: var(--fg-dim); text-t
 .ov-foot .ov-row .k { color: var(--fg-dim); }
 .ov-foot .ov-total { margin-top: 8px; border-radius: 10px; padding: 12px 14px; }
 .ov-foot .ov-accept { margin-top: 12px; padding: 12px 4px 0; border-top: 1px solid var(--line); }
+
+/* ---------- The editor on a phone (Albert, 2026-11-03: "the wording and the outline of the UI are a little too
+   cramped"; picked from the three-screen mockup). Phone widths only: every rule that changes the look sits under
+   max-width 640px (760px for the Conversation button), so a desktop or an iPad looks exactly as before. The few
+   rules outside a media query only hide the phone-only pieces. Built to the UI UX Pro Max mobile checks: 44px
+   touch targets, 8px between them, 16px inputs, nothing fixed over the content, safe areas respected. ---------- */
+.viewsw-eye, .conv-slot, .ed-quick-x, .ed-quick-est { display: none; }
+/* The quick form's buttons moved out of the scrolling body (they pin to the bottom on a phone): same spacing as before. */
+.ed-quick > .card-b { padding-bottom: 14px; }
+.ed-quick-foot { margin-top: 0; padding: 0 16px 16px; }
+
+@media (max-width: 760px) {
+  /* The Conversation button in the page, under the header, instead of the tab on the screen's edge. */
+  .conv-tab.has-slot { display: none; }
+  .conv-slot { display: block; margin: 0 0 16px; }
+  .conv-slot-btn { all: unset; box-sizing: border-box; width: 100%; min-height: 48px; padding: 8px 14px; display: flex; align-items: center; gap: 10px; border: 1px solid var(--line-strong); border-radius: 12px; background: var(--card); color: var(--fg); font-size: 15px; cursor: pointer; }
+  .conv-slot-btn svg { flex: none; color: var(--fg-dim); }
+  .conv-slot-btn .conv-slot-n { margin-right: auto; font-size: 13.5px; color: var(--fg-dim); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .conv-slot-btn:hover, .conv-slot-btn.on { border-color: var(--accent); }
+  .conv-slot-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+}
+
+@media (max-width: 640px) {
+  /* Top bar: the switch keeps an eye instead of its words; every button 44px. */
+  .topbar-in { gap: 2px; padding: 6px 8px 6px 16px; }
+  .tb-sep { display: none; }
+  .viewsw { min-height: 44px; padding: 0 10px; gap: 8px; }
+  .viewsw-lbl { display: none; }
+  .viewsw-eye { display: block; flex: none; }
+  .tb-btn { min-height: 44px; min-width: 44px; justify-content: center; }
+  .acct-btn { min-height: 44px; }
+
+  /* Header: back link, then the name with Save beside it, then the status; Discard only once there are changes. */
+  .ed-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; row-gap: 6px; align-items: end; }
+  .page:not(.is-change) .ed-head { margin-bottom: 14px; padding-top: 10px; padding-bottom: 10px; }
+  .ed-head .titles { grid-column: 1; grid-row: 1; }
+  .ed-head h1 { font-size: 23px; line-height: 1.2; overflow-wrap: anywhere; }
+  .ed-head .crumb { font-size: 13.5px; min-height: 24px; display: inline-flex; align-items: center; }
+  .ed-head .actions { grid-column: 2; grid-row: 1; flex-wrap: nowrap; }
+  .ed-head .actions:has(.saveas) { grid-column: 1 / -1; grid-row: 3; flex-wrap: wrap; justify-content: stretch; }
+  .ed-head .actions:has(.saveas) .saveas { flex: 1 1 100%; }
+  .ed-head .actions:has(.saveas) .saveas .btn { flex: 1 1 auto; justify-content: center; }
+  .ed-head .status { grid-column: 1 / -1; grid-row: 2; justify-self: start; font-size: 12.5px; padding: 3px 10px; }
+  .ed-head .btn { min-height: 44px; padding: 0 18px; font-size: 15px; justify-content: center; }
+  .ed-head .saveas .in { min-height: 44px; font-size: 16px; }
+  .ed-head .ed-discard.idle { display: none; }
+
+  /* Options: tabs two to a row, each scope's label above its row; the two ways to add stacked full width,
+     the quick form first. The "No options" card says the same as the panel, so it goes. */
+  .ed-tabs { padding: 14px; border-radius: 14px; }
+  .ed-opts:empty { display: none; }
+  .ed-opts:empty + .ed-tabs-add { border-top: 0; padding-top: 0; }
+  .tab-grp { flex-direction: column; align-items: stretch; gap: 6px; }
+  .tab-grp .tab-scope, .ed-tabs .tab-grp .tab-scope { width: auto; padding: 0; font-size: 14px; }
+  .tab-grp-t { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .ed-tabs .tab { min-width: 0; min-height: 52px; padding: 8px 12px; border-radius: 12px; }
+  .ed-tabs .tab .t-name { font-size: 14.5px; }
+  .ed-tabs .tab .t-amt { font-size: 13.5px; }
+  .ed-tabs-add { flex-direction: column; gap: 10px; }
+  .ed-tabs-add .tab { min-height: 52px; padding: 10px 14px; border-radius: 12px; font-size: 15px; font-weight: 600; justify-content: flex-start; text-align: left; }
+  .ed-tabs-add .ed-add-quick { order: -1; border: 1.5px solid var(--accent); background: var(--accent-soft); color: var(--fg); }
+  .ed-empty { display: none; }
+
+  /* Customer and terms once, not twice: the folded copy under the option shows only once Edit terms opens it. */
+  details.ed-terms:not([open]) { display: none; }
+  details.ed-terms { scroll-margin-top: 140px; }
+  .ed-cust .card-b { font-size: 15px; gap: 6px; }
+  .ed-cust dl div { padding: 3px 0; }
+  .ed-cust .ed-edit { justify-self: stretch; min-height: 44px; margin-top: 10px; border: 1px solid var(--line-strong); border-radius: 10px; text-align: center; font-size: 15px; color: #1759d6; }
+
+  /* The quick form becomes a full-screen sheet: a close button and title on top, the work scrolling in the
+     middle, the estimate with Cancel and Add this option pinned at the bottom. The page under it holds still. */
+  html:has(.ed-quick), html:has(.ed-quick) body { overflow: hidden; }
+  .ed-quick { position: fixed; inset: 0; z-index: 46; margin: 0; border: 0; border-radius: 0; box-shadow: none; display: flex; flex-direction: column; background: var(--card); }
+  .ed-quick > .card-h { flex: none; min-height: 60px; padding: calc(8px + env(safe-area-inset-top, 0px)) 16px 8px 4px; border-radius: 0; gap: 4px; font-size: 16px; }
+  .ed-quick > .card-h .right { display: none; }
+  .ed-quick-t { font-weight: 650; }
+  .ed-quick-x { display: grid; place-items: center; flex: none; width: 44px; height: 44px; border: 0; border-radius: 10px; background: none; color: var(--fg-dim); cursor: pointer; }
+  .ed-quick-x:hover { background: var(--head); color: var(--fg); }
+  .ed-quick-x:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .ed-quick > .card-b { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 20px 16px 28px; }
+  .ed-quick-foot { flex: none; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 10px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line-strong); background: var(--card); box-shadow: 0 -8px 24px rgba(20, 30, 45, .08); }
+  .ed-quick-est { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 14px; color: var(--fg-dim); }
+  .ed-quick-est b { font-size: 22px; font-weight: 700; color: #1759d6; font-variant-numeric: tabular-nums; letter-spacing: -.01em; white-space: nowrap; }
+  .ed-quick-foot .btn { min-height: 50px; justify-content: center; font-size: 16px; border-radius: 12px; }
+
+  /* The quick form's work, in the editor's sheet and on New quote (2026-11-03, Albert: "do the same for the New
+     quote quick form"): one level of boxes, bigger words and targets. */
+  :is(.ed-quick, .newq) .qw { gap: 28px; }
+  :is(.ed-quick, .newq) .qw-part { gap: 10px; }
+  :is(.ed-quick, .newq) .qw-part-h { font-size: 19px; font-weight: 650; border-bottom: 0; padding-bottom: 2px; }
+  :is(.ed-quick, .newq) .qw-part-h .qw-wg-sum { margin-left: auto; font-size: 14px; }
+  :is(.ed-quick, .newq) .qw-wg { border-radius: 14px; }
+  :is(.ed-quick, .newq) .qw-wg[open] { border-color: var(--accent); box-shadow: inset 0 0 0 .5px var(--accent); }
+  :is(.ed-quick, .newq) .qw-wg > summary { grid-template-columns: minmax(0, 1fr) 16px; column-gap: 12px; row-gap: 1px; min-height: 56px; padding: 10px 14px; border-radius: 14px; }
+  :is(.ed-quick, .newq) .qw-wg[open] > summary { background: #f5f8ff; border-radius: 13px 13px 0 0; }
+  :is(.ed-quick, .newq) .qw-wg > summary .nm { grid-column: 1; font-size: 16px; }
+  :is(.ed-quick, .newq) .qw-wg > summary .qw-wg-sum { grid-column: 1; font-size: 14px; white-space: normal; color: #4f5a67; }
+  :is(.ed-quick, .newq) .qw-wg > summary .qw-wg-sum.faint { color: var(--fg-dim); }
+  :is(.ed-quick, .newq) .qw-wg > summary::after { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+  :is(.ed-quick, .newq) .qw-wg-b { padding: 6px 14px 14px; gap: 14px; }
+  :is(.ed-quick, .newq) .qw-chips { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  :is(.ed-quick, .newq) .qw-chip { min-height: 52px; padding: 8px 12px; border-radius: 10px; font-size: 15px; line-height: 1.25; text-align: left; }
+  :is(.ed-quick, .newq) .qw-chip.on { background: var(--accent-soft); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); color: #0f3f99; }
+  :is(.ed-quick, .newq) .in, :is(.ed-quick, .newq) .qw-row select.in, :is(.ed-quick, .newq) .qw-amt input { min-height: 48px; font-size: 16px; border-radius: 10px; }
+  :is(.ed-quick, .newq) .qw-amt-row { gap: 10px; }
+  :is(.ed-quick, .newq) .qw-amt-row .qw-amt { flex: 1 1 150px; }
+  :is(.ed-quick, .newq) .qw-price .qw-rate { font-size: 13px; }
+  :is(.ed-quick, .newq) .qw-price b { font-size: 16px; }
+  :is(.ed-quick, .newq) .qw-same, :is(.ed-quick, .newq) .qw-add { min-height: 44px; font-size: 15px; font-weight: 600; color: #1759d6; }
+  :is(.ed-quick, .newq) .qw-x { width: 44px; height: 44px; }
+  :is(.ed-quick, .newq) .qw-stair { padding: 14px; border-radius: 14px; }
+  :is(.ed-quick, .newq) .qw-stair-h .nm, :is(.ed-quick, .newq) .qw-field .k, :is(.ed-quick, .newq) .qw-money .k, :is(.ed-quick, .newq) .qw-desc { font-size: 14px; }
+  :is(.ed-quick, .newq) .qw-prod { font-size: 14px; padding: 8px 12px; border-radius: 10px; }
+}
+
+/* New quote on a phone (Albert, 2026-11-03): the same quick form as the editor's sheet (the shared rules above),
+   option tabs two to a row, and the estimate with Create pinned at the bottom laid out like the sheet's footer.
+   Phone widths only; the page is a page, not a sheet, so it scrolls as before. */
+@media (max-width: 640px) {
+  .newq .card { border-radius: 14px; }
+  .newq .card-h { font-size: 15px; padding: 14px 16px; flex-wrap: wrap; row-gap: 2px; }
+  .newq .card-h .right { margin-left: 0; flex-basis: 100%; font-size: 13.5px; }
+  .newq .card-b { padding: 16px 12px; }
+  .newq .qw-wg-b { padding: 6px 12px 12px; }
+  .nq-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .nq-tabs .tab-sep { display: none; }
+  .nq-tabs .tab { display: grid; gap: 1px; align-content: center; min-width: 0; min-height: 52px; padding: 8px 12px; border-radius: 12px; font-size: 14.5px; text-align: left; white-space: normal; }
+  .nq-tabs .tab .t-amt { font-size: 13.5px; }
+  .nq-tabs .nq-tab-x { grid-column: 1 / -1; text-align: center; }
+  .nq-search .btn, .nq-foot .btn { min-height: 48px; font-size: 15px; justify-content: center; }
+  .nq-who { padding: 12px 14px; font-size: 15px; }
+  .nq-who .mt, .nq-opp .mt { font-size: 13.5px; }
+  .nq-opp { padding: 12px; font-size: 15px; }
+  .nq-opps legend, .nq-site-h, .nq-form label { font-size: 14px; }
+  .nq-newtoggle { min-height: 44px; font-size: 15px; font-weight: 600; }
+  .nq-seg-b { min-height: 52px; padding: 10px 14px; font-size: 15px; border-radius: 12px; }
+  .qw-foot { bottom: 0; margin: 0 -16px; max-width: none; display: grid; gap: 10px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)); border-width: 1px 0 0; border-radius: 14px 14px 0 0; box-shadow: 0 -8px 24px rgba(20, 30, 45, .08); }
+  .qw-foot .est { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; column-gap: 12px; font-size: 14px; }
+  .qw-foot .est b { font-size: 22px; color: #1759d6; }
+  .qw-foot .est .faint { flex-basis: 100%; font-size: 13px; color: var(--fg-dim); }
+  .qw-foot .btn { width: 100%; min-height: 50px; margin: 0; justify-content: center; font-size: 16px; border-radius: 12px; }
+}
+
+/* ---------- Every page on a phone (Albert, 2026-11-03: "do this on all pages… especially the edit quote page";
+   the menu as a bottom tab bar). Phone widths only (max-width 640px), so a computer or a tablet looks exactly as
+   before; outside the media query the tab bar is only hidden. ---------- */
+.bnav, .bnav-sheet, .bnav-back { display: none; }
+
+@media (max-width: 640px) {
+  /* The menu: a tab bar along the bottom (Quotes, New, Customer view, More) instead of the top bar. */
+  .topbar { display: none; }
+  body:has(.bnav) { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
+  .bnav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 39; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; padding: 4px 6px calc(4px + env(safe-area-inset-bottom, 0px)); background: var(--card); border-top: 1px solid var(--line-strong); box-shadow: 0 -4px 16px rgba(20, 30, 45, .06); }
+  .bnav-b { all: unset; box-sizing: border-box; display: grid; justify-items: center; align-content: center; gap: 3px; min-height: 54px; border-radius: 12px; font-size: 12px; font-weight: 600; color: var(--fg-dim); text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .bnav-b svg { width: 22px; height: 22px; }
+  .bnav-b[aria-current="page"], .bnav-b.here, .bnav-b[aria-expanded="true"] { color: #1759d6; }
+  .bnav-b[aria-checked="true"] { color: #1759d6; background: var(--accent-soft); }
+  .bnav-b:active { background: var(--head); }
+  .bnav-b:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .bnav-b:disabled { opacity: .6; }
+  .bnav-back { display: block; position: fixed; inset: 0; z-index: 38; background: rgba(20, 30, 45, .28); }
+  .bnav-sheet { display: grid; gap: 2px; position: fixed; left: 8px; right: 8px; bottom: calc(70px + env(safe-area-inset-bottom, 0px)); z-index: 39; padding: 8px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 12px 32px rgba(20, 30, 45, .18); }
+  .bnav-item, .bnav-sheet .tb-btn { all: unset; box-sizing: border-box; display: grid; gap: 2px; width: 100%; min-height: 52px; padding: 12px 14px; border-radius: 12px; font-size: 16px; font-weight: 600; color: var(--fg); cursor: pointer; }
+  .bnav-sheet .tb-btn { display: flex; align-items: center; gap: 10px; }
+  .bnav-sheet .tb-btn .lbl { display: inline; }
+  .bnav-item span { font-size: 13.5px; font-weight: 400; color: var(--fg-dim); }
+  .bnav-item:active, .bnav-sheet .tb-btn:active { background: var(--head); }
+  .bnav-item:focus-visible, .bnav-sheet .tb-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .bnav-em { display: grid; gap: 2px; margin-top: 4px; padding: 10px 14px; border-top: 1px solid var(--line); font-size: 13px; color: var(--fg-dim); }
+  .bnav-em b { color: var(--fg); font-size: 14px; overflow-wrap: anywhere; }
+  .bnav-sheet form { margin: 0; }
+  /* New quote's estimate bar sits above the tab bar. */
+  .qw-foot { bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
+
+  /* Every page: boxes to type in at 16px (an iPhone zooms on anything smaller) and buttons a thumb can hit. */
+  .in, .cell-in, .ql-search input, .page textarea, .page select { font-size: 16px; }
+  .in, select.in { min-height: 44px; }
+  .btn { min-height: 44px; justify-content: center; }
+  .btn.small { min-height: 40px; }
+  .chip-btn { min-height: 40px; font-size: 14px; }
+  .card { border-radius: 14px; }
+  .card-h { font-size: 15px; }
+
+  /* Lines as cards, on the editor and the quote page: the item across the top, the figures two to a row under
+     their own labels, the line total last. Section headings and "+ Add to …" stay rows between them. */
+  .tbl-wrap:has(> table.items) { overflow: visible; }
+  table.items, table.items tbody { display: block; min-width: 0; }
+  table.items thead { display: none; }
+  table.items tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 14px; border-bottom: 1px solid var(--line); }
+  table.items tbody tr:nth-child(even) td { background: none; }
+  table.items td, table.items.edit td { display: block; min-width: 0; padding: 0; border: 0; text-align: left; font-size: 15px; }
+  table.items td.idx { display: none; }
+  table.items td:not([data-label]) { grid-column: 1 / -1; }
+  table.items td[data-label]:empty { display: none; }
+  table.items td[data-label]::before { content: attr(data-label); display: block; margin-bottom: 4px; font-size: 12.5px; font-weight: 500; color: var(--fg-dim); }
+  table.items td.r .cell-in, table.items .qty { width: 100%; justify-content: flex-start; }
+  table.items .cell-in { min-height: 44px; border-radius: 10px; }
+  table.items.edit .item { min-width: 0; }
+  table.items.edit .desc { font-size: 16px; }
+  table.items .sub { font-size: 13px; }
+  table.items .subins { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; margin-top: 8px; }
+  table.items tbody tr { position: relative; }
+  table.items td.item { padding-right: 56px; }
+  table.items .subins .rowbtns { position: absolute; top: 8px; right: 8px; }
+  table.items .cell-in.mini { border: 1px solid var(--line-strong); padding: 8px 10px; background: var(--card); }
+  table.items .iconbtn { width: 44px; height: 44px; font-size: 15px; border-radius: 10px; }
+  table.items .wastein { justify-content: flex-start; margin-top: 8px; }
+  table.items .wastein .cell-in { width: 100%; font-size: 16px; padding: 6px 10px; }
+  table.items .mat select.cell-in { max-width: none; width: 100%; font-size: 16px; }
+  table.items .mat { flex-wrap: wrap; font-size: 13px; }
+  table.items.edit select.cell-in { min-width: 0; width: 100%; }
+  table.items td.amt { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; padding-top: 12px; border-top: 1px dashed var(--line-strong); font-size: 17px; }
+  table.items td.amt::before { margin: 0 auto 0 0; font-size: 14px; }
+  table.items td.amt .sub.mg { display: inline; }
+  table.items .inc { margin-top: 0; min-height: 32px; font-size: 13.5px; color: var(--fg-dim); }
+  table.items .inc input { width: 20px; height: 20px; }
+  table.items tr.sect, table.items.edit tr.sect { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 18px 14px 10px; border-top: 8px solid var(--bg); border-bottom: 1px solid var(--line-strong); }
+  table.items tbody tr.sect:first-child { border-top: 0; }
+  table.items tr.sect td, table.items.edit tr.sect td { padding: 0; border: 0; font-size: 16px; }
+  table.items tr.sect td.r { white-space: nowrap; }
+  table.items tr.subsect { padding: 10px 14px 2px; border-bottom: 0; }
+  table.items tr.subsect td { padding: 0; }
+  table.items tr.sect-add { padding: 6px 14px 14px; border-bottom: 0; }
+  table.items tr.sect-add td:first-child { display: none; }
+  table.items .addrow { min-height: 44px; font-size: 15px; }
+  table.items tr.rollup { display: flex; justify-content: space-between; gap: 12px; }
+  table.items tr.rollup td.r:not(:last-child) { display: none; }
+  .ov-foot { padding: 14px 14px 18px; }
+  .ov-foot .ov-row { font-size: 15px; }
+
+  /* Quote page: Rooms, Site sheet, Photos and Analysis two to a row; comparison tables at a readable size. */
+  .ed-tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .ed-tools .tab { min-width: 0; min-height: 48px; margin-left: 0; }
+  /* Analysis and Accepted price tables as cards (Albert, 2026-11-03: "make the Analysis tables cards too"): each
+     row is a card with the figure on top and one line per option (or per column) under it, value on the right. */
+  .tbl-wrap:has(> table.cmp) { overflow: visible; }
+  table.cmp, table.cmp tbody { display: block; min-width: 0; font-size: 15px; }
+  table.cmp thead { display: none; }
+  table.cmp tr { position: relative; display: block; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  table.cmp tr:last-child { border-bottom: 0; }
+  table.cmp td, table.cmp td + td { display: block; padding: 0; border: 0; text-align: right; }
+  table.cmp td:first-child { padding: 0 0 6px; font-size: 15px; font-weight: 650; color: var(--fg); }
+  table.cmp td[data-label] { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 5px 0; }
+  table.cmp td[data-label]::before { content: attr(data-label); flex: 1 1 auto; min-width: 0; text-align: left; font-weight: 400; color: var(--fg-dim); overflow-wrap: anywhere; }
+  table.cmp td[data-label]:empty { display: none; }
+  table.cmp td.cmp-st { position: absolute; top: 12px; right: 16px; padding: 2px 10px; border-radius: 999px; background: var(--head); font-size: 12.5px; font-weight: 600; }
+  table.cmp td.cmp-st.diff { background: var(--warn-soft); color: var(--warn); }
+
+  /* All quotes: no initials badge, so the name gets the room; bigger rows, filters and version links. */
+  .ql-av { display: none; }
+  .ql-row { grid-template-columns: 40px minmax(0, 1fr) auto; padding: 12px 14px 12px 4px; font-size: 14px; }
+  .ql-latest, .ql-flags, .ql-seen { grid-column: 2 / -1; }
+  .ql-who .cust { font-size: 16px; }
+  .ql-who .ql-desc, .ql-row .mt, .ql-num > span:first-child { font-size: 13.5px; }
+  .ql-tog { width: 40px; height: 40px; margin-left: 0; }
+  .ql-f { min-height: 40px; font-size: 13.5px; }
+  .ql-v { min-height: 44px; font-size: 14px; }
+  .ql-vs { margin-left: 30px; }
+}

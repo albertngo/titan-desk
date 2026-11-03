@@ -5,10 +5,11 @@ import { confirmAddress, createJobForQuote, linkToJob } from "@/lib/quotes/link"
 import { makeChange, type SaveResult } from "@/lib/quotes/save";
 import { saveRooms } from "@/lib/quotes/rooms";
 import { saveDescription } from "@/lib/quotes/describe";
-import { saveSiteSheet } from "@/lib/quotes/sitesheet";
+import { saveFloorSheet, saveSiteSheet, sheetCamPhotos } from "@/lib/quotes/sitesheet";
+import { floorOptions, type FloorOptionsResult } from "@/lib/quotes/quickOption";
 import { resendQuote, sendQuote } from "@/lib/quotes/send";
 import { emailBilling, issueBilling, type BillingChoice, type BillingResult } from "@/lib/quotes/billing";
-import type { ConfirmAddressResult, LinkJobResult, ResendResult, SaveDescriptionResult, SaveRoomsResult, SendResult, SiteSheetResult } from "@/lib/quotes/types";
+import type { CamSheetPhotosResult, ConfirmAddressResult, LinkJobResult, ResendResult, SaveDescriptionResult, SaveRoomsResult, SendResult, SiteSheetResult } from "@/lib/quotes/types";
 
 /** Server actions for the quote page. Each checks the quoter allowlist inside. */
 
@@ -66,6 +67,20 @@ export async function saveSiteSheetAction(quoteRecordId: string, seen: string, s
 }
 
 /* Invoices and receipts (2026-10-30). */
+
+/** The job's CompanyCam photos for picking the site sheet (2026-11-03). The quote's own link is read in Airtable. */
+export async function camSheetPhotosAction(quoteRecordId: string): Promise<CamSheetPhotosResult> {
+  return sheetCamPhotos(String(quoteRecordId ?? ""));
+}
+
+export async function saveFloorSheetAction(quoteRecordId: string, seen: string, sheet: unknown, checked: boolean = true): Promise<SiteSheetResult> {
+  return saveFloorSheet(String(quoteRecordId ?? ""), String(seen ?? ""), sheet, checked !== false);
+}
+
+/** The checked flooring sheet priced into options for the editor's draft (2026-11-03). Writes nothing. */
+export async function floorOptionsAction(sheet: unknown, taken: unknown): Promise<FloorOptionsResult> {
+  return floorOptions(sheet, taken);
+}
 
 export async function issueBillingAction(versionId: string, choice: BillingChoice): Promise<BillingResult> {
   return issueBilling(String(versionId ?? ""), { showCredit: choice?.showCredit === true });

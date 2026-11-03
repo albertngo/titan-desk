@@ -187,11 +187,24 @@ describe("CompanyCam boundary (2026-10-30: the job's photos on the quote page)",
     expect(client).toMatch(/if \(!token \|\| isCustomerDeployment\(\)\) throw/);
   });
 
+  it("downloads a site sheet photo without the token (2026-11-03): the token goes to the API only", () => {
+    const client = code(all.find((f) => f.rel === CAM)!.text);
+    // The one request sends the token only when it is an API call, built from BASE; an image address gets nothing but Accept.
+    expect(client).toMatch(/headers: api \? \{ Authorization: `Bearer \$\{token\}`, Accept: "application\/json" \} : \{ Accept: "image\/jpeg, image\/png, image\/webp" \}/);
+    expect(client).toMatch(/request\(`\$\{BASE\}\$\{path\}/);
+    expect(client.match(/request\([^)]*, true\)/g)?.length).toBe(1);
+    // The loader downloads only the addresses CompanyCam gave for a photo on the quote's own project.
+    const loader = code(all.find((f) => f.rel === LOADER)!.text);
+    expect(loader).toMatch(/imageBytes\(uri\)/);
+    expect(loader).toMatch(/for \(const uri of \[p\.plain\.original, p\.plain\.web\]\)/);
+  });
+
   it("is read live and stored nowhere, reached only from the loader, and the loader only from the quote page", () => {
     expect(all.filter((f) => /from ["']@\/lib\/companycam\/client["']/.test(f.text)).map((f) => f.rel)).toEqual([LOADER]);
     const loader = code(all.find((f) => f.rel === LOADER)!.text);
     expect(loader).not.toMatch(/airtable|createRecord|updateRecord|make\/client|sendToGhl/);
-    expect(all.filter((f) => /^import (?!type )[^;]*from ["']@\/lib\/quotes\/companycam["']/m.test(f.text)).map((f) => f.rel)).toEqual(["app/q/[id]/page.tsx"]);
+    // The quote page's Photos tab, and since 2026-11-03 the site sheet reader (picking and downloading sheet photos).
+    expect(all.filter((f) => /^import (?!type )[^;]*from ["'](@\/lib\/quotes\/|\.\/|\.\.\/quotes\/)companycam["']/m.test(f.text)).map((f) => f.rel).sort()).toEqual(["app/q/[id]/page.tsx", "lib/quotes/sitesheet.ts"]);
     // Staff only: the tab is never drawn in Customer view.
     expect(all.find((f) => f.rel === "app/q/[id]/page.tsx")!.text).toMatch(/const showPhotos = opt === "photos" && !customer/);
   });

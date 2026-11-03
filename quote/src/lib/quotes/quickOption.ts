@@ -1,8 +1,10 @@
 import "server-only";
 import { requireQuoter } from "@/lib/auth";
 import type { EditorLine } from "@/lib/editor/model";
-import { browserProfiles, parseWork, workIsEmpty, type QuickChoice, type QuickProfile } from "@/lib/quick/plan";
-import { getQuickForm, getQuickProfiles } from "./load";
+import { floorPlan, sheetSkus } from "@/lib/floorsheet/plan";
+import { cleanFloorSheet } from "@/lib/floorsheet/sheet";
+import { browserProfiles, parseWork, workIsEmpty, type QuickChoice, type QuickProfile, type QuickWork } from "@/lib/quick/plan";
+import { getQuickForm, getQuickProfiles, productsBySku } from "./load";
 import { buildQuickOptions } from "./start";
 
 /**
@@ -24,6 +26,43 @@ export async function quickFormForBrowser(): Promise<{ choices: QuickChoice[]; p
     // Each staircase's preset Stair Item lines at charge rates; cost and the template stay on the server.
     profiles: browserProfiles(profiles),
   };
+}
+
+export type FloorOptionsResult =
+  | { ok: true; options: { name: string; description: string; lines: EditorLine[] }[]; notes: string[] }
+  | { ok: false; message: string };
+
+/**
+ * The Flooring Site Sheet's options (Albert, 2026-11-03: "into rooms and flooring lines"), priced server-side
+ * exactly like a preliminary: floorPlan() turns the checked sheet into quick-form works, and buildQuickOptions()
+ * prices them from Airtable. Nothing is written: the options join the editor's draft and are saved with it.
+ * `taken`: the quote's option names already in use, so the new ones read differently.
+ */
+export async function floorOptions(rawSheet: unknown, taken: unknown): Promise<FloorOptionsResult> {
+  await requireQuoter();
+  const sheet = cleanFloorSheet(rawSheet);
+  try {
+    const [choices, skus] = await Promise.all([getQuickForm(), productsBySku(sheetSkus(sheet))]);
+    const plan = floorPlan(sheet, choices, skus);
+    if (plan.works.length === 0) return { ok: false, message: plan.notes.length ? `Nothing to build: ${plan.notes.join(" ")}` : "Nothing to build: the sheet has no rooms or floors." };
+    const works: QuickWork[] = plan.works.map((w) => ({ rows: w.rows, stairs: [], extraCost: null, description: w.description, building: null }));
+    const built = await buildQuickOptions(works);
+    const used = new Set((Array.isArray(taken) ? taken : []).filter((t): t is string => typeof t === "string").map((t) => t.trim().toLowerCase()));
+    const options = built.flatMap((b, i) => {
+      if (b.lines.length === 0) return [];
+      let name = b.name;
+      for (let n = 2; used.has(name.toLowerCase()); n++) name = `${b.name} (${n})`;
+      used.add(name.toLowerCase());
+      return [{ name, description: plan.works[i].description, lines: b.lines }];
+    });
+    const skipped = [...new Set(built.flatMap((b) => b.skipped))];
+    const notes = [...plan.notes, ...(skipped.length ? [`Not priced: ${skipped.join("; ")}.`] : [])];
+    if (options.length === 0) return { ok: false, message: `Nothing could be priced. ${notes.join(" ")}` };
+    return { ok: true, options, notes };
+  } catch (e) {
+    console.error("floorOptions", e);
+    return { ok: false, message: "The flooring options couldn't be priced. Try again in a moment." };
+  }
 }
 
 export type QuickOptionResult =

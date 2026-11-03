@@ -512,6 +512,41 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   no price and a note, never a guess. Ten such items were added to Stair Items on 2026-10-28 with blank prices for Albert to fill (carpet off the stairs, vinyl treads, vinyl flooring on steps, paint risers white, solid half-moon upgrade, pie step left, custom bullnose upcharge, wall rail bracket, refinish post, stain wood spindles), and two more with sheet v5 (square off bullnose, custom corner turn set upcharge); a blank-priced item is skipped by `getRateCard()`, so each stays an unpriced line until it is priced. Staff review and **Save as new version** in the editor as usual; the
   tab writes no quote line. Tested in `tests/sitesheet.test.ts`. Requote threshold (±5% or $300) is a starting
   point to check against real jobs, not built.
+- **Site sheets from CompanyCam, and the Flooring Site Sheet (Albert, 2026-11-03: "build the sheets from companycam into rooms
+  and flooring lines. No car check yet. Just the upload of the sheets from companycam. We can choose which one it is").** On a
+  quote whose CompanyCam link gives a project, each sheet has a **Draw from CompanyCam image** button (`src/components/CamDraw.tsx`;
+  the flooring sheet at the top of the tab). **Both sheets take photos the same three ways (Albert, 2026-11-03: "an option to
+  still take a photo, choose photos, or draw from [a CompanyCam] image… Those should be the same"):** Take a photo, Choose photos
+  and Draw from CompanyCam image, in one shared row, `src/components/SheetSource.tsx`; an upload says which sheet it is
+  (`kind` in the form, `readSiteSheet(…, kind)`), and a flooring sheet read from an upload keeps no CompanyCam source. It opens the job's photos in place
+  (`camSheetPhotosAction` → `sheetCamPhotos()` in `src/lib/quotes/sitesheet.ts`, the quote's link read from Airtable, never the
+  browser), tagged or described "Site Sheet" ticked first (`looksLikeSheet()`); staff pick the page(s) and it is read as the
+  sheet the link sits on. `/api/sitesheet` takes a JSON body `{quoteRecordId, seen, photoIds,
+  kind}`; `readFromCompanyCam()` checks each id is a photo on that project (`sheetImages()` in `src/lib/quotes/companycam.ts`) and
+  downloads the **plain** copy (no markup, `CamPhoto.plain`): the original when it is under 3.7 MB, else the web size. No image
+  passes through the browser. A stair read then goes exactly as an upload does. Uploading from the device stays. **The Flooring Site
+  Sheet** (`quote/sheets/flooring-site-sheet-v1.pdf`; vault `05_decisions/2026-11-03-measured-quote-from-site-sheets`) is read by
+  Claude with `src/lib/floorsheet/prompt.ts` into `cleanFloorSheet()` (`src/lib/floorsheet/sheet.ts`), kept on **Quotes → Flooring
+  Sheet** (JSON, app-written, compare-and-swap, with the CompanyCam photo ids) and its photos on **Quotes → Flooring Sheet Photos**
+  (both made 2026-11-03), with each photo's CompanyCam page and time taken. **It is drawn as the paper sheet itself (Albert,
+  2026-11-03: "the sheet should look 1:1 to the copy online. Easier to compare")**: `src/components/FloorSheetPaper.tsx`, the
+  printed v1 box for box on the stair copy's `.ssp` styles plus `.fsp`, every bubble, tick and box the control for its field,
+  unsure codes washed yellow; change the printed sheet and this copy together. The photo takes no column (same call: "it could just
+  be at the top of the page"): the panel's top line says when it was taken and links **Open image** (a new tab) and **Open in
+  CompanyCam**, and **Draw again**. Under the paper (`src/components/FloorSheetPanel.tsx`): what it builds, **Save
+  check**; **Copy rooms to the Rooms tab** (replaces the Rooms tab through `saveRooms()`, `roomsFromSheet()`); **Build flooring
+  options** prices it on the server like a preliminary (`floorOptions()` in `src/lib/quotes/quickOption.ts`: `floorPlan()` makes
+  quick-form works, `buildQuickOptions()` prices them, writes nothing) and adds them to the editor's draft as Flooring options. The
+  rules, in `floorPlan()` (`src/lib/floorsheet/plan.ts`, tested in `tests/floorsheet.test.ts`): two floors at most, set room by
+  room; a room's New floor left blank gets every floor written; a room with both floors makes two options (Floor 1 there, or
+  Floor 2), else one option holds both floors; W1 names the material and its install (engineered ¾" and solid take Nail down /
+  Nail + glue, blank = nail down, said); W2 blank or Standard = the choice's standard product, Customer supplies = no material line,
+  a SKU = that catalogue product by exact SKU (`productsBySku()`), and a SKU not found leaves the line for staff, never the
+  standard one; Remove by Floor there now (carpet and laminate / vinyl share "Carpet / Laminate / Vinyl"; tile on plywood and on
+  concrete apart); Remove or Disposal blank = the customer does it, no line; baseboards from every room's linear feet, else a third
+  of the square feet (said); subfloor over the sq ft written, else every room. Quick Quote Choices are found by record id, then
+  name; one switched off has no line and is named. Each option's description lists its floors and rooms. No car check, no send:
+  staff review in the editor as usual.
 - **The payment schedule (Albert, 2026-10-27: "update the payment structure to be editable").** One
   per version, in the editor's terms: presets **35 / 35 / 30** (the default, stored as nothing, so an
   untouched version's Quote Versions → Payment Schedule stays blank), **25 / 25 / 25 / 25**, **50 / 50**,
@@ -729,8 +764,8 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   by Toronto day, newest first, each with the time taken (else uploaded), who took it, its description and any tags
   CompanyCam includes; a search over those; a viewer with arrows, keys and swipe. A photo's marked-up copy is shown
   when it has one. Read-only: nothing is written to CompanyCam, Airtable or GHL. Each photo keeps its web-size URL so
-  a later step can hand stair and measurement photos to Claude (not built: that would go through
-  `src/lib/anthropic/client.ts`, a reviewed change to rule 2e). Pure reading in `src/lib/companycam/photos.ts`, tested
+  a later step can hand stair and measurement photos to Claude (site sheets since 2026-11-03, through the Site sheet
+  tab's From CompanyCam, below; measurement photos are not built). Pure reading in `src/lib/companycam/photos.ts`, tested
   in `tests/companycam.test.ts`; screen `src/components/CompanyCamPhotos.tsx`.
 - **Typed lines saved for next time, and logged (Albert, 2026-11-01: "When we add custom items and the quote ends
   up being SENT… make it so that those items are created for next time use and make them 'require review'… There
@@ -838,7 +873,8 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
 2e. **One file talks to Claude (2026-10-28):** `src/lib/anthropic/client.ts`, `server-only`, the only reader of
    `QUOTE_ANTHROPIC_KEY` (staff deployment only) and the only file naming `api.anthropic.com`; one request,
    called only from `src/lib/quotes/sitesheet.ts`, which writes the Quotes table only (the Site Sheet field and,
-   through `uploadAttachment()` in the Airtable client, the Site Sheet Photos field). The Airtable client's
+   through `uploadAttachment()` in the Airtable client, the Site Sheet Photos field; since 2026-11-03 also the Flooring
+   Sheet and Flooring Sheet Photos fields). The Airtable client's
    third request, `uploadAttachment()`, runs the same table and deployment checks as `write()`.
 2f. **Notion payments are read in one file (2026-10-30):** `src/lib/notion/payments.ts`, `server-only`, the only reader
    of `QUOTE_NOTION_PAYMENTS_TOKEN` (a Notion internal integration with read content only, shared with the Master
@@ -849,7 +885,10 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
    GET only, one request function, the only reader of `QUOTE_COMPANYCAM_TOKEN` (staff deployment only; refuses on
    the customer one) and the only file naming `api.companycam.com`. A CompanyCam access token is not scoped, so this
    file is the limit: one project and its photos. It is reached only from `src/lib/quotes/companycam.ts`, which only
-   the quote page imports. Making projects stays Make's. `tests/boundary.test.ts` pins all of this.
+   the quote page and (since 2026-11-03) `src/lib/quotes/sitesheet.ts` import. Making projects stays Make's. **Site sheet
+   photos (2026-11-03):** the one request also downloads a photo's image, without the token (the token goes only to
+   `api.companycam.com`), and only from an address CompanyCam's own answer gave for a photo on the quote's project, never
+   one a browser sent. `tests/boundary.test.ts` pins all of this.
 3. **Staff is not enough.** Only emails on `QUOTE_ALLOWED_EMAILS` get in. The proxy checks
    it and every loader in `src/lib/quotes/load.ts` and `src/lib/quotes/start.ts` checks again
    (`requireQuoter()`). An empty list lets nobody in.

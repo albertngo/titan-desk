@@ -3,13 +3,18 @@ import { bugReportsOn } from "@/lib/bug/notion";
 import { CHANGES } from "@/lib/changes";
 import { customerView } from "@/lib/view";
 import { AccountMenu } from "./AccountMenu";
+import { BottomNav } from "./BottomNav";
+import { BuildLine } from "./BuildLine";
 import { ReportBug } from "./ReportBug";
 import { ViewSwitch } from "./ViewSwitch";
 
 export async function TopBar({ email }: { email: string }) {
   const customer = await customerView();
   return (
+    <>
     <header className="topbar">
+      {/* Which build is running (2026-11-03): internal, so not while a customer is looking. */}
+      {!customer && <BuildLine />}
       <div className="topbar-in">
         <Link href="/" className="brand">
           <span className="brand-mark">T</span>
@@ -39,5 +44,8 @@ export async function TopBar({ email }: { email: string }) {
         <AccountMenu email={email} />
       </div>
     </header>
+    {/* On a phone the menu is a tab bar along the bottom and this bar is hidden (Albert, 2026-11-03). */}
+    <BottomNav email={email} customer={customer} bugs={bugReportsOn()} />
+    </>
   );
 }

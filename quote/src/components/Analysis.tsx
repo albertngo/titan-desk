@@ -66,6 +66,7 @@ function Compare({ title, opts, customer }: { title: string | null; opts: Row[];
       <section className="card">
       <div className="card-h">Options side by side</div>
       <div className="tbl-wrap">
+        {/* On a phone each row is a card: the figure on top, one line per option (2026-11-03, globals.css). */}
         <table className="cmp">
           <thead>
             <tr>
@@ -83,7 +84,7 @@ function Compare({ title, opts, customer }: { title: string | null; opts: Row[];
                 <tr key={m.key}>
                   <td>{m.label}</td>
                   {vals.map((v, i) => (
-                    <td key={opts[i].o.id} className={top !== null && v === top ? "best" : undefined}>
+                    <td key={opts[i].o.id} data-label={opts[i].o.name || "Untitled"} className={top !== null && v === top ? "best" : undefined}>
                       {m.key === "marginPct" ? pct(v) : money(v)}
                     </td>
                   ))}
@@ -94,7 +95,7 @@ function Compare({ title, opts, customer }: { title: string | null; opts: Row[];
               <tr>
                 <td>Flags</td>
                 {opts.map((x) => (
-                  <td key={x.o.id}>{x.flags || ""}</td>
+                  <td key={x.o.id} data-label={x.o.name || "Untitled"}>{x.flags || ""}</td>
                 ))}
               </tr>
             )}
@@ -125,9 +126,9 @@ function Compare({ title, opts, customer }: { title: string | null; opts: Row[];
                 <tr key={s}>
                   <td>{s}</td>
                   {vals.map((v, i) => (
-                    <td key={opts[i].o.id} className={differs ? "diff" : "same"}>{money(v)}</td>
+                    <td key={opts[i].o.id} data-label={opts[i].o.name || "Untitled"} className={differs ? "diff" : "same"}>{money(v)}</td>
                   ))}
-                  <td className={differs ? "diff" : "same"}>{differs ? "differs" : "same"}</td>
+                  <td className={`${differs ? "diff" : "same"} cmp-st`}>{differs ? "differs" : "same"}</td>
                 </tr>
               );
             })}
