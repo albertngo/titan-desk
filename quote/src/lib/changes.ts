@@ -23,6 +23,15 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-03",
     kind: "new",
+    title: "Make a new opportunity from Link to Opportunity",
+    details: [
+      "A quote that says Needs linking now has \"+ New opportunity\" under the customer's opportunities. Pick it when the quote is a different job from all of them (another unit at the same building, another address), then press Create and link.",
+      "The opportunity is made the way a preliminary's is: in Lead Qualification at the stage the quote's timing gives (Hot, Warm or Cold), named like the quote, with the quote number, the site if it's confirmed and the CompanyCam link. If the quote has no timing yet, the card asks.",
+    ],
+  },
+  {
+    date: "2026-11-03",
+    kind: "new",
     title: "A description for each quote",
     details: [
       "Give a quote a short description, like \"Unit 1204 · kitchen + hall\", and All quotes shows it under the customer's name. Several quotes for one customer at the same building are now easy to tell apart.",

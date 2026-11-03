@@ -276,7 +276,11 @@ export type JobChoice = {
   takenBy: string | null;
 };
 
-export type JobChoices = { ok: true; canLink: boolean; choices: JobChoice[] } | { ok: false; message: string };
+/**
+ * `timing` is the quote's own "when are they planning to do it" answer, which sets a new
+ * opportunity's lead stage (2026-11-03); null when the quote has none, and the card asks.
+ */
+export type JobChoices = { ok: true; canLink: boolean; timing: string | null; choices: JobChoice[] } | { ok: false; message: string };
 
 export type LinkJobResult = { ok: true } | { ok: false; message: string };
 

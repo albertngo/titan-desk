@@ -59,6 +59,14 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   confirmed site and the CompanyCam link to the opportunity through Make (never over a CompanyCam
   link it already has), sets a lost or abandoned one back to open, and only then marks the quote
   Linked. Rules: `src/lib/link/linkJob.ts`, tested in `tests/linkJob.test.ts`.
+  **+ New opportunity (Albert, 2026-11-03: "create the opportunity on the screen… same thing as in the
+  preliminary")** is the card's last choice, for a quote that is a different job from every one listed
+  (another unit at the same building). `createJobForQuote()` in `src/lib/quotes/link.ts` makes it the way a
+  preliminary's is (`buildNewJob()` in `src/lib/link/ghlRequest.ts`): Lead Qualification at the stage the
+  quote's timing gives (the card asks when the quote has none, and keeps the answer on the quote), the shared
+  name, the quote number, the site only if confirmed, the quote's CompanyCam link; the contact is left alone.
+  Make's `new-opportunity` route, as booking uses, so nothing changed in Make; the quote is marked Linked only
+  once Make returns the new id. Tested in `tests/ghlRequest.test.ts`.
 - **Confirm address (Albert, 2026-10-15).** Linking never confirms an address; booking does, and so
   does **Confirm address** on the quote page, for a site checked with the customer some other way.
   It confirms only the address the person saw (refused if it changed since the page opened), never

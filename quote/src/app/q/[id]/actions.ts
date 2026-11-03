@@ -1,7 +1,7 @@
 "use server";
 
 import { acceptForCustomer, cancelAcceptance, retryHandoff, type CancelResult, type StaffAcceptResult } from "@/lib/accept/staff";
-import { confirmAddress, linkToJob } from "@/lib/quotes/link";
+import { confirmAddress, createJobForQuote, linkToJob } from "@/lib/quotes/link";
 import { makeChange, type SaveResult } from "@/lib/quotes/save";
 import { saveRooms } from "@/lib/quotes/rooms";
 import { saveDescription } from "@/lib/quotes/describe";
@@ -14,6 +14,10 @@ import type { ConfirmAddressResult, LinkJobResult, ResendResult, SaveDescription
 
 export async function linkToJobAction(quoteRecordId: string, opportunityId: string): Promise<LinkJobResult> {
   return linkToJob(String(quoteRecordId ?? ""), String(opportunityId ?? ""));
+}
+
+export async function createJobAction(quoteRecordId: string, timing: string | null): Promise<LinkJobResult> {
+  return createJobForQuote(String(quoteRecordId ?? ""), timing);
 }
 
 export async function confirmAddressAction(quoteRecordId: string, shown: string): Promise<ConfirmAddressResult> {
