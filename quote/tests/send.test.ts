@@ -622,12 +622,12 @@ describe("lump sum (2026-10-22)", () => {
     const items = o.sections.flatMap((s) => s.lines).filter((l): l is Extract<typeof l, { kind: "item" }> => l.kind === "item");
     for (const l of items.filter((x) => !x.optional)) expect([l.unitPrice, l.amount, l.minimum]).toEqual([null, null, false]);
     expect(items.find((x) => x.optional)).toMatchObject({ unitPrice: 30, amount: 120 });
-    // Quantities stay on Install, Removal, Prep and Materials lines only; everything else is words.
-    const qtyBySection = o.sections.map((s) => [s.name, s.lines.filter((l) => l.kind === "item" && !l.optional).map((l) => (l.kind === "item" ? l.qty : null))]);
+    // Quantities always show, every section (Albert, 2026-11-04), replacing the scope-sections-only rule of 2026-10-22.
+    const qtyBySection = o.sections.map((s) => [s.name, s.lines.filter((l) => l.kind === "item" && !l.optional).map((l) => (l.kind === "item" ? [l.qty, l.uom] : null))]);
     expect(qtyBySection).toEqual([
-      ["Install", [220]],
-      ["Removal", [200]],
-      ["Delivery", [null]],
+      ["Install", [[220, "sqft"]]],
+      ["Removal", [[200, "sqft"]]],
+      ["Delivery", [[1, "flat"]]],
       ["Other", []],
     ]);
     expect(o.sections.every((s) => s.total === null)).toBe(true);
@@ -674,7 +674,15 @@ describe("lump sum (2026-10-22)", () => {
     expect(install.total).not.toBeNull();
     expect(install.lines[0]).toMatchObject({ kind: "item", amount: expect.any(Number) });
     expect(stairs).toMatchObject({ name: "Stairs", total: null });
-    expect(stairs.lines[0]).toMatchObject({ kind: "item", description: "Step", qty: null, unitPrice: null, amount: null });
+    // Never a price, always the quantity (Albert, 2026-11-04), on a breakdown, a lump sum and a preliminary alike.
+    expect(stairs.lines[0]).toMatchObject({ kind: "item", description: "Step", qty: 12, uom: "piece", unitPrice: null, amount: null });
+    for (const q of [quote({ itemised: false, options: [option("A", [line({}), step], 0, true)] }), quote({ basis: "Preliminary", options: [option("A", [line({}), step], 0, true)] })]) {
+      const st = customerCopy(q, AT).options[0].sections.find((x) => x.name === "Stairs")!;
+      expect(st.total).toBeNull();
+      expect(st.lines[0]).toMatchObject({ qty: 12, uom: "piece", unitPrice: null, amount: null });
+    }
+    const pdf = new TextDecoder("latin1").decode(quotePdf(c));
+    expect(pdf).toContain("(12 piece)");
   });
 
   it("shows step pieces that share a Customer Wording as one line, quantities and add-on amounts added (Albert, 2026-11-02)", () => {
@@ -690,11 +698,18 @@ describe("lump sum (2026-10-22)", () => {
       st({ id: "g", description: "Step (Right Side Open)", customerWording: "Solid red oak tread caps", qty: 1, unitPriceSnap: 205, include: false }),
     ];
     const stairs = customerCopy(quote({ options: [option("A", lines, 0, true)] }), AT).options[0].sections.find((x) => x.name === "Stairs")!;
-    expect(stairs.lines.map((l) => (l.kind === "item" ? [l.description, l.note, l.n, l.amount, l.optional] : null))).toEqual([
-      ["Solid red oak tread caps", "Main stairs", 1, null, false],
-      ["Riser", "Main stairs", 2, null, false],
-      ["Solid red oak tread caps", "Basement", 3, null, false],
-      ["Solid red oak tread caps", "Main stairs", null, 455, true],
+    expect(stairs.lines.map((l) => (l.kind === "item" ? [l.description, l.note, l.n, l.qty, l.amount, l.optional] : null))).toEqual([
+      ["Solid red oak tread caps", "Main stairs", 1, 13, null, false],
+      ["Riser", "Main stairs", 2, 13, null, false],
+      ["Solid red oak tread caps", "Basement", 3, 5, null, false],
+      ["Solid red oak tread caps", "Main stairs", null, 2, 455, true],
+    ]);
+    // A shared wording in another unit stays its own line: steps and feet are never added together.
+    const nosing = st({ id: "h", description: "Nosing", customerWording: "Solid red oak tread caps", uom: "ft", qty: 6, unitPriceSnap: 30 });
+    const apart = customerCopy(quote({ options: [option("A", [...lines.slice(0, 2), nosing], 0, true)] }), AT).options[0].sections.find((x) => x.name === "Stairs")!;
+    expect(apart.lines.map((l) => (l.kind === "item" ? [l.qty, l.uom] : null))).toEqual([
+      [11, "piece"],
+      [6, "ft"],
     ]);
     const addOn = stairs.lines[3];
     expect(addOn.kind === "item" && addOn.unitPrice).toBeNull();

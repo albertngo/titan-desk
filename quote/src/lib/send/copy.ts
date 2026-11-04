@@ -1,5 +1,5 @@
 import { acceptedLabel, DISCOUNTS_SECTION, isAcceptedLine, isDiscountLine } from "@/lib/pricing/discounts";
-import { DEFAULT_PRIVATE_LABEL, LUMP_QTY_SECTIONS, PRIVATE_SECTION, SECTIONS, chargesHst, isPriced, lineTotal, optionTotals, priceUsed, privateRollup, round2, sectionOf, stageAmounts } from "@/lib/calc";
+import { DEFAULT_PRIVATE_LABEL, PRIVATE_SECTION, SECTIONS, chargesHst, isPriced, lineTotal, optionTotals, priceUsed, privateRollup, round2, sectionOf, stageAmounts } from "@/lib/calc";
 import type { CopyChange } from "@/lib/change/diff";
 import { defaultSchedule, payWords, type PayHow, type PaymentSchedule } from "@/lib/pricing/schedule";
 import { optionScope } from "@/lib/quotes/scope";
@@ -143,7 +143,7 @@ export type CustomerCopy = {
   /**
    * How the price is shown (2026-10-22). "lump", the default for every version since that day: the
    * customer sees what the work includes and one price for the project; counted lines carry no
-   * unit price or amount, quantities stay on the scope sections only, sections carry no total,
+   * unit price or amount, every line keeps its quantity (2026-11-04), sections carry no total,
    * the discount is shown above the price (2026-11-03; there were no discount rows before), add-ons
    * keep their price. "itemised": everything. Absent = itemised,
    * for copies frozen before this existed.
@@ -321,14 +321,17 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
       const minimum = (l.minChargeSnap ?? 0) > 0 && extent * price > 0 && extent * price < (l.minChargeSnap ?? 0);
       const qty = l.qty === null ? null : round2(extent);
       if (l.include) total += amount;
-      // Lump sum: a counted line shows what it is, never what it costs; how much only for the scope sections. An add-on must still say its price.
+      // Lump sum: a counted line shows what it is and how much, never what it costs. An add-on must still say its price.
       // Stairs are always one price (Albert, 2026-10-28): a breakdown itemises the flooring only.
       const lump = (lumpSum || name === "Stairs") && l.include;
-      const showQty = !lump || LUMP_QTY_SECTIONS.has(name);
+      // Quantities always show (Albert, 2026-11-04: "no matter what view is sent to the customer. The quantities are always
+      // shown. Stairs never has line item PRICING but will always show the quantities of each line item"): every section,
+      // lump sum, preliminary and breakdown alike. This replaces the 2026-10-22 rule of quantities on the scope sections only.
       // One wording, one line (Albert, 2026-11-02: "consolidate the steps to just be one generic step … and then just combine
       // the quantity"): Stair Items that share a Customer Wording read as one line, their quantities and amounts added.
+      // The unit is part of the key now that the quantity shows, so steps and feet are never added together.
       const wording = name === "Stairs" ? clean(l.customerWording) : null;
-      const key = wording ? [wording.toLowerCase(), l.include, note ?? "", chargesHst(l, showHst)].join("|") : null;
+      const key = wording ? [wording.toLowerCase(), (clean(l.uom) ?? "").toLowerCase(), l.include, note ?? "", chargesHst(l, showHst)].join("|") : null;
       const same = key ? merged.get(key) : undefined;
       if (same) {
         same.qty = same.qty !== null && qty !== null ? round2(same.qty + qty) : null;
@@ -343,9 +346,9 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
         n: l.include ? ++n : null,
         description: wording ?? clean(l.description) ?? "Item",
         note,
-        qty: showQty ? qty : null,
-        uom: showQty ? clean(l.uom) : null,
-        wastePct: showQty && l.waste ? Math.round(l.waste * 100) : null,
+        qty,
+        uom: clean(l.uom),
+        wastePct: l.waste ? Math.round(l.waste * 100) : null,
         // A material always shows its rate (Albert, 2026-11-04: "Material Rates in the material section should ALWAYS
         // show the rate; no matter what the form the quote is sending in"): lump sum and preliminary too, never its amount.
         unitPrice: minimum || (lump && name !== "Materials") ? null : price,

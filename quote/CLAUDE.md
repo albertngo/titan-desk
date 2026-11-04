@@ -215,8 +215,10 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   **Stair Category**, a lookup through Stair Item; the card's category for a line just picked), in work order
   step, bullnose, riser, landing, accent, railing, task, then anything else (`src/lib/editor/stairGroups.ts`).
   Display only: no money, section or Airtable write changes. **Send breakdown itemises the flooring only**:
-  Stairs lines go to the customer with no quantity, unit price or amount and no section total, on every copy
-  (`copyOption()` in `copy.ts`). The site sheet's nosing is one line in linear feet of "Accents: Nosing"
+  Stairs lines go to the customer with no unit price or amount and no section total, on every copy
+  (`copyOption()` in `copy.ts`), and in the quote page's Customer view. **They always keep their quantity**
+  (Albert, 2026-11-04: "Stairs never has line item PRICING but will always show the quantities of each line
+  item"); lines that share a Customer Wording merge only when they share a unit too. The site sheet's nosing is one line in linear feet of "Accents: Nosing"
   ($30/ft on the card); picket-hole nosing is the same item.
 - **One wording, one line for the customer (Albert, 2026-11-02: "I don't want to confuse the customer with the
   different types of steps involved… consolidate the steps to just be one generic step… and then just combine the
@@ -448,8 +450,10 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   the browser cannot load falls back to a link.
 - **Lump sum is the default, always (Albert, 2026-10-22).** The customer sees what the work includes
   and one price for the project, **no line price or breakdown**: counted lines keep their words and
-  lose unit price and amount; only Install, Removal, Prep and Materials lines keep a quantity, for
-  clarity about the scope (`LUMP_QTY_SECTIONS` in `calc.ts`); **a material always keeps its rate** (Albert,
+  lose unit price and amount; **every line keeps its quantity** (Albert, 2026-11-04: "For all the PDFs quotes
+  and links in the app; no matter what view is sent to the customer. The quantities are always shown"),
+  replacing the Install / Removal / Prep / Materials-only rule (`LUMP_QTY_SECTIONS`, removed); the Private
+  roll-up row is the one row with no quantity; **a material always keeps its rate** (Albert,
   2026-11-04: "Material Rates in the material section should ALWAYS show the rate; no matter what the form
   the quote is sending in"): lump sum and preliminary too, never its amount, headed Rate in the PDF; sections lose their total; the totals
   block shows the price before the discount and the discount (2026-11-03; before that there were no discount

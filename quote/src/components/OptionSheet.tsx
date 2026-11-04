@@ -3,7 +3,6 @@ import Link from "next/link";
 import { sectionLinesInOrder, stairGroupLabel, stairGroups } from "@/lib/editor/stairGroups";
 import {
   DEFAULT_PRIVATE_LABEL,
-  LUMP_QTY_SECTIONS,
   PRIVATE_SECTION,
   privateRollup,
   SECTIONS,
@@ -107,6 +106,8 @@ function Row({ l, n, customer, lump }: { l: QuoteLine; n: number | undefined; cu
   const rateOvr = !!l.unitPrice && !!l.unitPriceSnap && l.unitPrice !== l.unitPriceSnap;
   const costOvr = !!l.costOverride && !!l.unitCostSnap && l.costOverride !== l.unitCostSnap;
   const margin = total && total > 0 && cost !== null ? ((total - cost) / total) * 100 : null;
+  // Stairs are one price for the customer (2026-10-28): in Customer view an included stair line keeps its quantity, never a price.
+  const stairPrice = customer && sectionOf(l) === "Stairs" && l.include;
   return (
     <tr className={l.include ? undefined : "off"}>
       <td className="idx">{n ?? ""}</td>
@@ -117,12 +118,9 @@ function Row({ l, n, customer, lump }: { l: QuoteLine; n: number | undefined; cu
       </td>
       {!customer && <td className="muted" data-label="Contractor">{l.contractor ?? "-"}</td>}
       <td className="r" data-label="Quantity">
-        {lump && !LUMP_QTY_SECTIONS.has(sectionOf(l)) ? null : (
-          <>
-            {rate(l.qty)} <span className="faint">{l.uom ?? ""}</span>
-            {l.waste ? <span className="sub">+{Math.round(l.waste * 100)}% waste</span> : null}
-          </>
-        )}
+        {/* Quantities always show, every section, lump sum or not (Albert, 2026-11-04). */}
+        {rate(l.qty)} <span className="faint">{l.uom ?? ""}</span>
+        {l.waste ? <span className="sub">+{Math.round(l.waste * 100)}% waste</span> : null}
       </td>
       {!customer && (
         <td className="r" data-label="Cost">
@@ -133,12 +131,16 @@ function Row({ l, n, customer, lump }: { l: QuoteLine; n: number | undefined; cu
       )}
       {!lump && (
         <td className="r" data-label="Unit price">
-          <span className={rateOvr && !customer ? "chgd" : undefined}>{money(priceUsed(l))}</span>
-          {rateOvr && !customer && <span className="sub">card {money(l.unitPriceSnap)}</span>}
+          {stairPrice ? null : (
+            <>
+              <span className={rateOvr && !customer ? "chgd" : undefined}>{money(priceUsed(l))}</span>
+              {rateOvr && !customer && <span className="sub">card {money(l.unitPriceSnap)}</span>}
+            </>
+          )}
         </td>
       )}
       {!customer && <td className="r muted" data-label="Margin">{pct(margin, 0)}</td>}
-      {lump ? (
+      {lump || stairPrice ? (
         <td className="r amt" data-label="Line total">{l.include ? "" : <span className="note">optional · {money(total)}</span>}</td>
       ) : (
         <td className="r amt" data-label="Line total">{l.include ? money(total) : <span className="note">optional</span>}</td>
@@ -220,7 +222,7 @@ export function OptionSheet({
                         {s === PRIVATE_SECTION ? <span className="priv-tag">Private</span> : s}
                         {s === PRIVATE_SECTION && <span className="sub"> · not itemised for the customer: one row, “{option.privateLabel ?? DEFAULT_PRIVATE_LABEL}”</span>}
                       </td>
-                      <td className="r">{lump ? "" : money(sum)}</td>
+                      <td className="r">{lump || (customer && s === "Stairs") ? "" : money(sum)}</td>
                     </tr>,
                     // Stairs grouped by the Stair Item's Category (2026-10-28), a small heading over each group.
                     ...(s === "Stairs"
