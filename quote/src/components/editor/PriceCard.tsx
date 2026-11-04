@@ -31,7 +31,7 @@ import { isAcceptedLine, isContractorLine, isDiscountLine, MIN_MARGIN_PCT, price
  * Customer view (2026-10-15) shows no cost, margin or profit: the margin box, the readout and the (i)
  * are left out, not hidden.
  */
-export function PriceCard({ quote, option, customer, apply }: { quote: EditorQuote; option: EditorOption; customer: boolean; apply: (q: EditorQuote) => void }) {
+export function PriceCard({ quote, option, customer, apply }: { quote: EditorQuote; option: EditorOption; customer: boolean; apply: (q: EditorQuote) => boolean | void }) {
   const s = priceSummary(option.lines, quote.discountRate, quote.showHst);
   const set = acceptedIsSet(quote, option);
   const round = (n: number) => Math.round(n * 100) / 100;
@@ -73,7 +73,8 @@ export function PriceCard({ quote, option, customer, apply }: { quote: EditorQuo
       setBad("Type the discount in dollars, like 250. Discounts here are dollars only.");
       return;
     }
-    apply(addDiscount(quote, option.id, label, amt));
+    // Refused when holding the accepted price would need a markup (2026-11-04): the typing stays, the editor says why.
+    if (apply(addDiscount(quote, option.id, label, amt)) === false) return;
     setLabel("");
     setAmount("");
     setBad(null);
@@ -138,7 +139,7 @@ export function PriceCard({ quote, option, customer, apply }: { quote: EditorQuo
             </span>
           )}
           <span className="spacer" />
-          {set ? <span className="chip">Set by hand</span> : <span className="faint pc-follow">Following the slider and discounts</span>}
+          {set ? <span className="chip" title="Discounts, the slider and line changes move the discount and the margin, never this price. Reset to change it.">Held</span> : <span className="faint pc-follow">Following the slider and discounts</span>}
           <button type="button" className="btn small" disabled={!set} onClick={reset} title="Back to the price the slider and the discounts make">
             Reset
           </button>
@@ -159,6 +160,7 @@ export function PriceCard({ quote, option, customer, apply }: { quote: EditorQuo
             </label>
           )}
         </div>
+        {set && <p className="pc-mt">Held at {money(s.subtotal)}. Discounts, the slider and line changes move the discount and the margin, never this price. Reset to change it.</p>}
         {hasAccepted && (
           <label className="pc-reason" title="Printed beside this option's Discount row on the customer's page and PDF, e.g. Fall promotion.">
             Reason the customer sees

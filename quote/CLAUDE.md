@@ -506,7 +506,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
     items; or increased rates. The goal is to have less change for mistakes")**: a higher price in any box
     changes nothing and the card says to add a Private line or raise a rate; the 2026-10-22 above-list
     "Accepted price adjustment" line is no longer made (one on an older quote comes off with the next price
-    typed, or Reset); a slider change that would need a markup to hold the price resets it instead; the rate now lands to the cent
+    typed, or Reset); the rate now lands to the cent
     (`landingRate()`, eight places). **Master:** while it is set, a change to the service level or the
     discount items keeps the price and moves the rate (`keepAccepted()`). **Reset, or clearing any of the
     three boxes, clears all three** (same day: "deleting one section clears all the other ones… Pressing
@@ -525,6 +525,16 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
     to type a price. calc.ts and Airtable's formulas are unchanged (the line is a line). One difference from a rate:
     with HST off and HST on materials only, a dollar discount line does not lower the materials' HST, as discount items
     never did. Tested in `tests/editor.test.ts`, `tests/discounts.test.ts` and `tests/send.test.ts`.
+  - **Held, firmly (Albert, 2026-11-04: "Keep this a firm rule. When the accepted price is edited. no other pricing
+    adjustments like discounts can move that accepted price number. Meaning the margins and discount % can change there.
+    But the value doesnt change").** Every editor change goes through `holdAccepted()` (the editor's `apply`, after
+    `settleContractor()`): an option whose accepted price is set, and was not itself just set, reset or cleared
+    (`acceptedSig()`), keeps its price before HST to the cent, its accepted price discount taking up whatever moved
+    (discount items, the slider, the Contractor level, lines), so only the margin and total discount % change. A change
+    that could only be held with a markup is **refused**, never reset: nothing changes and the editor says so, above the
+    lines and above the card, until Reset. A price typed at the price as it stands pins it (a $0 accepted line). The card
+    shows **Held** and says what moves instead. This replaces "a slider change that would need a markup resets it".
+    Tested in `tests/discounts.test.ts`.
   - **Margin and profit** under the boxes (list price, items, adjustment, price, cost, profit, margin),
     and an **(i)** with the lowest price that keeps the **20% margin minimum** (`MIN_MARGIN_PCT`,
     `priceForMargin()`, rounded up to the cent); under it the card says so and offers to set it. Customer

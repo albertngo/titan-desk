@@ -4,9 +4,11 @@ import {
   acceptedIsSet,
   addDiscount,
   addLine,
+  addOption,
   blankQuote,
   buildCatalogue,
   discountAmountFrom,
+  holdAccepted,
   lineFromEntry,
   manualLine,
   PRICE_ADJUSTMENT,
@@ -199,13 +201,15 @@ describe("Contractor pricing (Albert, 2026-11-04)", () => {
     expect(subtotal(resetAccepted(p, id))).toBe(1150);
   });
 
-  it("resets an accepted price the slider would push into a markup, never marks it up", () => {
+  it("refuses a slider move that could only hold the accepted price with a markup, and never marks it up (2026-11-04)", () => {
     const { q, id } = withCard();
     const accepted = setAcceptedPrice(q, id, 950);
-    const r = setServiceLevel(accepted, id, "Contractor", card).quote; // 900 now, under the 950
-    expect(r.discountRate).toBe(0);
-    expect(r.options[0].lines.some((l) => l.section === "Private")).toBe(false);
-    expect(subtotal(r)).toBe(900);
+    const moved = settleContractor(setServiceLevel(accepted, id, "Contractor", card).quote); // 900 before the accepted discount
+    expect(moved.options[0].lines.some((l) => l.section === "Private")).toBe(false);
+    const r = holdAccepted(accepted, moved);
+    expect(r.refused).toEqual({ optionId: id, name: accepted.options[0].name, price: 950 });
+    expect(r.quote).toBe(accepted);
+    expect(subtotal(r.quote)).toBe(950);
   });
 
   it("saves as Contractor", () => {
@@ -221,5 +225,68 @@ describe("a flat card row starts at one (Albert, 2026-11-04)", () => {
     const [binEntry, installEntry] = buildCatalogue([bin, RATE], []).sort((a) => (a.kind === "rate" && a.uom === "flat" ? -1 : 1));
     expect(lineFromEntry(binEntry, "Disposal")).toMatchObject({ qty: 1, uom: "flat", unitPriceSnap: 400 });
     expect(lineFromEntry(installEntry, "Install").qty).toBeNull();
+  });
+});
+
+describe("the accepted price is held, firmly (Albert, 2026-11-04)", () => {
+  // INVENTED: $1,000 of work costing $600, accepted at $900.
+  const held = () => {
+    const { q, id } = withWork();
+    return { id, q: setAcceptedPrice(q, id, 900) };
+  };
+  const apply = (before: EditorQuote, next: EditorQuote) => holdAccepted(before, settleContractor(next));
+
+  it("keeps the price while a discount item comes and goes; the margin and total discount move", () => {
+    const { q, id } = held();
+    let r = addDiscount(q, id, "Senior", 50);
+    expect(subtotal(r)).toBe(900);
+    expect(summary(r)).toMatchObject({ itemsTotal: 50, adjustment: 50, totalDiscountPct: 10, pinned: true });
+    r = removeDiscount(r, id, r.options[0].lines.find((l) => l.description === "Senior")!.id);
+    expect(subtotal(r)).toBe(900);
+  });
+
+  it("keeps the price across any line change, the accepted discount taking it up", () => {
+    const { q, id } = held();
+    const work = q.options[0].lines.find((l) => l.description === "Work")!;
+    const bigger = apply(q, updateLine(q, id, work.id, { qty: 120 }));
+    expect(bigger.refused).toBeNull();
+    expect(subtotal(bigger.quote)).toBe(900);
+    expect(summary(bigger.quote).adjustment).toBe(300);
+    const extra = apply(bigger.quote, addLine(bigger.quote, id, { ...manualLine("Prep", "Patch"), qty: 1, uom: "flat", unitPrice: 75 }));
+    expect(subtotal(extra.quote)).toBe(900);
+  });
+
+  it("refuses a change that would take the price under the accepted price, and changes nothing", () => {
+    const { q, id } = held();
+    const work = q.options[0].lines.find((l) => l.description === "Work")!;
+    const smaller = apply(q, updateLine(q, id, work.id, { qty: 80 })); // 800 before the accepted discount
+    expect(smaller.refused).toMatchObject({ optionId: id, price: 900 });
+    expect(smaller.quote).toBe(q);
+    const tooMuch = apply(q, addDiscount(q, id, "Senior", 150));
+    expect(tooMuch.refused).toMatchObject({ price: 900 });
+  });
+
+  it("pins a price typed at the price as it stands, and lets the accepted price itself be set, reset or cleared", () => {
+    const { q, id } = withWork();
+    const same = setAcceptedPrice(q, id, 1000);
+    expect(acceptedIsSet(same, same.options[0])).toBe(true);
+    // Pinned at the full price, a new discount item could only be held with a markup: refused.
+    expect(apply(same, addDiscount(same, id, "Senior", 50)).refused).toMatchObject({ price: 1000 });
+    // A bigger list price is absorbed: still 1,000.
+    const work = same.options[0].lines.find((l) => l.description === "Work")!;
+    expect(subtotal(apply(same, updateLine(same, id, work.id, { qty: 110 })).quote)).toBe(1000);
+    const { q: h, id: hid } = held();
+    expect(subtotal(apply(h, setAcceptedPrice(h, hid, 850)).quote)).toBe(850);
+    expect(subtotal(apply(h, resetAccepted(h, hid)).quote)).toBe(1000);
+  });
+
+  it("holds each option apart: a change on one never moves another's accepted price", () => {
+    const { q, id } = held();
+    const two = addOption(q);
+    const id2 = two.options[1].id;
+    const both = setAcceptedPrice(addLine(two, id2, { ...manualLine("Install", "Other"), qty: 10, unitPrice: 100 }), id2, 700);
+    const work = both.options[0].lines.find((l) => l.description === "Work")!;
+    const r = apply(both, updateLine(both, id, work.id, { qty: 150 }));
+    expect(r.quote.options.map((o) => optionTotals(o.lines, r.quote.discountRate, r.quote.showHst).subtotal)).toEqual([900, 700]);
   });
 });

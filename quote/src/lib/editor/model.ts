@@ -665,11 +665,15 @@ function listPriceOf(q: EditorQuote, o: EditorOption): { base: number; adj: Edit
   return { base: round2(optionTotals(rest, 0, q.showHst).preDiscount), adj, acc };
 }
 
-/** The accepted price's discount line on one option: `amount` off, the reason kept from the line it replaces. */
+/**
+ * The accepted price's discount line on one option: `amount` off, the reason kept from the line it replaces.
+ * A price typed at the price as it stands keeps the line at $0, so it is still pinned (2026-11-04: the
+ * accepted price is held, below); only Reset takes it off.
+ */
 function putAccepted(q: EditorQuote, optionId: string, acc: EditorLine | undefined, amount: number, reason?: string): EditorQuote {
-  if (!(amount > 0)) return acc ? removeLine(q, optionId, acc.id) : q;
-  const patch = { uom: "flat", qty: 1, unitPrice: -round2(amount), include: true, costOverride: null, manualCost: null, ...(reason !== undefined ? { clientNote: reason } : {}) };
-  return acc ? updateLine(q, optionId, acc.id, patch) : addLine(q, optionId, { ...discountLine(ACCEPTED_LINE, amount), ...patch });
+  const off = amount > 0 ? round2(amount) : 0;
+  const patch = { uom: "flat", qty: 1, unitPrice: off > 0 ? -off : 0, include: true, costOverride: null, manualCost: null, ...(reason !== undefined ? { clientNote: reason } : {}) };
+  return acc ? updateLine(q, optionId, acc.id, patch) : addLine(q, optionId, { ...discountLine(ACCEPTED_LINE, off), ...patch });
 }
 
 /**
@@ -757,15 +761,51 @@ export function resetAccepted(q: EditorQuote, optionId: string): EditorQuote {
  * The accepted price stays where it was across a change to the slider or the discount items
  * (Albert, 2026-11-04: "Accepted price is the master value that overrides the discount % adjustment,
  * the contractor/standard/premium slider"). With no accepted price set, `next` is returned as it is.
+ * When holding it would need a markup, `next` is returned as it is too, and the editor's
+ * `holdAccepted()` refuses the change.
  */
 function keepAccepted(before: EditorQuote, optionId: string, next: EditorQuote): EditorQuote {
   const o = before.options.find((x) => x.id === optionId);
   if (!o || !acceptedIsSet(before, o)) return next;
   const target = optionTotals(o.lines, before.discountRate, before.showHst).subtotal;
-  // Holding it would now take a markup, which is never made (2026-11-04): the accepted price is reset instead.
   const ceiling = priceCeiling(next, optionId);
-  if (ceiling === null || target >= ceiling) return resetAccepted(next, optionId);
+  if (ceiling === null || target > ceiling) return next;
   return setAcceptedPrice(next, optionId, target);
+}
+
+/** What the accepted price itself is on an option: its lines and any old version rate. A change here is the accepted price being set. */
+function acceptedSig(q: EditorQuote, o: EditorOption): string {
+  const one = (l: EditorLine | undefined) => (l ? [l.unitPrice, l.include, l.qty] : null);
+  return JSON.stringify([q.discountRate, one(acceptedLineOf(o)), one(adjustmentOf(o))]);
+}
+
+export type HoldRefusal = { optionId: string; name: string; price: number };
+
+/**
+ * **The accepted price is held, firmly (Albert, 2026-11-04: "Keep this a firm rule. When the accepted price
+ * is edited. no other pricing adjustments like discounts can move that accepted price number. Meaning the
+ * margins and discount % can change there. But the value doesnt change").** Run by the editor on every
+ * change: for each option whose accepted price is set and was not itself just set, reset or cleared, the
+ * price before HST stays exactly where it was; the option's accepted price discount takes up whatever else
+ * moved (discount items, the slider, the Contractor level, lines), so the margin and the total discount %
+ * change and the price does not. A change that could only be held with a markup (the price before the
+ * accepted discount would fall under it) is refused: `before` comes back with the option and its price, and
+ * nothing changes until Reset.
+ */
+export function holdAccepted(before: EditorQuote, next: EditorQuote): { quote: EditorQuote; refused: HoldRefusal | null } {
+  let q = next;
+  for (const o of before.options) {
+    if (!acceptedIsSet(before, o)) continue;
+    const n = next.options.find((x) => x.id === o.id);
+    if (!n || acceptedSig(before, o) !== acceptedSig(next, n)) continue;
+    const target = optionTotals(o.lines, before.discountRate, before.showHst).subtotal;
+    const cur = q.options.find((x) => x.id === o.id)!;
+    if (optionTotals(cur.lines, q.discountRate, q.showHst).subtotal === target) continue;
+    const ceiling = priceCeiling(q, o.id);
+    if (ceiling === null || target > ceiling) return { quote: before, refused: { optionId: o.id, name: o.name, price: target } };
+    q = setAcceptedPrice(q, o.id, target);
+  }
+  return { quote: q, refused: null };
 }
 
 /** The accepted price from a total discount percent: everything off the list price, discount items included. */
