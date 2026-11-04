@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-04",
     kind: "changed",
+    title: "Stringers start at quantity 1",
+    details: ["Adding a stringer item charged per staircase (paint white, oak skin, or sand and stain) puts it in at a quantity of 1. Change it if the job has more."],
+  },
+  {
+    date: "2026-11-04",
+    kind: "changed",
     title: "Stairs options show every category, each with its own add",
     details: [
       "In the editor, a stairs option now always shows its Stairs section with every Stair Item category (Steps, Bullnoses, Risers, Landings, Accents, Railing, Tasks and the rest) as its own heading, even when nothing is in it yet. Each heading has its own add button, so what you pick lands right under it.",

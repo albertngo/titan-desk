@@ -340,6 +340,13 @@ export function setMaterialFigures(q: EditorQuote, optionId: string, lineId: str
   });
 }
 
+/**
+ * A Stair Item charged once per staircase starts at quantity 1 (Albert, 2026-11-04: "Stringers painting white should
+ * auto 1"). Read from the item's name, "(per staircase)", which the three stringer items (paint white, oak skin, sand
+ * and stain) carry; staff can still change it. The builder and the site sheet set their own quantity.
+ */
+export const perStaircase = (name: string) => /\(\s*per\s+staircase\s*\)/i.test(name);
+
 /** A line priced from the card, at the option's service level (Premium adds to labour only). */
 export function lineFromEntry(entry: CardEntry, section: string, contractorName?: string, level: ServiceLevel = "Standard"): EditorLine {
   if (entry.kind === "stair") {
@@ -350,6 +357,7 @@ export function lineFromEntry(entry: CardEntry, section: string, contractorName?
       stairCategory: entry.category,
       description: entryLabel(entry),
       uom: "piece",
+      qty: perStaircase(entry.name) ? 1 : null,
       unitPriceSnap: levelPrice(entry.rate, level, true),
       unitCostSnap: entry.cost,
       hasSource: true,
