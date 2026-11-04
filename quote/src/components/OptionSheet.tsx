@@ -215,9 +215,9 @@ export function OptionSheet({
                   const rollup = s === "Other" && hidden > 0 ? hidden : 0;
                   const sum = lines.reduce((a, l) => a + (lineTotal(l) ?? 0), 0) + rollup;
                   return [
-                    <tr className="sect" key={`s-${s}`}>
+                    <tr className={s === PRIVATE_SECTION ? "sect priv" : "sect"} key={`s-${s}`}>
                       <td colSpan={lump ? 3 : customer ? 4 : 7}>
-                        {s}
+                        {s === PRIVATE_SECTION ? <span className="priv-tag">Private</span> : s}
                         {s === PRIVATE_SECTION && <span className="sub"> · not itemised for the customer: one row, “{option.privateLabel ?? DEFAULT_PRIVATE_LABEL}”</span>}
                       </td>
                       <td className="r">{lump ? "" : money(sum)}</td>

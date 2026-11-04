@@ -472,6 +472,9 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   a private line priced at zero is cost only and never shows at all. Never a hidden amount: the
   customer-copy whitelist in `copy.ts` does the roll-up and `tests/send.test.ts` pins that no
   private description or cost reaches the copy. `PRIVATE_SECTION` / `privateRollup()` in `calc.ts`.
+  **It stands apart on staff screens** (Albert, 2026-11-04: "a very small separation so that it is very
+  obvious"): a wider gap above, a violet rule and tint on its header and a PRIVATE tag (`tr.sect.priv`,
+  `.priv-tag` in `globals.css`), in the editor and on the quote page.
 - **Accepted price (Albert, 2026-10-22; above the list blocked 2026-11-04, see The price card).** Under each option's overview in the editor, **Accepted
   price, before HST** takes the amount the customer agreed to and sets the quote's discount so that
   option lands on it (`setAcceptedPrice()` in `src/lib/editor/model.ts`, tested). The discount is one

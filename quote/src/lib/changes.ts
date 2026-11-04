@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-04",
     kind: "changed",
+    title: "The Private section stands apart",
+    details: ["On the quote page and in the editor, the Private section sits a little further down, with a violet line, a tinted header and a PRIVATE tag, so it is obvious those lines are never itemised for the customer."],
+  },
+  {
+    date: "2026-11-04",
+    kind: "changed",
     title: "The accepted price can't go above the quote",
     details: [
       "The accepted price, total discount % and margin % can only bring the price down from what the slider and the discounts make. To charge more, add a Private line or raise a rate. The card says so if you try.",
