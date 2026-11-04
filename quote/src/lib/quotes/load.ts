@@ -11,6 +11,7 @@ import { isStairMethod, isStairType } from "@/lib/quick/stairs";
 import { roomsRaw } from "@/lib/rooms/log";
 import { floorSheetRaw } from "@/lib/floorsheet/sheet";
 import { sheetRaw } from "@/lib/sitesheet/sheet";
+import { payoutsRaw } from "@/lib/payout/cards";
 import { partValue, scopeValue } from "./scope";
 import { workingDraft } from "./savePlan";
 import { bool, ids, num, str } from "./values";
@@ -194,6 +195,7 @@ function linkOf(r: AirtableRecord): QuoteLink {
     siteSheetPhotos: photosOf(f[QUOTE.siteSheetPhotos]),
     floorSheet: floorSheetRaw(f[QUOTE.floorSheet]),
     floorSheetPhotos: photosOf(f[QUOTE.floorSheetPhotos]),
+    payouts: payoutsRaw(f[QUOTE.payouts]),
   };
 }
 
@@ -429,7 +431,7 @@ export async function getRateCard(): Promise<RateCard> {
       const name = str(f[STAIR.name]);
       const rate = num(f[STAIR.rate]);
       if (!name || rate === null) return [];
-      return [{ id: r.id, name, category: str(f[STAIR.category]), size: str(f[STAIR.size]), rate, cost: stairCost(num(f[STAIR.cost]), num(f[STAIR.materialCost])) }];
+      return [{ id: r.id, name, category: str(f[STAIR.category]), size: str(f[STAIR.size]), rate, cost: stairCost(num(f[STAIR.cost]), num(f[STAIR.materialCost])), labourCost: num(f[STAIR.cost]) }];
     });
   const materials = materialRecs.flatMap((r): MaterialRow[] => {
     const f = r.fields;

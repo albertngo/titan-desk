@@ -683,7 +683,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   Acceptance record's `picks` and Accepted Option listing both, and `acceptedCopy()` joining them into
   one option (same-name sections together). **Make a change** joins them into one live option, so a change
   stays one option. A preliminary shows each scope's price on its own (`scopeLeads()`: one option's range,
-  or "from" the lowest of several). Recommended is one per scope. With both scopes on a quote, the option tabs (quote page and editor) are grouped Flooring | Stairs under small headings (`scopeGroups()`, 2026-10-30). Stairs start their own row under Flooring (2026-10-31). In the editor each scope is a row with its label in a fixed column, and **+ Add option** / **+ From quick form** are their own column on the right behind a light rule (Albert, 2026-11-01), stacked under the tabs on a phone. **Analysis compares each scope apart** (Albert, 2026-11-01: "Analysis should split flooring and stairs comparisons as well"): Options side by side and Where the options differ once per scope, the best figure and "differs" only among like options; one scope reads as before. **The editor's layout is option C (Albert, 2026-11-01: "less AI slop looking, more refined and ease of use"; chosen from three mockups):** Save / Discard (or Save as the next draft) in a header that stays at the top; options in one panel; each work section a block ending in "+ Add to …"; margin under the line total (the card figure is the box's placeholder, spelled out only once typed over or marked up; unit cost went back to its own column beside Unit price the same day, Albert: "Can unit cost and price be on different row"); the sidebar holds the money and a short Customer and terms card whose **Edit terms** opens the full terms (`details#ed-terms`) under the option. Display only: no money, save or Airtable change. Styles under "Editor, option C" in `globals.css`. **Option C is the whole app's look (Albert, 2026-11-01: "match all the screens… so the app stays consistent throughout"):** the quote page uses the editor's header (`.ed-head`, Edit quote at the right) and options panel (`.ed-tabs`, with Rooms / Site sheet / Photos / Analysis in an `.ed-tools` column), and the "Option C across the whole app" block at the end of `globals.css` sets cards, card headings, buttons, tabs and line tables everywhere. New screens use these classes rather than new ones. **Totals sit at the bottom of the option's lines** (Albert, 2026-11-01: "the totals should be at the bottom for intuitiveness"), right-aligned like an invoice (`.ov-foot`), on the quote page and in the editor (where Accepted price sits under them); Notes / Exclusions follow full width. A stairs option from an older version is
+  or "from" the lowest of several). Recommended is one per scope. With both scopes on a quote, the option tabs (quote page and editor) are grouped Flooring | Stairs under small headings (`scopeGroups()`, 2026-10-30). Stairs start their own row under Flooring (2026-10-31). In the editor each scope is a row with its label in a fixed column, and **+ Add option** / **+ From quick form** are their own column on the right behind a light rule (Albert, 2026-11-01), stacked under the tabs on a phone. **Analysis compares each scope apart** (Albert, 2026-11-01: "Analysis should split flooring and stairs comparisons as well"): Options side by side and Where the options differ once per scope, the best figure and "differs" only among like options; one scope reads as before. **The editor's layout is option C (Albert, 2026-11-01: "less AI slop looking, more refined and ease of use"; chosen from three mockups):** Save / Discard (or Save as the next draft) in a header that stays at the top; options in one panel; each work section a block ending in "+ Add to …"; margin under the line total (the card figure is the box's placeholder, spelled out only once typed over or marked up; unit cost went back to its own column beside Unit price the same day, Albert: "Can unit cost and price be on different row"); the sidebar holds the money and a short Customer and terms card whose **Edit terms** opens the full terms (`details#ed-terms`) under the option. Display only: no money, save or Airtable change. Styles under "Editor, option C" in `globals.css`. **Option C is the whole app's look (Albert, 2026-11-01: "match all the screens… so the app stays consistent throughout"):** the quote page uses the editor's header (`.ed-head`, Edit quote at the right) and options panel (`.ed-tabs`, with Rooms / Site sheet / Payouts (2026-11-04) / Photos / Analysis in an `.ed-tools` column), and the "Option C across the whole app" block at the end of `globals.css` sets cards, card headings, buttons, tabs and line tables everywhere. New screens use these classes rather than new ones. **Totals sit at the bottom of the option's lines** (Albert, 2026-11-01: "the totals should be at the bottom for intuitiveness"), right-aligned like an invoice (`.ov-foot`), on the quote page and in the editor (where Accepted price sits under them); Notes / Exclusions follow full width. A stairs option from an older version is
   carried by copying it into a new version; no cross-version picking. Tested in `tests/scope.test.ts`.
 - **Won (2026-10-27).** When an accepted quote opens, it reads its opportunity for the PP number and the
   Notion page Make 3710214 writes back after making the project (opportunity fields
@@ -839,6 +839,35 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   a later step can hand stair and measurement photos to Claude (site sheets since 2026-11-03, through the Site sheet
   tab's From CompanyCam, below; measurement photos are not built). Pure reading in `src/lib/companycam/photos.ts`, tested
   in `tests/companycam.test.ts`; screen `src/components/CompanyCamPhotos.tsx`.
+- **Payout cards (Albert, 2026-11-04: "we have to also send the contractor a payout form… select the final sent options
+  and summarize for the labor-only portions of each line item… multiple payout cards since there may be different
+  contractors for each line item… easily check for those said items, add any new lines, edit payout rates; etc. and quickly
+  push this to the companycam so it is shareable with the other photos").** A **Payouts** tab on the quote page, staff
+  only (it shows what we pay; never in Customer view). **Final options** are ticked: the accepted picks on the accepted
+  version, every offered option on a change, else the recommended ones (`defaultOptionIds()`). **Build cards** makes one
+  card per contractor (Quote Lines → Contractor, matched without case; lines with none on an unnamed card) from those
+  options' lines (`payoutCandidates()` / `groupCards()` in `src/lib/payout/cards.ts`). Chosen by Albert the same day:
+  Install, Stairs, Removal, Prep and Disposal lines start **ticked**; Delivery, Other, Private and unsorted lines are
+  listed **unticked**; Materials, Discounts and Exclusions never appear; an add-on counts only when the customer took it.
+  **The rate starts at our labour cost** (`labourRate()`): a Rate Card line with a swapped material pays the row's cost
+  without the material (the card's labour when a cost was typed, as `materialSplit()` reads it); a Stair Item pays its
+  Labor Cost without its Material Cost (a line snapped before 2026-10-31 already holds labour only; `getRateCard()` now
+  carries `labourCost` on Stair Items); anything else pays the line's cost (override, then snap); a typed whole-line
+  cost is spread over the quantity. The quantity is the line's own, **without waste**. Staff tick and untick, retype
+  quantity, unit, words and rate (a changed rate shows "was $…" and goes back on a click), add a typed line, move a line
+  to another card, add or remove cards, and write a note. Money is `payoutAmount()` / `payoutTotal()` in `calc.ts`
+  (quantity × rate to the cent; ticked lines only). Kept on **Quotes → Payouts** (JSON, app-written, compare-and-swap
+  like Rooms; `savePayouts()` in `src/lib/quotes/payouts.ts`), so every version shows the same cards; **Build cards
+  again** replaces the lines and keeps each contractor's push history. **Push to CompanyCam** (saved cards only, a named
+  contractor and every ticked line with words, quantity and rate, `pushProblem()`) draws the card as a JPEG in the
+  browser from the saved card (`src/components/payoutImage.ts`, from `cardSheet()`: contractor, customer, site, date,
+  PP / Q number, the lines, the total, the note, "Labour only"), posts it to `/api/payout` (signed in; a route because
+  the picture is larger than a server action takes), which uploads it to **Quotes → Payout Cards** (attachments, every
+  push kept) and hands that file's Airtable address to CompanyCam as a new photo on the quote's own project, tagged
+  **Payout**, described "Payout card: <contractor>, $… labour (PP-…)". The push is recorded on the card (when, who, total,
+  a signature of what it showed, `pushState()`), so the card says when it went and whether it changed since; **Push
+  again** adds a new photo, never replaces one. Preview shows the picture with Download. Not done (Albert, same day: "not
+  now"): Notion's Project Costs lines stay by hand. Tested in `tests/payout.test.ts`; screen `src/components/PayoutCards.tsx`.
 - **Typed lines saved for next time, and logged (Albert, 2026-11-01: "When we add custom items and the quote ends
   up being SENT… make it so that those items are created for next time use and make them 'require review'… There
   should be a log of where it was used so I can ensure it wasn't wrongly charged").** After a quote is sent (never
@@ -946,21 +975,25 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
    `QUOTE_ANTHROPIC_KEY` (staff deployment only) and the only file naming `api.anthropic.com`; one request,
    called only from `src/lib/quotes/sitesheet.ts`, which writes the Quotes table only (the Site Sheet field and,
    through `uploadAttachment()` in the Airtable client, the Site Sheet Photos field; since 2026-11-03 also the Flooring
-   Sheet and Flooring Sheet Photos fields). The Airtable client's
+   Sheet and Flooring Sheet Photos fields; since 2026-11-04 `src/lib/quotes/payouts.ts` uploads to Payout Cards). The Airtable client's
    third request, `uploadAttachment()`, runs the same table and deployment checks as `write()`.
 2f. **Notion payments are read in one file (2026-10-30):** `src/lib/notion/payments.ts`, `server-only`, the only reader
    of `QUOTE_NOTION_PAYMENTS_TOKEN` (a Notion internal integration with read content only, shared with the Master
    Payments Log alone, staff deployment only), one request (a query of that log), reached only from
    `src/lib/quotes/billing.ts` and, since 2026-10-31, `src/lib/quotes/send.ts` (a change's paid so far). `src/lib/bug/notion.ts`
    is the only other file that talks to Notion.
-2g. **One file talks to CompanyCam, and only reads (2026-10-30):** `src/lib/companycam/client.ts`, `server-only`,
-   GET only, one request function, the only reader of `QUOTE_COMPANYCAM_TOKEN` (staff deployment only; refuses on
+2g. **One file talks to CompanyCam, and it reads plus adds payout cards (2026-10-30; one write since 2026-11-04):** `src/lib/companycam/client.ts`, `server-only`,
+   one request function, the only reader of `QUOTE_COMPANYCAM_TOKEN` (staff deployment only; refuses on
    the customer one) and the only file naming `api.companycam.com`. A CompanyCam access token is not scoped, so this
    file is the limit: one project and its photos. It is reached only from `src/lib/quotes/companycam.ts`, which only
    the quote page and (since 2026-11-03) `src/lib/quotes/sitesheet.ts` import. Making projects stays Make's. **Site sheet
    photos (2026-11-03):** the one request also downloads a photo's image, without the token (the token goes only to
    `api.companycam.com`), and only from an address CompanyCam's own answer gave for a photo on the quote's project, never
-   one a browser sent. `tests/boundary.test.ts` pins all of this.
+   one a browser sent. **The one write (Albert, 2026-11-04, payout cards):** `addProjectPhoto()`, a POST that the request
+   refuses for any address but `https://api.companycam.com/v2/projects/<digits>/photos`; never an update, a delete or a
+   project. It is reached only through `addPayoutPhoto()` in `src/lib/quotes/companycam.ts` (the quote's own project,
+   tagged Payout), called only from `src/lib/quotes/payouts.ts`, which reads the project from the quote's record, never
+   from a browser. `tests/boundary.test.ts` pins all of this.
 3. **Staff is not enough.** Only emails on `QUOTE_ALLOWED_EMAILS` get in. The proxy checks
    it and every loader in `src/lib/quotes/load.ts` and `src/lib/quotes/start.ts` checks again
    (`requireQuoter()`). An empty list lets nobody in.

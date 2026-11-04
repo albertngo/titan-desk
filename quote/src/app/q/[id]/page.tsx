@@ -10,6 +10,7 @@ import { CustomerCard } from "@/components/CustomerCard";
 import { Financials } from "@/components/Financials";
 import { LinkJob } from "@/components/LinkJob";
 import { OptionSheet } from "@/components/OptionSheet";
+import { PayoutCards } from "@/components/PayoutCards";
 import { Rooms } from "@/components/Rooms";
 import { SiteSheetTab } from "@/components/SiteSheet";
 import { SendQuote } from "@/components/SendQuote";
@@ -42,6 +43,7 @@ import { logEntries } from "@/lib/quotes/history";
 import { addDays, leadPrice, offersPdf, partOf, priceRange, rangeText, torontoToday, VALID_DAYS } from "@/lib/send/copy";
 import { optionProblem, sendProblems } from "@/lib/send/plan";
 import { parseRooms } from "@/lib/rooms/log";
+import { defaultOptionIds, parsePayouts, payoutCandidates } from "@/lib/payout/cards";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Quote" };
@@ -68,7 +70,9 @@ export default async function QuotePage({
   // The Photos tab (2026-10-30): the job's CompanyCam project, staff only, on a quote that links one.
   const camUrl = quote.link?.companyCamUrl ?? null;
   const showPhotos = opt === "photos" && !customer && Boolean(camUrl);
-  const option = showAnalysis || showRooms || showSheet || showPhotos ? null : (quote.options.find((o) => o.id === opt) ?? quote.options[0] ?? null);
+  // The Payouts tab (2026-11-04): contractor payout cards, staff only (it shows what we pay).
+  const showPayouts = opt === "payouts" && !customer;
+  const option = showAnalysis || showRooms || showSheet || showPhotos || showPayouts ? null : (quote.options.find((o) => o.id === opt) ?? quote.options[0] ?? null);
   const tabGroups = scopeGroups(quote.options);
   const totals = option ? optionTotals(option.lines, quote.discountRate, quote.showHst) : null;
   const madeFrom = fromWords(quote.changeNo, null);
@@ -140,6 +144,30 @@ export default async function QuotePage({
   const sheetRaw = quote.link?.siteSheet ?? "";
   const sheetStored = parseStored(sheetRaw);
   const [sheetCard, sheetOn] = showSheet && quote.link ? await Promise.all([getRateCard(), sheetReaderOn()]) : [null, false];
+  // Payout cards (2026-11-04) live on the quote (Quotes → Payouts); the card is read only when the tab is open.
+  const payoutsRawText = quote.link?.payouts ?? "";
+  const payoutsStored = parsePayouts(payoutsRawText);
+  const payoutCard = showPayouts && quote.link ? (sheetCard ?? (await getRateCard())) : null;
+  const payoutTab =
+    showPayouts && quote.link && payoutCard ? (
+      <PayoutCards
+        quoteRecordId={quote.link.quoteRecordId}
+        versionId={quote.id}
+        raw={payoutsRawText}
+        options={quote.options.map((o) => ({ id: o.id, name: o.name, part: o.part ?? null, accepted: acceptedIds.has(o.id), notOffered: o.notOffered === true }))}
+        defaultIds={defaultOptionIds(quote)}
+        candidates={payoutCandidates(quote, quote.options.map((o) => o.id), payoutCard)}
+        header={{
+          quoteNumber: quote.link.quoteNumber,
+          projectNumber: quote.link.projectNumber,
+          customer: [quote.link.firstName, quote.link.lastName].filter(Boolean).join(" ") || quote.customerName,
+          site: [quote.siteAddress, quote.siteCity].filter(Boolean).join(", ") || null,
+          date: new Date().toLocaleDateString("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric", year: "numeric" }),
+        }}
+        contractors={[...new Set(payoutCard.rates.map((r) => r.contractor).filter(Boolean))].sort()}
+        camUrl={camUrl}
+      />
+    ) : null;
   // CompanyCam is read only when the Photos tab is open, so it never slows a quote opening.
   const camPhotos = showPhotos ? await loadCompanyCam(camUrl) : null;
 
@@ -304,6 +332,12 @@ export default async function QuotePage({
                         {sheetStored && <span className="t-amt">{sheetStored.checked ? "checked" : "to check"}</span>}
                       </Link>
                     )}
+                    {!customer && (
+                      <Link className="tab" href={`/q/${quote.id}?opt=payouts`} aria-current={showPayouts ? "page" : undefined}>
+                        <span className="t-name">Payouts</span>
+                        {payoutsStored && payoutsStored.cards.length > 0 && <span className="t-amt">{payoutsStored.cards.length}</span>}
+                      </Link>
+                    )}
                     {!customer && camUrl && (
                       <Link className="tab" href={`/q/${quote.id}?opt=photos`} aria-current={showPhotos ? "page" : undefined}>
                         <span className="t-name">Photos</span>
@@ -319,7 +353,13 @@ export default async function QuotePage({
               </nav>
             )}
 
-            {showPhotos && camPhotos && camUrl ? (
+            {showPayouts ? (
+              payoutTab ?? (
+                <section className="card">
+                  <p className="empty">This version isn&apos;t attached to a quote in Airtable, so there is nowhere to keep payout cards.</p>
+                </section>
+              )
+            ) : showPhotos && camPhotos && camUrl ? (
               <CompanyCamPhotos result={camPhotos} linkUrl={camUrl} />
             ) : showSheet ? (
               quote.link && sheetCard ? (

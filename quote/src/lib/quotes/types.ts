@@ -93,6 +93,8 @@ export type QuoteLink = {
   floorSheet?: string;
   /** Quotes → Flooring Sheet Photos, with addresses fresh from this read. */
   floorSheetPhotos?: { url: string; name: string }[];
+  /** Quotes → Payouts (2026-11-04), exactly as stored; read with parsePayouts(). Absent reads as none. */
+  payouts?: string;
 };
 
 /** A CompanyCam photo as the Site sheet tab's picker shows it (2026-11-03): no address it could be downloaded from. */
@@ -189,6 +191,8 @@ export type StairRow = {
   size: string | null;
   rate: number;
   cost: number | null;
+  /** Labor Cost alone (2026-11-04), for a contractor's payout card: `cost` adds the Material Cost. Absent on older fixtures. */
+  labourCost?: number | null;
 };
 
 /** Which Stair Items a profile expands into, by record id, and what each list is counted per. */
