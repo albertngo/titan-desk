@@ -86,7 +86,16 @@ export function authorFields(person: Person, now: Date, what: string, existingLo
 }
 
 /** "Albert", from the sign-in's display name, else from the address ("albert@…" → "Albert"); null for a shared box like info@. */
+/**
+ * Shared mailboxes that sign as a person (Albert, 2026-11-04: "the Front Desk (info@titanfloors.ca)
+ * email's first name is 'Joey'"). Checked before the sign-in's display name, which for a shared box
+ * is the box's name, not the person answering it.
+ */
+export const SHARED_MAILBOX_NAMES: Readonly<Record<string, string>> = { "info@titanfloors.ca": "Joey" };
+
 export function firstNameOf(person: Person): string | null {
+  const shared = SHARED_MAILBOX_NAMES[person.email.trim().toLowerCase()];
+  if (shared) return shared;
   const fromName = (person.name ?? "").trim().split(/\s+/)[0];
   if (fromName && /^[\p{L}][\p{L}'’-]*$/u.test(fromName)) return fromName;
   const local = person.email.split("@")[0]?.split(/[._-]/)[0] ?? "";

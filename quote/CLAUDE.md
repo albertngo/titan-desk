@@ -353,6 +353,13 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   sign-in (`requireQuoterPerson()` in `src/lib/auth.ts`: email plus display name; the first name
   signs the email and the text, `firstNameOf()` in `src/lib/quotes/history.ts`; a shared box like
   info@ signs as the company). Rule: `emailFromFor()` in `plan.ts`, tested in `tests/send.test.ts`.
+  **Only ever from the person sending (Albert, 2026-11-04: "whoever is logged into the quote app and sends
+  it only. This should stay true for everyone").** The location-default fallback is gone from sending, Send
+  again and invoice/receipt emails: `fromAttempts()` tries the named and the bare address and nothing else,
+  so a sign-in GHL can't send from means the email does not go (the text still can) and the Send card says
+  so (`noSenderWords()`). The acceptance confirmation, which no person presses, still falls back.
+  **The front desk is Joey** (same day): `SHARED_MAILBOX_NAMES` in `history.ts` signs info@titanfloors.ca
+  as "Joey" whatever its sign-in name says.
   Make 4975508 forwards the message body verbatim, so nothing changed in Make.
 - **Who worked on a version (Albert, 2026-10-22).** Quote Versions carries **Created By (app)**,
   **Last Edited By**, **Last Edited At** and an append-only **Edit Log** (one line per save, new
@@ -426,7 +433,9 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
 - **Lump sum is the default, always (Albert, 2026-10-22).** The customer sees what the work includes
   and one price for the project, **no line price or breakdown**: counted lines keep their words and
   lose unit price and amount; only Install, Removal, Prep and Materials lines keep a quantity, for
-  clarity about the scope (`LUMP_QTY_SECTIONS` in `calc.ts`); sections lose their total; the totals
+  clarity about the scope (`LUMP_QTY_SECTIONS` in `calc.ts`); **a material always keeps its rate** (Albert,
+  2026-11-04: "Material Rates in the material section should ALWAYS show the rate; no matter what the form
+  the quote is sending in"): lump sum and preliminary too, never its amount, headed Rate in the PDF; sections lose their total; the totals
   block shows the price before the discount and the discount (2026-11-03; before that there were no discount
   rows), then price before HST, HST and total with the payment schedule; optional add-ons keep their price, since they are not in it; the
   Private section's roll-up row is not shown at all, its amount being inside the one price. **The

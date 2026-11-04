@@ -26,7 +26,7 @@ import {
 import { sendMessage } from "@/lib/make/client";
 import { paymentsReaderOn, projectPayments } from "@/lib/notion/payments";
 import { torontoToday, type CustomerCopy } from "@/lib/send/copy";
-import { billingEmailMessage, customerLinks, emailFromFor, isToken } from "@/lib/send/plan";
+import { billingEmailMessage, customerLinks, fromAttempts, isToken, noSenderWords } from "@/lib/send/plan";
 import { appendLog, authorFields, firstNameOf, logLine } from "./history";
 import { loadContract } from "./contract";
 import { getQuote } from "./load";
@@ -272,14 +272,12 @@ export async function emailBilling(versionId: string, choice: BillingChoice): Pr
   const from = { email: person.email, firstName: firstNameOf(person) };
   const doc = { title: kindTitle(r.snap.kind) as "Invoice" | "Receipt", number: r.snap.number, ...t };
   const to = { contactId, firstName: fresh.link.firstName ?? null, pdfUrl };
-  // From the quoter, named, then bare, then GHL's default, as a quote is sent.
-  const attempts = [...new Set([emailFromFor(from, r.snap.copy.company.email, true), emailFromFor(from, r.snap.copy.company.email, false), null])];
-  let last: unknown = null;
-  let sentFrom: string | null = null;
+  // From the person sending, named, then bare, as a quote is sent; never anyone else (2026-11-04).
+  const attempts = fromAttempts(from, r.snap.copy.company.email);
+  let last: unknown = attempts.length ? null : new Error(noSenderWords(from.email));
   for (const emailFrom of attempts) {
     try {
       await sendMessage(billingEmailMessage(r.snap.copy, doc, to, from, { emailFrom }));
-      sentFrom = emailFrom;
       last = null;
       break;
     } catch (e) {
@@ -288,7 +286,6 @@ export async function emailBilling(versionId: string, choice: BillingChoice): Pr
   }
   if (last) return { ok: false, message: `The ${doc.title.toLowerCase()} is ${r.snap.number}, but the email didn't go: ${last instanceof Error ? last.message : String(last)}` };
   const notes: string[] = r.warning ? [r.warning] : [];
-  if (sentFrom === null && attempts[0] !== null) notes.push(`GHL would not send from ${person.email}, so the email went out from the location's default address.`);
   try {
     const F = FIELDS[r.snap.kind];
     await updateRecord(TABLE[r.snap.kind], r.row.id, { [F.lastSentAt]: new Date().toISOString(), [F.sentTo]: fresh.link.email });

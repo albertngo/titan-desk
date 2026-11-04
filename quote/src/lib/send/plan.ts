@@ -169,6 +169,19 @@ export function emailFromFor(sender: Sender | null, companyEmail: string | null,
   return named && sender.firstName ? `${sender.firstName} @ ${COMPANY} <${address}>` : address;
 }
 
+/**
+ * The From lines to try, in order: named, then bare (Albert, 2026-11-04: "the person to send the quote
+ * from is whoever is logged into the quote app and sends it only. This should stay true for
+ * everyone"). Never GHL's location default: empty means the person signed in can't be the sender, and
+ * the email is not sent.
+ */
+export function fromAttempts(sender: Sender | null, companyEmail: string | null): string[] {
+  return [...new Set([emailFromFor(sender, companyEmail, true), emailFromFor(sender, companyEmail, false)].filter((x): x is string => x !== null))];
+}
+
+/** Why there is no From line for this person, in words for the Send card and the result. */
+export const noSenderWords = (email: string) => `The email can't go from ${email}: GHL sends only from a Titan address, and never from anyone but the person sending. Sign in with your Titan account to email it, or send it by text.`;
+
 const COMPANY = "Titan Flooring";
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");

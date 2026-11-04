@@ -327,7 +327,9 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
         qty: showQty ? qty : null,
         uom: showQty ? clean(l.uom) : null,
         wastePct: showQty && l.waste ? Math.round(l.waste * 100) : null,
-        unitPrice: minimum || lump ? null : price,
+        // A material always shows its rate (Albert, 2026-11-04: "Material Rates in the material section should ALWAYS
+        // show the rate; no matter what the form the quote is sending in"): lump sum and preliminary too, never its amount.
+        unitPrice: minimum || (lump && name !== "Materials") ? null : price,
         minimum: lump ? false : minimum,
         amount: lump ? null : amount,
         optional: !l.include,
