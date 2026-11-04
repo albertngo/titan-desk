@@ -22,6 +22,12 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-04",
+    kind: "changed",
+    title: "No em dashes",
+    details: ["No screen, email, text, page or PDF uses an em dash any more, including words typed into Airtable before a customer sees them."],
+  },
+  {
+    date: "2026-11-04",
     kind: "new",
     title: "A price card under each option",
     details: [

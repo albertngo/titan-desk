@@ -38,7 +38,7 @@ export function CustomerCard({ quote }: { quote: Quote }) {
           {rows.map(([k, v]) => (
             <div className="field" key={k}>
               <span className="k">{k}</span>
-              <span className="v">{v ?? <span className="faint">—</span>}</span>
+              <span className="v">{v ?? <span className="faint">-</span>}</span>
             </div>
           ))}
         </div>

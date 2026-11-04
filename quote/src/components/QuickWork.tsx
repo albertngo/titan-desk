@@ -191,7 +191,7 @@ export function QuickWork({
                           {c && (
                             <span className="qw-price" aria-label={`${g} ${i + 1} rate and total`}>
                               <span className="qw-rate">{rateText(c, unit, r.product)}</span>
-                              <b>{total === null ? "—" : money(total)}</b>
+                              <b>{total === null ? "-" : money(total)}</b>
                             </span>
                           )}
                           {rows.length > 1 && (

@@ -36,7 +36,7 @@ import { ids, str } from "./values";
  *   3. sends the email and/or the text through Make (GHL), each confirmed on its own. The email
  *      goes out from the signed-in quoter's address (2026-10-22, Albert): GHL's `emailFrom`, tried
  *      first as "Albert @ Titan Flooring <albert@…>", then as the bare address, then the location
- *      default, so a sender GHL won't accept never stops a quote going out — the warning says so;
+ *      default, so a sender GHL won't accept never stops a quote going out, the warning says so;
  *   4. if neither went, puts the version back to Draft; if one did, it stays Sent and says which
  *      failed. Older sent versions of the same quote become Superseded, so their links say so;
  *   5. sets the follow-up tag (2026-10-27) and marks the version tracked, so its first open and a

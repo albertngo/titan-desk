@@ -978,6 +978,10 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
    rewritten; a reversal is its own new entry. The **What's new** button on the Quotes page opens
    it at `/changes`. Pure refactors, tests and lint fixes need none. `tests/changes.test.ts` keeps
    it dated and newest first.
+8. **No em dashes in the app's words (Albert, 2026-11-04: "There should be NO em-dashes on any of the
+   wordings from anywhere").** Nothing under `src/` contains one (`tests/emdash.test.ts` fails on any,
+   comments included; `pdfDoc.ts`'s font map is the one exception), and `noEmDash()` in `copy.ts` takes
+   them out of words typed into Airtable before they reach a customer copy.
 
 ## Commands
 

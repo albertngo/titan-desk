@@ -176,7 +176,7 @@ export const OPTION = {
   lines: "fldYmOczi2hNUldJU",
   /** The version this option belongs to; emptied, never deleted, when the option is removed. */
   version: "flduprOIp2Z5Z6JcG",
-  // Airtable's own rollups/formulas — read only to show the parity check.
+  // Airtable's own rollups/formulas, read only to show the parity check.
   preDiscount: "fldBTYJKRLPbCkuWw",
   cost: "fldOfXmrlI9Kkh5RF",
   discount: "flditLXPBk6OZHKmN",
@@ -233,7 +233,7 @@ export const LINE = {
   stairCategory: "fldSFOxH6jcSqDxLL",
   /** 2026-11-02: lookup of the Stair Item's Customer Wording; the customer copy merges lines that share it. Read only. */
   stairWording: "fldbhcMQLCGVMq3XC",
-  // Airtable's own per-line results — read only for the parity check.
+  // Airtable's own per-line results, read only for the parity check.
   lineTotal: "fldtr6qmdjmWc1YFM",
   lineCost: "fld64HUgwqcRso3Br",
 } as const;

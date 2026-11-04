@@ -87,7 +87,7 @@ export function Financials({
         <section className="card">
           <div className="card-h">Checks</div>
           {agrees !== null && (
-            <div className="check"><span className={`dot ${agrees ? "good" : "bad"}`} />{agrees ? "Airtable agrees to the cent" : "Airtable disagrees — see the red bar"}</div>
+            <div className="check"><span className={`dot ${agrees ? "good" : "bad"}`} />{agrees ? "Airtable agrees to the cent" : "Airtable disagrees: see the red bar"}</div>
           )}
           <div className="check"><span className={`dot ${count("OVR") ? "warn" : "good"}`} />{count("OVR")} priced off the card</div>
           <div className="check"><span className={`dot ${count("NOSRC") ? "warn" : "good"}`} />{count("NOSRC")} with no rate source</div>

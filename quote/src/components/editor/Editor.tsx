@@ -343,7 +343,7 @@ export default function Editor({
                 ))}
               </select>
             ) : (
-              <span className="muted">{l.contractor ?? "—"}</span>
+              <span className="muted">{l.contractor ?? "-"}</span>
             )}
             {crewMark(l)}
           </td>
@@ -819,8 +819,8 @@ export default function Editor({
                                 <tr key="private-rollup" className="rollup">
                                   <td className="idx">{numberOf.size + 1}</td>
                                   <td>{option.privateLabel ?? DEFAULT_PRIVATE_LABEL}</td>
-                                  <td className="r">—</td>
-                                  <td className="r">—</td>
+                                  <td className="r">-</td>
+                                  <td className="r">-</td>
                                   <td className="r"><b>{money(rollup)}</b></td>
                                 </tr>,
                               ]

@@ -115,7 +115,7 @@ function Row({ l, n, customer, lump }: { l: QuoteLine; n: number | undefined; cu
         {(l.area || l.clientNote) && <span className="sub">{[l.area, l.clientNote].filter(Boolean).join(" · ")}</span>}
         {!customer && flags.length > 0 && <div>{flags.map((f) => <span key={f} className={`flag ${f}`}>{f}</span>)}</div>}
       </td>
-      {!customer && <td className="muted" data-label="Contractor">{l.contractor ?? "—"}</td>}
+      {!customer && <td className="muted" data-label="Contractor">{l.contractor ?? "-"}</td>}
       <td className="r" data-label="Quantity">
         {lump && !LUMP_QTY_SECTIONS.has(sectionOf(l)) ? null : (
           <>
@@ -240,8 +240,8 @@ export function OptionSheet({
                           <tr key="private-rollup" className="rollup">
                             <td className="idx">{i + 1}</td>
                             <td>{option.privateLabel ?? DEFAULT_PRIVATE_LABEL}</td>
-                            <td className="r">—</td>
-                            {!lump && <td className="r">—</td>}
+                            <td className="r">-</td>
+                            {!lump && <td className="r">-</td>}
                             <td className="r">{lump ? "" : <b>{money(rollup)}</b>}</td>
                           </tr>,
                         ]

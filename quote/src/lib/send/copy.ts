@@ -167,7 +167,17 @@ export type CustomerCopy = {
   options: CopyOption[];
 };
 
-const clean = (s: string | null | undefined) => (s ?? "").replace(/\s+/g, " ").trim() || null;
+/**
+ * No em dashes in anything the customer gets (Albert, 2026-11-04: "There should be NO em-dashes on any
+ * of the wordings from anywhere"), including words typed into Airtable: a spaced one becomes a comma,
+ * one between two words a hyphen. Line breaks are kept.
+ */
+export const noEmDash = (s: string) =>
+  s
+    .replace(/(\S)\u2014(?=\S)/g, "$1-")
+    .replace(/[ \t]*\u2014[ \t]*/g, ", ")
+    .replace(/^, |, $/gm, "");
+const clean = (s: string | null | undefined) => noEmDash((s ?? "").replace(/\s+/g, " ").trim()).trim() || null;
 
 /* ---------- a preliminary's range ---------- */
 
@@ -369,7 +379,7 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
   return {
     ref: o.id,
     name: clean(o.name) ?? "Option",
-    description: o.description?.trim() || null,
+    description: noEmDash(o.description ?? "").trim() || null,
     recommended: o.recommended,
     sections,
     exclusions: o.lines.filter((l) => l.section === "Exclusions").flatMap((l) => clean(l.description) ?? []),
