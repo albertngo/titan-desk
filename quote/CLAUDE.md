@@ -384,6 +384,14 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   so (`noSenderWords()`). The acceptance confirmation, which no person presses, still falls back.
   **The front desk is Joey** (same day): `SHARED_MAILBOX_NAMES` in `history.ts` signs info@titanfloors.ca
   as "Joey" whatever its sign-in name says.
+  **Texts from their own number too (Albert, 2026-11-04: "Pourya = pourya's ghl number and email (which matches the
+  signed in); Joey = front desk's ghl number and email; Albert = albert's ghl number and email").** A send and a Send
+  again text carry `fromNumber`: the number GHL has assigned to the signed-in person's own GHL user (its `lcPhone` for
+  this location, never their personal phone), found by sign-in email (`locationUsers()` in `ghl/client.ts`,
+  `textFromFor()` / `e164()` / `fromTheirNumber()` in `plan.ts`, `textFrom()` in `send.ts`). A GHL user with no number
+  of its own, or no GHL user with that email, texts from GHL's main number as before. The Send card says which
+  (`textsFrom()`); the Edit Log says "text from …". The acceptance text, which no person presses, stays on the main
+  number. Make forwards the body verbatim, so nothing changed in Make. Tested in `tests/send.test.ts`.
   Make 4975508 forwards the message body verbatim, so nothing changed in Make.
 - **Who worked on a version (Albert, 2026-10-22).** Quote Versions carries **Created By (app)**,
   **Last Edited By**, **Last Edited At** and an append-only **Edit Log** (one line per save, new
@@ -996,7 +1004,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
 2a. **One file talks to GHL, and only reads:** `src/lib/ghl/client.ts`, `server-only`, GET
    only, the only reader of `QUOTE_GHL_TOKEN` (used for contacts.readonly, opportunities.readonly,
    conversations.readonly and conversations/message.readonly; since 2026-10-27 users.readonly, to tag
-   the sender on an open-tracking comment). The token Albert made (2026-10-20)
+   the sender on an open-tracking comment, and since 2026-11-04 to text from the sender's own GHL number). The token Albert made (2026-10-20)
    also holds write scopes; the app uses none of them, and the boundary test fails on any write
    verb in that file. A reply feature, if it comes, is a reviewed change to this rule.
 2b. **One file sends to Make:** `src/lib/make/client.ts`, `server-only`, the only reader of

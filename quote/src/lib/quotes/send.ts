@@ -16,7 +16,8 @@ import { paymentsReaderOn, projectPayments } from "@/lib/notion/payments";
 import { buildContract } from "@/lib/link/ghlRequest";
 import { makeConfigured, sendMessage, sendToGhl, setFollowUpTags } from "@/lib/make/client";
 import { acceptedPdfName, COPY_MAX_CHARS, customerCopy, offersPdf, parseCopy, pdfName, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "@/lib/send/copy";
-import { changeEmailMessage, changeSmsMessage, chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, fromAttempts, noSenderWords, isToken, newToken, parseOptionIds, parseResend, resendEmailMessage, resendKind, resendProblems, resendSmsMessage, sendProblems, smsMessage, type Channels, type Sender } from "@/lib/send/plan";
+import { ghlConfigured, locationUsers } from "@/lib/ghl/client";
+import { changeEmailMessage, changeSmsMessage, fromTheirNumber, textFromFor, chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, fromAttempts, noSenderWords, isToken, newToken, parseOptionIds, parseResend, resendEmailMessage, resendKind, resendProblems, resendSmsMessage, sendProblems, smsMessage, type Channels, type Sender } from "@/lib/send/plan";
 import { authorFields, firstNameOf, type Person } from "./history";
 import { loadContract } from "./contract";
 import { getQuote } from "./load";
@@ -121,6 +122,18 @@ const senderOf = (p: Person): Sender => ({ email: p.email, firstName: firstNameO
 export async function sendsFrom(): Promise<string | null> {
   const person = await requireQuoterPerson();
   return emailFromFor(senderOf(person), letterhead().email, false);
+}
+
+/** The number the signed-in person's texts go from (2026-11-04): their own GHL number, or null for the main number. */
+async function textFrom(email: string | null | undefined): Promise<string | null> {
+  if (!ghlConfigured()) return null;
+  return textFromFor(email, await locationUsers().catch(() => []));
+}
+
+/** For the Send card: the number a text will go from, or null when it goes from GHL's main number. */
+export async function textsFrom(): Promise<string | null> {
+  const person = await requireQuoterPerson();
+  return textFrom(person.email);
 }
 
 export type SendReady = { ready: boolean; why: string | null };
@@ -267,9 +280,12 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
     }
     if (last) failed.push(`Email: ${last instanceof Error ? last.message : String(last)}`);
   }
+  let textedFrom: string | null = null;
   if (input.channels.sms) {
     try {
-      await sendMessage(copy.change ? changeSmsMessage(copy, { contactId, firstName, link }, from) : smsMessage(copy, { contactId, firstName, link }, from));
+      // From the sender's own GHL number when they have one (2026-11-04); else GHL's main number, as before.
+      textedFrom = await textFrom(person.email);
+      await sendMessage(fromTheirNumber(copy.change ? changeSmsMessage(copy, { contactId, firstName, link }, from) : smsMessage(copy, { contactId, firstName, link }, from), textedFrom));
       sentTo.push("Text");
     } catch (e) {
       failed.push(`Text: ${e instanceof Error ? e.message : String(e)}`);
@@ -286,7 +302,7 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   }
 
   try {
-    const how = `sent by ${sentTo.join(" and ").toLowerCase()}${sentFrom ? ` from ${sentFrom}` : ""}${input.pdf ? ", PDF on the quote page" : ""}${chosenWords(quote, input.optionIds) ? `, ${chosenWords(quote, input.optionIds)}` : ""}${prelim && !input.range ? ", exact price, no range" : ""}`;
+    const how = `sent by ${sentTo.join(" and ").toLowerCase()}${sentFrom ? ` from ${sentFrom}` : ""}${sentTo.includes("Text") ? `, text from ${textedFrom ?? "the main number"}` : ""}${input.pdf ? ", PDF on the quote page" : ""}${chosenWords(quote, input.optionIds) ? `, ${chosenWords(quote, input.optionIds)}` : ""}${prelim && !input.range ? ", exact price, no range" : ""}`;
     await updateRecord(T.versions, quote.id, { [VERSION.sentTo]: sentTo.join(", "), ...authorFields(person, new Date(), how, quote.editLog) });
   } catch {
     notes.push("Airtable didn't record how it was sent.");
@@ -377,7 +393,7 @@ export async function resendQuote(versionId: string, raw: unknown): Promise<Rese
   }
   if (input.channels.sms) {
     try {
-      await sendMessage(resendSmsMessage(copy, to, from));
+      await sendMessage(fromTheirNumber(resendSmsMessage(copy, to, from), await textFrom(person.email)));
       sentTo.push("Text");
     } catch (e) {
       failed.push(`Text: ${e instanceof Error ? e.message : String(e)}`);

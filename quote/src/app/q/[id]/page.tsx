@@ -34,7 +34,7 @@ import { customerView } from "@/lib/view";
 import { QuoteDescription } from "@/components/QuoteDescription";
 import { fromQuote } from "@/lib/editor/model";
 import { fingerprint } from "@/lib/quotes/savePlan";
-import { previewCopy, sendingReady, sendsFrom, sentLink } from "@/lib/quotes/send";
+import { previewCopy, sendingReady, sendsFrom, sentLink, textsFrom } from "@/lib/quotes/send";
 import { acceptedWhen, addOnsOf, picksOf } from "@/lib/accept/plan";
 import { acceptReadiness } from "@/lib/accept/staff";
 import { termsLabel } from "@/lib/accept/terms";
@@ -99,7 +99,7 @@ export default async function QuotePage({
   const base = fingerprint(fromQuote(quote));
   const defaultUntil = quote.validUntil && quote.validUntil >= today ? quote.validUntil : addDays(today, VALID_DAYS);
   const draft = quote.status === "Draft";
-  const [ready, link, from] = await Promise.all([sendingReady(), sentLink(quote.customerToken), sendsFrom()]);
+  const [ready, link, from, textFromNumber] = await Promise.all([sendingReady(), sentLink(quote.customerToken), sendsFrom(), textsFrom()]);
   const problems = draft
     ? sendProblems(quote, { base, validUntil: defaultUntil, channels: { email: !!quote.link?.email, sms: !!quote.link?.phone } }, { today, fingerprint: base, skipOptions: true })
     : [];
@@ -132,6 +132,7 @@ export default async function QuotePage({
       preliminary={preliminary}
       change={quote.changeNo ?? null}
       from={from}
+      textFrom={textFromNumber}
       options={sendOptions}
     />
   );
