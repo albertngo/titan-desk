@@ -22,6 +22,14 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-04",
+    kind: "new",
+    title: "Set HST for all options at once",
+    details: [
+      "Beside Charge HST (13%) on this option in the editor's terms, Set HST for all options opens a check first: each option's HST now and its total with HST on and off. Choose Charge HST on all or No HST on any, or Cancel to change nothing.",
+    ],
+  },
+  {
+    date: "2026-11-04",
     kind: "changed",
     title: "HST is set per option",
     details: [
