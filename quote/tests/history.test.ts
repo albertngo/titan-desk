@@ -61,3 +61,10 @@ describe("who worked on a version (2026-10-22)", () => {
     expect(firstNameOf({ email: "info@example.com", name: "Zoë Q" })).toBe("Zoë");
   });
 });
+
+describe("the front desk signs as Joey (2026-11-04)", () => {
+  it("names the shared info@ box Joey, whatever the sign-in's display name says", () => {
+    expect(firstNameOf({ email: "info@titanfloors.ca", name: null })).toBe("Joey");
+    expect(firstNameOf({ email: "Info@TitanFloors.ca", name: "Titan Flooring Info" })).toBe("Joey");
+  });
+});

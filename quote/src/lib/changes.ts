@@ -23,6 +23,58 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-04",
     kind: "changed",
+    title: "No em dashes",
+    details: ["No screen, email, text, page or PDF uses an em dash any more, including words typed into Airtable before a customer sees them."],
+  },
+  {
+    date: "2026-11-04",
+    kind: "new",
+    title: "A price card under each option",
+    details: [
+      "Discounts on the left: add as many as you need by name, in dollars or as a percent (like 5%). They stay until you remove them, and the customer sees each one by name above the price.",
+      "Accepted price on the right: type the price before HST, the total discount % or the margin %, and the other two follow. While it is set, moving the slider or the discounts keeps that price. Reset, or clearing any of the three boxes, goes back to the slider and the discounts.",
+      "Under it, the cost, profit and margin at that price. The (i) shows the lowest price that keeps the 20% margin minimum.",
+    ],
+  },
+  {
+    date: "2026-11-04",
+    kind: "new",
+    title: "Contractor pricing",
+    details: ["The service level slider has Contractor to the left of Standard and Premium: 10% off the whole option, shown as its own discount and kept up to date as the lines change."],
+  },
+  {
+    date: "2026-11-04",
+    kind: "removed",
+    title: "Discount % in the terms",
+    details: ["The terms no longer take a discount percent. Discounts are made in the option's price card, so there is one place to look."],
+  },
+  {
+    date: "2026-11-04",
+    kind: "changed",
+    title: "Quotes go only from the person sending",
+    details: [
+      "A quote, a resend, an invoice or a receipt is emailed from whoever is signed in and presses Send, and from nobody else. If GHL can't send from your sign-in, the email doesn't go and the Send card says so; the text still can.",
+      "The front desk (info@) signs its emails and texts as Joey.",
+    ],
+  },
+  {
+    date: "2026-11-04",
+    kind: "changed",
+    title: "Materials always show their rate",
+    details: ["On every quote the customer gets, lump sum and preliminary included, each material line shows its rate per unit beside the quantity. The PDF heads that column Rate."],
+  },
+  {
+    date: "2026-11-04",
+    kind: "changed",
+    title: "Baseboards follow the install, row by row",
+    details: [
+      "On the preliminary's Job card, the first Baseboards row is a third of all the Install square feet added up, and it keeps up as the install changes. Type your own number and it stays as typed.",
+      "Under each Baseboards row, pick what it follows: ⅓ of the total, or, with two or more Install rows, ⅓ of one of them (for example ⅓ of 500 sf (Hardwood)). A second or third row starts on nothing until you pick one, so nothing is counted twice.",
+    ],
+  },
+  {
+    date: "2026-11-04",
+    kind: "changed",
     title: "Smaller words and cards on a phone",
     details: [
       "On a phone, text, cards and the quick form's choices are a size smaller, so more of the quote fits on the screen. Boxes you type in stay the same size, so the iPhone doesn't zoom in, and everything is still easy to tap.",

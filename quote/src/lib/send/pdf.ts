@@ -68,6 +68,7 @@ export type BillStamp = {
 };
 
 export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null, bill: BillStamp | null = null): Uint8Array<ArrayBuffer> {
+  const lumpRates = copy.options.some((o) => o.sections.some((s) => s.lines.some((l) => l.kind === "item" && l.unitPrice !== null)));
   const doc = new PdfDoc(bill ? `Titan Flooring ${bill.title.toLowerCase()} ${bill.number}` : `Titan Flooring quote ${copy.quoteNumber}`);
   let y = TOP;
 
@@ -218,10 +219,13 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
     doc.text(COL.n, y, "#", { font: "B", size: 8, color: DIM });
     doc.text(COL.item, y, cont ? "Item (continued)" : "Item", { font: "B", size: 8, color: DIM });
     doc.text(COL.qty, y, "Quantity", { font: "B", size: 8, color: DIM, align: "right" });
-    // A lump-sum quote has no price columns: the totals block is the price (2026-10-22).
+    // A lump-sum quote has no price columns: the totals block is the price (2026-10-22). A material's rate
+    // still shows (2026-11-04), so the column is headed Rate when a line carries one.
     if (!isLump(copy)) {
       doc.text(COL.unit, y, "Unit price", { font: "B", size: 8, color: DIM, align: "right" });
       doc.text(COL.amount - 4, y, "Amount", { font: "B", size: 8, color: DIM, align: "right" });
+    } else if (lumpRates) {
+      doc.text(COL.unit, y, "Rate", { font: "B", size: 8, color: DIM, align: "right" });
     }
     y -= 22;
   }

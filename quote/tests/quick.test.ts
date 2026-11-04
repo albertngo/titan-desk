@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { optionTotals } from "../src/lib/calc";
 import { buildCatalogue } from "../src/lib/editor/model";
 import type { StairProfileRow, StairRow } from "../src/lib/quotes/types";
-import { amountUnit, BASEBOARD_PER_SQFT, baseboardDefault, baseboardFollow, buildPreliminary, choiceRate, distinctNames, MAX_QUICK_OPTIONS, optionName, parseWorks, parseWork, QUICK_GROUPS, browserProfiles, quickProfiles, rowTotal, stairAreas, workIsEmpty, type QuickChoice, type QuickPart, type QuickProduct } from "../src/lib/quick/plan";
+import { amountUnit, BASEBOARD_PER_SQFT, baseboardDefault, basisChoices, basisSqft, buildPreliminary, followBases, installTotal, remapBases, resolveBasis, TOTAL_BASIS, type BasisRow, choiceRate, distinctNames, MAX_QUICK_OPTIONS, optionName, parseWorks, parseWork, QUICK_GROUPS, browserProfiles, quickProfiles, rowTotal, stairAreas, workIsEmpty, type QuickChoice, type QuickPart, type QuickProduct } from "../src/lib/quick/plan";
 
 // INVENTED rates, costs, ids and products only: this repo is public.
 const part = (o: Partial<QuickPart> & { recordId: string }): QuickPart => ({ kind: "rate", labourType: "Install", spec: "SPEC", description: "Install | SPEC", contractor: "Crew A", uom: "sqft", rate: 2, cost: 1, minCharge: null, ...o });
@@ -197,22 +197,74 @@ describe("quick form: baseboards follow the install (2026-10-22)", () => {
     expect(BASEBOARD_PER_SQFT).toBeCloseTo(1 / 3);
   });
 
-  it("fills a blank amount, and moves one still at the old default when the install changes", () => {
-    expect(baseboardFollow("", null, 600)).toBe("200");
-    expect(baseboardFollow("200", 600, 900)).toBe("300");
-    expect(baseboardFollow(" 200 ", 600, 900)).toBe("300");
+});
+
+describe("quick form: a basis per baseboard row (Albert, 2026-11-04)", () => {
+  const install = (key: string, amount: string, choiceId = "hw"): BasisRow => ({ key, group: "Install", choiceId, amount });
+  const board = (key: string, basis: string | null, amount = "", choiceId = "bb"): BasisRow => ({ key, group: "Baseboards", choiceId, amount, basis });
+  const all = () => true;
+  const labels: Record<string, string> = { hw: "Hardwood", lv: "Laminate / Vinyl" };
+  const labelOf = (id: string) => labels[id] ?? "";
+
+  it("adds every Install row's square feet into the total, ignoring rows with no choice or no number", () => {
+    expect(installTotal([install("i1", "500"), install("i2", "1,200 "), install("i3", "300", ""), install("i4", "abc")])).toBe(1700);
+    expect(installTotal([install("i1", "")])).toBeNull();
   });
 
-  it("never touches an amount staff typed, even when the install changes or goes away", () => {
-    expect(baseboardFollow("150", 600, 900)).toBeNull();
-    expect(baseboardFollow("150", 600, null)).toBeNull();
-    expect(baseboardFollow("150", null, 600)).toBeNull();
+  it("follows the total by default, live, as the install changes", () => {
+    const rows = [install("i1", "600"), install("i2", "300", "lv"), board("b1", TOTAL_BASIS)];
+    expect(followBases(rows, all)[2].amount).toBe("300");
+    rows[0] = install("i1", "900");
+    expect(followBases(rows, all)[2].amount).toBe("400");
   });
 
-  it("blanks the default again when the install is cleared, and leaves a blank alone", () => {
-    expect(baseboardFollow("200", 600, null)).toBe("");
-    expect(baseboardFollow("", 600, null)).toBeNull();
-    expect(baseboardFollow("", null, null)).toBeNull();
+  it("follows one Install row when that one is picked", () => {
+    const rows = [install("i1", "600"), install("i2", "300", "lv"), board("b1", "i2")];
+    expect(followBases(rows, all)[2].amount).toBe("100");
+    expect(basisSqft("i2", rows)).toBe(300);
+  });
+
+  it("leaves a typed amount (no basis) and a later row nobody pointed anywhere exactly as they are", () => {
+    const rows = [install("i1", "600"), board("b1", null, "150"), board("b2", null)];
+    const out = followBases(rows, all);
+    expect(out[1]).toBe(rows[1]);
+    expect(out[2]).toBe(rows[2]);
+  });
+
+  it("waits for a linear-foot choice before filling anything in", () => {
+    const rows = [install("i1", "600"), board("b1", TOTAL_BASIS, "", "")];
+    expect(followBases(rows, (r) => r.choiceId !== "")[1].amount).toBe("");
+  });
+
+  it("blanks the amount when the install it follows has no square feet any more", () => {
+    expect(followBases([install("i1", ""), board("b1", TOTAL_BASIS, "200")], all)[1].amount).toBe("");
+  });
+
+  it("falls back to the total when the Install row it named is removed, or is the only one left", () => {
+    expect(resolveBasis("i9", [install("i1", "600"), install("i2", "300")])).toBe(TOTAL_BASIS);
+    expect(resolveBasis("i2", [install("i2", "300")])).toBe(TOTAL_BASIS);
+    expect(resolveBasis("i2", [install("i1", "600"), install("i2", "300")])).toBe("i2");
+    expect(resolveBasis(null, [install("i1", "600")])).toBeNull();
+    expect(followBases([install("i1", "600"), board("b1", "gone")], all)[1].amount).toBe("200");
+  });
+
+  it("offers one chip for the total, and one per Install row once there are two or more", () => {
+    expect(basisChoices([install("i1", "")], labelOf)).toEqual([]);
+    expect(basisChoices([install("i1", "820")], labelOf).map((c) => c.label)).toEqual(["⅓ of 820 sf"]);
+    const many = basisChoices([install("i1", "500"), install("i2", "320", "lv")], labelOf);
+    expect(many.map((c) => c.label)).toEqual(["⅓ of 820 sf (all install)", "⅓ of 500 sf (Hardwood)", "⅓ of 320 sf (Laminate / Vinyl)"]);
+    expect(many.map((c) => [c.basis, c.third])).toEqual([[TOTAL_BASIS, 273], ["i1", 167], ["i2", 107]]);
+  });
+
+  it("numbers two Install rows of the same choice, and writes thousands with a comma", () => {
+    const c = basisChoices([install("i1", "1200"), install("i2", "300")], labelOf);
+    expect(c.map((x) => x.label)).toEqual(["⅓ of 1,500 sf (all install)", "⅓ of 1,200 sf (Hardwood 1)", "⅓ of 300 sf (Hardwood 2)"]);
+  });
+
+  it("points a duplicated tab's rows at the copy's Install rows", () => {
+    const keys = new Map([["i1", "c1"], ["b1", "c2"]]);
+    const out = remapBases([install("c1", "600"), board("c2", "i1"), board("c3", TOTAL_BASIS), board("c4", null), board("c5", "i9")], keys);
+    expect(out.map((r) => r.basis)).toEqual([undefined, "c1", TOTAL_BASIS, null, TOTAL_BASIS]);
   });
 });
 

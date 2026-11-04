@@ -1,3 +1,4 @@
+import { DISCOUNTS_SECTION, priceSummary } from "@/lib/pricing/discounts";
 import Link from "next/link";
 import { sectionLinesInOrder, stairGroupLabel, stairGroups } from "@/lib/editor/stairGroups";
 import {
@@ -41,6 +42,7 @@ const LABEL: Record<keyof OptionTotals, string> = {
 function sectionOrder(lines: QuoteLine[], customer: boolean, lump: boolean): string[] {
   const present = new Set(lines.filter((l) => isPriced(l) || l.lineType === "Note" || l.lineType === "Section").map(sectionOf));
   present.delete("Exclusions");
+  present.delete(DISCOUNTS_SECTION);
   if (customer) {
     present.delete(PRIVATE_SECTION);
     // The roll-up row exists only on an itemised quote; a lump sum folds the amount into the one price.
@@ -113,7 +115,7 @@ function Row({ l, n, customer, lump }: { l: QuoteLine; n: number | undefined; cu
         {(l.area || l.clientNote) && <span className="sub">{[l.area, l.clientNote].filter(Boolean).join(" · ")}</span>}
         {!customer && flags.length > 0 && <div>{flags.map((f) => <span key={f} className={`flag ${f}`}>{f}</span>)}</div>}
       </td>
-      {!customer && <td className="muted" data-label="Contractor">{l.contractor ?? "—"}</td>}
+      {!customer && <td className="muted" data-label="Contractor">{l.contractor ?? "-"}</td>}
       <td className="r" data-label="Quantity">
         {lump && !LUMP_QTY_SECTIONS.has(sectionOf(l)) ? null : (
           <>
@@ -184,6 +186,7 @@ export function OptionSheet({
             {option.name}
             {option.recommended && <span className="chip good">Recommended</span>}
             {!customer && option.serviceLevel === "Premium" && <span className="chip premium">Premium</span>}
+            {!customer && option.serviceLevel === "Contractor" && <span className="chip">Contractor</span>}
             {!customer && option.crew && <span className="chip">Crew {option.crew}</span>}
           </div>
           {option.description ? <p className="odesc">{option.description}</p> : <p className="odesc note">No description yet.</p>}
@@ -237,8 +240,8 @@ export function OptionSheet({
                           <tr key="private-rollup" className="rollup">
                             <td className="idx">{i + 1}</td>
                             <td>{option.privateLabel ?? DEFAULT_PRIVATE_LABEL}</td>
-                            <td className="r">—</td>
-                            {!lump && <td className="r">—</td>}
+                            <td className="r">-</td>
+                            {!lump && <td className="r">-</td>}
                             <td className="r">{lump ? "" : <b>{money(rollup)}</b>}</td>
                           </tr>,
                         ]
@@ -252,8 +255,19 @@ export function OptionSheet({
         {/* Totals at the bottom of the lines, as on an invoice (Albert, 2026-11-01: "the totals should be at the bottom for intuitiveness"). */}
         <div className="ov-foot">
           <div className="ov-foot-in">
-            <div className="ov-row"><span className="k">Pre-discount</span><span className="v">{money(t.preDiscount)}</span></div>
-            <div className="ov-row"><span className="k">Discount ({pct(discountRate * 100, 0)})</span><span className="v">{money(t.discount)}</span></div>
+            {(() => {
+              // Discount items (2026-11-04) as rows of their own, between the list price and the accepted price's discount.
+              const ps = priceSummary(option.lines, discountRate, showHst);
+              return (
+                <>
+                  <div className="ov-row"><span className="k">List price</span><span className="v">{money(ps.gross)}</span></div>
+                  {ps.items.map((d, i) => (
+                    <div className="ov-row" key={i}><span className="k">{d.label}</span><span className="v">{money(-d.amount)}</span></div>
+                  ))}
+                  {t.discount !== 0 && <div className="ov-row"><span className="k">Discount ({pct(discountRate * 100, 1)})</span><span className="v">{money(t.discount)}</span></div>}
+                </>
+              );
+            })()}
             <div className="ov-row"><span className="k">Subtotal</span><span className="v">{money(t.subtotal)}</span></div>
             <div className="ov-row"><span className="k">HST{showHst ? " (13%)" : t.hst ? " (materials only)" : " (off)"}</span><span className="v">{money(t.hst)}</span></div>
             <div className="ov-total"><span>Total</span><span className="v">{money(t.total)}</span></div>

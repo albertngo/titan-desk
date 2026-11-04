@@ -142,11 +142,20 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   work from short lists, type square footage, add staircases, see a live estimate. Laid out for a
   phone: Flooring, then Stairs, then anything else; each work group folds to a one-line summary;
   short lists are chips; "Same as install" copies the square footage onto Remove and Material rows;
-  the first Baseboards row in linear feet defaults to **a third of the install square feet, rounded
-  to the nearest foot** (Albert, 2026-10-22), follows the install while it was never typed, and keeps
-  what staff type, with "⅓ of install" to snap back (`baseboardDefault()` / `baseboardFollow()` in
-  `plan.ts`); Baseboards allows up to three rows (2026-10-22: baseboard in one area, shoe only in
-  another) and only the first follows the install, so a second never double-counts; the form's
+  Baseboards rows in linear feet are **a third of the install square feet, rounded to the nearest
+  foot** (Albert, 2026-10-22); Baseboards allows up to three rows (same day: baseboard in one area,
+  shoe only in another). **A basis per row (Albert, 2026-11-04: "always calculate for the total sqft
+  in the INSTALL tab as default and always be live… a manual override when the value is changed (with
+  an option to reset to 1/3 of ___ sf). If there are multiple baseboards and shoemould rows… the option
+  to select (1/3 of ___ sf) depending on how many different install options there are"):** each
+  Baseboards row follows a basis live, the total of every Install row's square feet or one Install
+  row's, kept on the form row only (the server still gets a number). The first row starts on the
+  total; a row added after it starts on nothing, so nothing double-counts. Typing an amount is a
+  manual override and stops it following. Chips under the row set the basis again: "⅓ of 820 sf",
+  and with two or more Install rows "(all install)" on that one plus one per row, "⅓ of 500 sf
+  (Hardwood)", the one followed shown picked. A basis naming an Install row that is gone, or the only
+  one left, reads as the total; Duplicate points the copy at its own rows (`followBases()` /
+  `basisChoices()` / `resolveBasis()` / `remapBases()` in `plan.ts`, replacing `baseboardFollow()`); the form's
   **Additional cost** becomes a Private line (2026-10-22), so the customer sees it as the one
   rolled-up "Additional work" row and never as an itemised line;
   every row shows its rate and its total beside the selection, priced the same way the quote will
@@ -353,6 +362,13 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   sign-in (`requireQuoterPerson()` in `src/lib/auth.ts`: email plus display name; the first name
   signs the email and the text, `firstNameOf()` in `src/lib/quotes/history.ts`; a shared box like
   info@ signs as the company). Rule: `emailFromFor()` in `plan.ts`, tested in `tests/send.test.ts`.
+  **Only ever from the person sending (Albert, 2026-11-04: "whoever is logged into the quote app and sends
+  it only. This should stay true for everyone").** The location-default fallback is gone from sending, Send
+  again and invoice/receipt emails: `fromAttempts()` tries the named and the bare address and nothing else,
+  so a sign-in GHL can't send from means the email does not go (the text still can) and the Send card says
+  so (`noSenderWords()`). The acceptance confirmation, which no person presses, still falls back.
+  **The front desk is Joey** (same day): `SHARED_MAILBOX_NAMES` in `history.ts` signs info@titanfloors.ca
+  as "Joey" whatever its sign-in name says.
   Make 4975508 forwards the message body verbatim, so nothing changed in Make.
 - **Who worked on a version (Albert, 2026-10-22).** Quote Versions carries **Created By (app)**,
   **Last Edited By**, **Last Edited At** and an append-only **Edit Log** (one line per save, new
@@ -374,6 +390,11 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   The premium price is written into the line's Unit Price Snap when it is priced, so calc.ts and the
   Airtable formulas are unchanged. Rules and the markup: `src/lib/pricing/service.ts`; switching:
   `setServiceLevel()` in `src/lib/editor/model.ts`; tested in `tests/editor.test.ts`.
+  **Contractor (Albert, 2026-11-04: "an automatic 10% decrease on the overall price… on the left side of
+  the Standard/Premium")** is the slider's first stop: lines priced as Standard, and one discount item,
+  "Contractor pricing (10% off)", 10% of the list price, kept in step after every editor change
+  (`settleContractor()`, run by the editor's `apply`) and removed on any other level. Service Level gets
+  the "Contractor" choice by typecast on the first save.
 - **Crew per option (Albert, 2026-10-16).** Pick one contractor for a whole option (Quote Options →
   Crew) and every line that crew has a Rate Card row for moves to them; any single line can still be
   set to someone else by hand, and stays that way when the crew changes ("back to <crew>" undoes it).
@@ -426,7 +447,9 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
 - **Lump sum is the default, always (Albert, 2026-10-22).** The customer sees what the work includes
   and one price for the project, **no line price or breakdown**: counted lines keep their words and
   lose unit price and amount; only Install, Removal, Prep and Materials lines keep a quantity, for
-  clarity about the scope (`LUMP_QTY_SECTIONS` in `calc.ts`); sections lose their total; the totals
+  clarity about the scope (`LUMP_QTY_SECTIONS` in `calc.ts`); **a material always keeps its rate** (Albert,
+  2026-11-04: "Material Rates in the material section should ALWAYS show the rate; no matter what the form
+  the quote is sending in"): lump sum and preliminary too, never its amount, headed Rate in the PDF; sections lose their total; the totals
   block shows the price before the discount and the discount (2026-11-03; before that there were no discount
   rows), then price before HST, HST and total with the payment schedule; optional add-ons keep their price, since they are not in it; the
   Private section's roll-up row is not shown at all, its amount being inside the one price. **The
@@ -459,6 +482,29 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   a percent. **Discount reason** (Quote Versions → Discount Reason, 2026-10-22) is the customer's
   words for why, printed beside the Discount row on the page and the PDF (`discountLabel()` in
   `copy.ts`); it is part of the frozen copy and the save fingerprint.
+- **The price card (Albert, 2026-11-04).** Under each option's totals in the editor, `PriceCard.tsx`
+  replaces the accepted price row. **Discount % is gone from the terms** ("so no manual full percentage
+  adjustments are available"); a discount is made in the card only.
+  - **Discount items, left** ("persistent until removed"): each a Quote Line in the new **Discounts**
+    section (`DISCOUNTS_SECTION`), one, flat, priced below zero, so `calc.ts` and Airtable's formulas count
+    it with no change. Typed in dollars or as a percent of the list price (`discountAmountFrom()`, kept as
+    dollars). The customer sees each by name as a discount row above the price (`CopyOption.discounts`,
+    `discountRows()`; a range names them, "Included in the range"), never as a line; the quote page and
+    editor totals list them too. Airtable gets the Section choice by typecast on the first save.
+  - **Accepted price, right: three linked boxes**, price before HST, total discount % and margin %
+    ("whichever one you edit will update the other 2"). The total discount counts everything off the list
+    price, discount items included (`priceSummary()` in `src/lib/pricing/discounts.ts`). Each lands the
+    price through `setAcceptedPrice()`, which moves only the version's Discount Rate (or the above-list
+    private line) and leaves the discount items where they are; the rate now lands to the cent
+    (`landingRate()`, eight places). **Master:** while it is set, a change to the service level or the
+    discount items keeps the price and moves the rate (`keepAccepted()`). **Reset, or clearing any of the
+    three boxes, clears all three** (same day: "deleting one section clears all the other ones… Pressing
+    reset should clear all 3 out"): rate 0 and the adjustment line off (`resetAccepted()`), so the price
+    reads the slider and the discounts again. The Discount reason moved into the card.
+  - **Margin and profit** under the boxes (list price, items, adjustment, price, cost, profit, margin),
+    and an **(i)** with the lowest price that keeps the **20% margin minimum** (`MIN_MARGIN_PCT`,
+    `priceForMargin()`, rounded up to the cent); under it the card says so and offers to set it. Customer
+    view leaves the margin box, the readout and the (i) out. Tested in `tests/discounts.test.ts`.
 - **The customer always sees the discount (Albert, 2026-11-03: "All quote links and PDF should show the
   client what the discounts are").** Every customer page (`/c/<token>`, the staff Preview) and every PDF
   shows the discount rows above the price when the version has a discount: itemised as before ("Subtotal
@@ -932,6 +978,10 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
    rewritten; a reversal is its own new entry. The **What's new** button on the Quotes page opens
    it at `/changes`. Pure refactors, tests and lint fixes need none. `tests/changes.test.ts` keeps
    it dated and newest first.
+8. **No em dashes in the app's words (Albert, 2026-11-04: "There should be NO em-dashes on any of the
+   wordings from anywhere").** Nothing under `src/` contains one (`tests/emdash.test.ts` fails on any,
+   comments included; `pdfDoc.ts`'s font map is the one exception), and `noEmDash()` in `copy.ts` takes
+   them out of words typed into Airtable before they reach a customer copy.
 
 ## Commands
 

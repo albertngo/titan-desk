@@ -13,7 +13,12 @@ import { round2 } from "@/lib/calc";
  * priced, so calc.ts and Airtable's own formulas need no change and stay in parity.
  */
 
-export const SERVICE_LEVELS = ["Standard", "Premium"] as const;
+/**
+ * Contractor (Albert, 2026-11-04: "an automatic 10% decrease on the overall price", "on the left side
+ * of the Standard/Premium") prices the lines as Standard and takes 10% off the whole option as a
+ * discount item the editor keeps in step with the list price (src/lib/pricing/discounts.ts).
+ */
+export const SERVICE_LEVELS = ["Contractor", "Standard", "Premium"] as const;
 export type ServiceLevel = (typeof SERVICE_LEVELS)[number];
 
 /** +15% to start (Albert, 2026-10-16). */
@@ -22,7 +27,8 @@ export const PREMIUM_MARKUP = 0.15;
 /** Rate Card labour types Premium applies to. Disposal is not labour. */
 export const PREMIUM_LABOUR_TYPES: readonly string[] = ["Install", "Remove", "Refinish", "Sand", "Paint"];
 
-export const levelOf = (o: { serviceLevel?: string | null }): ServiceLevel => (o.serviceLevel === "Premium" ? "Premium" : "Standard");
+export const levelOf = (o: { serviceLevel?: string | null }): ServiceLevel =>
+  o.serviceLevel === "Premium" ? "Premium" : o.serviceLevel === "Contractor" ? "Contractor" : "Standard";
 
 /** Whether the service level changes this line's price. A Stair Profile's preset (2026-10-20) is a customer price as set: never marked up. */
 export function levelApplies(l: { sourceKind: string; labourType: string | null }): boolean {

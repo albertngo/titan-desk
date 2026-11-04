@@ -4,7 +4,8 @@
  * only by src/lib/calc.ts, from the same LineInput fields Airtable stores.
  */
 import { lineTotal, optionTotals, PRIVATE_SECTION, round2, sectionOf, SECTIONS, type LineInput } from "@/lib/calc";
-import { impliedRate } from "@/lib/pricing/accepted";
+import { landingRate } from "@/lib/pricing/accepted";
+import { CONTRACTOR_LINE, contractorAmount, DISCOUNTS_SECTION, grossOf, isAdjustmentLine, isContractorLine, isDiscountLine, PRICE_ADJUSTMENT, priceAtMargin, priceAtTotalDiscount } from "@/lib/pricing/discounts";
 import type { PaymentSchedule } from "@/lib/pricing/schedule";
 import { levelApplies, levelOf, levelPrice, type ServiceLevel } from "@/lib/pricing/service";
 import { partKey } from "@/lib/quotes/scope";
@@ -124,6 +125,7 @@ export const LINE_TYPE: Record<string, string> = {
   Delivery: "Delivery",
   Other: "Other",
   Private: "Other",
+  Discounts: "Other",
   Exclusions: "Note",
   Stairs: "Stairs",
 };
@@ -503,7 +505,7 @@ export function setServiceLevel(
   entries: CardEntry[],
 ): { quote: EditorQuote; notRepriced: EditorLine[] } {
   const notRepriced: EditorLine[] = [];
-  const quote = mapOption(q, optionId, (o) => ({
+  const repriced = mapOption(q, optionId, (o) => ({
     ...o,
     serviceLevel: level,
     lines: o.lines.map((l) => {
@@ -520,7 +522,8 @@ export function setServiceLevel(
       return { ...l, unitPriceSnap: rateSnap(e, c, l.materialId, level).price };
     }),
   }));
-  return { quote, notRepriced };
+  // An accepted price is the master (Albert, 2026-11-04): the slider moves the list price, the price stays.
+  return { quote: keepAccepted(q, optionId, settleContractor(repriced)), notRepriced };
 }
 
 // ---------- crew ----------
@@ -637,10 +640,11 @@ export function setSchedule(q: EditorQuote, schedule: PaymentSchedule | null): E
 /**
  * The private line the accepted price adds when it is above the list price (2026-10-22). Known by
  * its words: rename it and it is an ordinary private line the accepted price no longer touches.
+ * Defined in src/lib/pricing/discounts.ts since 2026-11-04; re-exported for the screens.
  */
-export const PRICE_ADJUSTMENT = "Accepted price adjustment";
+export { PRICE_ADJUSTMENT };
 
-const adjustmentOf = (o: EditorOption) => o.lines.find((l) => l.section === PRIVATE_SECTION && l.sourceKind === "manual" && l.description === PRICE_ADJUSTMENT);
+const adjustmentOf = (o: EditorOption) => o.lines.find((l) => isAdjustmentLine(l));
 
 /** An option's list price before any discount and without the accepted-price adjustment, and that adjustment line. */
 function listPriceOf(q: EditorQuote, o: EditorOption): { base: number; adj: EditorLine | undefined } {
@@ -664,12 +668,128 @@ export function setAcceptedPrice(q: EditorQuote, optionId: string, acceptedPreTa
   if (!(base > 0)) return q;
   if (acceptedPreTax <= base) {
     const without = adj ? removeLine(q, optionId, adj.id) : q;
-    return setTerms(without, { discountRate: Math.max(0, impliedRate(base, acceptedPreTax) ?? 0) });
+    return setTerms(without, { discountRate: Math.max(0, landingRate(base, acceptedPreTax) ?? 0) });
   }
   const extra = round2(acceptedPreTax - base);
   const patch = { uom: "flat", qty: 1, unitPrice: extra, include: true, costOverride: null, manualCost: null };
   const withLine = adj ? updateLine(q, optionId, adj.id, patch) : addLine(q, optionId, { ...manualLine(PRIVATE_SECTION, PRICE_ADJUSTMENT), ...patch });
   return setTerms(withLine, { discountRate: 0 });
+}
+
+/**
+ * Whether an accepted price is set on this option: a discount rate on the version, or this option's
+ * above-list adjustment line. Reset clears both.
+ */
+export const acceptedIsSet = (q: EditorQuote, o: EditorOption) => q.discountRate !== 0 || !!adjustmentOf(o);
+
+/**
+ * Reset (Albert, 2026-11-04: "Pressing reset should clear all 3 out"): back to the price the slider and
+ * the discount items make, with no accepted price: the version's discount rate goes to zero and this
+ * option's adjustment line comes off. The discount items stay.
+ */
+export function resetAccepted(q: EditorQuote, optionId: string): EditorQuote {
+  const o = q.options.find((x) => x.id === optionId);
+  const adj = o ? adjustmentOf(o) : undefined;
+  return setTerms(adj ? removeLine(q, optionId, adj.id) : q, { discountRate: 0 });
+}
+
+/**
+ * The accepted price stays where it was across a change to the slider or the discount items
+ * (Albert, 2026-11-04: "Accepted price is the master value that overrides the discount % adjustment,
+ * the contractor/standard/premium slider"). With no accepted price set, `next` is returned as it is.
+ */
+function keepAccepted(before: EditorQuote, optionId: string, next: EditorQuote): EditorQuote {
+  const o = before.options.find((x) => x.id === optionId);
+  if (!o || !acceptedIsSet(before, o)) return next;
+  return setAcceptedPrice(next, optionId, optionTotals(o.lines, before.discountRate, before.showHst).subtotal);
+}
+
+/** The accepted price from a total discount percent: everything off the list price, discount items included. */
+export function setTotalDiscount(q: EditorQuote, optionId: string, pct: number | null): EditorQuote {
+  const o = q.options.find((x) => x.id === optionId);
+  if (!o || pct === null) return q;
+  const price = priceAtTotalDiscount(grossOf(o.lines), pct);
+  return price === null ? q : setAcceptedPrice(q, optionId, Math.max(0, price));
+}
+
+/** The accepted price from a margin percent on the option's cost. */
+export function setMarginTarget(q: EditorQuote, optionId: string, pct: number | null): EditorQuote {
+  const o = q.options.find((x) => x.id === optionId);
+  if (!o || pct === null) return q;
+  const price = priceAtMargin(optionTotals(o.lines, 0, q.showHst).cost, pct);
+  return price === null ? q : setAcceptedPrice(q, optionId, Math.max(0, price));
+}
+
+// ---------- discount items (2026-11-04) ----------
+//
+// Albert: "another discount section on the left side of the accepted price card; there is a place to
+// put multiple discount items. This is separate from the reset and is persistent until removed." Each
+// is a line in the Discounts section priced below zero (one, flat), so calc.ts and Airtable count it
+// like any other line. The accepted price keeps them where they are and moves its own adjustment.
+
+/** A discount item's line: `amount` is what comes off, in dollars. */
+export function discountLine(label: string, amount: number): EditorLine {
+  return { ...manualLine(DISCOUNTS_SECTION, label), uom: "flat", qty: 1, unitPrice: -Math.abs(round2(amount)), costOverride: null, manualCost: null };
+}
+
+/**
+ * What someone typed as a discount, in dollars: "250" or "$250" as it is, "5%" as that share of the
+ * list price. Null when it isn't a positive amount.
+ */
+export function discountAmountFrom(text: string, gross: number): number | null {
+  const t = text.trim();
+  const isPct = t.endsWith("%");
+  const n = parseNum(isPct ? t.slice(0, -1) : t);
+  if (n === null || !(n > 0)) return null;
+  return isPct ? (n < 100 && gross > 0 ? round2(gross * (n / 100)) : null) : round2(n);
+}
+
+export function addDiscount(q: EditorQuote, optionId: string, label: string, amount: number): EditorQuote {
+  if (!(amount > 0)) return q;
+  return keepAccepted(q, optionId, settleContractor(addLine(q, optionId, discountLine(label.trim() || "Discount", amount))));
+}
+
+export function updateDiscount(q: EditorQuote, optionId: string, lineId: string, patch: { label?: string; amount?: number }): EditorQuote {
+  const next = mapLine(q, optionId, lineId, (l) =>
+    !isDiscountLine(l) || isContractorLine(l)
+      ? l
+      : { ...l, ...(patch.label !== undefined ? { description: patch.label.trim() || "Discount" } : {}), ...(patch.amount !== undefined && patch.amount > 0 ? { unitPrice: -round2(patch.amount) } : {}) },
+  );
+  return keepAccepted(q, optionId, settleContractor(next));
+}
+
+export function removeDiscount(q: EditorQuote, optionId: string, lineId: string): EditorQuote {
+  const o = q.options.find((x) => x.id === optionId);
+  const l = o?.lines.find((x) => x.id === lineId);
+  if (!l || !isDiscountLine(l) || isContractorLine(l)) return q;
+  return keepAccepted(q, optionId, settleContractor(removeLine(q, optionId, lineId)));
+}
+
+/**
+ * Keep every option's Contractor discount in step (2026-11-04): on a Contractor option one line,
+ * "Contractor pricing (10% off)", is 10% of the list price as it stands; on any other level there is
+ * none. Run after every change (the editor's apply), so the 10% follows the lines. Returns the same
+ * quote when nothing moved.
+ */
+export function settleContractor(q: EditorQuote): EditorQuote {
+  let changed = false;
+  const options = q.options.map((o) => {
+    const mine = o.lines.filter((l) => isContractorLine(l));
+    if (levelOf(o) !== "Contractor") {
+      if (!mine.length) return o;
+      changed = true;
+      return { ...o, lines: o.lines.filter((l) => !isContractorLine(l)) };
+    }
+    const amount = contractorAmount(grossOf(o.lines));
+    const [first, ...extra] = mine;
+    if (first && !extra.length && first.unitPrice === -amount && first.include && first.qty === 1) return o;
+    changed = true;
+    const others = o.lines.filter((l) => !isContractorLine(l));
+    if (!(amount > 0)) return { ...o, lines: others };
+    const line = first ? { ...first, qty: 1, include: true, uom: "flat", unitPrice: -amount } : discountLine(CONTRACTOR_LINE, amount);
+    return { ...o, lines: [...others, line] };
+  });
+  return changed ? { ...q, options } : q;
 }
 
 /** A discount typed in dollars on an option (2026-10-22): the same as accepting the list price less that amount. */

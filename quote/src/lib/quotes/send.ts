@@ -16,7 +16,7 @@ import { paymentsReaderOn, projectPayments } from "@/lib/notion/payments";
 import { buildContract } from "@/lib/link/ghlRequest";
 import { makeConfigured, sendMessage, sendToGhl, setFollowUpTags } from "@/lib/make/client";
 import { acceptedPdfName, COPY_MAX_CHARS, customerCopy, offersPdf, parseCopy, pdfName, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "@/lib/send/copy";
-import { changeEmailMessage, changeSmsMessage, chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, isToken, newToken, parseOptionIds, parseResend, resendEmailMessage, resendKind, resendProblems, resendSmsMessage, sendProblems, smsMessage, type Channels, type Sender } from "@/lib/send/plan";
+import { changeEmailMessage, changeSmsMessage, chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, fromAttempts, noSenderWords, isToken, newToken, parseOptionIds, parseResend, resendEmailMessage, resendKind, resendProblems, resendSmsMessage, sendProblems, smsMessage, type Channels, type Sender } from "@/lib/send/plan";
 import { authorFields, firstNameOf, type Person } from "./history";
 import { loadContract } from "./contract";
 import { getQuote } from "./load";
@@ -36,7 +36,7 @@ import { ids, str } from "./values";
  *   3. sends the email and/or the text through Make (GHL), each confirmed on its own. The email
  *      goes out from the signed-in quoter's address (2026-10-22, Albert): GHL's `emailFrom`, tried
  *      first as "Albert @ Titan Flooring <albert@…>", then as the bare address, then the location
- *      default, so a sender GHL won't accept never stops a quote going out — the warning says so;
+ *      default, so a sender GHL won't accept never stops a quote going out, the warning says so;
  *   4. if neither went, puts the version back to Draft; if one did, it stays Sent and says which
  *      failed. Older sent versions of the same quote become Superseded, so their links say so;
  *   5. sets the follow-up tag (2026-10-27) and marks the version tracked, so its first open and a
@@ -117,7 +117,7 @@ const booking = () => BOOKING_URLS;
 
 const senderOf = (p: Person): Sender => ({ email: p.email, firstName: firstNameOf(p) });
 
-/** For the Send card: the address the email will go out from, or null when GHL's default sender will be used. */
+/** For the Send card: the address the email will go out from, or null when the person signed in can't send email (2026-11-04: never a stand-in). */
 export async function sendsFrom(): Promise<string | null> {
   const person = await requireQuoterPerson();
   return emailFromFor(senderOf(person), letterhead().email, false);
@@ -247,9 +247,9 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   let sentFrom: string | null = null;
   if (input.channels.email) {
     const online = await acceptOnline();
-    // From the quoter, named, then bare, then GHL's default: a refused sender costs a retry, never the send.
-    const attempts = [...new Set([emailFromFor(from, copy.company.email, true), emailFromFor(from, copy.company.email, false), null])];
-    let last: unknown = null;
+    // From the person sending, named, then bare; never anyone else (2026-11-04).
+    const attempts = fromAttempts(from, copy.company.email);
+    let last: unknown = attempts.length ? null : new Error(noSenderWords(from.email));
     for (const emailFrom of attempts) {
       try {
         await sendMessage(
@@ -259,7 +259,6 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
         );
         sentTo.push("Email");
         sentFrom = emailFrom;
-        if (emailFrom === null && attempts[0] !== null) notes.push(`GHL would not send from ${from.email}, so the email went out from the location's default address.`);
         last = null;
         break;
       } catch (e) {
@@ -287,7 +286,7 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   }
 
   try {
-    const how = `sent by ${sentTo.join(" and ").toLowerCase()}${sentFrom ? ` from ${sentFrom}` : sentTo.includes("Email") ? " from the location's default address" : ""}${input.pdf ? ", PDF on the quote page" : ""}${chosenWords(quote, input.optionIds) ? `, ${chosenWords(quote, input.optionIds)}` : ""}${prelim && !input.range ? ", exact price, no range" : ""}`;
+    const how = `sent by ${sentTo.join(" and ").toLowerCase()}${sentFrom ? ` from ${sentFrom}` : ""}${input.pdf ? ", PDF on the quote page" : ""}${chosenWords(quote, input.optionIds) ? `, ${chosenWords(quote, input.optionIds)}` : ""}${prelim && !input.range ? ", exact price, no range" : ""}`;
     await updateRecord(T.versions, quote.id, { [VERSION.sentTo]: sentTo.join(", "), ...authorFields(person, new Date(), how, quote.editLog) });
   } catch {
     notes.push("Airtable didn't record how it was sent.");
@@ -362,13 +361,12 @@ export async function resendQuote(versionId: string, raw: unknown): Promise<Rese
   const sentTo: string[] = [];
   const failed: string[] = [];
   if (input.channels.email) {
-    const attempts = [...new Set([emailFromFor(from, copy.company.email, true), emailFromFor(from, copy.company.email, false), null])];
-    let last: unknown = null;
+    const attempts = fromAttempts(from, copy.company.email);
+    let last: unknown = attempts.length ? null : new Error(noSenderWords(from.email));
     for (const emailFrom of attempts) {
       try {
         await sendMessage(resendEmailMessage(copy, to, from, { emailFrom }));
         sentTo.push("Email");
-        if (emailFrom === null && attempts[0] !== null) notes.push(`GHL would not send from ${from.email}, so the email went out from the location's default address.`);
         last = null;
         break;
       } catch (e) {

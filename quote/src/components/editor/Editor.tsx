@@ -31,8 +31,7 @@ import { manualLine,
   setMaterialFigures,
   materialSplit,
   setServiceLevel,
-  setAcceptedPrice,
-  setDiscountAmount,
+  settleContractor,
   setSchedule,
   setTerms,
   showsWaste,
@@ -54,8 +53,11 @@ import { SwapOption } from "./SwapOption";
 import type { SwapSource } from "@/lib/change/swap";
 import { defaultSchedule, suggestsMaterialDeposit } from "@/lib/pricing/schedule";
 import { levelApplies, levelOf, PREMIUM_MARKUP, SERVICE_LEVELS } from "@/lib/pricing/service";
+import { CONTRACTOR_DISCOUNT, DISCOUNTS_SECTION, priceSummary } from "@/lib/pricing/discounts";
+import { PriceCard } from "./PriceCard";
 
-const WORK_SECTIONS = SECTIONS.filter((s) => s !== "Exclusions");
+// Discount items live in the price card, never in the line tables (2026-11-04).
+const WORK_SECTIONS = SECTIONS.filter((s) => s !== "Exclusions" && s !== DISCOUNTS_SECTION);
 
 /** `base` is the fingerprint of what Airtable held when the draft was started; saving checks it still does. */
 type Draft = { savedAt: string; quote: EditorQuote; base?: string };
@@ -188,8 +190,9 @@ export default function Editor({
     }
   }, [quote, changed, key, base]);
 
+  // The Contractor level's 10% follows the list price after every change (2026-11-04).
   const apply = (next: EditorQuote) => {
-    setQuote(next);
+    setQuote(settleContractor(next));
     setSavedAt(new Date().toISOString());
   };
 
@@ -245,7 +248,7 @@ export default function Editor({
   // The short lines the sidebar and the folded terms show (Option C, 2026-11-01).
   const termsRef = useRef<HTMLDetailsElement>(null);
   const payLine = option && t ? stageAmounts(quote.schedule ?? defaultSchedule(), option.lines, quote.discountRate, quote.showHst, t.total).map((x) => x.pct).join(" / ") : "35 / 35 / 30";
-  const termsLine = [quote.discountRate ? `${pct(quote.discountRate * 100, 1)} off` : "No discount", quote.showHst ? "HST charged" : "HST off", `payment ${payLine}`].join(" · ");
+  const termsLine = [quote.showHst ? "HST charged" : "HST off", `payment ${payLine}`].join(" · ");
 
   // Customer view leaves the Private section out and shows its total as one row in Other (2026-10-22).
   const hidden = option && customer ? privateRollup(option.lines) : 0;
@@ -340,7 +343,7 @@ export default function Editor({
                 ))}
               </select>
             ) : (
-              <span className="muted">{l.contractor ?? "—"}</span>
+              <span className="muted">{l.contractor ?? "-"}</span>
             )}
             {crewMark(l)}
           </td>
@@ -689,6 +692,7 @@ export default function Editor({
                           >
                             {lv}
                             {lv === "Premium" && <span className="pct">+{Math.round(PREMIUM_MARKUP * 100)}%</span>}
+                            {lv === "Contractor" && <span className="pct">-{Math.round(CONTRACTOR_DISCOUNT * 100)}%</span>}
                           </button>
                         ))}
                       </div>
@@ -815,8 +819,8 @@ export default function Editor({
                                 <tr key="private-rollup" className="rollup">
                                   <td className="idx">{numberOf.size + 1}</td>
                                   <td>{option.privateLabel ?? DEFAULT_PRIVATE_LABEL}</td>
-                                  <td className="r">—</td>
-                                  <td className="r">—</td>
+                                  <td className="r">-</td>
+                                  <td className="r">-</td>
                                   <td className="r"><b>{money(rollup)}</b></td>
                                 </tr>,
                               ]
@@ -858,35 +862,24 @@ export default function Editor({
                 {/* Totals at the bottom of the lines, as on an invoice (Albert, 2026-11-01: "the totals should be at the bottom for intuitiveness"). */}
                 <div className="ov-foot">
                   <div className="ov-foot-in">
-                  <div className="ov-row"><span className="k">Pre-discount</span><span className="v">{money(t.preDiscount)}</span></div>
-                  <div className="ov-row"><span className="k">Discount ({pct(quote.discountRate * 100, 0)})</span><span className="v">{money(t.discount)}</span></div>
+                  {(() => {
+                    const ps = priceSummary(option.lines, quote.discountRate, quote.showHst);
+                    return (
+                      <>
+                        <div className="ov-row"><span className="k">List price</span><span className="v">{money(ps.gross)}</span></div>
+                        {ps.items.map((d, i) => (
+                          <div className="ov-row" key={i}><span className="k">{d.label}</span><span className="v">{money(-d.amount)}</span></div>
+                        ))}
+                        {t.discount !== 0 && <div className="ov-row"><span className="k">Accepted price discount ({pct(quote.discountRate * 100, 1)})</span><span className="v">{money(t.discount)}</span></div>}
+                      </>
+                    );
+                  })()}
                   <div className="ov-row"><span className="k">Subtotal</span><span className="v">{money(t.subtotal)}</span></div>
                   <div className="ov-row"><span className="k">HST{quote.showHst ? " (13%)" : t.hst ? " (materials only)" : " (off)"}</span><span className="v">{money(t.hst)}</span></div>
                   <div className="ov-total"><span>Total</span><span className="v">{money(t.total)}</span></div>
-                  {/* "They accept this price": type the pre-tax amount and the quote's discount is set to land on it (Albert, 2026-10-22). */}
-                  <div className="ov-accept" title="Below the list price this sets the quote's discount, one per quote, so every option follows it. Above it, the difference goes in as a private line the customer sees as one row in Other.">
-                    <div className="ov-accept-in">
-                      <label>
-                        Accepted price, before HST
-                        <NumCell value={t.subtotal} label="Accepted price before HST" placeholder="0" onCommit={(v) => apply(setAcceptedPrice(quote, option.id, v))} />
-                      </label>
-                      <label>
-                        or $ off
-                        <NumCell value={t.discount === 0 ? null : -t.discount} label="Discount in dollars" placeholder="0" onCommit={(v) => apply(setDiscountAmount(quote, option.id, v))} />
-                      </label>
-                    </div>
-                    <span className="mt">
-                      {t.preDiscount > 0 ? (
-                        <>
-                          List price {money(t.preDiscount)}. Below it sets the discount{quote.options.length > 1 ? ", which every option follows" : ""}; above it adds a private line for the difference, shown to the customer as one row.
-                        </>
-                      ) : (
-                        "Nothing priced yet."
-                      )}
-                    </span>
-                  </div>
                   </div>
                 </div>
+                <PriceCard quote={quote} option={option} customer={customer} apply={apply} />
               </section>
 
               <div>
@@ -955,19 +948,6 @@ export default function Editor({
                   })()}
                 </span>
               </div>
-              <label>
-                Discount %
-                <NumCell
-                  value={Math.round(quote.discountRate * 1000) / 10}
-                  label="Discount percent"
-                  placeholder="0"
-                  onCommit={(v) => apply(setTerms(quote, { discountRate: Math.max(0, Math.min(100, v ?? 0)) / 100 }))}
-                />
-              </label>
-              <label title="Prints beside the Discount row on the customer's page and PDF, e.g. “Fall promotion”.">
-                Discount reason
-                <TextCell value={quote.discountReason ?? ""} placeholder="e.g. Fall promotion" label="Discount reason" onCommit={(v) => apply(setTerms(quote, { discountReason: v.trim() || null }))} />
-              </label>
               <label className="check-in" title="Labour and everything else. Each material line has its own HST box, which this never changes.">
                 <input type="checkbox" checked={quote.showHst} onChange={(e) => apply(setTerms(quote, { showHst: e.target.checked }))} /> Charge HST (13%)
               </label>

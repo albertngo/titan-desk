@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addDays, copyRange, copyState, customerCopy, discountLabel, discountRows, hstRow, hstWord, isRange, longDate, offersPdf, parseCopy, pdfName, prelimNote, priceRange, rangeText, rangeWhy, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "../src/lib/send/copy";
-import { chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, greetingName, isToken, newToken, optionProblem, parseOptionIds, parseResend, resendEmailMessage, resendKind, resendProblems, resendSmsMessage, sendProblems, smsMessage, type SendInput } from "../src/lib/send/plan";
+import { chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, fromAttempts, greetingName, isToken, newToken, optionProblem, parseOptionIds, parseResend, resendEmailMessage, resendKind, resendProblems, resendSmsMessage, sendProblems, smsMessage, type SendInput } from "../src/lib/send/plan";
 import { encode, textWidth, wrap } from "../src/lib/send/pdfDoc";
 import { quotePdf } from "../src/lib/send/pdf";
 import { fromQuote } from "../src/lib/editor/model";
@@ -257,12 +257,21 @@ describe("the messages", () => {
     expect(t.type === "SMS" ? t.message : "").not.toMatch(/call|555-000-0000/);
   });
 
-  it("is sent from the signed-in quoter on the company's domain, and from GHL's default otherwise (2026-10-22)", () => {
+  it("is tried only from the person sending, named then bare, never GHL's default (2026-11-04)", () => {
+    const albert = { email: "Albert@Example.com", firstName: "Albert" };
+    expect(fromAttempts(albert, "hello@example.com")).toEqual(["Albert @ Titan Flooring <albert@example.com>", "albert@example.com"]);
+    expect(fromAttempts({ email: "info@example.com", firstName: "Joey" }, "hello@example.com")).toEqual(["Joey @ Titan Flooring <info@example.com>", "info@example.com"]);
+    // Off the company's domain: no stand-in sender, so nothing to try and the email does not go.
+    expect(fromAttempts({ email: "albert@gmail.example", firstName: "Albert" }, "hello@example.com")).toEqual([]);
+    expect(fromAttempts(null, "hello@example.com")).toEqual([]);
+  });
+
+  it("is sent from the signed-in quoter on the company's domain, and from nobody else (2026-10-22, 2026-11-04)", () => {
     const albert = { email: "Albert@Example.com", firstName: "Albert" };
     expect(emailFromFor(albert, "hello@example.com", true)).toBe("Albert @ Titan Flooring <albert@example.com>");
     expect(emailFromFor(albert, "hello@example.com", false)).toBe("albert@example.com");
     expect(emailFromFor({ email: "info@example.com", firstName: null }, "hello@example.com", true)).toBe("info@example.com");
-    // A quoter signed in on another domain: GHL can only send from a verified one, so the location default is used.
+    // A quoter signed in on another domain: GHL can only send from a verified one, so there is no From line.
     expect(emailFromFor({ email: "albert@gmail.example", firstName: "Albert" }, "hello@example.com", true)).toBeNull();
     // No letterhead email configured: nothing to check the domain against, so the quoter's address is used.
     expect(emailFromFor(albert, null, false)).toBe("albert@example.com");
@@ -544,6 +553,27 @@ describe("the discount on every page and PDF (Albert, 2026-11-03)", () => {
     expect(discountRows(c, c.options[0], money)).toEqual([{ label: "Discount (10%) · Fall promotion", value: "Included in the range", disc: true }]);
   });
 
+  it("shows each discount item as its own row, never as a line, and the price before them all (2026-11-04)", () => {
+    const work = line({ qty: 100, unitPriceSnap: 10 });
+    const senior = line({ section: "Discounts", lineType: "Other", sourceKind: "manual", description: "Senior discount", qty: 1, uom: "flat", unitPrice: -100, unitPriceSnap: null, unitCostSnap: null });
+    const c = customerCopy(quote({ itemised: true, discountRate: 0.1, discountReason: null, options: [option("A", [work, senior], 0.1, true)] }), AT);
+    const o = c.options[0];
+    expect(o.sections.map((x) => x.name)).toEqual(["Install"]);
+    expect(o.discounts).toEqual([{ label: "Senior discount", amount: -100 }]);
+    expect(discountRows(c, o, money)).toEqual([
+      { label: "Subtotal before discount", value: money(1000), disc: false },
+      { label: "Senior discount", value: money(-100), disc: true },
+      { label: "Discount (10%)", value: money(-90), disc: true },
+    ]);
+    expect(o.totals.subtotal).toBe(810);
+    // No discount rate: the items alone.
+    const only = customerCopy(quote({ itemised: false, discountRate: 0, options: [option("A", [work, senior], 0, true)] }), AT);
+    expect(discountRows(only, only.options[0], money).map((d) => d.label)).toEqual(["Price before discount", "Senior discount"]);
+    // A range names them, never their amount.
+    const pre = customerCopy(quote({ basis: "Preliminary", discountRate: 0, options: [option("A", [work, senior], 0, true)] }), AT);
+    expect(discountRows(pre, pre.options[0], money)).toEqual([{ label: "Senior discount", value: "Included in the range", disc: true }]);
+  });
+
   it("shows nothing when there is no discount", () => {
     const c = customerCopy(quote({ discountRate: 0, itemised: false, options: [option("A", [line({})], 0)] }), AT);
     expect(discountRows(c, c.options[0], money)).toEqual([]);
@@ -598,6 +628,17 @@ describe("lump sum (2026-10-22)", () => {
     expect(pdf).toContain("one sum for the project");
     expect(parseCopy(serializeCopy(c))).toEqual(c);
     expect(customerCopy(quote(), AT).pricing).toBe("itemised");
+  });
+
+  it("always shows a material's rate, on a lump sum and a preliminary too, never its amount (Albert, 2026-11-04)", () => {
+    const mat = line({ section: "Materials", lineType: "Material", sourceKind: "product", description: "Oak plank", qty: 200, uom: "sqft", unitPriceSnap: 4.5 });
+    for (const q of [quote({ itemised: false, options: [option("A", [line({}), mat], 0, true)] }), quote({ itemised: true, basis: "Preliminary", options: [option("A", [line({}), mat], 0, true)] })]) {
+      const c = customerCopy(q, AT);
+      const materials = c.options[0].sections.find((s) => s.name === "Materials");
+      expect(materials?.lines[0]).toMatchObject({ kind: "item", qty: 200, unitPrice: 4.5, amount: null });
+      // Labour on the same lump sum still shows no price.
+      expect(c.options[0].sections.find((s) => s.name === "Install")?.lines[0]).toMatchObject({ unitPrice: null, amount: null });
+    }
   });
 
   it("shows no row for the Private section: its amount is already inside the one price", () => {

@@ -1,3 +1,4 @@
+import { DISCOUNTS_SECTION, isDiscountLine } from "@/lib/pricing/discounts";
 import { DEFAULT_PRIVATE_LABEL, LUMP_QTY_SECTIONS, PRIVATE_SECTION, SECTIONS, chargesHst, isPriced, lineTotal, optionTotals, priceUsed, privateRollup, round2, sectionOf, stageAmounts } from "@/lib/calc";
 import type { CopyChange } from "@/lib/change/diff";
 import { defaultSchedule, payWords, type PayHow, type PaymentSchedule } from "@/lib/pricing/schedule";
@@ -99,6 +100,12 @@ export type CopyOption = {
    * copies frozen before then, whose sections were merged.
    */
   parts?: CopyPart[];
+  /**
+   * The option's discount items (2026-11-04): each with what comes off, as a negative amount, in line
+   * order; a Contractor option's 10% is one of them. Shown as discount rows above the price, never as
+   * lines. Absent when there are none, and on copies frozen before then.
+   */
+  discounts?: { label: string; amount: number }[];
 };
 
 /** The option's sections, by part (2026-10-31): one group per part on a joined contract, else one group of all. */
@@ -160,7 +167,17 @@ export type CustomerCopy = {
   options: CopyOption[];
 };
 
-const clean = (s: string | null | undefined) => (s ?? "").replace(/\s+/g, " ").trim() || null;
+/**
+ * No em dashes in anything the customer gets (Albert, 2026-11-04: "There should be NO em-dashes on any
+ * of the wordings from anywhere"), including words typed into Airtable: a spaced one becomes a comma,
+ * one between two words a hyphen. Line breaks are kept.
+ */
+export const noEmDash = (s: string) =>
+  s
+    .replace(/(\S)\u2014(?=\S)/g, "$1-")
+    .replace(/[ \t]*\u2014[ \t]*/g, ", ")
+    .replace(/^, |, $/gm, "");
+const clean = (s: string | null | undefined) => noEmDash((s ?? "").replace(/\s+/g, " ").trim()).trim() || null;
 
 /* ---------- a preliminary's range ---------- */
 
@@ -234,6 +251,8 @@ function sectionNames(lines: QuoteLine[]): string[] {
   present.delete("Exclusions");
   // Private lines are never itemised: they roll up into one row in Other (copyOption, below).
   present.delete(PRIVATE_SECTION);
+  // Discount items are discount rows above the price (2026-11-04), never lines.
+  present.delete(DISCOUNTS_SECTION);
   const out: string[] = SECTIONS.filter((s) => present.has(s));
   if (present.has("Unsorted")) out.push("Unsorted");
   return out;
@@ -327,7 +346,9 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
         qty: showQty ? qty : null,
         uom: showQty ? clean(l.uom) : null,
         wastePct: showQty && l.waste ? Math.round(l.waste * 100) : null,
-        unitPrice: minimum || lump ? null : price,
+        // A material always shows its rate (Albert, 2026-11-04: "Material Rates in the material section should ALWAYS
+        // show the rate; no matter what the form the quote is sending in"): lump sum and preliminary too, never its amount.
+        unitPrice: minimum || (lump && name !== "Materials") ? null : price,
         minimum: lump ? false : minimum,
         amount: lump ? null : amount,
         optional: !l.include,
@@ -351,10 +372,14 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
     if (other.total !== null) other.total = round2(other.total + hidden);
   }
   const t = optionTotals(o.lines, discountRate, showHst);
+  const discounts = o.lines
+    .filter((l) => isDiscountLine(l) && l.include)
+    .map((l) => ({ label: clean(l.description) ?? "Discount", amount: round2(lineTotal(l) ?? 0) }))
+    .filter((d) => d.amount < 0);
   return {
     ref: o.id,
     name: clean(o.name) ?? "Option",
-    description: o.description?.trim() || null,
+    description: noEmDash(o.description ?? "").trim() || null,
     recommended: o.recommended,
     sections,
     exclusions: o.lines.filter((l) => l.section === "Exclusions").flatMap((l) => clean(l.description) ?? []),
@@ -373,6 +398,7 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
     schedule: copyStages(schedule, o, discountRate, showHst, t.total, ranged && t.subtotal > 0),
     ...(optionScope(o) === "Stairs" ? { scope: "Stairs" as const } : {}),
     ...(o.part ? { part: o.part } : {}),
+    ...(discounts.length ? { discounts } : {}),
   };
 }
 
@@ -479,13 +505,18 @@ export const discountLabel = (copy: Pick<CustomerCopy, "discountRate" | "discoun
  * figure (2026-10-27): its discount gives the rate and the reason, and says it is already in the range,
  * since a dollar amount would give the exact price away.
  */
-export function discountRows(copy: Pick<CustomerCopy, "discountRate" | "discountReason" | "pricing">, o: Pick<CopyOption, "totals" | "range">, money: (n: number) => string): { label: string; value: string; disc: boolean }[] {
+export function discountRows(copy: Pick<CustomerCopy, "discountRate" | "discountReason" | "pricing">, o: Pick<CopyOption, "totals" | "range" | "discounts">, money: (n: number) => string): { label: string; value: string; disc: boolean }[] {
   const t = o.totals;
-  if (t.discount === 0) return [];
-  if (o.range) return [{ label: discountLabel(copy), value: "Included in the range", disc: true }];
+  // Discount items (2026-11-04) come first, each its own row; the price before discount is the list
+  // price before any of them, so the rows add up to the price.
+  const items = o.discounts ?? [];
+  if (t.discount === 0 && !items.length) return [];
+  if (o.range) return [...items.map((d) => ({ label: d.label, value: "Included in the range", disc: true })), ...(t.discount !== 0 ? [{ label: discountLabel(copy), value: "Included in the range", disc: true }] : [])];
+  const before = round2(t.preDiscount - items.reduce((a, d) => a + d.amount, 0));
   return [
-    { label: `${isLump(copy) ? "Price" : "Subtotal"} before discount`, value: money(t.preDiscount), disc: false },
-    { label: discountLabel(copy), value: money(t.discount), disc: true },
+    { label: `${isLump(copy) ? "Price" : "Subtotal"} before discount`, value: money(before), disc: false },
+    ...items.map((d) => ({ label: d.label, value: money(d.amount), disc: true })),
+    ...(t.discount !== 0 ? [{ label: discountLabel(copy), value: money(t.discount), disc: true }] : []),
   ];
 }
 

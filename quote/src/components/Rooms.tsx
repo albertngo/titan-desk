@@ -117,14 +117,14 @@ export function Rooms({ quoteRecordId, quoteNumber, raw, savedLabel }: { quoteRe
                       <label className="rm-f">
                         <span>Level</span>
                         <select className="in" value={d.level} onChange={(e) => update(d.id, { level: e.target.value })}>
-                          <option value="">—</option>
+                          <option value="">-</option>
                           {LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
                         </select>
                       </label>
                       <label className="rm-f">
                         <span>Measured with</span>
                         <select className="in" value={d.method} onChange={(e) => update(d.id, { method: e.target.value })}>
-                          <option value="">—</option>
+                          <option value="">-</option>
                           {METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
                         </select>
                       </label>

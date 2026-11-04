@@ -168,7 +168,7 @@ export function SendQuote({
   preliminary: boolean;
   /** A change after acceptance (2026-10-27): sent for the record, with no good-until date and nothing to accept. */
   change?: number | null;
-  /** The address the email goes out from: the signed-in quoter's (2026-10-22); null = GHL's default sender. */
+  /** The address the email goes out from: the signed-in quoter's (2026-10-22); null = they can't email it (2026-11-04: never a stand-in). */
   from: string | null;
   /** The version's options, for choosing which go to the customer (2026-10-24); `range` is what a preliminary shows instead of `price` (2026-10-27). */
   options: { id: string; name: string; price: string; range: string | null; recommended: boolean; notOffered?: boolean; problem: string | null }[];
@@ -276,7 +276,7 @@ export function SendQuote({
             <input type="checkbox" checked={byEmail && !!email} disabled={!email} onChange={(e) => setByEmail(e.target.checked)} />
             <span>
               Email <span className="faint">{email ?? "no email in GHL"}</span>
-              {email && <span className="sub">Link{from ? `, from ${from}` : ", from the location's default address"}</span>}
+              {email && <span className="sub">{from ? `Link, from ${from}` : "Can't go from your sign-in: sign in with your Titan account to email it"}</span>}
             </span>
           </label>
           <label className={phone ? undefined : "off"}>
