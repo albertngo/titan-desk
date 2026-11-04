@@ -5,6 +5,25 @@
  * Stair Item) or, for a line just picked in the editor, from the card. Pure; tested in tests/stairGroups.test.ts.
  */
 
+/**
+ * Stair Items → Unit (Albert, 2026-11-04: steps = steps, corner piece sets = sets, nosings / handrails / trims = ft,
+ * spindles and pickets = pcs; stringers, landings and the complex handrail the number only). Blank on the item = no
+ * unit word. Every stair line takes its item's unit; Quote Lines gets the choices by typecast on first save.
+ */
+export const STAIR_UNITS = ["steps", "sets", "ft", "pcs"] as const;
+
+/** The unit every Stair Item line was given before Stair Items had one. */
+export const OLD_STAIR_UOM = "piece";
+
+/**
+ * The unit a saved stair line shows: one saved with the old default ("piece", or nothing) takes its item's Unit
+ * (Quote Lines → Stair Unit), so quotes made before read the same as new ones; any other unit was chosen and stays.
+ */
+export function stairLineUom(saved: string | null, linkedToItem: boolean, itemUnit: string | null): string | null {
+  if (!linkedToItem || (saved !== null && saved !== OLD_STAIR_UOM)) return saved;
+  return itemUnit && (STAIR_UNITS as readonly string[]).includes(itemUnit) ? itemUnit : null;
+}
+
 /** Categories in the order the work happens; anything else follows them, under its own name. */
 export const STAIR_GROUP_ORDER = ["step", "bullnose", "riser", "landing", "accent", "railing", "task"] as const;
 

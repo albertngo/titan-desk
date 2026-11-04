@@ -42,7 +42,8 @@ const LIMITS = { options: 20, linesPerOption: 200, text: 1000 };
 /** Quote Lines → Section, Airtable's own choices; a value off this list is saved blank. "Private" added 2026-10-22, "Discounts" 2026-11-04 (Airtable gets it by typecast on the first save that uses it). */
 export const LINE_SECTIONS = ["Removal", "Prep", "Materials", "Install", "Stairs", "Refinish", "Paint", "Sand", "Disposal", "Delivery", "Other", "Private", "Discounts", "Exclusions"] as const;
 export const LINE_TYPES = ["Material", "Install", "Removal", "Stairs", "Disposal", "Delivery", "Moulding", "Other", "Note"] as const;
-export const LINE_UOMS = ["sqft", "linear ft", "each", "piece", "hour", "roll", "flat"] as const;
+/** The four stair units (2026-11-04, `STAIR_UNITS`) are added to Airtable's list by typecast on the first save that uses each. */
+export const LINE_UOMS = ["sqft", "linear ft", "each", "piece", "hour", "roll", "flat", "steps", "sets", "ft", "pcs"] as const;
 const oneOf = <T extends string>(list: readonly T[], v: string | null): T | null => (v !== null && (list as readonly string[]).includes(v) ? (v as T) : null);
 
 // ---------- what the browser sends, made safe ----------

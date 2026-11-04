@@ -8,6 +8,7 @@ import { ACCEPTED_LINE, CONTRACTOR_LINE, contractorAmount, DISCOUNTS_SECTION, gr
 import type { PaymentSchedule } from "@/lib/pricing/schedule";
 import { levelApplies, levelOf, levelPrice, type ServiceLevel } from "@/lib/pricing/service";
 import { partKey } from "@/lib/quotes/scope";
+import { STAIR_UNITS } from "./stairGroups";
 import type { MaterialRow, Part, Quote, QuoteLine, RateRow, Scope, StairRow } from "@/lib/quotes/types";
 
 export type Section = (typeof SECTIONS)[number] | "Unsorted";
@@ -100,7 +101,7 @@ export type CardEntry =
       defaultWaste: number | null;
       contractors: CardContractor[];
     }
-  | { kind: "stair"; key: string; name: string; size: string | null; category: string | null; rate: number; cost: number | null; recordId: string };
+  | { kind: "stair"; key: string; name: string; size: string | null; category: string | null; rate: number; cost: number | null; recordId: string; unit?: string | null };
 
 /** Which Rate Card labour types belong under each section, best match first. */
 export const SECTION_LABOUR: Record<string, string[]> = {
@@ -129,7 +130,8 @@ export const LINE_TYPE: Record<string, string> = {
   Stairs: "Stairs",
 };
 
-export const UOMS = ["sqft", "linear ft", "each", "piece", "hour", "roll", "flat"] as const;
+/** A typed line's unit choices; the four stair units (2026-11-04) come last. Quote Lines → UOM must offer each. */
+export const UOMS = ["sqft", "linear ft", "each", "piece", "hour", "roll", "flat", ...STAIR_UNITS] as const;
 
 let counter = 0;
 /** Local ids for new options and lines; Airtable assigns real ones on save. */
@@ -171,7 +173,7 @@ export function buildCatalogue(rates: RateRow[], stairs: StairRow[], materials: 
   const entries: CardEntry[] = [...byKey.values()];
   for (const e of entries) if (e.kind === "rate") e.contractors.sort((a, b) => a.cost - b.cost || a.name.localeCompare(b.name));
   for (const s of stairs)
-    entries.push({ kind: "stair", key: `stair|${s.id}`, name: s.name, size: s.size, category: s.category, rate: s.rate, cost: s.cost, recordId: s.id });
+    entries.push({ kind: "stair", key: `stair|${s.id}`, name: s.name, size: s.size, category: s.category, rate: s.rate, cost: s.cost, recordId: s.id, unit: s.unit ?? null });
   return entries;
 }
 
@@ -355,7 +357,8 @@ export function lineFromEntry(entry: CardEntry, section: string, contractorName?
       sourceId: entry.recordId,
       stairCategory: entry.category,
       description: entryLabel(entry),
-      uom: "piece",
+      // The Stair Item's own Unit (2026-11-04): steps, sets, ft, pcs, or none for the number alone.
+      uom: entry.unit ?? null,
       qty: perStaircase(entry.name) ? 1 : null,
       unitPriceSnap: levelPrice(entry.rate, level, true),
       unitCostSnap: entry.cost,

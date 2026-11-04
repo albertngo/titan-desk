@@ -23,6 +23,15 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-04",
     kind: "changed",
+    title: "Stair items have their own units",
+    details: [
+      "Each stair item now says what its quantity is counted in: steps, sets (corner pieces), ft (nosings, handrails, trims) or pcs (spindles, pickets, posts). Stringers, landings and the complex handrail show the number only.",
+      "The unit follows the item everywhere: the editor, the quote page, the customer's link and PDF, the preliminary form, the site sheet build and payout cards. Stair lines on quotes made before show the new units too. Change an item's unit in Airtable, Stair Items, Unit.",
+    ],
+  },
+  {
+    date: "2026-11-04",
+    kind: "changed",
     title: "Quantities always show for the customer",
     details: [
       "Every line on the customer's link, the PDF and Customer view now shows its quantity, in every section, whether the quote goes as a lump sum, a breakdown or a preliminary.",

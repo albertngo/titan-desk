@@ -94,6 +94,9 @@ describe("quick form: the lines it becomes", () => {
   it("labels each row's amount by what its price is per", () => {
     expect([amountUnit(NAIL), amountUnit(BINS), amountUnit(MAT)]).toEqual(["sqft", null, "sqft"]);
     expect(amountUnit(choice({ id: "x", parts: [part({ recordId: "r", uom: "linear ft" })] }))).toBe("linear ft");
+    // Stair Items carry their own Unit (2026-11-04): ft reads as linear feet, steps / sets / pcs and no unit as a count.
+    const stair = (uom: string | null) => amountUnit(choice({ id: "s", parts: [part({ recordId: "r", kind: "stair", uom })] }));
+    expect([stair("ft"), stair("steps"), stair("pcs"), stair(null)]).toEqual(["linear ft", "pieces", "pieces", "pieces"]);
   });
 });
 

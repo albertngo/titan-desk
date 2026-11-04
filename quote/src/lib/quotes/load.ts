@@ -5,6 +5,7 @@ import { AirtableError, getRecord, listByIds, listRecords, type AirtableRecord }
 import { CAT, CATALOGUE_TABLE, LINE, MATERIAL, MATERIAL_TABLE, OPTION, PROFILE, PROFILE_TABLE, QUICK, QUICK_TABLE, QUOTE, RATE, RATE_TABLE, STAIR, STAIR_TABLE, T, VERSION } from "@/lib/airtable/fields";
 import { QUICK_GROUPS, quickProfiles, type QuickChoice, type QuickGroup, type QuickPart, type QuickProduct, type QuickProfile } from "@/lib/quick/plan";
 import { buildCatalogue } from "@/lib/editor/model";
+import { stairLineUom } from "@/lib/editor/stairGroups";
 import { parseAcceptance } from "@/lib/accept/plan";
 import { cleanSchedule } from "@/lib/pricing/schedule";
 import { isStairMethod, isStairType } from "@/lib/quick/stairs";
@@ -116,7 +117,8 @@ function toLine(r: AirtableRecord): QuoteLine {
     spec: str(f[LINE.rateSpec]),
     description: str(f[LINE.description]),
     area: str(f[LINE.area]),
-    uom: str(f[LINE.uom]),
+    // A stair line saved with the old default "piece" reads its Stair Item's Unit (2026-11-04).
+    uom: stairLineUom(str(f[LINE.uom]), ids(f[LINE.stairItem]).length > 0, lookupText(f[LINE.stairUnit])),
     contractor: str(f[LINE.contractor]),
     materialId: ids(f[LINE.installMaterial])[0] ?? null,
     stairCategory: lookupText(f[LINE.stairCategory]),
@@ -431,7 +433,7 @@ export async function getRateCard(): Promise<RateCard> {
       const name = str(f[STAIR.name]);
       const rate = num(f[STAIR.rate]);
       if (!name || rate === null) return [];
-      return [{ id: r.id, name, category: str(f[STAIR.category]), size: str(f[STAIR.size]), rate, cost: stairCost(num(f[STAIR.cost]), num(f[STAIR.materialCost])), labourCost: num(f[STAIR.cost]) }];
+      return [{ id: r.id, name, category: str(f[STAIR.category]), size: str(f[STAIR.size]), rate, cost: stairCost(num(f[STAIR.cost]), num(f[STAIR.materialCost])), labourCost: num(f[STAIR.cost]), unit: str(f[STAIR.unit]) }];
     });
   const materials = materialRecs.flatMap((r): MaterialRow[] => {
     const f = r.fields;
@@ -485,7 +487,7 @@ export async function getQuickForm(): Promise<QuickChoice[]> {
       if (!(material && product) && (rateParts.some((x) => !x) || stairParts.some((x) => !x))) return [];
       const parts: QuickPart[] = [
         ...rateParts.flatMap((x) => (x ? [{ kind: "rate" as const, recordId: x.id, labourType: x.labourType, spec: x.spec, description: `${x.labourType} | ${x.spec}`, contractor: x.contractor, uom: x.uom, rate: x.rate, cost: x.cost, minCharge: x.minCharge }] : [])),
-        ...stairParts.flatMap((x) => (x ? [{ kind: "stair" as const, recordId: x.id, labourType: null, spec: null, description: `${x.name}${x.size ? ` (${x.size})` : ""}`, contractor: null, uom: "piece", rate: x.rate, cost: x.cost, minCharge: null }] : [])),
+        ...stairParts.flatMap((x) => (x ? [{ kind: "stair" as const, recordId: x.id, labourType: null, spec: null, description: `${x.name}${x.size ? ` (${x.size})` : ""}`, contractor: null, uom: x.unit ?? null, rate: x.rate, cost: x.cost, minCharge: null }] : [])),
       ];
       if (material ? !product && parts.length === 0 : parts.length === 0) return [];
       return [{ id: r.id, group: group as QuickGroup, label, sort: num(f[QUICK.sort]) ?? 999, times: Math.max(1, Math.round(num(f[QUICK.times]) ?? 1)), parts, product }];

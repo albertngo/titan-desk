@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addChoices, sectionLinesInOrder, stairGroupLabel, stairGroups, stairSections } from "../src/lib/editor/stairGroups";
+import { addChoices, sectionLinesInOrder, STAIR_UNITS, stairGroupLabel, stairGroups, stairLineUom, stairSections } from "../src/lib/editor/stairGroups";
 
 /* Invented lines only. */
 
@@ -64,5 +64,20 @@ describe("a stairs option shows every category, even empty (2026-11-04)", () => 
   });
   it("is just Other when the card has no categories and no line has one", () => {
     expect(stairSections([l("a", null)], [])).toEqual([{ group: null, lines: [l("a", null)] }]);
+  });
+});
+
+describe("a stair line's unit (Albert, 2026-11-04)", () => {
+  it("takes its Stair Item's Unit when saved with the old default, and keeps any unit chosen since", () => {
+    expect(STAIR_UNITS).toEqual(["steps", "sets", "ft", "pcs"]);
+    expect(stairLineUom("piece", true, "steps")).toBe("steps");
+    expect(stairLineUom(null, true, "ft")).toBe("ft");
+    // Stringers, landings and the complex handrail: the number alone.
+    expect(stairLineUom("piece", true, null)).toBeNull();
+    // An unknown word on the item is never shown.
+    expect(stairLineUom("piece", true, "boxes")).toBeNull();
+    // A unit chosen on the line stays; a line with no Stair Item is never touched.
+    expect(stairLineUom("each", true, "steps")).toBe("each");
+    expect(stairLineUom("piece", false, "steps")).toBe("piece");
   });
 });

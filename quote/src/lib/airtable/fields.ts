@@ -237,6 +237,8 @@ export const LINE = {
   stairCategory: "fldSFOxH6jcSqDxLL",
   /** 2026-11-02: lookup of the Stair Item's Customer Wording; the customer copy merges lines that share it. Read only. */
   stairWording: "fldbhcMQLCGVMq3XC",
+  /** 2026-11-04: lookup of the Stair Item's Unit; a line saved with the old default "piece" reads it instead. Read only. */
+  stairUnit: "fldvdBLzLNIHlOOHO",
   // Airtable's own per-line results, read only for the parity check.
   lineTotal: "fldtr6qmdjmWc1YFM",
   lineCost: "fld64HUgwqcRso3Br",
@@ -352,6 +354,8 @@ export const STAIR = {
   note: "fldSnyFju6GA8vBZZ",
   /** Review Status (2026-11-01): OK / Needs Review. A row the app makes is always Needs Review. */
   reviewStatus: "fldtGHMDHiTMc3uS4",
+  /** Unit (2026-11-04, Albert): steps / sets / ft / pcs; blank = the number only (stringers, landings, complex handrail). */
+  unit: "fldy34aSI7uThd0p5",
 } as const;
 
 /** What every row the app creates in a review table must carry (2026-11-01): switched off and Needs Review. */

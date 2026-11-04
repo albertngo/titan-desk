@@ -152,9 +152,12 @@ describe("lines", () => {
     expect(addLines(q, opt, [], ["nothing"]).options[0].lines).toHaveLength(2);
   });
 
-  it("stair items price per piece; manual lines have no source", () => {
+  it("stair items take their own Unit (2026-11-04), none for the number alone; manual lines have no source", () => {
     const s = lineFromEntry(cat.find((e) => e.kind === "stair")!, "Stairs");
-    expect([s.uom, s.unitPriceSnap, s.sourceKind]).toEqual(["piece", 90, "stair"]);
+    // The fixture item has no Unit: the number alone, never the old "piece".
+    expect([s.uom, s.unitPriceSnap, s.sourceKind]).toEqual([null, 90, "stair"]);
+    const steps = buildCatalogue([], [{ ...stairs[0], unit: "steps" }]).find((e) => e.kind === "stair")!;
+    expect(lineFromEntry(steps, "Stairs").uom).toBe("steps");
     const m = { ...manualLine("Delivery", "Delivery"), qty: 1, unitPrice: 200, costOverride: 100 };
     expect(m.uom).toBe("flat");
     expect(lineFlags(m)).toEqual(["NOSRC"]);

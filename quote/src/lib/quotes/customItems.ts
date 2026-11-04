@@ -46,6 +46,7 @@ export async function saveTypedItems(options: Pick<QuoteOption, "lines">[], ctx:
         : {
             [STAIR.name]: i.description,
             [STAIR.rate]: i.price,
+            ...(i.uom ? { [STAIR.unit]: i.uom } : {}),
             ...(i.cost !== null ? { [STAIR.cost]: i.cost } : {}),
             [STAIR.active]: false,
             [STAIR.reviewStatus]: "Needs Review",
