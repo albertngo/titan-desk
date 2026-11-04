@@ -392,6 +392,15 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   of its own, or no GHL user with that email, texts from GHL's main number as before. The Send card says which
   (`textsFrom()`); the Edit Log says "text from …". The acceptance text, which no person presses, stays on the main
   number. Make forwards the body verbatim, so nothing changed in Make. Tested in `tests/send.test.ts`.
+  **Albert may send as someone else (Albert, same day: "give ALBERT an option to select who I want it sent out from?
+  Only Albert has the option to").** For the one sign-in in `SEND_AS_PICKERS` (`src/lib/send/sendAs.ts`), the Send card
+  and Send again show **Send as**: everyone on `QUOTE_ALLOWED_EMAILS` on the company's email domain, named from their
+  GHL user, himself first (`sendAsChoices()`). Picking someone sends as them in everything the customer sees: their
+  address (`emailFromFor()`), their GHL number (`textFromFor()`), their first name signing it, and Sent By is them (so
+  open-tracking tags them). The Edit Log keeps Albert as the one who pressed it, adding "as <email>". The email
+  preview follows the pick (`?as=`). The server decides again (`resolveSender()` in `sendAs.ts`, `senderFor()` in
+  `send.ts`): a pick from any other sign-in, or of an address not on the list, is refused, never sent as them. Tested
+  in `tests/sendAs.test.ts`.
   Make 4975508 forwards the message body verbatim, so nothing changed in Make.
 - **Who worked on a version (Albert, 2026-10-22).** Quote Versions carries **Created By (app)**,
   **Last Edited By**, **Last Edited At** and an append-only **Edit Log** (one line per save, new
