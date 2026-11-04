@@ -142,11 +142,20 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   work from short lists, type square footage, add staircases, see a live estimate. Laid out for a
   phone: Flooring, then Stairs, then anything else; each work group folds to a one-line summary;
   short lists are chips; "Same as install" copies the square footage onto Remove and Material rows;
-  the first Baseboards row in linear feet defaults to **a third of the install square feet, rounded
-  to the nearest foot** (Albert, 2026-10-22), follows the install while it was never typed, and keeps
-  what staff type, with "⅓ of install" to snap back (`baseboardDefault()` / `baseboardFollow()` in
-  `plan.ts`); Baseboards allows up to three rows (2026-10-22: baseboard in one area, shoe only in
-  another) and only the first follows the install, so a second never double-counts; the form's
+  Baseboards rows in linear feet are **a third of the install square feet, rounded to the nearest
+  foot** (Albert, 2026-10-22); Baseboards allows up to three rows (same day: baseboard in one area,
+  shoe only in another). **A basis per row (Albert, 2026-11-04: "always calculate for the total sqft
+  in the INSTALL tab as default and always be live… a manual override when the value is changed (with
+  an option to reset to 1/3 of ___ sf). If there are multiple baseboards and shoemould rows… the option
+  to select (1/3 of ___ sf) depending on how many different install options there are"):** each
+  Baseboards row follows a basis live, the total of every Install row's square feet or one Install
+  row's, kept on the form row only (the server still gets a number). The first row starts on the
+  total; a row added after it starts on nothing, so nothing double-counts. Typing an amount is a
+  manual override and stops it following. Chips under the row set the basis again: "⅓ of 820 sf",
+  and with two or more Install rows "(all install)" on that one plus one per row, "⅓ of 500 sf
+  (Hardwood)", the one followed shown picked. A basis naming an Install row that is gone, or the only
+  one left, reads as the total; Duplicate points the copy at its own rows (`followBases()` /
+  `basisChoices()` / `resolveBasis()` / `remapBases()` in `plan.ts`, replacing `baseboardFollow()`); the form's
   **Additional cost** becomes a Private line (2026-10-22), so the customer sees it as the one
   rolled-up "Additional work" row and never as an itemised line;
   every row shows its rate and its total beside the selection, priced the same way the quote will

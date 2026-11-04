@@ -351,7 +351,7 @@ export function rowTotal(choices: QuickChoice[], row: QuickRow, products: Map<st
 }
 
 
-// ---------- baseboards follow the install (Albert, 2026-10-22) ----------
+// ---------- baseboards follow the install (Albert, 2026-10-22; a basis per row 2026-11-04) ----------
 
 /** Baseboard linear feet default to a third of the install square feet, rounded to the nearest foot. */
 export const BASEBOARD_PER_SQFT = 1 / 3;
@@ -359,16 +359,102 @@ export const BASEBOARD_PER_SQFT = 1 / 3;
 export const baseboardDefault = (installSqft: number | null): number | null =>
   installSqft !== null && installSqft > 0 ? Math.round(installSqft * BASEBOARD_PER_SQFT) : null;
 
+// ---------- a basis per baseboard row (Albert, 2026-11-04) ----------
+//
+// "The baseboards / shoemoulds should always calculate for the total sqft in the INSTALL tab as
+// default and always be live. There then is a manual override when the value is changed (with an
+// option to reset to 1/3 of ___ sf). If there are multiple baseboards and shoemould rows, then we
+// should be offered the option to select (1/3 of ___ sf) depending on how many different install
+// options there are."
+//
+// Each Baseboards row carries a basis: TOTAL_BASIS (every Install row's square feet added up), one
+// Install row's key, or null (typed by hand, or a later row nobody has pointed anywhere yet). A row
+// with a basis always shows a third of it; typing an amount clears the basis; a chip sets it again.
+// The server never sees a basis: it gets the amount, a number, as before.
+
+/** The basis that follows every Install row's square feet added up. */
+export const TOTAL_BASIS = "total";
+
+/** The few fields of a form row these rules read; the form's own rows carry more. */
+export type BasisRow = { key: string; group: QuickGroup; choiceId: string; amount: string; basis?: string | null };
+
+/** A typed amount as a positive number, or null ("1,200 " reads as 1200). */
+export function typedSqft(amount: string): number | null {
+  const t = amount.replace(/[$,\s]/g, "");
+  const v = Number(t);
+  return t !== "" && Number.isFinite(v) && v > 0 ? v : null;
+}
+
+const installRows = <T extends BasisRow>(rows: T[]) => rows.filter((r) => r.group === "Install" && r.choiceId);
+
+/** Every Install row's square feet added up; null when there is none. */
+export function installTotal(rows: BasisRow[]): number | null {
+  const sum = installRows(rows).reduce((a, r) => a + (typedSqft(r.amount) ?? 0), 0);
+  return sum > 0 ? sum : null;
+}
+
 /**
- * What a baseboard row's amount becomes when the install square footage goes from `from` to `to`:
- * blank, or still the default the old figure gave, follows the new figure (and blanks when there is
- * no install any more); anything typed by hand stays. Null means leave the amount as it is.
+ * The basis a row really follows: one naming an Install row that is gone (removed, or its choice
+ * cleared) falls back to the total, and so does one naming the only Install row left. Null stays null.
  */
-export function baseboardFollow(amount: string, from: number | null, to: number | null): string | null {
-  const typed = amount.trim();
-  const prev = baseboardDefault(from);
-  if (typed !== "" && (prev === null || Number(typed) !== prev)) return null;
-  const next = baseboardDefault(to);
-  if (next === null) return typed === "" ? null : "";
-  return String(next);
+export function resolveBasis(basis: string | null | undefined, rows: BasisRow[]): string | null {
+  if (!basis) return null;
+  if (basis === TOTAL_BASIS) return TOTAL_BASIS;
+  const installs = installRows(rows);
+  return installs.length > 1 && installs.some((r) => r.key === basis) ? basis : TOTAL_BASIS;
+}
+
+/** The square feet a basis stands for right now. */
+export function basisSqft(basis: string | null | undefined, rows: BasisRow[]): number | null {
+  const b = resolveBasis(basis, rows);
+  if (b === null) return null;
+  if (b === TOTAL_BASIS) return installTotal(rows);
+  return typedSqft(rows.find((r) => r.key === b)?.amount ?? "");
+}
+
+export type BasisChoice = { basis: string; sqft: number; third: number; label: string };
+
+const sqftWords = (n: number) => (Number.isInteger(n) ? n.toLocaleString("en-CA") : String(round2(n)));
+
+/**
+ * The chips under a baseboard row: "⅓ of 820 sf" for the total and, with two or more Install rows
+ * that have square feet, one per row named for its choice ("⅓ of 500 sf (Hardwood)"), the total then
+ * saying "(all install)". Two rows of the same choice are numbered. Nothing when no Install row has
+ * square feet yet.
+ */
+export function basisChoices(rows: BasisRow[], labelOf: (choiceId: string) => string): BasisChoice[] {
+  const total = installTotal(rows);
+  if (total === null) return [];
+  const withSqft = installRows(rows).filter((r) => typedSqft(r.amount) !== null);
+  const third = (sqft: number) => baseboardDefault(sqft) ?? 0;
+  const many = withSqft.length > 1;
+  const out: BasisChoice[] = [{ basis: TOTAL_BASIS, sqft: total, third: third(total), label: `⅓ of ${sqftWords(total)} sf${many ? " (all install)" : ""}` }];
+  if (!many) return out;
+  const names = withSqft.map((r) => labelOf(r.choiceId) || "Install");
+  withSqft.forEach((r, i) => {
+    const sqft = typedSqft(r.amount)!;
+    const twin = names.filter((x) => x === names[i]).length > 1;
+    const name = twin ? `${names[i]} ${names.slice(0, i + 1).filter((x) => x === names[i]).length}` : names[i];
+    out.push({ basis: r.key, sqft, third: third(sqft), label: `⅓ of ${sqftWords(sqft)} sf (${name})` });
+  });
+  return out;
+}
+
+/**
+ * After any change to the rows, every Baseboards row with a basis shows a third of it, live; a basis
+ * with no square feet behind it blanks the amount. Rows `follows` says no to (no linear-foot choice
+ * picked yet) and rows with no basis are left exactly as they are.
+ */
+export function followBases<T extends BasisRow>(rows: T[], follows: (r: T) => boolean): T[] {
+  return rows.map((r) => {
+    if (r.group !== "Baseboards" || !r.basis || !follows(r)) return r;
+    const d = baseboardDefault(basisSqft(r.basis, rows));
+    const amount = d === null ? "" : String(d);
+    return amount === r.amount ? r : { ...r, amount };
+  });
+}
+
+/** A copied tab's baseboard rows point at the copy's Install rows, never the original's (Duplicate, 2026-10-31). */
+export function remapBases<T extends BasisRow>(rows: T[], keyFor: Map<string, string>): T[] {
+  return rows.map((r) => (r.basis && r.basis !== TOTAL_BASIS ? { ...r, basis: keyFor.get(r.basis) ?? TOTAL_BASIS } : r));
 }

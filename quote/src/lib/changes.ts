@@ -23,6 +23,15 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-04",
     kind: "changed",
+    title: "Baseboards follow the install, row by row",
+    details: [
+      "On the preliminary's Job card, the first Baseboards row is a third of all the Install square feet added up, and it keeps up as the install changes. Type your own number and it stays as typed.",
+      "Under each Baseboards row, pick what it follows: ⅓ of the total, or, with two or more Install rows, ⅓ of one of them (for example ⅓ of 500 sf (Hardwood)). A second or third row starts on nothing until you pick one, so nothing is counted twice.",
+    ],
+  },
+  {
+    date: "2026-11-04",
+    kind: "changed",
     title: "Smaller words and cards on a phone",
     details: [
       "On a phone, text, cards and the quick form's choices are a size smaller, so more of the quote fits on the screen. Boxes you type in stay the same size, so the iPhone doesn't zoom in, and everything is still easy to tap.",

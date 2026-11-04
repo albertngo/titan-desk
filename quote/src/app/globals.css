@@ -1782,3 +1782,9 @@ table.cmp th { font-size: 12.5px; font-weight: 500; color: var(--fg-dim); text-t
   table.items .addrow { font-size: 14px; }
   .ov-foot .ov-row { font-size: 14px; }
 }
+
+/* Quick form: what a baseboard row follows (2026-11-04). Smaller chips under the row, one per basis. */
+.qw-chips.qw-basis { margin-top: 6px; align-items: center; }
+.qw-chips.qw-basis .qw-chip { font-size: 12px; min-height: 30px; padding: 4px 10px; }
+.qw-basis-note { font-size: 12px; color: var(--fg-faint); }
+@media (max-width: 640px) { :is(.ed-quick, .newq) .qw-chips.qw-basis { display: flex; } .qw-chips.qw-basis .qw-chip { min-height: 40px; font-size: 13px; } }
