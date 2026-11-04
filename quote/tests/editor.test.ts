@@ -21,6 +21,10 @@ import {
   setMaterialFigures,
   materialSplit,
   parseNum,
+  perStaircase,
+  acceptedReason,
+  resetAccepted,
+  setAcceptedReason,
   removeLine,
   revertLine,
   searchCatalogue,
@@ -37,6 +41,7 @@ import {
   withCustomerFrom,
   type CardEntry,
 } from "../src/lib/editor/model";
+import { ACCEPTED_LINE } from "../src/lib/pricing/discounts";
 import type { MaterialRow, RateRow, StairRow } from "../src/lib/quotes/types";
 import { levelOf } from "../src/lib/pricing/service";
 import { cleanEditorQuote } from "../src/lib/quotes/savePlan";
@@ -153,6 +158,18 @@ describe("lines", () => {
     const m = { ...manualLine("Delivery", "Delivery"), qty: 1, unitPrice: 200, costOverride: 100 };
     expect(m.uom).toBe("flat");
     expect(lineFlags(m)).toEqual(["NOSRC"]);
+  });
+
+  it("a stair item charged per staircase starts at 1; any other stair item starts blank (2026-11-04)", () => {
+    const card = buildCatalogue([], [
+      { id: "recStair000000002", name: "Stringers Paint White (per staircase)", category: "stringer", size: null, rate: 100, cost: 50 },
+      { id: "recStair000000003", name: "Plain riser", category: "riser", size: null, rate: 20, cost: 10 },
+    ]);
+    const [white, riser] = ["recStair000000002", "recStair000000003"].map((id) => card.find((e) => e.kind === "stair" && e.recordId === id)!);
+    expect(lineFromEntry(white, "Stairs").qty).toBe(1);
+    expect(lineTotal(lineFromEntry(white, "Stairs"))).toBe(100);
+    expect(lineFromEntry(riser, "Stairs").qty).toBeNull();
+    expect([perStaircase("Stringers Oak Skin, Glue and Stain (per staircase)"), perStaircase("Post (PER  Staircase)"), perStaircase("Staircase landing")]).toEqual([true, true, false]);
   });
 
   it("exclusions are text only and never priced", () => {
@@ -527,12 +544,42 @@ describe("accepted price (2026-10-22)", () => {
     return { id, q: addLine(q, id, { ...manualLine("Install", "Work"), qty: 100, unitPrice: 10 }) };
   };
 
-  it("sets the quote's discount so the option lands on the accepted pre-tax price", () => {
+  it("lands the option on the accepted pre-tax price with a discount line of its own (2026-11-04)", () => {
     const { q, id } = withWork();
     const r = setAcceptedPrice(q, id, 900);
-    expect(r.discountRate).toBe(0.1);
+    expect(r.discountRate).toBe(0);
+    expect(r.options[0].lines.find((l) => l.description === ACCEPTED_LINE)).toMatchObject({ section: "Discounts", qty: 1, uom: "flat", unitPrice: -100, include: true });
     expect(optionTotals(r.options[0].lines, r.discountRate, r.showHst).subtotal).toBe(900);
-    expect(setAcceptedPrice(q, id, 875).discountRate).toBe(0.125);
+    const again = setAcceptedPrice(r, id, 875);
+    expect(again.options[0].lines.filter((l) => l.description === ACCEPTED_LINE).map((l) => l.unitPrice)).toEqual([-125]);
+  });
+
+  it("moves only the option it is typed on, and reset clears only that one (2026-11-04)", () => {
+    const { q, id } = withWork();
+    const two = addOption(q);
+    const id2 = two.options[1].id;
+    const both = addLine(two, id2, { ...manualLine("Install", "Other work"), qty: 100, unitPrice: 20 });
+    const sub = (x: typeof both, i: number) => optionTotals(x.options[i].lines, x.discountRate, x.showHst).subtotal;
+    const r = setAcceptedPrice(both, id, 900);
+    expect([sub(r, 0), sub(r, 1)]).toEqual([900, 2000]);
+    const r2 = setAcceptedPrice(r, id2, 1800);
+    expect([sub(r2, 0), sub(r2, 1)]).toEqual([900, 1800]);
+    const back = resetAccepted(r2, id);
+    expect([sub(back, 0), sub(back, 1)]).toEqual([1000, 1800]);
+  });
+
+  it("hands an old version-wide discount to each option the first time, so no other price moves", () => {
+    const { q, id } = withWork();
+    const two = addOption(setTerms(q, { discountRate: 0.1, discountReason: "Fall promotion" }));
+    const id2 = two.options[1].id;
+    const both = addLine(two, id2, { ...manualLine("Install", "Other work"), qty: 100, unitPrice: 20 });
+    const sub = (x: typeof both, i: number) => optionTotals(x.options[i].lines, x.discountRate, x.showHst).subtotal;
+    expect([sub(both, 0), sub(both, 1)]).toEqual([900, 1800]);
+    const r = setAcceptedPrice(both, id, 950);
+    expect([r.discountRate, r.discountReason]).toEqual([0, null]);
+    expect([sub(r, 0), sub(r, 1)]).toEqual([950, 1800]);
+    expect(acceptedReason(r.options[1])).toBe("Fall promotion");
+    expect(acceptedReason(setAcceptedReason(r, id, "Senior").options[0])).toBe("Senior");
   });
 
   it("gives no discount at or above the list price, and changes nothing it cannot work from", () => {
@@ -568,15 +615,16 @@ describe("accepted price above the list price is refused, and a discount in doll
     const old = addLine(q, id, { ...manualLine("Private", PRICE_ADJUSTMENT), uom: "flat", qty: 1, unitPrice: 250 });
     const down = setAcceptedPrice(old, id, 900);
     expect(adjustment(down)).toBeUndefined();
-    expect(down.discountRate).toBe(0.1);
+    expect(down.discountRate).toBe(0);
     expect(optionTotals(down.options[0].lines, down.discountRate, down.showHst).subtotal).toBe(900);
   });
 
   it("takes a discount in dollars as the list price less that amount", () => {
     const { q, id } = withWork();
-    expect(setDiscountAmount(q, id, 100).discountRate).toBe(0.1);
-    expect(setDiscountAmount(q, id, 0).discountRate).toBe(0);
-    expect(setDiscountAmount(q, id, 2000).discountRate).toBe(1);
+    const off = (x: typeof q) => 0 - (x.options[0].lines.find((l) => l.description === ACCEPTED_LINE)?.unitPrice ?? 0);
+    expect(off(setDiscountAmount(q, id, 100))).toBe(100);
+    expect(off(setDiscountAmount(q, id, 0))).toBe(0);
+    expect(off(setDiscountAmount(q, id, 2000))).toBe(1000);
     expect(setDiscountAmount(q, id, -5)).toBe(q);
     expect(setDiscountAmount(q, id, null)).toBe(q);
   });

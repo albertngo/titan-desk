@@ -73,8 +73,10 @@ describe("discount items (Albert, 2026-11-04)", () => {
     let r = addDiscount(q, id, "Senior", 100);
     r = setAcceptedPrice(r, id, 810);
     expect(subtotal(r)).toBe(810);
-    expect(r.discountRate).toBe(0.1); // 10% of the 900 left after the item
+    expect(r.discountRate).toBe(0); // the option's own line, never the version's rate (2026-11-04)
     expect(summary(r)).toMatchObject({ itemsTotal: 100, adjustment: 90, totalDiscountPct: 19, pinned: true });
+    // Listed for the totals as the customer reads it, after the items, in dollars.
+    expect(summary(r).items.map((x) => [x.label, x.amount, x.accepted])).toEqual([["Senior", 100, false], ["Discount", 90, true]]);
     // Adding a discount item with an accepted price set keeps the accepted price.
     r = addDiscount(r, id, "Referral", 50);
     expect(subtotal(r)).toBe(810);

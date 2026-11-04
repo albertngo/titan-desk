@@ -500,8 +500,8 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   - **Accepted price, right: three linked boxes**, price before HST, total discount % and margin %
     ("whichever one you edit will update the other 2"). The total discount counts everything off the list
     price, discount items included (`priceSummary()` in `src/lib/pricing/discounts.ts`). Each lands the
-    price through `setAcceptedPrice()`, which moves only the version's Discount Rate and leaves the discount
-    items where they are. **Never above the price the slider and discounts make (`priceCeiling()`;
+    price through `setAcceptedPrice()`, which moves only this option's accepted price discount (below) and
+    leaves the discount items where they are. **Never above the price the slider and discounts make (`priceCeiling()`;
     Albert, same day: "lets block it. This means any pricing increases should be added in as private line
     items; or increased rates. The goal is to have less change for mistakes")**: a higher price in any box
     changes nothing and the card says to add a Private line or raise a rate; the 2026-10-22 above-list
@@ -512,6 +512,19 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
     three boxes, clears all three** (same day: "deleting one section clears all the other ones… Pressing
     reset should clear all 3 out"): rate 0 and the adjustment line off (`resetAccepted()`), so the price
     reads the slider and the discounts again. The Discount reason moved into the card.
+  - **Per option, in dollars (Albert, 2026-11-04: "For accepted price; it should only apply to the selected option
+    and not carry over to the other items. Same as the discount section. Only on the selected option"; "discounts are
+    dollar line values only. not % by the way").** Below the list price the accepted price is now this option's own
+    line in its Discounts section, **"Accepted price discount"** (`ACCEPTED_LINE`, `isAcceptedLine()`), one, flat,
+    updated in place, its reason in the line's Client Note (`acceptedReason()` / `setAcceptedReason()`); the customer
+    reads it as "Discount · reason" (`acceptedLabel()`), in dollars. Never above the price as it stands
+    (`priceCeiling()`, above). Reset clears this option only. **No version Discount Rate is set any more**: a version that has one (saved
+    before) keeps it until an accepted price is next set or reset, when `detachVersionDiscount()` hands each option
+    its dollars as its own line, with the version's reason, and clears the rate and reason, so no other price moves.
+    Discount items take dollars only (`discountAmountFrom()` refuses a percent); the Total discount % box stays, as a way
+    to type a price. calc.ts and Airtable's formulas are unchanged (the line is a line). One difference from a rate:
+    with HST off and HST on materials only, a dollar discount line does not lower the materials' HST, as discount items
+    never did. Tested in `tests/editor.test.ts`, `tests/discounts.test.ts` and `tests/send.test.ts`.
   - **Margin and profit** under the boxes (list price, items, adjustment, price, cost, profit, margin),
     and an **(i)** with the lowest price that keeps the **20% margin minimum** (`MIN_MARGIN_PCT`,
     `priceForMargin()`, rounded up to the cent); under it the card says so and offers to set it. Customer
@@ -784,6 +797,13 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   Typed line (a manual Stairs line) and Private, whose picker offers Stair Items and typed lines only (`stairsOnly` on
   the Picker); a **Flooring** option gets every work section but Stairs. A section's inline + Add follows the same rule.
   Lines already on an option are untouched. Tested in `tests/stairGroups.test.ts`.
+  **Every category present, its add on its heading (Albert, 2026-11-04: "The sections in the stairs should all be
+  PRESENT; even when empty. On each section's header, or right under it, should be the add button… it shows up right
+  where they picked the item").** In the editor a Stairs option always shows Stairs and Private; Stairs lists every
+  category the card offers or a line has, in work order, then Other (typed lines), each heading with its own add
+  (`stairSections()`), and **+ Build a staircase** right under the Stairs header. Private's add sits right under its
+  header. A stairs option has no Add work bar at the bottom; a flooring option keeps it, unchanged. The quote page and
+  customer copy are unchanged (empty groups never show there).
 - **After the first acceptance, everything is for the record (Albert, 2026-10-31; vault
   `05_decisions/2026-10-31-quote-changes-for-record`).** The customer accepts once, for the project; every change after
   that is sent for the record with nothing to pick or accept, new work included. This reverses step 3 as built the

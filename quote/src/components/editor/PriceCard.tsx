@@ -4,6 +4,7 @@ import { useId, useState } from "react";
 import { money, pct } from "@/lib/format";
 import {
   acceptedIsSet,
+  acceptedReason,
   addDiscount,
   discountAmountFrom,
   parseNum,
@@ -11,12 +12,12 @@ import {
   removeDiscount,
   resetAccepted,
   setAcceptedPrice,
-  setTerms,
+  setAcceptedReason,
   updateDiscount,
   type EditorOption,
   type EditorQuote,
 } from "@/lib/editor/model";
-import { isContractorLine, isDiscountLine, MIN_MARGIN_PCT, priceAtMargin, priceAtTotalDiscount, priceSummary } from "@/lib/pricing/discounts";
+import { isAcceptedLine, isContractorLine, isDiscountLine, MIN_MARGIN_PCT, priceAtMargin, priceAtTotalDiscount, priceSummary } from "@/lib/pricing/discounts";
 
 /**
  * The option's price card, under its totals (Albert, 2026-11-04). Left: the discount items, which stay
@@ -34,7 +35,9 @@ export function PriceCard({ quote, option, customer, apply }: { quote: EditorQuo
   const s = priceSummary(option.lines, quote.discountRate, quote.showHst);
   const set = acceptedIsSet(quote, option);
   const round = (n: number) => Math.round(n * 100) / 100;
-  const items = option.lines.filter((l) => isDiscountLine(l));
+  // The accepted price's own discount line is the right-hand side's, never a discount item (2026-11-04).
+  const items = option.lines.filter((l) => isDiscountLine(l) && !isAcceptedLine(l));
+  const hasAccepted = option.lines.some((l) => isAcceptedLine(l));
   const tipId = useId();
   const [label, setLabel] = useState("");
   const [amount, setAmount] = useState("");
@@ -156,10 +159,12 @@ export function PriceCard({ quote, option, customer, apply }: { quote: EditorQuo
             </label>
           )}
         </div>
-        <label className="pc-reason" title="Printed beside the Discount row on the customer's page and PDF, e.g. Fall promotion.">
-          Reason the customer sees
-          <Box text={quote.discountReason ?? ""} label="Discount reason" placeholder="e.g. Fall promotion" onCommit={(v) => apply(setTerms(quote, { discountReason: v.trim() || null }))} />
-        </label>
+        {hasAccepted && (
+          <label className="pc-reason" title="Printed beside this option's Discount row on the customer's page and PDF, e.g. Fall promotion.">
+            Reason the customer sees
+            <Box text={acceptedReason(option)} label="Discount reason" placeholder="e.g. Fall promotion" onCommit={(v) => apply(setAcceptedReason(quote, option.id, v))} />
+          </label>
+        )}
         {note && <p className="pc-bad">{note}</p>}
         {below && s.minPrice !== null && (
           <p className="pc-bad">
@@ -184,7 +189,7 @@ export function PriceCard({ quote, option, customer, apply }: { quote: EditorQuo
             <div className={below ? "warn" : undefined}><dt>Margin</dt><dd>{pct(s.marginPct, 1) || "None"}</dd></div>
           </dl>
         )}
-        {quote.options.length > 1 && <p className="pc-mt">The accepted price sets a discount every option on this quote follows.</p>}
+        {quote.options.length > 1 && <p className="pc-mt">{quote.discountRate ? "Saved before options had their own price: every option shares one discount until you set or reset an accepted price here, then each keeps its own." : "This option only. Other options keep their own price."}</p>}
       </section>
     </div>
   );

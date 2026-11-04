@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { addChoices, sectionLinesInOrder, stairGroupLabel, stairGroups, type AddChoice } from "@/lib/editor/stairGroups";
+import { addChoices, sectionLinesInOrder, stairGroupLabel, stairGroups, stairSections, type AddChoice } from "@/lib/editor/stairGroups";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { quickFormAction, quickOptionAction, saveAsNewVersionAction, saveVersionAction } from "@/app/q/[id]/edit/actions";
 import { estimateWork, initialWork, QuickWork, workInput, type WorkState } from "@/components/QuickWork";
@@ -252,8 +252,15 @@ export default function Editor({
 
   // Customer view leaves the Private section out and shows its total as one row in Other (2026-10-22).
   const hidden = option && customer ? privateRollup(option.lines) : 0;
+  // A stairs option always shows Stairs and Private, empty or not, each category with its own add (2026-11-04).
+  const stairsOption = !!option && optionScope(option) === "Stairs";
+  const stairCats = card.stairs.map((x) => x.category);
   const sectionsShown: string[] = option
-    ? WORK_SECTIONS.filter((s) => (customer && s === PRIVATE_SECTION ? false : option.lines.some((l) => sectionOf(l) === s) || (s === "Other" && hidden > 0)))
+    ? WORK_SECTIONS.filter((s) =>
+        customer && s === PRIVATE_SECTION
+          ? false
+          : option.lines.some((l) => sectionOf(l) === s) || (s === "Other" && hidden > 0) || (stairsOption && (s === "Stairs" || s === PRIVATE_SECTION)),
+      )
     : [];
   if (option?.lines.some((l) => sectionOf(l) === "Unsorted")) sectionsShown.push("Unsorted");
   const exclusions = option ? option.lines.filter((l) => l.section === "Exclusions") : [];
@@ -801,8 +808,56 @@ export default function Editor({
                             </td>
                             <td className="r">{money(sum)}</td>
                           </tr>,
+                          // A stairs option: the builder right under Stairs, then every category, empty or not, its add on its
+                          // heading, so a picked item lands right there (2026-11-04). Private's add sits right under its header.
+                          ...(stairsOption && s === "Stairs"
+                            ? [
+                                <tr className="sect-add top" key="a-staircase">
+                                  <td />
+                                  <td colSpan={customer ? 4 : 6}>
+                                    <button className="addrow" onClick={() => setPicking({ label: "Staircase", section: "Stairs" })}>
+                                      + Build a staircase
+                                    </button>
+                                  </td>
+                                </tr>,
+                                ...stairSections(lines, stairCats).flatMap((g) => [
+                                  <tr className="subsect with-add" key={`g-${g.group ?? "other"}`}>
+                                    <td colSpan={customer ? 5 : 7}>
+                                      <span className="subsect-in">
+                                        <span>{stairGroupLabel(g.group)}</span>
+                                        <button
+                                          className="addrow"
+                                          onClick={() =>
+                                            g.group === null
+                                              ? apply(addLine(quote, option.id, manualLine("Stairs")))
+                                              : setPicking({ label: stairGroupLabel(g.group), section: "Stairs", category: g.group })
+                                          }
+                                        >
+                                          + Add {g.group === null ? "a typed line" : `to ${stairGroupLabel(g.group).toLowerCase()}`}
+                                        </button>
+                                      </span>
+                                    </td>
+                                  </tr>,
+                                  ...g.lines.map(row),
+                                ]),
+                              ]
+                            : stairsOption && s === PRIVATE_SECTION
+                            ? [
+                                <tr className="sect-add top" key="a-private">
+                                  <td />
+                                  <td colSpan={customer ? 4 : 6}>
+                                    <button className="addrow" onClick={() => setPicking({ label: s, section: s, stairsOnly: true })}>
+                                      + Add to Private
+                                    </button>
+                                  </td>
+                                </tr>,
+                                ...lines.map(row),
+                              ]
+                            : []),
                           // Stairs grouped by the Stair Item's Category (2026-10-28), a small heading over each group.
-                          ...(s === "Stairs"
+                          ...(stairsOption && (s === "Stairs" || s === PRIVATE_SECTION)
+                            ? []
+                            : s === "Stairs"
                             ? stairGroups(lines).flatMap((g) => [
                                 ...(g.heading
                                   ? [
@@ -827,12 +882,13 @@ export default function Editor({
                             : []),
                           // "+ Add to …" closes each section (Option C, 2026-11-01). It follows the option's scope (2026-10-30):
                           // a stairs option adds only to Stairs and Private (stair items or typed), a flooring option never to Stairs.
-                          ...((optionScope(option) === "Stairs" ? s === "Stairs" || s === PRIVATE_SECTION : s !== "Stairs")
+                          // A stairs option's adds are at the top of its sections (above), so none closes them.
+                          ...(!stairsOption && s !== "Stairs"
                             ? [
                                 <tr className="sect-add" key={`a-${s}`}>
                                   <td />
                                   <td colSpan={customer ? 4 : 6}>
-                                    <button className="addrow" onClick={() => setPicking({ label: s, section: s, ...(optionScope(option) === "Stairs" && s === PRIVATE_SECTION ? { stairsOnly: true as const } : {}) })}>
+                                    <button className="addrow" onClick={() => setPicking({ label: s, section: s })}>
                                       + Add to {s === PRIVATE_SECTION ? "Private" : s.toLowerCase()}
                                     </button>
                                   </td>
@@ -844,21 +900,18 @@ export default function Editor({
                     </tbody>
                   </table>
                 </div>
-                <div className="addbar">
-                  <span className="lbl">Add work</span>
-                  {/* A stairs option adds Stair Items by category (2026-10-30); a flooring option everything but Stairs. */}
-                  {addChoices(optionScope(option), card.stairs.map((x) => x.category), WORK_SECTIONS.filter((s) => !(customer && s === PRIVATE_SECTION)))
-                    .map((c) => (
-                      <button
-                        key={`${c.section}:${c.category ?? c.label}`}
-                        className="chip-btn"
-                        onClick={() => (c.typed ? apply(addLine(quote, option.id, manualLine(c.section))) : setPicking(c))}
-                        title={c.typed ? "A line you type, with your own price" : undefined}
-                      >
+                {/* A flooring option adds everything but Stairs here. A stairs option has no bar: every category is its own
+                    heading with its add (2026-11-04), so nothing would be added far from where it shows. */}
+                {!stairsOption && (
+                  <div className="addbar">
+                    <span className="lbl">Add work</span>
+                    {addChoices("Flooring", stairCats, WORK_SECTIONS.filter((s) => !(customer && s === PRIVATE_SECTION))).map((c) => (
+                      <button key={`${c.section}:${c.category ?? c.label}`} className="chip-btn" onClick={() => setPicking(c)}>
                         {c.label}
                       </button>
                     ))}
-                </div>
+                  </div>
+                )}
                 {/* Totals at the bottom of the lines, as on an invoice (Albert, 2026-11-01: "the totals should be at the bottom for intuitiveness"). */}
                 <div className="ov-foot">
                   <div className="ov-foot-in">
@@ -978,7 +1031,7 @@ export default function Editor({
                 </a>
               )}
               <dl>
-                <div><dt>Discount</dt><dd>{quote.discountRate ? `${pct(quote.discountRate * 100, 1)}${quote.discountReason ? `, ${quote.discountReason}` : ""}` : "None"}</dd></div>
+                <div><dt>Discount</dt><dd>{quote.discountRate ? `${pct(quote.discountRate * 100, 1)}${quote.discountReason ? `, ${quote.discountReason}` : ""} (every option)` : "Per option, in its price card"}</dd></div>
                 <div><dt>HST</dt><dd>{quote.showHst ? "Charged, 13%" : "Off (materials keep their own)"}</dd></div>
                 <div><dt>Payment</dt><dd>{payLine}</dd></div>
               </dl>
