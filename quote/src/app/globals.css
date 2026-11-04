@@ -1632,35 +1632,10 @@ table.cmp th { font-size: 12.5px; font-weight: 500; color: var(--fg-dim); text-t
 }
 
 /* ---------- Every page on a phone (Albert, 2026-11-03: "do this on all pages… especially the edit quote page";
-   the menu as a bottom tab bar). Phone widths only (max-width 640px), so a computer or a tablet looks exactly as
-   before; outside the media query the tab bar is only hidden. ---------- */
-.bnav, .bnav-sheet, .bnav-back { display: none; }
+   the bottom tab bar it brought was taken out on 2026-11-04, Albert: "I don't think I need the bottom shortcuts").
+   Phone widths only (max-width 640px), so a computer or a tablet looks exactly as before. ---------- */
 
 @media (max-width: 640px) {
-  /* The menu: a tab bar along the bottom (Quotes, New, Customer view, More) instead of the top bar. */
-  .topbar { display: none; }
-  body:has(.bnav) { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
-  .bnav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 39; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2px; padding: 4px 6px calc(4px + env(safe-area-inset-bottom, 0px)); background: var(--card); border-top: 1px solid var(--line-strong); box-shadow: 0 -4px 16px rgba(20, 30, 45, .06); }
-  .bnav-b { all: unset; box-sizing: border-box; display: grid; justify-items: center; align-content: center; gap: 3px; min-height: 54px; border-radius: 12px; font-size: 12px; font-weight: 600; color: var(--fg-dim); text-align: center; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-  .bnav-b svg { width: 22px; height: 22px; }
-  .bnav-b[aria-current="page"], .bnav-b.here, .bnav-b[aria-expanded="true"] { color: #1759d6; }
-  .bnav-b[aria-checked="true"] { color: #1759d6; background: var(--accent-soft); }
-  .bnav-b:active { background: var(--head); }
-  .bnav-b:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-  .bnav-b:disabled { opacity: .6; }
-  .bnav-back { display: block; position: fixed; inset: 0; z-index: 38; background: rgba(20, 30, 45, .28); }
-  .bnav-sheet { display: grid; gap: 2px; position: fixed; left: 8px; right: 8px; bottom: calc(70px + env(safe-area-inset-bottom, 0px)); z-index: 39; padding: 8px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 12px 32px rgba(20, 30, 45, .18); }
-  .bnav-item, .bnav-sheet .tb-btn { all: unset; box-sizing: border-box; display: grid; gap: 2px; width: 100%; min-height: 52px; padding: 12px 14px; border-radius: 12px; font-size: 16px; font-weight: 600; color: var(--fg); cursor: pointer; }
-  .bnav-sheet .tb-btn { display: flex; align-items: center; gap: 10px; }
-  .bnav-sheet .tb-btn .lbl { display: inline; }
-  .bnav-item span { font-size: 13.5px; font-weight: 400; color: var(--fg-dim); }
-  .bnav-item:active, .bnav-sheet .tb-btn:active { background: var(--head); }
-  .bnav-item:focus-visible, .bnav-sheet .tb-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-  .bnav-em { display: grid; gap: 2px; margin-top: 4px; padding: 10px 14px; border-top: 1px solid var(--line); font-size: 13px; color: var(--fg-dim); }
-  .bnav-em b { color: var(--fg); font-size: 14px; overflow-wrap: anywhere; }
-  .bnav-sheet form { margin: 0; }
-  /* New quote's estimate bar sits above the tab bar. */
-  .qw-foot { bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
 
   /* Every page: boxes to type in at 16px (an iPhone zooms on anything smaller) and buttons a thumb can hit. */
   .in, .cell-in, .ql-search input, .page textarea, .page select { font-size: 16px; }
@@ -1749,17 +1724,9 @@ table.cmp th { font-size: 12.5px; font-weight: 500; color: var(--fg-dim); text-t
 }
 
 /* ---------- The bottom of a phone, smaller (Albert, 2026-11-04: "this mobile version takes up too much screen at the
-   bottom"). The estimate bar is one row, the price on the left and the button on the right, with no second line; it keeps
-   no safe-area padding of its own when the menu sits below it. The menu is shorter, its buttons still 48px to tap. ---------- */
+   bottom"). The estimate bar is one row, the price on the left and the button on the right, with no second line. ---------- */
 @media (max-width: 640px) {
-  .bnav { padding: 2px 6px calc(2px + env(safe-area-inset-bottom, 0px)); }
-  .bnav-b { min-height: 48px; gap: 2px; font-size: 11px; }
-  .bnav-b svg { width: 20px; height: 20px; }
-  body:has(.bnav) { padding-bottom: calc(52px + env(safe-area-inset-bottom, 0px)); }
-  .bnav-sheet { bottom: calc(58px + env(safe-area-inset-bottom, 0px)); }
-
   .qw-foot { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 8px 16px calc(8px + env(safe-area-inset-bottom, 0px)); border-radius: 12px 12px 0 0; }
-  body:has(.bnav) .qw-foot { bottom: calc(52px + env(safe-area-inset-bottom, 0px)); padding-bottom: 8px; }
   .qw-foot .est { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; min-width: 0; line-height: 1.2; }
   .qw-foot .est .k { font-size: 12px; font-weight: 600; color: var(--fg-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .qw-foot .est b { font-size: 19px; }

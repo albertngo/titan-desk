@@ -26,7 +26,7 @@ export const CHANGES: Change[] = [
     title: "More of the screen for the work on a phone",
     details: [
       "On a phone the estimate at the bottom of a new quote is one row now: the price on the left and the Create button on the right, without the line under it.",
-      "The menu along the bottom is a little shorter, with smaller icons; its buttons are still easy to tap.",
+      "The menu along the bottom of a phone is gone. The top bar is back instead, as on a computer: Titan Quotes takes you to the quotes, and Customer view, What's new, Report a bug and your account are at the top right. Start a quote from the Quotes page.",
     ],
   },
   {
