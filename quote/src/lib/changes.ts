@@ -22,6 +22,15 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-04",
+    kind: "new",
+    title: "Albert can send as someone else",
+    details: [
+      "Signed in as Albert, the Send card and Send again have a Send as list: anyone who can sign in to the app with a Titan address. Picking someone sends from their email, their GHL number and signed with their name, and the card shows which.",
+      "Nobody else sees the list, and the app refuses a send as someone else from any other sign-in. The History still says Albert pressed Send.",
+    ],
+  },
+  {
+    date: "2026-11-04",
     kind: "changed",
     title: "Texts go from your own GHL number",
     details: [

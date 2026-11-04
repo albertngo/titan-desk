@@ -78,11 +78,40 @@ function CopyLink({ link }: { link: string }) {
   );
 }
 
+type SendAsList = { me: string; choices: { email: string; label: string; emailFrom: string | null; textFrom: string | null }[] };
+
+/**
+ * Albert only (2026-11-04: "an option to select who I want it sent out from"): who the quote goes out as. Picking
+ * someone sends from their email address and their GHL number, signed with their name. The server checks it again.
+ */
+function SendAsPicker({ list, value, onChange, disabled = false }: { list: SendAsList; value: string; onChange: (email: string) => void; disabled?: boolean }) {
+  const c = list.choices.find((x) => x.email === value);
+  return (
+    <label className="sq-as">
+      <span className="k">Send as</span>
+      <select className="in" value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
+        {list.choices.map((x) => (
+          <option key={x.email} value={x.email}>
+            {x.email === list.me ? `Me, ${x.label}` : x.label}
+          </option>
+        ))}
+      </select>
+      {c && c.email !== list.me && (
+        <span className="sub">
+          Email from {c.emailFrom ?? "nobody (this address can't send email)"}; text from {c.textFrom ?? "the main GHL number"}; signed as them.
+        </span>
+      )}
+    </label>
+  );
+}
+
 /**
  * Send the link again (Albert, 2026-10-30): when the customer asks for the PDF, or lost the message. The same
  * quote and link; "Include the PDF" turns on its Download button if it was off and puts its link in the message.
  */
-function SendAgain({ versionId, email, phone, pdfOn, kind, dated }: { versionId: string; email: string | null; phone: string | null; pdfOn: boolean; kind: "quote" | "accepted" | "change"; dated: boolean }) {
+function SendAgain({ versionId, sendAs = null, email, phone, pdfOn, kind, dated }: { versionId: string; sendAs?: SendAsList | null; email: string | null; phone: string | null; pdfOn: boolean; kind: "quote" | "accepted" | "change"; dated: boolean }) {
+  const [asEmail, setAsEmail] = useState(sendAs?.me ?? "");
+  const asOther = Boolean(sendAs && asEmail && asEmail !== sendAs.me);
   const accepted = kind === "accepted";
   const what = kind === "accepted" ? "accepted quote" : kind === "change" ? "updated quote" : "quote";
   const router = useRouter();
@@ -102,7 +131,7 @@ function SendAgain({ versionId, email, phone, pdfOn, kind, dated }: { versionId:
   function go() {
     setResult(null);
     start(async () => {
-      const r = await resendQuoteAction(versionId, { channels: { email: byEmail, sms: bySms }, pdf });
+      const r = await resendQuoteAction(versionId, { channels: { email: byEmail, sms: bySms }, pdf, ...(asOther ? { as: asEmail } : {}) });
       if (r.ok) {
         setOpen(false);
         setResult({ text: `Sent again by ${r.sentTo.join(" and ").toLowerCase()}${r.pdf ? ", with the PDF" : ""}.${r.warning ? ` ${r.warning}` : ""}`, bad: false });
@@ -113,6 +142,7 @@ function SendAgain({ versionId, email, phone, pdfOn, kind, dated }: { versionId:
   return (
     <div className="sq-again open">
       <p className="sq-again-h">Send their {what} again</p>
+      {sendAs && <SendAsPicker list={sendAs} value={asEmail} onChange={setAsEmail} />}
       <p className="faint sq-again-note">They get a short message: &ldquo;Here&rsquo;s your {what} again&rdquo; with the link{pdf ? " and the PDF" : ""}.</p>
       <label className="sq-tick"><input type="checkbox" checked={pdf} onChange={(e) => setPdf(e.target.checked)} /> Include the PDF <span className="faint">{accepted ? "(the signed, accepted PDF)" : pdfOn ? "(already on their page)" : "(turns on Download PDF on their page)"}</span></label>
       <label className="sq-tick"><input type="checkbox" checked={byEmail} disabled={!email} onChange={(e) => setByEmail(e.target.checked)} /> Email {email ? <span className="faint">{email}</span> : <span className="faint">no email on the contact</span>}</label>
@@ -148,8 +178,9 @@ export function SendQuote({
   sent,
   preliminary,
   change = null,
-  from,
-  textFrom = null,
+  from: ownFrom,
+  textFrom: ownTextFrom = null,
+  sendAs = null,
   options,
 }: {
   versionId: string;
@@ -173,10 +204,18 @@ export function SendQuote({
   from: string | null;
   /** The number the text goes from (2026-11-04): the signed-in person's own GHL number; null = GHL's main number. */
   textFrom?: string | null;
+  /** Albert only (2026-11-04): who he may send as, each with the address and number it would go from; null for everyone else. */
+  sendAs?: SendAsList | null;
   /** The version's options, for choosing which go to the customer (2026-10-24); `range` is what a preliminary shows instead of `price` (2026-10-27). */
   options: { id: string; name: string; price: string; range: string | null; recommended: boolean; notOffered?: boolean; problem: string | null }[];
 }) {
   const router = useRouter();
+  /** Who it goes out as (Albert only, 2026-11-04): his own sign-in unless he picks someone else. */
+  const [asEmail, setAsEmail] = useState(sendAs?.me ?? "");
+  const asChoice = sendAs?.choices.find((c) => c.email === asEmail) ?? null;
+  const asOther = Boolean(sendAs && asChoice && asEmail !== sendAs.me);
+  const from = asOther ? asChoice!.emailFrom : ownFrom;
+  const textFrom = asOther ? asChoice!.textFrom : ownTextFrom;
   const [until, setUntil] = useState(defaultUntil);
   const [byEmail, setByEmail] = useState(!!email);
   const [bySms, setBySms] = useState(!!phone);
@@ -208,9 +247,10 @@ export function SendQuote({
   const [sending, startSend] = useTransition();
   const undated = preliminary || Boolean(change);
   const q = [undated ? null : `until=${until}`, itemised ? "itemised=1" : null, optionIds ? `options=${optionIds.join(",")}` : null, exact ? "range=0" : null, pdf ? "pdf=1" : null].filter(Boolean).join("&");
+  const qAs = [q, asOther ? `as=${encodeURIComponent(asEmail)}` : null].filter(Boolean).join("&");
   const preview = `/q/${versionId}/preview${q ? `?${q}` : ""}`;
   const pdfLink = `/q/${versionId}/pdf${q ? `?${q}` : ""}`;
-  const emailPreview = `/q/${versionId}/preview/email${q ? `?${q}` : ""}`;
+  const emailPreview = `/q/${versionId}/preview/email${qAs ? `?${qAs}` : ""}`;
 
   if (status !== "Draft" || done) {
     const s = done ? { sentAt: today, sentBy: null, sentTo: done.sentTo.join(", "), validUntil: undated ? null : until, link: done.link } : sent;
@@ -235,7 +275,7 @@ export function SendQuote({
           {!done && sent?.activity && <Activity a={sent.activity} />}
           {s?.link && <CopyLink link={s.link} />}
           {/* Also straight after sending (2026-10-31): the version is Sent from that moment, no reload needed. */}
-          {(done || ["Sent", "Accepted", "Won"].includes(status ?? "")) && s?.link && ready.ready && <SendAgain versionId={versionId} email={email} phone={phone} pdfOn={done ? pdf : sent?.pdf === true} kind={!done && status !== "Sent" ? "accepted" : change ? "change" : "quote"} dated={(done || status === "Sent") && Boolean(s.validUntil)} />}
+          {(done || ["Sent", "Accepted", "Won"].includes(status ?? "")) && s?.link && ready.ready && <SendAgain versionId={versionId} sendAs={sendAs} email={email} phone={phone} pdfOn={done ? pdf : sent?.pdf === true} kind={!done && status !== "Sent" ? "accepted" : change ? "change" : "quote"} dated={(done || status === "Sent") && Boolean(s.validUntil)} />}
           <div className="sq-tools">
             <a href={`/q/${versionId}/preview`} target="_blank" rel="noreferrer">What the customer sees</a>
             <a href={`/q/${versionId}/preview/email`} target="_blank" rel="noreferrer">The email</a>
@@ -252,7 +292,7 @@ export function SendQuote({
   function send() {
     setError(null);
     startSend(async () => {
-      const r = await sendQuoteAction(versionId, { base, validUntil: undated ? null : until, channels: { email: byEmail, sms: bySms }, itemised, pdf, optionIds, range: !exact });
+      const r = await sendQuoteAction(versionId, { base, validUntil: undated ? null : until, channels: { email: byEmail, sms: bySms }, itemised, pdf, optionIds, range: !exact, ...(asOther ? { as: asEmail } : {}) });
       setAsking(false);
       if (r.ok) {
         setDone(r);
@@ -273,20 +313,21 @@ export function SendQuote({
         )}
         {!ready.ready && <p className="sq-msg warn">{ready.why}</p>}
 
+        {sendAs && <SendAsPicker list={sendAs} value={asEmail} onChange={setAsEmail} disabled={sending || asking} />}
         <fieldset className="sq-ch" disabled={sending || asking}>
           <legend className="sr-only">Send by</legend>
           <label className={email ? undefined : "off"}>
             <input type="checkbox" checked={byEmail && !!email} disabled={!email} onChange={(e) => setByEmail(e.target.checked)} />
             <span>
               Email <span className="faint">{email ?? "no email in GHL"}</span>
-              {email && <span className="sub">{from ? `Link, from ${from}` : "Can't go from your sign-in: sign in with your Titan account to email it"}</span>}
+              {email && <span className="sub">{from ? `Link, from ${from}` : asOther ? "Can't go from this person's address: pick someone else to email it" : "Can't go from your sign-in: sign in with your Titan account to email it"}</span>}
             </span>
           </label>
           <label className={phone ? undefined : "off"}>
             <input type="checkbox" checked={bySms && !!phone} disabled={!phone} onChange={(e) => setBySms(e.target.checked)} />
             <span>
               Text <span className="faint">{phone ?? "no phone in GHL"}</span>
-              {phone && <span className="sub">{textFrom ? `Link, from ${textFrom} (your GHL number)` : "Link, from the main GHL number (your GHL user has no number of its own)"}</span>}
+              {phone && <span className="sub">{textFrom ? `Link, from ${textFrom} (${asOther ? "their" : "your"} GHL number)` : `Link, from the main GHL number (${asOther ? "their" : "your"} GHL user has no number of its own)`}</span>}
             </span>
           </label>
         </fieldset>

@@ -1928,3 +1928,9 @@ table.items tr.subsect td, table.items.edit tr.subsect td {
 .hst-all-tbl .r { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .hst-all-acts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
 @media (max-width: 640px) { .hst-all-acts .btn { flex: 1 1 auto; justify-content: center; min-height: 44px; } }
+
+/* Send as (2026-11-04, Albert only): who the quote goes out as, above Email and Text on the Send card. */
+.sq-as { display: grid; gap: 4px; margin: 0 0 10px; }
+.sq-as .k { font-size: 12.5px; font-weight: 600; color: var(--fg-dim); }
+.sq-as select { max-width: 100%; }
+.sq-as .sub { font-size: 12px; color: var(--fg-dim); }
