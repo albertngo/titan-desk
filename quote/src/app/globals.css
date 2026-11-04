@@ -1733,3 +1733,52 @@ table.cmp th { font-size: 12.5px; font-weight: 500; color: var(--fg-dim); text-t
   .qw-foot .est .faint { display: none; }
   .qw-foot .btn { width: auto; max-width: 60vw; min-height: 44px; padding: 6px 16px; font-size: 15px; line-height: 1.15; text-align: center; white-space: normal; }
 }
+
+/* ---------- Phone sizes, trimmed (Albert, 2026-11-04: "the font and cards are a little bit over sized. Can we shrink them
+   down for better viewing"). About 15% down from the 2026-11-03 phone sizes: words, card padding, the quick form's groups and
+   chips, and the gaps between them. Two floors kept: a box to type in stays at 16px (an iPhone zooms on anything smaller),
+   and anything to tap stays about 42-44px tall. Phone widths only. ---------- */
+@media (max-width: 640px) {
+  .card { border-radius: 12px; }
+  .card-h { font-size: 14px; }
+  .newq .card-h { padding: 12px 14px; }
+  .newq .card-h .right { font-size: 12.5px; }
+  .newq .card-b { padding: 12px; }
+
+  :is(.ed-quick, .newq) .qw { gap: 18px; }
+  :is(.ed-quick, .newq) .qw-part { gap: 8px; }
+  :is(.ed-quick, .newq) .qw-part-h { font-size: 16px; }
+  :is(.ed-quick, .newq) .qw-part-h .qw-wg-sum { font-size: 12.5px; }
+  :is(.ed-quick, .newq) .qw-wg { border-radius: 12px; }
+  :is(.ed-quick, .newq) .qw-wg > summary { min-height: 46px; padding: 8px 12px; border-radius: 12px; }
+  :is(.ed-quick, .newq) .qw-wg[open] > summary { border-radius: 11px 11px 0 0; }
+  :is(.ed-quick, .newq) .qw-wg > summary .nm { font-size: 14.5px; }
+  :is(.ed-quick, .newq) .qw-wg > summary .qw-wg-sum { font-size: 12.5px; }
+  :is(.ed-quick, .newq) .qw-wg-b, .newq .qw-wg-b { padding: 4px 10px 10px; gap: 10px; }
+  :is(.ed-quick, .newq) .qw-chips { gap: 6px; }
+  :is(.ed-quick, .newq) .qw-chip { min-height: 42px; padding: 6px 10px; border-radius: 9px; font-size: 13.5px; line-height: 1.2; }
+  :is(.ed-quick, .newq) .in, :is(.ed-quick, .newq) .qw-row select.in, :is(.ed-quick, .newq) .qw-amt input { min-height: 44px; border-radius: 9px; }
+  :is(.ed-quick, .newq) .qw-amt-row { gap: 8px; }
+  :is(.ed-quick, .newq) .qw-price .qw-rate { font-size: 12px; }
+
+  .nq-tabs { gap: 6px; }
+  .nq-tabs .tab { min-height: 44px; padding: 6px 10px; border-radius: 10px; font-size: 13.5px; }
+  .nq-tabs .tab .t-amt { font-size: 12.5px; }
+  .nq-who { padding: 10px 12px; font-size: 14px; }
+  .nq-who .mt, .nq-opp .mt { font-size: 12.5px; }
+  .nq-opp { padding: 10px; font-size: 14px; }
+  .nq-opps legend, .nq-site-h, .nq-form label { font-size: 13px; }
+  .nq-newtoggle { font-size: 14px; }
+  .nq-seg-b { min-height: 44px; padding: 8px 12px; font-size: 14px; border-radius: 10px; }
+
+  .ed-quick-est { font-size: 13px; }
+  .ed-quick-est b { font-size: 19px; }
+  .ed-quick-foot .btn { min-height: 44px; font-size: 15px; }
+
+  table.items tbody tr { gap: 10px; padding: 12px; }
+  table.items td, table.items.edit td { font-size: 14px; }
+  table.items td[data-label]::before { font-size: 12px; }
+  table.items tr.sect td, table.items.edit tr.sect td { font-size: 15px; }
+  table.items .addrow { font-size: 14px; }
+  .ov-foot .ov-row { font-size: 14px; }
+}
