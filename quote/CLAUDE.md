@@ -390,6 +390,11 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   The premium price is written into the line's Unit Price Snap when it is priced, so calc.ts and the
   Airtable formulas are unchanged. Rules and the markup: `src/lib/pricing/service.ts`; switching:
   `setServiceLevel()` in `src/lib/editor/model.ts`; tested in `tests/editor.test.ts`.
+  **Contractor (Albert, 2026-11-04: "an automatic 10% decrease on the overall price… on the left side of
+  the Standard/Premium")** is the slider's first stop: lines priced as Standard, and one discount item,
+  "Contractor pricing (10% off)", 10% of the list price, kept in step after every editor change
+  (`settleContractor()`, run by the editor's `apply`) and removed on any other level. Service Level gets
+  the "Contractor" choice by typecast on the first save.
 - **Crew per option (Albert, 2026-10-16).** Pick one contractor for a whole option (Quote Options →
   Crew) and every line that crew has a Rate Card row for moves to them; any single line can still be
   set to someone else by hand, and stays that way when the crew changes ("back to <crew>" undoes it).
@@ -477,6 +482,29 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   a percent. **Discount reason** (Quote Versions → Discount Reason, 2026-10-22) is the customer's
   words for why, printed beside the Discount row on the page and the PDF (`discountLabel()` in
   `copy.ts`); it is part of the frozen copy and the save fingerprint.
+- **The price card (Albert, 2026-11-04).** Under each option's totals in the editor, `PriceCard.tsx`
+  replaces the accepted price row. **Discount % is gone from the terms** ("so no manual full percentage
+  adjustments are available"); a discount is made in the card only.
+  - **Discount items, left** ("persistent until removed"): each a Quote Line in the new **Discounts**
+    section (`DISCOUNTS_SECTION`), one, flat, priced below zero, so `calc.ts` and Airtable's formulas count
+    it with no change. Typed in dollars or as a percent of the list price (`discountAmountFrom()`, kept as
+    dollars). The customer sees each by name as a discount row above the price (`CopyOption.discounts`,
+    `discountRows()`; a range names them, "Included in the range"), never as a line; the quote page and
+    editor totals list them too. Airtable gets the Section choice by typecast on the first save.
+  - **Accepted price, right: three linked boxes**, price before HST, total discount % and margin %
+    ("whichever one you edit will update the other 2"). The total discount counts everything off the list
+    price, discount items included (`priceSummary()` in `src/lib/pricing/discounts.ts`). Each lands the
+    price through `setAcceptedPrice()`, which moves only the version's Discount Rate (or the above-list
+    private line) and leaves the discount items where they are; the rate now lands to the cent
+    (`landingRate()`, eight places). **Master:** while it is set, a change to the service level or the
+    discount items keeps the price and moves the rate (`keepAccepted()`). **Reset, or clearing any of the
+    three boxes, clears all three** (same day: "deleting one section clears all the other ones… Pressing
+    reset should clear all 3 out"): rate 0 and the adjustment line off (`resetAccepted()`), so the price
+    reads the slider and the discounts again. The Discount reason moved into the card.
+  - **Margin and profit** under the boxes (list price, items, adjustment, price, cost, profit, margin),
+    and an **(i)** with the lowest price that keeps the **20% margin minimum** (`MIN_MARGIN_PCT`,
+    `priceForMargin()`, rounded up to the cent); under it the card says so and offers to set it. Customer
+    view leaves the margin box, the readout and the (i) out. Tested in `tests/discounts.test.ts`.
 - **The customer always sees the discount (Albert, 2026-11-03: "All quote links and PDF should show the
   client what the discounts are").** Every customer page (`/c/<token>`, the staff Preview) and every PDF
   shows the discount rows above the price when the version has a discount: itemised as before ("Subtotal

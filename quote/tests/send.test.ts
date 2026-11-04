@@ -553,6 +553,27 @@ describe("the discount on every page and PDF (Albert, 2026-11-03)", () => {
     expect(discountRows(c, c.options[0], money)).toEqual([{ label: "Discount (10%) · Fall promotion", value: "Included in the range", disc: true }]);
   });
 
+  it("shows each discount item as its own row, never as a line, and the price before them all (2026-11-04)", () => {
+    const work = line({ qty: 100, unitPriceSnap: 10 });
+    const senior = line({ section: "Discounts", lineType: "Other", sourceKind: "manual", description: "Senior discount", qty: 1, uom: "flat", unitPrice: -100, unitPriceSnap: null, unitCostSnap: null });
+    const c = customerCopy(quote({ itemised: true, discountRate: 0.1, discountReason: null, options: [option("A", [work, senior], 0.1, true)] }), AT);
+    const o = c.options[0];
+    expect(o.sections.map((x) => x.name)).toEqual(["Install"]);
+    expect(o.discounts).toEqual([{ label: "Senior discount", amount: -100 }]);
+    expect(discountRows(c, o, money)).toEqual([
+      { label: "Subtotal before discount", value: money(1000), disc: false },
+      { label: "Senior discount", value: money(-100), disc: true },
+      { label: "Discount (10%)", value: money(-90), disc: true },
+    ]);
+    expect(o.totals.subtotal).toBe(810);
+    // No discount rate: the items alone.
+    const only = customerCopy(quote({ itemised: false, discountRate: 0, options: [option("A", [work, senior], 0, true)] }), AT);
+    expect(discountRows(only, only.options[0], money).map((d) => d.label)).toEqual(["Price before discount", "Senior discount"]);
+    // A range names them, never their amount.
+    const pre = customerCopy(quote({ basis: "Preliminary", discountRate: 0, options: [option("A", [work, senior], 0, true)] }), AT);
+    expect(discountRows(pre, pre.options[0], money)).toEqual([{ label: "Senior discount", value: "Included in the range", disc: true }]);
+  });
+
   it("shows nothing when there is no discount", () => {
     const c = customerCopy(quote({ discountRate: 0, itemised: false, options: [option("A", [line({})], 0)] }), AT);
     expect(discountRows(c, c.options[0], money)).toEqual([]);

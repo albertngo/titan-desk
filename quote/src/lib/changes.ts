@@ -22,6 +22,28 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-04",
+    kind: "new",
+    title: "A price card under each option",
+    details: [
+      "Discounts on the left: add as many as you need by name, in dollars or as a percent (like 5%). They stay until you remove them, and the customer sees each one by name above the price.",
+      "Accepted price on the right: type the price before HST, the total discount % or the margin %, and the other two follow. While it is set, moving the slider or the discounts keeps that price. Reset, or clearing any of the three boxes, goes back to the slider and the discounts.",
+      "Under it, the cost, profit and margin at that price. The (i) shows the lowest price that keeps the 20% margin minimum.",
+    ],
+  },
+  {
+    date: "2026-11-04",
+    kind: "new",
+    title: "Contractor pricing",
+    details: ["The service level slider has Contractor to the left of Standard and Premium: 10% off the whole option, shown as its own discount and kept up to date as the lines change."],
+  },
+  {
+    date: "2026-11-04",
+    kind: "removed",
+    title: "Discount % in the terms",
+    details: ["The terms no longer take a discount percent. Discounts are made in the option's price card, so there is one place to look."],
+  },
+  {
+    date: "2026-11-04",
     kind: "changed",
     title: "Quotes go only from the person sending",
     details: [
