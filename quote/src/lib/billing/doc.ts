@@ -1,5 +1,5 @@
 import { round2 } from "@/lib/calc";
-import type { CustomerCopy } from "@/lib/send/copy";
+import { hstOf, type CustomerCopy } from "@/lib/send/copy";
 
 /**
  * Invoices and receipts (Albert, 2026-10-30). One numbered document per won project, for the customer:
@@ -59,14 +59,15 @@ export type Voided = { on: string; by: string; replacedBy: string };
  * carrying none (a material ticked No HST). Anything less is a receipt.
  */
 export function billingKind(copy: Pick<CustomerCopy, "showHst" | "options">): BillingKind {
-  if (!copy.showHst) return "receipt";
+  // Each option its own HST (2026-11-04): an invoice only when every option on it charges HST.
+  if (!copy.options.every((o) => hstOf(copy, o.totals))) return "receipt";
   const untaxed = copy.options.some((o) => o.sections.some((s) => s.lines.some((l) => l.kind === "item" && !l.optional && l.hst === "none")));
   return untaxed ? "receipt" : "invoice";
 }
 
 /** Why it is the one it is, for staff. */
-export const kindReason = (k: BillingKind, copy: Pick<CustomerCopy, "showHst">) =>
-  k === "invoice" ? "HST is charged on every line." : copy.showHst ? "Some lines carry no HST." : "HST is charged on the materials only, or not at all.";
+export const kindReason = (k: BillingKind, copy: Pick<CustomerCopy, "showHst" | "options">) =>
+  k === "invoice" ? "HST is charged on every line." : copy.options.some((o) => hstOf(copy, o.totals)) ? "Some lines carry no HST." : "HST is charged on the materials only, or not at all.";
 
 export const kindTitle = (k: BillingKind) => (k === "invoice" ? "Invoice" : "Receipt");
 

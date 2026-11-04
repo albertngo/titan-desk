@@ -1,5 +1,5 @@
 import { acceptedLabel, DISCOUNTS_SECTION, isAcceptedLine, isDiscountLine } from "@/lib/pricing/discounts";
-import { DEFAULT_PRIVATE_LABEL, PRIVATE_SECTION, SECTIONS, chargesHst, isPriced, lineTotal, optionTotals, priceUsed, privateRollup, round2, sectionOf, stageAmounts } from "@/lib/calc";
+import { DEFAULT_PRIVATE_LABEL, optionHst, PRIVATE_SECTION, SECTIONS, chargesHst, isPriced, lineTotal, optionTotals, priceUsed, privateRollup, round2, sectionOf, stageAmounts } from "@/lib/calc";
 import type { CopyChange } from "@/lib/change/diff";
 import { defaultSchedule, payWords, type PayHow, type PaymentSchedule } from "@/lib/pricing/schedule";
 import { optionScope } from "@/lib/quotes/scope";
@@ -65,6 +65,11 @@ export type CopyTotals = {
   payment1: number;
   payment2: number;
   paymentFinal: number;
+  /**
+   * Whether this option charges HST (Albert, 2026-11-04: "ONLY apply for the option it is on"). Every copy frozen since
+   * carries it; absent = the copy's `showHst`, which every option followed before. Read it through hstOf().
+   */
+  hstCharged?: boolean;
 };
 
 /**
@@ -396,6 +401,7 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
       payment1: t.payment1,
       payment2: t.payment2,
       paymentFinal: t.paymentFinal,
+      hstCharged: showHst,
     },
     // A preliminary is shown as a range (2026-10-27); the totals stay exact underneath for the record.
     ...(ranged && t.subtotal > 0 ? { range: copyRange(t) } : {}),
@@ -474,19 +480,23 @@ export function customerCopy(quote: Quote, at: { sentOn: string; validUntil: str
     ...(clean(quote.discountReason) ? { discountReason: clean(quote.discountReason)! } : {}),
     pricing: lump ? "lump" : "itemised",
     pdf: at.pdf === true,
-    showHst: quote.showHst,
+    // Each option says its own HST in its totals (2026-11-04); this is true only when every option charges it.
+    showHst: quote.options.length ? quote.options.every((o) => optionHst(quote, o)) : quote.showHst,
     company: at.company,
     ...(quote.schedule ? { paymentSchedule: quote.schedule } : {}),
     // Flooring options first, then stairs (2026-10-28), so each scope reads as one group; order within a scope is kept.
     options: [...quote.options]
       .sort((a, b) => (optionScope(a) === optionScope(b) ? 0 : optionScope(a) === "Flooring" ? -1 : 1))
-      .map((o) => copyOption(o, quote.discountRate, quote.showHst, lump, prelim && at.range !== false, quote.schedule ?? defaultSchedule())),
+      .map((o) => copyOption(o, quote.discountRate, optionHst(quote, o), lump, prelim && at.range !== false, quote.schedule ?? defaultSchedule())),
   };
 }
 
-/** The HST row of an option's totals: a quote with HST off may still charge it on some materials. */
-export function hstRow(copy: Pick<CustomerCopy, "showHst">, t: Pick<CopyTotals, "hst">): { label: string; amount: number | null } {
-  if (copy.showHst) return { label: "HST (13%)", amount: t.hst };
+/** Whether an option's totals charge HST (2026-11-04): its own, else the copy's, for copies frozen before. */
+export const hstOf = (copy: Pick<CustomerCopy, "showHst">, t: Pick<CopyTotals, "hstCharged">): boolean => t.hstCharged ?? copy.showHst;
+
+/** The HST row of an option's totals: an option with HST off may still charge it on some materials. */
+export function hstRow(copy: Pick<CustomerCopy, "showHst">, t: Pick<CopyTotals, "hst" | "hstCharged">): { label: string; amount: number | null } {
+  if (hstOf(copy, t)) return { label: "HST (13%)", amount: t.hst };
   if (t.hst !== 0) return { label: "HST (13%) on materials", amount: t.hst };
   return { label: "HST", amount: null };
 }
@@ -525,8 +535,8 @@ export function discountRows(copy: Pick<CustomerCopy, "discountRate" | "discount
 }
 
 /** Under an option's total: what it includes. */
-export const hstWord = (copy: Pick<CustomerCopy, "showHst">, t: Pick<CopyTotals, "hst">) =>
-  copy.showHst ? "incl. HST" : t.hst !== 0 ? "incl. HST on materials" : "before HST";
+export const hstWord = (copy: Pick<CustomerCopy, "showHst">, t: Pick<CopyTotals, "hst" | "hstCharged">) =>
+  hstOf(copy, t) ? "incl. HST" : t.hst !== 0 ? "incl. HST on materials" : "before HST";
 
 /**
  * The price the email and the text lead with (Albert, 2026-10-24): before HST, with "+ HST" after it,
@@ -534,8 +544,8 @@ export const hstWord = (copy: Pick<CustomerCopy, "showHst">, t: Pick<CopyTotals,
  * that charges no HST at all says "before HST", as everywhere else. The customer page and PDF keep
  * their own totals block (hstWord / hstRow).
  */
-export function leadPrice(copy: Pick<CustomerCopy, "showHst">, t: Pick<CopyTotals, "subtotal" | "hst" | "total">): { amount: number; tag: string; addsHst: boolean } {
-  if (copy.showHst) return { amount: t.subtotal, tag: "+ HST", addsHst: true };
+export function leadPrice(copy: Pick<CustomerCopy, "showHst">, t: Pick<CopyTotals, "subtotal" | "hst" | "total" | "hstCharged">): { amount: number; tag: string; addsHst: boolean } {
+  if (hstOf(copy, t)) return { amount: t.subtotal, tag: "+ HST", addsHst: true };
   if (t.hst !== 0) return { amount: t.subtotal, tag: "+ HST on materials", addsHst: true };
   return { amount: t.subtotal, tag: "before HST", addsHst: false };
 }

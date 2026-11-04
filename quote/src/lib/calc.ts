@@ -159,6 +159,12 @@ export function lineFlags(l: LineInput): Flag[] {
 }
 
 /** Whether a line is charged HST: a material by its own choice, anything else by the quote's Show HST. */
+/**
+ * Whether an option charges HST (Albert, 2026-11-04: "ONLY apply for the option it is on. Not to all options"): its own
+ * Charge HST when set, else the version's, as every option did before. Pass the result as `hstOn` below.
+ */
+export const optionHst = (q: { showHst: boolean }, o?: { showHst?: boolean } | null): boolean => o?.showHst ?? q.showHst;
+
 export function chargesHst(l: LineInput, hstOn: boolean): boolean {
   return sectionOf(l) === "Materials" ? !l.noHst : hstOn;
 }

@@ -3,6 +3,7 @@ import { fixAddressLink } from "@/lib/link/linkJob";
 import { ConfirmAddress } from "./ConfirmAddress";
 import { pct } from "@/lib/format";
 import type { Quote } from "@/lib/quotes/types";
+import { optionHst } from "@/lib/calc";
 
 const ADDRESS_CHIP: Record<string, string> = { Confirmed: "good", Unconfirmed: "warn", "No address": "warn" };
 
@@ -72,10 +73,17 @@ export function CustomerCard({ quote }: { quote: Quote }) {
           <span className="lbl">Terms</span>
           {quote.basis && <span className={`chip ${quote.basis === "Measured" ? "good" : "warn"}`}>{quote.basis}</span>}
           <span className="chip accent">Discount {pct(quote.discountRate * 100, 0)}</span>
-          <span className="chip">HST {quote.showHst ? "on" : "off"}</span>
+          <span className="chip">{hstChip(quote)}</span>
           <span className="chip">{quote.options.length} option{quote.options.length === 1 ? "" : "s"}</span>
         </div>
       </div>
     </section>
   );
+}
+
+/** "HST on" / "HST off", or "HST per option" when the options differ (2026-11-04: each option has its own). */
+function hstChip(quote: Quote): string {
+  const on = new Set(quote.options.map((o) => optionHst(quote, o)));
+  if (on.size > 1) return "HST per option";
+  return (on.size ? [...on][0] : quote.showHst) ? "HST on" : "HST off";
 }

@@ -177,6 +177,8 @@ export const OPTION = {
   part: "fldJCihXClTHJR9Az",
   /** 2026-10-30: kept on the quote, left off what the customer is sent. */
   notOffered: "fldBXH91HUa5kMsQ4",
+  /** 2026-11-04 (Albert): Charge HST for this option only, "Charged" / "Off"; blank = the version's Show HST. The option's HST formula reads it. */
+  chargeHst: "fldabPO6MNY8i4NjM",
   lines: "fldYmOczi2hNUldJU",
   /** The version this option belongs to; emptied, never deleted, when the option is removed. */
   version: "flduprOIp2Z5Z6JcG",

@@ -1,4 +1,4 @@
-import { SECTIONS, lineFlags, optionTotals, sectionTotals, type OptionTotals } from "@/lib/calc";
+import { SECTIONS, lineFlags, optionHst, optionTotals, sectionTotals, type OptionTotals } from "@/lib/calc";
 import { money, pct } from "@/lib/format";
 import type { Quote } from "@/lib/quotes/types";
 import { scopeGroups } from "@/lib/quotes/scope";
@@ -16,13 +16,13 @@ const METRICS: { key: keyof OptionTotals; label: string; best?: "max"; internal?
 export function Analysis({ quote, customer }: { quote: Quote; customer: boolean }) {
   const opts = quote.options.map((o) => ({
     o,
-    t: optionTotals(o.lines, quote.discountRate, quote.showHst),
+    t: optionTotals(o.lines, quote.discountRate, optionHst(quote, o)),
     s: sectionTotals(o.lines),
     flags: o.lines.reduce((n, l) => n + lineFlags(l).length, 0),
   }));
   // "If they accept a price": staff only, so its lines (cost included) are never sent to a Customer view page.
   const accepted = !customer && opts.length > 0 && (
-    <AcceptedPrice options={quote.options.map((o) => ({ id: o.id, name: o.name, lines: o.lines }))} discountRate={quote.discountRate} showHst={quote.showHst} />
+    <AcceptedPrice options={quote.options.map((o) => ({ id: o.id, name: o.name, lines: o.lines, showHst: optionHst(quote, o) }))} discountRate={quote.discountRate} showHst={quote.showHst} />
   );
   if (opts.length < 2)
     return (

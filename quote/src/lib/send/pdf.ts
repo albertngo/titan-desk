@@ -4,7 +4,7 @@ import { changeWords, paidLeft, signedMoney } from "@/lib/change/diff";
 import type { Payment } from "@/lib/billing/doc";
 import { round2 } from "@/lib/calc";
 import { PAGE, PdfDoc, textWidth, wrap, type Rgb } from "./pdfDoc";
-import { discountRows, hstRow, isLump, isSplit, scopeOf, itemHstNote, leadPrice, longDate, partGroups, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyText, type CustomerCopy } from "./copy";
+import { discountRows, hstOf, hstRow, isLump, isSplit, scopeOf, itemHstNote, leadPrice, longDate, partGroups, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyText, type CustomerCopy } from "./copy";
 
 /**
  * The quote as a PDF, drawn from the customer copy only (never from live lines), so the file
@@ -83,8 +83,11 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
     return true;
   };
 
+  /** The HST of the option being drawn (2026-11-04: each option its own); set at the top of option(). */
+  let optHst = copy.showHst;
+
   /** An invoice or receipt whose HST is on the materials only: shown inside that section (2026-10-30). */
-  const materialsHst = (o: CopyOption) => bill !== null && !copy.showHst && o.totals.hst !== 0 && o.sections.some((s) => s.name === "Materials");
+  const materialsHst = (o: CopyOption) => bill !== null && !hstOf(copy, o.totals) && o.totals.hst !== 0 && o.sections.some((s) => s.name === "Materials");
 
   /* ---------- letterhead ---------- */
   newPage();
@@ -231,6 +234,7 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
   }
 
   function option(o: CopyOption, number: number | null) {
+    optHst = hstOf(copy, o.totals);
     // With flooring and stairs options (2026-10-28) the title says which: "Stairs · Option 3: Red oak caps".
     // A contract of several options (Albert, 2026-10-31): titled as the project, each option its own part below.
     const groups = partGroups(o);
@@ -344,7 +348,7 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
       return;
     }
     const lines = wrap(l.description, "R", 9, COL.itemW);
-    const sub = [l.note, l.wastePct ? `includes ${l.wastePct}% waste allowance` : null, l.minimum ? "minimum charge" : null, bill && !copy.showHst && l.hst === "plus" ? null : itemHstNote(l)].filter(Boolean).join(" · ");
+    const sub = [l.note, l.wastePct ? `includes ${l.wastePct}% waste allowance` : null, l.minimum ? "minimum charge" : null, bill && !optHst && l.hst === "plus" ? null : itemHstNote(l)].filter(Boolean).join(" · ");
     const notes = sub ? wrap(sub, "R", 8, COL.itemW) : [];
     if (room(lines.length * 12 + notes.length * 10 + 6)) tableHead(true);
     const color = l.optional ? DIM : INK;

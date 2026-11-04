@@ -34,7 +34,7 @@ import { manualLine,
   settleContractor,
   holdAccepted,
   setSchedule,
-  setTerms,
+  setOptionHst,
   showsWaste,
   withCustomerFrom,
   updateLine,
@@ -210,9 +210,11 @@ export default function Editor({
   };
 
   const option = quote.options.find((o) => o.id === activeId) ?? quote.options[0] ?? null;
-  const t = option ? optionTotals(option.lines, quote.discountRate, quote.showHst) : null;
+  // HST is the option's own (Albert, 2026-11-04), the version's only where the option has none set.
+  const hstOn = option ? (option.showHst ?? quote.showHst) : quote.showHst;
+  const t = option ? optionTotals(option.lines, quote.discountRate, hstOn) : null;
   // A change is the whole project, every option of it (2026-10-31: options stay apart), so it compares as one sum.
-  const changeTotal = version.change ? quote.options.filter((o) => !o.notOffered).reduce((a, o) => a + optionTotals(o.lines, quote.discountRate, quote.showHst).total, 0) : null;
+  const changeTotal = version.change ? quote.options.filter((o) => !o.notOffered).reduce((a, o) => a + optionTotals(o.lines, quote.discountRate, (o.showHst ?? quote.showHst)).total, 0) : null;
   // What this option would cost with each crew (lines set by hand stay as they are).
   const crews = useMemo(() => (option && !customer ? compareCrews(quote, option.id, pricing) : []), [quote, option, pricing, customer]);
 
@@ -260,8 +262,8 @@ export default function Editor({
 
   // The short lines the sidebar and the folded terms show (Option C, 2026-11-01).
   const termsRef = useRef<HTMLDetailsElement>(null);
-  const payLine = option && t ? stageAmounts(quote.schedule ?? defaultSchedule(), option.lines, quote.discountRate, quote.showHst, t.total).map((x) => x.pct).join(" / ") : "35 / 35 / 30";
-  const termsLine = [quote.showHst ? "HST charged" : "HST off", `payment ${payLine}`].join(" · ");
+  const payLine = option && t ? stageAmounts(quote.schedule ?? defaultSchedule(), option.lines, quote.discountRate, option.showHst ?? quote.showHst, t.total).map((x) => x.pct).join(" / ") : "35 / 35 / 30";
+  const termsLine = [hstOn ? "HST charged" : "HST off", `payment ${payLine}`].join(" · ");
 
   // Customer view leaves the Private section out and shows its total as one row in Other (2026-10-22).
   const hidden = option && customer ? privateRollup(option.lines) : 0;
@@ -547,7 +549,7 @@ export default function Editor({
                     {o.notOffered && <span className="t-off">Not offered</span>}
                     {o.part && <span className="t-part">{o.part}</span>}
                     <span className="t-name">{o.name || "Untitled"}</span>
-                    <span className="t-amt">{money(optionTotals(o.lines, quote.discountRate, quote.showHst).total)}</span>
+                    <span className="t-amt">{money(optionTotals(o.lines, quote.discountRate, (o.showHst ?? quote.showHst)).total)}</span>
                   </button>
                 ))}
                 </div>
@@ -934,7 +936,7 @@ export default function Editor({
                 <div className="ov-foot">
                   <div className="ov-foot-in">
                   {(() => {
-                    const ps = priceSummary(option.lines, quote.discountRate, quote.showHst);
+                    const ps = priceSummary(option.lines, quote.discountRate, hstOn);
                     return (
                       <>
                         <div className="ov-row"><span className="k">List price</span><span className="v">{money(ps.gross)}</span></div>
@@ -946,7 +948,7 @@ export default function Editor({
                     );
                   })()}
                   <div className="ov-row"><span className="k">Subtotal</span><span className="v">{money(t.subtotal)}</span></div>
-                  <div className="ov-row"><span className="k">HST{quote.showHst ? " (13%)" : t.hst ? " (materials only)" : " (off)"}</span><span className="v">{money(t.hst)}</span></div>
+                  <div className="ov-row"><span className="k">HST{hstOn ? " (13%)" : t.hst ? " (materials only)" : " (off)"}</span><span className="v">{money(t.hst)}</span></div>
                   <div className="ov-total"><span>Total</span><span className="v">{money(t.total)}</span></div>
                   </div>
                 </div>
@@ -1025,15 +1027,17 @@ export default function Editor({
                   })()}
                 </span>
               </div>
-              <label className="check-in" title="Labour and everything else. Each material line has its own HST box, which this never changes.">
-                <input type="checkbox" checked={quote.showHst} onChange={(e) => apply(setTerms(quote, { showHst: e.target.checked }))} /> Charge HST (13%)
-              </label>
+              {option && (
+                <label className="check-in" title="This option only: its labour and everything else. The other options keep their own. Each material line has its own HST box, which this never changes.">
+                  <input type="checkbox" checked={hstOn} onChange={(e) => apply(setOptionHst(quote, option.id, e.target.checked))} /> Charge HST (13%) on this option
+                </label>
+              )}
               {/* The payment schedule (Albert, 2026-10-27): one per version, frozen when it is sent. */}
               <ScheduleEditor
                 schedule={quote.schedule ?? null}
                 onChange={(next) => apply(setSchedule(quote, next))}
-                suggestMaterials={quote.options.some((o) => suggestsMaterialDeposit(o.lines, quote.showHst))}
-                amounts={option && t ? stageAmounts(quote.schedule ?? defaultSchedule(), option.lines, quote.discountRate, quote.showHst, t.total) : []}
+                suggestMaterials={quote.options.some((o) => suggestsMaterialDeposit(o.lines, (o.showHst ?? quote.showHst)))}
+                amounts={option && t ? stageAmounts(quote.schedule ?? defaultSchedule(), option.lines, quote.discountRate, hstOn, t.total) : []}
               />
             </div>
           </details>
@@ -1042,7 +1046,7 @@ export default function Editor({
         </div>
 
         <aside className="ed-side">
-          {option && t && <Financials schedule={quote.schedule ?? null} lines={option.lines} t={t} discountRate={quote.discountRate} showHst={quote.showHst} agrees={null} customer={customer} />}
+          {option && t && <Financials schedule={quote.schedule ?? null} lines={option.lines} t={t} discountRate={quote.discountRate} showHst={hstOn} agrees={null} customer={customer} />}
           <section className="card ed-cust">
             <div className="card-h">Customer and terms</div>
             <div className="card-b">
@@ -1056,7 +1060,7 @@ export default function Editor({
               )}
               <dl>
                 <div><dt>Discount</dt><dd>{quote.discountRate ? `${pct(quote.discountRate * 100, 1)}${quote.discountReason ? `, ${quote.discountReason}` : ""} (every option)` : "Per option, in its price card"}</dd></div>
-                <div><dt>HST</dt><dd>{quote.showHst ? "Charged, 13%" : "Off (materials keep their own)"}</dd></div>
+                <div><dt>HST</dt><dd>{hstOn ? "Charged, 13%" : "Off (materials keep their own)"} (this option)</dd></div>
                 <div><dt>Payment</dt><dd>{payLine}</dd></div>
               </dl>
               <button

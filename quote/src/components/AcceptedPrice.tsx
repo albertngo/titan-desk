@@ -12,7 +12,8 @@ import { atAcceptedPrice, atDiscountPct, type Accepted } from "@/lib/pricing/acc
  * server never renders it in Customer view, so cost and margin never reach that page.
  */
 
-type Opt = { id: string; name: string; lines: LineInput[] };
+/** `showHst`: the option's own HST (2026-11-04); absent = the quote's. */
+type Opt = { id: string; name: string; lines: LineInput[]; showHst?: boolean };
 
 const ROWS: { key: keyof OptionTotals; label: string; money?: false }[] = [
   { key: "preDiscount", label: "List price (before discount)" },
@@ -37,17 +38,19 @@ export function AcceptedPrice({ options, discountRate, showHst }: { options: Opt
   /** Which box was typed last decides the other. */
   const [by, setBy] = useState<"price" | "discount">("price");
 
-  const o = options.find((x) => x.id === optionId) ?? options[0];
-  if (!o) return null;
-  const now = optionTotals(o.lines, discountRate, showHst);
+  const picked = options.find((x) => x.id === optionId) ?? options[0];
+  if (!picked) return null;
+  const o = picked;
+  const hstOn = o.showHst ?? showHst;
+  const now = optionTotals(o.lines, discountRate, hstOn);
 
   let at: Accepted | null = null;
   if (by === "price") {
     const p = toNumber(price);
-    at = p !== null ? atAcceptedPrice(o.lines, showHst, p) : null;
+    at = p !== null ? atAcceptedPrice(o.lines, hstOn, p) : null;
   } else {
     const d = toNumber(discount);
-    at = d !== null ? atDiscountPct(o.lines, showHst, d) : null;
+    at = d !== null ? atDiscountPct(o.lines, hstOn, d) : null;
   }
   const shownPrice = by === "price" ? price : at ? String(at.t.subtotal) : "";
   const shownDiscount = by === "discount" ? discount : at ? String(Math.round(at.rate * 1000) / 10) : "";

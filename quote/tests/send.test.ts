@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { addDays, copyRange, copyState, customerCopy, discountLabel, discountRows, hstRow, hstWord, isRange, longDate, offersPdf, parseCopy, pdfName, prelimNote, priceRange, rangeText, rangeWhy, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "../src/lib/send/copy";
+import { addDays, copyRange, copyState, customerCopy, discountLabel, discountRows, hstOf, hstRow, hstWord, leadPrice, isRange, longDate, offersPdf, parseCopy, pdfName, prelimNote, priceRange, rangeText, rangeWhy, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "../src/lib/send/copy";
 import { chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, fromAttempts, greetingName, isToken, newToken, optionProblem, parseOptionIds, parseResend, resendEmailMessage, resendKind, resendProblems, resendSmsMessage, sendProblems, smsMessage, type SendInput } from "../src/lib/send/plan";
 import { encode, textWidth, wrap } from "../src/lib/send/pdfDoc";
 import { quotePdf } from "../src/lib/send/pdf";
+import { billingKind } from "../src/lib/billing/doc";
 import { fromQuote } from "../src/lib/editor/model";
 import { fingerprint } from "../src/lib/quotes/savePlan";
 import { optionTotals } from "../src/lib/calc";
@@ -110,7 +111,7 @@ describe("customer copy", () => {
 
   it("carries the customer's numbers, matching calc.ts to the cent", () => {
     const t = optionTotals(q.options[0].lines, 0.1, true);
-    expect(o.totals).toEqual({ preDiscount: t.preDiscount, discount: t.discount, subtotal: t.subtotal, hst: t.hst, total: t.total, payment1: t.payment1, payment2: t.payment2, paymentFinal: t.paymentFinal });
+    expect(o.totals).toEqual({ preDiscount: t.preDiscount, discount: t.discount, subtotal: t.subtotal, hst: t.hst, total: t.total, payment1: t.payment1, payment2: t.payment2, paymentFinal: t.paymentFinal, hstCharged: true });
     // 200 + 440 (200 × 1.1 × 2) + 120 (minimum) = 760; −76; 684; HST 88.92; 772.92
     expect(o.totals.total).toBe(772.92);
   });
@@ -1063,5 +1064,33 @@ describe("send again (2026-10-30)", () => {
     expect(resendKind("Sent", { change: {} })).toBe("change");
     expect(resendKind("Accepted", {})).toBe("accepted");
     expect(resendKind("Won", { change: {} })).toBe("accepted");
+  });
+});
+
+describe("HST per option (Albert, 2026-11-04: \"ONLY apply for the option it is on\")", () => {
+  it("charges each option its own HST; one never set follows the version, as before", () => {
+    const work = (id: string) => [line({ id, qty: 100, unitPriceSnap: 10 })];
+    const q = quote({ discountRate: 0, showHst: true, options: [option("A", work("a"), 0, true), option("B", work("b"), 0, false, { showHst: false })] });
+    const c = customerCopy(q, AT);
+    const [a, b] = c.options;
+    expect([a.totals.hst, a.totals.hstCharged]).toEqual([130, true]);
+    expect([b.totals.hst, b.totals.hstCharged]).toEqual([0, false]);
+    expect(c.showHst).toBe(false); // not every option charges it
+    // Each option's words follow its own HST.
+    expect(hstRow(c, a.totals).label).toBe("HST (13%)");
+    expect(hstRow(c, b.totals)).toEqual({ label: "HST", amount: null });
+    expect(leadPrice(c, a.totals).tag).toBe("+ HST");
+    expect(leadPrice(c, b.totals).tag).toBe("before HST");
+    // A copy frozen before (no hstCharged) still reads the copy's own switch.
+    expect(hstOf({ showHst: true }, { hstCharged: undefined })).toBe(true);
+    expect(parseCopy(serializeCopy(c))).toEqual(c);
+  });
+
+  it("is an invoice only when every option charges HST", () => {
+    const work = (id: string) => [line({ id, qty: 100, unitPriceSnap: 10 })];
+    const both = customerCopy(quote({ discountRate: 0, options: [option("A", work("a"), 0, true), option("B", work("b"), 0, true)] }), AT);
+    expect(billingKind(both)).toBe("invoice");
+    const mixed = customerCopy(quote({ discountRate: 0, options: [option("A", work("a"), 0, true), option("B", work("b"), 0, false, { showHst: false })] }), AT);
+    expect(billingKind(mixed)).toBe("receipt");
   });
 });

@@ -426,6 +426,19 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   mirrors it: Quote Lines → HST Base Own / HST Base Quote, rolled up on Quote Options, feeding HST.
   The customer page and PDF say "no HST" / "plus HST" on a material that differs from the quote,
   and "HST (13%) on materials" when only materials are taxed. `chargesHst()` in `src/lib/calc.ts`.
+- **Charge HST is per option (Albert, 2026-11-04: "for the HST application at the bottom; I'd like for it to ONLY
+  apply for the option it is on. Not to all options").** Quote Options → **Charge HST** (single select: Charged / Off;
+  blank = the version's Show HST, which every option followed before, so nothing made earlier moves). The editor's
+  terms box is now **Charge HST (13%) on this option** (`setOptionHst()` in `model.ts`); the version's switch is no
+  longer shown and stays only as the default for options never set. Every total, schedule and check takes
+  `optionHst(quote, option)` from `calc.ts`. Airtable mirrors it: Quote Options → HST reads Charge HST, then the
+  version's Show HST. The customer copy freezes it per option (`CopyTotals.hstCharged`, read through `hstOf()` in
+  `copy.ts`; a copy frozen before has none and reads `CustomerCopy.showHst`, now true only when every option charges
+  HST), so the link, PDF, email, acceptance add-ons and invoices follow each option. An invoice needs every option on
+  the contract to charge HST (`billingKind()`). A contract joining options that differ charges the whole HST only when
+  every part does, and re-says each differing part's line HST words against the whole (`rebaseHst()` in
+  `contract/model.ts`). Make a change keeps each option's HST from the version it came from. Tested in
+  `tests/send.test.ts`, `tests/editor.test.ts` and `tests/scope.test.ts`.
 - **Swappable material (Albert, 2026-10-16; corrected 2026-10-28).** A Rate Card row can name a
   Material Group and a Default Material (table Install Materials: Name, Group, Cost, Price per unit
   of the job, Active; read only). On the line the material can be swapped for any priced material in
