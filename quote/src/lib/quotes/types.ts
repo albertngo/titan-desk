@@ -193,6 +193,8 @@ export type StairRow = {
   cost: number | null;
   /** Labor Cost alone (2026-11-04), for a contractor's payout card: `cost` adds the Material Cost. Absent on older fixtures. */
   labourCost?: number | null;
+  /** Stair Items → Unit (2026-11-04): steps / sets / ft / pcs, or null for the number alone. */
+  unit?: string | null;
 };
 
 /** Which Stair Items a profile expands into, by record id, and what each list is counted per. */

@@ -63,11 +63,12 @@ export const isFlat = (uom: string | null) => uom === "flat";
 /** What the amount on a row is measured in, for its label. */
 export function amountUnit(c: QuickChoice): "sqft" | "linear ft" | "pieces" | null {
   if (c.group === "Material") return "sqft";
-  const u = c.parts.find((p) => !isFlat(p.uom))?.uom ?? null;
-  if (u === "sqft") return "sqft";
-  if (u === "linear ft") return "linear ft";
-  if (u) return "pieces";
-  return null;
+  const part = c.parts.find((p) => !isFlat(p.uom));
+  if (!part) return null;
+  if (part.uom === "sqft") return "sqft";
+  if (part.uom === "linear ft" || part.uom === "ft") return "linear ft";
+  // Anything else counted (a Stair Item in steps, sets or pcs, or with no unit at all) is a count of pieces.
+  return part.uom || part.kind === "stair" ? "pieces" : null;
 }
 
 /**
@@ -289,7 +290,7 @@ export function buildPreliminary(choices: QuickChoice[], work: QuickWork, produc
         spec: p.spec,
         description: p.description,
         contractor: p.contractor,
-        uom: p.kind === "stair" ? "piece" : p.uom,
+        uom: p.uom,
         qty: isFlat(p.uom) ? c.times : row.amount,
         unitPriceSnap: p.rate,
         unitCostSnap: p.cost,

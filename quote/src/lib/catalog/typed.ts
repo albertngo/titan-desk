@@ -1,4 +1,5 @@
 import { isPriced, PRIVATE_SECTION, priceUsed, costUsed, sectionOf } from "@/lib/calc";
+import { STAIR_UNITS } from "@/lib/editor/stairGroups";
 import type { QuoteOption } from "@/lib/quotes/types";
 
 /**
@@ -80,7 +81,8 @@ export function typedLines(options: Pick<QuoteOption, "lines">[]): TypedLine[] {
         table: stair ? "stair" : "rate",
         laborType: stair ? null : (LABOR_TYPE[l.section ?? "Unsorted"] ?? "Other"),
         description,
-        uom: l.uom && RATE_UOMS.includes(l.uom) ? l.uom : null,
+        // A stair item's Unit has its own four choices (2026-11-04); no typecast, so anything else stays blank.
+        uom: l.uom && (stair ? (STAIR_UNITS as readonly string[]) : RATE_UOMS).includes(l.uom) ? l.uom : null,
         price,
         cost: cost > 0 ? cost : null,
         material: section === "Materials",

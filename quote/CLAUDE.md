@@ -227,6 +227,17 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   What changed) Stairs lines that share a wording, the same area, the same included / add-on state and the same HST
   read as one line with that wording, quantities and amounts added (a unit price only when every piece had the same).
   Staff screens keep every piece. Tested in `tests/send.test.ts`.
+- **Each Stair Item has its own unit (Albert, 2026-11-04: "an option column for the units name for each stair item…
+  And the rest of the app uses those too").** Stair Items → **Unit** (single select): **steps** (every step, riser,
+  bullnose, pie and tread item), **sets** (corner turn sets), **ft** (nosings, handrails, trims), **pcs** (spindles,
+  pickets, and, as set that day, posts and the wall rail bracket); blank = the number only (stringers, landings, the
+  complex handrail). Every stair line takes its item's unit where it is made (`lineFromEntry()`, so the editor, the
+  builder, the preliminary's staircases, the quick form and the site sheet build; the site sheet's nosing no longer
+  forces "linear ft"), replacing the hard-coded "piece". A line saved before with "piece" reads its item's unit through
+  the lookup Quote Lines → **Stair Unit** (`stairLineUom()` in `src/lib/editor/stairGroups.ts`); a unit chosen on a
+  line since stays. Quote Lines → UOM gets steps / sets / ft / pcs by typecast on the first save that uses each
+  (`LINE_UOMS`); a typed stair line saved for review carries its unit to the new Stair Items row. Frozen copies keep
+  what they were sent with. Tested in `tests/stairGroups.test.ts`, `tests/editor.test.ts` and `tests/quick.test.ts`.
 - **A Stair Item's cost is Labor Cost + Material Cost (Albert, 2026-10-31)**, as Airtable's own Profit / Margin %
   on Stair Items has it; `stairCost()` in `src/lib/pricing/stairCost.ts`, read in `getRateCard()`. A line keeps the cost
   it was added with (Unit Cost Snap), so lines made before keep labour only until rebuilt or retyped.

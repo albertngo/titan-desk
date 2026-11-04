@@ -190,7 +190,7 @@ function build(kind: BuiltOption["kind"], s: SiteSheet, d: Derived, find: (names
   // Nosings: one line in feet, every piece new unless the PM ticked Sand instead. Holed pieces are the same item
   // (2026-10-28); with no piece lengths written, the flat picket feet still need nosing.
   if (kind === "caps" || kind === "sand") {
-    add(ITEM_NAMES.nosing, kind === "sand" ? 0 : Math.ceil(Math.max(d.nosing.newFt, d.nosing.holedFt)), "Nosing", "Main staircase", "linear ft");
+    add(ITEM_NAMES.nosing, kind === "sand" ? 0 : Math.ceil(Math.max(d.nosing.newFt, d.nosing.holedFt)), "Nosing");
     add(ITEM_NAMES.nosingSand, kind === "sand" ? d.nosing.pieces : d.nosing.sandPieces, "Sand & stain nosing");
   }
 
