@@ -23,6 +23,28 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-04",
     kind: "changed",
+    title: "The Private section stands apart",
+    details: ["On the quote page and in the editor, the Private section sits a little further down, greyed out under a thin violet line with a PRIVATE tag, so it is obvious those lines are never itemised for the customer."],
+  },
+  {
+    date: "2026-11-04",
+    kind: "changed",
+    title: "The accepted price can't go above the quote",
+    details: [
+      "The accepted price, total discount % and margin % can only bring the price down from what the slider and the discounts make. To charge more, add a Private line or raise a rate. The card says so if you try.",
+      "Discounts in the price card are in dollars only.",
+      "Clearing any of the three accepted price boxes is the same as pressing Reset.",
+    ],
+  },
+  {
+    date: "2026-11-04",
+    kind: "changed",
+    title: "Bins start at one",
+    details: ["A disposal bin or any other flat-priced item picked in the editor goes in at a quantity of 1, as it already does from the preliminary. The general bin is now $400 on the Rate Card."],
+  },
+  {
+    date: "2026-11-04",
+    kind: "changed",
     title: "No em dashes",
     details: ["No screen, email, text, page or PDF uses an em dash any more, including words typed into Airtable before a customer sees them."],
   },

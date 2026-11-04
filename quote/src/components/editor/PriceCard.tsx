@@ -7,23 +7,23 @@ import {
   addDiscount,
   discountAmountFrom,
   parseNum,
+  priceCeiling,
   removeDiscount,
   resetAccepted,
   setAcceptedPrice,
-  setMarginTarget,
   setTerms,
-  setTotalDiscount,
   updateDiscount,
   type EditorOption,
   type EditorQuote,
 } from "@/lib/editor/model";
-import { grossOf, isContractorLine, isDiscountLine, MIN_MARGIN_PCT, priceSummary } from "@/lib/pricing/discounts";
+import { isContractorLine, isDiscountLine, MIN_MARGIN_PCT, priceAtMargin, priceAtTotalDiscount, priceSummary } from "@/lib/pricing/discounts";
 
 /**
  * The option's price card, under its totals (Albert, 2026-11-04). Left: the discount items, which stay
  * until removed. Right: the accepted price, three linked boxes (the price before HST, the total discount
  * and the margin): type in one and the other two follow; clear any one, or press Reset, and all three
- * go back to what the slider and the discount items make. Under them, the margin and profit at that
+ * go back to what the slider and the discount items make. The accepted price never goes above that
+ * (2026-11-04): a price increase is a Private line or a higher rate, so a typo can't mark a quote up. Under them, the margin and profit at that
  * price, and an (i) with the lowest price that keeps the 20% margin minimum. Every change is a pure
  * function in src/lib/editor/model.ts; this only calls them.
  *
@@ -33,21 +33,41 @@ import { grossOf, isContractorLine, isDiscountLine, MIN_MARGIN_PCT, priceSummary
 export function PriceCard({ quote, option, customer, apply }: { quote: EditorQuote; option: EditorOption; customer: boolean; apply: (q: EditorQuote) => void }) {
   const s = priceSummary(option.lines, quote.discountRate, quote.showHst);
   const set = acceptedIsSet(quote, option);
+  const round = (n: number) => Math.round(n * 100) / 100;
   const items = option.lines.filter((l) => isDiscountLine(l));
   const tipId = useId();
   const [label, setLabel] = useState("");
   const [amount, setAmount] = useState("");
   const [bad, setBad] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const ceiling = priceCeiling(quote, option.id);
   const below = !customer && s.minPrice !== null && s.subtotal > 0 && s.subtotal < s.minPrice;
-  const reset = () => apply(resetAccepted(quote, option.id));
-  // Clearing any of the three boxes is a reset (Albert, 2026-11-04: "deleting one section clears all the other ones").
-  const commit = (v: number | null, then: (n: number) => EditorQuote) => apply(v === null ? resetAccepted(quote, option.id) : then(v));
+  const reset = () => {
+    setNote(null);
+    apply(resetAccepted(quote, option.id));
+  };
+  /**
+   * One of the three boxes was committed, as the price it means. Cleared is a reset (Albert, 2026-11-04:
+   * "Deleting any of the 3 accepted price fields is essentially pressing the reset"). Above the ceiling is
+   * refused with the way to charge more; nothing changes.
+   */
+  const commit = (raw: string, toPrice: (n: number) => number | null) => {
+    const v = parseNum(raw.replace("%", ""));
+    if (v === null) return reset();
+    const price = toPrice(v);
+    if (price === null || !(price >= 0)) return setNote("That isn't a price the card can use.");
+    if (ceiling === null || round(price) > ceiling) {
+      return setNote(`That is above ${money(ceiling ?? 0)}, the price the slider and the discounts make. To charge more, add a Private line or raise a rate.`);
+    }
+    setNote(null);
+    apply(setAcceptedPrice(quote, option.id, price));
+  };
 
   const add = (e: React.FormEvent) => {
     e.preventDefault();
-    const amt = discountAmountFrom(amount, grossOf(option.lines));
+    const amt = discountAmountFrom(amount);
     if (amt === null) {
-      setBad("Type an amount in dollars, like 250, or a percent of the list price, like 5%.");
+      setBad("Type the discount in dollars, like 250. Discounts here are dollars only.");
       return;
     }
     apply(addDiscount(quote, option.id, label, amt));
@@ -78,8 +98,12 @@ export function PriceCard({ quote, option, customer, apply }: { quote: EditorQuo
                   label="Discount amount in dollars"
                   num
                   onCommit={(v) => {
-                    const amt = discountAmountFrom(v, grossOf(option.lines));
-                    if (amt !== null) apply(updateDiscount(quote, option.id, l.id, { amount: amt }));
+                    const amt = discountAmountFrom(v);
+                    if (amt === null) setBad("Discounts are in dollars only, like 250.");
+                    else {
+                      setBad(null);
+                      apply(updateDiscount(quote, option.id, l.id, { amount: amt }));
+                    }
                   }}
                 />
                 <button type="button" className="iconbtn danger" aria-label={`Remove ${l.description || "discount"}`} onClick={() => apply(removeDiscount(quote, option.id, l.id))}>
@@ -91,7 +115,7 @@ export function PriceCard({ quote, option, customer, apply }: { quote: EditorQuo
         </ul>
         <form className="pc-add" onSubmit={add}>
           <input className="cell-in" placeholder="e.g. Senior discount" value={label} onChange={(e) => setLabel(e.target.value)} aria-label="New discount name" />
-          <input className="cell-in num" inputMode="decimal" placeholder="$ or %" value={amount} onChange={(e) => setAmount(e.target.value)} aria-label="New discount amount, in dollars or a percent" />
+          <input className="cell-in num" inputMode="decimal" placeholder="$" value={amount} onChange={(e) => setAmount(e.target.value)} aria-label="New discount amount, in dollars" />
           <button className="btn small">Add</button>
         </form>
         {bad && <p className="pc-bad">{bad}</p>}
@@ -119,16 +143,16 @@ export function PriceCard({ quote, option, customer, apply }: { quote: EditorQuo
         <div className="pc-boxes">
           <label>
             Price before HST
-            <Box text={String(s.subtotal)} label="Accepted price before HST" num onCommit={(v) => commit(parseNum(v), (n) => setAcceptedPrice(quote, option.id, n))} />
+            <Box text={String(s.subtotal)} label="Accepted price before HST" num onCommit={(v) => commit(v, (n) => n)} />
           </label>
           <label>
             Total discount %
-            <Box text={s.totalDiscountPct === null ? "" : String(s.totalDiscountPct)} label="Total discount percent" num onCommit={(v) => commit(parseNum(v.replace("%", "")), (n) => setTotalDiscount(quote, option.id, n))} />
+            <Box text={s.totalDiscountPct === null ? "" : String(s.totalDiscountPct)} label="Total discount percent" num onCommit={(v) => commit(v, (n) => priceAtTotalDiscount(s.gross, n))} />
           </label>
           {!customer && (
             <label className={below ? "warn" : undefined}>
               Margin %
-              <Box text={s.marginPct === null ? "" : String(s.marginPct)} label="Margin percent" num onCommit={(v) => commit(parseNum(v.replace("%", "")), (n) => setMarginTarget(quote, option.id, n))} />
+              <Box text={s.marginPct === null ? "" : String(s.marginPct)} label="Margin percent" num onCommit={(v) => commit(v, (n) => priceAtMargin(s.cost, n))} />
             </label>
           )}
         </div>
@@ -136,12 +160,17 @@ export function PriceCard({ quote, option, customer, apply }: { quote: EditorQuo
           Reason the customer sees
           <Box text={quote.discountReason ?? ""} label="Discount reason" placeholder="e.g. Fall promotion" onCommit={(v) => apply(setTerms(quote, { discountReason: v.trim() || null }))} />
         </label>
+        {note && <p className="pc-bad">{note}</p>}
         {below && s.minPrice !== null && (
           <p className="pc-bad">
             Under the {MIN_MARGIN_PCT}% margin minimum.{" "}
-            <button type="button" className="linkbtn" onClick={() => apply(setAcceptedPrice(quote, option.id, s.minPrice))}>
-              Set {money(s.minPrice)}
-            </button>
+            {ceiling !== null && s.minPrice <= ceiling ? (
+              <button type="button" className="linkbtn" onClick={() => commit(String(s.minPrice), (n) => n)}>
+                Set {money(s.minPrice)}
+              </button>
+            ) : (
+              "Even with no accepted-price discount it is under. Raise a rate or add a Private line."
+            )}
           </p>
         )}
         {!customer && (
@@ -172,7 +201,11 @@ function Box({ text, label, onCommit, num = false, placeholder }: { text: string
       defaultValue={text}
       placeholder={placeholder}
       onBlur={(e) => {
-        if (e.currentTarget.value.trim() !== text) onCommit(e.currentTarget.value.trim());
+        const v = e.currentTarget.value.trim();
+        // Put the shown value back: a change remounts the box with the new one, and a refused or
+        // no-op commit (a reset with nothing set) must not leave it blank.
+        e.currentTarget.value = text;
+        if (v !== text) onCommit(v);
       }}
       onKeyDown={(e) => {
         if (e.key === "Enter") e.currentTarget.blur();

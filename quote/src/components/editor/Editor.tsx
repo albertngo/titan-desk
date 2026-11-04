@@ -783,9 +783,9 @@ export default function Editor({
                         const rollup = s === "Other" && hidden > 0 ? hidden : 0;
                         const sum = lines.reduce((a, l) => a + (lineTotal(l) ?? 0), 0) + rollup;
                         return [
-                          <tr className="sect" key={`s-${s}`}>
+                          <tr className={s === PRIVATE_SECTION ? "sect priv" : "sect"} key={`s-${s}`}>
                             <td colSpan={customer ? 4 : 6}>
-                              {s}{" "}
+                              {s === PRIVATE_SECTION ? <span className="priv-tag">Private</span> : s}{" "}
                               {s === PRIVATE_SECTION && !customer && (
                                 <span className="priv-as" title="These lines are never itemised for the customer. On the page, the PDF and the email they roll up into one row in Other with this name and their total.">
                                   Not itemised for the customer. Shown as{" "}
