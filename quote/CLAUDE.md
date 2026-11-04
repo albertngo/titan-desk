@@ -438,7 +438,11 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   the contract to charge HST (`billingKind()`). A contract joining options that differ charges the whole HST only when
   every part does, and re-says each differing part's line HST words against the whole (`rebaseHst()` in
   `contract/model.ts`). Make a change keeps each option's HST from the version it came from. Tested in
-  `tests/send.test.ts`, `tests/editor.test.ts` and `tests/scope.test.ts`.
+  `tests/send.test.ts`, `tests/editor.test.ts` and `tests/scope.test.ts`. **All at once (Albert, same day: "a button
+  that can turn all options on or off… with a confirmation modal"):** with two or more options, **Set HST for all
+  options…** beside the switch opens a modal (`src/components/editor/HstAll.tsx`) listing each option's HST now and its
+  total with HST on and off; **Charge HST on all** / **No HST on any** sets every option and the version's Show HST
+  (`setAllHst()`), so an option added after starts the same way; Cancel changes nothing.
 - **Swappable material (Albert, 2026-10-16; corrected 2026-10-28).** A Rate Card row can name a
   Material Group and a Default Material (table Install Materials: Name, Group, Cost, Price per unit
   of the job, Active; read only). On the line the material can be swapped for any priced material in

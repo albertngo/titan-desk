@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { lineFlags, lineTotal, optionHst, optionTotals } from "../src/lib/calc";
 import { OPTION } from "../src/lib/airtable/fields";
 import {
+  setAllHst,
   setOptionHst,
   addBuiltOption,
   addLine,
@@ -646,5 +647,15 @@ describe("HST per option (Albert, 2026-11-04)", () => {
     // Never set: blank, so it follows the version as every option did before.
     expect(optionFields(next.options[0], 1)[OPTION.chargeHst]).toBeNull();
     expect(cleanEditorQuote(next).options[1].showHst).toBe(false);
+  });
+
+  it("sets every option at once, and the version follows so a new option starts the same way", () => {
+    const q = setOptionHst(cleanEditorQuote({ showHst: true, options: [{ id: "a", name: "A", lines: [] }, { id: "b", name: "B", lines: [] }] }), "b", false);
+    const off = setAllHst(q, false);
+    expect(off.options.map((o) => optionHst(off, o))).toEqual([false, false]);
+    expect(off.showHst).toBe(false);
+    const on = setAllHst(off, true);
+    expect(on.options.map((o) => optionFields(o, 1)[OPTION.chargeHst])).toEqual(["Charged", "Charged"]);
+    expect(on.showHst).toBe(true);
   });
 });

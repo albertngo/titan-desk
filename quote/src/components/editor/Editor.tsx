@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { HstAll } from "./HstAll";
 import { addChoices, sectionLinesInOrder, stairGroupLabel, stairGroups, stairSections, type AddChoice } from "@/lib/editor/stairGroups";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { quickFormAction, quickOptionAction, saveAsNewVersionAction, saveVersionAction } from "@/app/q/[id]/edit/actions";
@@ -34,6 +35,7 @@ import { manualLine,
   settleContractor,
   holdAccepted,
   setSchedule,
+  setAllHst,
   setOptionHst,
   showsWaste,
   withCustomerFrom,
@@ -1028,9 +1030,17 @@ export default function Editor({
                 </span>
               </div>
               {option && (
-                <label className="check-in" title="This option only: its labour and everything else. The other options keep their own. Each material line has its own HST box, which this never changes.">
-                  <input type="checkbox" checked={hstOn} onChange={(e) => apply(setOptionHst(quote, option.id, e.target.checked))} /> Charge HST (13%) on this option
-                </label>
+                <div className="hst-row">
+                  <label className="check-in" title="This option only: its labour and everything else. The other options keep their own. Each material line has its own HST box, which this never changes.">
+                    <input type="checkbox" checked={hstOn} onChange={(e) => apply(setOptionHst(quote, option.id, e.target.checked))} /> Charge HST (13%) on this option
+                  </label>
+                  {/* Every option at once, behind a confirmation (Albert, 2026-11-04). */}
+                  <HstAll
+                    options={quote.options.map((o) => ({ id: o.id, name: o.name, lines: o.lines, hst: o.showHst ?? quote.showHst }))}
+                    discountRate={quote.discountRate}
+                    onApply={(on) => apply(setAllHst(quote, on))}
+                  />
+                </div>
               )}
               {/* The payment schedule (Albert, 2026-10-27): one per version, frozen when it is sent. */}
               <ScheduleEditor

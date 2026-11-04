@@ -1917,3 +1917,14 @@ table.items tr.subsect td, table.items.edit tr.subsect td {
   }
   table.items tr.subsect td, table.items.edit tr.subsect td { background: transparent !important; box-shadow: none; border: 0; padding: 0; }
 }
+
+/* HST for all options (2026-11-04): the per-option switch with "Set HST for all options…" beside it, and its modal. */
+.hst-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; }
+.hst-all-btn { color: var(--accent); font-weight: 600; }
+.hst-all .card-b { display: grid; gap: 14px; overflow: auto; }
+.hst-all-tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.hst-all-tbl th { text-align: left; font-size: 12px; font-weight: 500; color: var(--fg-dim); padding: 6px 8px; border-bottom: 1px solid var(--line-strong); }
+.hst-all-tbl td { padding: 8px; border-bottom: 1px solid var(--line); }
+.hst-all-tbl .r { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.hst-all-acts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+@media (max-width: 640px) { .hst-all-acts .btn { flex: 1 1 auto; justify-content: center; min-height: 44px; } }

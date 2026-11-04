@@ -655,6 +655,15 @@ export function setOptionHst(q: EditorQuote, optionId: string, on: boolean): Edi
   return { ...q, options: q.options.map((o) => (o.id === optionId ? { ...o, showHst: on } : o)) };
 }
 
+/**
+ * Charge HST on every option at once, or on none (Albert, 2026-11-04: "a button that can turn all options on or off",
+ * behind a confirmation). Each option is set explicitly, and the version's Show HST follows, so an option added
+ * afterwards starts the same way.
+ */
+export function setAllHst(q: EditorQuote, on: boolean): EditorQuote {
+  return { ...q, showHst: on, options: q.options.map((o) => ({ ...o, showHst: on })) };
+}
+
 /** The payment schedule (2026-10-27): null puts the version back on 35 / 35 / balance. Checked by scheduleProblems() before a save. */
 export function setSchedule(q: EditorQuote, schedule: PaymentSchedule | null): EditorQuote {
   return { ...q, schedule };
