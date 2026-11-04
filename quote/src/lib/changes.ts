@@ -23,6 +23,15 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-04",
     kind: "changed",
+    title: "Quantities always show for the customer",
+    details: [
+      "Every line on the customer's link, the PDF and Customer view now shows its quantity, in every section, whether the quote goes as a lump sum, a breakdown or a preliminary.",
+      "Stairs still never show a price per line, but each stair line now shows how many (for example 13 piece). A change to a stair count is listed in What changed.",
+    ],
+  },
+  {
+    date: "2026-11-04",
+    kind: "changed",
     title: "An accepted price stays put",
     details: [
       "Once you set an accepted price on an option, nothing else moves it: adding or removing a discount, the Contractor / Standard / Premium slider, or changing lines. The option's discount and margin change instead, and the card says it is Held.",
