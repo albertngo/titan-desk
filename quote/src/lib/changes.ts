@@ -23,6 +23,21 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-04",
     kind: "changed",
+    title: "Quotes go only from the person sending",
+    details: [
+      "A quote, a resend, an invoice or a receipt is emailed from whoever is signed in and presses Send, and from nobody else. If GHL can't send from your sign-in, the email doesn't go and the Send card says so; the text still can.",
+      "The front desk (info@) signs its emails and texts as Joey.",
+    ],
+  },
+  {
+    date: "2026-11-04",
+    kind: "changed",
+    title: "Materials always show their rate",
+    details: ["On every quote the customer gets, lump sum and preliminary included, each material line shows its rate per unit beside the quantity. The PDF heads that column Rate."],
+  },
+  {
+    date: "2026-11-04",
+    kind: "changed",
     title: "Baseboards follow the install, row by row",
     details: [
       "On the preliminary's Job card, the first Baseboards row is a third of all the Install square feet added up, and it keeps up as the install changes. Type your own number and it stays as typed.",
