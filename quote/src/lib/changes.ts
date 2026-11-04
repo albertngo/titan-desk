@@ -23,6 +23,15 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-04",
     kind: "changed",
+    title: "HST is set per option",
+    details: [
+      "Charge HST (13%) in the editor's terms now applies only to the option you are on. Each option keeps its own, so one option can charge HST and another not.",
+      "The option's totals, payment schedule, the customer's link, PDF and email, and invoices or receipts all follow that option's own HST. Options you never changed keep the quote's setting, so nothing already made moves.",
+    ],
+  },
+  {
+    date: "2026-11-04",
+    kind: "changed",
     title: "Stair groups stand out more",
     details: [
       "In the Stairs section of the quote page and the editor, each group heading (Steps, Landings, Railing and the rest) is now a grey band with a blue bar on the left and a little space above, so it is easier to see where each group starts.",

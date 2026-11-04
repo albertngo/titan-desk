@@ -56,6 +56,8 @@ export type QuoteOption = {
   part?: Part | null;
   /** Quote Options → Not Offered (2026-10-30): kept on the quote, left off what the customer is sent. */
   notOffered?: boolean;
+  /** Quote Options → Charge HST (2026-11-04): this option's own HST; absent = the version's Show HST. See optionHst(). */
+  showHst?: boolean;
   lines: QuoteLine[];
   /** Airtable's own option rollups, for the parity check. */
   airtable: Partial<OptionTotals>;

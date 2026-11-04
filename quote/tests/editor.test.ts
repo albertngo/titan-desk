@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { lineFlags, lineTotal, optionTotals } from "../src/lib/calc";
+import { lineFlags, lineTotal, optionHst, optionTotals } from "../src/lib/calc";
+import { OPTION } from "../src/lib/airtable/fields";
 import {
+  setOptionHst,
   addBuiltOption,
   addLine,
   addLines,
@@ -44,7 +46,7 @@ import {
 import { ACCEPTED_LINE } from "../src/lib/pricing/discounts";
 import type { MaterialRow, RateRow, StairRow } from "../src/lib/quotes/types";
 import { levelOf } from "../src/lib/pricing/service";
-import { cleanEditorQuote } from "../src/lib/quotes/savePlan";
+import { cleanEditorQuote, optionFields } from "../src/lib/quotes/savePlan";
 
 // INVENTED rates and contractors only: this repo is public.
 const R = (o: Partial<RateRow>): RateRow => ({
@@ -633,3 +635,16 @@ describe("accepted price above the list price is refused, and a discount in doll
   });
 });
 
+describe("HST per option (Albert, 2026-11-04)", () => {
+  it("switches one option only; the others keep theirs, and a saved option says Charged or Off", () => {
+    const q = cleanEditorQuote({ showHst: true, options: [{ id: "a", name: "A", lines: [] }, { id: "b", name: "B", lines: [] }] });
+    const next = setOptionHst(q, "b", false);
+    expect(next.options.map((o) => optionHst(next, o))).toEqual([true, false]);
+    expect(next.showHst).toBe(true);
+    expect(optionFields(next.options[1], 2)[OPTION.chargeHst]).toBe("Off");
+    expect(optionFields(setOptionHst(next, "b", true).options[1], 2)[OPTION.chargeHst]).toBe("Charged");
+    // Never set: blank, so it follows the version as every option did before.
+    expect(optionFields(next.options[0], 1)[OPTION.chargeHst]).toBeNull();
+    expect(cleanEditorQuote(next).options[1].showHst).toBe(false);
+  });
+});

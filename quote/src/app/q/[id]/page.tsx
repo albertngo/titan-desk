@@ -17,7 +17,7 @@ import { SendQuote } from "@/components/SendQuote";
 import { TopBar } from "@/components/TopBar";
 import { airtableRecordUrl, T } from "@/lib/airtable/fields";
 import { requireQuoter } from "@/lib/auth";
-import { optionTotals, parityDiffs } from "@/lib/calc";
+import { optionHst, optionTotals, parityDiffs } from "@/lib/calc";
 import { money } from "@/lib/format";
 import { jobChoices } from "@/lib/quotes/link";
 import { billingState } from "@/lib/quotes/billing";
@@ -74,7 +74,9 @@ export default async function QuotePage({
   const showPayouts = opt === "payouts" && !customer;
   const option = showAnalysis || showRooms || showSheet || showPhotos || showPayouts ? null : (quote.options.find((o) => o.id === opt) ?? quote.options[0] ?? null);
   const tabGroups = scopeGroups(quote.options);
-  const totals = option ? optionTotals(option.lines, quote.discountRate, quote.showHst) : null;
+  // The option's own HST (2026-11-04), else the version's.
+  const hstOn = optionHst(quote, option);
+  const totals = option ? optionTotals(option.lines, quote.discountRate, hstOn) : null;
   const madeFrom = fromWords(quote.changeNo, null);
   const airtableUrl = airtableRecordUrl(T.versions, quote.id);
   // A quote with no GHL opportunity yet (Needs linking): offer the customer's jobs to link it to.
@@ -105,7 +107,7 @@ export default async function QuotePage({
   // A preliminary goes as a range unless the sender picks the exact price (2026-10-27): the card shows whichever will go.
   const preliminary = quote.basis === "Preliminary";
   const sendOptions = quote.options.map((o) => {
-    const lead = leadPrice(quote, optionTotals(o.lines, quote.discountRate, quote.showHst));
+    const lead = leadPrice({ showHst: optionHst(quote, o) }, optionTotals(o.lines, quote.discountRate, optionHst(quote, o)));
     const r = priceRange(lead.amount);
     const range = preliminary && lead.amount > 0 ? `${rangeText(r.low, r.high)} ${lead.tag}` : null;
     return { id: o.id, name: o.name, price: `${money(lead.amount)} ${lead.tag}`, range, recommended: o.recommended, notOffered: o.notOffered === true, problem: optionProblem(quote, o) };
@@ -310,7 +312,7 @@ export default async function QuotePage({
                             {o.notOffered && <span className="t-off">Not offered</span>}
                             {o.part && <span className="t-part">{o.part}</span>}
                             <span className="t-name">{o.name}</span>
-                            <span className="t-amt">{money(optionTotals(o.lines, quote.discountRate, quote.showHst).total)}</span>
+                            <span className="t-amt">{money(optionTotals(o.lines, quote.discountRate, optionHst(quote, o)).total)}</span>
                           </Link>
                         ))}
                       </div>
@@ -402,7 +404,7 @@ export default async function QuotePage({
                 option={option}
                 t={totals}
                 discountRate={quote.discountRate}
-                showHst={quote.showHst}
+                showHst={hstOn}
                 quoteNotes={quote.notes}
                 editHref={locked ? null : `/q/${quote.id}/edit`}
                 customer={customer}
@@ -434,7 +436,7 @@ export default async function QuotePage({
                 lines={option.lines}
                 t={totals}
                 discountRate={quote.discountRate}
-                showHst={quote.showHst}
+                showHst={hstOn}
                 agrees={parityDiffs(totals, option.airtable).length === 0}
                 customer={customer}
               />

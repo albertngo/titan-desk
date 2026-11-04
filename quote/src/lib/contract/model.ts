@@ -2,7 +2,7 @@ import { restageAmounts, round2, type AcceptedTotals } from "@/lib/calc";
 import { defaultSchedule } from "@/lib/pricing/schedule";
 import type { Acceptance, AcceptedAddOn } from "@/lib/accept/plan";
 import type { Part, Scope } from "@/lib/quotes/types";
-import { scopeOf, stagesOf, type CopyOption, type CopyPart, type CopySection, type CopyStage, type CopyTotals, type CustomerCopy } from "@/lib/send/copy";
+import { hstOf, scopeOf, stagesOf, type CopyItem, type CopyText, type CopyOption, type CopyPart, type CopySection, type CopyStage, type CopyTotals, type CustomerCopy } from "@/lib/send/copy";
 
 /**
  * The contract (Albert, 2026-10-30, vault 05_decisions/2026-10-30-quote-contract-from-any-version):
@@ -152,7 +152,7 @@ export function joinChange(copy: CustomerCopy): CustomerCopy {
 }
 
 function sumTotals(parts: CopyTotals[]): CopyTotals {
-  const add = (k: keyof CopyTotals) => round2(parts.reduce((a, t) => a + t[k], 0));
+  const add = (k: Exclude<keyof CopyTotals, "hstCharged">) => round2(parts.reduce((a, t) => a + t[k], 0));
   return { preDiscount: add("preDiscount"), discount: add("discount"), subtotal: add("subtotal"), hst: add("hst"), total: add("total"), payment1: add("payment1"), payment2: add("payment2"), paymentFinal: add("paymentFinal") };
 }
 
@@ -176,13 +176,18 @@ export function contractView(c: Contract, copies: Record<string, CustomerCopy | 
     .at(-1)!;
   const options = parts.map((p) => p.o!);
   const several = options.length > 1;
+  // Each option its own HST (2026-11-04). Joined, the whole charges HST only when every part does; a part that differs
+  // has its lines' "no HST" / "plus HST" words said again against the whole, so every line still says what it carries.
+  const hstEach = parts.map((p) => hstOf(copies[p.it.versionId]!, p.o!.totals));
+  const joinedHst = hstEach.every(Boolean);
   const sections: CopySection[] = [];
   const kept: CopyPart[] = [];
   let n = 0;
   parts.forEach(({ it, o }, pi) => {
     let added = 0;
     o!.sections.forEach((s, si) => {
-      const lines = s.lines.flatMap((l, li) => {
+      const lines = s.lines.flatMap((raw, li) => {
+        const l = hstEach[pi] === joinedHst ? raw : rebaseHst(raw, hstEach[pi], joinedHst);
         if (l.kind !== "item" || !l.optional) return [l];
         const taken = it.addOns.find((x) => x.key === `${it.index}.${si}.${li}`);
         if (!taken) return [];
@@ -217,10 +222,21 @@ export function contractView(c: Contract, copies: Record<string, CustomerCopy | 
       payment1: pay(0),
       payment2: c.stages.length > 2 ? pay(1) : 0,
       paymentFinal: pay(c.stages.length - 1),
+      hstCharged: joinedHst,
     },
     schedule: c.stages,
   };
   delete option.range;
   if (new Set(options.map(scopeOf)).size > 1) delete option.scope;
   return { ...base, options: [option] };
+}
+
+/** A line's HST words said against another HST setting: what it carries stays the same, only how it is said changes. */
+function rebaseHst<T extends CopyItem | CopyText>(l: T, from: boolean, to: boolean): T {
+  if (l.kind !== "item") return l;
+  const item = l as CopyItem;
+  const taxed = from ? item.hst !== "none" : item.hst === "plus";
+  const { hst: _old, ...rest } = item;
+  void _old;
+  return (taxed === to ? rest : { ...rest, hst: to ? "none" : "plus" }) as T;
 }

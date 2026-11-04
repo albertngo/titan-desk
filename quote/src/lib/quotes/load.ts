@@ -89,6 +89,12 @@ function source(f: Record<string, unknown>): Pick<QuoteLine, "sourceKind" | "sou
 }
 
 /** A lookup's first value as text (a select looks up as its name, or as {name}). */
+/** Quote Options → Charge HST (2026-11-04): "Charged" / "Off" set the option's own HST; blank follows the version. */
+function hstValue(v: unknown): { showHst?: boolean } {
+  const s = str(v);
+  return s === "Charged" ? { showHst: true } : s === "Off" ? { showHst: false } : {};
+}
+
 function lookupText(v: unknown): string | null {
   const first = Array.isArray(v) ? v[0] : v;
   const t = typeof first === "string" ? first : first && typeof first === "object" && typeof (first as { name?: unknown }).name === "string" ? (first as { name: string }).name : null;
@@ -144,6 +150,7 @@ function toOption(r: AirtableRecord, lines: QuoteLine[]): QuoteOption {
     scope: scopeValue(f[OPTION.scope]),
     part: partValue(f[OPTION.part]),
     notOffered: bool(f[OPTION.notOffered]),
+    ...hstValue(f[OPTION.chargeHst]),
     lines,
     airtable: {
       preDiscount: num(f[OPTION.preDiscount]) ?? undefined,

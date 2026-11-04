@@ -3,7 +3,7 @@
  * the screen calls these, and tests/editor.test.ts proves them. Money is still computed
  * only by src/lib/calc.ts, from the same LineInput fields Airtable stores.
  */
-import { lineTotal, optionTotals, round2, sectionOf, SECTIONS, type LineInput } from "@/lib/calc";
+import { lineTotal, optionHst, optionTotals, round2, sectionOf, SECTIONS, type LineInput } from "@/lib/calc";
 import { ACCEPTED_LINE, CONTRACTOR_LINE, contractorAmount, DISCOUNTS_SECTION, grossOf, isAcceptedLine, isAdjustmentLine, isContractorLine, isDiscountLine, PRICE_ADJUSTMENT, priceAtMargin, priceAtTotalDiscount } from "@/lib/pricing/discounts";
 import type { PaymentSchedule } from "@/lib/pricing/schedule";
 import { levelApplies, levelOf, levelPrice, type ServiceLevel } from "@/lib/pricing/service";
@@ -47,6 +47,8 @@ export type EditorOption = {
   part?: Part;
   /** Kept on the quote, left off what the customer is sent (2026-10-30); absent = offered. */
   notOffered?: true;
+  /** This option's own HST (2026-11-04); absent = the version's Show HST. Absent rather than null, so older drafts keep their fingerprint. */
+  showHst?: boolean;
   lines: EditorLine[];
 };
 
@@ -631,7 +633,7 @@ export function compareCrews(q: EditorQuote, optionId: string, entries: CardEntr
   return crewsOf(entries).map((crew) => {
     const r = setCrew(q, optionId, crew.name, entries);
     const o = r.quote.options.find((x) => x.id === optionId);
-    const t = optionTotals(o?.lines ?? [], q.discountRate, q.showHst);
+    const t = optionTotals(o?.lines ?? [], q.discountRate, optionHst(q, o));
     return { ...crew, cost: t.cost, profit: t.profit, marginPct: t.marginPct, cannot: r.cannot.length };
   });
 }
@@ -643,6 +645,14 @@ export function revertLine(q: EditorQuote, optionId: string, lineId: string): Ed
 
 export function setTerms(q: EditorQuote, patch: Partial<Pick<EditorQuote, "discountRate" | "showHst" | "discountReason" | "itemised">>): EditorQuote {
   return { ...q, ...patch };
+}
+
+/**
+ * Charge HST on one option only (Albert, 2026-11-04: "ONLY apply for the option it is on. Not to all options"). The
+ * other options keep theirs; one never set follows the version's Show HST, as before.
+ */
+export function setOptionHst(q: EditorQuote, optionId: string, on: boolean): EditorQuote {
+  return { ...q, options: q.options.map((o) => (o.id === optionId ? { ...o, showHst: on } : o)) };
 }
 
 /** The payment schedule (2026-10-27): null puts the version back on 35 / 35 / balance. Checked by scheduleProblems() before a save. */
@@ -665,7 +675,7 @@ function listPriceOf(q: EditorQuote, o: EditorOption): { base: number; adj: Edit
   const adj = adjustmentOf(o);
   const acc = acceptedLineOf(o);
   const rest = o.lines.filter((l) => l !== adj && l !== acc);
-  return { base: round2(optionTotals(rest, 0, q.showHst).preDiscount), adj, acc };
+  return { base: round2(optionTotals(rest, 0, optionHst(q, o)).preDiscount), adj, acc };
 }
 
 /**
@@ -690,7 +700,7 @@ export function detachVersionDiscount(q: EditorQuote): EditorQuote {
   const reason = q.discountReason ?? "";
   let next: EditorQuote = { ...q, discountRate: 0, discountReason: null };
   for (const o of q.options) {
-    const off = -optionTotals(o.lines, q.discountRate, q.showHst).discount;
+    const off = -optionTotals(o.lines, q.discountRate, optionHst(q, o)).discount;
     if (!(off > 0)) continue;
     const { acc } = listPriceOf(q, o);
     next = putAccepted(next, o.id, acc, round2(off + (acc ? -(lineTotal(acc) ?? 0) : 0)), reason);
@@ -770,7 +780,7 @@ export function resetAccepted(q: EditorQuote, optionId: string): EditorQuote {
 function keepAccepted(before: EditorQuote, optionId: string, next: EditorQuote): EditorQuote {
   const o = before.options.find((x) => x.id === optionId);
   if (!o || !acceptedIsSet(before, o)) return next;
-  const target = optionTotals(o.lines, before.discountRate, before.showHst).subtotal;
+  const target = optionTotals(o.lines, before.discountRate, optionHst(before, o)).subtotal;
   const ceiling = priceCeiling(next, optionId);
   if (ceiling === null || target > ceiling) return next;
   return setAcceptedPrice(next, optionId, target);
@@ -801,9 +811,9 @@ export function holdAccepted(before: EditorQuote, next: EditorQuote): { quote: E
     if (!acceptedIsSet(before, o)) continue;
     const n = next.options.find((x) => x.id === o.id);
     if (!n || acceptedSig(before, o) !== acceptedSig(next, n)) continue;
-    const target = optionTotals(o.lines, before.discountRate, before.showHst).subtotal;
+    const target = optionTotals(o.lines, before.discountRate, optionHst(before, o)).subtotal;
     const cur = q.options.find((x) => x.id === o.id)!;
-    if (optionTotals(cur.lines, q.discountRate, q.showHst).subtotal === target) continue;
+    if (optionTotals(cur.lines, q.discountRate, optionHst(q, cur)).subtotal === target) continue;
     const ceiling = priceCeiling(q, o.id);
     if (ceiling === null || target > ceiling) return { quote: before, refused: { optionId: o.id, name: o.name, price: target } };
     q = setAcceptedPrice(q, o.id, target);
@@ -823,7 +833,7 @@ export function setTotalDiscount(q: EditorQuote, optionId: string, pct: number |
 export function setMarginTarget(q: EditorQuote, optionId: string, pct: number | null): EditorQuote {
   const o = q.options.find((x) => x.id === optionId);
   if (!o || pct === null) return q;
-  const price = priceAtMargin(optionTotals(o.lines, 0, q.showHst).cost, pct);
+  const price = priceAtMargin(optionTotals(o.lines, 0, optionHst(q, o)).cost, pct);
   return price === null ? q : setAcceptedPrice(q, optionId, Math.max(0, price));
 }
 
@@ -960,6 +970,7 @@ export function fromQuote(quote: Quote): EditorQuote {
       scope: o.scope ?? null,
       ...(o.part ? { part: o.part } : {}),
       ...(o.notOffered ? { notOffered: true as const } : {}),
+      ...(o.showHst !== undefined ? { showHst: o.showHst } : {}),
       lines: o.lines.map((l: QuoteLine): EditorLine => ({
         id: l.id,
         sourceKind: l.sourceKind,

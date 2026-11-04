@@ -344,3 +344,24 @@ describe("Parts", () => {
     expect(chosenWords(q, null)).toBe("option 1 only");
   });
 });
+
+describe("a contract joining options with different HST (2026-11-04)", () => {
+  it("charges the whole HST only when every part does, and each line still says what it carries", () => {
+    const k: Contract = {
+      v: 1,
+      items: [
+        { versionId: "recV1", index: 0, ref: null, name: "Floor", scope: "Flooring", addOns: [], via: "accepted", on: "2026-11-04" },
+        { versionId: "recV1", index: 1, ref: null, name: "Stairs", scope: "Stairs", addOns: [], via: "accepted", on: "2026-11-04" },
+      ],
+      totals: { subtotal: 2000, hst: 130, total: 2130 },
+      stages: [],
+    };
+    const c = copyOf(quote({ options: [option("Floor", [line({})]), option("Stairs", [line({ section: "Stairs", lineType: "Stairs", description: "Step" })], { showHst: false })] }));
+    expect(c.options.map((o) => o.totals.hstCharged)).toEqual([true, false]);
+    const view = contractView(k, { recV1: c })!;
+    expect(view.options[0].totals.hstCharged).toBe(false);
+    const items = view.options[0].sections.flatMap((s) => s.lines).filter((l) => l.kind === "item");
+    // The floor's labour carries HST against a whole that doesn't: it now says so; the stairs say nothing.
+    expect(items.map((l) => (l.kind === "item" ? l.hst ?? null : null))).toEqual(["plus", null]);
+  });
+});

@@ -1,4 +1,4 @@
-import { optionTotals, stageAmountProblems, stageAmounts } from "@/lib/calc";
+import { optionHst, optionTotals, stageAmountProblems, stageAmounts } from "@/lib/calc";
 import { newId, type EditorLine, type EditorOption, type EditorQuote } from "@/lib/editor/model";
 import { defaultSchedule } from "@/lib/pricing/schedule";
 import { optionScope, partKey } from "@/lib/quotes/scope";
@@ -120,7 +120,8 @@ export function swapOption(q: EditorQuote, optionId: string, remove: string[], i
 export function swapPreview(q: EditorQuote, optionId: string): { total: number; problems: string[] } {
   const o = q.options.find((x) => x.id === optionId);
   if (!o) return { total: 0, problems: [] };
-  const t = optionTotals(o.lines, q.discountRate, q.showHst);
-  const stages = stageAmounts(q.schedule ?? defaultSchedule(), o.lines, q.discountRate, q.showHst, t.total);
+  const hst = optionHst(q, o);
+  const t = optionTotals(o.lines, q.discountRate, hst);
+  const stages = stageAmounts(q.schedule ?? defaultSchedule(), o.lines, q.discountRate, hst, t.total);
   return { total: t.total, problems: stageAmountProblems(stages, o.name || "this option") };
 }

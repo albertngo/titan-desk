@@ -1,7 +1,7 @@
 import { acceptedTotals, restageAmounts, round2, type AcceptedTotals } from "@/lib/calc";
 import { defaultSchedule } from "@/lib/pricing/schedule";
 import type { Part, Scope } from "@/lib/quotes/types";
-import { partOf, scopeOf, type CopyItem, type CopyStage, type CopyState, type CopyTotals, type CustomerCopy } from "@/lib/send/copy";
+import { hstOf, partOf, scopeOf, type CopyItem, type CopyStage, type CopyState, type CopyTotals, type CustomerCopy } from "@/lib/send/copy";
 import { contractView, frozenStages, fromAcceptance } from "@/lib/contract/model";
 import type { Terms } from "./terms";
 
@@ -104,14 +104,14 @@ export function readAcceptInput(raw: unknown): AcceptInput | null {
 export const addOnKey = (option: number, section: number, line: number) => `${option}.${section}.${line}`;
 
 /** Whether HST is charged on a line, as the copy said it. */
-const taxed = (copy: Pick<CustomerCopy, "showHst">, l: Pick<CopyItem, "hst">) => (copy.showHst ? l.hst !== "none" : l.hst === "plus");
+const taxed = (hstOn: boolean, l: Pick<CopyItem, "hst">) => (hstOn ? l.hst !== "none" : l.hst === "plus");
 
 /** The add-ons the copy's option `index` offers, with the key the Accept panel sends back for each. */
 export function addOnsOf(copy: Pick<CustomerCopy, "showHst" | "options">, index: number): (AcceptedAddOn & { taxed: boolean })[] {
   const o = copy.options[index];
   if (!o) return [];
   return o.sections.flatMap((s, si) =>
-    s.lines.flatMap((l, li) => (l.kind === "item" && l.optional && l.amount !== null ? [{ key: addOnKey(index, si, li), description: l.description, amount: l.amount, taxed: taxed(copy, l) }] : [])),
+    s.lines.flatMap((l, li) => (l.kind === "item" && l.optional && l.amount !== null ? [{ key: addOnKey(index, si, li), description: l.description, amount: l.amount, taxed: taxed(hstOf(copy, o.totals), l) }] : [])),
   );
 }
 
@@ -133,7 +133,7 @@ const ordered = (copy: Pick<CustomerCopy, "options">, indexes: number[]) =>
 
 /** What one or more options add up to as sent, before anything is ticked. */
 function sumTotals(parts: CopyTotals[]): CopyTotals {
-  const add = (k: keyof CopyTotals) => round2(parts.reduce((a, t) => a + t[k], 0));
+  const add = (k: Exclude<keyof CopyTotals, "hstCharged">) => round2(parts.reduce((a, t) => a + t[k], 0));
   return { preDiscount: add("preDiscount"), discount: add("discount"), subtotal: add("subtotal"), hst: add("hst"), total: add("total"), payment1: add("payment1"), payment2: add("payment2"), paymentFinal: add("paymentFinal") };
 }
 

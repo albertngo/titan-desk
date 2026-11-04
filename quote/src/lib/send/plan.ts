@@ -1,9 +1,9 @@
-import { optionTotals, parityDiffs, stageAmountProblems, stageAmounts } from "@/lib/calc";
+import { optionHst, optionTotals, parityDiffs, stageAmountProblems, stageAmounts } from "@/lib/calc";
 import type { Quote } from "@/lib/quotes/types";
 import { defaultSchedule, payWords, scheduleProblems } from "@/lib/pricing/schedule";
 import type { Acceptance } from "@/lib/accept/plan";
 import { changeWords as changeLine, paidLeft } from "@/lib/change/diff";
-import { addDays, dollars, hstRow, isIsoDate, isRange, isSplit, scopeLeads, scopeOf, leadPrice, longDate, offersPdf, rangeText, rangeWhy, stageNote, stagesOf, type CopyOption, type CopyStage, type CustomerCopy } from "./copy";
+import { addDays, dollars, hstOf, hstRow, isIsoDate, isRange, isSplit, scopeLeads, scopeOf, leadPrice, longDate, offersPdf, rangeText, rangeWhy, stageNote, stagesOf, type CopyOption, type CopyStage, type CustomerCopy } from "./copy";
 import { copyKind, kindPhrase } from "./summary";
 
 /**
@@ -81,11 +81,12 @@ export function changeProblems(quote: Pick<Quote, "options">, ids: string[] | nu
 
 /** What stops one option going to the customer, or null. */
 export function optionProblem(quote: Pick<Quote, "discountRate" | "showHst" | "schedule">, o: Quote["options"][number]): string | null {
-  const t = optionTotals(o.lines, quote.discountRate, quote.showHst);
+  const hst = optionHst(quote, o);
+  const t = optionTotals(o.lines, quote.discountRate, hst);
   if (t.total <= 0) return `${o.name} has nothing priced in it.`;
   if (parityDiffs(t, o.airtable).length > 0) return `The app and Airtable disagree on ${o.name}. Fix that before sending.`;
   // The schedule's own amounts on this option (2026-10-27): nothing negative, and a deposit that is something.
-  const stages = stageAmounts(quote.schedule ?? defaultSchedule(), o.lines, quote.discountRate, quote.showHst, t.total);
+  const stages = stageAmounts(quote.schedule ?? defaultSchedule(), o.lines, quote.discountRate, hst, t.total);
   return stageAmountProblems(stages, o.name)[0] ?? null;
 }
 
@@ -274,7 +275,7 @@ function optionCard(o: CopyOption, copy: CustomerCopy): string {
       `</table></td></tr>`
     : "";
   // "+ HST" sits beside the number; the line under the label speaks only when it has something to add.
-  const label = `${totalLabel}${lead.addsHst && copy.showHst ? "" : `<br><span style="font-size:12px;letter-spacing:0;text-transform:none;">${lead.addsHst ? "HST on materials only" : "before HST"}</span>`}`;
+  const label = `${totalLabel}${lead.addsHst && hstOf(copy, o.totals) ? "" : `<br><span style="font-size:12px;letter-spacing:0;text-transform:none;">${lead.addsHst ? "HST on materials only" : "before HST"}</span>`}`;
   const plus = lead.addsHst ? `<span style="font-family:${SANS};font-size:14px;color:${C.muted};white-space:nowrap;"> + HST</span>` : "";
   const labelStyle = `font-family:${SANS};font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:${C.muted};`;
   // A range is two figures, so it sits under its label rather than beside it, and breaks only between the two on a phone.

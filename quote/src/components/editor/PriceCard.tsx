@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import { money, pct } from "@/lib/format";
+import { optionHst } from "@/lib/calc";
 import {
   acceptedIsSet,
   acceptedReason,
@@ -32,7 +33,7 @@ import { isAcceptedLine, isContractorLine, isDiscountLine, MIN_MARGIN_PCT, price
  * are left out, not hidden.
  */
 export function PriceCard({ quote, option, customer, apply }: { quote: EditorQuote; option: EditorOption; customer: boolean; apply: (q: EditorQuote) => boolean | void }) {
-  const s = priceSummary(option.lines, quote.discountRate, quote.showHst);
+  const s = priceSummary(option.lines, quote.discountRate, optionHst(quote, option));
   const set = acceptedIsSet(quote, option);
   const round = (n: number) => Math.round(n * 100) / 100;
   // The accepted price's own discount line is the right-hand side's, never a discount item (2026-11-04).

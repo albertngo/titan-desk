@@ -1,4 +1,5 @@
 import "server-only";
+import { optionHst } from "@/lib/calc";
 import { requireQuoterPerson } from "@/lib/auth";
 import { AirtableError, createRecord, createRecords, getRecord, listByIds, updateRecord, updateRecords } from "@/lib/airtable/client";
 import { LINE, OPTION, QUOTE, T, VERSION } from "@/lib/airtable/fields";
@@ -134,8 +135,10 @@ export async function makeChange(versionId: string): Promise<SaveResult> {
   // A change's options are all the project (2026-10-31): a change that joined new work brings every option it sent.
   const taken = contract.items.flatMap((it) => {
     const v = sources.get(it.versionId);
-    if (it.via === "change" && v && v.options.filter((o) => !o.notOffered).length > 1) return v.options.filter((o) => !o.notOffered);
-    return [it.ref ? v?.options.find((o) => o.id === it.ref) : v?.options.length === 1 ? v.options[0] : undefined];
+    // Each keeps the HST it was accepted with (2026-11-04), whichever version it came from.
+    const own = (o: QuoteOption | undefined) => (o && v ? { ...o, showHst: optionHst(v, o) } : o);
+    if (it.via === "change" && v && v.options.filter((o) => !o.notOffered).length > 1) return v.options.filter((o) => !o.notOffered).map(own);
+    return [own(it.ref ? v?.options.find((o) => o.id === it.ref) : v?.options.length === 1 ? v.options[0] : undefined)];
   });
   const parts0 = taken;
   if (taken.length === 0 || taken.some((o) => !o)) return { ok: false, message: "The accepted option isn't on this version any more, so a change can't start from it." };
