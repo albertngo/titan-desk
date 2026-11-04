@@ -25,10 +25,43 @@ export const CHANGES: Change[] = [
     kind: "changed",
     title: "Accepted price is per option, and discounts are dollars only",
     details: [
-      "An accepted price now changes only the option you type it on. Its discount is a dollar line on that option, like a discount item, and the customer sees it as \"Discount\" with the reason you give it. Reset clears that option only. Other options keep their own price.",
-      "Discount items take a dollar amount only, no percent. A quote saved before this kept one discount for every option; the first time you set or reset an accepted price on it, each option keeps the dollars it had.",
+      "An accepted price now changes only the option you type it on. Its discount is a dollar line on that option, like a discount item, and the customer sees it as \"Discount\" with the reason you give it. It can't go above the quote, and Reset clears that option only. Other options keep their own price.",
+      "A quote saved before this kept one discount for every option. The first time you set or reset an accepted price on it, each option keeps the dollars it had.",
     ],
   },
+  {
+    date: "2026-11-04",
+    kind: "new",
+    title: "Payout cards for contractors",
+    details: [
+      "A Payouts tab on every quote. Tick the options the customer is getting (what they accepted is ticked for you) and press Build cards: one card per contractor, listing their labour lines at what we pay for each, with materials left out.",
+      "On each card, tick or untick lines, change a quantity or rate (a changed rate shows what it was), add a line, move a line to another contractor's card, or add a card. Save cards keeps them on the quote, so every version shows the same cards.",
+      "Preview shows the card as a picture you can download. Push to CompanyCam adds it to the job's photos, tagged Payout, so it can be shared with the rest. The card then says when it went and whether it has changed since.",
+    ],
+  },
+  {
+    date: "2026-11-04",
+    kind: "changed",
+    title: "The Private section stands apart",
+    details: ["On the quote page and in the editor, the Private section sits a little further down, greyed out under a thin violet line with a PRIVATE tag, so it is obvious those lines are never itemised for the customer."],
+  },
+  {
+    date: "2026-11-04",
+    kind: "changed",
+    title: "The accepted price can't go above the quote",
+    details: [
+      "The accepted price, total discount % and margin % can only bring the price down from what the slider and the discounts make. To charge more, add a Private line or raise a rate. The card says so if you try.",
+      "Discounts in the price card are in dollars only.",
+      "Clearing any of the three accepted price boxes is the same as pressing Reset.",
+    ],
+  },
+  {
+    date: "2026-11-04",
+    kind: "changed",
+    title: "Bins start at one",
+    details: ["A disposal bin or any other flat-priced item picked in the editor goes in at a quantity of 1, as it already does from the preliminary. The general bin is now $400 on the Rate Card."],
+  },
+
   {
     date: "2026-11-04",
     kind: "changed",

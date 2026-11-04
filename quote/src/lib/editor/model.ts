@@ -3,7 +3,7 @@
  * the screen calls these, and tests/editor.test.ts proves them. Money is still computed
  * only by src/lib/calc.ts, from the same LineInput fields Airtable stores.
  */
-import { lineTotal, optionTotals, PRIVATE_SECTION, round2, sectionOf, SECTIONS, type LineInput } from "@/lib/calc";
+import { lineTotal, optionTotals, round2, sectionOf, SECTIONS, type LineInput } from "@/lib/calc";
 import { ACCEPTED_LINE, CONTRACTOR_LINE, contractorAmount, DISCOUNTS_SECTION, grossOf, isAcceptedLine, isAdjustmentLine, isContractorLine, isDiscountLine, PRICE_ADJUSTMENT, priceAtMargin, priceAtTotalDiscount } from "@/lib/pricing/discounts";
 import type { PaymentSchedule } from "@/lib/pricing/schedule";
 import { levelApplies, levelOf, levelPrice, type ServiceLevel } from "@/lib/pricing/service";
@@ -374,6 +374,9 @@ export function lineFromEntry(entry: CardEntry, section: string, contractorName?
     contractor: c.name,
     materialId: s.material?.id ?? null,
     uom: entry.uom,
+    // A flat card row (a bin, a trip) starts at one (Albert, 2026-11-04: "it should already go as 1 as the
+    // quantity"), as the preliminary has always made it; anything measured starts blank for the amount.
+    ...(entry.uom === "flat" ? { qty: 1 } : {}),
     // A card row's default waste is taken only in Materials (2026-10-27); see showsWaste.
     waste: section === "Materials" ? entry.defaultWaste : null,
     unitPriceSnap: s.price,
@@ -689,30 +692,43 @@ export function detachVersionDiscount(q: EditorQuote): EditorQuote {
 }
 
 /**
+ * The highest accepted price an option takes (2026-11-04): what the slider and the discount items make,
+ * with no accepted-price discount. Null when nothing is priced.
+ */
+export function priceCeiling(q: EditorQuote, optionId: string): number | null {
+  const o = q.options.find((x) => x.id === optionId);
+  if (!o) return null;
+  const { base } = listPriceOf(q, o);
+  return base > 0 ? base : null;
+}
+
+/**
  * "They accept this price" (Albert, 2026-10-22): land this option's price before HST on the amount
  * the customer agreed to. **This option only (Albert, 2026-11-04: "it should only apply to the selected
- * option and not carry over to the other items. Same as the discount section").** Below the list price
- * the difference is this option's "Accepted price discount", a line in its Discounts section like a
- * discount item, updated in place; above it the difference goes in as the private "Accepted price
- * adjustment", which the customer sees as the Private section's one row in Other. Either one is removed
- * when the other is needed, or when the price typed is the price as it stands. An option with nothing
- * priced changes nothing. No other option moves.
+ * option and not carry over to the other items. Same as the discount section").** The difference is this
+ * option's "Accepted price discount", a dollar line in its Discounts section like a discount item, updated
+ * in place and removed when the price typed is the price as it stands. No other option moves (an old
+ * version rate is first handed to each, `detachVersionDiscount()`). An option with nothing priced changes
+ * nothing.
+ *
+ * **Never above that price (Albert, 2026-11-04: "lets block it. This means any pricing increases
+ * should be added in as private line items; or increased rates. The goal is to have less change for
+ * mistakes").** A price above `priceCeiling()` changes nothing; the card says how to charge more. The
+ * 2026-10-22 above-list "Accepted price adjustment" line is no longer made; one on an older quote is
+ * taken off by any accepted price typed now, and by Reset.
  */
 export function setAcceptedPrice(q: EditorQuote, optionId: string, acceptedPreTax: number | null): EditorQuote {
   if (!q.options.some((x) => x.id === optionId) || acceptedPreTax === null || !(acceptedPreTax >= 0)) return q;
+  const price = round2(acceptedPreTax);
+  const ceiling = priceCeiling(q, optionId);
+  if (ceiling === null || price > ceiling) return q;
   const q0 = detachVersionDiscount(q);
   const o = q0.options.find((x) => x.id === optionId)!;
   const { base, adj, acc } = listPriceOf(q0, o);
-  if (!(base > 0)) return q;
-  const price = round2(acceptedPreTax);
-  if (price <= base) return putAccepted(adj ? removeLine(q0, optionId, adj.id) : q0, optionId, acc, round2(base - price));
-  const extra = round2(price - base);
-  const patch = { uom: "flat", qty: 1, unitPrice: extra, include: true, costOverride: null, manualCost: null };
-  const without = acc ? removeLine(q0, optionId, acc.id) : q0;
-  return adj ? updateLine(without, optionId, adj.id, patch) : addLine(without, optionId, { ...manualLine(PRIVATE_SECTION, PRICE_ADJUSTMENT), ...patch });
+  return putAccepted(adj ? removeLine(q0, optionId, adj.id) : q0, optionId, acc, round2(base - price));
 }
 
-/** Whether an accepted price is set on this option: its discount line, its above-list line, or an old version rate. */
+/** Whether an accepted price is set on this option: its discount line, an older above-list line, or an old version rate. */
 export const acceptedIsSet = (q: EditorQuote, o: EditorOption) => q.discountRate !== 0 || !!adjustmentOf(o) || !!acceptedLineOf(o);
 
 /** The reason the customer sees beside this option's accepted price discount, kept on that line. */
@@ -745,7 +761,11 @@ export function resetAccepted(q: EditorQuote, optionId: string): EditorQuote {
 function keepAccepted(before: EditorQuote, optionId: string, next: EditorQuote): EditorQuote {
   const o = before.options.find((x) => x.id === optionId);
   if (!o || !acceptedIsSet(before, o)) return next;
-  return setAcceptedPrice(next, optionId, optionTotals(o.lines, before.discountRate, before.showHst).subtotal);
+  const target = optionTotals(o.lines, before.discountRate, before.showHst).subtotal;
+  // Holding it would now take a markup, which is never made (2026-11-04): the accepted price is reset instead.
+  const ceiling = priceCeiling(next, optionId);
+  if (ceiling === null || target >= ceiling) return resetAccepted(next, optionId);
+  return setAcceptedPrice(next, optionId, target);
 }
 
 /** The accepted price from a total discount percent: everything off the list price, discount items included. */
@@ -777,14 +797,15 @@ export function discountLine(label: string, amount: number): EditorLine {
 }
 
 /**
- * What someone typed as a discount item: dollars only, "250" or "$250" (Albert, 2026-11-04: "discounts are
- * dollar line values only. not % by the way"). A percent is refused. Null when it isn't a positive amount.
+ * What someone typed as a discount item: dollars only (Albert, 2026-11-04: "please only allow for
+ * dollar discounts in the discounts tab"; "discounts are dollar line values only. not % by the way"),
+ * "250" or "$250". A percent, or anything that isn't a positive amount, is null.
  */
 export function discountAmountFrom(text: string): number | null {
   const t = text.trim();
   if (t.includes("%")) return null;
   const n = parseNum(t);
-  return n === null || !(n > 0) ? null : round2(n);
+  return n !== null && n > 0 ? round2(n) : null;
 }
 
 export function addDiscount(q: EditorQuote, optionId: string, label: string, amount: number): EditorQuote {

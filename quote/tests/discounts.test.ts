@@ -9,6 +9,8 @@ import {
   discountAmountFrom,
   lineFromEntry,
   manualLine,
+  PRICE_ADJUSTMENT,
+  priceCeiling,
   removeDiscount,
   resetAccepted,
   setAcceptedPrice,
@@ -58,9 +60,9 @@ describe("discount items (Albert, 2026-11-04)", () => {
     expect(cleaned?.options[0].lines.find((l) => l.description === "Senior discount")).toMatchObject({ section: "Discounts", unitPrice: -120 });
   });
 
-  it("reads a typed amount in dollars only, never a percent (2026-11-04)", () => {
+  it("take dollars only, never a percent (Albert, 2026-11-04)", () => {
     expect(discountAmountFrom("$250")).toBe(250);
-    expect(discountAmountFrom("250")).toBe(250);
+    expect(discountAmountFrom("1,250.50")).toBe(1250.5);
     expect(discountAmountFrom("5%")).toBeNull();
     expect(discountAmountFrom("0")).toBeNull();
     expect(discountAmountFrom("abc")).toBeNull();
@@ -105,10 +107,22 @@ describe("the accepted price card's three boxes (2026-11-04)", () => {
     expect(r.discountRate).toBe(0);
     expect(acceptedIsSet(r, r.options[0])).toBe(false);
     expect(subtotal(r)).toBe(900);
-    const above = setAcceptedPrice(q, id, 1200);
-    const r2 = resetAccepted(above, id);
+    // An older quote's above-list adjustment line comes off too.
+    const old = addLine(q, id, { ...manualLine("Private", PRICE_ADJUSTMENT), uom: "flat", qty: 1, unitPrice: 200 });
+    expect(acceptedIsSet(old, old.options[0])).toBe(true);
+    const r2 = resetAccepted(old, id);
     expect(r2.options[0].lines.some((l) => l.section === "Private")).toBe(false);
     expect(subtotal(r2)).toBe(1000);
+  });
+
+  it("never mark the price up: above what the slider and discounts make is refused (Albert, 2026-11-04)", () => {
+    const { q, id } = withWork();
+    const withItem = addDiscount(q, id, "Senior", 100);
+    expect(priceCeiling(withItem, id)).toBe(900);
+    expect(setAcceptedPrice(withItem, id, 950)).toBe(withItem);
+    expect(setTotalDiscount(withItem, id, 5)).toBe(withItem); // 5% off 1000 is 950: above 900
+    expect(setMarginTarget(withItem, id, 50)).toBe(withItem); // 1200: above
+    expect(subtotal(setAcceptedPrice(withItem, id, 900))).toBe(900);
   });
 });
 
@@ -175,19 +189,37 @@ describe("Contractor pricing (Albert, 2026-11-04)", () => {
 
   it("does not move an accepted price: the adjustment absorbs the slider", () => {
     const { q, id } = withCard();
-    const accepted = setAcceptedPrice(q, id, 950);
+    const accepted = setAcceptedPrice(q, id, 850);
     const r = setServiceLevel(accepted, id, "Contractor", card).quote;
-    expect(subtotal(r)).toBe(950);
+    expect(subtotal(r)).toBe(850);
     expect(summary(r).itemsTotal).toBe(100);
     const p = setServiceLevel(r, id, "Premium", card).quote;
-    expect(subtotal(p)).toBe(950);
+    expect(subtotal(p)).toBe(850);
     // Reset reads the slider and the discounts again.
     expect(subtotal(resetAccepted(p, id))).toBe(1150);
+  });
+
+  it("resets an accepted price the slider would push into a markup, never marks it up", () => {
+    const { q, id } = withCard();
+    const accepted = setAcceptedPrice(q, id, 950);
+    const r = setServiceLevel(accepted, id, "Contractor", card).quote; // 900 now, under the 950
+    expect(r.discountRate).toBe(0);
+    expect(r.options[0].lines.some((l) => l.section === "Private")).toBe(false);
+    expect(subtotal(r)).toBe(900);
   });
 
   it("saves as Contractor", () => {
     const { q, id } = withCard();
     const r = setServiceLevel(q, id, "Contractor", card).quote;
     expect(cleanEditorQuote(JSON.parse(JSON.stringify(r)))?.options[0].serviceLevel).toBe("Contractor");
+  });
+});
+
+describe("a flat card row starts at one (Albert, 2026-11-04)", () => {
+  it("puts a bin in at quantity 1 from the editor's picker, and leaves a measured row blank", () => {
+    const bin = { ...RATE, id: "recRateBin0000000", labourType: "Disposal", spec: "Bin", uom: "flat", rate: 400, cost: 250 } as RateRow;
+    const [binEntry, installEntry] = buildCatalogue([bin, RATE], []).sort((a) => (a.kind === "rate" && a.uom === "flat" ? -1 : 1));
+    expect(lineFromEntry(binEntry, "Disposal")).toMatchObject({ qty: 1, uom: "flat", unitPriceSnap: 400 });
+    expect(lineFromEntry(installEntry, "Install").qty).toBeNull();
   });
 });

@@ -87,6 +87,10 @@ export const QUOTE = {
    * quotes so several quotes for one customer at one address can be told apart. Never in the customer copy.
    */
   description: "fldEZNhUAPfh3U97x",
+  /** 2026-11-04 (Albert): contractor payout cards, JSON written by the app only (src/lib/payout/cards.ts). Labour only. */
+  payouts: "fldKyEJcSb5yhclaD",
+  /** 2026-11-04: each payout card image as pushed to the job's CompanyCam project. Attachments, app-written only. */
+  payoutCards: "fldPJSJKTm5D0MPLz",
   /** 2026-10-30: the quote's invoice or receipt (the inverse links of Invoices → Quote and Receipts → Quote). */
   invoices: "fldYN32jS4YqbfBFf",
   receipts: "fldpnMqQnH8ipaWTT",

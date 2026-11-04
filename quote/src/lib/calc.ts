@@ -309,3 +309,19 @@ export function restageAmounts(schedule: PaymentSchedule, frozen: { amount: numb
   amounts[last] = round2(total - amounts.slice(0, last).reduce((a, b) => a + b, 0));
   return schedule.stages.map((s, i) => ({ label: s.label, when: s.when, pay: s.pay, amount: amounts[i], pct: total > 0 ? Math.round((amounts[i] / total) * 100) : 0, kind: s.part.kind }));
 }
+
+/* ---------- contractor payout cards (2026-11-04) ---------- */
+
+/**
+ * One payout line (Albert, 2026-11-04: the labour-only portion of each line item, for the contractor doing it): the
+ * quantity at the payout rate, to the cent. A line with no rate or no quantity pays nothing. Not an Airtable formula:
+ * payout cards live as JSON on the quote (src/lib/payout/cards.ts), so there is no rollup to agree with.
+ */
+export function payoutAmount(l: { qty: number | null; rate: number | null }): number {
+  return round2((l.qty ?? 0) * (l.rate ?? 0));
+}
+
+/** A payout card's total: its ticked lines added up. */
+export function payoutTotal(lines: { qty: number | null; rate: number | null; on: boolean }[]): number {
+  return round2(lines.filter((l) => l.on).reduce((a, l) => a + payoutAmount(l), 0));
+}

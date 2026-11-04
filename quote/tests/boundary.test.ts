@@ -12,7 +12,7 @@ const SRC = path.resolve(__dirname, "../src");
 const CLIENT = "lib/airtable/client.ts";
 const GHL = "lib/ghl/client.ts";
 /** The only files allowed to create or update Airtable records. Adding one is a reviewed decision. */
-const WRITERS = ["lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/describe.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/accept/record.ts", "lib/quotes/sitesheet.ts", "lib/quotes/billing.ts", "lib/quotes/customItems.ts"];
+const WRITERS = ["lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/describe.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/accept/record.ts", "lib/quotes/sitesheet.ts", "lib/quotes/billing.ts", "lib/quotes/customItems.ts", "lib/quotes/payouts.ts"];
 const CATALOGUE = "tblfLXD3zkSdNQGbS";
 
 function files(dir: string): string[] {
@@ -87,7 +87,7 @@ describe("Airtable boundary", () => {
   });
 
   it("keeps the client, the loaders and the auth check server-only", () => {
-    for (const rel of [CLIENT, GHL, "lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/describe.ts", "lib/quotes/customer.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/activity/relay.ts", "lib/quotes/acceptClient.ts", "lib/accept/record.ts", "lib/accept/accept.ts", "lib/accept/staff.ts", "lib/accept/live.ts", "lib/quotes/sitesheet.ts", "lib/anthropic/client.ts", "lib/quotes/billing.ts", "lib/notion/payments.ts", "lib/companycam/client.ts", "lib/quotes/companycam.ts", "lib/auth.ts"]) {
+    for (const rel of [CLIENT, GHL, "lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/describe.ts", "lib/quotes/customer.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/activity/relay.ts", "lib/quotes/acceptClient.ts", "lib/accept/record.ts", "lib/accept/accept.ts", "lib/accept/staff.ts", "lib/accept/live.ts", "lib/quotes/sitesheet.ts", "lib/anthropic/client.ts", "lib/quotes/billing.ts", "lib/notion/payments.ts", "lib/companycam/client.ts", "lib/quotes/companycam.ts", "lib/quotes/payouts.ts", "lib/auth.ts"]) {
       expect(all.find((f) => f.rel === rel)!.text).toMatch(/^import "server-only";/m);
     }
   });
@@ -95,7 +95,7 @@ describe("Airtable boundary", () => {
   it("never imports Airtable code into a browser component", () => {
     const leaks = all
       .filter((f) => /^["']use client["'];?/m.test(f.text))
-      .filter((f) => /^import (?!type )[^;]*from ["']@\/lib\/(airtable|quotes\/load|quotes\/start|quotes\/save|quotes\/refresh|quotes\/records|quotes\/booking|quotes\/link|quotes\/send|quotes\/rooms|quotes\/customer|quotes\/conversation|quotes\/address|quotes\/activity|activity\/relay|quotes\/acceptClient|accept\/record|accept\/accept|accept\/staff|accept\/live|quotes\/sitesheet|quotes\/billing|quotes\/companycam|companycam\/client|notion\/payments|anthropic\/client|ghl\/client|make\/client|auth)/m.test(f.text))
+      .filter((f) => /^import (?!type )[^;]*from ["']@\/lib\/(airtable|quotes\/load|quotes\/start|quotes\/save|quotes\/refresh|quotes\/records|quotes\/booking|quotes\/link|quotes\/send|quotes\/rooms|quotes\/customer|quotes\/conversation|quotes\/address|quotes\/activity|activity\/relay|quotes\/acceptClient|accept\/record|accept\/accept|accept\/staff|accept\/live|quotes\/sitesheet|quotes\/payouts|quotes\/billing|quotes\/companycam|companycam\/client|notion\/payments|anthropic\/client|ghl\/client|make\/client|auth)/m.test(f.text))
       .map((f) => f.rel);
     expect(leaks).toEqual([]);
   });
@@ -106,7 +106,7 @@ describe("Airtable boundary", () => {
 
   it("checks the quoter allowlist in both the proxy and every loader", () => {
     expect(all.find((f) => f.rel === "proxy.ts")!.text).toContain("isQuoter(");
-    for (const rel of ["lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/sitesheet.ts", "lib/quotes/billing.ts", "lib/quotes/companycam.ts"]) {
+    for (const rel of ["lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/sitesheet.ts", "lib/quotes/billing.ts", "lib/quotes/companycam.ts", "lib/quotes/payouts.ts"]) {
       const text = all.find((f) => f.rel === rel)!.text;
       const exported = text.match(/export async function \w+/g) ?? [];
       const guarded = text.match(/export async function \w+[^{]*\{\s*(const \w+ = )?await requireQuoter(Person)?\(\);/g) ?? [];
@@ -137,8 +137,8 @@ describe("booking step (Make, no sign-in)", () => {
     expect(proxy).toContain('matcher: ["/((?!_next/|brand/|favicon\\\\.ico|robots\\\\.txt).*)"]');
     expect(proxy).toContain("const OPEN_ON_STAFF = /^\\/(login|auth\\/|denied|api\\/booking|api\\/activity|api\\/accept)/;");
     // Open tracking and acceptance (2026-10-27) are the other two key-gated routes; see their own blocks below.
-    // Report a bug and Upload site sheet (2026-10-28) are the API routes that are NOT open: the proxy signs people in first.
-    expect(all.filter((f) => f.rel.startsWith("app/api/")).map((f) => f.rel).sort()).toEqual(["app/api/accept/route.ts", "app/api/activity/route.ts", ROUTE, "app/api/bug/route.ts", "app/api/sitesheet/route.ts"]);
+    // Report a bug and Upload site sheet (2026-10-28) and Push a payout card (2026-11-04) are the API routes that are NOT open: the proxy signs people in first.
+    expect(all.filter((f) => f.rel.startsWith("app/api/")).map((f) => f.rel).sort()).toEqual(["app/api/accept/route.ts", "app/api/activity/route.ts", ROUTE, "app/api/bug/route.ts", "app/api/payout/route.ts", "app/api/sitesheet/route.ts"]);
   });
 
   it("keeps the shared quote helpers away from pages and actions", () => {
@@ -179,18 +179,33 @@ describe("CompanyCam boundary (2026-10-30: the job's photos on the quote page)",
     expect(all.filter((f) => code(f.text).includes("QUOTE_COMPANYCAM_TOKEN")).map((f) => f.rel).sort()).toEqual([CAM]);
   });
 
-  it("only reads: GET, one request, never on the customer deployment", () => {
+  it("reads, and adds a photo to a project (2026-11-04): one request, one POST, never on the customer deployment", () => {
     const client = code(all.find((f) => f.rel === CAM)!.text);
-    for (const verb of ["POST", "PATCH", "PUT", "DELETE"]) expect(client).not.toMatch(new RegExp(`["'\`]${verb}["'\`]`));
-    expect(client).toMatch(/method: "GET"/);
+    for (const verb of ["PATCH", "PUT", "DELETE"]) expect(client).not.toMatch(new RegExp(`["'\`]${verb}["'\`]`));
+    // The one POST is chosen by a photo body, and the request refuses it for any address but a project's photos.
+    expect(client.match(/["'`]POST["'`]/g)?.length).toBe(1);
+    expect(client).toMatch(/method: photo === undefined \? "GET" : "POST"/);
+    expect(client).toMatch(/if \(photo !== undefined && !\(api && \/\^https:\\\/\\\/api\\\.companycam\\\.com\\\/v2\\\/projects\\\/\\d\+\\\/photos\$\/\.test\(url\)\)\) throw/);
+    expect(client.match(/request\([^)]*, true, \{/g)?.length).toBe(1);
+    expect(client).toMatch(/request\(`\$\{BASE\}\/projects\/\$\{projectId\}\/photos`, true, \{/);
     expect(client.match(/\bfetch\(/g)?.length).toBe(1);
     expect(client).toMatch(/if \(!token \|\| isCustomerDeployment\(\)\) throw/);
+  });
+
+  it("adds payout cards only (2026-11-04): reached from the payouts writer, on the quote's own project, tagged Payout", () => {
+    const loader = code(all.find((f) => f.rel === LOADER)!.text);
+    expect(loader.match(/addProjectPhoto\(/g)?.length).toBe(1);
+    expect(loader).toMatch(/addProjectPhoto\(id, \{ uri, capturedAt: new Date\(\), description, tags: \["Payout"\] \}\)/);
+    expect(loader).toMatch(/const id = projectIdOf\(companyCamUrl\);/);
+    expect(all.filter((f) => /\baddPayoutPhoto\(/.test(code(f.text)) && f.rel !== LOADER).map((f) => f.rel)).toEqual(["lib/quotes/payouts.ts"]);
+    // The project comes from the quote's own record, never the browser.
+    expect(code(all.find((f) => f.rel === "lib/quotes/payouts.ts")!.text)).toMatch(/const camUrl = str\(f\[QUOTE\.companyCamUrl\]\);/);
   });
 
   it("downloads a site sheet photo without the token (2026-11-03): the token goes to the API only", () => {
     const client = code(all.find((f) => f.rel === CAM)!.text);
     // The one request sends the token only when it is an API call, built from BASE; an image address gets nothing but Accept.
-    expect(client).toMatch(/headers: api \? \{ Authorization: `Bearer \$\{token\}`, Accept: "application\/json" \} : \{ Accept: "image\/jpeg, image\/png, image\/webp" \}/);
+    expect(client).toMatch(/headers: api \? \{ Authorization: `Bearer \$\{token\}`, Accept: "application\/json", \.\.\.\(photo === undefined \? \{\} : \{ "Content-Type": "application\/json" \}\) \} : \{ Accept: "image\/jpeg, image\/png, image\/webp" \}/);
     expect(client).toMatch(/request\(`\$\{BASE\}\$\{path\}/);
     expect(client.match(/request\([^)]*, true\)/g)?.length).toBe(1);
     // The loader downloads only the addresses CompanyCam gave for a photo on the quote's own project.
@@ -203,8 +218,9 @@ describe("CompanyCam boundary (2026-10-30: the job's photos on the quote page)",
     expect(all.filter((f) => /from ["']@\/lib\/companycam\/client["']/.test(f.text)).map((f) => f.rel)).toEqual([LOADER]);
     const loader = code(all.find((f) => f.rel === LOADER)!.text);
     expect(loader).not.toMatch(/airtable|createRecord|updateRecord|make\/client|sendToGhl/);
-    // The quote page's Photos tab, and since 2026-11-03 the site sheet reader (picking and downloading sheet photos).
-    expect(all.filter((f) => /^import (?!type )[^;]*from ["'](@\/lib\/quotes\/|\.\/|\.\.\/quotes\/)companycam["']/m.test(f.text)).map((f) => f.rel).sort()).toEqual(["app/q/[id]/page.tsx", "lib/quotes/sitesheet.ts"]);
+    // The quote page's Photos tab, since 2026-11-03 the site sheet reader (picking and downloading sheet photos), and
+    // since 2026-11-04 the payout cards writer (adding a card to the project).
+    expect(all.filter((f) => /^import (?!type )[^;]*from ["'](@\/lib\/quotes\/|\.\/|\.\.\/quotes\/)companycam["']/m.test(f.text)).map((f) => f.rel).sort()).toEqual(["app/q/[id]/page.tsx", "lib/quotes/payouts.ts", "lib/quotes/sitesheet.ts"]);
     // Staff only: the tab is never drawn in Customer view.
     expect(all.find((f) => f.rel === "app/q/[id]/page.tsx")!.text).toMatch(/const showPhotos = opt === "photos" && !customer/);
   });
