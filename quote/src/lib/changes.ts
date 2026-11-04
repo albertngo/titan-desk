@@ -23,6 +23,14 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-04",
     kind: "changed",
+    title: "Stair groups stand out more",
+    details: [
+      "In the Stairs section of the quote page and the editor, each group heading (Steps, Landings, Railing and the rest) is now a grey band with a blue bar on the left and a little space above, so it is easier to see where each group starts.",
+    ],
+  },
+  {
+    date: "2026-11-04",
+    kind: "changed",
     title: "Stair items have their own units",
     details: [
       "Each stair item now says what its quantity is counted in: steps, sets (corner pieces), ft (nosings, handrails, trims) or pcs (spindles, pickets, posts). Stringers, landings and the complex handrail show the number only.",
