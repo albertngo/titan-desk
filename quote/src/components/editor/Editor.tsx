@@ -32,6 +32,7 @@ import { manualLine,
   materialSplit,
   setServiceLevel,
   settleContractor,
+  holdAccepted,
   setSchedule,
   setTerms,
   showsWaste,
@@ -176,6 +177,7 @@ export default function Editor({
   const catalogue = useMemo(() => buildCatalogue(card.rates, card.stairs, card.materials), [card]);
   const pricing = catalogue;
   const [levelNote, setLevelNote] = useState<string | null>(null);
+  const [holdNote, setHoldNote] = useState<string | null>(null);
   const [crewNote, setCrewNote] = useState<string | null>(null);
   const changed = useMemo(() => JSON.stringify(quote) !== JSON.stringify(initial), [quote, initial]);
 
@@ -191,9 +193,20 @@ export default function Editor({
   }, [quote, changed, key, base]);
 
   // The Contractor level's 10% follows the list price after every change (2026-11-04).
-  const apply = (next: EditorQuote) => {
-    setQuote(settleContractor(next));
+  const apply = (next: EditorQuote): boolean => {
+    // The accepted price is held, firmly (Albert, 2026-11-04): a change that would move it is taken up by
+    // the option's accepted discount, and one that could only be held with a markup is refused.
+    const r = holdAccepted(quote, settleContractor(next));
+    if (r.refused) {
+      setHoldNote(
+        `Not changed: that would bring ${r.refused.name ? `"${r.refused.name}"` : "this option"} under its accepted price of ${money(r.refused.price)}, and the accepted price never moves on its own. Press Reset in its price card first to change the price.`,
+      );
+      return false;
+    }
+    setHoldNote(null);
+    setQuote(r.quote);
     setSavedAt(new Date().toISOString());
+    return true;
   };
 
   const option = quote.options.find((o) => o.id === activeId) ?? quote.options[0] ?? null;
@@ -689,7 +702,7 @@ export default function Editor({
                             onClick={() => {
                               if (levelOf(option) === lv) return;
                               const r = setServiceLevel(quote, option.id, lv, pricing);
-                              apply(r.quote);
+                              if (!apply(r.quote)) return;
                               setLevelNote(
                                 r.notRepriced.length
                                   ? `${r.notRepriced.length} line${r.notRepriced.length === 1 ? "" : "s"} kept ${r.notRepriced.length === 1 ? "its" : "their"} price: the Rate Card row is gone (${r.notRepriced.map((l) => l.description).join(", ")}).`
@@ -761,6 +774,11 @@ export default function Editor({
                   {crewNote && !customer && (
                     <p className="lvl-note" role="status">
                       {crewNote}
+                    </p>
+                  )}
+                  {holdNote && (
+                    <p className="lvl-note warn" role="alert">
+                      {holdNote}
                     </p>
                   )}
                 </div>
@@ -932,6 +950,12 @@ export default function Editor({
                   <div className="ov-total"><span>Total</span><span className="v">{money(t.total)}</span></div>
                   </div>
                 </div>
+                {/* Said again here: the price card is where most refused changes are typed. */}
+                {holdNote && (
+                  <p className="lvl-note warn" role="alert">
+                    {holdNote}
+                  </p>
+                )}
                 <PriceCard quote={quote} option={option} customer={customer} apply={apply} />
               </section>
 

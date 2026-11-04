@@ -23,6 +23,15 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-04",
     kind: "changed",
+    title: "An accepted price stays put",
+    details: [
+      "Once you set an accepted price on an option, nothing else moves it: adding or removing a discount, the Contractor / Standard / Premium slider, or changing lines. The option's discount and margin change instead, and the card says it is Held.",
+      "A change that would take the price under the accepted price is not made, and the editor says so. Press Reset in the price card first to change the price.",
+    ],
+  },
+  {
+    date: "2026-11-04",
+    kind: "changed",
     title: "Accepted price is per option, and discounts are dollars only",
     details: [
       "An accepted price now changes only the option you type it on. Its discount is a dollar line on that option, like a discount item, and the customer sees it as \"Discount\" with the reason you give it. It can't go above the quote, and Reset clears that option only. Other options keep their own price.",
