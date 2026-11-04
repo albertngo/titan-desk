@@ -177,12 +177,22 @@ export async function opportunityOwner(id: string): Promise<string | null> {
   }
 }
 
-/** The location's users (id, email, name), to tag the person who sent a quote. Needs users.readonly on the token. */
-export async function locationUsers(): Promise<{ id: string; email: string | null; name: string | null }[]> {
+/**
+ * The location's users (id, email, name, and the phone number GHL has assigned them here), to tag the person who sent
+ * a quote and, since 2026-11-04, to text from their own number. Needs users.readonly on the token.
+ */
+export async function locationUsers(): Promise<{ id: string; email: string | null; name: string | null; number: string | null }[]> {
   const data = (await get("/users/", { locationId: GHL_LOCATION_ID })) as { users?: Record<string, unknown>[] };
   return (data.users ?? [])
     .filter((u) => typeof u.id === "string" && u.deleted !== true)
-    .map((u) => ({ id: String(u.id), email: s(u.email)?.toLowerCase() ?? null, name: s(u.name) }));
+    .map((u) => ({ id: String(u.id), email: s(u.email)?.toLowerCase() ?? null, name: s(u.name), number: assignedNumber(u.lcPhone) }));
+}
+
+/** The user's GHL (LeadConnector) number in this location: `lcPhone` keyed by location id, or a plain string. Never their personal phone. */
+function assignedNumber(lc: unknown): string | null {
+  if (typeof lc === "string") return s(lc);
+  if (lc && typeof lc === "object") return s((lc as Record<string, unknown>)[GHL_LOCATION_ID]);
+  return null;
 }
 
 /* ---------- the customer's conversation (Albert, 2026-10-20): read only ---------- */

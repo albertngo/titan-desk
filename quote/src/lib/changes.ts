@@ -22,6 +22,15 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-04",
+    kind: "changed",
+    title: "Texts go from your own GHL number",
+    details: [
+      "A quote text now goes from the number your GHL user has, found by the email you sign in with: Pourya's from Pourya's, the front desk's from the front desk's, Albert's from Albert's. Send again does the same.",
+      "The Send card says which number it will use. Anyone whose GHL user has no number of its own still texts from the main GHL number, as before.",
+    ],
+  },
+  {
+    date: "2026-11-04",
     kind: "new",
     title: "Set HST for all options at once",
     details: [

@@ -149,6 +149,7 @@ export function SendQuote({
   preliminary,
   change = null,
   from,
+  textFrom = null,
   options,
 }: {
   versionId: string;
@@ -170,6 +171,8 @@ export function SendQuote({
   change?: number | null;
   /** The address the email goes out from: the signed-in quoter's (2026-10-22); null = they can't email it (2026-11-04: never a stand-in). */
   from: string | null;
+  /** The number the text goes from (2026-11-04): the signed-in person's own GHL number; null = GHL's main number. */
+  textFrom?: string | null;
   /** The version's options, for choosing which go to the customer (2026-10-24); `range` is what a preliminary shows instead of `price` (2026-10-27). */
   options: { id: string; name: string; price: string; range: string | null; recommended: boolean; notOffered?: boolean; problem: string | null }[];
 }) {
@@ -283,7 +286,7 @@ export function SendQuote({
             <input type="checkbox" checked={bySms && !!phone} disabled={!phone} onChange={(e) => setBySms(e.target.checked)} />
             <span>
               Text <span className="faint">{phone ?? "no phone in GHL"}</span>
-              {phone && <span className="sub">Link</span>}
+              {phone && <span className="sub">{textFrom ? `Link, from ${textFrom} (your GHL number)` : "Link, from the main GHL number (your GHL user has no number of its own)"}</span>}
             </span>
           </label>
         </fieldset>

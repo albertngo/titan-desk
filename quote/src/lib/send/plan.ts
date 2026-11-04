@@ -143,7 +143,8 @@ export type GhlMessage =
    * the invoice or receipt email, which carries that document.
    */
   | { type: "Email"; contactId: string; subject: string; html: string; emailFrom?: string; attachments?: string[] }
-  | { type: "SMS"; contactId: string; message: string }
+  /** `fromNumber` (2026-11-04): the sender's own GHL number; absent = the location's main number. */
+  | { type: "SMS"; contactId: string; message: string; fromNumber?: string }
   /** A note on the customer's conversation that only staff see (2026-10-27, open tracking); `mentions` are GHL user ids. */
   | { type: "InternalComment"; contactId: string; message: string; mentions: string[] };
 
@@ -917,3 +918,32 @@ export function customerLinks(base: string, token: string, file: string): { link
   const root = base.replace(/\/+$/, "");
   return { link: `${root}/c/${token}`, pdfUrl: `${root}/c/${token}/${file}` };
 }
+
+/* ---------- which number a text goes from (Albert, 2026-11-04) ---------- */
+
+/**
+ * "Pourya = Pourya's GHL number… Joey = front desk's GHL number… Albert = Albert's GHL number": a text goes from the
+ * number GHL has assigned to the signed-in person's own GHL user, found by their sign-in email (info@ is the front desk's
+ * user). Null when that user has none, or no GHL user has the email: then GHL's main number, as before. Only a number
+ * that reads as a phone number is used, kept as E.164 (+1 and ten digits for a North American number).
+ */
+export function textFromFor(email: string | null | undefined, users: { email: string | null; number: string | null }[]): string | null {
+  const me = (email ?? "").trim().toLowerCase();
+  if (!me) return null;
+  const n = users.find((u) => u.email === me)?.number;
+  return n ? e164(n) : null;
+}
+
+/** A phone number as E.164, or null: "(416) 555-0100" and "416-555-0100" read as +14165550100. */
+export function e164(raw: string): string | null {
+  const plus = raw.trim().startsWith("+");
+  const digits = raw.replace(/\D/g, "");
+  if (plus) return digits.length >= 10 && digits.length <= 15 ? `+${digits}` : null;
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  return null;
+}
+
+/** A text with the sender's number on it, when they have one. */
+export const fromTheirNumber = <M extends GhlMessage>(m: M, fromNumber: string | null): M => (m.type === "SMS" && fromNumber ? { ...m, fromNumber } : m);
+

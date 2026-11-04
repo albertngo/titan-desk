@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addDays, copyRange, copyState, customerCopy, discountLabel, discountRows, hstOf, hstRow, hstWord, leadPrice, isRange, longDate, offersPdf, parseCopy, pdfName, prelimNote, priceRange, rangeText, rangeWhy, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "../src/lib/send/copy";
-import { chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, fromAttempts, greetingName, isToken, newToken, optionProblem, parseOptionIds, parseResend, resendEmailMessage, resendKind, resendProblems, resendSmsMessage, sendProblems, smsMessage, type SendInput } from "../src/lib/send/plan";
+import { chooseOptions, chosenWords, customerLinks, e164, emailFromFor, fromTheirNumber, textFromFor, emailMessage, fromAttempts, greetingName, isToken, newToken, optionProblem, parseOptionIds, parseResend, resendEmailMessage, resendKind, resendProblems, resendSmsMessage, sendProblems, smsMessage, type SendInput } from "../src/lib/send/plan";
 import { encode, textWidth, wrap } from "../src/lib/send/pdfDoc";
 import { quotePdf } from "../src/lib/send/pdf";
 import { billingKind } from "../src/lib/billing/doc";
@@ -1092,5 +1092,31 @@ describe("HST per option (Albert, 2026-11-04: \"ONLY apply for the option it is 
     expect(billingKind(both)).toBe("invoice");
     const mixed = customerCopy(quote({ discountRate: 0, options: [option("A", work("a"), 0, true), option("B", work("b"), 0, false, { showHst: false })] }), AT);
     expect(billingKind(mixed)).toBe("receipt");
+  });
+});
+
+describe("texts go from the sender's own GHL number (Albert, 2026-11-04)", () => {
+  // Invented numbers only.
+  const users = [
+    { email: "pat@example.com", number: "(555) 010-0001" },
+    { email: "info@example.com", number: "+15550100002" },
+    { email: "lee@example.com", number: null },
+  ];
+  it("finds the signed-in person's GHL user by email, any case, and keeps the number as E.164", () => {
+    expect(textFromFor("Pat@Example.com", users)).toBe("+15550100001");
+    expect(textFromFor("info@example.com", users)).toBe("+15550100002");
+    // No number of their own, no GHL user, or no sign-in: GHL's main number, as before.
+    expect(textFromFor("lee@example.com", users)).toBeNull();
+    expect(textFromFor("nobody@example.com", users)).toBeNull();
+    expect(textFromFor(null, users)).toBeNull();
+    expect(e164("555-0100")).toBeNull();
+  });
+
+  it("puts the number on a text only, never on an email", () => {
+    const sms = { type: "SMS" as const, contactId: "c1", message: "hi" };
+    expect(fromTheirNumber(sms, "+15550100001")).toEqual({ ...sms, fromNumber: "+15550100001" });
+    expect(fromTheirNumber(sms, null)).toEqual(sms);
+    const email = { type: "Email" as const, contactId: "c1", subject: "s", html: "h" };
+    expect(fromTheirNumber(email, "+15550100001")).toEqual(email);
   });
 });
