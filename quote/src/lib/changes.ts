@@ -23,6 +23,14 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-04",
     kind: "changed",
+    title: "Smaller words and cards on a phone",
+    details: [
+      "On a phone, text, cards and the quick form's choices are a size smaller, so more of the quote fits on the screen. Boxes you type in stay the same size, so the iPhone doesn't zoom in, and everything is still easy to tap.",
+    ],
+  },
+  {
+    date: "2026-11-04",
+    kind: "changed",
     title: "More of the screen for the work on a phone",
     details: [
       "On a phone the estimate at the bottom of a new quote is one row now: the price on the left and the Create button on the right, without the line under it.",
