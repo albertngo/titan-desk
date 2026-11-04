@@ -4,6 +4,7 @@ import { acceptForCustomer, cancelAcceptance, retryHandoff, type CancelResult, t
 import { confirmAddress, createJobForQuote, linkToJob } from "@/lib/quotes/link";
 import { makeChange, type SaveResult } from "@/lib/quotes/save";
 import { saveRooms } from "@/lib/quotes/rooms";
+import { savePayouts, type SavePayoutsResult } from "@/lib/quotes/payouts";
 import { saveDescription } from "@/lib/quotes/describe";
 import { clearSheet, saveFloorSheet, saveSiteSheet, sheetCamPhotos } from "@/lib/quotes/sitesheet";
 import { floorOptions, type FloorOptionsResult } from "@/lib/quotes/quickOption";
@@ -93,4 +94,9 @@ export async function issueBillingAction(versionId: string, choice: BillingChoic
 
 export async function emailBillingAction(versionId: string, choice: BillingChoice): Promise<BillingResult> {
   return emailBilling(String(versionId ?? ""), { showCredit: choice?.showCredit === true });
+}
+
+/** Payout cards (2026-11-04): Quotes → Payouts, refused if it changed since the page opened. */
+export async function savePayoutsAction(quoteRecordId: string, seen: string, cards: unknown): Promise<SavePayoutsResult> {
+  return savePayouts(String(quoteRecordId ?? ""), String(seen ?? ""), cards);
 }

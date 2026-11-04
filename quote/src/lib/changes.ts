@@ -22,6 +22,16 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-04",
+    kind: "new",
+    title: "Payout cards for contractors",
+    details: [
+      "A Payouts tab on every quote. Tick the options the customer is getting (what they accepted is ticked for you) and press Build cards: one card per contractor, listing their labour lines at what we pay for each, with materials left out.",
+      "On each card, tick or untick lines, change a quantity or rate (a changed rate shows what it was), add a line, move a line to another contractor's card, or add a card. Save cards keeps them on the quote, so every version shows the same cards.",
+      "Preview shows the card as a picture you can download. Push to CompanyCam adds it to the job's photos, tagged Payout, so it can be shared with the rest. The card then says when it went and whether it has changed since.",
+    ],
+  },
+  {
+    date: "2026-11-04",
     kind: "changed",
     title: "The Private section stands apart",
     details: ["On the quote page and in the editor, the Private section sits a little further down, greyed out under a thin violet line with a PRIVATE tag, so it is obvious those lines are never itemised for the customer."],
