@@ -169,7 +169,9 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   also linked an inactive Material row). Prices are never
   stored on a choice and never taken from the browser: the server re-prices from Airtable at
   create time. A choice whose linked row is inactive or unpriced is left off the form. Rules:
-  `src/lib/quick/plan.ts`, tested in `tests/quick.test.ts`.
+  `src/lib/quick/plan.ts`, tested in `tests/quick.test.ts`. A flat card row (a bin) goes in at its choice's
+  Times, 1 unless set ("Large Disposal (Bin x 2)" is 2), and since 2026-11-04 a flat row picked in the editor
+  starts at 1 too (`lineFromEntry()`; Albert: "it should already go as 1 as the quantity").
 - **Stairs on the preliminary (Albert, 2026-10-18; presets 2026-10-20; Stair Item lines 2026-11-02).** A staircase
   is a row of the read-only Airtable table **Stair Profiles** (`PROFILE_TABLE`): a customer-facing name, a stair type
   (Main stairs / Townhome / Basement / Half staircase), a method (Sand & stain / Solid red oak caps / Vinyl treads /
@@ -470,7 +472,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   a private line priced at zero is cost only and never shows at all. Never a hidden amount: the
   customer-copy whitelist in `copy.ts` does the roll-up and `tests/send.test.ts` pins that no
   private description or cost reaches the copy. `PRIVATE_SECTION` / `privateRollup()` in `calc.ts`.
-- **Accepted price (Albert, 2026-10-22).** Under each option's overview in the editor, **Accepted
+- **Accepted price (Albert, 2026-10-22; above the list blocked 2026-11-04, see The price card).** Under each option's overview in the editor, **Accepted
   price, before HST** takes the amount the customer agreed to and sets the quote's discount so that
   option lands on it (`setAcceptedPrice()` in `src/lib/editor/model.ts`, tested). The discount is one
   per version (Quote Versions → Discount Rate), so every option follows it; it is worked out from the
@@ -487,15 +489,20 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   adjustments are available"); a discount is made in the card only.
   - **Discount items, left** ("persistent until removed"): each a Quote Line in the new **Discounts**
     section (`DISCOUNTS_SECTION`), one, flat, priced below zero, so `calc.ts` and Airtable's formulas count
-    it with no change. Typed in dollars or as a percent of the list price (`discountAmountFrom()`, kept as
-    dollars). The customer sees each by name as a discount row above the price (`CopyOption.discounts`,
+    it with no change. **Dollars only** (Albert, same day: "please only allow for dollar discounts in the
+    discounts tab"; a percent is refused, `discountAmountFrom()`). The customer sees each by name as a discount row above the price (`CopyOption.discounts`,
     `discountRows()`; a range names them, "Included in the range"), never as a line; the quote page and
     editor totals list them too. Airtable gets the Section choice by typecast on the first save.
   - **Accepted price, right: three linked boxes**, price before HST, total discount % and margin %
     ("whichever one you edit will update the other 2"). The total discount counts everything off the list
     price, discount items included (`priceSummary()` in `src/lib/pricing/discounts.ts`). Each lands the
-    price through `setAcceptedPrice()`, which moves only the version's Discount Rate (or the above-list
-    private line) and leaves the discount items where they are; the rate now lands to the cent
+    price through `setAcceptedPrice()`, which moves only the version's Discount Rate and leaves the discount
+    items where they are. **Never above the price the slider and discounts make (`priceCeiling()`;
+    Albert, same day: "lets block it. This means any pricing increases should be added in as private line
+    items; or increased rates. The goal is to have less change for mistakes")**: a higher price in any box
+    changes nothing and the card says to add a Private line or raise a rate; the 2026-10-22 above-list
+    "Accepted price adjustment" line is no longer made (one on an older quote comes off with the next price
+    typed, or Reset); a slider change that would need a markup to hold the price resets it instead; the rate now lands to the cent
     (`landingRate()`, eight places). **Master:** while it is set, a change to the service level or the
     discount items keeps the price and moves the rate (`keepAccepted()`). **Reset, or clearing any of the
     three boxes, clears all three** (same day: "deleting one section clears all the other ones… Pressing
