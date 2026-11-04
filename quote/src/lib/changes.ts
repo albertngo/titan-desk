@@ -23,6 +23,15 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-04",
     kind: "changed",
+    title: "Accepted price is per option, and discounts are dollars only",
+    details: [
+      "An accepted price now changes only the option you type it on. Its discount is a dollar line on that option, like a discount item, and the customer sees it as \"Discount\" with the reason you give it. Reset clears that option only. Other options keep their own price.",
+      "Discount items take a dollar amount only, no percent. A quote saved before this kept one discount for every option; the first time you set or reset an accepted price on it, each option keeps the dollars it had.",
+    ],
+  },
+  {
+    date: "2026-11-04",
+    kind: "changed",
     title: "Stringers start at quantity 1",
     details: ["Adding a stringer item charged per staircase (paint white, oak skin, or sand and stain) puts it in at a quantity of 1. Change it if the job has more."],
   },

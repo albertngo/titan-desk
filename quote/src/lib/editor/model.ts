@@ -4,8 +4,7 @@
  * only by src/lib/calc.ts, from the same LineInput fields Airtable stores.
  */
 import { lineTotal, optionTotals, PRIVATE_SECTION, round2, sectionOf, SECTIONS, type LineInput } from "@/lib/calc";
-import { landingRate } from "@/lib/pricing/accepted";
-import { CONTRACTOR_LINE, contractorAmount, DISCOUNTS_SECTION, grossOf, isAdjustmentLine, isContractorLine, isDiscountLine, PRICE_ADJUSTMENT, priceAtMargin, priceAtTotalDiscount } from "@/lib/pricing/discounts";
+import { ACCEPTED_LINE, CONTRACTOR_LINE, contractorAmount, DISCOUNTS_SECTION, grossOf, isAcceptedLine, isAdjustmentLine, isContractorLine, isDiscountLine, PRICE_ADJUSTMENT, priceAtMargin, priceAtTotalDiscount } from "@/lib/pricing/discounts";
 import type { PaymentSchedule } from "@/lib/pricing/schedule";
 import { levelApplies, levelOf, levelPrice, type ServiceLevel } from "@/lib/pricing/service";
 import { partKey } from "@/lib/quotes/scope";
@@ -653,52 +652,89 @@ export function setSchedule(q: EditorQuote, schedule: PaymentSchedule | null): E
 export { PRICE_ADJUSTMENT };
 
 const adjustmentOf = (o: EditorOption) => o.lines.find((l) => isAdjustmentLine(l));
+const acceptedLineOf = (o: EditorOption) => o.lines.find((l) => isAcceptedLine(l));
 
-/** An option's list price before any discount and without the accepted-price adjustment, and that adjustment line. */
-function listPriceOf(q: EditorQuote, o: EditorOption): { base: number; adj: EditorLine | undefined } {
+/** An option's price before the accepted price touches it (discount items in), and its two accepted-price lines. */
+function listPriceOf(q: EditorQuote, o: EditorOption): { base: number; adj: EditorLine | undefined; acc: EditorLine | undefined } {
   const adj = adjustmentOf(o);
-  return { base: round2(optionTotals(o.lines, 0, q.showHst).preDiscount - (adj ? (lineTotal(adj) ?? 0) : 0)), adj };
+  const acc = acceptedLineOf(o);
+  const rest = o.lines.filter((l) => l !== adj && l !== acc);
+  return { base: round2(optionTotals(rest, 0, q.showHst).preDiscount), adj, acc };
+}
+
+/** The accepted price's discount line on one option: `amount` off, the reason kept from the line it replaces. */
+function putAccepted(q: EditorQuote, optionId: string, acc: EditorLine | undefined, amount: number, reason?: string): EditorQuote {
+  if (!(amount > 0)) return acc ? removeLine(q, optionId, acc.id) : q;
+  const patch = { uom: "flat", qty: 1, unitPrice: -round2(amount), include: true, costOverride: null, manualCost: null, ...(reason !== undefined ? { clientNote: reason } : {}) };
+  return acc ? updateLine(q, optionId, acc.id, patch) : addLine(q, optionId, { ...discountLine(ACCEPTED_LINE, amount), ...patch });
+}
+
+/**
+ * A version saved before 2026-11-04 may carry one Discount Rate that every option follows. The first time
+ * an accepted price is set or reset, that rate is handed to each option as its own accepted price discount
+ * (the same dollars, so no price moves), with the version's reason, and the rate and reason are cleared.
+ * From then on each option's accepted price is its own.
+ */
+export function detachVersionDiscount(q: EditorQuote): EditorQuote {
+  if (!q.discountRate) return q;
+  const reason = q.discountReason ?? "";
+  let next: EditorQuote = { ...q, discountRate: 0, discountReason: null };
+  for (const o of q.options) {
+    const off = -optionTotals(o.lines, q.discountRate, q.showHst).discount;
+    if (!(off > 0)) continue;
+    const { acc } = listPriceOf(q, o);
+    next = putAccepted(next, o.id, acc, round2(off + (acc ? -(lineTotal(acc) ?? 0) : 0)), reason);
+  }
+  return next;
 }
 
 /**
  * "They accept this price" (Albert, 2026-10-22): land this option's price before HST on the amount
- * the customer agreed to. Below the list price that is the quote's discount, worked out from this
- * option's list price; the discount is one per version, so every option follows it. Above the list
- * price the difference goes in as a private line, "Accepted price adjustment", which the customer
- * sees as the Private section's one row in Other, and the discount is cleared; the line is updated
- * in place, and removed again when a price at or below the list is typed. An option with nothing
- * priced changes nothing.
+ * the customer agreed to. **This option only (Albert, 2026-11-04: "it should only apply to the selected
+ * option and not carry over to the other items. Same as the discount section").** Below the list price
+ * the difference is this option's "Accepted price discount", a line in its Discounts section like a
+ * discount item, updated in place; above it the difference goes in as the private "Accepted price
+ * adjustment", which the customer sees as the Private section's one row in Other. Either one is removed
+ * when the other is needed, or when the price typed is the price as it stands. An option with nothing
+ * priced changes nothing. No other option moves.
  */
 export function setAcceptedPrice(q: EditorQuote, optionId: string, acceptedPreTax: number | null): EditorQuote {
-  const o = q.options.find((x) => x.id === optionId);
-  if (!o || acceptedPreTax === null || !(acceptedPreTax >= 0)) return q;
-  const { base, adj } = listPriceOf(q, o);
+  if (!q.options.some((x) => x.id === optionId) || acceptedPreTax === null || !(acceptedPreTax >= 0)) return q;
+  const q0 = detachVersionDiscount(q);
+  const o = q0.options.find((x) => x.id === optionId)!;
+  const { base, adj, acc } = listPriceOf(q0, o);
   if (!(base > 0)) return q;
-  if (acceptedPreTax <= base) {
-    const without = adj ? removeLine(q, optionId, adj.id) : q;
-    return setTerms(without, { discountRate: Math.max(0, landingRate(base, acceptedPreTax) ?? 0) });
-  }
-  const extra = round2(acceptedPreTax - base);
+  const price = round2(acceptedPreTax);
+  if (price <= base) return putAccepted(adj ? removeLine(q0, optionId, adj.id) : q0, optionId, acc, round2(base - price));
+  const extra = round2(price - base);
   const patch = { uom: "flat", qty: 1, unitPrice: extra, include: true, costOverride: null, manualCost: null };
-  const withLine = adj ? updateLine(q, optionId, adj.id, patch) : addLine(q, optionId, { ...manualLine(PRIVATE_SECTION, PRICE_ADJUSTMENT), ...patch });
-  return setTerms(withLine, { discountRate: 0 });
+  const without = acc ? removeLine(q0, optionId, acc.id) : q0;
+  return adj ? updateLine(without, optionId, adj.id, patch) : addLine(without, optionId, { ...manualLine(PRIVATE_SECTION, PRICE_ADJUSTMENT), ...patch });
+}
+
+/** Whether an accepted price is set on this option: its discount line, its above-list line, or an old version rate. */
+export const acceptedIsSet = (q: EditorQuote, o: EditorOption) => q.discountRate !== 0 || !!adjustmentOf(o) || !!acceptedLineOf(o);
+
+/** The reason the customer sees beside this option's accepted price discount, kept on that line. */
+export const acceptedReason = (o: EditorOption) => acceptedLineOf(o)?.clientNote ?? "";
+
+/** Set the reason on this option's accepted price discount; nothing when it has none. */
+export function setAcceptedReason(q: EditorQuote, optionId: string, reason: string): EditorQuote {
+  const o = q.options.find((x) => x.id === optionId);
+  const acc = o ? acceptedLineOf(o) : undefined;
+  return acc ? updateLine(q, optionId, acc.id, { clientNote: reason.trim() }) : q;
 }
 
 /**
- * Whether an accepted price is set on this option: a discount rate on the version, or this option's
- * above-list adjustment line. Reset clears both.
- */
-export const acceptedIsSet = (q: EditorQuote, o: EditorOption) => q.discountRate !== 0 || !!adjustmentOf(o);
-
-/**
  * Reset (Albert, 2026-11-04: "Pressing reset should clear all 3 out"): back to the price the slider and
- * the discount items make, with no accepted price: the version's discount rate goes to zero and this
- * option's adjustment line comes off. The discount items stay.
+ * the discount items make, on this option only: its accepted price discount and adjustment line come off.
+ * Other options keep theirs (an old version rate is first handed to each). The discount items stay.
  */
 export function resetAccepted(q: EditorQuote, optionId: string): EditorQuote {
-  const o = q.options.find((x) => x.id === optionId);
-  const adj = o ? adjustmentOf(o) : undefined;
-  return setTerms(adj ? removeLine(q, optionId, adj.id) : q, { discountRate: 0 });
+  const q0 = detachVersionDiscount(q);
+  const o = q0.options.find((x) => x.id === optionId);
+  if (!o) return q0;
+  return o.lines.filter((l) => isAdjustmentLine(l) || isAcceptedLine(l)).reduce((acc, l) => removeLine(acc, optionId, l.id), q0);
 }
 
 /**
@@ -741,15 +777,14 @@ export function discountLine(label: string, amount: number): EditorLine {
 }
 
 /**
- * What someone typed as a discount, in dollars: "250" or "$250" as it is, "5%" as that share of the
- * list price. Null when it isn't a positive amount.
+ * What someone typed as a discount item: dollars only, "250" or "$250" (Albert, 2026-11-04: "discounts are
+ * dollar line values only. not % by the way"). A percent is refused. Null when it isn't a positive amount.
  */
-export function discountAmountFrom(text: string, gross: number): number | null {
+export function discountAmountFrom(text: string): number | null {
   const t = text.trim();
-  const isPct = t.endsWith("%");
-  const n = parseNum(isPct ? t.slice(0, -1) : t);
-  if (n === null || !(n > 0)) return null;
-  return isPct ? (n < 100 && gross > 0 ? round2(gross * (n / 100)) : null) : round2(n);
+  if (t.includes("%")) return null;
+  const n = parseNum(t);
+  return n === null || !(n > 0) ? null : round2(n);
 }
 
 export function addDiscount(q: EditorQuote, optionId: string, label: string, amount: number): EditorQuote {
@@ -759,7 +794,7 @@ export function addDiscount(q: EditorQuote, optionId: string, label: string, amo
 
 export function updateDiscount(q: EditorQuote, optionId: string, lineId: string, patch: { label?: string; amount?: number }): EditorQuote {
   const next = mapLine(q, optionId, lineId, (l) =>
-    !isDiscountLine(l) || isContractorLine(l)
+    !isDiscountLine(l) || isContractorLine(l) || isAcceptedLine(l)
       ? l
       : { ...l, ...(patch.label !== undefined ? { description: patch.label.trim() || "Discount" } : {}), ...(patch.amount !== undefined && patch.amount > 0 ? { unitPrice: -round2(patch.amount) } : {}) },
   );
@@ -769,7 +804,7 @@ export function updateDiscount(q: EditorQuote, optionId: string, lineId: string,
 export function removeDiscount(q: EditorQuote, optionId: string, lineId: string): EditorQuote {
   const o = q.options.find((x) => x.id === optionId);
   const l = o?.lines.find((x) => x.id === lineId);
-  if (!l || !isDiscountLine(l) || isContractorLine(l)) return q;
+  if (!l || !isDiscountLine(l) || isContractorLine(l) || isAcceptedLine(l)) return q;
   return keepAccepted(q, optionId, settleContractor(removeLine(q, optionId, lineId)));
 }
 

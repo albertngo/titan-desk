@@ -1031,7 +1031,7 @@ export default function Editor({
                 </a>
               )}
               <dl>
-                <div><dt>Discount</dt><dd>{quote.discountRate ? `${pct(quote.discountRate * 100, 1)}${quote.discountReason ? `, ${quote.discountReason}` : ""}` : "None"}</dd></div>
+                <div><dt>Discount</dt><dd>{quote.discountRate ? `${pct(quote.discountRate * 100, 1)}${quote.discountReason ? `, ${quote.discountReason}` : ""} (every option)` : "Per option, in its price card"}</dd></div>
                 <div><dt>HST</dt><dd>{quote.showHst ? "Charged, 13%" : "Off (materials keep their own)"}</dd></div>
                 <div><dt>Payment</dt><dd>{payLine}</dd></div>
               </dl>

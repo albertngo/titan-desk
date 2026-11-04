@@ -58,12 +58,12 @@ describe("discount items (Albert, 2026-11-04)", () => {
     expect(cleaned?.options[0].lines.find((l) => l.description === "Senior discount")).toMatchObject({ section: "Discounts", unitPrice: -120 });
   });
 
-  it("reads a typed amount in dollars or as a percent of the list price", () => {
-    expect(discountAmountFrom("$250", 1000)).toBe(250);
-    expect(discountAmountFrom("5%", 1000)).toBe(50);
-    expect(discountAmountFrom("0", 1000)).toBeNull();
-    expect(discountAmountFrom("abc", 1000)).toBeNull();
-    expect(discountAmountFrom("150%", 1000)).toBeNull();
+  it("reads a typed amount in dollars only, never a percent (2026-11-04)", () => {
+    expect(discountAmountFrom("$250")).toBe(250);
+    expect(discountAmountFrom("250")).toBe(250);
+    expect(discountAmountFrom("5%")).toBeNull();
+    expect(discountAmountFrom("0")).toBeNull();
+    expect(discountAmountFrom("abc")).toBeNull();
   });
 
   it("stay put while the accepted price moves its own adjustment around them", () => {
@@ -71,8 +71,10 @@ describe("discount items (Albert, 2026-11-04)", () => {
     let r = addDiscount(q, id, "Senior", 100);
     r = setAcceptedPrice(r, id, 810);
     expect(subtotal(r)).toBe(810);
-    expect(r.discountRate).toBe(0.1); // 10% of the 900 left after the item
+    expect(r.discountRate).toBe(0); // the option's own line, never the version's rate (2026-11-04)
     expect(summary(r)).toMatchObject({ itemsTotal: 100, adjustment: 90, totalDiscountPct: 19, pinned: true });
+    // Listed for the totals as the customer reads it, after the items, in dollars.
+    expect(summary(r).items.map((x) => [x.label, x.amount, x.accepted])).toEqual([["Senior", 100, false], ["Discount", 90, true]]);
     // Adding a discount item with an accepted price set keeps the accepted price.
     r = addDiscount(r, id, "Referral", 50);
     expect(subtotal(r)).toBe(810);

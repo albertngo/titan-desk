@@ -574,6 +574,20 @@ describe("the discount on every page and PDF (Albert, 2026-11-03)", () => {
     expect(discountRows(pre, pre.options[0], money)).toEqual([{ label: "Senior discount", value: "Included in the range", disc: true }]);
   });
 
+  it("shows an option's accepted price discount on that option only, with its own reason (2026-11-04)", () => {
+    const work = line({ qty: 100, unitPriceSnap: 10 });
+    const senior = line({ section: "Discounts", lineType: "Other", sourceKind: "manual", description: "Senior discount", qty: 1, uom: "flat", unitPrice: -100, unitPriceSnap: null, unitCostSnap: null });
+    const accepted = line({ section: "Discounts", lineType: "Other", sourceKind: "manual", description: "Accepted price discount", clientNote: "Fall promotion", qty: 1, uom: "flat", unitPrice: -90, unitPriceSnap: null, unitCostSnap: null });
+    const c = customerCopy(quote({ itemised: true, discountRate: 0, discountReason: null, options: [option("A", [work, senior, accepted], 0, true), option("B", [work], 0)] }), AT);
+    expect(discountRows(c, c.options[0], money)).toEqual([
+      { label: "Subtotal before discount", value: money(1000), disc: false },
+      { label: "Senior discount", value: money(-100), disc: true },
+      { label: "Discount · Fall promotion", value: money(-90), disc: true },
+    ]);
+    expect(c.options[0].totals.subtotal).toBe(810);
+    expect(discountRows(c, c.options[1], money)).toEqual([]);
+  });
+
   it("shows nothing when there is no discount", () => {
     const c = customerCopy(quote({ discountRate: 0, itemised: false, options: [option("A", [line({})], 0)] }), AT);
     expect(discountRows(c, c.options[0], money)).toEqual([]);

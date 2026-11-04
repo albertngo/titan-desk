@@ -501,6 +501,19 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
     three boxes, clears all three** (same day: "deleting one section clears all the other ones… Pressing
     reset should clear all 3 out"): rate 0 and the adjustment line off (`resetAccepted()`), so the price
     reads the slider and the discounts again. The Discount reason moved into the card.
+  - **Per option, in dollars (Albert, 2026-11-04: "For accepted price; it should only apply to the selected option
+    and not carry over to the other items. Same as the discount section. Only on the selected option"; "discounts are
+    dollar line values only. not % by the way").** Below the list price the accepted price is now this option's own
+    line in its Discounts section, **"Accepted price discount"** (`ACCEPTED_LINE`, `isAcceptedLine()`), one, flat,
+    updated in place, its reason in the line's Client Note (`acceptedReason()` / `setAcceptedReason()`); the customer
+    reads it as "Discount · reason" (`acceptedLabel()`), in dollars. Above the list the private adjustment line is as
+    before. Reset clears this option only. **No version Discount Rate is set any more**: a version that has one (saved
+    before) keeps it until an accepted price is next set or reset, when `detachVersionDiscount()` hands each option
+    its dollars as its own line, with the version's reason, and clears the rate and reason, so no other price moves.
+    Discount items take dollars only (`discountAmountFrom()` refuses a percent); the Total discount % box stays, as a way
+    to type a price. calc.ts and Airtable's formulas are unchanged (the line is a line). One difference from a rate:
+    with HST off and HST on materials only, a dollar discount line does not lower the materials' HST, as discount items
+    never did. Tested in `tests/editor.test.ts`, `tests/discounts.test.ts` and `tests/send.test.ts`.
   - **Margin and profit** under the boxes (list price, items, adjustment, price, cost, profit, margin),
     and an **(i)** with the lowest price that keeps the **20% margin minimum** (`MIN_MARGIN_PCT`,
     `priceForMargin()`, rounded up to the cent); under it the card says so and offers to set it. Customer

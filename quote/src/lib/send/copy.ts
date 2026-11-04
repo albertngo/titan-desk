@@ -1,4 +1,4 @@
-import { DISCOUNTS_SECTION, isDiscountLine } from "@/lib/pricing/discounts";
+import { acceptedLabel, DISCOUNTS_SECTION, isAcceptedLine, isDiscountLine } from "@/lib/pricing/discounts";
 import { DEFAULT_PRIVATE_LABEL, LUMP_QTY_SECTIONS, PRIVATE_SECTION, SECTIONS, chargesHst, isPriced, lineTotal, optionTotals, priceUsed, privateRollup, round2, sectionOf, stageAmounts } from "@/lib/calc";
 import type { CopyChange } from "@/lib/change/diff";
 import { defaultSchedule, payWords, type PayHow, type PaymentSchedule } from "@/lib/pricing/schedule";
@@ -374,7 +374,8 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
   const t = optionTotals(o.lines, discountRate, showHst);
   const discounts = o.lines
     .filter((l) => isDiscountLine(l) && l.include)
-    .map((l) => ({ label: clean(l.description) ?? "Discount", amount: round2(lineTotal(l) ?? 0) }))
+    // The accepted price discount (2026-11-04) reads "Discount · reason", in dollars like every discount.
+    .map((l) => ({ label: isAcceptedLine(l) ? noEmDash(acceptedLabel(l.clientNote)) : (clean(l.description) ?? "Discount"), amount: round2(lineTotal(l) ?? 0) }))
     .filter((d) => d.amount < 0);
   return {
     ref: o.id,
