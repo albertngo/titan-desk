@@ -24,7 +24,7 @@ export const CHANGES: Change[] = [
     date: "2026-11-04",
     kind: "changed",
     title: "The Private section stands apart",
-    details: ["On the quote page and in the editor, the Private section sits a little further down, with a violet line, a tinted header and a PRIVATE tag, so it is obvious those lines are never itemised for the customer."],
+    details: ["On the quote page and in the editor, the Private section sits a little further down, greyed out under a thin violet line with a PRIVATE tag, so it is obvious those lines are never itemised for the customer."],
   },
   {
     date: "2026-11-04",
