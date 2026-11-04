@@ -35,6 +35,23 @@ export function stairGroups<T extends { stairCategory?: string | null }>(lines: 
   return [...map.entries()].sort((a, b) => rank(a[0]) - rank(b[0]) || String(a[0]).localeCompare(String(b[0]))).map(([group, ls]) => ({ group, heading: true, lines: ls }));
 }
 
+/**
+ * A stairs option's Stairs section in the editor (Albert, 2026-11-04: "The sections in the stairs should all be
+ * PRESENT; even when empty. On each section's header, or right under it, should be the add button"). Every category
+ * the card offers and every category a line has, in work order, each with its lines (none is fine), then Other
+ * (typed lines and lines with no category), always last. The lines come in the same order as `stairGroups()`, so
+ * line numbers and the quote page agree.
+ */
+export function stairSections<T extends { stairCategory?: string | null }>(lines: T[], categories: (string | null | undefined)[]): { group: string | null; lines: T[] }[] {
+  const known = new Set(categories.map((c) => stairGroupOf({ stairCategory: c })).filter((g): g is string => g !== null));
+  for (const l of lines) {
+    const g = stairGroupOf(l);
+    if (g !== null) known.add(g);
+  }
+  const groups: (string | null)[] = [...[...known].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b)), null];
+  return groups.map((group) => ({ group, lines: lines.filter((l) => stairGroupOf(l) === group) }));
+}
+
 /** A section's lines in the order they show: grouped for Stairs, as they are for every other section. */
 export function sectionLinesInOrder<T extends { stairCategory?: string | null }>(section: string, lines: T[]): T[] {
   return section === "Stairs" ? stairGroups(lines).flatMap((g) => g.lines) : lines;

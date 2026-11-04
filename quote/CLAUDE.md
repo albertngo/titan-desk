@@ -773,6 +773,13 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   Typed line (a manual Stairs line) and Private, whose picker offers Stair Items and typed lines only (`stairsOnly` on
   the Picker); a **Flooring** option gets every work section but Stairs. A section's inline + Add follows the same rule.
   Lines already on an option are untouched. Tested in `tests/stairGroups.test.ts`.
+  **Every category present, its add on its heading (Albert, 2026-11-04: "The sections in the stairs should all be
+  PRESENT; even when empty. On each section's header, or right under it, should be the add button… it shows up right
+  where they picked the item").** In the editor a Stairs option always shows Stairs and Private; Stairs lists every
+  category the card offers or a line has, in work order, then Other (typed lines), each heading with its own add
+  (`stairSections()`), and **+ Build a staircase** right under the Stairs header. Private's add sits right under its
+  header. A stairs option has no Add work bar at the bottom; a flooring option keeps it, unchanged. The quote page and
+  customer copy are unchanged (empty groups never show there).
 - **After the first acceptance, everything is for the record (Albert, 2026-10-31; vault
   `05_decisions/2026-10-31-quote-changes-for-record`).** The customer accepts once, for the project; every change after
   that is sent for the record with nothing to pick or accept, new work included. This reverses step 3 as built the

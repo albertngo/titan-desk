@@ -1431,6 +1431,10 @@ table.items.edit tbody tr.sect:first-child td { border-top: 0; }
 table.items.edit tr.sect .r { font-size: 14px; color: var(--fg); }
 table.items.edit tr.subsect td { font-size: 12.5px; color: var(--fg-dim); font-weight: 600; }
 table.items.edit tr.sect-add td { border-bottom: 0; padding: 4px 8px 10px; }
+/* A stairs option (2026-11-04): every category heading carries its own add, and the builder and Private's add sit right under their headers. */
+table.items.edit tr.sect-add.top td { padding: 2px 8px 4px; }
+table.items.edit tr.subsect.with-add .subsect-in { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+table.items.edit tr.subsect.with-add .addrow { font-size: 12.5px; padding: 0; }
 .addrow { font: inherit; font-size: 13px; font-weight: 600; border: 0; background: none; color: var(--accent); padding: 4px 0; cursor: pointer; }
 .addrow:hover { text-decoration: underline; }
 table.items.edit .costin { margin-top: 6px; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 2px 6px; }

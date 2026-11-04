@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addChoices, sectionLinesInOrder, stairGroupLabel, stairGroups } from "../src/lib/editor/stairGroups";
+import { addChoices, sectionLinesInOrder, stairGroupLabel, stairGroups, stairSections } from "../src/lib/editor/stairGroups";
 
 /* Invented lines only. */
 
@@ -41,5 +41,28 @@ describe("what an option can add (2026-10-30)", () => {
   });
   it("a flooring option: every work section but Stairs", () => {
     expect(addChoices("Flooring", ["Step"], sections).map((x) => x.section)).toEqual(["Install", "Removal", "Disposal", "Prep", "Materials", "Delivery", "Other", "Private"]);
+  });
+});
+
+describe("a stairs option shows every category, even empty (2026-11-04)", () => {
+  it("lists the card's categories and the lines' in work order, then Other, each with its lines", () => {
+    const lines = [l("rail", "railing"), l("typed", null), l("s1", "step"), l("odd", "Stringer"), l("s2", "step")];
+    const g = stairSections(lines, ["Riser", "step", null, "landing", "railing", "post"]);
+    expect(g.map((x) => [x.group, x.lines.map((y) => y.id)])).toEqual([
+      ["step", ["s1", "s2"]],
+      ["riser", []],
+      ["landing", []],
+      ["railing", ["rail"]],
+      ["post", []],
+      ["stringer", ["odd"]],
+      [null, ["typed"]],
+    ]);
+  });
+  it("keeps the lines in the same order as the grouped quote page, so numbering agrees", () => {
+    const lines = [l("rail", "railing"), l("typed", null), l("s1", "step"), l("r", "riser")];
+    expect(stairSections(lines, ["step", "bullnose"]).flatMap((x) => x.lines)).toEqual(sectionLinesInOrder("Stairs", lines));
+  });
+  it("is just Other when the card has no categories and no line has one", () => {
+    expect(stairSections([l("a", null)], [])).toEqual([{ group: null, lines: [l("a", null)] }]);
   });
 });

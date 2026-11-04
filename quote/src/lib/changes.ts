@@ -23,6 +23,15 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-04",
     kind: "changed",
+    title: "Stairs options show every category, each with its own add",
+    details: [
+      "In the editor, a stairs option now always shows its Stairs section with every Stair Item category (Steps, Bullnoses, Risers, Landings, Accents, Railing, Tasks and the rest) as its own heading, even when nothing is in it yet. Each heading has its own add button, so what you pick lands right under it.",
+      "Build a staircase sits right under the Stairs heading, typed lines go under Other, and Private (also always shown) has its add right under its heading. The Add work row at the bottom is gone on stairs options; flooring options keep it.",
+    ],
+  },
+  {
+    date: "2026-11-04",
+    kind: "changed",
     title: "No em dashes",
     details: ["No screen, email, text, page or PDF uses an em dash any more, including words typed into Airtable before a customer sees them."],
   },
