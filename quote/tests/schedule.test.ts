@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { materialsDeposit, optionTotals, stageAmountProblems, stageAmounts, type LineInput } from "../src/lib/calc";
-import { cleanSchedule, defaultSchedule, PRESETS, sameSchedule, scheduleField, scheduleProblems, suggestsMaterialDeposit, type PaymentSchedule } from "../src/lib/pricing/schedule";
+import { autoSchedule, cleanSchedule, defaultSchedule, payWords, PRESETS, sameSchedule, scheduleField, scheduleProblems, shownStage, suggestsMaterialDeposit, type PaymentSchedule } from "../src/lib/pricing/schedule";
 import { cleanEditorQuote, fingerprint, planSave } from "../src/lib/quotes/savePlan";
 import { VERSION } from "../src/lib/airtable/fields";
 import { blankQuote, setSchedule } from "../src/lib/editor/model";
-import { paymentWords } from "../src/lib/send/plan";
-import { stagesOf, type CopyOption } from "../src/lib/send/copy";
+import { acceptedFromAttempts, depositAmount, depositParts, depositSteps, paymentWords, smsDepositHow } from "../src/lib/send/plan";
+import { stagesOf, type CopyOption, type CopyStage } from "../src/lib/send/copy";
 
 /* Invented numbers only (quote/CLAUDE.md rule 4). */
 
@@ -61,17 +61,29 @@ describe("payment schedule: presets and checks", () => {
     expect(cleanSchedule(scheduleField(s))).toEqual(s);
     expect(cleanSchedule("not json")).toBeNull();
     expect(cleanSchedule(JSON.stringify({ stages: [{ label: "x", part: { kind: "weird" } }] }))).toBeNull();
-    expect(cleanSchedule({ preset: "nonsense", stages: [{ label: "Only", when: 3, part: { kind: "balance" }, pay: "cash" }] })).toEqual({
+    expect(cleanSchedule({ preset: "nonsense", stages: [{ label: "Only", when: 3, part: { kind: "balance" }, pay: "cheque" }] })).toEqual({
       preset: "custom",
       stages: [{ label: "Only", when: "", part: { kind: "balance" }, pay: null }],
     });
   });
 
-  it("stores the default as nothing, so an untouched quote stays blank", () => {
+  it("stores nothing for an untouched quote (it follows the automatic schedule), and a picked 35 / 35 / 30 as itself (2026-11-05)", () => {
     expect(scheduleField(null)).toBeNull();
-    expect(scheduleField(defaultSchedule())).toBeNull();
+    expect(scheduleField(defaultSchedule())).not.toBeNull();
     expect(scheduleField(PRESETS["50-50"].schedule())).not.toBeNull();
-    expect(sameSchedule(null, defaultSchedule())).toBe(true);
+    expect(sameSchedule(null, null)).toBe(true);
+    expect(sameSchedule(null, defaultSchedule())).toBe(false);
+    expect(sameSchedule(defaultSchedule(), defaultSchedule())).toBe(true);
+  });
+
+  it("reads and checks the new stage kinds and ways to pay", () => {
+    const s = PRESETS.materials.schedule();
+    expect(cleanSchedule(scheduleField(s))).toEqual(s);
+    expect(cleanSchedule(scheduleField(PRESETS.cash.schedule()))).toEqual(PRESETS.cash.schedule());
+    expect(scheduleProblems(s)).toEqual([]);
+    expect(scheduleProblems(PRESETS.cash.schedule())).toEqual([]);
+    const bad: PaymentSchedule = { preset: "custom", stages: [s.stages[0], { ...s.stages[1], part: { kind: "topUp", pct: 120 } }, s.stages[3]] };
+    expect(scheduleProblems(bad).join(" ")).toMatch(/percent of the total/);
   });
 });
 
@@ -105,12 +117,26 @@ describe("payment schedule: the money (calc.ts)", () => {
     expect(materialsDeposit([install], 0, false)).toBe(0);
   });
 
-  it("with the material deposit, the rest splits 50 / 50 between the first day and completion", () => {
+  it("with the material deposit over 35%, the deposit is the material alone, then 35% and the balance (2026-11-05)", () => {
     const lines = [install, floor];
     const t = optionTotals(lines, 0, false); // 1,500 untaxed + 2,000 + 260 HST = 3,760
     const a = stageAmounts(PRESETS.materials.schedule(), lines, 0, false, t.total);
-    expect(a.map((x) => x.amount)).toEqual([2260, 750, 750]);
-    expect(a.map((x) => x.pay)).toEqual(["etransfer", "onsite", "onsite"]);
+    // 35% of 3,760 is 1,316: the material (2,260) already covers it, so the rest of the deposit is nothing.
+    expect(a.map((x) => x.amount)).toEqual([2260, 0, 1316, 184]);
+    expect(a.map((x) => x.pay)).toEqual(["etransfer", "instore", "onsite", "onsite"]);
+    expect(a.map((x) => shownStage(x))).toEqual([true, false, true, true]);
+  });
+
+  it("with the material under 35%, the rest of the deposit is paid in store, then 35% and the balance (2026-11-05)", () => {
+    const small = L({ section: "Materials", lineType: "Material", qty: 100, unitPriceSnap: 4 }); // 400 + 52 HST
+    const big = L({ qty: 1000, unitPriceSnap: 5 }); // 5,000 untaxed
+    const lines = [big, small];
+    const t = optionTotals(lines, 0, false); // 5,452
+    const a = stageAmounts(PRESETS.materials.schedule(), lines, 0, false, t.total);
+    // 35% of 5,452 = 1,908.20: 452 for the material, 1,456.20 in store; 35% again on the first day; the balance.
+    expect(a.map((x) => x.amount)).toEqual([452, 1456.2, 1908.2, 1635.6]);
+    expect(a[0].amount + a[1].amount).toBeCloseTo(t.total * 0.35, 2);
+    expect(Math.round(a.reduce((s, x) => s + x.amount, 0) * 100)).toBe(Math.round(t.total * 100));
   });
 
   it("fixed amounts keep their dollars and the balance takes the difference (a change after acceptance)", () => {
@@ -128,16 +154,37 @@ describe("payment schedule: the money (calc.ts)", () => {
     expect(stageAmountProblems(credit, "Option 1").join(" ")).toMatch(/final payment would be less than nothing/);
   });
 
-  it("a material deposit on a quote with no material is refused before sending", () => {
+  it("a material deposit on an option with no material is all paid in store, and nothing is refused (2026-11-05)", () => {
     const a = stageAmounts(PRESETS.materials.schedule(), [install], 0, false, 1500);
-    expect(stageAmountProblems(a, "Option 1").join(" ")).toMatch(/deposit would be nothing/);
+    expect(a.map((x) => x.amount)).toEqual([0, 525, 525, 450]);
+    expect(stageAmountProblems(a, "Option 1")).toEqual([]);
+    // Without a top-up after it, a deposit of nothing is still refused.
+    const old: PaymentSchedule = { preset: "custom", stages: [PRESETS.materials.schedule().stages[0], { label: "Final payment", when: "", pay: null, part: { kind: "balance" } }] };
+    expect(stageAmountProblems(stageAmounts(old, [install], 0, false, 1500), "Option 1").join(" ")).toMatch(/deposit would be nothing/);
   });
 
-  it("suggests the material deposit only when some work carries no HST and there is material", () => {
+  it("picks the schedule by HST when the version has none (2026-11-05)", () => {
+    // Nothing taxed anywhere: cash, never e-transfer.
+    const cash = autoSchedule([{ lines: [install, untaxedFloor], showHst: false }]);
+    expect(cash.preset).toBe("cash");
+    expect(cash.stages.map((x) => x.pay)).toEqual(["cash", "cashOnsite", "cashOnsite"]);
+    // HST on the material only: the material first.
+    expect(autoSchedule([{ lines: [install, floor], showHst: false }]).preset).toBe("materials");
+    // Taxed throughout: 35 / 35 / 30 by e-transfer.
+    expect(autoSchedule([{ lines: [install, floor], showHst: true }])).toEqual(defaultSchedule());
+    // Nothing priced yet: the default.
+    expect(autoSchedule([{ lines: [], showHst: false }])).toEqual(defaultSchedule());
+    // One option taxed throughout and one with no HST at all: not every option is untaxed, so no cash.
+    expect(autoSchedule([{ lines: [install], showHst: true }, { lines: [install], showHst: false }])).toEqual(defaultSchedule());
+  });
+
+  it("fits the material deposit only when some material carries HST and some work carries none", () => {
     expect(suggestsMaterialDeposit([install, floor], true)).toBe(false);
     expect(suggestsMaterialDeposit([install, floor], false)).toBe(true);
     expect(suggestsMaterialDeposit([install, floor, untaxedFloor], true)).toBe(true);
     expect(suggestsMaterialDeposit([install], false)).toBe(false);
+    // No HST at all is cash now (2026-11-05), not a material deposit.
+    expect(suggestsMaterialDeposit([install, untaxedFloor], false)).toBe(false);
   });
 });
 
@@ -199,5 +246,69 @@ describe("payment schedule: in words", () => {
       "A deposit of $2,260.00 for your materials on acceptance, by e-transfer; 20% second payment on the first day of work, handed to your project manager on site; and the balance within 48 hours of completion, handed to your project manager on site. Nothing is final until the deposit is in; once it is, your materials are ordered and your date is locked in.",
     );
     expect(words).not.toMatch(/HST|cash/i);
+  });
+});
+
+/* ---------- cash and in store (Albert, 2026-11-05) ---------- */
+
+const ctx = { etransfer: "pay@example.com", quoteNumber: "Q-1", showroom: "1 Example St, Exampletown" };
+const st = (o: Partial<CopyStage>): CopyStage => ({ label: "Deposit", when: "", pay: null, amount: 0, pct: null, kind: "share", ...o });
+const opt = (schedule: CopyStage[]): CopyOption => ({
+  name: "Option 1",
+  description: null,
+  recommended: false,
+  sections: [],
+  exclusions: [],
+  totals: { preDiscount: 1000, discount: 0, subtotal: 1000, hst: 0, total: 1000, payment1: 350, payment2: 350, paymentFinal: 300 },
+  schedule,
+});
+
+describe("payment schedule: cash and in-store words", () => {
+  it("never says e-transfer when nothing carries HST", () => {
+    const words = paymentWords(
+      opt([
+        st({ label: "Deposit", when: "On acceptance, to secure your materials and your dates", pay: "cash", amount: 350, pct: 35 }),
+        st({ label: "Second payment", when: "On the first day of work", pay: "cashOnsite", amount: 350, pct: 35 }),
+        st({ label: "Final payment", when: "Within 48 hours of completion", pay: "cashOnsite", amount: 300, pct: 30, kind: "balance" }),
+      ]),
+    );
+    expect(words).toMatch(/^35% deposit on acceptance, to secure your materials and your dates, in cash at our showroom; 35% second payment on the first day of work, in cash, handed to your project manager on site/);
+    expect(words).not.toMatch(/e-transfer/i);
+    expect(depositSteps([st({ pay: "cash", amount: 350 })], ctx)).toEqual(["Pay it in cash at our showroom, 1 Example St, Exampletown, and mention Q-1."]);
+    expect(smsDepositHow([st({ pay: "cash", amount: 350 })], ctx)).toBe("Please pay it in cash at our showroom.");
+    expect(payWords("cashOnsite")).toBe("in cash, handed to your project manager on site");
+  });
+
+  it("breaks a material deposit under 35% into the material by e-transfer and the rest in store", () => {
+    const stages = [
+      st({ label: "Materials", pay: "etransfer", amount: 452, kind: "materials" }),
+      st({ label: "Rest of the deposit", pay: "instore", amount: 1456.2, kind: "topUp", target: 35 }),
+      st({ label: "Second payment", pay: "onsite", amount: 1908.2, kind: "ofTotal", target: 35 }),
+      st({ label: "Final payment", pay: "onsite", amount: 1635.6, kind: "balance" }),
+    ];
+    expect(depositParts(stages).map((s) => s.label)).toEqual(["Materials", "Rest of the deposit"]);
+    expect(depositAmount(stages)).toBe(1908.2);
+    expect(depositSteps(stages, ctx)).toEqual([
+      "$452.00 for your materials: Send it by e-transfer to pay@example.com and put Q-1 in the message.",
+      "$1,456.20 for the rest of your deposit: Pay it in store at our showroom, 1 Example St, Exampletown, and mention Q-1.",
+    ]);
+    const sms = smsDepositHow(stages, ctx);
+    expect(sms).toBe("Please e-transfer $452.00 for your materials to pay@example.com and put Q-1 in the message, and pay the other $1,456.20 in store at our showroom.");
+    // The text stays GSM-7 and never says cash for the in-store part.
+    expect(sms).not.toMatch(/cash|[\u2018\u2019\u201c\u201d\u2013\u2014]/);
+    const words = paymentWords(opt(stages));
+    expect(words).toMatch(/; the rest of the deposit, \$1,456\.20, paid in store; /);
+    // A top-up the material already covered is never shown.
+    const covered = [stages[0], { ...stages[1], amount: 0 }, stages[2], stages[3]];
+    expect(depositParts(covered).map((s) => s.label)).toEqual(["Materials"]);
+    expect(paymentWords(opt(covered))).not.toMatch(/rest of the deposit/);
+  });
+});
+
+describe("the won email's From line (2026-11-05)", () => {
+  it("goes only from the person who sent the version, signed by them; with no sender, from the company", () => {
+    expect(acceptedFromAttempts({ email: "pat@titanfloors.ca", firstName: "Pat" }, "hello@titanfloors.ca")).toEqual(["Pat @ Titan Flooring <pat@titanfloors.ca>", "pat@titanfloors.ca"]);
+    expect(acceptedFromAttempts({ email: "pat@example.com", firstName: "Pat" }, "hello@titanfloors.ca")).toEqual([]);
+    expect(acceptedFromAttempts(null, "hello@titanfloors.ca")).toEqual([null]);
   });
 });

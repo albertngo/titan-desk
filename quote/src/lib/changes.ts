@@ -22,6 +22,33 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-05",
+    kind: "changed",
+    title: "Payment schedule follows the HST",
+    details: [
+      "A quote with no HST at all is now paid in cash: the deposit at the showroom, the rest to the project manager on site. No e-transfer is mentioned anywhere the customer looks.",
+      "When only the material carries HST, the material comes first by e-transfer. If it comes to less than 35%, the rest of the deposit is paid in store. Then 35% on the first day and the balance at the end.",
+      "This happens by itself until you pick another schedule in the editor. Use it puts it back.",
+    ],
+  },
+  {
+    date: "2026-11-05",
+    kind: "fixed",
+    title: "The accepted email and text come from whoever sent the quote",
+    details: [
+      "The thank-you email and text after a customer accepts now come from the address and the GHL number of the person who sent that quote, and are signed with their name. Before, they could come from another address while signed by someone else.",
+    ],
+  },
+  {
+    date: "2026-11-05",
+    kind: "new",
+    title: "Everyone can choose who a quote is sent as",
+    details: [
+      "Send quote and Send again have Send as for everyone now. It always starts on you; pick someone else and the email, the text and the signature are all theirs. Albert is on the list only for Albert.",
+      "The card also says who sent this quote last, and when.",
+    ],
+  },
+  {
+    date: "2026-11-05",
     kind: "fixed",
     title: "Pictures attach to the quote again",
     details: [

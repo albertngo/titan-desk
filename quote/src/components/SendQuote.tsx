@@ -124,14 +124,21 @@ function CopyLink({ link }: { link: string }) {
   );
 }
 
-type SendAsList = { me: string; choices: { email: string; label: string; emailFrom: string | null; textFrom: string | null }[] };
+type SendAsList = {
+  me: string;
+  choices: { email: string; label: string; emailFrom: string | null; textFrom: string | null }[];
+  /** Who sent this quote last (2026-11-05): shown, never picked for you. */
+  last?: { label: string; version: number | null; on: string | null } | null;
+};
 
 /**
- * Albert only (2026-11-04: "an option to select who I want it sent out from"): who the quote goes out as. Picking
- * someone sends from their email address and their GHL number, signed with their name. The server checks it again.
+ * Send as (2026-11-04, opened to everyone 2026-11-05): who the email, the text and the signature come from, always
+ * starting on the person signed in. Albert is on the list only when Albert is signed in. Shows who sent it last.
  */
 function SendAsPicker({ list, value, onChange, disabled = false }: { list: SendAsList; value: string; onChange: (email: string) => void; disabled?: boolean }) {
   const c = list.choices.find((x) => x.email === value);
+  const last = list.last ? `Last sent by ${list.last.label}${list.last.version !== null ? ` · v${list.last.version}` : ""}${list.last.on ? ` · ${day(list.last.on)}` : ""}` : null;
+  if (list.choices.length < 2) return last ? <p className="faint sq-last">{last}</p> : null;
   return (
     <label className="sq-as">
       <span className="k">Send as</span>
@@ -142,6 +149,7 @@ function SendAsPicker({ list, value, onChange, disabled = false }: { list: SendA
           </option>
         ))}
       </select>
+      {last && <span className="sub sq-last">{last}</span>}
       {c && c.email !== list.me && (
         <span className="sub">
           Email from {c.emailFrom ?? "nobody (this address can't send email)"}; text from {c.textFrom ?? "the main GHL number"}; signed as them.
@@ -258,7 +266,7 @@ export function SendQuote({
   const router = useRouter();
   /** Unsaved changes for this version on this device (2026-11-05): nothing sends while there are. */
   const unsaved = useUnsavedAt(versionId);
-  /** Who it goes out as (Albert only, 2026-11-04): his own sign-in unless he picks someone else. */
+  /** Who it goes out as (2026-11-05, anyone): their own sign-in unless they pick someone else. */
   const [asEmail, setAsEmail] = useState(sendAs?.me ?? "");
   const asChoice = sendAs?.choices.find((c) => c.email === asEmail) ?? null;
   const asOther = Boolean(sendAs && asChoice && asEmail !== sendAs.me);

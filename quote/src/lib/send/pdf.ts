@@ -1,3 +1,4 @@
+import { shownStage } from "@/lib/pricing/schedule";
 import { parseSignature, type Acceptance } from "@/lib/accept/plan";
 import { termsLabel } from "@/lib/accept/terms";
 import { changeWords, paidLeft, signedMoney } from "@/lib/change/diff";
@@ -381,8 +382,8 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
     if (lead.addsHst) after.push([r ? "With HST" : "Total with HST", r ? rangeText(r.lowWithHst, r.highWithHst) : money(t.total)]);
     // The schedule as frozen (2026-10-27); a range's is in shares of the final price, which isn't known yet.
     const x1 = r ? 300 : 340;
-    const pay = stagesOf(o).map((s) => ({
-      k: `${s.label}${s.amount !== null && s.kind === "share" && s.pct !== null ? ` (${s.pct}%)` : ""}`,
+    const pay = stagesOf(o).filter(shownStage).map((s) => ({
+      k: `${s.label}${s.amount !== null && (s.kind === "share" || s.kind === "ofTotal") && s.pct !== null ? ` (${s.pct}%)` : ""}`,
       v: stageFigure(s, money),
       note: stageNote(s) ? wrap(stageNote(s), "R", 7.5, RIGHT - x1 - 90) : [],
     }));

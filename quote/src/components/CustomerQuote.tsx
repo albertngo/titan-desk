@@ -1,3 +1,4 @@
+import { shownStage } from "@/lib/pricing/schedule";
 import { changeWords, itemDifference, paidLeft, signedMoney, type CopyChange } from "@/lib/change/diff";
 import { money, rate } from "@/lib/format";
 import { OptionSwitcher } from "@/components/OptionSwitcher";
@@ -94,13 +95,13 @@ function Schedule({ o, title }: { o: CopyOption; title: string }) {
   return (
     <div className="cq-pay">
       <h4>{title}</h4>
-      {stagesOf(o).map((s, i) => {
+      {stagesOf(o).filter(shownStage).map((s, i) => {
         const note = stageNote(s);
         return (
           <div key={i}>
             <span>
               {s.label}
-              {s.amount !== null && s.kind === "share" && s.pct !== null ? ` (${s.pct}%)` : ""}
+              {s.amount !== null && (s.kind === "share" || s.kind === "ofTotal") && s.pct !== null ? ` (${s.pct}%)` : ""}
               {note && <span className="sub">{note}</span>}
             </span>
             <span>{stageFigure(s, money)}</span>
@@ -147,6 +148,7 @@ function ChangeBox({ c, o, lump }: { c: CopyChange; o: CopyOption; lump: boolean
         <div className="cq-pay">
           <h4>Payment schedule, before and after</h4>
           {after.map((s, i) => {
+            if (!shownStage(s)) return null;
             const was = c.before.stages[i]?.amount ?? null;
             const moved = was !== null && s.amount !== null && Math.abs(was - s.amount) > 0.004;
             return (

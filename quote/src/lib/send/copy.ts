@@ -1,7 +1,7 @@
 import { acceptedLabel, DISCOUNTS_SECTION, isAcceptedLine, isDiscountLine } from "@/lib/pricing/discounts";
-import { DEFAULT_PRIVATE_LABEL, optionHst, PRIVATE_SECTION, SECTIONS, chargesHst, isPriced, lineTotal, optionTotals, priceUsed, privateRollup, round2, sectionOf, stageAmounts } from "@/lib/calc";
+import { DEFAULT_PRIVATE_LABEL, optionHst, PRIVATE_SECTION, SECTIONS, chargesHst, isPriced, lineTotal, optionTotals, priceUsed, privateRollup, round2, sectionOf, stageAmounts, type LineInput } from "@/lib/calc";
 import type { CopyChange } from "@/lib/change/diff";
-import { defaultSchedule, payWords, type PayHow, type PaymentSchedule } from "@/lib/pricing/schedule";
+import { defaultSchedule, payWords, sameSchedule, scheduleFor, type PayHow, type PaymentSchedule } from "@/lib/pricing/schedule";
 import { optionScope } from "@/lib/quotes/scope";
 import type { Part, Quote, QuoteLine, QuoteOption, Scope } from "@/lib/quotes/types";
 import { copyKind } from "./summary";
@@ -77,7 +77,27 @@ export type CopyTotals = {
  * preliminary's range, where the final price isn't known: a share then says its percent, the balance
  * says "the balance", and a material deposit says it is for the material.
  */
-export type CopyStage = { label: string; when: string; pay: PayHow; amount: number | null; pct: number | null; kind: "share" | "materials" | "amount" | "balance" };
+export type CopyStage = {
+  label: string;
+  when: string;
+  pay: PayHow;
+  amount: number | null;
+  pct: number | null;
+  kind: "share" | "materials" | "amount" | "topUp" | "ofTotal" | "balance";
+  /** A top-up's or percent-of-total stage's own percent (2026-11-05), so it restages the same way. Absent on every other kind. */
+  target?: number;
+};
+
+/** A stage with its money, as the copy keeps it: the target only on the kinds that have one. */
+export const copyStage = (s: { label: string; when: string; pay: PayHow; amount: number | null; pct: number | null; kind: CopyStage["kind"]; target?: number | null }): CopyStage => ({
+  label: s.label,
+  when: s.when,
+  pay: s.pay,
+  amount: s.amount,
+  pct: s.pct,
+  kind: s.kind,
+  ...(typeof s.target === "number" ? { target: s.target } : {}),
+});
 
 /** A preliminary's price as a range (2026-10-27): whole dollars, before HST and with it. */
 export type CopyRange = { low: number; high: number; lowWithHst: number; highWithHst: number };
@@ -268,14 +288,7 @@ function copyStages(schedule: PaymentSchedule, o: QuoteOption, discountRate: num
   const stages = stageAmounts(schedule, o.lines, discountRate, showHst, total);
   return stages.map((s, i) => {
     const part = schedule.stages[i].part;
-    return {
-      label: s.label,
-      when: s.when,
-      pay: s.pay,
-      amount: ranged ? null : s.amount,
-      pct: ranged ? (part.kind === "share" ? part.pct : null) : s.pct,
-      kind: s.kind,
-    };
+    return copyStage({ ...s, amount: ranged ? null : s.amount, pct: ranged ? (part.kind === "share" || part.kind === "ofTotal" ? part.pct : null) : s.pct });
   });
 }
 
@@ -284,6 +297,7 @@ export function stageFigure(s: CopyStage, money: (n: number) => string): string 
   if (s.amount !== null) return money(s.amount);
   if (s.kind === "balance") return "The balance";
   if (s.kind === "materials") return "Your materials";
+  if (s.kind === "topUp") return s.target ? `Up to ${s.target}% in all` : "";
   return s.pct !== null ? `${s.pct}%` : "";
 }
 
@@ -453,6 +467,13 @@ export function scopeLeads(copy: Pick<CustomerCopy, "options" | "showHst">, mone
   });
 }
 
+/**
+ * The schedule a quote is paid by (2026-11-05): its own, else the automatic one from its options' HST
+ * (`autoSchedule()`: cash with no HST, the material first when only the material carries it).
+ */
+export const quoteSchedule = (q: { schedule?: PaymentSchedule | null; showHst: boolean; options: { lines: LineInput[]; showHst?: boolean }[] }): PaymentSchedule =>
+  scheduleFor(q.schedule, q.options.map((o) => ({ lines: o.lines, showHst: optionHst(q, o) })));
+
 /** "Flooring options", "Stairs option": the heading over a scope's options. */
 export const scopeHeading = (scope: Scope, count: number) => `${scope} option${count === 1 ? "" : "s"}`;
 
@@ -483,11 +504,12 @@ export function customerCopy(quote: Quote, at: { sentOn: string; validUntil: str
     // Each option says its own HST in its totals (2026-11-04); this is true only when every option charges it.
     showHst: quote.options.length ? quote.options.every((o) => optionHst(quote, o)) : quote.showHst,
     company: at.company,
-    ...(quote.schedule ? { paymentSchedule: quote.schedule } : {}),
+    // Frozen whenever it is not the plain 35 / 35 / 30 (2026-11-05: an automatic schedule is frozen like a picked one).
+    ...(!sameSchedule(quoteSchedule(quote), defaultSchedule()) ? { paymentSchedule: quoteSchedule(quote) } : {}),
     // Flooring options first, then stairs (2026-10-28), so each scope reads as one group; order within a scope is kept.
     options: [...quote.options]
       .sort((a, b) => (optionScope(a) === optionScope(b) ? 0 : optionScope(a) === "Flooring" ? -1 : 1))
-      .map((o) => copyOption(o, quote.discountRate, optionHst(quote, o), lump, prelim && at.range !== false, quote.schedule ?? defaultSchedule())),
+      .map((o) => copyOption(o, quote.discountRate, optionHst(quote, o), lump, prelim && at.range !== false, quoteSchedule(quote))),
   };
 }
 

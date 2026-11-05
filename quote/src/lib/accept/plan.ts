@@ -1,7 +1,7 @@
 import { acceptedTotals, restageAmounts, round2, type AcceptedTotals } from "@/lib/calc";
 import { defaultSchedule } from "@/lib/pricing/schedule";
 import type { Part, Scope } from "@/lib/quotes/types";
-import { hstOf, partOf, scopeOf, type CopyItem, type CopyStage, type CopyState, type CopyTotals, type CustomerCopy } from "@/lib/send/copy";
+import { copyStage, hstOf, partOf, scopeOf, type CopyItem, type CopyStage, type CopyState, type CopyTotals, type CustomerCopy } from "@/lib/send/copy";
 import { contractView, frozenStages, fromAcceptance } from "@/lib/contract/model";
 import type { Terms } from "./terms";
 
@@ -213,7 +213,7 @@ export function buildAcceptance(
   const schedule = copy.paymentSchedule ?? defaultSchedule();
   // A copy frozen before schedules existed has the default's three stages; anything else is restaged from its own definition.
   const restaged = schedule.stages.length === frozen.length ? restageAmounts(schedule, frozen, totals.total) : restageAmounts(defaultSchedule(), frozen, totals.total);
-  const stages: CopyStage[] = restaged.map((s, i) => ({ label: s.label, when: s.when || frozen[i]?.when || "", pay: s.pay, amount: s.amount, pct: s.pct, kind: s.kind }));
+  const stages: CopyStage[] = restaged.map((s, i) => copyStage({ ...s, when: s.when || frozen[i]?.when || "" }));
   return {
     v: ACCEPTANCE_VERSION,
     at: ctx.now.toISOString(),

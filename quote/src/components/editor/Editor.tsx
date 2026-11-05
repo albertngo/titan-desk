@@ -58,7 +58,8 @@ import { Picker } from "./Picker";
 import { ScheduleEditor } from "./ScheduleEditor";
 import { SwapOption } from "./SwapOption";
 import type { SwapSource } from "@/lib/change/swap";
-import { defaultSchedule, suggestsMaterialDeposit } from "@/lib/pricing/schedule";
+import { shownStage } from "@/lib/pricing/schedule";
+import { quoteSchedule } from "@/lib/send/copy";
 import { levelApplies, levelOf, PREMIUM_MARKUP, SERVICE_LEVELS } from "@/lib/pricing/service";
 import { CONTRACTOR_DISCOUNT, DISCOUNTS_SECTION, priceSummary } from "@/lib/pricing/discounts";
 import { PriceCard } from "./PriceCard";
@@ -390,7 +391,10 @@ export default function Editor({
 
   // The short lines the sidebar and the folded terms show (Option C, 2026-11-01).
   const termsRef = useRef<HTMLDetailsElement>(null);
-  const payLine = option && t ? stageAmounts(quote.schedule ?? defaultSchedule(), option.lines, quote.discountRate, option.showHst ?? quote.showHst, t.total).map((x) => x.pct).join(" / ") : "35 / 35 / 30";
+  // The version's own schedule, else the automatic one from its HST (2026-11-05).
+  const autoPlan = useMemo(() => quoteSchedule({ schedule: null, showHst: quote.showHst, options: quote.options }), [quote.showHst, quote.options]);
+  const schedule = quote.schedule ?? autoPlan;
+  const payLine = option && t ? stageAmounts(schedule, option.lines, quote.discountRate, option.showHst ?? quote.showHst, t.total).filter(shownStage).map((x) => x.pct).join(" / ") : "35 / 35 / 30";
   const termsLine = [hstOn ? "HST charged" : "HST off", `payment ${payLine}`].join(" · ");
 
   // Customer view leaves the Private section out and shows its total as one row in Other (2026-10-22).
@@ -1171,9 +1175,9 @@ export default function Editor({
               {/* The payment schedule (Albert, 2026-10-27): one per version, frozen when it is sent. */}
               <ScheduleEditor
                 schedule={quote.schedule ?? null}
+                auto={autoPlan}
                 onChange={(next) => apply(setSchedule(quote, next))}
-                suggestMaterials={quote.options.some((o) => suggestsMaterialDeposit(o.lines, (o.showHst ?? quote.showHst)))}
-                amounts={option && t ? stageAmounts(quote.schedule ?? defaultSchedule(), option.lines, quote.discountRate, hstOn, t.total) : []}
+                amounts={option && t ? stageAmounts(schedule, option.lines, quote.discountRate, hstOn, t.total) : []}
               />
             </div>
           </details>
@@ -1182,7 +1186,7 @@ export default function Editor({
         </div>
 
         <aside className="ed-side">
-          {option && t && <Financials schedule={quote.schedule ?? null} lines={option.lines} t={t} discountRate={quote.discountRate} showHst={hstOn} agrees={null} customer={customer} />}
+          {option && t && <Financials schedule={schedule} lines={option.lines} t={t} discountRate={quote.discountRate} showHst={hstOn} agrees={null} customer={customer} />}
           <section className="card ed-cust">
             <div className="card-h">Customer and terms</div>
             <div className="card-b">
