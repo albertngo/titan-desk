@@ -414,6 +414,9 @@ describe("open tracking (2026-10-27: no sign-in, key-gated, the customer deploym
     expect(written.every((w) => tracking.includes(w))).toBe(true);
     expect(text.match(/sendMessage\(\{ type: "(\w+)"/g)).toEqual(['sendMessage({ type: "InternalComment"']);
     expect(text).not.toMatch(/setFollowUpTags|sendToGhl/);
+    // Informative only, tagging nobody (Albert, 2026-11-05: "No need on any of them"); the send's own note too.
+    expect(text).toMatch(/type: "InternalComment", contactId, message: words\(info\), mentions: \[\] \}/);
+    expect(code(all.find((f) => f.rel === "lib/quotes/send.ts")!.text)).toMatch(/type: "InternalComment", contactId, message: sentComment\([^)]*\)\), mentions: \[\] \}/);
   });
 
   it("the customer deployment only reports: the relay reads no Airtable and runs only there", () => {

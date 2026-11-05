@@ -139,13 +139,10 @@ const sentWords = (i: ActivityInfo) =>
 const times = (n: number) => (n === 1 ? "once" : n === 2 ? "twice" : `${n} times`);
 const list = (xs: string[]) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`);
 
-/** "@Pat @Sam ": the tagged people's names, written in front as GHL's own mentions are. */
-const tagWords = (names: string[]) => names.map((n) => `@${n} `).join("");
-
-/** The first-open comment. `names` are the tagged people's names (none known: nothing written). */
-export function firstOpenComment(i: ActivityInfo, at: Date, device: Device, names: string[]): string {
+/** The first-open comment. Informative only: nobody is tagged (Albert, 2026-11-05: "No need on any of them"). */
+export function firstOpenComment(i: ActivityInfo, at: Date, device: Device): string {
   return [
-    `${tagWords(names)}Quote opened: ${what(i)} was opened by the customer for the first time, ${whenWords(at)} on ${device === "Other" ? "a device we couldn't name" : `${/^(iP|[AEIOU])/.test(device) ? "an" : "a"} ${device}`}.`,
+    `Quote opened: ${what(i)} was opened by the customer for the first time, ${whenWords(at)} on ${device === "Other" ? "a device we couldn't name" : `${/^(iP|[AEIOU])/.test(device) ? "an" : "a"} ${device}`}.`,
     sentWords(i),
     isMeasured(i.basis) ? "A good moment to follow up." : "",
   ]
@@ -153,9 +150,30 @@ export function firstOpenComment(i: ActivityInfo, at: Date, device: Device, name
     .join(" ");
 }
 
+/**
+ * The customer's link as staff open it: `#staff` makes the page skip its open report (SeenBeacon), so a
+ * look from GHL or the Send card is never counted as the customer's open (2026-10-27).
+ */
+export const staffViewLink = (link: string) => `${link.replace(/#.*$/, "")}#staff`;
+
+/**
+ * The note posted on the customer's conversation the moment a version goes out (Albert, 2026-11-05: "put a
+ * note when sending the quote out of the link to the quote… the one that does not count towards the open
+ * count for staff to click"). Nobody is tagged: it is for the record, no comment tags anyone (2026-11-05). `quotePage` is the version's page in the quote app, when this deployment knows its own address.
+ */
+export function sentComment(i: ActivityInfo, link: string, quotePage: string | null): string {
+  return [
+    `Quote sent: ${what(i)}. ${sentWords(i)}`,
+    `Customer's view (staff link, opening it is not counted as an open): ${staffViewLink(link)}`,
+    quotePage ? `In the quote app: ${quotePage}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 /** The comment three days after sending: opens, devices, downloads, last open, or not opened yet. */
-export function summaryComment(i: ActivityInfo, s: TrackState, names: string[]): string {
-  const head = `${tagWords(names)}Quote summary, ${SUMMARY_AFTER_DAYS} days after sending: ${what(i)}`;
+export function summaryComment(i: ActivityInfo, s: TrackState): string {
+  const head = `Quote summary, ${SUMMARY_AFTER_DAYS} days after sending: ${what(i)}`;
   if (s.openedCount === 0) return `${head} has not been opened yet. ${sentWords(i)}`.trim();
   const devices = devicesSeen(s.activityLog);
   const last = s.lastOpenedAt ? ` Last opened ${whenWords(new Date(s.lastOpenedAt))}.` : "";
@@ -170,28 +188,6 @@ export const SUMMARY_AFTER_DAYS = 3;
 export function summaryDue(sentAt: string | null, today: string): boolean {
   if (!sentAt || !/^\d{4}-\d{2}-\d{2}$/.test(sentAt) || !/^\d{4}-\d{2}-\d{2}$/.test(today)) return false;
   return (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${sentAt}T00:00:00Z`)) / 86_400_000 >= SUMMARY_AFTER_DAYS;
-}
-
-/**
- * Who a measured quote's comments tag (Albert, 2026-10-27, revised the same day): the user the
- * contact is assigned to, whoever sent it, else Albert; and the sender as well when they are a
- * different person, found by email among the location's users. Assigned first, never twice. A
- * preliminary tags nobody.
- */
-export function mentionsFor(
-  basis: string | null,
-  senderEmail: string | null,
-  users: { id: string; email: string | null; name: string | null }[],
-  assignedId: string | null,
-  fallbackId: string,
-): { id: string; name: string | null }[] {
-  if (!isMeasured(basis)) return [];
-  const id = assignedId ?? fallbackId;
-  const out = [{ id, name: users.find((u) => u.id === id)?.name ?? null }];
-  const email = senderEmail?.trim().toLowerCase();
-  const sender = email ? users.find((u) => u.email === email) : undefined;
-  if (sender && sender.id !== id) out.push({ id: sender.id, name: sender.name });
-  return out;
 }
 
 /**

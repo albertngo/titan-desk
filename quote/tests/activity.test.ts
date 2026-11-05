@@ -7,8 +7,9 @@ import {
   firstOpenComment,
   followUpTagBodies,
   isBot,
-  mentionsFor,
   parseActivity,
+  sentComment,
+  staffViewLink,
   summaryComment,
   summaryDue,
   type ActivityInfo,
@@ -81,12 +82,24 @@ describe("what counts as an open", () => {
 describe("the GHL comments", () => {
   const info: ActivityInfo = { quoteNumber: "Q-1234", version: 2, basis: "Measured", sentAt: "2026-10-24", senderName: "Pat", sentTo: "Email, Text" };
 
-  it("notes the first open; a measured quote's tags the sender and nudges, a preliminary's tags nobody", () => {
-    expect(firstOpenComment(info, T0, "iPhone", ["Pat Example"])).toBe(
-      "@Pat Example Quote opened: Q-1234 v2 (measured) was opened by the customer for the first time, Tue Oct 27, 2:03 pm on an iPhone. Sent Oct 24 by Pat, by email and text. A good moment to follow up.",
+  it("notes the first open, tagging nobody (2026-11-05); a measured quote's nudges", () => {
+    expect(firstOpenComment(info, T0, "iPhone")).toBe(
+      "Quote opened: Q-1234 v2 (measured) was opened by the customer for the first time, Tue Oct 27, 2:03 pm on an iPhone. Sent Oct 24 by Pat, by email and text. A good moment to follow up.",
     );
-    expect(firstOpenComment({ ...info, version: 1, basis: "Preliminary" }, T0, "Android phone", [])).toBe(
+    expect(firstOpenComment({ ...info, version: 1, basis: "Preliminary" }, T0, "Android phone")).toBe(
       "Quote opened: Q-1234 v1 (preliminary) was opened by the customer for the first time, Tue Oct 27, 2:03 pm on an Android phone. Sent Oct 24 by Pat, by email and text.",
+    );
+  });
+
+  it("notes the send with the staff link, which the customer page never counts (2026-11-05)", () => {
+    const link = `https://quote.example.com/c/${TOKEN}`;
+    expect(staffViewLink(link)).toBe(`${link}#staff`);
+    expect(staffViewLink(`${link}#x`)).toBe(`${link}#staff`);
+    expect(sentComment(info, link, "https://staff.example.com/q/recAAAAAAAAAAAAAA")).toBe(
+      `Quote sent: Q-1234 v2 (measured). Sent Oct 24 by Pat, by email and text.\nCustomer's view (staff link, opening it is not counted as an open): ${link}#staff\nIn the quote app: https://staff.example.com/q/recAAAAAAAAAAAAAA`,
+    );
+    expect(sentComment({ ...info, basis: "Preliminary", senderName: null, sentTo: "Text" }, link, null)).toBe(
+      `Quote sent: Q-1234 v2 (preliminary). Sent Oct 24, by text.\nCustomer's view (staff link, opening it is not counted as an open): ${link}#staff`,
     );
   });
 
@@ -94,10 +107,10 @@ describe("the GHL comments", () => {
     let s = applyActivity(blank, "open", "iPhone", T0).next;
     s = applyActivity(s, "open", "Windows", later(120)).next;
     s = applyActivity(s, "pdf", "Windows", later(121)).next;
-    expect(summaryComment(info, s, ["Pat Example"])).toBe(
-      "@Pat Example Quote summary, 3 days after sending: Q-1234 v2 (measured) was opened twice on iPhone and Windows. Last opened Tue Oct 27, 4:03 pm. PDF downloaded once.",
+    expect(summaryComment(info, s)).toBe(
+      "Quote summary, 3 days after sending: Q-1234 v2 (measured) was opened twice on iPhone and Windows. Last opened Tue Oct 27, 4:03 pm. PDF downloaded once.",
     );
-    expect(summaryComment({ ...info, basis: "Preliminary" }, blank, [])).toBe(
+    expect(summaryComment({ ...info, basis: "Preliminary" }, blank)).toBe(
       "Quote summary, 3 days after sending: Q-1234 v2 (preliminary) has not been opened yet. Sent Oct 24 by Pat, by email and text.",
     );
   });
@@ -107,30 +120,6 @@ describe("the GHL comments", () => {
     expect(summaryDue("2026-10-24", "2026-10-27")).toBe(true);
     expect(summaryDue("2026-10-24", "2026-11-03")).toBe(true);
     expect(summaryDue(null, "2026-10-27")).toBe(false);
-  });
-
-  it("tags the assigned user, plus the sender when that is someone else; a preliminary nobody", () => {
-    const users = [
-      { id: "userPat0000000000001", email: "pat@example.com", name: "Pat Example" },
-      { id: "userSam0000000000002", email: "sam@example.com", name: "Sam Example" },
-    ];
-    const pat = { id: "userPat0000000000001", name: "Pat Example" };
-    const sam = { id: "userSam0000000000002", name: "Sam Example" };
-    // Sam is assigned, Pat sent it: both, assigned first.
-    expect(mentionsFor("Measured", "PAT@example.com", users, "userSam0000000000002", "fallback")).toEqual([sam, pat]);
-    // The assigned user sent it: once.
-    expect(mentionsFor("Measured", "sam@example.com", users, "userSam0000000000002", "fallback")).toEqual([sam]);
-    // A shared box, or users can't be listed: the assigned user alone.
-    expect(mentionsFor("Measured", "info@example.com", users, "userSam0000000000002", "fallback")).toEqual([sam]);
-    expect(mentionsFor("Measured", "pat@example.com", [], "userSam0000000000002", "fallback")).toEqual([{ id: "userSam0000000000002", name: null }]);
-    // Nobody assigned: Albert, plus the sender.
-    expect(mentionsFor("Measured", "pat@example.com", users, null, "fallback")).toEqual([{ id: "fallback", name: null }, pat]);
-    expect(mentionsFor("Measured", null, [], null, "fallback")).toEqual([{ id: "fallback", name: null }]);
-    expect(mentionsFor("Preliminary", "pat@example.com", users, "userSam0000000000002", "fallback")).toEqual([]);
-  });
-
-  it("writes every tagged name in front", () => {
-    expect(summaryComment(info, blank, ["Sam Example", "Pat Example"])).toMatch(/^@Sam Example @Pat Example Quote summary/);
   });
 });
 
