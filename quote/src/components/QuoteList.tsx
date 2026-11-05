@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { whenWords } from "@/lib/activity/track";
 import { displayPhone } from "@/lib/link/identity";
-import { ago, fromWords, inFilter, lastSentVersion, matchesSearch, openedOn, opensWords, QUOTE_FILTERS, type QuoteFilter, type QuoteGroup, type VersionRow } from "@/lib/quotes/group";
+import { ago, DEFAULT_SORT, fromWords, inFilter, isQuoteSort, lastSentVersion, matchesSearch, nextSort, openedOn, opensWords, QUOTE_FILTERS, QUOTE_SORTS, sortGroups, type QuoteFilter, type QuoteGroup, type QuoteSort, type QuoteSortKey, type VersionRow } from "@/lib/quotes/group";
 
 const dateOf = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric", year: "numeric" });
 const initials = (name: string | null) =>
@@ -85,6 +85,76 @@ function Status({ status }: { status: string | null }) {
   );
 }
 
+/**
+ * The sort chosen on this device (2026-11-05), so coming back from a quote keeps it. Read as the raw
+ * stored text (a stable snapshot); storage that is off or unreadable gives the default.
+ */
+const SORT_KEY = "ql_sort";
+const sortListeners = new Set<() => void>();
+const sortStore = {
+  read: (): string => {
+    try {
+      return localStorage.getItem(SORT_KEY) ?? "";
+    } catch {
+      return "";
+    }
+  },
+  server: (): string => "",
+  write: (s: QuoteSort) => {
+    try {
+      if (s.key === DEFAULT_SORT.key && s.dir === DEFAULT_SORT.dir) localStorage.removeItem(SORT_KEY);
+      else localStorage.setItem(SORT_KEY, JSON.stringify(s));
+    } catch {
+      // Private window or storage blocked: nothing is remembered, and the list keeps the default.
+    }
+    sortListeners.forEach((l) => l());
+  },
+  subscribe: (l: () => void) => {
+    sortListeners.add(l);
+    return () => void sortListeners.delete(l);
+  },
+};
+function parseSort(raw: string): QuoteSort {
+  try {
+    const v: unknown = raw ? JSON.parse(raw) : null;
+    return isQuoteSort(v) ? v : DEFAULT_SORT;
+  } catch {
+    return DEFAULT_SORT;
+  }
+}
+
+const dirWords = (key: QuoteSortKey, dir: "asc" | "desc") => {
+  if (key === "customer" || key === "quote") return dir === "asc" ? "A to Z" : "Z to A";
+  if (key === "version") return dir === "asc" ? "drafts first" : "outcomes first";
+  if (key === "attention") return dir === "desc" ? "most first" : "least first";
+  return dir === "desc" ? "newest first" : "oldest first";
+};
+
+/** A column heading that sorts the list (2026-11-05): click to sort by it, click again to turn it round. */
+function SortHead({ k, label, sort, onSort, className, title }: { k: QuoteSortKey; label: string; sort: QuoteSort; onSort: (k: QuoteSortKey) => void; className?: string; title?: string }) {
+  const on = sort.key === k;
+  return (
+    <span className={className}>
+      <button
+        type="button"
+        className={`ql-sort${on ? " on" : ""}`}
+        onClick={() => onSort(k)}
+        title={title ?? `Sort by ${label.toLowerCase()}`}
+        aria-label={`${label}${on ? `, sorted ${dirWords(k, sort.dir)}` : ""}. Sort by ${label.toLowerCase()}${on ? `, ${dirWords(k, sort.dir === "asc" ? "desc" : "asc")}` : ""}`}
+      >
+        <span className="lb">{label}</span>
+        <svg className="ar" width="10" height="10" viewBox="0 0 10 10" aria-hidden>
+          {on ? (
+            <path d={sort.dir === "asc" ? "M5 2 8.5 7h-7z" : "M5 8 1.5 3h7z"} fill="currentColor" />
+          ) : (
+            <path d="M5 1 7.5 4h-5zM5 9 2.5 6h5z" fill="currentColor" />
+          )}
+        </svg>
+      </button>
+    </span>
+  );
+}
+
 function Chevron() {
   return (
     <svg className="chev" width="14" height="14" viewBox="0 0 16 16" aria-hidden>
@@ -98,6 +168,14 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<QuoteFilter>("all");
   const [open, setOpen] = useState<Set<string>>(() => new Set());
+  const sortRaw = useSyncExternalStore(sortStore.subscribe, sortStore.read, sortStore.server);
+  const sort = useMemo(() => parseSort(sortRaw), [sortRaw]);
+  const sortBy = (k: QuoteSortKey) => sortStore.write(nextSort(sort, k));
+  const pickSort = (v: string) => {
+    const [key, dir] = v.split(":");
+    const n = { key, dir };
+    if (isQuoteSort(n)) sortStore.write(n);
+  };
   const search = useRef<HTMLInputElement>(null);
   const now = useMemo(() => new Date(), []);
 
@@ -115,7 +193,7 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
 
   const searched = useMemo(() => groups.filter((g) => matchesSearch(g, query)), [groups, query]);
   const counts = useMemo(() => Object.fromEntries(QUOTE_FILTERS.map((f) => [f.key, searched.filter((g) => inFilter(g, f.key)).length])), [searched]);
-  const shown = useMemo(() => searched.filter((g) => inFilter(g, filter)), [searched, filter]);
+  const shown = useMemo(() => sortGroups(searched.filter((g) => inFilter(g, filter)), sort), [searched, filter, sort]);
   const keyOf = (g: QuoteGroup) => g.quoteRecordId ?? g.versions[0].id;
   const toggle = (k: string) =>
     setOpen((s) => {
@@ -164,6 +242,19 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
             </button>
           ))}
         </div>
+        {/* On a phone the column headings are hidden, so the sort is a menu there (2026-11-05). */}
+        <label className="ql-sortpick">
+          <span className="k">Sort</span>
+          <select value={`${sort.key}:${sort.dir}`} onChange={(e) => pickSort(e.target.value)} aria-label="Sort quotes">
+            {QUOTE_SORTS.flatMap((c) =>
+              (c.first === "asc" ? (["asc", "desc"] as const) : (["desc", "asc"] as const)).map((d) => (
+                <option key={`${c.key}:${d}`} value={`${c.key}:${d}`}>
+                  {c.label}, {dirWords(c.key, d)}
+                </option>
+              )),
+            )}
+          </select>
+        </label>
       </div>
 
       {groups.length === 0 ? (
@@ -178,14 +269,19 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
         </div>
       ) : (
         <>
-        {/* Column headings (2026-10-27); the row content stays self-describing, so screen readers skip them. */}
-        <div className="ql-head" aria-hidden>
-          <span className="c-who">Customer</span>
-          <span>Quote</span>
-          <span>Current version</span>
-          <span>Last opened</span>
-          <span>Attention</span>
-          <span className="c-when" title="When the current version was created">Created</span>
+        {/* Column headings (2026-10-27), sortable since 2026-11-05: each one is a button. */}
+        <div className="ql-head">
+          {QUOTE_SORTS.map((c) => (
+            <SortHead
+              key={c.key}
+              k={c.key}
+              label={c.label}
+              sort={sort}
+              onSort={sortBy}
+              className={c.key === "customer" ? "c-who" : c.key === "created" ? "c-when" : undefined}
+              title={c.key === "created" ? "When the current version was created. Sort by it" : undefined}
+            />
+          ))}
         </div>
         <ul className="ql">
           {shown.map((g) => {

@@ -23,6 +23,16 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-05",
     kind: "new",
+    title: "Sort All quotes by any column",
+    details: [
+      "Click a column heading on All quotes (Customer, Quote, Current version, Last opened, Attention, Created) to sort by it; click it again to turn it round. The arrow shows which one is sorting.",
+      "Quotes with nothing in that column (no number, never opened, nothing needing attention) always sit at the bottom.",
+      "On a phone the headings are hidden, so there is a Sort menu under the filters. Your choice is remembered on that device.",
+    ],
+  },
+  {
+    date: "2026-11-05",
+    kind: "new",
     title: "Drafts save themselves",
     details: [
       "While you edit a draft, it saves to Airtable a few seconds after you stop. The header says Saving…, then Saved and the time. Save still saves straight away and opens the quote.",
