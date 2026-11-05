@@ -81,7 +81,8 @@ export async function uploadAttachment(table: string, id: string, fieldId: strin
   const res = await fetch(`${UPLOAD}/${BASE_ID}/${id}/${fieldId}/uploadAttachment`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token()}`, "Content-Type": "application/json" },
-    body: JSON.stringify(file),
+    // Airtable names the base64 data `file` (2026-11-05: sending it as `base64` was a bare 400 BAD_REQUEST on every upload).
+    body: JSON.stringify({ contentType: file.contentType, file: file.base64, filename: file.filename }),
     cache: "no-store",
   });
   if (!res.ok) {

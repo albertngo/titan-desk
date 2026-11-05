@@ -22,6 +22,23 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-05",
+    kind: "fixed",
+    title: "Pictures attach to the quote again",
+    details: [
+      "Airtable refused every picture the app tried to keep on a quote, so a payout card couldn't be pushed to CompanyCam, and site sheet photos never reached the quote's Site Sheet Photos and Flooring Sheet Photos fields. They now attach, and Push to CompanyCam carries on to CompanyCam.",
+    ],
+  },
+  {
+    date: "2026-11-05",
+    kind: "fixed",
+    title: "Push to CompanyCam works without saving first",
+    details: [
+      "On the Payouts tab, Push to CompanyCam stayed greyed out until Save cards at the bottom was pressed. It now reads Save and push when there are unsaved changes, and saves the cards before it sends the card.",
+      "When the quote has no CompanyCam project linked, the card now says so under the button.",
+    ],
+  },
+  {
+    date: "2026-11-05",
     kind: "changed",
     title: "Work tabs show only their own content",
     details: ["Rooms, Site sheet, Payouts and Photos no longer have Send quote, History and the other quote cards under them. Those are still on every option's tab and on Analysis."],

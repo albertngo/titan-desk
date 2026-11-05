@@ -85,6 +85,8 @@ function NumBox({ value, onChange, label, placeholder, className }: { value: num
   );
 }
 
+const NO_CAM = "This quote has no CompanyCam project linked yet.";
+
 export function PayoutCards({ quoteRecordId, versionId, raw, options, defaultIds, candidates, header, contractors, camUrl }: Props) {
   const [seen, setSeen] = useState(raw);
   const stored = useMemo(() => parsePayouts(seen), [seen]);
@@ -130,13 +132,42 @@ export function PayoutCards({ quoteRecordId, versionId, raw, options, defaultIds
     });
   }
 
+  /**
+   * Push one card. Unsaved changes are saved first, in the same click (Albert, 2026-11-05: "can we get the push to
+   * ccam button to work?": it stayed greyed out until Save cards, at the foot of the tab, was pressed). The picture
+   * is drawn from the card as saved, which is what the server checks it against.
+   */
   async function push(card: PayoutCard) {
     setError(null);
     setNotice(null);
     setPushing(card.id);
     try {
-      const { base64 } = cardJpeg(cardSheet(card, header));
-      const res = await fetch("/api/payout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ quoteRecordId, seen, cardId: card.id, image: base64 }) });
+      let at = seen;
+      let sent = card;
+      if (dirty) {
+        const r = await savePayoutsAction(quoteRecordId, seen, set);
+        if (!r.ok) {
+          setError(r.message);
+          return;
+        }
+        const now = parsePayouts(r.saved) ?? emptySet();
+        setSeen(r.saved);
+        setSet(now);
+        at = r.saved;
+        const kept = now.cards.find((c) => c.id === card.id);
+        if (!kept) {
+          setError("The cards were saved, but this one wasn't among them. Check it and push again.");
+          return;
+        }
+        const problem = pushProblem(kept);
+        if (problem) {
+          setError(problem);
+          return;
+        }
+        sent = kept;
+      }
+      const { base64 } = cardJpeg(cardSheet(sent, header));
+      const res = await fetch("/api/payout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ quoteRecordId, seen: at, cardId: sent.id, image: base64 }) });
       const r = (await res.json().catch(() => ({ ok: false, message: "The app didn't answer. Try again." }))) as { ok: boolean; message?: string; saved?: string; warning?: string | null };
       if (r.saved !== undefined) {
         setSeen(r.saved);
@@ -311,12 +342,12 @@ export function PayoutCards({ quoteRecordId, versionId, raw, options, defaultIds
                       type="button"
                       className="btn primary"
                       onClick={() => push(card)}
-                      disabled={busy || dirty || !camUrl || problem !== null}
-                      title={!camUrl ? "This quote has no CompanyCam project linked yet." : dirty ? "Save the cards first." : (problem ?? undefined)}
+                      disabled={busy || !camUrl || problem !== null}
+                      title={!camUrl ? NO_CAM : (problem ?? (dirty ? "Saves the cards, then pushes this one." : undefined))}
                     >
-                      {pushing === card.id ? "Pushing…" : state.kind === "never" ? "Push to CompanyCam" : "Push again"}
+                      {pushing === card.id ? "Pushing…" : `${dirty ? "Save and push" : "Push"}${state.kind === "never" ? " to CompanyCam" : " again"}`}
                     </button>
-                    {(problem || (dirty && !pushing)) && <span className="faint po-why">{dirty ? "Save the cards first." : problem}</span>}
+                    {(!camUrl || problem) && <span className="faint po-why">{!camUrl ? NO_CAM : problem}</span>}
                   </div>
                   {preview?.cardId === card.id && (
                     <figure className="po-preview">

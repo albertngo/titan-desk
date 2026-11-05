@@ -997,7 +997,8 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   push kept) and hands that file's Airtable address to CompanyCam as a new photo on the quote's own project, tagged
   **Payout**, described "Payout card: <contractor>, $… labour (PP-…)". The push is recorded on the card (when, who, total,
   a signature of what it showed, `pushState()`), so the card says when it went and whether it changed since; **Push
-  again** adds a new photo, never replaces one. Preview shows the picture with Download. Not done (Albert, same day: "not
+  again** adds a new photo, never replaces one. **One click (2026-11-05):** with unsaved changes the button reads
+  **Save and push** and saves the cards first (the same compare-and-swap save), then pushes the card as saved. Preview shows the picture with Download. Not done (Albert, same day: "not
   now"): Notion's Project Costs lines stay by hand. Tested in `tests/payout.test.ts`; screen `src/components/PayoutCards.tsx`.
 - **Typed lines saved for next time, and logged (Albert, 2026-11-01: "When we add custom items and the quote ends
   up being SENT… make it so that those items are created for next time use and make them 'require review'… There
