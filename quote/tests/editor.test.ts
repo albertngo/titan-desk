@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { lineFlags, lineTotal, optionHst, optionTotals } from "../src/lib/calc";
 import { OPTION } from "../src/lib/airtable/fields";
 import {
+  unsavedDraftAt,
+  renameIds,
+  invertIds,
+  distinctIds,
   setAllHst,
   setOptionHst,
   addBuiltOption,
@@ -657,5 +661,51 @@ describe("HST per option (Albert, 2026-11-04)", () => {
     const on = setAllHst(off, true);
     expect(on.options.map((o) => optionFields(o, 1)[OPTION.chargeHst])).toEqual(["Charged", "Charged"]);
     expect(on.showHst).toBe(true);
+  });
+});
+
+describe("unsaved changes on this device hold sending (Albert, 2026-11-05)", () => {
+  it("reads when a kept draft was saved", () => {
+    expect(unsavedDraftAt(JSON.stringify({ savedAt: "2026-11-05T15:42:00.000Z", quote: { options: [] }, base: "x" }))).toBe("2026-11-05T15:42:00.000Z");
+  });
+  it("still counts a draft with no time", () => {
+    expect(unsavedDraftAt(JSON.stringify({ quote: { options: [] } }))).toBe("unknown");
+  });
+  it("is no draft when nothing is kept or the editor could not read it", () => {
+    expect(unsavedDraftAt(null)).toBeNull();
+    expect(unsavedDraftAt("")).toBeNull();
+    expect(unsavedDraftAt("{not json")).toBeNull();
+    expect(unsavedDraftAt("null")).toBeNull();
+    expect(unsavedDraftAt(JSON.stringify({ savedAt: "2026-11-05T15:42:00.000Z" }))).toBeNull();
+  });
+});
+
+describe("autosave keeps the editor's ids on screen (2026-11-05)", () => {
+  const q = () => {
+    const base = blankQuote();
+    return addLine(base, base.options[0].id, manualLine("Install", "Install plank"));
+  };
+
+  it("renames options and lines through the map, and back", () => {
+    const start = q();
+    const opt = start.options[0].id;
+    const line = start.options[0].lines[0].id;
+    const ids = { [opt]: "recOpt0000000000A", [line]: "recLine000000000A" };
+    const saved = renameIds(start, ids);
+    expect(saved.options[0].id).toBe("recOpt0000000000A");
+    expect(saved.options[0].lines[0].id).toBe("recLine000000000A");
+    expect(renameIds(saved, invertIds(ids))).toEqual(start);
+    expect(renameIds(start, {})).toBe(start);
+  });
+
+  it("gives a second use of an id its own, and leaves a quote with none alone", () => {
+    const start = q();
+    expect(distinctIds(start)).toBe(start);
+    const line = start.options[0].lines[0];
+    const twice = { ...start, options: [{ ...start.options[0], lines: [line, { ...line }] }] };
+    const fixed = distinctIds(twice);
+    expect(fixed.options[0].lines[0].id).toBe(line.id);
+    expect(fixed.options[0].lines[1].id).not.toBe(line.id);
+    expect(new Set(fixed.options[0].lines.map((l) => l.id)).size).toBe(2);
   });
 });

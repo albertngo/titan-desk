@@ -952,6 +952,71 @@ export function blankQuote(): EditorQuote {
  */
 export const draftKey = (q: Pick<EditorQuote, "quoteRecordId">) => `titan-quote-draft:${q.quoteRecordId ?? "new"}`;
 
+// ---------- autosave (Albert, 2026-11-05) ----------
+
+/**
+ * The quote with its option and line ids put through `ids` (an id not in it stays as it is). An
+ * autosave hands back the record each new line and option became; the editor keeps its own ids
+ * on screen, so rows never remount mid-edit, and this turns them into Airtable's before anything
+ * is saved, compared or kept on the device.
+ */
+export function renameIds(q: EditorQuote, ids: Readonly<Record<string, string>>): EditorQuote {
+  if (Object.keys(ids).length === 0) return q;
+  return { ...q, options: q.options.map((o) => ({ ...o, id: ids[o.id] ?? o.id, lines: o.lines.map((l) => (ids[l.id] ? { ...l, id: ids[l.id] } : l)) })) };
+}
+
+/** `ids` the other way round: Airtable's record back to the editor's own id. */
+export function invertIds(ids: Readonly<Record<string, string>>): Record<string, string> {
+  return Object.fromEntries(Object.entries(ids).map(([mine, rec]) => [rec, mine]));
+}
+
+/**
+ * The quote with every option and line id used once (the same quote when they already are). Two
+ * lines sharing an id would both be renamed to one record after an autosave, and every save after
+ * would make a line and detach another; a second use gets a new id instead.
+ */
+export function distinctIds(q: EditorQuote): EditorQuote {
+  const seen = new Set<string>();
+  let renamed = false;
+  const own = (id: string, prefix: "opt" | "line") => {
+    if (!seen.has(id)) {
+      seen.add(id);
+      return id;
+    }
+    renamed = true;
+    const next = newId(prefix);
+    seen.add(next);
+    return next;
+  };
+  const options = q.options.map((o) => {
+    const id = own(o.id, "opt");
+    const lines = o.lines.map((l) => {
+      const lid = own(l.id, "line");
+      return lid === l.id ? l : { ...l, id: lid };
+    });
+    return id === o.id && lines.every((l, i) => l === o.lines[i]) ? o : { ...o, id, lines };
+  });
+  return renamed ? { ...q, options } : q;
+}
+
+/**
+ * Whether this device holds unsaved changes for a version, read from what is stored under its
+ * `draftKey`: when they were kept, "unknown" when the draft has no time, null when there are none.
+ * Sending is held while there are (Albert, 2026-11-05: "grey out the send button if there is an
+ * outstanding unsaved version"). Something the editor itself could not read is no draft, as the
+ * editor treats it.
+ */
+export function unsavedDraftAt(raw: string | null): string | null {
+  if (!raw) return null;
+  try {
+    const d = JSON.parse(raw) as { savedAt?: unknown; quote?: unknown } | null;
+    if (!d || typeof d !== "object" || !d.quote || typeof d.quote !== "object") return null;
+    return typeof d.savedAt === "string" && d.savedAt ? d.savedAt : "unknown";
+  } catch {
+    return null;
+  }
+}
+
 export function fromQuote(quote: Quote): EditorQuote {
   return {
     quoteRecordId: quote.id,

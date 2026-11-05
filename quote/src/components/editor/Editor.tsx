@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { HstAll } from "./HstAll";
 import { addChoices, sectionLinesInOrder, stairGroupLabel, stairGroups, stairSections, type AddChoice } from "@/lib/editor/stairGroups";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { quickFormAction, quickOptionAction, saveAsNewVersionAction, saveVersionAction } from "@/app/q/[id]/edit/actions";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import type { AutosaveResult } from "@/lib/quotes/save";
+import { autosaveVersionAction, quickFormAction, quickOptionAction, saveAsNewVersionAction, saveVersionAction } from "@/app/q/[id]/edit/actions";
 import { estimateWork, initialWork, QuickWork, workInput, type WorkState } from "@/components/QuickWork";
 import type { QuickChoice, QuickProfile } from "@/lib/quick/plan";
 import { Financials } from "@/components/Financials";
@@ -44,6 +45,9 @@ import { manualLine,
   type EditorLine,
   type EditorQuote,
   draftKey,
+  distinctIds,
+  invertIds,
+  renameIds,
 } from "@/lib/editor/model";
 import { ghlContactUrl } from "@/lib/ghl/ids";
 import { fixAddressLink } from "@/lib/link/linkJob";
@@ -64,6 +68,25 @@ const WORK_SECTIONS = SECTIONS.filter((s) => s !== "Exclusions" && s !== DISCOUN
 
 /** `base` is the fingerprint of what Airtable held when the draft was started; saving checks it still does. */
 type Draft = { savedAt: string; quote: EditorQuote; base?: string };
+
+/** Autosave (2026-11-05): how long after the last change a Draft saves itself, and how long it waits to try again offline. */
+const AUTOSAVE_AFTER_MS = 4000;
+const AUTOSAVE_RETRY_MS = 30_000;
+/** `paused`: a save was refused. A conflict holds autosave until someone acts; anything else, until the next edit. */
+type AutoState = { state: "idle" } | { state: "saving" } | { state: "saved"; at: string } | { state: "offline" } | { state: "paused"; conflict: boolean; on: string };
+
+const clock = (iso: string) => new Date(iso).toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit" });
+
+/** The header's one line on where the work is: saving, saved to Airtable, or only on this device and why. */
+function statusWords({ changed, autoOn, auto, keptAt }: { changed: boolean; autoOn: boolean; auto: AutoState; keptAt: string | null }): string {
+  const kept = keptAt ? ` · kept ${clock(keptAt)}` : "";
+  if (autoOn && auto.state === "saving") return "Saving…";
+  if (!changed) return autoOn && auto.state === "saved" ? `Saved ${clock(auto.at)}` : "No changes";
+  if (!autoOn) return `Unsaved changes${kept}`;
+  if (auto.state === "offline") return `Offline: kept on this device${kept}`;
+  if (auto.state === "paused") return `Not saved: see below${kept}`;
+  return `Unsaved changes${kept}`;
+}
 
 /** The version being edited, as the edit page read it from Airtable. */
 export type EditorVersion = {
@@ -157,7 +180,8 @@ export default function Editor({
   const key = draftKey(initial);
   const [boot] = useState(() => loadDraft(key));
   // A restored draft keeps the base it was started from, so a save can tell if Airtable moved on since.
-  const base = boot ? (boot.base ?? "unknown") : version.base;
+  // Each autosave moves it on to what Airtable holds after it (2026-11-05).
+  const [base, setBase] = useState<string>(() => (boot ? (boot.base ?? "unknown") : version.base));
   const isDraft = version.status === "Draft";
   // A new version is usually the measured one, after the site visit.
   const [basis, setBasis] = useState<string>("Measured");
@@ -181,18 +205,102 @@ export default function Editor({
   const [levelNote, setLevelNote] = useState<string | null>(null);
   const [holdNote, setHoldNote] = useState<string | null>(null);
   const [crewNote, setCrewNote] = useState<string | null>(null);
-  const changed = useMemo(() => JSON.stringify(quote) !== JSON.stringify(initial), [quote, initial]);
+  /** What Airtable holds, in its own ids: the version as the editor opened it, then each autosave's read back (2026-11-05). */
+  const [saved, setSaved] = useState<EditorQuote>(initial);
+  /** The record each line and option the editor made became, by an autosave; the screen keeps its own ids. */
+  const [ids, setIds] = useState<Record<string, string>>({});
+  /** The editor's quote in Airtable's ids: what is saved, compared and kept on the device. */
+  const asSaved = useMemo(() => renameIds(quote, ids), [quote, ids]);
+  const changed = useMemo(() => JSON.stringify(asSaved) !== JSON.stringify(saved), [asSaved, saved]);
 
   // Keep a draft on this device: closing the tab or losing signal never loses work.
   useEffect(() => {
     if (leaving.current) return;
     try {
-      if (changed) window.localStorage.setItem(key, JSON.stringify({ savedAt: new Date().toISOString(), quote, base } satisfies Draft));
+      if (changed) window.localStorage.setItem(key, JSON.stringify({ savedAt: new Date().toISOString(), quote: asSaved, base } satisfies Draft));
       else window.localStorage.removeItem(key);
     } catch {
       // Private browsing or storage full: editing still works, it just is not kept.
     }
-  }, [quote, changed, key, base]);
+  }, [asSaved, changed, key, base]);
+
+  // Autosave (Albert, 2026-11-05): a Draft saves itself a few seconds after the last change, while
+  // online. A sent version never does (its save starts the next draft), and a refusal stops it
+  // until Save is pressed, so a conflict is never saved over. Offline, the device copy above keeps
+  // the work and it tries again when the connection is back.
+  const autoOn = isDraft;
+  const [auto, setAuto] = useState<AutoState>({ state: "idle" });
+  const inFlight = useRef(false);
+  const latest = useRef({ quote, ids, base });
+  useEffect(() => {
+    latest.current = { quote, ids, base };
+  }, [quote, ids, base]);
+
+  const autosave = useCallback(async () => {
+    if (inFlight.current || leaving.current) return;
+    if (navigator.onLine === false) return setAuto({ state: "offline" });
+    const own = distinctIds(latest.current.quote);
+    if (own !== latest.current.quote) {
+      // Two lines sharing an id: give the second its own first, and save on the next round.
+      setQuote(own);
+      return;
+    }
+    const { quote: sentQuote, ids: sentIds, base: sentBase } = latest.current;
+    inFlight.current = true;
+    setAuto({ state: "saving" });
+    const sent = renameIds(sentQuote, sentIds);
+    let r: AutosaveResult;
+    try {
+      r = await autosaveVersionAction(version.id, sent, sentBase);
+    } catch {
+      // The connection dropped: the work is still on this device. The next try finds out whether this one landed.
+      inFlight.current = false;
+      return setAuto({ state: "offline" });
+    }
+    inFlight.current = false;
+    if (!r.ok) {
+      setSaveError({ message: r.message, conflict: Boolean(r.conflict) });
+      return setAuto({ state: "paused", conflict: Boolean(r.conflict), on: JSON.stringify(sent) });
+    }
+    if (!r.fresh) {
+      // Saved, but Airtable couldn't be read back: open the editor again from what it holds.
+      leaving.current = true;
+      try {
+        window.localStorage.removeItem(key);
+      } catch {
+        // Storage unavailable: nothing was kept.
+      }
+      window.location.assign(`/q/${version.id}/edit`);
+      return;
+    }
+    const nextIds = { ...sentIds, ...r.ids };
+    const fresh = withCustomerFrom(r.fresh.quote, initial);
+    setSaved(fresh);
+    setBase(r.fresh.base);
+    setIds(nextIds);
+    // Untouched while it saved: show exactly what Airtable has, in the editor's own ids. Edited
+    // meanwhile: keep those edits; the next autosave takes them.
+    if (latest.current.quote === sentQuote) setQuote(renameIds(fresh, invertIds(nextIds)));
+    setRestoredAt(null);
+    setSaveError(null);
+    setAuto({ state: "saved", at: new Date().toISOString() });
+  }, [version.id, initial, key]);
+
+  // A refusal that wasn't a conflict (a payment schedule that doesn't add up) waits for the edit that fixes it.
+  const held = auto.state === "paused" && (auto.conflict || auto.on === JSON.stringify(asSaved));
+
+  useEffect(() => {
+    if (!autoOn || !changed || held || saving || auto.state === "saving" || leaving.current) return;
+    const t = window.setTimeout(() => void autosave(), auto.state === "offline" ? AUTOSAVE_RETRY_MS : AUTOSAVE_AFTER_MS);
+    return () => window.clearTimeout(t);
+  }, [autoOn, changed, asSaved, held, saving, auto.state, autosave]);
+
+  // Back online: try again straight away rather than at the next retry.
+  useEffect(() => {
+    const back = () => setAuto((a) => (a.state === "offline" ? { state: "idle" } : a));
+    window.addEventListener("online", back);
+    return () => window.removeEventListener("online", back);
+  }, []);
 
   // The Contractor level's 10% follows the list price after every change (2026-11-04).
   const apply = (next: EditorQuote): boolean => {
@@ -231,21 +339,35 @@ export default function Editor({
     window.location.assign(`/q/${versionId}`);
   };
 
+  /** A dropped connection throws rather than answering (2026-11-05): said plainly, never as "Airtable did not answer". */
+  const LOST =
+    "Lost the connection while saving. Your changes are still on this device. Airtable may or may not have them: open the quote to check before saving again.";
+
   const save = () => {
     setSaveError(null);
     startSave(async () => {
-      const r = await saveVersionAction(version.id, quote, base);
-      if (r.ok) done(r.versionId);
-      else setSaveError({ message: r.message, conflict: Boolean(r.conflict) });
+      try {
+        const r = await saveVersionAction(version.id, asSaved, base);
+        if (r.ok) done(r.versionId);
+        else setSaveError({ message: r.message, conflict: Boolean(r.conflict) });
+        // A Save pressed after a refusal takes autosave off hold; it pauses again if this one is refused too.
+        if (r.ok || !r.conflict) setAuto({ state: "idle" });
+      } catch {
+        setSaveError({ message: LOST, conflict: false });
+      }
     });
   };
 
   const saveAsNew = () => {
     setSaveError(null);
     startSave(async () => {
-      const r = await saveAsNewVersionAction(version.id, quote, basis);
-      if (r.ok) done(r.versionId);
-      else setSaveError({ message: r.message, conflict: false });
+      try {
+        const r = await saveAsNewVersionAction(version.id, asSaved, basis);
+        if (r.ok) done(r.versionId);
+        else setSaveError({ message: r.message, conflict: false });
+      } catch {
+        setSaveError({ message: LOST, conflict: false });
+      }
     });
   };
 
@@ -256,10 +378,14 @@ export default function Editor({
     } catch {
       // Storage unavailable: nothing was kept, so there is nothing to clear.
     }
-    setQuote(initial);
+    // Back to what Airtable has: as the editor opened it, or as the last autosave left it.
+    setQuote(saved);
+    setIds({});
     setRestoredAt(null);
     setSavedAt(null);
-    setActiveId(initial.options[0]?.id ?? null);
+    setSaveError(null);
+    setAuto({ state: "idle" });
+    setActiveId(saved.options[0]?.id ?? null);
   };
 
   // The short lines the sidebar and the folded terms show (Option C, 2026-11-01).
@@ -475,8 +601,8 @@ export default function Editor({
             </p>
           )}
         </div>
-        <span className={`status ${changed ? "Sent" : "Draft"}`}>
-          {changed ? `Unsaved changes${savedAt ? ` · kept ${new Date(savedAt).toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit" })}` : ""}` : "No changes"}
+        <span className={`status ${changed ? "Sent" : "Draft"}`} role="status">
+          {statusWords({ changed, autoOn, auto, keptAt: savedAt })}
         </span>
         <div className="actions">
           {/* On a phone Discard shows only once there is something to discard (2026-11-03). */}
@@ -501,7 +627,7 @@ export default function Editor({
             </Link>
           )}
           {isDraft && (
-            <button className="btn primary" onClick={save} disabled={saving || !changed}>
+            <button className="btn primary" onClick={save} disabled={saving || auto.state === "saving" || !changed}>
               {saving ? "Saving…" : version.change ? `Save change ${version.change.no}` : "Save"}
             </button>
           )}

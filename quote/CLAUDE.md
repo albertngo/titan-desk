@@ -46,6 +46,20 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
 - **The editor keeps drafts on the device** (localStorage, per quote) until they are saved.
   Every change is a pure function in `src/lib/editor/model.ts`; the screen only calls
   them. Test new behaviour there, not through the UI.
+- **Autosave and the Send guard (Albert, 2026-11-05: "grey out the send button if there is an outstanding
+  unsaved version"; "yes build autosave").** A **Draft** saves itself 4 s after the last change, while online
+  (`autosaveVersion()` in `src/lib/quotes/save.ts`: Save's own checks and refusals, then the version read back).
+  The editor keeps its own ids on screen and learns the record each new line and option became (`SavePlan`'s
+  `client`, `renameIds()` / `invertIds()` / `distinctIds()` in `model.ts`); everything saved, compared or kept on
+  the device is in Airtable's ids. A sent version never autosaves (its save starts the next draft). A conflict
+  holds autosave until someone acts; any other refusal, until the next edit. Offline, the device copy keeps the
+  work and it retries every 30 s or when the connection is back. A save whose answer was lost is recognised as
+  landed, not as a conflict (`alreadySaved()` in `savePlan.ts`). The Edit Log gets one line a sitting
+  (`autosaveWritesLine()` in `history.ts`: none while the same person keeps autosaving within 15 min). A dropped
+  connection on Save is said plainly instead of reaching the error page. While this device holds unsaved changes
+  for a version, its Send quote and Send again are greyed out with a note (`unsavedDraftAt()`, `SendQuote.tsx`);
+  changes on another device are not seen. Tested in `tests/save.test.ts`, `tests/history.test.ts` and
+  `tests/editor.test.ts`.
 - **Saving (milestone 3, 2026-10-14).** What to write is decided in `src/lib/quotes/savePlan.ts`
   (pure, tested in `tests/save.test.ts`); `src/lib/quotes/save.ts` carries it out. Only a Draft
   version is overwritten, and only if Airtable still matches what the editor opened (a
