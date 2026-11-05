@@ -1,10 +1,56 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useCallback, useState, useSyncExternalStore, useTransition } from "react";
 import { resendQuoteAction, sendQuoteAction } from "@/app/q/[id]/actions";
 import { activityEntries, devicesSeen, whenWords } from "@/lib/activity/track";
+import { draftKey, unsavedDraftAt } from "@/lib/editor/model";
 import type { QuoteActivity } from "@/lib/quotes/types";
+
+/**
+ * Unsaved changes for this version on this device (Albert, 2026-11-05): the editor keeps them under
+ * `draftKey` until they are saved or discarded. Read again when another tab changes storage and when
+ * the page is shown or focused again, so coming back from the editor is seen. Null on the server.
+ */
+function useUnsavedAt(versionId: string): string | null {
+  const key = draftKey({ quoteRecordId: versionId });
+  const subscribe = useCallback((changed: () => void) => {
+    window.addEventListener("storage", changed);
+    window.addEventListener("pageshow", changed);
+    window.addEventListener("focus", changed);
+    return () => {
+      window.removeEventListener("storage", changed);
+      window.removeEventListener("pageshow", changed);
+      window.removeEventListener("focus", changed);
+    };
+  }, []);
+  const read = useCallback(() => {
+    try {
+      return unsavedDraftAt(window.localStorage.getItem(key));
+    } catch {
+      return null;
+    }
+  }, [key]);
+  return useSyncExternalStore(subscribe, read, () => null);
+}
+
+const keptWhen = (at: string) =>
+  at === "unknown" ? "" : ` (kept ${new Date(at).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" })})`;
+
+/** Why sending is off while the device holds unsaved changes, with the way to the editor. */
+function UnsavedNote({ versionId, at, sent }: { versionId: string; at: string; sent: boolean }) {
+  return (
+    <div className="sq-msg warn sq-unsaved" role="status">
+      <b>Unsaved changes on this device{keptWhen(at)}</b>
+      <p>
+        {sent
+          ? "Send again is off until they are saved as the next draft or discarded, so nobody resends this version thinking it has them."
+          : "Sending is off until they are saved or discarded, so the customer never gets this version without them."}{" "}
+        <a href={`/q/${versionId}/edit`}>Open the editor</a>
+      </p>
+    </div>
+  );
+}
 
 /**
  * Send this version to the customer through GHL: email (link + PDF) and/or text (link). Two
@@ -109,7 +155,7 @@ function SendAsPicker({ list, value, onChange, disabled = false }: { list: SendA
  * Send the link again (Albert, 2026-10-30): when the customer asks for the PDF, or lost the message. The same
  * quote and link; "Include the PDF" turns on its Download button if it was off and puts its link in the message.
  */
-function SendAgain({ versionId, sendAs = null, email, phone, pdfOn, kind, dated }: { versionId: string; sendAs?: SendAsList | null; email: string | null; phone: string | null; pdfOn: boolean; kind: "quote" | "accepted" | "change"; dated: boolean }) {
+function SendAgain({ versionId, sendAs = null, email, phone, pdfOn, kind, dated, unsaved = null }: { versionId: string; sendAs?: SendAsList | null; email: string | null; phone: string | null; pdfOn: boolean; kind: "quote" | "accepted" | "change"; dated: boolean; /** Unsaved changes on this device (2026-11-05): Send again is off while there are. */ unsaved?: string | null }) {
   const [asEmail, setAsEmail] = useState(sendAs?.me ?? "");
   const asOther = Boolean(sendAs && asEmail && asEmail !== sendAs.me);
   const accepted = kind === "accepted";
@@ -124,7 +170,7 @@ function SendAgain({ versionId, sendAs = null, email, phone, pdfOn, kind, dated 
   if (!open)
     return (
       <div className="sq-again">
-        <button type="button" className="btn small" onClick={() => { setOpen(true); setResult(null); }}>Send again…</button>
+        <button type="button" className="btn small" disabled={Boolean(unsaved)} title={unsaved ? "Save or discard the unsaved changes on this device first" : undefined} onClick={() => { setOpen(true); setResult(null); }}>Send again…</button>
         {result && <p className={`sq-msg ${result.bad ? "bad" : "ok"}`} role="status">{result.text}</p>}
       </div>
     );
@@ -154,7 +200,7 @@ function SendAgain({ versionId, sendAs = null, email, phone, pdfOn, kind, dated 
         </div>
       )}
       <div className="sq-again-acts">
-        <button type="button" className="btn primary small" disabled={busy || (!byEmail && !bySms)} onClick={go}>{busy ? "Sending…" : "Send"}</button>
+        <button type="button" className="btn primary small" disabled={busy || Boolean(unsaved) || (!byEmail && !bySms)} onClick={go}>{busy ? "Sending…" : "Send"}</button>
         <button type="button" className="btn small" disabled={busy} onClick={() => setOpen(false)}>Cancel</button>
       </div>
       <p className="faint sq-again-note">Nothing about the quote changes: same price, same link{dated ? ", same good-until date" : ""}. The message has a link to the PDF, never an attachment.</p>
@@ -210,6 +256,8 @@ export function SendQuote({
   options: { id: string; name: string; price: string; range: string | null; recommended: boolean; notOffered?: boolean; problem: string | null }[];
 }) {
   const router = useRouter();
+  /** Unsaved changes for this version on this device (2026-11-05): nothing sends while there are. */
+  const unsaved = useUnsavedAt(versionId);
   /** Who it goes out as (Albert only, 2026-11-04): his own sign-in unless he picks someone else. */
   const [asEmail, setAsEmail] = useState(sendAs?.me ?? "");
   const asChoice = sendAs?.choices.find((c) => c.email === asEmail) ?? null;
@@ -275,7 +323,8 @@ export function SendQuote({
           {!done && sent?.activity && <Activity a={sent.activity} />}
           {s?.link && <CopyLink link={s.link} />}
           {/* Also straight after sending (2026-10-31): the version is Sent from that moment, no reload needed. */}
-          {(done || ["Sent", "Accepted", "Won"].includes(status ?? "")) && s?.link && ready.ready && <SendAgain versionId={versionId} sendAs={sendAs} email={email} phone={phone} pdfOn={done ? pdf : sent?.pdf === true} kind={!done && status !== "Sent" ? "accepted" : change ? "change" : "quote"} dated={(done || status === "Sent") && Boolean(s.validUntil)} />}
+          {unsaved && !done && ["Sent", "Accepted", "Won"].includes(status ?? "") && s?.link && ready.ready && <UnsavedNote versionId={versionId} at={unsaved} sent />}
+          {(done || ["Sent", "Accepted", "Won"].includes(status ?? "")) && s?.link && ready.ready && <SendAgain unsaved={unsaved} versionId={versionId} sendAs={sendAs} email={email} phone={phone} pdfOn={done ? pdf : sent?.pdf === true} kind={!done && status !== "Sent" ? "accepted" : change ? "change" : "quote"} dated={(done || status === "Sent") && Boolean(s.validUntil)} />}
           <div className="sq-tools">
             <a href={`/q/${versionId}/preview`} target="_blank" rel="noreferrer">What the customer sees</a>
             <a href={`/q/${versionId}/preview/email`} target="_blank" rel="noreferrer">The email</a>
@@ -287,7 +336,7 @@ export function SendQuote({
   }
 
   const channels = [byEmail && email ? `email (${email})` : null, bySms && phone ? `text (${phone})` : null].filter(Boolean);
-  const blocked = allProblems.length > 0 || !ready.ready;
+  const blocked = allProblems.length > 0 || !ready.ready || Boolean(unsaved);
 
   function send() {
     setError(null);
@@ -312,6 +361,7 @@ export function SendQuote({
           </div>
         )}
         {!ready.ready && <p className="sq-msg warn">{ready.why}</p>}
+        {unsaved && <UnsavedNote versionId={versionId} at={unsaved} sent={false} />}
 
         {sendAs && <SendAsPicker list={sendAs} value={asEmail} onChange={setAsEmail} disabled={sending || asking} />}
         <fieldset className="sq-ch" disabled={sending || asking}>
@@ -431,7 +481,7 @@ export function SendQuote({
             </p>
             <div className="ca-btns">
               <button type="button" className="btn small" onClick={() => setAsking(false)} disabled={sending}>Cancel</button>
-              <button type="button" className="btn small primary" onClick={send} disabled={sending}>
+              <button type="button" className="btn small primary" onClick={send} disabled={sending || Boolean(unsaved)}>
                 {sending ? "Sending…" : "Yes, send it"}
               </button>
             </div>

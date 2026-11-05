@@ -22,6 +22,15 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-05",
+    kind: "new",
+    title: "No sending while there are unsaved changes",
+    details: [
+      "If the editor holds changes on this device that haven't been saved, Send quote and Send again are greyed out, with a note saying when the changes were kept and a link back to the editor.",
+      "Save the changes (or discard them) and sending comes back. Changes kept on another phone or computer aren't seen here.",
+    ],
+  },
+  {
+    date: "2026-11-05",
     kind: "changed",
     title: "The staff link is on the contact's Notes too, with the quote and version",
     details: [

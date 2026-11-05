@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { lineFlags, lineTotal, optionHst, optionTotals } from "../src/lib/calc";
 import { OPTION } from "../src/lib/airtable/fields";
 import {
+  unsavedDraftAt,
   setAllHst,
   setOptionHst,
   addBuiltOption,
@@ -657,5 +658,21 @@ describe("HST per option (Albert, 2026-11-04)", () => {
     const on = setAllHst(off, true);
     expect(on.options.map((o) => optionFields(o, 1)[OPTION.chargeHst])).toEqual(["Charged", "Charged"]);
     expect(on.showHst).toBe(true);
+  });
+});
+
+describe("unsaved changes on this device hold sending (Albert, 2026-11-05)", () => {
+  it("reads when a kept draft was saved", () => {
+    expect(unsavedDraftAt(JSON.stringify({ savedAt: "2026-11-05T15:42:00.000Z", quote: { options: [] }, base: "x" }))).toBe("2026-11-05T15:42:00.000Z");
+  });
+  it("still counts a draft with no time", () => {
+    expect(unsavedDraftAt(JSON.stringify({ quote: { options: [] } }))).toBe("unknown");
+  });
+  it("is no draft when nothing is kept or the editor could not read it", () => {
+    expect(unsavedDraftAt(null)).toBeNull();
+    expect(unsavedDraftAt("")).toBeNull();
+    expect(unsavedDraftAt("{not json")).toBeNull();
+    expect(unsavedDraftAt("null")).toBeNull();
+    expect(unsavedDraftAt(JSON.stringify({ savedAt: "2026-11-05T15:42:00.000Z" }))).toBeNull();
   });
 });

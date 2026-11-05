@@ -617,6 +617,8 @@ a.chip.accent:hover { text-decoration: underline; }
 .sq-msg.warn { background: var(--warn-soft); color: var(--warn); }
 .sq-msg.bad { background: var(--bad-soft); color: var(--bad); }
 .sq-msg.ok { background: var(--good-soft); color: var(--good); }
+.sq-unsaved p { margin: 4px 0 0; }
+.sq-unsaved a { color: inherit; font-weight: 600; text-decoration: underline; }
 .sq-ch { border: 0; padding: 0; margin: 0; display: grid; gap: 6px; }
 .sq-ch label { display: flex; gap: 10px; align-items: flex-start; padding: 9px 10px; border: 1px solid var(--line); border-radius: var(--radius); cursor: pointer; font-size: 13px; transition: border-color .15s, background .15s; }
 .sq-ch label:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }

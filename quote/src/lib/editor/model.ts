@@ -952,6 +952,24 @@ export function blankQuote(): EditorQuote {
  */
 export const draftKey = (q: Pick<EditorQuote, "quoteRecordId">) => `titan-quote-draft:${q.quoteRecordId ?? "new"}`;
 
+/**
+ * Whether this device holds unsaved changes for a version, read from what is stored under its
+ * `draftKey`: when they were kept, "unknown" when the draft has no time, null when there are none.
+ * Sending is held while there are (Albert, 2026-11-05: "grey out the send button if there is an
+ * outstanding unsaved version"). Something the editor itself could not read is no draft, as the
+ * editor treats it.
+ */
+export function unsavedDraftAt(raw: string | null): string | null {
+  if (!raw) return null;
+  try {
+    const d = JSON.parse(raw) as { savedAt?: unknown; quote?: unknown } | null;
+    if (!d || typeof d !== "object" || !d.quote || typeof d.quote !== "object") return null;
+    return typeof d.savedAt === "string" && d.savedAt ? d.savedAt : "unknown";
+  } catch {
+    return null;
+  }
+}
+
 export function fromQuote(quote: Quote): EditorQuote {
   return {
     quoteRecordId: quote.id,
