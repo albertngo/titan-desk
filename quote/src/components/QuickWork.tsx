@@ -4,13 +4,14 @@ import { useMemo, useState, useTransition } from "react";
 import { searchProductsAction } from "@/app/new/actions";
 import { optionTotals } from "@/lib/calc";
 import { money } from "@/lib/format";
-import { amountUnit, basisChoices, BUILDINGS, buildPreliminary, choiceRate, GROUP_ROWS, parseWork, QUICK_GROUPS, remapBases, resolveBasis, rowTotal, followBases, TOTAL_BASIS, type QuickChoice, type QuickGroup, type QuickProduct, type QuickProfile } from "@/lib/quick/plan";
+import { amountUnit, BASIS_GROUPS, basisChoices, BUILDINGS, buildPreliminary, choiceRate, GROUP_ROWS, parseWork, QUICK_GROUPS, remapBases, resolveBasis, rowTotal, followBases, materialWaste, TOTAL_BASIS, type QuickChoice, type QuickGroup, type QuickProduct, type QuickProfile } from "@/lib/quick/plan";
 import { METHOD_PHRASE, modifierFor, STAIR_ROWS } from "@/lib/quick/stairs";
 
 export type PickedProduct = Pick<QuickProduct, "recordId" | "sku" | "name" | "rate">;
 /**
- * `basis` (Baseboards rows only, 2026-11-04): what the amount follows live, TOTAL_BASIS or an Install
- * row's key; null once staff type their own amount, and on a row added after the first.
+ * `basis` (Baseboards rows 2026-11-04, Material rows 2026-11-05): what the amount follows live,
+ * TOTAL_BASIS or an Install row's key; null once staff type their own amount, and on a row added
+ * after the first.
  */
 export type WorkRow = { key: string; group: QuickGroup; choiceId: string; amount: string; product: PickedProduct | null; basis?: string | null };
 /** One staircase on the form: the Stair Profiles row picked (no typed price since 2026-11-02). */
@@ -18,12 +19,12 @@ export type StairRowState = { key: string; profileId: string };
 export type WorkState = { rows: WorkRow[]; stairs: StairRowState[]; extraCost: string; description: string; building: string };
 
 let n = 0;
-const newRow = (group: QuickGroup, basis: string | null = null): WorkRow => ({ key: `r${++n}`, group, choiceId: "", amount: "", product: null, ...(group === "Baseboards" ? { basis } : {}) });
+const newRow = (group: QuickGroup, basis: string | null = null): WorkRow => ({ key: `r${++n}`, group, choiceId: "", amount: "", product: null, ...(BASIS_GROUPS.includes(group) ? { basis } : {}) });
 const newStair = (): StairRowState => ({ key: `s${++n}`, profileId: "" });
 
 export function initialWork(choices: QuickChoice[]): WorkState {
   const groups = QUICK_GROUPS.filter((g) => choices.some((c) => c.group === g));
-  return { rows: groups.map((g) => newRow(g, g === "Baseboards" ? TOTAL_BASIS : null)), stairs: [], extraCost: "", description: "", building: "" };
+  return { rows: groups.map((g) => newRow(g, BASIS_GROUPS.includes(g) ? TOTAL_BASIS : null)), stairs: [], extraCost: "", description: "", building: "" };
 }
 
 const toNumber = (s: string) => {
@@ -104,16 +105,16 @@ export function QuickWork({
 
   const set = (patch: Partial<WorkState>) => onChange({ ...value, ...patch });
 
-  /** A Baseboards row follows its basis only once a linear-foot choice is picked on it. */
-  const linear = (r: WorkRow) => {
+  /** A row follows its basis only once a choice is picked on it: a linear-foot one on Baseboards, any on Material. */
+  const follows = (r: WorkRow) => {
     const c = byId.get(r.choiceId);
-    return !!c && amountUnit(c) === "linear ft";
+    return !!c && (r.group === "Material" || amountUnit(c) === "linear ft");
   };
-  /** Every change to the rows goes through here, so each baseboard row with a basis shows a third of it, live (2026-11-04). */
-  const setRows = (next: WorkRow[]) => set({ rows: followBases(next, linear) });
-  /** Typing an amount on a Baseboards row is a manual override: it stops following until a chip is picked. */
+  /** Every change to the rows goes through here, so each row with a basis follows it, live (2026-11-04; Material 2026-11-05). */
+  const setRows = (next: WorkRow[]) => set({ rows: followBases(next, follows) });
+  /** Typing an amount on a Baseboards or Material row is a manual override: it stops following until a chip is picked. */
   const setRow = (key: string, patch: Partial<WorkRow>) =>
-    setRows(value.rows.map((r) => (r.key !== key ? r : { ...r, ...patch, ...(r.group === "Baseboards" && patch.amount !== undefined && patch.basis === undefined ? { basis: null } : {}) })));
+    setRows(value.rows.map((r) => (r.key !== key ? r : { ...r, ...patch, ...(BASIS_GROUPS.includes(r.group) && patch.amount !== undefined && patch.basis === undefined ? { basis: null } : {}) })));
   const labelOf = (id: string) => byId.get(id)?.label ?? "";
   const removeRow = (key: string) => setRows(value.rows.filter((r) => r.key !== key));
   const addRow = (g: QuickGroup) => {
@@ -124,7 +125,7 @@ export function QuickWork({
   };
   const setStair = (key: string, patch: Partial<StairRowState>) => set({ stairs: value.stairs.map((s) => (s.key === key ? { ...s, ...patch } : s)) });
 
-  // The first Install row with a square footage: Remove and Material rows can take it in one tap.
+  // The first Install row with a square footage: Remove rows can take it in one tap (Material follows a basis since 2026-11-05).
   const installSqft = value.rows.find((r) => r.group === "Install" && r.choiceId && toNumber(r.amount) !== null)?.amount ?? null;
 
   const rowWords = (r: WorkRow) => {
@@ -160,9 +161,11 @@ export function QuickWork({
                 {rows.map((r, i) => {
                   const c = byId.get(r.choiceId);
                   const unit = c ? amountUnit(c) : g === "Disposal" ? null : "sqft";
-                  const copyable = unit === "sqft" && (g === "Remove" || g === "Material") && installSqft !== null && clean(r.amount) !== clean(installSqft);
-                  // Baseboards: a third of the install square feet, the total or one Install row's (2026-11-04).
-                  const bases = g === "Baseboards" && (!c || amountUnit(c) === "linear ft") ? basisChoices(value.rows, labelOf) : [];
+                  const copyable = unit === "sqft" && g === "Remove" && installSqft !== null && clean(r.amount) !== clean(installSqft);
+                  // Baseboards: a third of the install square feet, the total or one Install row's (2026-11-04); Material: the square feet (2026-11-05).
+                  const bases = (g === "Baseboards" && (!c || amountUnit(c) === "linear ft")) || g === "Material" ? basisChoices(value.rows, labelOf, g) : [];
+                  // Material waste (2026-11-05): on the line's Waste field, counted in the total beside it.
+                  const waste = g === "Material" && c ? materialWaste(c.label, (r.product ?? c.product)?.name ?? null) : null;
                   const following = resolveBasis(r.basis, value.rows);
                   const total = c ? rowTotal(choices, { choiceId: c.id, amount: toNumber(r.amount), productId: r.product?.recordId ?? null }, picked) : null;
                   return (
@@ -190,7 +193,7 @@ export function QuickWork({
                           )}
                           {c && (
                             <span className="qw-price" aria-label={`${g} ${i + 1} rate and total`}>
-                              <span className="qw-rate">{rateText(c, unit, r.product)}</span>
+                              <span className="qw-rate">{rateText(c, unit, r.product)}{waste !== null && ` + ${Math.round(waste * 100)}% waste`}</span>
                               <b>{total === null ? "-" : money(total)}</b>
                             </span>
                           )}
@@ -206,7 +209,7 @@ export function QuickWork({
                           {bases.map((b) => {
                             const on = following === b.basis;
                             return (
-                              <button type="button" key={b.basis} className={`qw-chip${on ? " on" : ""}`} role="radio" aria-checked={on} title={`${b.third} linear ft, and it keeps following`} onClick={() => setRow(r.key, { basis: b.basis })}>
+                              <button type="button" key={b.basis} className={`qw-chip${on ? " on" : ""}`} role="radio" aria-checked={on} title={`${b.third} ${g === "Material" ? "sq ft" : "linear ft"}, and it keeps following`} onClick={() => setRow(r.key, { basis: b.basis })}>
                                 {b.label}
                               </button>
                             );

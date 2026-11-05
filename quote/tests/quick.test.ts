@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { optionTotals } from "../src/lib/calc";
 import { buildCatalogue } from "../src/lib/editor/model";
 import type { StairProfileRow, StairRow } from "../src/lib/quotes/types";
-import { amountUnit, BASEBOARD_PER_SQFT, baseboardDefault, basisChoices, basisSqft, buildPreliminary, followBases, installTotal, remapBases, resolveBasis, TOTAL_BASIS, type BasisRow, choiceRate, distinctNames, MAX_QUICK_OPTIONS, optionName, parseWorks, parseWork, QUICK_GROUPS, browserProfiles, quickProfiles, rowTotal, stairAreas, workIsEmpty, type QuickChoice, type QuickPart, type QuickProduct } from "../src/lib/quick/plan";
+import { amountUnit, basisAmount, MATERIAL_WASTE, materialWaste, PATTERN_WASTE, BASEBOARD_PER_SQFT, baseboardDefault, basisChoices, basisSqft, buildPreliminary, followBases, installTotal, remapBases, resolveBasis, TOTAL_BASIS, type BasisRow, choiceRate, distinctNames, MAX_QUICK_OPTIONS, optionName, parseWorks, parseWork, QUICK_GROUPS, browserProfiles, quickProfiles, rowTotal, stairAreas, workIsEmpty, type QuickChoice, type QuickPart, type QuickProduct } from "../src/lib/quick/plan";
 
 // INVENTED rates, costs, ids and products only: this repo is public.
 const part = (o: Partial<QuickPart> & { recordId: string }): QuickPart => ({ kind: "rate", labourType: "Install", spec: "SPEC", description: "Install | SPEC", contractor: "Crew A", uom: "sqft", rate: 2, cost: 1, minCharge: null, ...o });
@@ -52,7 +52,8 @@ describe("quick form: the lines it becomes", () => {
     const row = buildPreliminary(choices, parseWork({ rows: [{ choiceId: MAT_ROW.id, amount: 100 }] }), new Map()).lines[0];
     expect([row.sourceKind, row.sourceId, row.qty, row.unitPriceSnap, row.unitCostSnap, row.section]).toEqual(["rate", "recRateCork0000AA", 100, 1.8, 1.4, "Materials"]);
     expect(choiceRate(MAT_ROW)).toEqual({ perUnit: 1.8, flat: 0 });
-    expect(rowTotal(choices, { choiceId: MAT_ROW.id, amount: 100, productId: null }, new Map())).toBe(180);
+    // 10% material waste on top (2026-11-05).
+    expect(rowTotal(choices, { choiceId: MAT_ROW.id, amount: 100, productId: null }, new Map())).toBe(198);
     const picked = buildPreliminary(choices, parseWork({ rows: [{ choiceId: MAT_ROW.id, amount: 100, productId: OTHER.recordId }] }), new Map([[OTHER.recordId, OTHER]])).lines[0];
     expect([picked.sourceKind, picked.sourceId, picked.unitPriceSnap]).toEqual(["product", OTHER.recordId, 5]);
     expect(buildPreliminary(choices, parseWork({ rows: [{ choiceId: MAT_ROW.id }] }), new Map()).skipped).toEqual(["Cork (no amount)"]);
@@ -67,7 +68,7 @@ describe("quick form: the lines it becomes", () => {
 
   it("totals the same way every quote does", () => {
     const { lines } = buildPreliminary(choices, parseWork({ rows: [{ choiceId: NAIL.id, amount: 100 }, { choiceId: BINS.id }, { choiceId: MAT.id, amount: 100 }] }), new Map());
-    expect(optionTotals(lines, 0, false).preDiscount).toBe(100 * 2 + 2 * 300 + 100 * 3);
+    expect(optionTotals(lines, 0, false).preDiscount).toBe(100 * 2 + 2 * 300 + 110 * 3);
   });
 
   it("shows a choice's rate beside it: per unit, flat, or the product's", () => {
@@ -84,7 +85,7 @@ describe("quick form: the lines it becomes", () => {
   it("totals one row the way the quote will, minimum charge included, or nothing until it can be priced", () => {
     expect(rowTotal(choices, { choiceId: NAIL_GLUE.id, amount: 400, productId: null }, new Map())).toBe(1000);
     expect(rowTotal(choices, { choiceId: BINS.id, amount: null, productId: null }, new Map())).toBe(600);
-    expect(rowTotal(choices, { choiceId: MAT.id, amount: 100, productId: OTHER.recordId }, new Map([[OTHER.recordId, OTHER]]))).toBe(500);
+    expect(rowTotal(choices, { choiceId: MAT.id, amount: 100, productId: OTHER.recordId }, new Map([[OTHER.recordId, OTHER]]))).toBe(550);
     expect(rowTotal(choices, { choiceId: NAIL.id, amount: null, productId: null }, new Map())).toBeNull();
     expect(rowTotal(choices, { choiceId: MAT_UNSET.id, amount: 100, productId: null }, new Map())).toBeNull();
     const withMin = choice({ id: "recMin0000000000A", parts: [part({ recordId: "rMin", rate: 2, minCharge: 500 })] });
@@ -190,6 +191,48 @@ describe("quick form: staircases (2026-10-20; Stair Item lines 2026-11-02)", () 
     expect(workIsEmpty(parseWork({ stairs: [{ profileId: MAIN.id }] }))).toBe(false);
     expect(workIsEmpty(parseWork({}))).toBe(true);
     expect([...QUICK_GROUPS]).not.toContain("Staircase");
+  });
+});
+
+describe("quick form: material waste (Albert, 2026-11-05)", () => {
+  it("puts 10% on the line's Waste field, 15% for herringbone or tile, and keeps the floor's square feet as the quantity", () => {
+    expect([MATERIAL_WASTE, PATTERN_WASTE]).toEqual([0.1, 0.15]);
+    expect(["Laminate or Vinyl Click", "Herringbone (Vinyl)", "Porcelain Tiles", "Tile", "Versatile plank"].map((l) => materialWaste(l, null))).toEqual([0.1, 0.15, 0.15, 0.15, 0.1]);
+    // A picked product that is herringbone counts too, whatever the choice is called.
+    expect(materialWaste("Engineered (Click)", "Oak Herringbone 5in")).toBe(0.15);
+    const std = buildPreliminary(choices, parseWork({ rows: [{ choiceId: MAT.id, amount: 300 }] }), new Map()).lines[0];
+    expect([std.qty, std.waste]).toEqual([300, 0.1]);
+    const hb = choice({ id: "recMatHb00000000A", group: "Material", label: "Herringbone (Eng)", product: STD });
+    expect(buildPreliminary([hb], parseWork({ rows: [{ choiceId: hb.id, amount: 200 }] }), new Map()).lines[0].waste).toBe(0.15);
+    expect(rowTotal([hb], { choiceId: hb.id, amount: 200, productId: null }, new Map())).toBe(690);
+  });
+
+  it("never puts waste on anything but a material", () => {
+    const { lines } = buildPreliminary(choices, parseWork({ rows: [{ choiceId: NAIL.id, amount: 100 }, { choiceId: BINS.id }] }), new Map());
+    expect(lines.map((l) => l.waste)).toEqual([null, null]);
+  });
+});
+
+describe("quick form: material rows follow the install too (Albert, 2026-11-05)", () => {
+  const install = (key: string, amount: string, choiceId = "hw"): BasisRow => ({ key, group: "Install", choiceId, amount });
+  const mat = (key: string, basis: string | null, amount = ""): BasisRow => ({ key, group: "Material", choiceId: "m", amount, basis });
+  const labelOf = (id: string) => ({ hw: "Hardwood", lv: "Laminate | Vinyl | Eng Click" })[id] ?? "";
+  const all = () => true;
+
+  it("takes the square feet themselves, not a third", () => {
+    expect([basisAmount("Material", 820), basisAmount("Baseboards", 820), basisAmount("Material", null)]).toEqual([820, 273, null]);
+    const rows = [install("i1", "500"), install("i2", "300", "lv"), mat("m1", TOTAL_BASIS), mat("m2", "i2")];
+    expect(followBases(rows, all).slice(2).map((r) => r.amount)).toEqual(["800", "300"]);
+  });
+
+  it("offers one chip per Install row, worded without the third", () => {
+    expect(basisChoices([install("i1", "820")], labelOf, "Material").map((c) => c.label)).toEqual(["820 sf"]);
+    const many = basisChoices([install("i1", "2100", "lv"), install("i2", "500")], labelOf, "Material");
+    expect(many.map((c) => [c.label, c.third])).toEqual([["2,600 sf (all install)", 2600], ["2,100 sf (Laminate | Vinyl | Eng Click)", 2100], ["500 sf (Hardwood)", 500]]);
+  });
+
+  it("leaves a typed material amount alone", () => {
+    expect(followBases([install("i1", "500"), mat("m1", null, "450")], all)[1].amount).toBe("450");
   });
 });
 

@@ -22,6 +22,15 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-05",
+    kind: "new",
+    title: "Material follows the install, with waste added",
+    details: [
+      "On the quick form, a Material row now follows the install square feet like Baseboards does: pick the total or one Install row from the small chips under it, and it keeps up as you change the install. Typing your own amount stops it following.",
+      "Material goes on the quote with 10% waste, or 15% for herringbone and tile. The square feet stay the floor's; the waste is in the line's waste % box in the editor, where you can change it. The row's rate says how much waste it includes, and its total counts it.",
+    ],
+  },
+  {
+    date: "2026-11-05",
     kind: "changed",
     title: "Baseboard ⅓ choices are quieter",
     details: [
