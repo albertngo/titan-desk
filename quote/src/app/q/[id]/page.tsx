@@ -418,12 +418,17 @@ export default async function QuotePage({
                 <p className="empty">This quote has no options yet.</p>
               </section>
             )}
-            {!(option && totals) && changeCard}
-            {!(option && totals) && acceptedCard}
-            {!(option && totals) && billingCard}
-            {!(option && totals) && acceptCard}
-            {!(option && totals) && send}
-            {!(option && totals) && historyCard}
+            {/* The Payouts tab is for the contractors, so the quote's own cards (Send, History…) stay off it (Albert, 2026-11-05). */}
+            {!(option && totals) && !showPayouts && (
+              <>
+                {changeCard}
+                {acceptedCard}
+                {billingCard}
+                {acceptCard}
+                {send}
+                {historyCard}
+              </>
+            )}
           </div>
 
           {option && totals && (

@@ -22,6 +22,12 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-05",
+    kind: "changed",
+    title: "Payouts tab shows only the payout cards",
+    details: ["The Payouts tab no longer has Send quote, History and the other quote cards under it. They are still on every option's tab."],
+  },
+  {
+    date: "2026-11-05",
     kind: "new",
     title: "Material follows the install, with waste added",
     details: [
