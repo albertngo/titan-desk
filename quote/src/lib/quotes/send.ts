@@ -18,8 +18,8 @@ import { addContactNote, makeConfigured, sendMessage, sendToGhl, setFollowUpTags
 import { acceptedPdfName, COPY_MAX_CHARS, customerCopy, offersPdf, parseCopy, pdfName, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "@/lib/send/copy";
 import { ghlConfigured, locationUsers } from "@/lib/ghl/client";
 import { quoterAllowlist } from "@/lib/access";
-import { canPickSender, resolveSender, sendAsChoices, type SendAsChoice } from "@/lib/send/sendAs";
-import { changeEmailMessage, changeSmsMessage, fromTheirNumber, textFromFor, chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, fromAttempts, noSenderWords, isToken, newToken, parseOptionIds, parseResend, resendEmailMessage, resendKind, resendProblems, resendSmsMessage, sendProblems, smsMessage, type Channels, type Sender } from "@/lib/send/plan";
+import { lastSentOf, resolveSender, sendAsChoices, type SendAsChoice } from "@/lib/send/sendAs";
+import { changeEmailMessage, changeSmsMessage, fromTheirNumber, textFromFor, chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, fromAttempts, noNumberWords, noSenderWords, isToken, newToken, parseOptionIds, parseResend, resendEmailMessage, resendKind, resendProblems, resendSmsMessage, sendProblems, smsMessage, type Channels, type Sender } from "@/lib/send/plan";
 import { authorFields, firstNameOf, type Person } from "./history";
 import { loadContract } from "./contract";
 import { getQuote } from "./load";
@@ -138,34 +138,64 @@ export async function textsFrom(): Promise<string | null> {
   return textFrom(person.email);
 }
 
-/** The people the signed-in person may send as (2026-11-04): only Albert gets a list; everyone else sends as themselves. */
+/** The people the signed-in person may send as (2026-11-05: everyone may pick; Albert is a choice only for Albert). */
 async function senderChoices(me: string): Promise<SendAsChoice[]> {
   const users = ghlConfigured() ? await locationUsers().catch(() => []) : [];
   return sendAsChoices(me, quoterAllowlist(), letterhead().email, users);
 }
 
-/** Who this send goes out as: the person signed in, or (Albert only) the person he picked. */
+/** Who an invoice or receipt email goes out as (2026-11-05), for billing.ts: the person signed in unless they picked someone. */
+export async function pickSender(asEmail: unknown) {
+  const person = await requireQuoterPerson();
+  return senderFor(person, asEmail);
+}
+
+/** Who this send goes out as: the person signed in unless they picked someone on their list (2026-11-05). */
 async function senderFor(person: Person, asEmail: unknown) {
   if (!asEmail || (typeof asEmail === "string" && asEmail.trim().toLowerCase() === person.email.trim().toLowerCase())) return resolveSender(person, null, []);
-  return resolveSender(person, asEmail, canPickSender(person.email) ? await senderChoices(person.email) : []);
+  return resolveSender(person, asEmail, await senderChoices(person.email));
 }
 
 /**
- * For the Send card (2026-11-04): null for everyone but Albert; for him, each person he may send as, with the address the
- * email would go from and the number the text would go from, so the card can show them as he picks.
+ * For the Send card (2026-11-05): who the person signed in may send as, each with the address the email would go from
+ * and the number the text would go from, so the card can show them as they pick; the person signed in first and always
+ * the default ("lets make the picker always default to the person logged in"); and who sent this quote last.
  */
-export type SendAsCard = { me: string; choices: { email: string; label: string; emailFrom: string | null; textFrom: string | null }[] };
+export type SendAsCard = {
+  me: string;
+  choices: { email: string; label: string; emailFrom: string | null; textFrom: string | null }[];
+  last: { label: string; version: number | null; on: string | null } | null;
+};
 
-export async function sendAsForCard(): Promise<SendAsCard | null> {
+export async function sendAsForCard(quote: Pick<Quote, "link"> | null = null): Promise<SendAsCard> {
   const person = await requireQuoterPerson();
-  if (!canPickSender(person.email)) return null;
   const users = ghlConfigured() ? await locationUsers().catch(() => []) : [];
+  const labelOf = (email: string, name: string | null) => {
+    const first = firstNameOf({ email, name });
+    return first ? `${first} (${email})` : email;
+  };
   const choices = sendAsChoices(person.email, quoterAllowlist(), letterhead().email, users).map((c) => {
     const as = c.email === person.email.trim().toLowerCase() ? person : { email: c.email, name: c.name };
-    const first = firstNameOf(as);
-    return { email: c.email, label: first ? `${first} (${c.email})` : c.email, emailFrom: emailFromFor(senderOf(as), letterhead().email, false), textFrom: textFromFor(c.email, users) };
+    return { email: c.email, label: labelOf(c.email, as.name), emailFrom: emailFromFor(senderOf(as), letterhead().email, false), textFrom: textFromFor(c.email, users) };
   });
-  return { me: person.email.trim().toLowerCase(), choices };
+  const last = await lastSentFor(quote?.link?.quoteRecordId ?? null);
+  return {
+    me: person.email.trim().toLowerCase(),
+    choices,
+    last: last ? { label: labelOf(last.email, users.find((u) => u.email === last.email)?.name ?? null), version: last.version, on: last.on } : null,
+  };
+}
+
+/** The newest version of the quote that went out and who sent it; null when none has, or it can't be read. */
+async function lastSentFor(quoteRecordId: string | null) {
+  if (!quoteRecordId || !REC_ID.test(quoteRecordId)) return null;
+  try {
+    const q = await listByIds(T.quotes, [quoteRecordId], [QUOTE.versions]);
+    const rows = await listByIds(T.versions, ids(q[0]?.fields[QUOTE.versions]), [VERSION.version, VERSION.sentBy, VERSION.sentAt, VERSION.status]);
+    return lastSentOf(rows.map((r) => ({ version: typeof r.fields[VERSION.version] === "number" ? (r.fields[VERSION.version] as number) : null, sentBy: str(r.fields[VERSION.sentBy]), sentAt: str(r.fields[VERSION.sentAt]), status: str(r.fields[VERSION.status]) })));
+  } catch {
+    return null;
+  }
 }
 
 export type SendReady = { ready: boolean; why: string | null };
@@ -213,7 +243,7 @@ export async function previewCopy(versionId: string, validUntil?: string, itemis
 /** The email as it would be sent today, for the staff preview (2026-10-22): placeholder links, the signed-in sender. */
 export async function previewEmail(versionId: string, validUntil?: string, itemised = false, pdf = false, optionIds: string[] | null = null, range = true, asEmail: string | null = null): Promise<string | null> {
   const signedIn = await requireQuoterPerson();
-  // Albert's preview follows the person he picked (2026-11-04); anyone else always sees their own.
+  // The preview follows the person picked (2026-11-05: anyone may pick).
   const picked = await senderFor(signedIn, asEmail);
   const person = picked.ok ? picked.sender : signedIn;
   const copy = await previewCopy(versionId, validUntil, itemised, optionIds, range, pdf);
@@ -240,7 +270,7 @@ function readInput(raw: unknown): { base: string; validUntil: string | null; cha
 
 export async function sendQuote(versionId: string, raw: unknown): Promise<SendResult> {
   const actor = await requireQuoterPerson();
-  // `actor` pressed Send; `person` is who it goes out as: the same, unless Albert picked someone (2026-11-04).
+  // `actor` pressed Send; `person` is who it goes out as: the same, unless they picked someone (2026-11-05).
   const input = readInput(raw);
   if (!REC_ID.test(versionId) || !input) return { ok: false, message: "That request didn't make sense. Reload the page." };
   const picked = await senderFor(actor, (raw as Record<string, unknown>).as);
@@ -322,8 +352,10 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   let textedFrom: string | null = null;
   if (input.channels.sms) {
     try {
-      // From the sender's own GHL number when they have one (2026-11-04); else GHL's main number, as before.
+      // From the sender's own GHL number only (2026-11-05: "email and text should be aligned"). With none, GHL would pick
+      // the number itself, and on 2026-11-05 it picked the number the contact was last texted from, another person's.
       textedFrom = await textFrom(person.email);
+      if (!textedFrom) throw new Error(noNumberWords(person.email));
       await sendMessage(fromTheirNumber(copy.change ? changeSmsMessage(copy, { contactId, firstName, link }, from) : smsMessage(copy, { contactId, firstName, link }, from), textedFrom));
       sentTo.push("Text");
     } catch (e) {
@@ -356,7 +388,7 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   }
 
   try {
-    const how = `sent by ${sentTo.join(" and ").toLowerCase()}${sentFrom ? ` from ${sentFrom}` : ""}${sentTo.includes("Text") ? `, text from ${textedFrom ?? "the main number"}` : ""}${input.pdf ? ", PDF on the quote page" : ""}${chosenWords(quote, input.optionIds) ? `, ${chosenWords(quote, input.optionIds)}` : ""}${prelim && !input.range ? ", exact price, no range" : ""}`;
+    const how = `sent by ${sentTo.join(" and ").toLowerCase()}${sentFrom ? ` from ${sentFrom}` : ""}${sentTo.includes("Text") ? `, text from ${textedFrom}` : ""}${input.pdf ? ", PDF on the quote page" : ""}${chosenWords(quote, input.optionIds) ? `, ${chosenWords(quote, input.optionIds)}` : ""}${prelim && !input.range ? ", exact price, no range" : ""}`;
     await updateRecord(T.versions, quote.id, { [VERSION.sentTo]: sentTo.join(", "), ...authorFields(actor, new Date(), picked.as ? `${how}, as ${person.email}` : how, quote.editLog) });
   } catch {
     notes.push("Airtable didn't record how it was sent.");
@@ -450,7 +482,10 @@ export async function resendQuote(versionId: string, raw: unknown): Promise<Rese
   }
   if (input.channels.sms) {
     try {
-      await sendMessage(fromTheirNumber(resendSmsMessage(copy, to, from), await textFrom(person.email)));
+      // From the sender's own number only, as the email is from their address (2026-11-05).
+      const number = await textFrom(person.email);
+      if (!number) throw new Error(noNumberWords(person.email));
+      await sendMessage(fromTheirNumber(resendSmsMessage(copy, to, from), number));
       sentTo.push("Text");
     } catch (e) {
       failed.push(`Text: ${e instanceof Error ? e.message : String(e)}`);

@@ -1,9 +1,9 @@
-import { optionHst, optionTotals, parityDiffs, stageAmountProblems, stageAmounts } from "@/lib/calc";
+import { optionHst, optionTotals, parityDiffs, round2, stageAmountProblems, stageAmounts } from "@/lib/calc";
 import type { Quote } from "@/lib/quotes/types";
-import { defaultSchedule, payWords, scheduleProblems } from "@/lib/pricing/schedule";
+import { payWords, scheduleFlags, scheduleProblems, shownStage } from "@/lib/pricing/schedule";
 import type { Acceptance } from "@/lib/accept/plan";
 import { changeWords as changeLine, paidLeft } from "@/lib/change/diff";
-import { addDays, dollars, hstOf, hstRow, isIsoDate, isRange, isSplit, scopeLeads, scopeOf, leadPrice, longDate, offersPdf, rangeText, rangeWhy, stageNote, stagesOf, type CopyOption, type CopyStage, type CustomerCopy } from "./copy";
+import { addDays, dollars, hstOf, hstRow, isIsoDate, isRange, isSplit, scopeLeads, scopeOf, leadPrice, longDate, offersPdf, quoteSchedule, rangeText, rangeWhy, stageNote, stagesOf, type CopyOption, type CopyStage, type CustomerCopy } from "./copy";
 import { copyKind, kindPhrase } from "./summary";
 
 /**
@@ -80,13 +80,13 @@ export function changeProblems(quote: Pick<Quote, "options">, ids: string[] | nu
 }
 
 /** What stops one option going to the customer, or null. */
-export function optionProblem(quote: Pick<Quote, "discountRate" | "showHst" | "schedule">, o: Quote["options"][number]): string | null {
+export function optionProblem(quote: Pick<Quote, "discountRate" | "showHst" | "schedule" | "options">, o: Quote["options"][number]): string | null {
   const hst = optionHst(quote, o);
   const t = optionTotals(o.lines, quote.discountRate, hst);
   if (t.total <= 0) return `${o.name} has nothing priced in it.`;
   if (parityDiffs(t, o.airtable).length > 0) return `The app and Airtable disagree on ${o.name}. Fix that before sending.`;
   // The schedule's own amounts on this option (2026-10-27): nothing negative, and a deposit that is something.
-  const stages = stageAmounts(quote.schedule ?? defaultSchedule(), o.lines, quote.discountRate, hst, t.total);
+  const stages = stageAmounts(quoteSchedule(quote), o.lines, quote.discountRate, hst, t.total);
   return stageAmountProblems(stages, o.name)[0] ?? null;
 }
 
@@ -108,6 +108,10 @@ export function sendProblems(quote: Quote, input: SendInput, ctx: { today: strin
   const ids = input.optionIds ?? null;
   // A change after acceptance (2026-10-27) has no good-until date; since 2026-10-31 everything on it is the project.
   if (quote.changeNo) out.push(...changeProblems(quote, ids));
+  // The HST rules stop a send (Albert, 2026-11-05: "it will flag and block the send to prevent instructions from being
+  // wrong"): checked on what goes, with the schedule it would go with.
+  const going = chooseOptions(quote, ids);
+  out.push(...scheduleFlags(quoteSchedule(going), going.options.map((o) => ({ name: o.name, lines: o.lines, showHst: optionHst(quote, o), discountRate: quote.discountRate }))));
   if (!ctx.skipOptions) {
     if (ids && quote.options.length > 0) {
       if (ids.length === 0) out.push("Choose at least one option to send.");
@@ -180,6 +184,23 @@ export function emailFromFor(sender: Sender | null, companyEmail: string | null,
 export function fromAttempts(sender: Sender | null, companyEmail: string | null): string[] {
   return [...new Set([emailFromFor(sender, companyEmail, true), emailFromFor(sender, companyEmail, false)].filter((x): x is string => x !== null))];
 }
+
+/**
+ * The From lines for the acceptance (won) email (Albert, 2026-11-05: "number and email sent is the same person"): the
+ * person who sent the version, named then bare, and never anyone else, so its signature always matches its address. Only
+ * a version with no Sent By (none since sending began) goes from GHL's default sender, and then it is signed by the
+ * company, never a person. Empty means the email can't go; the hand-off says so and staff Retry.
+ */
+export function acceptedFromAttempts(sender: Sender | null, companyEmail: string | null): (string | null)[] {
+  return sender ? fromAttempts(sender, companyEmail) : [null];
+}
+
+/**
+ * Why a text can't go from this person (Albert, 2026-11-05: "email and text should be aligned"): a text goes only from
+ * the sender's own GHL number, as an email goes only from their address. With no number GHL would pick one itself,
+ * and on 2026-11-05 it picked another person's.
+ */
+export const noNumberWords = (email: string) => `The text can't go from ${email}: their GHL user has no number of its own, and a text goes only from the sender's own number. Give that GHL user a number (Settings, My Staff, LC Phone), or pick someone who has one.`;
 
 /** Why there is no From line for this person, in words for the Send card and the result. */
 export const noSenderWords = (email: string) => `The email can't go from ${email}: GHL sends only from a Titan address, and never from anyone but the person sending. Sign in with your Titan account to email it, or send it by text.`;
@@ -402,12 +423,17 @@ export function paymentWords(o: CopyOption): string {
           ? `${i === 0 ? "a deposit" : lower(s.label)} of ${s.amount !== null ? cad.format(s.amount) : "the material's price"} for your materials`
           : s.kind === "amount" && s.amount !== null
             ? `${cad.format(s.amount)} ${lower(s.label)}`
-            : `${s.pct ?? ""}% ${i === 0 ? "deposit" : lower(s.label)}`;
+            : s.kind === "topUp"
+              ? i === 0
+                ? s.amount !== null ? `a deposit of ${cad.format(s.amount)}` : `a ${s.target ?? ""}% deposit`
+                : `the rest of the deposit${s.amount !== null ? `, ${cad.format(s.amount)}` : ` (up to ${s.target ?? ""}% in all)`}`
+              : `${s.pct ?? ""}% ${i === 0 ? "deposit" : lower(s.label)}`;
     const when = s.when ? ` ${lower(s.when).replace(/, for your materials.*$/, "")}` : "";
     const how = payWords(s.pay);
     return `${what}${when}${how ? `, ${how}` : ""}`;
   };
-  const parts = stagesOf(o).map(phrase);
+  // A top-up the material already covered is left out (2026-11-05).
+  const parts = stagesOf(o).filter(shownStage).map(phrase);
   const list = parts.length > 1 ? `${parts.slice(0, -1).join("; ")}; and ${parts.at(-1)}` : parts[0];
   return `${list.charAt(0).toUpperCase()}${list.slice(1)}. Nothing is final until the deposit is in; once it is, your materials are ordered and your date is locked in.`;
 }
@@ -596,10 +622,44 @@ function shortDate(iso: string): string {
 
 /* ---------- after the yes (2026-10-27) ---------- */
 
-/** Where the deposit goes and how, in the customer's words; never says why a stage is paid the way it is. */
-export function depositHow(deposit: Pick<CopyStage, "pay">, ctx: { etransfer: string; quoteNumber: string }): string {
+/**
+ * Where the deposit goes and how, in the customer's words; never says why a stage is paid the way it is. Cash and in
+ * store since 2026-11-05 (Albert: with no HST "only cash. So instructions and wordings should reflect"; the rest of a
+ * material deposit is "in-store but implying it is cash"). `showroom` is the letterhead's address, when set.
+ */
+export function depositHow(deposit: Pick<CopyStage, "pay">, ctx: { etransfer: string; quoteNumber: string; showroom?: string | null }): string {
+  const at = ctx.showroom ? `our showroom, ${ctx.showroom.replace(/\s*\n\s*/g, ", ")}` : "our showroom";
   if (deposit.pay === "onsite") return "Hand it to your project manager on site.";
+  if (deposit.pay === "cashOnsite") return "Pay it in cash to your project manager on site.";
+  if (deposit.pay === "cash") return `Pay it in cash at ${at}, and mention ${ctx.quoteNumber}.`;
+  if (deposit.pay === "instore") return `Pay it in store at ${at}, and mention ${ctx.quoteNumber}.`;
   return `Send it by e-transfer to ${ctx.etransfer} and put ${ctx.quoteNumber} in the message.`;
+}
+
+/**
+ * The stages that make up the deposit (2026-11-05): the first, and the rest of the deposit right after it when the
+ * material did not reach it. A part that comes to nothing is left out.
+ */
+export function depositParts(stages: CopyStage[]): CopyStage[] {
+  const [first, ...rest] = stages;
+  if (!first) return [];
+  const topUps: CopyStage[] = [];
+  for (const s of rest) {
+    if (s.kind !== "topUp") break;
+    topUps.push(s);
+  }
+  const parts = [first, ...topUps].filter(shownStage);
+  return parts.length ? parts : [first];
+}
+
+/** The deposit in dollars: its parts added up. */
+export const depositAmount = (stages: CopyStage[]): number => round2(depositParts(stages).reduce((a, s) => a + (s.amount ?? 0), 0));
+
+/** How to pay a deposit in two parts, as one sentence per part: "$1,000.00 for your materials: Send it by e-transfer…". */
+export function depositSteps(stages: CopyStage[], ctx: { etransfer: string; quoteNumber: string; showroom?: string | null }): string[] {
+  const parts = depositParts(stages);
+  if (parts.length < 2) return [depositHow(parts[0] ?? { pay: null }, ctx)];
+  return parts.map((s) => `${cad.format(s.amount ?? 0)} ${s.kind === "materials" ? "for your materials" : s.kind === "topUp" ? "for the rest of your deposit" : `for the ${s.label.toLowerCase()}`}: ${depositHow(s, ctx)}`);
 }
 
 /**
@@ -618,8 +678,11 @@ export function acceptedEmailMessage(
 ): GhlMessage {
   const hi = greetingName(to.firstName);
   const subject = `Accepted: your quote ${copy.quoteNumber} from ${copy.company.name}`;
-  const deposit = a.stages[0];
-  const preheader = `Your deposit is ${cad.format(deposit.amount ?? 0)}. ${depositHow(deposit, { etransfer: ctx.etransfer, quoteNumber: copy.quoteNumber })}`;
+  // The deposit may come in two parts (2026-11-05): the material by e-transfer and the rest of it in store.
+  const how = { etransfer: ctx.etransfer, quoteNumber: copy.quoteNumber, showroom: copy.company.address };
+  const deposit = depositAmount(a.stages);
+  const payHow = depositSteps(a.stages, how);
+  const preheader = `Your deposit is ${cad.format(deposit)}. ${payHow.join(" ")}`;
   const cell = (t: string, right = false, strong = false) =>
     `<td${right ? ' align="right"' : ""} style="padding:9px 0;border-bottom:1px solid ${C.hair};font-family:${SANS};font-size:15px;color:${strong ? C.ink : C.body};${strong ? "font-weight:600;" : ""}${right ? "white-space:nowrap;" : ""}">${t}</td>`;
   const what = [
@@ -633,6 +696,7 @@ export function acceptedEmailMessage(
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.wash};border-radius:18px;"><tr><td style="padding:8px;">` +
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.card};border:1px solid ${C.hair};border-radius:12px;"><tr><td style="padding:20px 24px;">${inner}</td></tr></table></td></tr></table>`;
   const stageRows = a.stages
+    .filter(shownStage)
     .map((s, i) => `<tr>${cell(`${esc(s.label)}${stageNote(s) ? `<br><span style="font-size:13px;font-weight:400;color:${C.muted};">${esc(stageNote(s))}</span>` : ""}`, false, i === 0)}${cell(s.amount !== null ? cad.format(s.amount) : "", true, i === 0)}</tr>`)
     .join("");
   const attached = [to.pdfUrl ? "your accepted quote" : null, to.termsUrl ? "our Project Expectations" : null].filter(Boolean).join(" and ");
@@ -649,8 +713,8 @@ export function acceptedEmailMessage(
     row(
       card(
         `<p style="margin:0 0 4px;font-family:${SANS};font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:${C.muted};">Your deposit</p>` +
-          `<p class="total" style="margin:0 0 10px;font-family:${SERIF};font-size:30px;color:${C.ink};">${cad.format(deposit.amount ?? 0)}</p>` +
-          para(esc(depositHow(deposit, { etransfer: ctx.etransfer, quoteNumber: copy.quoteNumber })), 15, C.ink, "0 0 8px") +
+          `<p class="total" style="margin:0 0 10px;font-family:${SERIF};font-size:30px;color:${C.ink};">${cad.format(deposit)}</p>` +
+          payHow.map((x) => para(esc(x), 15, C.ink, "0 0 8px")).join("") +
           para("Nothing is final until the deposit is in. Once it is, your materials are ordered and your date is locked in.", 14, C.body, "0"),
       ),
       "0 40px 16px",
@@ -679,14 +743,32 @@ export function acceptedEmailMessage(
 export function acceptedSmsMessage(copy: CustomerCopy, a: Acceptance, to: { contactId: string; firstName: string | null; link: string }, ctx: { etransfer: string }, sender: Sender | null = null): GhlMessage {
   const hi = greetingName(to.firstName);
   const whoFrom = sender?.firstName ? `it's ${sender.firstName} from ${copy.company.name}` : `it's ${copy.company.name}`;
-  const deposit = a.stages[0];
-  const amount = cad.format(deposit.amount ?? 0);
-  const how = deposit.pay === "onsite" ? "Please hand it to your project manager on site." : `Please e-transfer it to ${ctx.etransfer} and put ${copy.quoteNumber} in the message.`;
+  const amount = cad.format(depositAmount(a.stages));
+  const how = smsDepositHow(a.stages, { etransfer: ctx.etransfer, quoteNumber: copy.quoteNumber, showroom: copy.company.address });
   return {
     type: "SMS",
     contactId: to.contactId,
     message: `${hi ? `Hi ${hi}, ${whoFrom}.` : `Hi, ${whoFrom}.`} Thank you for accepting quote ${copy.quoteNumber}! Your deposit is ${amount}. ${how} Once it's in, your date is locked in.\n\nYour accepted quote:\n${to.link}`,
   };
+}
+
+/** The text's words for paying the deposit (2026-11-05: cash, in store, or in two parts). GSM-7 only. */
+export function smsDepositHow(stages: CopyStage[], ctx: { etransfer: string; quoteNumber: string; showroom?: string | null }): string {
+  // `it` is the money: "it" for the whole deposit, "$1,000.00 for your materials" for one part of it.
+  const one = (s: Pick<CopyStage, "pay">, it: string) =>
+    s.pay === "onsite"
+      ? `hand ${it} to your project manager on site`
+      : s.pay === "cashOnsite"
+        ? `pay ${it} in cash to your project manager on site`
+        : s.pay === "cash"
+          ? `pay ${it} in cash at our showroom`
+          : s.pay === "instore"
+            ? `pay ${it} in store at our showroom`
+            : `e-transfer ${it} to ${ctx.etransfer} and put ${ctx.quoteNumber} in the message`;
+  const parts = depositParts(stages);
+  if (parts.length < 2) return `Please ${one(parts[0] ?? { pay: null }, "it")}.`;
+  const [m, ...rest] = parts;
+  return `Please ${one(m, `${cad.format(m.amount ?? 0)} for your materials`)}, and ${rest.map((x) => one(x, `the other ${cad.format(x.amount ?? 0)}`)).join(", and ")}.`;
 }
 
 /* ---------- a change after acceptance (2026-10-27) ---------- */
@@ -716,7 +798,7 @@ export function changeEmailMessage(copy: CustomerCopy, to: { contactId: string; 
       : []),
   ].join("");
   const stages = stagesOf(o)
-    .map((s, i) => `<tr>${cell(`${esc(s.label)}${stageNote(s) ? `<br><span style="font-size:13px;font-weight:400;color:${C.muted};">${esc(stageNote(s))}</span>` : ""}`)}${cell(s.amount !== null ? `${c.before.stages[i]?.amount != null && Math.abs((c.before.stages[i].amount ?? 0) - s.amount) > 0.004 ? `<span style="color:${C.muted};text-decoration:line-through;">${cad.format(c.before.stages[i].amount!)}</span> ` : ""}${cad.format(s.amount)}` : "", true)}</tr>`)
+    .map((s, i) => (!shownStage(s) ? "" : `<tr>${cell(`${esc(s.label)}${stageNote(s) ? `<br><span style="font-size:13px;font-weight:400;color:${C.muted};">${esc(stageNote(s))}</span>` : ""}`)}${cell(s.amount !== null ? `${c.before.stages[i]?.amount != null && Math.abs((c.before.stages[i].amount ?? 0) - s.amount) > 0.004 ? `<span style="color:${C.muted};text-decoration:line-through;">${cad.format(c.before.stages[i].amount!)}</span> ` : ""}${cad.format(s.amount)}` : "", true)}</tr>`))
     .join("");
   const signoff = sender?.firstName ? `${esc(sender.firstName)} &middot; ${esc(copy.company.name)}` : `The ${esc(copy.company.name)} team`;
   const body =

@@ -22,6 +22,67 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-05",
+    kind: "changed",
+    title: "A wrong payment schedule stops the send",
+    details: [
+      "A payment schedule that goes against the HST rules no longer just warns: the quote can't be sent until it is fixed. The editor's payment schedule says what to fix, and the Send card lists it under Not ready to send.",
+    ],
+  },
+  {
+    date: "2026-11-05",
+    kind: "changed",
+    title: "Texts only from the sender's own number",
+    details: [
+      "A text now goes out only from the GHL number of the person it is sent as, the same rule as the email and its address. If their GHL user has no number of its own, the Text tick is greyed out and says so; give that user a number in GHL (Settings, My Staff, LC Phone). Before, GHL picked a number itself, which could be someone else's.",
+      "The thank-you text after a customer accepts follows the same rule.",
+    ],
+  },
+  {
+    date: "2026-11-05",
+    kind: "new",
+    title: "A payment schedule that breaks the HST rules is flagged",
+    details: [
+      "The editor's payment schedule and the Send card now say Check the payment schedule when the schedule picked goes against the rules: e-transfer on a quote with no HST, or a quote with HST on the material only that doesn't start with the material, or leaves the deposit under 35% with nothing paid in store. It can still be sent.",
+    ],
+  },
+  {
+    date: "2026-11-05",
+    kind: "new",
+    title: "Send as on invoices and receipts",
+    details: [
+      "Email to customer on the invoice or receipt card has Send as too, starting on you, the same list as the Send card.",
+      "The Send card now says plainly that someone with no GHL number of their own texts from whichever number GHL picks, which can be another person's.",
+    ],
+  },
+  {
+    date: "2026-11-05",
+    kind: "changed",
+    title: "Payment schedule follows the HST",
+    details: [
+      "A quote with no HST at all is now paid in cash: the deposit at the showroom, the rest to the project manager on site. No e-transfer is mentioned anywhere the customer looks.",
+      "When only the material carries HST, the material comes first by e-transfer. If it comes to less than 35%, the rest of the deposit is paid in store. Then 35% on the first day and the balance at the end.",
+      "This happens by itself until you pick another schedule in the editor. Use it puts it back.",
+    ],
+  },
+  {
+    date: "2026-11-05",
+    kind: "fixed",
+    title: "The accepted email and text come from whoever sent the quote",
+    details: [
+      "The thank-you email and text after a customer accepts now come from the address and the GHL number of the person who sent that quote, and are signed with their name. Before, they could come from another address while signed by someone else.",
+    ],
+  },
+  {
+    date: "2026-11-05",
+    kind: "new",
+    title: "Everyone can choose who a quote is sent as",
+    details: [
+      "Send quote and Send again have Send as for everyone now. It always starts on you; pick someone else and the email, the text and the signature are all theirs. Albert is on the list only for Albert.",
+      "The card also says who sent this quote last, and when.",
+    ],
+  },
+  {
+    date: "2026-11-05",
     kind: "fixed",
     title: "Pictures attach to the quote again",
     details: [

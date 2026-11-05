@@ -2,35 +2,43 @@
 
 import type { StageAmount } from "@/lib/calc";
 import { money } from "@/lib/format";
-import { MAX_STAGES, PRESETS, defaultSchedule, scheduleProblems, type PayHow, type PaymentSchedule, type PresetKey, type ScheduleStage } from "@/lib/pricing/schedule";
+import { MAX_STAGES, PAY_HOWS, PAY_LABELS, PRESETS, sameSchedule, scheduleProblems, type PayHow, type PaymentSchedule, type PresetKey, type ScheduleStage } from "@/lib/pricing/schedule";
 
 /**
  * The payment schedule in the editor's terms (Albert, 2026-10-27): pick a preset, then change any
  * stage's name, share, "when" and how it is paid. The last stage is always the balance. Every change
  * makes the schedule "Custom". Amounts are shown for the option on screen; the rules and the checks
  * are in src/lib/pricing/schedule.ts, the money in src/lib/calc.ts.
+ *
+ * Automatic (2026-11-05): a version with no schedule of its own follows `auto` (cash with no HST, the material first
+ * when only the material carries HST, else 35 / 35 / 30), and changes with the quote's HST. Picking the preset it
+ * already is keeps it automatic; picking anything else stores that one.
  */
 export function ScheduleEditor({
   schedule,
+  auto,
+  flags = [],
   onChange,
-  suggestMaterials,
   amounts,
 }: {
   schedule: PaymentSchedule | null;
+  /** What the version gets with no schedule of its own (2026-11-05). */
+  auto: PaymentSchedule;
+  /** Where it goes against the HST rules (2026-11-05): shown here, and the send is refused until it is fixed. */
+  flags?: string[];
   onChange: (next: PaymentSchedule | null) => void;
-  /** Some of the work carries no HST: offer the material deposit. */
-  suggestMaterials: boolean;
   /** The stages in dollars for the option on screen, in order. */
   amounts: StageAmount[];
 }) {
-  const s = schedule ?? defaultSchedule();
+  const s = schedule ?? auto;
   const problems = scheduleProblems(s);
   const edit = (stages: ScheduleStage[]) => onChange({ preset: "custom", stages });
   const patch = (i: number, p: Partial<ScheduleStage>) => edit(s.stages.map((x, k) => (k === i ? { ...x, ...p } : x)));
   const pick = (key: PresetKey) => {
     if (key === "custom") return;
-    // The default is stored as nothing at all, so an untouched quote stays blank in Airtable.
-    onChange(key === "35-35-30" ? null : PRESETS[key].schedule());
+    // The automatic one is stored as nothing at all, so it keeps following the quote's HST.
+    const next = PRESETS[key].schedule();
+    onChange(sameSchedule(next, auto) ? null : next);
   };
   const add = () => {
     const at = s.stages.length - 1;
@@ -41,23 +49,44 @@ export function ScheduleEditor({
     <div className="sched" aria-labelledby="sched-h">
       <div className="sched-h">
         <span id="sched-h">Payment schedule</span>
-        <select aria-label="Payment schedule preset" value={schedule ? s.preset : "35-35-30"} onChange={(e) => pick(e.target.value as PresetKey)}>
+        <select aria-label="Payment schedule preset" value={s.preset} onChange={(e) => pick(e.target.value as PresetKey)}>
           {(Object.keys(PRESETS) as Exclude<PresetKey, "custom">[]).map((k) => (
             <option key={k} value={k}>
               {PRESETS[k].name}
-              {k === "35-35-30" ? " (default)" : k === "materials" && suggestMaterials ? " (suggested)" : ""}
+              {k === auto.preset ? " (automatic)" : ""}
             </option>
           ))}
           {s.preset === "custom" && <option value="custom">Custom</option>}
         </select>
       </div>
-      {suggestMaterials && s.preset !== "materials" && (
+      {!schedule ? (
         <p className="sched-tip">
-          Some of this quote carries no HST. Suggested: the material deposit, paid by e-transfer, with the rest on site.{" "}
-          <button type="button" className="linkbtn" onClick={() => pick("materials")}>
-            Use it
-          </button>
+          {auto.preset === "cash"
+            ? "Nothing on this quote carries HST, so it is paid in cash: the deposit at the showroom, the rest to the PM on site."
+            : auto.preset === "materials"
+              ? "HST is on the material only, so the material comes first by e-transfer, then the rest of a 35% deposit in store."
+              : "Automatic: 35 / 35 / 30, the deposit by e-transfer."}{" "}
+          It follows the quote&rsquo;s HST until you change it.
         </p>
+      ) : (
+        !sameSchedule(schedule, auto) && (
+          <p className="sched-tip">
+            Picked by hand. The automatic one for this quote is {PRESETS[auto.preset as Exclude<PresetKey, "custom">]?.name ?? "35 / 35 / 30"}.{" "}
+            <button type="button" className="linkbtn" onClick={() => onChange(null)}>
+              Use it
+            </button>
+          </p>
+        )
+      )}
+      {flags.length > 0 && (
+        <div className="sq-msg warn" role="status">
+          <b>Fix the payment schedule before sending</b>
+          <ul>
+            {flags.map((f) => (
+              <li key={f}>{f}</li>
+            ))}
+          </ul>
+        </div>
       )}
       <ol className="sched-l">
         {s.stages.map((x, i) => {
@@ -67,7 +96,7 @@ export function ScheduleEditor({
             <li key={`${i}:${JSON.stringify(x)}`} className="sched-r">
               <input className="cell-in" aria-label="Payment name" defaultValue={x.label} onBlur={(e) => e.currentTarget.value !== x.label && patch(i, { label: e.currentTarget.value })} />
               <span className="sched-part">
-                {x.part.kind === "share" ? (
+                {x.part.kind === "share" || x.part.kind === "topUp" || x.part.kind === "ofTotal" ? (
                   <>
                     <input
                       className="cell-in num"
@@ -76,10 +105,10 @@ export function ScheduleEditor({
                       defaultValue={String(x.part.pct)}
                       onBlur={(e) => {
                         const v = Number(e.currentTarget.value.replace(/[%\s]/g, ""));
-                        if (Number.isFinite(v) && x.part.kind === "share" && v !== x.part.pct) patch(i, { part: { kind: "share", pct: v } });
+                        if (Number.isFinite(v) && (x.part.kind === "share" || x.part.kind === "topUp" || x.part.kind === "ofTotal") && v !== x.part.pct) patch(i, { part: { kind: x.part.kind, pct: v } });
                       }}
                     />
-                    %
+                    {x.part.kind === "topUp" ? "% in all" : x.part.kind === "ofTotal" ? "% of the total" : "%"}
                   </>
                 ) : x.part.kind === "materials" ? (
                   "the material"
@@ -92,8 +121,11 @@ export function ScheduleEditor({
               <input className="cell-in sched-when" aria-label="When it is due" placeholder="When" defaultValue={x.when} onBlur={(e) => e.currentTarget.value !== x.when && patch(i, { when: e.currentTarget.value })} />
               <select aria-label="How it is paid" value={x.pay ?? ""} onChange={(e) => patch(i, { pay: (e.target.value || null) as PayHow })}>
                 <option value="">Not said</option>
-                <option value="etransfer">By e-transfer</option>
-                <option value="onsite">To the PM on site</option>
+                {PAY_HOWS.map((p) => (
+                  <option key={p} value={p}>
+                    {PAY_LABELS[p]}
+                  </option>
+                ))}
               </select>
               <span className={`sched-amt${a && a.amount < 0 ? " bad" : ""}`}>{a ? `${money(a.amount)} · ${a.pct}%` : ""}</span>
               {!last && i > 0 ? (

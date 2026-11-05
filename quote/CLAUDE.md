@@ -423,6 +423,11 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   again and invoice/receipt emails: `fromAttempts()` tries the named and the bare address and nothing else,
   so a sign-in GHL can't send from means the email does not go (the text still can) and the Send card says
   so (`noSenderWords()`). The acceptance confirmation, which no person presses, still falls back.
+  **Since 2026-11-05 it does not (Albert: "number and email sent is the same person").** The won email goes from the
+  version's Sent By only, named then bare (`acceptedFromAttempts()` in `plan.ts`), signed by them, and the won text goes
+  from their GHL number (`textFromFor()`), so a signature never arrives from someone else's address. Refused by GHL,
+  the email doesn't go and the hand-off says so for Retry. Only a version with no Sent By falls back to GHL's default
+  sender, signed by the company.
   **The front desk is Joey** (same day): `SHARED_MAILBOX_NAMES` in `history.ts` signs info@titanfloors.ca
   as "Joey" whatever its sign-in name says.
   **Texts from their own number too (Albert, 2026-11-04: "Pourya = pourya's ghl number and email (which matches the
@@ -432,7 +437,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   `textFromFor()` / `e164()` / `fromTheirNumber()` in `plan.ts`, `textFrom()` in `send.ts`). A GHL user with no number
   of its own, or no GHL user with that email, texts from GHL's main number as before. The Send card says which
   (`textsFrom()`); the Edit Log says "text from …". The acceptance text, which no person presses, stays on the main
-  number. Make forwards the body verbatim, so nothing changed in Make. Tested in `tests/send.test.ts`.
+  number (until 2026-11-05: now the sender's, above). Make forwards the body verbatim, so nothing changed in Make. Tested in `tests/send.test.ts`.
   **Albert may send as someone else (Albert, same day: "give ALBERT an option to select who I want it sent out from?
   Only Albert has the option to").** For the one sign-in in `SEND_AS_PICKERS` (`src/lib/send/sendAs.ts`), the Send card
   and Send again show **Send as**: everyone on `QUOTE_ALLOWED_EMAILS` on the company's email domain, named from their
@@ -442,6 +447,21 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   preview follows the pick (`?as=`). The server decides again (`resolveSender()` in `sendAs.ts`, `senderFor()` in
   `send.ts`): a pick from any other sign-in, or of an address not on the list, is refused, never sent as them. Tested
   in `tests/sendAs.test.ts`.
+  **Everyone may pick (Albert, 2026-11-05: "open up the 'choose' sender option for people that isn't Albert. BUT Albert
+  is not an option. Only Albert logged in has himself as the option"; "lets make the picker always default to the
+  person logged in").** `SEND_AS_PICKERS` is gone: every sign-in gets Send as, starting on themselves, and Albert
+  (`ONLY_THEMSELVES`) is a choice only for Albert; `resolveSender()` refuses anyone else's pick of him. The card says who
+  sent the quote last ("Last sent by Joey · v1 · Nov 5", `lastSentOf()` over the quote's versions, `sendAsForCard()`),
+  shown only, never picked for you. **Invoice and receipt emails have it too** (Albert, same day: "put the picker there
+  too"): `emailBilling()` takes `as`, checked by `pickSender()` in `send.ts`, and the Edit Log adds "as <email>".
+  **A GHL user with no number of its own is not texted from the main line (checked in GHL, 2026-11-05).** The app then
+  sends no `fromNumber`, and GHL picks one itself: the front desk's quote and won texts that day went from the number
+  the contact had last been texted from (the assigned salesperson's), and so did a text typed in GHL by the front desk.
+  The email is unaffected. **So a text goes only from the sender's own number (Albert, same day: "email and text should
+  be aligned"):** with no number of their own the text doesn't go, exactly as an email doesn't from an address GHL can't
+  use (`noNumberWords()` in `plan.ts`): Send quote, Send again and the won text alike, and the Send card greys the Text
+  tick and says why. The cure is a number on that GHL user (Settings → My Staff → the user → LC Phone). Only a won text
+  for a version with no Sent By, signed by the company, still goes without one.
   Make 4975508 forwards the message body verbatim, so nothing changed in Make.
 - **Who worked on a version (Albert, 2026-10-22).** Quote Versions carries **Created By (app)**,
   **Last Edited By**, **Last Edited At** and an append-only **Edit Log** (one line per save, new
@@ -747,7 +767,8 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   per version, in the editor's terms: presets **35 / 35 / 30** (the default, stored as nothing, so an
   untouched version's Quote Versions → Payment Schedule stays blank), **25 / 25 / 25 / 25**, **50 / 50**,
   and the **material deposit**; then any stage's name, share, "when" and how it is paid (by e-transfer,
-  handed to the PM on site, or not said) can be changed, which makes it Custom. The first stage is the
+  handed to the PM on site, or not said; since 2026-11-05 also in store, cash at the showroom, cash to the PM on site)
+  can be changed, which makes it Custom. The first stage is the
   deposit; the last is always **the balance**, so a schedule always comes to 100%. A share is a percent
   of the total, or of what is left after a material deposit or a fixed amount. **The material deposit**
   is suggested when some priced work carries no HST and there is material: the HST-bearing material
@@ -760,6 +781,26 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   Payment 1 / 2 / Final stay the default split, so the parity check is unchanged. A send is refused when a
   stage would be negative or the deposit nothing. Rules: `src/lib/pricing/schedule.ts`, tested in
   `tests/schedule.test.ts`.
+  **Automatic, by HST (Albert, 2026-11-05: "when there is no HST at all. The suggested payment method should never be
+  e-transfer. and only cash… IF there is an HST on materials. then the auto payment plan should go to 'Materials' first.
+  Now; if the value of it is lower than the 35% original, we should also include a breakdown in paying the remaining
+  balance 'in-store' but implying it is cash").** A version with no schedule of its own follows `autoSchedule()`:
+  nothing priced on any option carries HST → **Cash** (35 / 35 / 30, the deposit in cash at the showroom, the rest in
+  cash to the PM on site, no e-transfer anywhere); some option bills HST on its material while other work carries none
+  → the **material deposit**, reworked: Materials (the HST-bearing material with its HST) by e-transfer, then **Rest of
+  the deposit** in store up to 35% of the total (a `topUp` stage: nothing when the material reaches 35%, and then never
+  shown, `shownStage()`), then 35% of the total on the first day (an `ofTotal` stage) and the balance, both to the PM on
+  site; otherwise 35 / 35 / 30 by e-transfer. Blank still means automatic, so it follows the quote's HST as lines change;
+  picking anything else in the editor stores that one, even 35 / 35 / 30 (`scheduleField()` no longer blanks it), and
+  **Use it** goes back. The automatic schedule is frozen on the copy like a picked one (`quoteSchedule()` in `copy.ts`).
+  The won email, text and accepted page show a two-part deposit as its parts and how to pay each (`depositParts()` /
+  `depositSteps()` / `smsDepositHow()` in `plan.ts`), with the letterhead's address for the showroom. Material
+  schedules stored before keep their old stages. **Flagged and blocked (same day: "it should FLAG us if the payment plan
+  picked goes against the rules for both", then "it will flag and block the send to prevent instructions from being
+  wrong"):** `scheduleFlags()` names e-transfer on a quote with no HST, a material-only-HST quote that doesn't start
+  with Materials, and a material under 35% of an option with no top-up after it. The editor's schedule shows them, and
+  `sendProblems()` refuses the send with them (checked on the options going, with the schedule they would go with), so
+  the Send card says Not ready to send until the schedule is fixed.
 - **Acceptance (Albert, 2026-10-27: "it is always best to have an accept step").** Only a **measured**
   version out with the customer and still good (Sent, not past Valid Until, not superseded, not a change)
   can be accepted; a preliminary is an estimate. **On the customer's link** an Accept panel under the

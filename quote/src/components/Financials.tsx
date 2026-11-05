@@ -1,5 +1,5 @@
 import { lineFlags, stageAmounts, type LineInput, type OptionTotals } from "@/lib/calc";
-import { defaultSchedule, payWords, type PaymentSchedule } from "@/lib/pricing/schedule";
+import { defaultSchedule, PAY_LABELS, payWords, shownStage, type PaymentSchedule } from "@/lib/pricing/schedule";
 import { money, pct } from "@/lib/format";
 import { Ring } from "./Ring";
 
@@ -73,10 +73,10 @@ export function Financials({
 
       <section className="card">
         <div className="card-h">Payment schedule <span className="right">{showHst ? "incl. HST" : t.hst ? "HST on materials" : "HST off"}</span></div>
-        {stageAmounts(schedule ?? defaultSchedule(), lines, discountRate, showHst, t.total).map((s, i) => (
+        {stageAmounts(schedule ?? defaultSchedule(), lines, discountRate, showHst, t.total).filter(shownStage).map((s, i) => (
           <div className="pay" key={i} title={[s.when, payWords(s.pay)].filter(Boolean).join(", ")}>
             <span>
-              {s.label} · {s.pct}%{s.pay === "onsite" ? " · on site" : ""}
+              {s.label} · {s.pct}%{s.pay ? ` · ${PAY_LABELS[s.pay].toLowerCase()}` : ""}
             </span>
             <span className={`v${s.amount < 0 ? " bad" : ""}`}>{money(s.amount)}</span>
           </div>

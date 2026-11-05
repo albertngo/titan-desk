@@ -1,5 +1,6 @@
 "use client";
 
+import { shownStage } from "@/lib/pricing/schedule";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { acceptForCustomerAction, cancelAcceptanceAction, makeChangeAction, retryHandoffAction } from "@/app/q/[id]/actions";
@@ -213,7 +214,7 @@ export function AcceptedCard({
           <div className="acc-grp">
             <h4>Payments</h4>
             <dl className="acc-dl">
-              {a.stages.map((s, i) => (
+              {a.stages.filter(shownStage).map((s, i) => (
                 <div key={i} className={i === 0 ? "dep" : undefined}>
                   <dt>
                     {s.label}

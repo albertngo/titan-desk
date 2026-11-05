@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { addDays, copyRange, copyState, customerCopy, discountLabel, discountRows, hstOf, hstRow, hstWord, leadPrice, isRange, longDate, offersPdf, parseCopy, pdfName, prelimNote, priceRange, rangeText, rangeWhy, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "../src/lib/send/copy";
-import { chooseOptions, chosenWords, customerLinks, e164, emailFromFor, fromTheirNumber, textFromFor, emailMessage, fromAttempts, greetingName, isToken, newToken, optionProblem, parseOptionIds, parseResend, resendEmailMessage, resendKind, resendProblems, resendSmsMessage, sendProblems, smsMessage, type SendInput } from "../src/lib/send/plan";
+import { noNumberWords, chooseOptions, chosenWords, customerLinks, e164, emailFromFor, fromTheirNumber, textFromFor, emailMessage, fromAttempts, greetingName, isToken, newToken, optionProblem, parseOptionIds, parseResend, resendEmailMessage, resendKind, resendProblems, resendSmsMessage, sendProblems, smsMessage, type SendInput } from "../src/lib/send/plan";
 import { encode, textWidth, wrap } from "../src/lib/send/pdfDoc";
 import { quotePdf } from "../src/lib/send/pdf";
 import { billingKind } from "../src/lib/billing/doc";
 import { fromQuote } from "../src/lib/editor/model";
 import { fingerprint } from "../src/lib/quotes/savePlan";
 import { optionTotals } from "../src/lib/calc";
+import { defaultSchedule, PRESETS } from "../src/lib/pricing/schedule";
 import type { Quote, QuoteLine, QuoteOption } from "../src/lib/quotes/types";
 
 /* Invented numbers and people only (quote/CLAUDE.md rule 4). */
@@ -176,6 +177,22 @@ describe("before sending", () => {
 
   it("lets a healthy draft go", () => {
     expect(sendProblems(q, ok, ctx)).toEqual([]);
+  });
+
+  it("refuses a schedule that goes against the HST rules (2026-11-05: \"flag and block the send\")", () => {
+    // Nothing taxed: an e-transfer schedule picked by hand is refused; the automatic (cash) one goes.
+    const noHst = (schedule: Quote["schedule"]) => {
+      const opt = q.options.map((o) => option(o.name, o.lines, 0.1, false));
+      const v = quote({ showHst: false, options: opt, schedule });
+      return sendProblems(v, { ...ok, base: fingerprint(fromQuote(v)) }, { ...ctx, fingerprint: fingerprint(fromQuote(v)) });
+    };
+    expect(noHst(defaultSchedule()).join(" ")).toMatch(/Nothing on this quote carries HST, so it is paid in cash, but Deposit is set to e-transfer/);
+    expect(noHst(null)).toEqual([]);
+    expect(noHst(PRESETS.cash.schedule())).toEqual([]);
+  });
+
+  it("a text goes only from the sender's own number, as an email only from their address", () => {
+    expect(noNumberWords("desk@example.com")).toMatch(/^The text can't go from desk@example.com: their GHL user has no number of its own/);
   });
 
   it("only ever sends a draft, and only what the person saw", () => {

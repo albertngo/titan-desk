@@ -1,8 +1,8 @@
-import { acceptedWhen, depositOf, type Acceptance } from "@/lib/accept/plan";
+import { acceptedWhen, type Acceptance } from "@/lib/accept/plan";
 import { termsLabel } from "@/lib/accept/terms";
 import { money } from "@/lib/format";
 import { payWords } from "@/lib/pricing/schedule";
-import { depositHow } from "@/lib/send/plan";
+import { depositAmount, depositParts, depositSteps } from "@/lib/send/plan";
 
 /**
  * The top of an accepted quote's page (2026-10-27): when it was accepted and by whom, the deposit and
@@ -24,7 +24,10 @@ export function AcceptedNote({
   termsHref: string | null;
   newerHref?: string | null;
 }) {
-  const deposit = depositOf(a);
+  // The deposit may be in two parts (2026-11-05): the material, then the rest of it in store.
+  const parts = depositParts(a.stages);
+  const needsEtransfer = parts.some((s) => s.pay === "etransfer" || s.pay === null);
+  const how = etransfer || !needsEtransfer ? depositSteps(a.stages, { etransfer: etransfer ?? "", quoteNumber }) : [parts.map((s) => payWords(s.pay)).filter(Boolean).join("; ") || "We'll send you how to pay it."];
   const first = a.name.split(" ")[0];
   return (
     <section className="cq-card cq-accepted" role="status" aria-labelledby="accd-h">
@@ -39,8 +42,12 @@ export function AcceptedNote({
       </h2>
       <div className="dep">
         <span className="k">Your deposit</span>
-        <span className="v">{money(deposit.amount)}</span>
-        <span className="how">{etransfer || deposit.pay === "onsite" ? depositHow(deposit, { etransfer: etransfer ?? "", quoteNumber }) : (payWords(deposit.pay) ?? "We'll send you how to pay it.")}</span>
+        <span className="v">{money(depositAmount(a.stages))}</span>
+        {how.map((x) => (
+          <span className="how" key={x}>
+            {x}
+          </span>
+        ))}
       </div>
       <p>Nothing is final until the deposit is in. Once it is, your materials are ordered and your date is locked in. We&apos;ll call you to set your start date.</p>
       <p className="links">

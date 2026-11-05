@@ -40,7 +40,7 @@ import { acceptReadiness } from "@/lib/accept/staff";
 import { termsLabel } from "@/lib/accept/terms";
 import { ghlOpportunityUrl } from "@/lib/ghl/ids";
 import { logEntries } from "@/lib/quotes/history";
-import { addDays, leadPrice, offersPdf, partOf, priceRange, rangeText, torontoToday, VALID_DAYS } from "@/lib/send/copy";
+import { addDays, leadPrice, offersPdf, partOf, priceRange, quoteSchedule, rangeText, torontoToday, VALID_DAYS } from "@/lib/send/copy";
 import { optionProblem, sendProblems } from "@/lib/send/plan";
 import { parseRooms } from "@/lib/rooms/log";
 import { defaultOptionIds, parsePayouts, payoutCandidates } from "@/lib/payout/cards";
@@ -99,7 +99,7 @@ export default async function QuotePage({
   const base = fingerprint(fromQuote(quote));
   const defaultUntil = quote.validUntil && quote.validUntil >= today ? quote.validUntil : addDays(today, VALID_DAYS);
   const draft = quote.status === "Draft";
-  const [ready, link, from, textFromNumber, sendAs] = await Promise.all([sendingReady(), sentLink(quote.customerToken), sendsFrom(), textsFrom(), sendAsForCard()]);
+  const [ready, link, from, textFromNumber, sendAs] = await Promise.all([sendingReady(), sentLink(quote.customerToken), sendsFrom(), textsFrom(), sendAsForCard(quote)]);
   const problems = draft
     ? sendProblems(quote, { base, validUntil: defaultUntil, channels: { email: !!quote.link?.email, sms: !!quote.link?.phone } }, { today, fingerprint: base, skipOptions: true })
     : [];
@@ -211,7 +211,7 @@ export default async function QuotePage({
 
   // The project's invoice or receipt (2026-10-30): on the contract version only, staff only.
   const billing = !customer && quote.link?.contractVersionId === quote.id && ["Accepted", "Won", "Sent"].includes(quote.status ?? "") ? await billingState(quote.id) : null;
-  const billingCard = billing ? <BillingCard versionId={quote.id} s={billing} /> : null;
+  const billingCard = billing ? <BillingCard versionId={quote.id} s={billing} sendAs={sendAs} /> : null;
 
   const changeCard =
     !customer && quote.changeNo ? (
@@ -439,7 +439,7 @@ export default async function QuotePage({
               {acceptCard}
               {send}
               <Financials
-                schedule={quote.schedule ?? null}
+                schedule={quoteSchedule(quote)}
                 lines={option.lines}
                 t={totals}
                 discountRate={quote.discountRate}

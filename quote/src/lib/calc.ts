@@ -241,7 +241,16 @@ export function parityDiffs(app: OptionTotals, airtable: Partial<OptionTotals>):
 /* ---------- the payment schedule (2026-10-27) ---------- */
 
 /** One stage of a schedule with its money: `pct` is its share of the total, whole percent, for the words. */
-export type StageAmount = { label: string; when: string; pay: PayHow; amount: number; pct: number; kind: "share" | "materials" | "amount" | "balance" };
+export type StageAmount = {
+  label: string;
+  when: string;
+  pay: PayHow;
+  amount: number;
+  pct: number;
+  kind: "share" | "materials" | "amount" | "topUp" | "ofTotal" | "balance";
+  /** A top-up's or a percent-of-total stage's own percent (2026-11-05), for restaging it later; null on every other kind. */
+  target: number | null;
+};
 
 /**
  * The material a deposit can cover (Albert, 2026-10-27): the material lines billed with HST, after
@@ -270,7 +279,7 @@ export function stageAmounts(schedule: PaymentSchedule, lines: LineInput[], disc
 export function stageAmountProblems(stages: StageAmount[], optionName: string): string[] {
   const below = stages.find((s) => s.amount < 0);
   if (below) return [`On ${optionName} the ${below.label.toLowerCase()} would be less than nothing. Change the payment schedule.`];
-  if (stages.length > 1 && stages[0].amount <= 0) return [`On ${optionName} the deposit would be nothing. Change the payment schedule.`];
+  if (stages.length > 1 && stages[0].amount <= 0 && !(stages[1]?.kind === "topUp" && stages[1].amount > 0)) return [`On ${optionName} the deposit would be nothing. Change the payment schedule.`];
   return [];
 }
 
@@ -306,9 +315,24 @@ export function restageAmounts(schedule: PaymentSchedule, frozen: { amount: numb
   const fixed = schedule.stages.map((s, i) => (s.part.kind === "materials" ? Math.min(total, frozen[i]?.amount ?? 0) : s.part.kind === "amount" ? round2(s.part.amount) : null));
   const base = round2(total - fixed.reduce<number>((a, b) => a + (b ?? 0), 0));
   const amounts = schedule.stages.map((s, i) => (fixed[i] !== null ? fixed[i]! : s.part.kind === "share" ? round2(base * (s.part.pct / 100)) : 0));
+  // In order (2026-11-05): a top-up brings what is paid so far up to its percent of the total, never below nothing; a
+  // percent-of-total stage is that percent of the whole, never more than what is left.
+  schedule.stages.forEach((s, i) => {
+    const before = round2(amounts.slice(0, i).reduce((a, b) => a + b, 0));
+    if (s.part.kind === "topUp") amounts[i] = Math.max(0, round2(total * (s.part.pct / 100) - before));
+    if (s.part.kind === "ofTotal") amounts[i] = Math.max(0, Math.min(round2(total * (s.part.pct / 100)), round2(total - before)));
+  });
   const last = schedule.stages.length - 1;
   amounts[last] = round2(total - amounts.slice(0, last).reduce((a, b) => a + b, 0));
-  return schedule.stages.map((s, i) => ({ label: s.label, when: s.when, pay: s.pay, amount: amounts[i], pct: total > 0 ? Math.round((amounts[i] / total) * 100) : 0, kind: s.part.kind }));
+  return schedule.stages.map((s, i) => ({
+    label: s.label,
+    when: s.when,
+    pay: s.pay,
+    amount: amounts[i],
+    pct: total > 0 ? Math.round((amounts[i] / total) * 100) : 0,
+    kind: s.part.kind,
+    target: s.part.kind === "topUp" || s.part.kind === "ofTotal" ? s.part.pct : null,
+  }));
 }
 
 /* ---------- contractor payout cards (2026-11-04) ---------- */

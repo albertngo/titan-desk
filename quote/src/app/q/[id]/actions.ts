@@ -93,7 +93,7 @@ export async function issueBillingAction(versionId: string, choice: BillingChoic
 }
 
 export async function emailBillingAction(versionId: string, choice: BillingChoice): Promise<BillingResult> {
-  return emailBilling(String(versionId ?? ""), { showCredit: choice?.showCredit === true });
+  return emailBilling(String(versionId ?? ""), { showCredit: choice?.showCredit === true, as: typeof choice?.as === "string" ? choice.as : null });
 }
 
 /** Payout cards (2026-11-04): Quotes → Payouts, refused if it changed since the page opened. */

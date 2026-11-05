@@ -2,7 +2,7 @@ import { restageAmounts, round2, type AcceptedTotals } from "@/lib/calc";
 import { defaultSchedule } from "@/lib/pricing/schedule";
 import type { Acceptance, AcceptedAddOn } from "@/lib/accept/plan";
 import type { Part, Scope } from "@/lib/quotes/types";
-import { hstOf, scopeOf, stagesOf, type CopyItem, type CopyText, type CopyOption, type CopyPart, type CopySection, type CopyStage, type CopyTotals, type CustomerCopy } from "@/lib/send/copy";
+import { copyStage, hstOf, scopeOf, stagesOf, type CopyItem, type CopyText, type CopyOption, type CopyPart, type CopySection, type CopyStage, type CopyTotals, type CustomerCopy } from "@/lib/send/copy";
 
 /**
  * The contract (Albert, 2026-10-30, vault 05_decisions/2026-10-30-quote-contract-from-any-version):
@@ -140,7 +140,7 @@ export function joinChange(copy: CustomerCopy): CustomerCopy {
   const frozen = frozenStages(copy.options);
   const schedule = copy.paymentSchedule ?? defaultSchedule();
   const restaged = schedule.stages.length === frozen.length ? restageAmounts(schedule, frozen, totals.total) : restageAmounts(defaultSchedule(), frozen, totals.total);
-  const stages: CopyStage[] = restaged.map((s, i) => ({ label: s.label, when: s.when || frozen[i]?.when || "", pay: s.pay, amount: s.amount, pct: s.pct, kind: s.kind }));
+  const stages: CopyStage[] = restaged.map((s, i) => copyStage({ ...s, when: s.when || frozen[i]?.when || "" }));
   const SELF = "change";
   const c: Contract = {
     v: CONTRACT_VERSION,

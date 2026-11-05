@@ -2,13 +2,13 @@ import "server-only";
 import { getRecord, listByIds, listRecords, updateRecord, updateRecords, type AirtableRecord } from "@/lib/airtable/client";
 import { QUOTE, T, VERSION } from "@/lib/airtable/fields";
 import { fromAcceptance, serializeContract } from "@/lib/contract/model";
-import { ghlConfigured, pipelines } from "@/lib/ghl/client";
+import { ghlConfigured, locationUsers, pipelines } from "@/lib/ghl/client";
 import { buildLost, buildWon, wonStageId } from "@/lib/link/ghlRequest";
 import { makeConfigured, sendMessage, sendToGhl } from "@/lib/make/client";
 import { appendLog, firstNameOf, logLine } from "@/lib/quotes/history";
 import { ids, str } from "@/lib/quotes/values";
 import { acceptedPdfName, copyState, parseCopy, torontoToday, type CopyState, type CustomerCopy } from "@/lib/send/copy";
-import { acceptedEmailMessage, acceptedSmsMessage, customerLinks, emailFromFor, isToken, type Sender } from "@/lib/send/plan";
+import { acceptedEmailMessage, acceptedFromAttempts, acceptedSmsMessage, customerLinks, fromTheirNumber, isToken, noNumberWords, noSenderWords, textFromFor, type Sender } from "@/lib/send/plan";
 import { acceptedWhen, parseAcceptance, picksOf, serializeAcceptance, type Acceptance, type Handoff } from "./plan";
 import { customerUrl, etransferEmail, staffQuoteLink } from "./settings";
 import { acceptTerms, type LiveTerms } from "./live";
@@ -211,8 +211,9 @@ export async function handOff(versionId: string): Promise<Handoff> {
     // The version they agreed to, served by their own link (src/app/c/[token]/[file]/route.ts).
     const termsUrl = a.termsId ? `${links.link}/${TERMS_PDF}` : null;
     if (channels.includes("Email") && t.quote?.email && !told.includes("Email")) {
-      const attempts = [...new Set([emailFromFor(sender, t.copy.company.email, true), emailFromFor(sender, t.copy.company.email, false), null])];
-      let last: unknown = null;
+      // From the person who sent the version and no one else (2026-11-05), so the address matches the name signing it.
+      const attempts = acceptedFromAttempts(sender, t.copy.company.email);
+      let last: unknown = attempts.length ? null : new Error(noSenderWords(sender?.email ?? "this sender"));
       for (const emailFrom of attempts) {
         try {
           await sendMessage(acceptedEmailMessage(t.copy, a, { contactId, firstName: t.quote.firstName, link: links.link, pdfUrl: links.pdfUrl, termsUrl }, { etransfer, acceptedWhen: acceptedWhen(a.at) }, sender, { emailFrom }));
@@ -227,7 +228,11 @@ export async function handOff(versionId: string): Promise<Handoff> {
     }
     if (channels.includes("Text") && t.quote?.phone && !told.includes("Text")) {
       try {
-        await sendMessage(acceptedSmsMessage(t.copy, a, { contactId, firstName: t.quote.firstName, link: links.link }, { etransfer }, sender));
+        // From the sender's own GHL number only (2026-11-05: "email and text should be aligned"). Only a version with no
+        // Sent By, signed by the company, goes without one.
+        const fromNumber = sender && ghlConfigured() ? textFromFor(sender.email, await locationUsers().catch(() => [])) : null;
+        if (sender && !fromNumber) throw new Error(noNumberWords(sender.email));
+        await sendMessage(fromTheirNumber(acceptedSmsMessage(t.copy, a, { contactId, firstName: t.quote.firstName, link: links.link }, { etransfer }, sender), fromNumber));
         told.push("Text");
       } catch (e) {
         failed.push(`Text: ${why(e)}`);

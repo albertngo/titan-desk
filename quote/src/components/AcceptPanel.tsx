@@ -5,7 +5,7 @@ import { useMemo, useRef, useState, useTransition } from "react";
 import { acceptAction } from "@/app/c/[token]/actions";
 import { acceptedTotals, restageAmounts } from "@/lib/calc";
 import { money } from "@/lib/format";
-import { payWords, type PaymentSchedule } from "@/lib/pricing/schedule";
+import { payWords, shownStage, type PaymentSchedule } from "@/lib/pricing/schedule";
 import { partKeys, partWords } from "@/lib/send/copy";
 
 /**
@@ -139,7 +139,7 @@ export function AcceptPanel({
           <dt>Total</dt>
           <dd>{money(totals.total)}</dd>
         </div>
-        {stages.map((s, i) => (
+        {stages.filter(shownStage).map((s, i) => (
           <div key={i} className={i === 0 ? "dep" : "stage"}>
             <dt>
               {s.label}
