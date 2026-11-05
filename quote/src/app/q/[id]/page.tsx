@@ -418,8 +418,8 @@ export default async function QuotePage({
                 <p className="empty">This quote has no options yet.</p>
               </section>
             )}
-            {/* The Payouts tab is for the contractors, so the quote's own cards (Send, History…) stay off it (Albert, 2026-11-05). */}
-            {!(option && totals) && !showPayouts && (
+            {/* The work tabs (Rooms, Site sheet, Payouts, Photos) show their own content only: the quote's own cards (Send, History…) stay on the option tabs and Analysis (Albert, 2026-11-05). */}
+            {!(option && totals) && !(showRooms || showSheet || showPayouts || showPhotos) && (
               <>
                 {changeCard}
                 {acceptedCard}

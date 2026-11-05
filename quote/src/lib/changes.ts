@@ -23,8 +23,8 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-05",
     kind: "changed",
-    title: "Payouts tab shows only the payout cards",
-    details: ["The Payouts tab no longer has Send quote, History and the other quote cards under it. They are still on every option's tab."],
+    title: "Work tabs show only their own content",
+    details: ["Rooms, Site sheet, Payouts and Photos no longer have Send quote, History and the other quote cards under them. Those are still on every option's tab and on Analysis."],
   },
   {
     date: "2026-11-05",
