@@ -285,6 +285,18 @@ export function pushProblem(c: PayoutCard): string | null {
   return null;
 }
 
+/**
+ * What to say when a push got an answer that wasn't the app's own (2026-11-05: "The app didn't answer" said nothing
+ * about why, so the cause couldn't be found). `signedOut` is a redirect to the sign-in page. A timeout or a platform
+ * error may have happened after the card reached CompanyCam, so those say to reload and look before pushing again.
+ */
+export function pushNoAnswer(status: number, signedOut: boolean): string {
+  if (signedOut || status === 401) return "You've been signed out. Reload the page, sign in, and push again.";
+  if (status === 504) return "The app took too long to answer (504). Reload the page: if the card says In CompanyCam, it went; if not, push again.";
+  if (status === 413) return "The card's picture was too large to send (413). Send a bug report with this message.";
+  return `The app didn't answer properly (error ${status || "no status"}). Reload the page: if the card says In CompanyCam, it went; if not, push again. If it keeps happening, send a bug report with this message.`;
+}
+
 /* ---------- the image (drawn in the browser, src/components/PayoutCards.tsx) ---------- */
 
 export type CardHeader = { quoteNumber: string | null; projectNumber: string | null; customer: string | null; site: string | null; date: string };

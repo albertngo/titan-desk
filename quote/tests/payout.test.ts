@@ -15,6 +15,7 @@ import {
   moveLine,
   parsePayouts,
   payoutCandidates,
+  pushNoAnswer,
   pushProblem,
   pushState,
   rateChanged,
@@ -291,5 +292,16 @@ describe("storing", () => {
     expect(parsePayouts("")).toBeNull();
     expect(parsePayouts("pay Bob 500")).toBeNull();
     expect(parsePayouts('{"v":9,"cards":[]}')).toBeNull();
+  });
+});
+
+describe("a push that got no answer from the route (2026-11-05)", () => {
+  it("names the cause instead of a bare didn't answer", () => {
+    expect(pushNoAnswer(200, true)).toMatch(/signed out/);
+    expect(pushNoAnswer(401, false)).toMatch(/signed out/);
+    expect(pushNoAnswer(504, false)).toMatch(/too long.*504.*Reload/);
+    expect(pushNoAnswer(413, false)).toMatch(/too large.*413/);
+    expect(pushNoAnswer(500, false)).toMatch(/error 500.*Reload/);
+    expect(pushNoAnswer(0, false)).toMatch(/no status/);
   });
 });

@@ -14,6 +14,7 @@ import {
   MAX_CARDS,
   moveLine,
   parsePayouts,
+  pushNoAnswer,
   pushProblem,
   pushState,
   rateChanged,
@@ -168,7 +169,19 @@ export function PayoutCards({ quoteRecordId, versionId, raw, options, defaultIds
       }
       const { base64 } = cardJpeg(cardSheet(sent, header));
       const res = await fetch("/api/payout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ quoteRecordId, seen: at, cardId: sent.id, image: base64 }) });
-      const r = (await res.json().catch(() => ({ ok: false, message: "The app didn't answer. Try again." }))) as { ok: boolean; message?: string; saved?: string; warning?: string | null };
+      // Read the answer as text first: anything that isn't the route's JSON (a timeout page, a sign-in redirect, a
+      // platform error) is said with its status instead of a bare "didn't answer" (2026-11-05).
+      const body = await res.text().catch(() => "");
+      let r: { ok: boolean; message?: string; saved?: string; warning?: string | null };
+      try {
+        r = JSON.parse(body);
+        if (!r || typeof r !== "object" || typeof r.ok !== "boolean") throw new Error("not the route's answer");
+      } catch {
+        console.error("payout push: not JSON", res.status, res.redirected ? res.url : "", body.slice(0, 300));
+        const signedOut = res.redirected && /\/(login|denied)\b/.test(new URL(res.url, window.location.href).pathname);
+        setError(pushNoAnswer(res.status, signedOut));
+        return;
+      }
       if (r.saved !== undefined) {
         setSeen(r.saved);
         setSet(parsePayouts(r.saved) ?? emptySet());

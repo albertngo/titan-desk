@@ -23,6 +23,14 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-05",
     kind: "fixed",
+    title: "Push to CompanyCam says what went wrong",
+    details: [
+      "When a push failed, the Payouts tab only said \"The app didn't answer\". It now says why: signed out, too slow, or the error number, and when to reload and check whether the card went before pushing again.",
+    ],
+  },
+  {
+    date: "2026-11-05",
+    kind: "fixed",
     title: "Pictures attach to the quote again",
     details: [
       "Airtable refused every picture the app tried to keep on a quote, so a payout card couldn't be pushed to CompanyCam, and site sheet photos never reached the quote's Site Sheet Photos and Flooring Sheet Photos fields. They now attach, and Push to CompanyCam carries on to CompanyCam.",
