@@ -1,0 +1,45 @@
+name: Quote send notes (one-off)
+
+# Albert, 2026-11-05: "scan and write all the sent out quotes so far with the note link". Posts the send
+# note (the customer's link with #staff, never counted as an open, and the quote's page in the app) on the
+# GHL conversation of each version named, for versions sent before sends began posting it themselves.
+# The staff quote app does the work at /api/activity and skips anything not still Sent from before
+# 2026-11-05. Manual only: run it once.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_ids:
+        description: "Quote Versions record ids, comma-separated (rec...)"
+        required: true
+
+concurrency:
+  group: quote-sent-notes
+  cancel-in-progress: false
+
+jobs:
+  notes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Post the send notes
+        env:
+          QUOTE_STAFF_URL: ${{ secrets.QUOTE_STAFF_URL }}
+          QUOTE_ACTIVITY_KEY: ${{ secrets.QUOTE_ACTIVITY_KEY }}
+          VERSION_IDS: ${{ inputs.version_ids }}
+        run: |
+          if [ -z "$QUOTE_STAFF_URL" ] || [ -z "$QUOTE_ACTIVITY_KEY" ]; then
+            echo "QUOTE_STAFF_URL or QUOTE_ACTIVITY_KEY is not set."
+            exit 1
+          fi
+          ids=$(printf '%s' "$VERSION_IDS" | tr -d ' ')
+          if ! printf '%s' "$ids" | grep -Eq '^rec[A-Za-z0-9]{14}(,rec[A-Za-z0-9]{14})*$'; then
+            echo "version_ids must be rec... ids, comma-separated."
+            exit 1
+          fi
+          body=$(printf '{"step":"sent-notes","versionIds":["%s"]}' "$(printf '%s' "$ids" | sed 's/,/","/g')")
+          curl -fsS --max-time 240 -X POST "${QUOTE_STAFF_URL%/}/api/activity" \
+            -H "Content-Type: application/json" \
+            -H "x-quote-key: $QUOTE_ACTIVITY_KEY" \
+            -d "$body"
+          echo

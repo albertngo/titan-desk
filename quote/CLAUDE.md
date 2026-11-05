@@ -253,7 +253,10 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   count for staff to click") it also posts one internal comment** on the customer's conversation: what
   went, by whom and how, the customer link with `#staff` (`staffViewLink()`, never counted) and the
   version's page in the app when `staffQuoteLink()` knows it (`sentComment()` in `src/lib/activity/track.ts`,
-  tested in `tests/activity.test.ts`). Like every quote comment it tags nobody, rides Make 4975508's `message` route, and a failure never stops a send. Send again posts none. Counts of preliminaries come
+  tested in `tests/activity.test.ts`). Like every quote comment it tags nobody, rides Make 4975508's `message` route, and a failure never stops a send. Send again posts none. Versions sent before 2026-11-05 got it once, by hand
+  (`noteSentLinks()` in `src/lib/quotes/activity.ts`, `{step: "sent-notes"}` on `/api/activity`, run from the
+  manual `.github/workflows/quote-sent-notes.yml` with the exact version ids): only a version still Sent from
+  before `SENT_NOTE_SINCE`, never a replaced one, and nothing is written to Airtable. Counts of preliminaries come
   from Quote Versions (Basis, Status, Sent At/By/To), not from the `mobile quote` tag.
 - **Follow-up tags (Albert, 2026-10-27).** Every send removes both `quote sent: preliminary` and
   `quote sent: measured` from the contact, then adds this version's, through Make 4975508's `tags`
