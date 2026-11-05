@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ago, cleanDescription, DESCRIPTION_MAX, fromLabel, fromWords, groupVersions, inFilter, lastSentVersion, matchesSearch, openedOn, opensWords, versionTree, type QuoteHead, type VersionRow } from "../src/lib/quotes/group";
+import { ago, cleanDescription, DEFAULT_SORT, DESCRIPTION_MAX, isQuoteSort, nextSort, sortGroups, type QuoteSort, fromLabel, fromWords, groupVersions, inFilter, lastSentVersion, matchesSearch, openedOn, opensWords, versionTree, type QuoteHead, type VersionRow } from "../src/lib/quotes/group";
 
 // INVENTED people and numbers only: this repo is public.
 const V = (o: Partial<VersionRow> & { id: string; quoteRecordId: string | null }): VersionRow & { quoteRecordId: string | null } => ({ label: null, version: 1, status: "Draft", basis: "Preliminary", optionCount: 1, createdTime: "2026-10-01T00:00:00Z", ...o });
@@ -173,5 +173,65 @@ describe("Quote Description (2026-11-03)", () => {
     expect(cleanDescription(null)).toBeNull();
     expect(cleanDescription(42)).toBeNull();
     expect(cleanDescription("x".repeat(500))).toHaveLength(DESCRIPTION_MAX);
+  });
+});
+
+describe("Sortable columns (2026-11-05)", () => {
+  const sortHeads = new Map([
+    ["rA", H({ quoteRecordId: "rA", quoteNumber: "Q-1010", customerName: "amy Park", linkStatus: "Needs linking" })],
+    ["rB", H({ quoteRecordId: "rB", quoteNumber: "Q-998", customerName: "Bo Chan", addressStatus: "No address" })],
+    ["rC", H({ quoteRecordId: "rC", quoteNumber: null, customerName: "Cy Ray" })],
+  ]);
+  const list = groupVersions(
+    [
+      V({ id: "a1", quoteRecordId: "rA", status: "Sent", openedCount: 2, lastOpenedAt: "2026-10-20T15:00:00Z", createdTime: "2026-10-03T00:00:00Z" }),
+      V({ id: "b1", quoteRecordId: "rB", status: "Sent", openedCount: 1, lastOpenedAt: "2026-10-25T15:00:00Z", createdTime: "2026-10-01T00:00:00Z" }),
+      V({ id: "b2", quoteRecordId: "rB", version: 2, status: "Draft", createdTime: "2026-10-02T00:00:00Z" }),
+      V({ id: "c1", quoteRecordId: "rC", status: "Won", createdTime: "2026-10-05T00:00:00Z" }),
+      V({ id: "lone", quoteRecordId: null, status: null, createdTime: "2026-09-01T00:00:00Z" }),
+    ],
+    sortHeads,
+  );
+  const ids = (s: QuoteSort) => sortGroups(list, s).map((g) => g.versions[0].id);
+
+  it("defaults to Created, newest first, which is the order the page always had", () => {
+    expect(ids(DEFAULT_SORT)).toEqual(list.map((g) => g.versions[0].id));
+    expect(ids({ key: "created", dir: "asc" })).toEqual(["lone", "b2", "a1", "c1"]);
+  });
+
+  it("sorts customers ignoring case, and quote numbers by their number, blanks last both ways", () => {
+    expect(ids({ key: "customer", dir: "asc" })).toEqual(["a1", "b2", "c1", "lone"]);
+    expect(ids({ key: "customer", dir: "desc" })).toEqual(["c1", "b2", "a1", "lone"]);
+    expect(ids({ key: "quote", dir: "asc" })).toEqual(["b2", "a1", "c1", "lone"]);
+    expect(ids({ key: "quote", dir: "desc" })).toEqual(["a1", "b2", "c1", "lone"]);
+  });
+
+  it("sorts the current version along the quote's life", () => {
+    expect(ids({ key: "version", dir: "asc" })).toEqual(["b2", "a1", "c1", "lone"]);
+  });
+
+  it("sorts Last opened by the version the customer has, never-opened last", () => {
+    // B's newest is a draft, but the customer has v1's link, opened most recently.
+    expect(ids({ key: "opened", dir: "desc" })).toEqual(["b2", "a1", "c1", "lone"]);
+    expect(ids({ key: "opened", dir: "asc" })).toEqual(["a1", "b2", "c1", "lone"]);
+  });
+
+  it("puts Needs linking above a missing address, and nothing-to-look-at last", () => {
+    expect(ids({ key: "attention", dir: "desc" })).toEqual(["a1", "b2", "c1", "lone"]);
+  });
+
+  it("starts a new column in its natural direction and flips the same one", () => {
+    expect(nextSort(DEFAULT_SORT, "customer")).toEqual({ key: "customer", dir: "asc" });
+    expect(nextSort({ key: "customer", dir: "asc" }, "customer")).toEqual({ key: "customer", dir: "desc" });
+    expect(nextSort({ key: "customer", dir: "asc" }, "opened")).toEqual({ key: "opened", dir: "desc" });
+    expect(isQuoteSort({ key: "opened", dir: "asc" })).toBe(true);
+    expect(isQuoteSort({ key: "price", dir: "asc" })).toBe(false);
+    expect(isQuoteSort("created")).toBe(false);
+  });
+
+  it("does not reorder the list it was given", () => {
+    const before = list.map((g) => g.versions[0].id);
+    sortGroups(list, { key: "customer", dir: "asc" });
+    expect(list.map((g) => g.versions[0].id)).toEqual(before);
   });
 });
