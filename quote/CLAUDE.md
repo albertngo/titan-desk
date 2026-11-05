@@ -253,8 +253,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   count for staff to click") it also posts one internal comment** on the customer's conversation: what
   went, by whom and how, the customer link with `#staff` (`staffViewLink()`, never counted) and the
   version's page in the app when `staffQuoteLink()` knows it (`sentComment()` in `src/lib/activity/track.ts`,
-  tested in `tests/activity.test.ts`). It tags nobody, rides Make 4975508's `message` route like the open
-  comments, and a failure never stops a send. Send again posts none. Counts of preliminaries come
+  tested in `tests/activity.test.ts`). Like every quote comment it tags nobody, rides Make 4975508's `message` route, and a failure never stops a send. Send again posts none. Counts of preliminaries come
   from Quote Versions (Basis, Status, Sent At/By/To), not from the `mobile quote` tag.
 - **Follow-up tags (Albert, 2026-10-27).** Every send removes both `quote sent: preliminary` and
   `quote sent: measured` from the contact, then adds this version's, through Make 4975508's `tags`
@@ -277,7 +276,10 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   On a measured quote both comments tag the contact's assigned user (else the opportunity's, else
   Albert), whoever sent it, and also the sender (their GHL user, by email) when that is someone else
   (Albert, 2026-10-27); a preliminary's are the same notes with nobody tagged, since its
-  follow-up is the automation's. Only versions sent since tracking began (Track Activity) get comments.
+  follow-up is the automation's. **Since 2026-11-05 no comment tags anyone** (Albert: "make the comments not tag the user on open. No need
+  on any of them. Just informative"): both go with `mentions: []` and no @names, as the send note does, and
+  the lookups that chose who to tag (`mentionsFor()`, `contactOwner()`, `opportunityOwner()`,
+  `FALLBACK_MENTION_USER_ID`) are gone. `tests/boundary.test.ts` pins the empty mentions. Only versions sent since tracking began (Track Activity) get comments.
   The Send card shows the activity once sent, and All quotes has a **Last opened** column (the current version's last open and how many in all) and marks opened versions in each quote's version list (`openedOn()` in `src/lib/quotes/group.ts`); staff opening a
   link from the Send card add `#staff`, which is never counted. Rules in `src/lib/activity/track.ts`,
   tested in `tests/activity.test.ts`.

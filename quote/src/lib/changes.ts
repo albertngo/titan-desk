@@ -22,6 +22,15 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-05",
+    kind: "changed",
+    title: "Quote open notes no longer tag anyone",
+    details: [
+      "The GHL notes when a customer first opens a quote, and the summary three days after sending, now just inform: nobody is tagged, so nobody gets a GHL notification for them.",
+      "They still land on the customer's conversation with the same words.",
+    ],
+  },
+  {
+    date: "2026-11-05",
     kind: "new",
     title: "A GHL note with the quote link when you send",
     details: [
