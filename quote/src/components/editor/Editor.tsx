@@ -392,7 +392,8 @@ export default function Editor({
   // The short lines the sidebar and the folded terms show (Option C, 2026-11-01).
   const termsRef = useRef<HTMLDetailsElement>(null);
   // The version's own schedule, else the automatic one from its HST (2026-11-05).
-  const autoPlan = useMemo(() => quoteSchedule({ schedule: null, showHst: quote.showHst, options: quote.options }), [quote.showHst, quote.options]);
+  // Over the options that go to the customer, as the frozen copy works it out (2026-11-05).
+  const autoPlan = useMemo(() => quoteSchedule({ schedule: null, showHst: quote.showHst, options: quote.options.filter((o) => !o.notOffered) }), [quote.showHst, quote.options]);
   const schedule = quote.schedule ?? autoPlan;
   // A schedule that goes against the HST rules is flagged, never stopped (2026-11-05).
   const scheduleWarnings = useMemo(

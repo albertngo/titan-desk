@@ -1,6 +1,6 @@
 import { optionHst, optionTotals, parityDiffs, round2, stageAmountProblems, stageAmounts } from "@/lib/calc";
 import type { Quote } from "@/lib/quotes/types";
-import { payWords, scheduleProblems, shownStage } from "@/lib/pricing/schedule";
+import { payWords, scheduleFlags, scheduleProblems, shownStage } from "@/lib/pricing/schedule";
 import type { Acceptance } from "@/lib/accept/plan";
 import { changeWords as changeLine, paidLeft } from "@/lib/change/diff";
 import { addDays, dollars, hstOf, hstRow, isIsoDate, isRange, isSplit, scopeLeads, scopeOf, leadPrice, longDate, offersPdf, quoteSchedule, rangeText, rangeWhy, stageNote, stagesOf, type CopyOption, type CopyStage, type CustomerCopy } from "./copy";
@@ -108,6 +108,10 @@ export function sendProblems(quote: Quote, input: SendInput, ctx: { today: strin
   const ids = input.optionIds ?? null;
   // A change after acceptance (2026-10-27) has no good-until date; since 2026-10-31 everything on it is the project.
   if (quote.changeNo) out.push(...changeProblems(quote, ids));
+  // The HST rules stop a send (Albert, 2026-11-05: "it will flag and block the send to prevent instructions from being
+  // wrong"): checked on what goes, with the schedule it would go with.
+  const going = chooseOptions(quote, ids);
+  out.push(...scheduleFlags(quoteSchedule(going), going.options.map((o) => ({ name: o.name, lines: o.lines, showHst: optionHst(quote, o), discountRate: quote.discountRate }))));
   if (!ctx.skipOptions) {
     if (ids && quote.options.length > 0) {
       if (ids.length === 0) out.push("Choose at least one option to send.");
@@ -190,6 +194,13 @@ export function fromAttempts(sender: Sender | null, companyEmail: string | null)
 export function acceptedFromAttempts(sender: Sender | null, companyEmail: string | null): (string | null)[] {
   return sender ? fromAttempts(sender, companyEmail) : [null];
 }
+
+/**
+ * Why a text can't go from this person (Albert, 2026-11-05: "email and text should be aligned"): a text goes only from
+ * the sender's own GHL number, as an email goes only from their address. With no number GHL would pick one itself,
+ * and on 2026-11-05 it picked another person's.
+ */
+export const noNumberWords = (email: string) => `The text can't go from ${email}: their GHL user has no number of its own, and a text goes only from the sender's own number. Give that GHL user a number (Settings, My Staff, LC Phone), or pick someone who has one.`;
 
 /** Why there is no From line for this person, in words for the Send card and the result. */
 export const noSenderWords = (email: string) => `The email can't go from ${email}: GHL sends only from a Titan address, and never from anyone but the person sending. Sign in with your Titan account to email it, or send it by text.`;

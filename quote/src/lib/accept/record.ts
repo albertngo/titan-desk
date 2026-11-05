@@ -8,7 +8,7 @@ import { makeConfigured, sendMessage, sendToGhl } from "@/lib/make/client";
 import { appendLog, firstNameOf, logLine } from "@/lib/quotes/history";
 import { ids, str } from "@/lib/quotes/values";
 import { acceptedPdfName, copyState, parseCopy, torontoToday, type CopyState, type CustomerCopy } from "@/lib/send/copy";
-import { acceptedEmailMessage, acceptedFromAttempts, acceptedSmsMessage, customerLinks, fromTheirNumber, isToken, noSenderWords, textFromFor, type Sender } from "@/lib/send/plan";
+import { acceptedEmailMessage, acceptedFromAttempts, acceptedSmsMessage, customerLinks, fromTheirNumber, isToken, noNumberWords, noSenderWords, textFromFor, type Sender } from "@/lib/send/plan";
 import { acceptedWhen, parseAcceptance, picksOf, serializeAcceptance, type Acceptance, type Handoff } from "./plan";
 import { customerUrl, etransferEmail, staffQuoteLink } from "./settings";
 import { acceptTerms, type LiveTerms } from "./live";
@@ -228,8 +228,10 @@ export async function handOff(versionId: string): Promise<Handoff> {
     }
     if (channels.includes("Text") && t.quote?.phone && !told.includes("Text")) {
       try {
-        // From the sender's own GHL number when they have one (2026-11-05), as their send was; else the main number.
+        // From the sender's own GHL number only (2026-11-05: "email and text should be aligned"). Only a version with no
+        // Sent By, signed by the company, goes without one.
         const fromNumber = sender && ghlConfigured() ? textFromFor(sender.email, await locationUsers().catch(() => [])) : null;
+        if (sender && !fromNumber) throw new Error(noNumberWords(sender.email));
         await sendMessage(fromTheirNumber(acceptedSmsMessage(t.copy, a, { contactId, firstName: t.quote.firstName, link: links.link }, { etransfer }, sender), fromNumber));
         told.push("Text");
       } catch (e) {

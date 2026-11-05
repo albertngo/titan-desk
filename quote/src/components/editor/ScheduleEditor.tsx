@@ -24,7 +24,7 @@ export function ScheduleEditor({
   schedule: PaymentSchedule | null;
   /** What the version gets with no schedule of its own (2026-11-05). */
   auto: PaymentSchedule;
-  /** Where it goes against the HST rules (2026-11-05): shown, never a stop. */
+  /** Where it goes against the HST rules (2026-11-05): shown here, and the send is refused until it is fixed. */
   flags?: string[];
   onChange: (next: PaymentSchedule | null) => void;
   /** The stages in dollars for the option on screen, in order. */
@@ -80,7 +80,7 @@ export function ScheduleEditor({
       )}
       {flags.length > 0 && (
         <div className="sq-msg warn" role="status">
-          <b>Check the payment schedule</b>
+          <b>Fix the payment schedule before sending</b>
           <ul>
             {flags.map((f) => (
               <li key={f}>{f}</li>

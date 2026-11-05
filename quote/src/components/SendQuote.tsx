@@ -152,7 +152,7 @@ export function SendAsPicker({ list, value, onChange, disabled = false }: { list
       {last && <span className="sub sq-last">{last}</span>}
       {c && c.email !== list.me && (
         <span className="sub">
-          Email from {c.emailFrom ?? "nobody (this address can't send email)"}; text from {c.textFrom ?? "whichever number GHL picks (they have no GHL number of their own)"}; signed as them.
+          Email from {c.emailFrom ?? "nobody (this address can't send email)"}; text from {c.textFrom ?? "nobody (their GHL user has no number of its own)"}; signed as them.
         </span>
       )}
     </label>
@@ -166,6 +166,10 @@ export function SendAsPicker({ list, value, onChange, disabled = false }: { list
 function SendAgain({ versionId, sendAs = null, email, phone, pdfOn, kind, dated, unsaved = null }: { versionId: string; sendAs?: SendAsList | null; email: string | null; phone: string | null; pdfOn: boolean; kind: "quote" | "accepted" | "change"; dated: boolean; /** Unsaved changes on this device (2026-11-05): Send again is off while there are. */ unsaved?: string | null }) {
   const [asEmail, setAsEmail] = useState(sendAs?.me ?? "");
   const asOther = Boolean(sendAs && asEmail && asEmail !== sendAs.me);
+  // Email and text alike go only from the sender's own address and number (2026-11-05).
+  const pick = sendAs?.choices.find((c) => c.email === asEmail) ?? null;
+  const canEmail = !pick || Boolean(pick.emailFrom);
+  const canText = !pick || Boolean(pick.textFrom);
   const accepted = kind === "accepted";
   const what = kind === "accepted" ? "accepted quote" : kind === "change" ? "updated quote" : "quote";
   const router = useRouter();
@@ -185,7 +189,7 @@ function SendAgain({ versionId, sendAs = null, email, phone, pdfOn, kind, dated,
   function go() {
     setResult(null);
     start(async () => {
-      const r = await resendQuoteAction(versionId, { channels: { email: byEmail, sms: bySms }, pdf, ...(asOther ? { as: asEmail } : {}) });
+      const r = await resendQuoteAction(versionId, { channels: { email: byEmail && canEmail, sms: bySms && canText }, pdf, ...(asOther ? { as: asEmail } : {}) });
       if (r.ok) {
         setOpen(false);
         setResult({ text: `Sent again by ${r.sentTo.join(" and ").toLowerCase()}${r.pdf ? ", with the PDF" : ""}.${r.warning ? ` ${r.warning}` : ""}`, bad: false });
@@ -199,8 +203,8 @@ function SendAgain({ versionId, sendAs = null, email, phone, pdfOn, kind, dated,
       {sendAs && <SendAsPicker list={sendAs} value={asEmail} onChange={setAsEmail} />}
       <p className="faint sq-again-note">They get a short message: &ldquo;Here&rsquo;s your {what} again&rdquo; with the link{pdf ? " and the PDF" : ""}.</p>
       <label className="sq-tick"><input type="checkbox" checked={pdf} onChange={(e) => setPdf(e.target.checked)} /> Include the PDF <span className="faint">{accepted ? "(the signed, accepted PDF)" : pdfOn ? "(already on their page)" : "(turns on Download PDF on their page)"}</span></label>
-      <label className="sq-tick"><input type="checkbox" checked={byEmail} disabled={!email} onChange={(e) => setByEmail(e.target.checked)} /> Email {email ? <span className="faint">{email}</span> : <span className="faint">no email on the contact</span>}</label>
-      <label className="sq-tick"><input type="checkbox" checked={bySms} disabled={!phone} onChange={(e) => setBySms(e.target.checked)} /> Text {phone ? <span className="faint">{phone}</span> : <span className="faint">no phone on the contact</span>}</label>
+      <label className="sq-tick"><input type="checkbox" checked={byEmail && canEmail} disabled={!email || !canEmail} onChange={(e) => setByEmail(e.target.checked)} /> Email {email ? <span className="faint">{email}{canEmail ? "" : ", can't go from this sender's address"}</span> : <span className="faint">no email on the contact</span>}</label>
+      <label className="sq-tick"><input type="checkbox" checked={bySms && canText} disabled={!phone || !canText} onChange={(e) => setBySms(e.target.checked)} /> Text {phone ? <span className="faint">{phone}{canText ? "" : ", can't go: this sender's GHL user has no number of its own"}</span> : <span className="faint">no phone on the contact</span>}</label>
       {result && (
         <div className={`sq-msg ${result.bad ? "bad" : "ok"}`} role="status">
           {result.text}
@@ -208,7 +212,7 @@ function SendAgain({ versionId, sendAs = null, email, phone, pdfOn, kind, dated,
         </div>
       )}
       <div className="sq-again-acts">
-        <button type="button" className="btn primary small" disabled={busy || Boolean(unsaved) || (!byEmail && !bySms)} onClick={go}>{busy ? "Sending…" : "Send"}</button>
+        <button type="button" className="btn primary small" disabled={busy || Boolean(unsaved) || (!(byEmail && canEmail) && !(bySms && canText))} onClick={go}>{busy ? "Sending…" : "Send"}</button>
         <button type="button" className="btn small" disabled={busy} onClick={() => setOpen(false)}>Cancel</button>
       </div>
       <p className="faint sq-again-note">Nothing about the quote changes: same price, same link{dated ? ", same good-until date" : ""}. The message has a link to the PDF, never an attachment.</p>
@@ -236,7 +240,6 @@ export function SendQuote({
   textFrom: ownTextFrom = null,
   sendAs = null,
   options,
-  scheduleFlags = [],
 }: {
   versionId: string;
   label: string;
@@ -263,8 +266,6 @@ export function SendQuote({
   sendAs?: SendAsList | null;
   /** The version's options, for choosing which go to the customer (2026-10-24); `range` is what a preliminary shows instead of `price` (2026-10-27). */
   options: { id: string; name: string; price: string; range: string | null; recommended: boolean; notOffered?: boolean; problem: string | null }[];
-  /** Where the payment schedule goes against the HST rules (2026-11-05): a warning, never a stop. */
-  scheduleFlags?: string[];
 }) {
   const router = useRouter();
   /** Unsaved changes for this version on this device (2026-11-05): nothing sends while there are. */
@@ -346,13 +347,13 @@ export function SendQuote({
     );
   }
 
-  const channels = [byEmail && email ? `email (${email})` : null, bySms && phone ? `text (${phone})` : null].filter(Boolean);
+  const channels = [byEmail && email && from ? `email (${email})` : null, bySms && phone && textFrom ? `text (${phone})` : null].filter(Boolean);
   const blocked = allProblems.length > 0 || !ready.ready || Boolean(unsaved);
 
   function send() {
     setError(null);
     startSend(async () => {
-      const r = await sendQuoteAction(versionId, { base, validUntil: undated ? null : until, channels: { email: byEmail, sms: bySms }, itemised, pdf, optionIds, range: !exact, ...(asOther ? { as: asEmail } : {}) });
+      const r = await sendQuoteAction(versionId, { base, validUntil: undated ? null : until, channels: { email: byEmail && !!from, sms: bySms && !!textFrom }, itemised, pdf, optionIds, range: !exact, ...(asOther ? { as: asEmail } : {}) });
       setAsking(false);
       if (r.ok) {
         setDone(r);
@@ -372,29 +373,23 @@ export function SendQuote({
           </div>
         )}
         {!ready.ready && <p className="sq-msg warn">{ready.why}</p>}
-        {scheduleFlags.length > 0 && (
-          <div className="sq-msg warn">
-            <b>Check the payment schedule</b> <span className="faint">(it can still be sent)</span>
-            <ul>{scheduleFlags.map((p) => <li key={p}>{p}</li>)}</ul>
-          </div>
-        )}
         {unsaved && <UnsavedNote versionId={versionId} at={unsaved} sent={false} />}
 
         {sendAs && <SendAsPicker list={sendAs} value={asEmail} onChange={setAsEmail} disabled={sending || asking} />}
         <fieldset className="sq-ch" disabled={sending || asking}>
           <legend className="sr-only">Send by</legend>
           <label className={email ? undefined : "off"}>
-            <input type="checkbox" checked={byEmail && !!email} disabled={!email} onChange={(e) => setByEmail(e.target.checked)} />
+            <input type="checkbox" checked={byEmail && !!email && !!from} disabled={!email || !from} onChange={(e) => setByEmail(e.target.checked)} />
             <span>
               Email <span className="faint">{email ?? "no email in GHL"}</span>
               {email && <span className="sub">{from ? `Link, from ${from}` : asOther ? "Can't go from this person's address: pick someone else to email it" : "Can't go from your sign-in: sign in with your Titan account to email it"}</span>}
             </span>
           </label>
           <label className={phone ? undefined : "off"}>
-            <input type="checkbox" checked={bySms && !!phone} disabled={!phone} onChange={(e) => setBySms(e.target.checked)} />
+            <input type="checkbox" checked={bySms && !!phone && !!textFrom} disabled={!phone || !textFrom} onChange={(e) => setBySms(e.target.checked)} />
             <span>
               Text <span className="faint">{phone ?? "no phone in GHL"}</span>
-              {phone && <span className="sub">{textFrom ? `Link, from ${textFrom} (${asOther ? "their" : "your"} GHL number)` : `Link, from whichever number GHL picks, usually the last one this customer was texted from, which may be someone else's: ${asOther ? "their" : "your"} GHL user has no number of its own`}</span>}
+              {phone && <span className="sub">{textFrom ? `Link, from ${textFrom} (${asOther ? "their" : "your"} GHL number)` : `Can't go: ${asOther ? "their" : "your"} GHL user has no number of its own, and a text goes only from the sender's own number. Give it one in GHL (Settings, My Staff, LC Phone)${asOther ? "" : ", or pick someone who has one"}`}</span>}
             </span>
           </label>
         </fieldset>

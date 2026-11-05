@@ -457,8 +457,11 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   **A GHL user with no number of its own is not texted from the main line (checked in GHL, 2026-11-05).** The app then
   sends no `fromNumber`, and GHL picks one itself: the front desk's quote and won texts that day went from the number
   the contact had last been texted from (the assigned salesperson's), and so did a text typed in GHL by the front desk.
-  The email is unaffected. The cure is a number on that GHL user (Settings → My Staff → the user → LC Phone); the Send
-  card says so instead of "the main GHL number".
+  The email is unaffected. **So a text goes only from the sender's own number (Albert, same day: "email and text should
+  be aligned"):** with no number of their own the text doesn't go, exactly as an email doesn't from an address GHL can't
+  use (`noNumberWords()` in `plan.ts`): Send quote, Send again and the won text alike, and the Send card greys the Text
+  tick and says why. The cure is a number on that GHL user (Settings → My Staff → the user → LC Phone). Only a won text
+  for a version with no Sent By, signed by the company, still goes without one.
   Make 4975508 forwards the message body verbatim, so nothing changed in Make.
 - **Who worked on a version (Albert, 2026-10-22).** Quote Versions carries **Created By (app)**,
   **Last Edited By**, **Last Edited At** and an append-only **Edit Log** (one line per save, new
@@ -792,10 +795,12 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   **Use it** goes back. The automatic schedule is frozen on the copy like a picked one (`quoteSchedule()` in `copy.ts`).
   The won email, text and accepted page show a two-part deposit as its parts and how to pay each (`depositParts()` /
   `depositSteps()` / `smsDepositHow()` in `plan.ts`), with the letterhead's address for the showroom. Material
-  schedules stored before keep their old stages. **Flagged, never stopped (same day: "it should FLAG us if the payment
-  plan picked goes against the rules for both"):** `scheduleFlags()` names e-transfer on a quote with no HST, a
-  material-only-HST quote that doesn't start with Materials, and a material under 35% of an option with no top-up after
-  it; the editor's schedule and the Send card show them as Check the payment schedule, and the send still goes.
+  schedules stored before keep their old stages. **Flagged and blocked (same day: "it should FLAG us if the payment plan
+  picked goes against the rules for both", then "it will flag and block the send to prevent instructions from being
+  wrong"):** `scheduleFlags()` names e-transfer on a quote with no HST, a material-only-HST quote that doesn't start
+  with Materials, and a material under 35% of an option with no top-up after it. The editor's schedule shows them, and
+  `sendProblems()` refuses the send with them (checked on the options going, with the schedule they would go with), so
+  the Send card says Not ready to send until the schedule is fixed.
 - **Acceptance (Albert, 2026-10-27: "it is always best to have an accept step").** Only a **measured**
   version out with the customer and still good (Sent, not past Valid Until, not superseded, not a change)
   can be accepted; a preliminary is an estimate. **On the customer's link** an Accept panel under the

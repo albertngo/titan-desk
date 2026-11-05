@@ -22,6 +22,23 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-05",
+    kind: "changed",
+    title: "A wrong payment schedule stops the send",
+    details: [
+      "A payment schedule that goes against the HST rules no longer just warns: the quote can't be sent until it is fixed. The editor's payment schedule says what to fix, and the Send card lists it under Not ready to send.",
+    ],
+  },
+  {
+    date: "2026-11-05",
+    kind: "changed",
+    title: "Texts only from the sender's own number",
+    details: [
+      "A text now goes out only from the GHL number of the person it is sent as, the same rule as the email and its address. If their GHL user has no number of its own, the Text tick is greyed out and says so; give that user a number in GHL (Settings, My Staff, LC Phone). Before, GHL picked a number itself, which could be someone else's.",
+      "The thank-you text after a customer accepts follows the same rule.",
+    ],
+  },
+  {
+    date: "2026-11-05",
     kind: "new",
     title: "A payment schedule that breaks the HST rules is flagged",
     details: [

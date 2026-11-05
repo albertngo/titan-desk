@@ -19,7 +19,7 @@ import { acceptedPdfName, COPY_MAX_CHARS, customerCopy, offersPdf, parseCopy, pd
 import { ghlConfigured, locationUsers } from "@/lib/ghl/client";
 import { quoterAllowlist } from "@/lib/access";
 import { lastSentOf, resolveSender, sendAsChoices, type SendAsChoice } from "@/lib/send/sendAs";
-import { changeEmailMessage, changeSmsMessage, fromTheirNumber, textFromFor, chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, fromAttempts, noSenderWords, isToken, newToken, parseOptionIds, parseResend, resendEmailMessage, resendKind, resendProblems, resendSmsMessage, sendProblems, smsMessage, type Channels, type Sender } from "@/lib/send/plan";
+import { changeEmailMessage, changeSmsMessage, fromTheirNumber, textFromFor, chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, fromAttempts, noNumberWords, noSenderWords, isToken, newToken, parseOptionIds, parseResend, resendEmailMessage, resendKind, resendProblems, resendSmsMessage, sendProblems, smsMessage, type Channels, type Sender } from "@/lib/send/plan";
 import { authorFields, firstNameOf, type Person } from "./history";
 import { loadContract } from "./contract";
 import { getQuote } from "./load";
@@ -352,9 +352,10 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   let textedFrom: string | null = null;
   if (input.channels.sms) {
     try {
-      // From the sender's own GHL number when they have one (2026-11-04). With none, GHL picks the number itself: on
-      // 2026-11-05 that was the number the contact was last texted from (another person's), not the main line.
+      // From the sender's own GHL number only (2026-11-05: "email and text should be aligned"). With none, GHL would pick
+      // the number itself, and on 2026-11-05 it picked the number the contact was last texted from, another person's.
       textedFrom = await textFrom(person.email);
+      if (!textedFrom) throw new Error(noNumberWords(person.email));
       await sendMessage(fromTheirNumber(copy.change ? changeSmsMessage(copy, { contactId, firstName, link }, from) : smsMessage(copy, { contactId, firstName, link }, from), textedFrom));
       sentTo.push("Text");
     } catch (e) {
@@ -387,7 +388,7 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   }
 
   try {
-    const how = `sent by ${sentTo.join(" and ").toLowerCase()}${sentFrom ? ` from ${sentFrom}` : ""}${sentTo.includes("Text") ? `, text from ${textedFrom ?? "GHL's pick (no number of their own)"}` : ""}${input.pdf ? ", PDF on the quote page" : ""}${chosenWords(quote, input.optionIds) ? `, ${chosenWords(quote, input.optionIds)}` : ""}${prelim && !input.range ? ", exact price, no range" : ""}`;
+    const how = `sent by ${sentTo.join(" and ").toLowerCase()}${sentFrom ? ` from ${sentFrom}` : ""}${sentTo.includes("Text") ? `, text from ${textedFrom}` : ""}${input.pdf ? ", PDF on the quote page" : ""}${chosenWords(quote, input.optionIds) ? `, ${chosenWords(quote, input.optionIds)}` : ""}${prelim && !input.range ? ", exact price, no range" : ""}`;
     await updateRecord(T.versions, quote.id, { [VERSION.sentTo]: sentTo.join(", "), ...authorFields(actor, new Date(), picked.as ? `${how}, as ${person.email}` : how, quote.editLog) });
   } catch {
     notes.push("Airtable didn't record how it was sent.");
@@ -481,7 +482,10 @@ export async function resendQuote(versionId: string, raw: unknown): Promise<Rese
   }
   if (input.channels.sms) {
     try {
-      await sendMessage(fromTheirNumber(resendSmsMessage(copy, to, from), await textFrom(person.email)));
+      // From the sender's own number only, as the email is from their address (2026-11-05).
+      const number = await textFrom(person.email);
+      if (!number) throw new Error(noNumberWords(person.email));
+      await sendMessage(fromTheirNumber(resendSmsMessage(copy, to, from), number));
       sentTo.push("Text");
     } catch (e) {
       failed.push(`Text: ${e instanceof Error ? e.message : String(e)}`);
