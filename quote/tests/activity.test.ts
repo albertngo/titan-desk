@@ -8,7 +8,7 @@ import {
   followUpTagBodies,
   isBot,
   parseActivity,
-  sentNote,
+  sentComment,
   staffViewLink,
   summaryComment,
   summaryDue,
@@ -91,16 +91,15 @@ describe("the GHL comments", () => {
     );
   });
 
-  it("notes the send for the contact's Notes tab with the staff link, which the customer page never counts (2026-11-05)", () => {
+  it("comments on the send with the staff link, which the customer page never counts, and the quote in the app (2026-11-05)", () => {
     const link = `https://quote.example.com/c/${TOKEN}`;
     expect(staffViewLink(link)).toBe(`${link}#staff`);
     expect(staffViewLink(`${link}#x`)).toBe(`${link}#staff`);
-    expect(sentNote(info, link, "https://staff.example.com/q/recAAAAAAAAAAAAAA")).toBe(
-      `Quote sent: Q-1234 v2 (measured). Sent Oct 24 by Pat, by email and text.\nCustomer's view (staff link, opening it is not counted as an open): ${link}#staff\nIn the quote app: https://staff.example.com/q/recAAAAAAAAAAAAAA`,
+    expect(sentComment(link, "https://staff.example.com/q/recAAAAAAAAAAAAAA")).toBe(
+      `Staff Link to Quote: ${link}#staff
+Edit the Quote: https://staff.example.com/q/recAAAAAAAAAAAAAA`,
     );
-    expect(sentNote({ ...info, basis: "Preliminary", senderName: null, sentTo: "Text" }, link, null)).toBe(
-      `Quote sent: Q-1234 v2 (preliminary). Sent Oct 24, by text.\nCustomer's view (staff link, opening it is not counted as an open): ${link}#staff`,
-    );
+    expect(sentComment(link, null)).toBe(`Staff Link to Quote: ${link}#staff`);
   });
 
   it("sums up three days after sending: opens, devices, last open and downloads, or not opened yet", () => {

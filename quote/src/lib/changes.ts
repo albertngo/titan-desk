@@ -23,6 +23,15 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-05",
     kind: "changed",
+    title: "The quote link is an internal comment again, two lines",
+    details: [
+      "Right after a quote's email or text goes, the customer's GHL conversation gets an internal comment: \"Staff Link to Quote:\" (opening it is never counted as the customer's open) and \"Edit the Quote:\" (the quote here). Nothing else, nobody tagged.",
+      "It no longer goes on the contact's Notes tab.",
+    ],
+  },
+  {
+    date: "2026-11-05",
+    kind: "changed",
     title: "The quote link note goes on the contact's Notes",
     details: [
       "The note a send adds, with the customer's staff link and the quote's page here, is now a note on the GHL contact's Notes tab instead of a comment in the conversation.",
