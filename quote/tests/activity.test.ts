@@ -96,10 +96,10 @@ describe("the GHL comments", () => {
     expect(staffViewLink(link)).toBe(`${link}#staff`);
     expect(staffViewLink(`${link}#x`)).toBe(`${link}#staff`);
     expect(sentNote(info, link, "https://staff.example.com/q/recAAAAAAAAAAAAAA")).toBe(
-      `Quote sent: Q-1234 v2 (measured). Sent Oct 24 by Pat, by email and text.\nCustomer's view (staff link, opening it is not counted as an open): ${link}#staff\nIn the quote app: https://staff.example.com/q/recAAAAAAAAAAAAAA`,
+      `Staff link to Quote Q-1234 v2 (measured): ${link}#staff\nSent Oct 24 by Pat, by email and text. Opening this link is not counted as the customer's open.\nIn the quote app: https://staff.example.com/q/recAAAAAAAAAAAAAA`,
     );
     expect(sentNote({ ...info, basis: "Preliminary", senderName: null, sentTo: "Text" }, link, null)).toBe(
-      `Quote sent: Q-1234 v2 (preliminary). Sent Oct 24, by text.\nCustomer's view (staff link, opening it is not counted as an open): ${link}#staff`,
+      `Staff link to Quote Q-1234 v2 (preliminary): ${link}#staff\nSent Oct 24, by text. Opening this link is not counted as the customer's open.`,
     );
   });
 

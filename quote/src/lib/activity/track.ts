@@ -164,8 +164,9 @@ export const staffViewLink = (link: string) => `${link.replace(/#.*$/, "")}#staf
  */
 export function sentNote(i: ActivityInfo, link: string, quotePage: string | null): string {
   return [
-    `Quote sent: ${what(i)}. ${sentWords(i)}`,
-    `Customer's view (staff link, opening it is not counted as an open): ${staffViewLink(link)}`,
+    // Albert, 2026-11-05: "It should say: Staff link to Quote: … or whatever the sent version is at that time".
+    `Staff link to Quote ${what(i)}: ${staffViewLink(link)}`,
+    `${sentWords(i)} Opening this link is not counted as the customer's open.`.trim(),
     quotePage ? `In the quote app: ${quotePage}` : "",
   ]
     .filter(Boolean)

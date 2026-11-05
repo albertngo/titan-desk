@@ -23,6 +23,14 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-05",
     kind: "changed",
+    title: "The contact note leads with the staff link",
+    details: [
+      "The note on the GHL contact now opens with \"Staff link to Quote Q-1234 v2 (measured):\" and the link to the version that was sent, then who sent it and how, then the quote's page here.",
+    ],
+  },
+  {
+    date: "2026-11-05",
+    kind: "changed",
     title: "The quote link note goes on the contact's Notes",
     details: [
       "The note a send adds, with the customer's staff link and the quote's page here, is now a note on the GHL contact's Notes tab instead of a comment in the conversation.",
