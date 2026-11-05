@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { activityKeyOk, noteSummaries, recordActivity } from "@/lib/quotes/activity";
+import { activityKeyOk, noteSentLinks, noteSummaries, recordActivity } from "@/lib/quotes/activity";
 
 /**
  * Open tracking (2026-10-27), called by the customer deployment and a daily GitHub Actions run,
@@ -8,6 +8,7 @@ import { activityKeyOk, noteSummaries, recordActivity } from "@/lib/quotes/activ
  *
  *   POST {token, kind: "open" | "pdf", device}   → count it; the first open posts a GHL comment
  *   POST {step: "summaries"}                      → the three-day summary comments
+ *   POST {step: "sent-notes", versionIds: [...]}  → once, by hand: the send note for versions sent before 2026-11-05
  */
 
 export const dynamic = "force-dynamic";
@@ -24,7 +25,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, message: "Send JSON." }, { status: 400 });
   }
   try {
-    const r = (body as { step?: unknown })?.step === "summaries" ? await noteSummaries(key) : await recordActivity(key, body);
+    const step = (body as { step?: unknown })?.step;
+    const r =
+      step === "summaries" ? await noteSummaries(key)
+      : step === "sent-notes" ? await noteSentLinks(key, (body as { versionIds?: unknown }).versionIds)
+      : await recordActivity(key, body);
     return r.ok ? NextResponse.json(r) : NextResponse.json({ ok: false, message: r.message }, { status: r.status });
   } catch (e) {
     console.error("activity", e);

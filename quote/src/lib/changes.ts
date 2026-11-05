@@ -22,6 +22,15 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-05",
+    kind: "new",
+    title: "Quotes sent before today got their link note",
+    details: [
+      "Every quote still out with the customer that was sent before today now has the same GHL note a send posts: who sent it, the customer's staff link (not counted as an open) and the quote's page here.",
+      "Replaced versions got none, since their link only says a newer quote exists.",
+    ],
+  },
+  {
+    date: "2026-11-05",
     kind: "changed",
     title: "Quote open notes no longer tag anyone",
     details: [

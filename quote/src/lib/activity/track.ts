@@ -154,6 +154,9 @@ export function firstOpenComment(i: ActivityInfo, at: Date, device: Device): str
  * The customer's link as staff open it: `#staff` makes the page skip its open report (SeenBeacon), so a
  * look from GHL or the Send card is never counted as the customer's open (2026-10-27).
  */
+/** The first day sends posted the send note themselves (2026-11-05); versions sent before it get one by hand, once. */
+export const SENT_NOTE_SINCE = "2026-11-05";
+
 export const staffViewLink = (link: string) => `${link.replace(/#.*$/, "")}#staff`;
 
 /**

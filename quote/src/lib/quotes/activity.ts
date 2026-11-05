@@ -2,9 +2,11 @@ import "server-only";
 import { timingSafeEqual } from "node:crypto";
 import { listByIds, listRecords, updateRecord } from "@/lib/airtable/client";
 import { QUOTE, T, VERSION } from "@/lib/airtable/fields";
-import { applyActivity, firstOpenComment, parseActivity, summaryComment, summaryDue, type ActivityInfo, type TrackState } from "@/lib/activity/track";
+import { applyActivity, firstOpenComment, parseActivity, sentComment, SENT_NOTE_SINCE, summaryComment, summaryDue, type ActivityInfo, type TrackState } from "@/lib/activity/track";
+import { customerUrl, staffQuoteLink } from "@/lib/accept/settings";
 import { makeConfigured, sendMessage } from "@/lib/make/client";
 import { torontoToday } from "@/lib/send/copy";
+import { customerLinks, isToken } from "@/lib/send/plan";
 import { firstNameOf } from "./history";
 import { bool, ids, num, str } from "./values";
 
@@ -17,6 +19,8 @@ import { bool, ids, num, str } from "./values";
  *     first open of a sent version posts an internal comment on the customer's GHL conversation.
  *   noteSummaries: once a day (GitHub Actions), every version sent three or more days ago, still
  *     Sent (not replaced by a newer one) and tracked, gets one summary comment.
+ *   noteSentLinks: once, by hand (2026-11-05), the send note with the staff link for named versions
+ *     that went out before sends began posting it themselves.
  *
  * A comment's "noted" stamp is written before the comment goes and taken back if it fails, so a
  * comment goes at most once and a failed one is tried again. The comments are informative and tag
@@ -50,6 +54,7 @@ const TRACK_FIELDS = [
   VERSION.activityLog,
   VERSION.firstOpenNotedAt,
   VERSION.summaryNotedAt,
+  VERSION.customerToken,
 ];
 
 type Row = { id: string; fields: Record<string, unknown> };
@@ -115,6 +120,46 @@ export async function noteSummaries(key: string | null, now = new Date()): Promi
     }
   }
   return { ok: true, noted, failed };
+}
+
+export type SentNotesResult = { ok: true; noted: string[]; skipped: { id: string; why: string }[]; failed: string[] } | { ok: false; status: number; message: string };
+
+/**
+ * The send note for versions sent before sends posted it (Albert, 2026-11-05: "scan and write all the sent out
+ * quotes so far with the note link"). Run once by hand (.github/workflows/quote-sent-notes.yml) with the exact
+ * version ids. Only a version still Sent, sent before SENT_NOTE_SINCE and with a link gets one, so a version
+ * whose own send already posted it, or a replaced one, is skipped. Nothing is written to Airtable.
+ */
+export async function noteSentLinks(key: string | null, versionIds: unknown): Promise<SentNotesResult> {
+  if (!activityKeyOk(key)) return { ok: false, status: 401, message: "Wrong or missing key." };
+  const wanted = Array.isArray(versionIds) ? [...new Set(versionIds)] : [];
+  if (!wanted.length || wanted.length > 20 || !wanted.every((v) => typeof v === "string" && /^rec[A-Za-z0-9]{14}$/.test(v))) {
+    return { ok: false, status: 400, message: "Send 1 to 20 version ids." };
+  }
+  const base = customerUrl();
+  if (!base) return { ok: false, status: 503, message: "The customer link address (QUOTE_CUSTOMER_URL) isn't set." };
+  const rows = await listByIds(T.versions, wanted as string[], TRACK_FIELDS);
+  const noted: string[] = [];
+  const failed: string[] = [];
+  const skipped = (wanted as string[]).filter((id) => !rows.some((r) => r.id === id)).map((id) => ({ id, why: "no such version" }));
+  for (const row of rows) {
+    const f = row.fields;
+    const token = str(f[VERSION.customerToken]);
+    const sentAt = str(f[VERSION.sentAt]);
+    const why =
+      str(f[VERSION.status]) !== "Sent" ? `status is ${str(f[VERSION.status]) ?? "blank"}, not Sent`
+      : !sentAt || sentAt >= SENT_NOTE_SINCE ? "sent since the send note began; its send posted one"
+      : !isToken(token) ? "no customer link"
+      : null;
+    if (why) {
+      skipped.push({ id: row.id, why });
+      continue;
+    }
+    const { link } = customerLinks(base, token!, "x");
+    if (await comment(row, (info) => sentComment(info, link, staffQuoteLink(row.id)))) noted.push(row.id);
+    else failed.push(row.id);
+  }
+  return { ok: true, noted, skipped, failed };
 }
 
 /** Post one internal comment on the version's customer conversation. False when it could not go. */
