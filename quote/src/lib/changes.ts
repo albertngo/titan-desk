@@ -22,6 +22,14 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-05",
+    kind: "changed",
+    title: "Baseboard ⅓ choices are quieter",
+    details: [
+      "Under a Baseboards row, the ⅓ of ___ sf choices are now small outlined chips, with the one it follows lightly tinted, so the baseboard type above stays the main choice.",
+    ],
+  },
+  {
+    date: "2026-11-05",
     kind: "new",
     title: "Drafts save themselves",
     details: [

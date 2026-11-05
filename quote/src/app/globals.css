@@ -1789,11 +1789,15 @@ table.cmp th { font-size: 12.5px; font-weight: 500; color: var(--fg-dim); text-t
   .ov-foot .ov-row { font-size: 14px; }
 }
 
-/* Quick form: what a baseboard row follows (2026-11-04). Smaller chips under the row, one per basis. */
-.qw-chips.qw-basis { margin-top: 6px; align-items: center; }
-.qw-chips.qw-basis .qw-chip { font-size: 12px; min-height: 30px; padding: 4px 10px; }
+/* Quick form: what a baseboard row follows (2026-11-04). Smaller chips under the row, one per basis.
+   A second tier under the work-type chips (Albert, 2026-11-05: "less prominent on the hierarchy"): no fill,
+   dim text, a light outline; the one followed is tinted with an accent outline, never the solid accent. */
+.qw-chips.qw-basis { margin-top: 2px; align-items: center; gap: 6px; }
+.qw-chips.qw-basis .qw-chip { font-size: 12px; font-weight: 500; min-height: 28px; padding: 3px 10px; border-radius: 999px; border-color: var(--line); background: transparent; color: var(--fg-dim); box-shadow: none; }
+.qw-chips.qw-basis .qw-chip:hover { border-color: var(--line-strong); color: var(--fg); }
+.qw-chips.qw-basis .qw-chip.on { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 45%, transparent); color: var(--accent); font-weight: 600; box-shadow: none; }
 .qw-basis-note { font-size: 12px; color: var(--fg-faint); }
-@media (max-width: 640px) { :is(.ed-quick, .newq) .qw-chips.qw-basis { display: flex; } .qw-chips.qw-basis .qw-chip { min-height: 40px; font-size: 13px; } }
+@media (max-width: 640px) { :is(.ed-quick, .newq) .qw-chips.qw-basis { display: flex; } .qw-chips.qw-basis .qw-chip { min-height: 36px; font-size: 13px; } }
 
 /* The option's price card (Albert, 2026-11-04): discount items on the left, the accepted price on the
    right with its margin and profit helper, the 20% (i), and Reset. Stacks on a phone. */
