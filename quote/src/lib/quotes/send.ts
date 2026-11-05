@@ -7,14 +7,14 @@ import { fromQuote } from "@/lib/editor/model";
 import { etransferEmail, staffQuoteLink } from "@/lib/accept/settings";
 import { acceptTerms } from "@/lib/accept/live";
 import { BOOKING_URLS } from "@/lib/ghl/ids";
-import { followUpTagBodies, sentNote } from "@/lib/activity/track";
+import { followUpTagBodies, sentComment } from "@/lib/activity/track";
 import { parseAcceptance } from "@/lib/accept/plan";
 import { changeSummary } from "@/lib/change/diff";
 import { contractOn, contractVersions, fromChange, joinChange, serializeContract } from "@/lib/contract/model";
 import { cleanPayments } from "@/lib/billing/doc";
 import { paymentsReaderOn, projectPayments } from "@/lib/notion/payments";
 import { buildContract } from "@/lib/link/ghlRequest";
-import { addContactNote, makeConfigured, sendMessage, sendToGhl, setFollowUpTags } from "@/lib/make/client";
+import { makeConfigured, sendMessage, sendToGhl, setFollowUpTags } from "@/lib/make/client";
 import { acceptedPdfName, COPY_MAX_CHARS, customerCopy, offersPdf, parseCopy, pdfName, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "@/lib/send/copy";
 import { ghlConfigured, locationUsers } from "@/lib/ghl/client";
 import { quoterAllowlist } from "@/lib/access";
@@ -340,19 +340,19 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
     return { ok: false, message: `Nothing was sent, and the version is still a draft. ${failed.join(" ")}` };
   }
 
+  // Right after the email or text, an internal comment on the conversation with the staff link (never counted as an
+  // open) and the quote in the app (Albert, 2026-11-05). Tags nobody, and never stops a send.
+  try {
+    await sendMessage({ type: "InternalComment", contactId, message: sentComment(link, staffQuoteLink(quote.id)), mentions: [] });
+  } catch {
+    notes.push("The internal comment with the staff link couldn't be posted in GHL; the quote itself went out.");
+  }
+
   try {
     const how = `sent by ${sentTo.join(" and ").toLowerCase()}${sentFrom ? ` from ${sentFrom}` : ""}${sentTo.includes("Text") ? `, text from ${textedFrom ?? "the main number"}` : ""}${input.pdf ? ", PDF on the quote page" : ""}${chosenWords(quote, input.optionIds) ? `, ${chosenWords(quote, input.optionIds)}` : ""}${prelim && !input.range ? ", exact price, no range" : ""}`;
     await updateRecord(T.versions, quote.id, { [VERSION.sentTo]: sentTo.join(", "), ...authorFields(actor, new Date(), picked.as ? `${how}, as ${person.email}` : how, quote.editLog) });
   } catch {
     notes.push("Airtable didn't record how it was sent.");
-  }
-  // A note on the contact's Notes tab with the link staff can open without counting as an open (Albert,
-  // 2026-11-05: a contact note, not a conversation comment). Never stops a send.
-  try {
-    const info = { quoteNumber: quote.quoteId ?? "Quote", version: quote.version, basis: quote.basis, sentAt: today, senderName: firstNameOf(person), sentTo: sentTo.join(", ") };
-    await addContactNote(contactId, sentNote(info, link, staffQuoteLink(quote.id)));
-  } catch {
-    notes.push("The GHL contact note with the quote link couldn't be added; the quote itself went out.");
   }
   // The follow-up sequence (2026-10-27): both quote-sent tags off, this one's on, so a new version
   // restarts its sequence and a measured quote ends the preliminary's. Never stops a send. A change

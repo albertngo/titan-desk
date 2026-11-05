@@ -10,7 +10,6 @@ import type { GhlMessage } from "@/lib/send/plan";
  * `message` route: one GHL message per request, email or text, whose exact body the app builds
  * in src/lib/send/plan.ts. Since 2026-10-27 the `message` route also carries the open-tracking
  * internal comments (src/lib/quotes/activity.ts), and a `tags` route sets the follow-up tags on send.
- * Since 2026-11-05 a `note` route adds a note to the contact's Notes tab (the send note with the quote link).
  *
  * Switched off until both variables are set, and they are set only after the scenario is
  * switched on: a request to a scenario that is off would wait in Make's queue and run later.
@@ -70,19 +69,6 @@ export async function sendMessage(message: GhlMessage): Promise<string> {
     throw new MakeError(`Make didn't confirm the ${message.type === "SMS" ? "text" : message.type === "Email" ? "email" : "comment"} (${res.status}: ${text.slice(0, 120)})`);
   }
   return messageId;
-}
-
-/**
- * A note on the contact's Notes tab (Albert, 2026-11-05: "Not an internal note. A note for the customer section"),
- * through the scenario's `note` route, whose filter takes only `{"body":"..."}` on one line. Throws MakeError unless
- * Make confirms it with the new note's id.
- */
-export async function addContactNote(contactId: string, body: string): Promise<string> {
-  if (!GHL_ID.test(contactId)) throw new MakeError("No GHL contact for the note.");
-  const { res, text, d } = await post({ mode: "note", contactId, noteBody: JSON.stringify({ body }) });
-  const noteId = typeof d.noteId === "string" ? d.noteId : "";
-  if (!res.ok || d.ok !== true || !GHL_ID.test(noteId)) throw new MakeError(`Make didn't confirm the note (${res.status}: ${text.slice(0, 120)})`);
-  return noteId;
 }
 
 /**

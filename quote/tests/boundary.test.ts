@@ -416,12 +416,11 @@ describe("open tracking (2026-10-27: no sign-in, key-gated, the customer deploym
     expect(text).not.toMatch(/setFollowUpTags|sendToGhl/);
     // Informative only, tagging nobody (Albert, 2026-11-05: "No need on any of them"); the send's own note too.
     expect(text).toMatch(/type: "InternalComment", contactId: about\.contactId, message: words\(about\.info\), mentions: \[\] \}/);
-    // The send note is a contact note (Notes tab), never a conversation message (Albert, 2026-11-05), here and on send.
-    expect(text.match(/addContactNote\(/g)?.length).toBe(1);
-    expect(text).toMatch(/addContactNote\(about\.contactId, sentNote\(/);
+    // The send comment (Albert, 2026-11-05): internal, tagging nobody, right after the email or text.
     const send = code(all.find((f) => f.rel === "lib/quotes/send.ts")!.text);
-    expect(send).toMatch(/addContactNote\(contactId, sentNote\(info, link, staffQuoteLink\(quote\.id\)\)\)/);
-    expect(send).not.toMatch(/type: "InternalComment"/);
+    expect(send).toMatch(/type: "InternalComment", contactId, message: sentComment\(link, staffQuoteLink\(quote\.id\)\), mentions: \[\] \}/);
+    expect(send.indexOf("sentComment(link")).toBeGreaterThan(send.indexOf("Nothing was sent, and the version is still a draft"));
+    expect(send.indexOf("sentComment(link")).toBeLessThan(send.indexOf("Airtable didn't record how it was sent"));
   });
 
   it("the customer deployment only reports: the relay reads no Airtable and runs only there", () => {
