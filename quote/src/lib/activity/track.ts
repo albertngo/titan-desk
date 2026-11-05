@@ -154,17 +154,15 @@ export function firstOpenComment(i: ActivityInfo, at: Date, device: Device): str
  * The customer's link as staff open it: `#staff` makes the page skip its open report (SeenBeacon), so a
  * look from GHL or the Send card is never counted as the customer's open (2026-10-27).
  */
-/** The first day sends posted the send note themselves (2026-11-05); versions sent before it get one by hand, once. */
-export const SENT_NOTE_SINCE = "2026-11-05";
-
 export const staffViewLink = (link: string) => `${link.replace(/#.*$/, "")}#staff`;
 
 /**
- * The note posted on the customer's conversation the moment a version goes out (Albert, 2026-11-05: "put a
- * note when sending the quote out of the link to the quote… the one that does not count towards the open
- * count for staff to click"). Nobody is tagged: it is for the record, no comment tags anyone (2026-11-05). `quotePage` is the version's page in the quote app, when this deployment knows its own address.
+ * The note added to the contact's Notes tab the moment a version goes out (Albert, 2026-11-05: "put a note when
+ * sending the quote out of the link to the quote… the one that does not count towards the open count for staff
+ * to click"; then "Not an internal note. A note for the customer section", the contact's Notes, not the
+ * conversation). `quotePage` is the version's page in the quote app, when this deployment knows its own address.
  */
-export function sentComment(i: ActivityInfo, link: string, quotePage: string | null): string {
+export function sentNote(i: ActivityInfo, link: string, quotePage: string | null): string {
   return [
     `Quote sent: ${what(i)}. ${sentWords(i)}`,
     `Customer's view (staff link, opening it is not counted as an open): ${staffViewLink(link)}`,
