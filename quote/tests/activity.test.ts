@@ -95,11 +95,10 @@ describe("the GHL comments", () => {
     const link = `https://quote.example.com/c/${TOKEN}`;
     expect(staffViewLink(link)).toBe(`${link}#staff`);
     expect(staffViewLink(`${link}#x`)).toBe(`${link}#staff`);
-    expect(sentComment(link, "https://staff.example.com/q/recAAAAAAAAAAAAAA")).toBe(
-      `Staff Link to Quote: ${link}#staff
-Edit the Quote: https://staff.example.com/q/recAAAAAAAAAAAAAA`,
+    expect(sentComment("Q-1234", 2, link, "https://staff.example.com/q/recAAAAAAAAAAAAAA")).toBe(
+      `Q-1234 v2\nStaff Link to Quote: ${link}#staff\nEdit the Quote: https://staff.example.com/q/recAAAAAAAAAAAAAA`,
     );
-    expect(sentComment(link, null)).toBe(`Staff Link to Quote: ${link}#staff`);
+    expect(sentComment(null, null, link, null)).toBe(`Quote\nStaff Link to Quote: ${link}#staff`);
   });
 
   it("sums up three days after sending: opens, devices, last open and downloads, or not opened yet", () => {

@@ -159,11 +159,14 @@ export const staffViewLink = (link: string) => `${link.replace(/#.*$/, "")}#staf
 /**
  * The internal comment posted on the customer's conversation right after the email or text goes (Albert,
  * 2026-11-05, after a day of trying it as a contact note: "As an internal comment right after the sms/email to the
- * client: Staff Link to Quote: … Edit the Quote: (link to the quote app)"). Two lines, nothing else, nobody tagged.
- * `quotePage` is the version's page in the quote app, when this deployment knows its own address.
+ * client: Staff Link to Quote: … Edit the Quote: (link to the quote app)"), and the same words as a note on the
+ * contact ("You can do the same in the customer notes. To match. Have the quote and version too"). The quote and
+ * version head it ("Q-1234 v2"), then the two links; nothing else, nobody tagged. `quotePage` is the version's page
+ * in the quote app, when this deployment knows its own address.
  */
-export function sentComment(link: string, quotePage: string | null): string {
-  return [`Staff Link to Quote: ${staffViewLink(link)}`, quotePage ? `Edit the Quote: ${quotePage}` : ""].filter(Boolean).join("\n");
+export function sentComment(quoteNumber: string | null, version: number | null, link: string, quotePage: string | null): string {
+  const head = [quoteNumber?.trim() || "Quote", version ? `v${version}` : ""].filter(Boolean).join(" ");
+  return [head, `Staff Link to Quote: ${staffViewLink(link)}`, quotePage ? `Edit the Quote: ${quotePage}` : ""].filter(Boolean).join("\n");
 }
 
 /** The comment three days after sending: opens, devices, downloads, last open, or not opened yet. */

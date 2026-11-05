@@ -252,15 +252,17 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   note when sending the quote out of the link to the quote… the one that does not count towards the open
   count for staff to click"; settled the same day after a try as a contact note: "As an internal comment right after
   the sms/email to the client: Staff Link to Quote: … Edit the Quote: (link to the quote app)") it also posts one
-  internal comment** on the customer's conversation, right after the email or text goes and before anything else:
-  two lines, `Staff Link to Quote:` the customer link with `#staff` (`staffViewLink()`, never counted) and `Edit the
+  internal comment** on the customer's conversation, right after the email or text goes and before anything else,
+  **and the same words as a note on the contact** (same day: "You can do the same in the customer notes. To match.
+  Have the quote and version too"; `addContactNote()` in `src/lib/make/client.ts`, Make 4975508's `note` route, a
+  filtered POST to `/contacts/<id>/notes`, `{"body":"..."}` only): the quote and version (`Q-1234 v2`), then
+  `Staff Link to Quote:` the customer link with `#staff` (`staffViewLink()`, never counted) and `Edit the
   Quote:` the version's page in the app when `staffQuoteLink()` knows it (`sentComment()` in
   `src/lib/activity/track.ts`, tested in `tests/activity.test.ts`; its place in the send pinned by
-  `tests/boundary.test.ts`). It tags nobody and a failure never stops a send. Send again posts none. Make 4975508's
-  `note` route (contact notes, added and then left unused the same day) is not called by the app. Versions sent before
-  2026-11-05 get it by hand (`noteSentLinks()` in `src/lib/quotes/activity.ts`, `{step: "sent-notes"}` on
+  `tests/boundary.test.ts`). It tags nobody and a failure never stops a send. Send again posts none. Versions sent before
+  2026-11-05 got the contact note by hand (their comment came from the first run) (`noteSentLinks()` in `src/lib/quotes/activity.ts`, `{step: "sent-notes"}` on
   `/api/activity`, run from the manual `.github/workflows/quote-sent-notes.yml` with the exact version ids): only a
-  version still Sent, never a replaced one, and nothing is written to Airtable, so a second run posts them again. Counts of preliminaries come
+  version still Sent, never a replaced one, and nothing is written to Airtable, so a second run adds them again. Counts of preliminaries come
   from Quote Versions (Basis, Status, Sent At/By/To), not from the `mobile quote` tag.
 - **Follow-up tags (Albert, 2026-10-27).** Every send removes both `quote sent: preliminary` and
   `quote sent: measured` from the contact, then adds this version's, through Make 4975508's `tags`
@@ -1034,7 +1036,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
 2b. **One file sends to Make:** `src/lib/make/client.ts`, `server-only`, the only reader of
    `QUOTE_MAKE_GHL_HOOK` / `QUOTE_MAKE_GHL_KEY`, called only from `src/lib/quotes/start.ts`, `src/lib/quotes/booking.ts`, `src/lib/quotes/link.ts`, `src/lib/quotes/send.ts`,
    `src/lib/quotes/address.ts` (Address arrived: the contact's street only, never a site on the opportunity),
-   `src/lib/quotes/activity.ts` (internal comments only), `src/lib/accept/record.ts` (acceptance: Won,
+   `src/lib/quotes/activity.ts` (internal comments, and the one-off send notes as contact notes), `src/lib/accept/record.ts` (acceptance: Won,
    cancel, and the acceptance messages) and `src/lib/quotes/billing.ts` (the invoice or receipt email).
    Set those two variables only after the scenario is switched on: a request to a scenario
    that is off waits in Make's queue and would run later.

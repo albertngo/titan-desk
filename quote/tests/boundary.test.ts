@@ -416,11 +416,14 @@ describe("open tracking (2026-10-27: no sign-in, key-gated, the customer deploym
     expect(text).not.toMatch(/setFollowUpTags|sendToGhl/);
     // Informative only, tagging nobody (Albert, 2026-11-05: "No need on any of them"); the send's own note too.
     expect(text).toMatch(/type: "InternalComment", contactId: about\.contactId, message: words\(about\.info\), mentions: \[\] \}/);
-    // The send comment (Albert, 2026-11-05): internal, tagging nobody, right after the email or text.
+    // The send's comment and matching contact note (Albert, 2026-11-05): tagging nobody, right after the email or text.
     const send = code(all.find((f) => f.rel === "lib/quotes/send.ts")!.text);
-    expect(send).toMatch(/type: "InternalComment", contactId, message: sentComment\(link, staffQuoteLink\(quote\.id\)\), mentions: \[\] \}/);
-    expect(send.indexOf("sentComment(link")).toBeGreaterThan(send.indexOf("Nothing was sent, and the version is still a draft"));
-    expect(send.indexOf("sentComment(link")).toBeLessThan(send.indexOf("Airtable didn't record how it was sent"));
+    expect(send).toMatch(/type: "InternalComment", contactId, message: staffNote, mentions: \[\] \}/);
+    expect(send).toMatch(/addContactNote\(contactId, staffNote\)/);
+    expect(send.indexOf("const staffNote = sentComment(")).toBeGreaterThan(send.indexOf("Nothing was sent, and the version is still a draft"));
+    expect(send.indexOf("addContactNote(contactId, staffNote)")).toBeLessThan(send.indexOf("Airtable didn't record how it was sent"));
+    // The one-off step adds only the contact note.
+    expect(text.match(/addContactNote\(/g)?.length).toBe(1);
   });
 
   it("the customer deployment only reports: the relay reads no Airtable and runs only there", () => {
