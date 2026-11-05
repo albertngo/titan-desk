@@ -4,7 +4,7 @@ import { listByIds, listRecords, updateRecord } from "@/lib/airtable/client";
 import { QUOTE, T, VERSION } from "@/lib/airtable/fields";
 import { applyActivity, firstOpenComment, parseActivity, sentComment, summaryComment, summaryDue, type ActivityInfo, type TrackState } from "@/lib/activity/track";
 import { customerUrl, staffQuoteLink } from "@/lib/accept/settings";
-import { makeConfigured, sendMessage } from "@/lib/make/client";
+import { addContactNote, makeConfigured, sendMessage } from "@/lib/make/client";
 import { torontoToday } from "@/lib/send/copy";
 import { customerLinks, isToken } from "@/lib/send/plan";
 import { firstNameOf } from "./history";
@@ -19,8 +19,8 @@ import { bool, ids, num, str } from "./values";
  *     first open of a sent version posts an internal comment on the customer's GHL conversation.
  *   noteSummaries: once a day (GitHub Actions), every version sent three or more days ago, still
  *     Sent (not replaced by a newer one) and tracked, gets one summary comment.
- *   noteSentLinks: by hand (2026-11-05), the send comment (Staff Link to Quote / Edit the Quote) for
- *     named versions that went out before sends posted it themselves.
+ *   noteSentLinks: by hand (2026-11-05), the send's contact note (quote and version, Staff Link to Quote,
+ *     Edit the Quote) for named versions that went out before sends added it themselves.
  *
  * A comment's "noted" stamp is written before the comment goes and taken back if it fails, so a
  * comment goes at most once and a failed one is tried again. The comments are informative and tag
@@ -126,9 +126,10 @@ export type SentNotesResult = { ok: true; noted: string[]; skipped: { id: string
 
 /**
  * The send note for versions sent before sends added it (Albert, 2026-11-05: "scan and write all the sent out quotes
- * so far with the note link"; as the two-line internal comment a send posts). Run once by hand
+ * so far with the note link"), as the contact note a send adds. Their conversation comment came from the first run.
+ * Run once by hand
  * (.github/workflows/quote-sent-notes.yml) with the exact version ids. Only a version still Sent and with a link gets
- * one, so a replaced one is skipped. Nothing is written to Airtable, so running it twice posts the comments twice.
+ * one, so a replaced one is skipped. Nothing is written to Airtable, so running it twice adds the notes twice.
  */
 export async function noteSentLinks(key: string | null, versionIds: unknown): Promise<SentNotesResult> {
   if (!activityKeyOk(key)) return { ok: false, status: 401, message: "Wrong or missing key." };
@@ -156,8 +157,19 @@ export async function noteSentLinks(key: string | null, versionIds: unknown): Pr
       continue;
     }
     const { link } = customerLinks(base, token!, "x");
-    if (await comment(row, () => sentComment(link, staffQuoteLink(row.id)))) noted.push(row.id);
-    else failed.push(row.id);
+    // These six already carry a comment from the first run (2026-11-05); they get the matching contact note only.
+    const about = await infoOf(row);
+    if (!about) {
+      failed.push(row.id);
+      continue;
+    }
+    try {
+      await addContactNote(about.contactId, sentComment(about.info.quoteNumber, about.info.version, link, staffQuoteLink(row.id)));
+      noted.push(row.id);
+    } catch (e) {
+      console.error("sent note", e);
+      failed.push(row.id);
+    }
   }
   return { ok: true, noted, skipped, failed };
 }

@@ -14,7 +14,7 @@ import { contractOn, contractVersions, fromChange, joinChange, serializeContract
 import { cleanPayments } from "@/lib/billing/doc";
 import { paymentsReaderOn, projectPayments } from "@/lib/notion/payments";
 import { buildContract } from "@/lib/link/ghlRequest";
-import { makeConfigured, sendMessage, sendToGhl, setFollowUpTags } from "@/lib/make/client";
+import { addContactNote, makeConfigured, sendMessage, sendToGhl, setFollowUpTags } from "@/lib/make/client";
 import { acceptedPdfName, COPY_MAX_CHARS, customerCopy, offersPdf, parseCopy, pdfName, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "@/lib/send/copy";
 import { ghlConfigured, locationUsers } from "@/lib/ghl/client";
 import { quoterAllowlist } from "@/lib/access";
@@ -340,12 +340,19 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
     return { ok: false, message: `Nothing was sent, and the version is still a draft. ${failed.join(" ")}` };
   }
 
-  // Right after the email or text, an internal comment on the conversation with the staff link (never counted as an
-  // open) and the quote in the app (Albert, 2026-11-05). Tags nobody, and never stops a send.
+  // Right after the email or text, the quote and version, the staff link (never counted as an open) and the quote in
+  // the app, as an internal comment on the conversation and the same words as a note on the contact (Albert,
+  // 2026-11-05). Tags nobody, and neither stops a send.
+  const staffNote = sentComment(quote.link?.quoteNumber ?? null, quote.version, link, staffQuoteLink(quote.id));
   try {
-    await sendMessage({ type: "InternalComment", contactId, message: sentComment(link, staffQuoteLink(quote.id)), mentions: [] });
+    await sendMessage({ type: "InternalComment", contactId, message: staffNote, mentions: [] });
   } catch {
     notes.push("The internal comment with the staff link couldn't be posted in GHL; the quote itself went out.");
+  }
+  try {
+    await addContactNote(contactId, staffNote);
+  } catch {
+    notes.push("The GHL contact note with the staff link couldn't be added; the quote itself went out.");
   }
 
   try {
