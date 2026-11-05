@@ -186,6 +186,84 @@ export function inFilter(g: QuoteGroup, f: QuoteFilter): boolean {
   }
 }
 
+// ---------- sorting ----------
+
+/**
+ * Sortable columns (2026-11-05, Albert: "Can we have the columns sortable"). One per column heading on
+ * All quotes. Created, newest first, is the default and what the page always opened on.
+ */
+export const QUOTE_SORTS = [
+  { key: "customer", label: "Customer", first: "asc" },
+  { key: "quote", label: "Quote", first: "asc" },
+  { key: "version", label: "Current version", first: "asc" },
+  { key: "opened", label: "Last opened", first: "desc" },
+  { key: "attention", label: "Attention", first: "desc" },
+  { key: "created", label: "Created", first: "desc" },
+] as const;
+export type QuoteSortKey = (typeof QUOTE_SORTS)[number]["key"];
+export type SortDir = "asc" | "desc";
+export type QuoteSort = { key: QuoteSortKey; dir: SortDir };
+export const DEFAULT_SORT: QuoteSort = { key: "created", dir: "desc" };
+
+export const isQuoteSort = (v: unknown): v is QuoteSort =>
+  typeof v === "object" && v !== null && QUOTE_SORTS.some((s) => s.key === (v as QuoteSort).key) && ((v as QuoteSort).dir === "asc" || (v as QuoteSort).dir === "desc");
+
+/** Clicking a heading: a new column starts in its natural direction, the same column flips. */
+export function nextSort(cur: QuoteSort, key: QuoteSortKey): QuoteSort {
+  if (cur.key === key) return { key, dir: cur.dir === "asc" ? "desc" : "asc" };
+  return { key, dir: QUOTE_SORTS.find((s) => s.key === key)!.first };
+}
+
+/** Current version sorts along the quote's life: drafts, then out with the customer, then the outcome. */
+const STATUS_RANK: Record<string, number> = { Draft: 0, Sent: 1, Accepted: 2, Won: 3, Lost: 4, Expired: 5, Superseded: 6 };
+
+/** What the Attention column shows, weighted: Needs linking is the one that blocks work. */
+export const attentionScore = (g: Pick<QuoteHead, "linkStatus" | "addressStatus">) =>
+  (g.linkStatus === "Needs linking" ? 2 : 0) + (g.addressStatus === "Unconfirmed" || g.addressStatus === "No address" ? 1 : 0);
+
+type SortValue = string | number | null;
+const collator = new Intl.Collator("en-CA", { numeric: true, sensitivity: "base" });
+
+function sortValue(g: QuoteGroup, key: QuoteSortKey): SortValue {
+  switch (key) {
+    case "customer":
+      return g.customerName?.trim() || null;
+    case "quote":
+      return g.quoteNumber?.trim() || null;
+    case "version": {
+      const s = g.versions[0]?.status;
+      return s == null ? null : (STATUS_RANK[s] ?? 7) * 10_000 + (g.versions[0]?.version ?? 0);
+    }
+    case "opened": {
+      const v = lastSentVersion(g.versions);
+      return v && (v.openedCount ?? 0) > 0 && v.lastOpenedAt ? v.lastOpenedAt : null;
+    }
+    case "attention":
+      return attentionScore(g) || null;
+    case "created":
+      return g.latestAt || null;
+  }
+}
+
+/**
+ * The list in the chosen order. Blanks (no customer, no number, never opened, nothing to look at) go
+ * last whichever way the column runs, and ties keep the newest quote first. Never mutates `groups`.
+ */
+export function sortGroups(groups: QuoteGroup[], sort: QuoteSort): QuoteGroup[] {
+  const sign = sort.dir === "asc" ? 1 : -1;
+  const keyed = groups.map((g) => ({ g, v: sortValue(g, sort.key) }));
+  keyed.sort((a, b) => {
+    if (a.v !== b.v) {
+      if (a.v === null) return 1;
+      if (b.v === null) return -1;
+      const c = typeof a.v === "number" && typeof b.v === "number" ? a.v - b.v : collator.compare(String(a.v), String(b.v));
+      if (c !== 0) return sign * c;
+    }
+    return b.g.latestAt.localeCompare(a.g.latestAt);
+  });
+  return keyed.map((k) => k.g);
+}
+
 const TZ = "America/Toronto";
 /** Calendar days from `then` to `now`, in Toronto time. */
 const daysBetween = (then: Date, now: Date) => {

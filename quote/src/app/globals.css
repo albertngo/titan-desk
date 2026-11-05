@@ -291,6 +291,19 @@ table.cmp td:first-child { text-align: left; color: var(--fg-dim); }
 .ql-head > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .ql-head .c-who { grid-column: 3; }
 .ql-head .c-when { text-align: right; }
+/* Sortable headings (2026-11-05): each heading is a button; the arrow shows the sort, faint until it is the one. */
+.ql-sort { font: inherit; color: inherit; display: inline-flex; align-items: center; gap: 5px; max-width: 100%; margin: -3px -6px; padding: 3px 6px; border: 0; border-radius: 6px; background: none; cursor: pointer; white-space: nowrap; }
+.ql-sort .lb { overflow: hidden; text-overflow: ellipsis; }
+.ql-sort .ar { flex: none; opacity: .35; transition: opacity .12s; }
+.ql-sort:hover { background: var(--card-2); color: var(--fg); }
+.ql-sort:hover .ar { opacity: .7; }
+.ql-sort.on { color: var(--accent); }
+.ql-sort.on .ar { opacity: 1; }
+.ql-sort:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ql-head .c-when .ql-sort { flex-direction: row-reverse; }
+/* The phone's sort menu, shown only where the headings are hidden. */
+.ql-sortpick { display: none; align-items: center; gap: 8px; font-size: 12.5px; color: var(--fg-dim); }
+.ql-sortpick select { font: inherit; font-size: 13px; min-height: 32px; padding: 4px 8px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--card); color: var(--fg); }
 .ql-row { position: relative; display: grid; grid-template-columns: var(--ql-cols); align-items: center; gap: 12px; padding: 10px 16px 10px 8px; font-size: 13px; transition: background .12s; }
 .ql-row:hover { background: var(--card-2); }
 .ql-tog { position: relative; z-index: 1; width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--fg-faint); cursor: pointer; }
@@ -346,6 +359,7 @@ table.cmp td:first-child { text-align: left; color: var(--fg-dim); }
   .ql-seen { display: flex; align-items: baseline; gap: 8px; }
   .ql-seen .k { position: static; width: auto; height: auto; clip: auto; font-weight: 500; color: var(--fg-dim); }
   .ql-when, .ql-head { display: none; }
+  .ql-sortpick { display: flex; }
   .ql-vs { margin-left: 36px; }
   .ql-vs li.sub { padding-left: calc(min(var(--d), 3) * 14px); }
   .ql-vs li.sub::before { left: calc(min(var(--d), 3) * 14px - 9px); }
@@ -1725,6 +1739,7 @@ table.cmp th { font-size: 12.5px; font-weight: 500; color: var(--fg-dim); text-t
   .ql-who .ql-desc, .ql-row .mt, .ql-num > span:first-child { font-size: 13.5px; }
   .ql-tog { width: 40px; height: 40px; margin-left: 0; }
   .ql-f { min-height: 40px; font-size: 13.5px; }
+  .ql-sortpick select { min-height: 40px; font-size: 16px; }
   .ql-v { min-height: 44px; font-size: 14px; }
   .ql-vs { margin-left: 30px; }
 }
