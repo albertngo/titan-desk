@@ -23,6 +23,23 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-05",
     kind: "new",
+    title: "Material follows the install, with waste added",
+    details: [
+      "On the quick form, a Material row now follows the install square feet like Baseboards does: pick the total or one Install row from the small chips under it, and it keeps up as you change the install. Typing your own amount stops it following.",
+      "Material goes on the quote with 10% waste, or 15% for herringbone and tile. The square feet stay the floor's; the waste is in the line's waste % box in the editor, where you can change it. The row's rate says how much waste it includes, and its total counts it.",
+    ],
+  },
+  {
+    date: "2026-11-05",
+    kind: "changed",
+    title: "Baseboard ⅓ choices are quieter",
+    details: [
+      "Under a Baseboards row, the ⅓ of ___ sf choices are now small outlined chips, with the one it follows lightly tinted, so the baseboard type above stays the main choice.",
+    ],
+  },
+  {
+    date: "2026-11-05",
+    kind: "new",
     title: "Sort All quotes by any column",
     details: [
       "Click a column heading on All quotes (Customer, Quote, Current version, Last opened, Attention, Created) to sort by it; click it again to turn it round. The arrow shows which one is sorting.",

@@ -169,7 +169,17 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   and with two or more Install rows "(all install)" on that one plus one per row, "⅓ of 500 sf
   (Hardwood)", the one followed shown picked. A basis naming an Install row that is gone, or the only
   one left, reads as the total; Duplicate points the copy at its own rows (`followBases()` /
-  `basisChoices()` / `resolveBasis()` / `remapBases()` in `plan.ts`, replacing `baseboardFollow()`); the form's
+  `basisChoices()` / `resolveBasis()` / `remapBases()` in `plan.ts`, replacing `baseboardFollow()`).
+  **Material rows follow the install too (Albert, 2026-11-05: "Material selection should ALSO have the same option
+  to select to match each selection on install if desired"):** the same basis, chips worded without the third
+  ("2,600 sf (all install)", "500 sf (Herringbone (Vinyl))"), the first Material row on the total, typing an amount
+  stops it following (`BASIS_GROUPS`, `basisAmount()`); "Same as install" stays on Remove rows only. **Material
+  waste (same day: "auto apply a 10% increase in the sf. Herringbones and Tiles should be + 15%. And when translating
+  into the quote edit, there is a field for it"):** the row's square feet stay the floor's, and the Materials line
+  goes in with Waste 10%, or 15% when its choice or its product says herringbone or tile (`materialWaste()`), decided
+  on the server, never sent by the browser; the row's rate says "+ 10% waste" and its total counts it, as the quote
+  will (Qty × (1 + Waste), no change to `calc.ts`). Staff change it in the editor's waste % box. It applies to the
+  Flooring Site Sheet's built options too, which are quick-form works; the form's
   **Additional cost** becomes a Private line (2026-10-22), so the customer sees it as the one
   rolled-up "Additional work" row and never as an itemised line;
   every row shows its rate and its total beside the selection, priced the same way the quote will

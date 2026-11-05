@@ -227,6 +227,24 @@ export function optionName(installs: string[], materials: string[], hasStairs: b
   return name.length > MAX_NAME ? `${name.slice(0, MAX_NAME - 1).trimEnd()}…` : name;
 }
 
+// ---------- material waste (Albert, 2026-11-05) ----------
+//
+// "It should auto apply a 10% increase in the sf. Herringbones and Tiles should be + 15%. And when
+// translating into the quote edit, there is a field for it right now anyways." The row's square feet
+// stay the floor's; the waste goes on the Materials line's own Waste field, which the editor shows and
+// calc.ts already counts (Qty × (1 + Waste)). Decided here from the choice and the product, never sent
+// by the browser.
+
+/** Waste on a material line from the quick form. */
+export const MATERIAL_WASTE = 0.1;
+/** Herringbone and tile take more cutting. */
+export const PATTERN_WASTE = 0.15;
+const PATTERN = /\bherringbone|\btiles?\b/i;
+
+/** The waste a material row goes in with: 15% when its choice or its product says herringbone or tile, else 10%. */
+export const materialWaste = (choiceLabel: string, productName: string | null): number =>
+  PATTERN.test(choiceLabel) || (productName !== null && PATTERN.test(productName)) ? PATTERN_WASTE : MATERIAL_WASTE;
+
 /**
  * The preliminary's lines. A row needs an amount unless every part is flat; a material row needs a
  * product (its chosen one, else the standard one). Rows that can't be priced are skipped and named.
@@ -249,6 +267,7 @@ export function buildPreliminary(choices: QuickChoice[], work: QuickWork, produc
     const section = GROUP_SECTION[c.group];
     if (c.group === "Material") {
       const p = (row.productId ? products.get(row.productId) : null) ?? c.product;
+      const waste = materialWaste(c.label, p?.name ?? null);
       if (p) {
         if (row.amount === null) {
           skipped.push(`${c.label} (no square footage)`);
@@ -261,6 +280,7 @@ export function buildPreliminary(choices: QuickChoice[], work: QuickWork, produc
           description: `${p.name}${p.sku ? ` (${p.sku})` : ""}`,
           uom: "sqft",
           qty: row.amount,
+          waste,
           unitPriceSnap: p.rate,
           unitCostSnap: p.cost,
           hasSource: true,
@@ -292,6 +312,8 @@ export function buildPreliminary(choices: QuickChoice[], work: QuickWork, produc
         contractor: p.contractor,
         uom: p.uom,
         qty: isFlat(p.uom) ? c.times : row.amount,
+        // A material priced from its Rate Card row (no product) takes the same waste (2026-11-05).
+        waste: c.group === "Material" && !isFlat(p.uom) ? materialWaste(c.label, null) : null,
         unitPriceSnap: p.rate,
         unitCostSnap: p.cost,
         minChargeSnap: p.minCharge,
@@ -413,7 +435,23 @@ export function basisSqft(basis: string | null | undefined, rows: BasisRow[]): n
   return typedSqft(rows.find((r) => r.key === b)?.amount ?? "");
 }
 
+/**
+ * `third` is the amount the row takes from this basis: a third of the square feet, rounded, on a
+ * Baseboards row; the square feet themselves on a Material row (2026-11-05).
+ */
 export type BasisChoice = { basis: string; sqft: number; third: number; label: string };
+
+/**
+ * The groups whose rows follow the install (Material since 2026-11-05, Albert: "Material selection
+ * should ALSO have the same option to select to match each selection on install if desired").
+ */
+export const BASIS_GROUPS: readonly QuickGroup[] = ["Baseboards", "Material"];
+
+/** What a row of this group takes from a basis of `sqft` square feet. */
+export function basisAmount(group: QuickGroup, sqft: number | null): number | null {
+  if (group === "Baseboards") return baseboardDefault(sqft);
+  return sqft !== null && sqft > 0 ? round2(sqft) : null;
+}
 
 const sqftWords = (n: number) => (Number.isInteger(n) ? n.toLocaleString("en-CA") : String(round2(n)));
 
@@ -421,35 +459,37 @@ const sqftWords = (n: number) => (Number.isInteger(n) ? n.toLocaleString("en-CA"
  * The chips under a baseboard row: "⅓ of 820 sf" for the total and, with two or more Install rows
  * that have square feet, one per row named for its choice ("⅓ of 500 sf (Hardwood)"), the total then
  * saying "(all install)". Two rows of the same choice are numbered. Nothing when no Install row has
- * square feet yet.
+ * square feet yet. A Material row's chips are the same without the third: "820 sf", "500 sf (Hardwood)".
  */
-export function basisChoices(rows: BasisRow[], labelOf: (choiceId: string) => string): BasisChoice[] {
+export function basisChoices(rows: BasisRow[], labelOf: (choiceId: string) => string, group: QuickGroup = "Baseboards"): BasisChoice[] {
   const total = installTotal(rows);
   if (total === null) return [];
   const withSqft = installRows(rows).filter((r) => typedSqft(r.amount) !== null);
-  const third = (sqft: number) => baseboardDefault(sqft) ?? 0;
+  const take = (sqft: number) => basisAmount(group, sqft) ?? 0;
+  const lead = group === "Baseboards" ? "⅓ of " : "";
   const many = withSqft.length > 1;
-  const out: BasisChoice[] = [{ basis: TOTAL_BASIS, sqft: total, third: third(total), label: `⅓ of ${sqftWords(total)} sf${many ? " (all install)" : ""}` }];
+  const out: BasisChoice[] = [{ basis: TOTAL_BASIS, sqft: total, third: take(total), label: `${lead}${sqftWords(total)} sf${many ? " (all install)" : ""}` }];
   if (!many) return out;
   const names = withSqft.map((r) => labelOf(r.choiceId) || "Install");
   withSqft.forEach((r, i) => {
     const sqft = typedSqft(r.amount)!;
     const twin = names.filter((x) => x === names[i]).length > 1;
     const name = twin ? `${names[i]} ${names.slice(0, i + 1).filter((x) => x === names[i]).length}` : names[i];
-    out.push({ basis: r.key, sqft, third: third(sqft), label: `⅓ of ${sqftWords(sqft)} sf (${name})` });
+    out.push({ basis: r.key, sqft, third: take(sqft), label: `${lead}${sqftWords(sqft)} sf (${name})` });
   });
   return out;
 }
 
 /**
- * After any change to the rows, every Baseboards row with a basis shows a third of it, live; a basis
- * with no square feet behind it blanks the amount. Rows `follows` says no to (no linear-foot choice
- * picked yet) and rows with no basis are left exactly as they are.
+ * After any change to the rows, every Baseboards row with a basis shows a third of it, and every
+ * Material row with a basis its square feet, live; a basis with no square feet behind it blanks the
+ * amount. Rows `follows` says no to (no choice picked yet) and rows with no basis are left exactly as
+ * they are.
  */
 export function followBases<T extends BasisRow>(rows: T[], follows: (r: T) => boolean): T[] {
   return rows.map((r) => {
-    if (r.group !== "Baseboards" || !r.basis || !follows(r)) return r;
-    const d = baseboardDefault(basisSqft(r.basis, rows));
+    if (!BASIS_GROUPS.includes(r.group) || !r.basis || !follows(r)) return r;
+    const d = basisAmount(r.group, basisSqft(r.basis, rows));
     const amount = d === null ? "" : String(d);
     return amount === r.amount ? r : { ...r, amount };
   });
