@@ -22,6 +22,12 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-05",
+    kind: "changed",
+    title: "Work tabs show only their own content",
+    details: ["Rooms, Site sheet, Payouts and Photos no longer have Send quote, History and the other quote cards under them. Those are still on every option's tab and on Analysis."],
+  },
+  {
+    date: "2026-11-05",
     kind: "new",
     title: "Material follows the install, with waste added",
     details: [

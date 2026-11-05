@@ -418,12 +418,17 @@ export default async function QuotePage({
                 <p className="empty">This quote has no options yet.</p>
               </section>
             )}
-            {!(option && totals) && changeCard}
-            {!(option && totals) && acceptedCard}
-            {!(option && totals) && billingCard}
-            {!(option && totals) && acceptCard}
-            {!(option && totals) && send}
-            {!(option && totals) && historyCard}
+            {/* The work tabs (Rooms, Site sheet, Payouts, Photos) show their own content only: the quote's own cards (Send, History…) stay on the option tabs and Analysis (Albert, 2026-11-05). */}
+            {!(option && totals) && !(showRooms || showSheet || showPayouts || showPhotos) && (
+              <>
+                {changeCard}
+                {acceptedCard}
+                {billingCard}
+                {acceptCard}
+                {send}
+                {historyCard}
+              </>
+            )}
           </div>
 
           {option && totals && (
