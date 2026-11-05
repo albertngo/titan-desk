@@ -22,11 +22,12 @@ export type Fields = Record<string, unknown>;
 
 export type SavePlan = {
   version: Fields;
-  createOptions: { ref: string; fields: Fields }[];
+  /** `client` is the editor's own id for it (2026-11-05), so an autosave can tell the editor the record it became. */
+  createOptions: { ref: string; client?: string; fields: Fields }[];
   updateOptions: { id: string; fields: Fields }[];
   detachOptions: string[];
   /** `option` is an existing option's id, or the `ref` of one in createOptions. */
-  createLines: { option: string; fields: Fields }[];
+  createLines: { option: string; client?: string; fields: Fields }[];
   updateLines: { id: string; option: string; fields: Fields }[];
   detachLines: string[];
 };
@@ -213,7 +214,7 @@ export function planSave(original: EditorQuote | null, edited: EditorQuote): Sav
       if (!same(now, optionFields(before.o, before.i + 1))) plan.updateOptions.push({ id: o.id, fields: now });
     } else {
       optionRef = `new:${oi}`;
-      plan.createOptions.push({ ref: optionRef, fields: optionFields(o, oi + 1) });
+      plan.createOptions.push({ ref: optionRef, client: o.id, fields: optionFields(o, oi + 1) });
     }
 
     o.lines.forEach((l, li) => {
@@ -225,7 +226,7 @@ export function planSave(original: EditorQuote | null, edited: EditorQuote): Sav
         const moved = prev.option !== optionRef;
         if (moved || !same(now, lineFields(prev.l, prev.i + 1))) plan.updateLines.push({ id: l.id, option: optionRef, fields: now });
       } else {
-        plan.createLines.push({ option: optionRef, fields: now });
+        plan.createLines.push({ option: optionRef, client: l.id, fields: now });
       }
     });
   });
@@ -233,6 +234,35 @@ export function planSave(original: EditorQuote | null, edited: EditorQuote): Sav
   for (const id of oldOptions.keys()) if (!keptOptions.has(id)) plan.detachOptions.push(id);
   for (const id of oldLines.keys()) if (!keptLines.has(id)) plan.detachLines.push(id);
   return plan;
+}
+
+/**
+ * Whether Airtable already holds exactly what the editor sends, only under its own record ids
+ * (2026-11-05): a save whose answer was lost on the way back (signal dropped) landed, and the
+ * editor still has its own ids for what it created. Returns the editor id -> record id map when it
+ * did, null when anything differs. Options and lines are paired in order, so a different number of
+ * either is never the same.
+ */
+export function alreadySaved(original: EditorQuote, edited: EditorQuote): Record<string, string> | null {
+  if (original.options.length !== edited.options.length) return null;
+  if (edited.options.some((o, i) => o.lines.length !== original.options[i].lines.length)) return null;
+  const ids: Record<string, string> = {};
+  const paired: EditorQuote = {
+    ...edited,
+    options: edited.options.map((o, i) => {
+      const was = original.options[i];
+      if (o.id !== was.id) ids[o.id] = was.id;
+      return {
+        ...o,
+        id: was.id,
+        lines: o.lines.map((l, j) => {
+          if (l.id !== was.lines[j].id) ids[l.id] = was.lines[j].id;
+          return { ...l, id: was.lines[j].id };
+        }),
+      };
+    }),
+  };
+  return planIsEmpty(planSave(original, paired)) ? ids : null;
 }
 
 export const planIsEmpty = (p: SavePlan) =>

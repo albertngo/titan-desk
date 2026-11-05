@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { LINE, OPTION, VERSION } from "../src/lib/airtable/fields";
 import type { EditorLine, EditorOption, EditorQuote } from "../src/lib/editor/model";
-import { changeSlot, cleanEditorQuote, isRecordId, lineFields, newVersionRefusal, planIsEmpty, planSave, workingDraft } from "../src/lib/quotes/savePlan";
+import { alreadySaved, changeSlot, cleanEditorQuote, isRecordId, lineFields, newVersionRefusal, planIsEmpty, planSave, workingDraft } from "../src/lib/quotes/savePlan";
 import { profileLine, stairProfileLine } from "../src/lib/quick/stairs";
 
 // INVENTED rates, quantities and ids only: this repo is public.
@@ -80,8 +80,10 @@ describe("saving a version", () => {
     edited.options.push(O({ id: "opt_local_1", name: "Tile", lines: [L({ id: "line_local_1", description: "Tile set" })] }));
     edited.options[1].lines.push(L({ id: "line_local_2", description: "Sand" }));
     const plan = planSave(original(), edited);
-    expect(plan.createOptions).toEqual([{ ref: "new:2", fields: expect.objectContaining({ [OPTION.name]: "Tile", [OPTION.sortOrder]: 3 }) }]);
+    expect(plan.createOptions).toEqual([{ ref: "new:2", client: "opt_local_1", fields: expect.objectContaining({ [OPTION.name]: "Tile", [OPTION.sortOrder]: 3 }) }]);
     expect(plan.createLines.map((c) => c.option)).toEqual([OPT_B, "new:2"]);
+    // Autosave (2026-11-05): each new record carries the editor's own id, so the editor learns what it became.
+    expect(plan.createLines.map((c) => c.client)).toEqual(["line_local_2", "line_local_1"]);
   });
 
   it("never updates a record that was not on this version, whatever id the browser sends", () => {
@@ -239,5 +241,41 @@ describe("one working quote (2026-10-30)", () => {
     expect(workingDraft([v("a", 1, "Sent"), v("b", 2, "Draft")], "b")).toBeNull();
     expect(workingDraft([v("a", 1, "Accepted"), v("c", 3, "Draft", 1)], "a")).toBeNull();
     expect(workingDraft([v("a", 1, "Draft"), v("b", 4, "Draft"), v("c", 2, "Sent")], "c")).toEqual({ id: "b", version: 4 });
+  });
+});
+
+describe("a save that landed without an answer (autosave, 2026-11-05)", () => {
+  const NEW_LINE = "recLine300000000A";
+  // Airtable after the lost save: the new line is there under its record id.
+  const landed = () =>
+    Q([
+      O({ id: OPT_A, name: "Vinyl", lines: [L({ id: LINE_1, description: "Remove carpet" }), L({ id: LINE_2, description: "Install plank" }), L({ id: NEW_LINE, description: "Underlay" })] }),
+      O({ id: OPT_B, name: "Hardwood", lines: [] }),
+    ]);
+  // The editor still holds its own id for that line.
+  const mine = () => {
+    const q = original();
+    q.options[0].lines.push(L({ id: "line_local_9", description: "Underlay" }));
+    return q;
+  };
+
+  it("is the same work under Airtable's ids, and names the record the editor's line became", () => {
+    expect(alreadySaved(landed(), mine())).toEqual({ line_local_9: NEW_LINE });
+  });
+
+  it("is a real conflict when anything differs", () => {
+    const other = landed();
+    other.options[0].lines[2].qty = 120;
+    expect(alreadySaved(other, mine())).toBeNull();
+    const terms = landed();
+    terms.discountRate = 0.2;
+    expect(alreadySaved(terms, mine())).toBeNull();
+  });
+
+  it("is never the same with a different number of options or lines", () => {
+    expect(alreadySaved(original(), mine())).toBeNull();
+    const extra = mine();
+    extra.options.push(O({ id: "opt_local_9", name: "Tile" }));
+    expect(alreadySaved(landed(), extra)).toBeNull();
   });
 });

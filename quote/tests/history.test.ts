@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { VERSION } from "../src/lib/airtable/fields";
-import { appendLog, authorFields, describePlan, firstNameOf, logEntries, logLine, stamp } from "../src/lib/quotes/history";
+import { AUTOSAVE_WORDS, appendLog, authorFields, autosaveWritesLine, describePlan, firstNameOf, logEntries, logLine, stamp } from "../src/lib/quotes/history";
 import type { SavePlan } from "../src/lib/quotes/savePlan";
 
 // Invented people and times only.
@@ -66,5 +66,28 @@ describe("the front desk signs as Joey (2026-11-04)", () => {
   it("names the shared info@ box Joey, whatever the sign-in's display name says", () => {
     expect(firstNameOf({ email: "info@titanfloors.ca", name: null })).toBe("Joey");
     expect(firstNameOf({ email: "Info@TitanFloors.ca", name: "Titan Flooring Info" })).toBe("Joey");
+  });
+});
+
+describe("autosave writes one Edit Log line a sitting (2026-11-05)", () => {
+  const me = { email: "staff@example.com", name: null };
+  const at = (minutesAgo: number) => new Date(T0.getTime() - minutesAgo * 60_000).toISOString();
+  const auto = logLine(T0, me.email, `${AUTOSAVE_WORDS} while editing, starting with 1 line changed`);
+
+  it("writes the first autosave's line", () => {
+    expect(autosaveWritesLine({ editLog: null }, me, T0)).toBe(true);
+    expect(autosaveWritesLine({ editLog: logLine(T0, me.email, "saved: 1 line changed"), lastEditedBy: me.email, lastEditedAt: at(1) }, me, T0)).toBe(true);
+  });
+
+  it("adds none while the same person keeps working", () => {
+    expect(autosaveWritesLine({ editLog: auto, lastEditedBy: me.email, lastEditedAt: at(14) }, me, T0)).toBe(false);
+    expect(autosaveWritesLine({ editLog: auto, lastEditedBy: "STAFF@example.com", lastEditedAt: at(0) }, me, T0)).toBe(false);
+  });
+
+  it("starts a new line after a break, or after someone else", () => {
+    expect(autosaveWritesLine({ editLog: auto, lastEditedBy: me.email, lastEditedAt: at(15) }, me, T0)).toBe(true);
+    expect(autosaveWritesLine({ editLog: auto, lastEditedBy: "other@example.com", lastEditedAt: at(1) }, me, T0)).toBe(true);
+    expect(autosaveWritesLine({ editLog: logLine(T0, "other@example.com", `${AUTOSAVE_WORDS} while editing`), lastEditedBy: me.email, lastEditedAt: at(1) }, me, T0)).toBe(true);
+    expect(autosaveWritesLine({ editLog: auto, lastEditedBy: me.email, lastEditedAt: null }, me, T0)).toBe(true);
   });
 });

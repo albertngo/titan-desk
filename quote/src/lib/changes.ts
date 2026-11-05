@@ -23,6 +23,16 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-05",
     kind: "new",
+    title: "Drafts save themselves",
+    details: [
+      "While you edit a draft, it saves to Airtable a few seconds after you stop. The header says Saving…, then Saved and the time. Save still saves straight away and opens the quote.",
+      "A quote that has been sent doesn't autosave: its Save starts the next draft, so that stays a button. If someone else changed the draft in Airtable, autosave stops and says so rather than saving over their work.",
+      "With no signal the work stays on this device (the header says Offline) and saves once the connection is back. History gets one line per sitting, not one per save.",
+    ],
+  },
+  {
+    date: "2026-11-05",
+    kind: "new",
     title: "No sending while there are unsaved changes",
     details: [
       "If the editor holds changes on this device that haven't been saved, Send quote and Send again are greyed out, with a note saying when the changes were kept and a link back to the editor.",

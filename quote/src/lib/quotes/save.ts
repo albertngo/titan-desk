@@ -9,10 +9,10 @@ import { restagedSchedule, scheduleProblems } from "@/lib/pricing/schedule";
 import { parseAcceptance } from "@/lib/accept/plan";
 import { contractVersions } from "@/lib/contract/model";
 import type { Quote, QuoteOption } from "./types";
-import { authorFields, describePlan } from "./history";
+import { AUTOSAVE_WORDS, authorFields, autosaveWritesLine, describePlan, type Person } from "./history";
 import { loadContract } from "./contract";
 import { getQuote } from "./load";
-import { changeSlot, workingDraft, cleanEditorQuote, fingerprint, isRecordId, newVersionRefusal, planIsEmpty, planSave, type SavePlan } from "./savePlan";
+import { alreadySaved, changeSlot, workingDraft, cleanEditorQuote, fingerprint, isRecordId, newVersionRefusal, planIsEmpty, planSave, type SavePlan } from "./savePlan";
 import { ids, num, str } from "./values";
 
 /**
@@ -22,7 +22,17 @@ import { ids, num, str } from "./values";
  * detached from the version.
  */
 
-export type SaveResult = { ok: true; versionId: string; writes: number } | { ok: false; message: string; conflict?: boolean };
+export type SaveResult = { ok: true; versionId: string; writes: number; /** Editor id -> the record it was created as. */ ids?: Record<string, string> } | { ok: false; message: string; conflict?: boolean };
+
+/**
+ * An autosave's answer (2026-11-05): the version as Airtable now has it, read back after the
+ * writes, so the editor carries on from it without reloading; `ids` names the record each of the
+ * editor's new lines and options became, so the next autosave updates them rather than making them
+ * again. `fresh` is null only when the writes went through and the read back did not.
+ */
+export type AutosaveResult =
+  | { ok: true; writes: number; ids: Record<string, string>; fresh: { quote: EditorQuote; base: string } | null }
+  | { ok: false; message: string; conflict?: boolean };
 
 export const BASES = ["Preliminary", "Measured"] as const;
 
@@ -36,6 +46,25 @@ export type Basis = (typeof BASES)[number];
 /** Overwrite a Draft version with what the editor holds. Refused if Airtable changed since the editor opened it. */
 export async function saveVersion(versionId: string, raw: unknown, base: string): Promise<SaveResult> {
   const person = await requireQuoterPerson();
+  return saveDraft(person, versionId, raw, base, false);
+}
+
+/**
+ * Autosave (Albert, 2026-11-05): the same save, the same checks and the same refusals as Save, on
+ * a Draft only. One Edit Log line a sitting, not one a save (`autosaveWritesLine()`); Last Edited
+ * By / At move every time. Then the version is read back for the editor.
+ */
+export async function autosaveVersion(versionId: string, raw: unknown, base: string): Promise<AutosaveResult> {
+  const person = await requireQuoterPerson();
+  const r = await saveDraft(person, versionId, raw, base, true);
+  if (!r.ok) return r;
+  const now = await getQuote(versionId).catch(() => null);
+  const quote = now ? fromQuote(now) : null;
+  return { ok: true, writes: r.writes, ids: r.ids ?? {}, fresh: quote ? { quote, base: fingerprint(quote) } : null };
+}
+
+/** Saving a Draft in place, for Save and autosave alike. `person` has already passed the quoter check. */
+async function saveDraft(person: Person, versionId: string, raw: unknown, base: string, auto: boolean): Promise<SaveResult> {
   if (!isRecordId(versionId)) return { ok: false, message: "That isn't a quote version." };
   const current = await getQuote(versionId);
   if (!current) return { ok: false, message: "This version isn't in Airtable any more." };
@@ -43,20 +72,27 @@ export async function saveVersion(versionId: string, raw: unknown, base: string)
     return { ok: false, message: `This version is ${current.status ?? "not a draft"}, so it can't be changed. Your changes are still on this device: open the quote's editor again and save them as the next draft.` };
   }
   const original = fromQuote(current);
+  const edited = cleanEditorQuote(raw);
   if (fingerprint(original) !== base) {
+    // The editor's last save landed but its answer never came back (2026-11-05): nothing to write, nothing to refuse.
+    const landed = alreadySaved(original, edited);
+    if (landed) return { ok: true, versionId, writes: 0, ids: landed };
     return {
       ok: false,
       conflict: true,
       message: "This version changed in Airtable since you opened it, so saving would overwrite that. Your changes are still on this device: save them as the next draft, or discard them and start from what's in Airtable.",
     };
   }
-  const edited = cleanEditorQuote(raw);
   const bad = scheduleTrouble(edited);
   if (bad) return { ok: false, message: bad };
   const plan = planSave(original, edited);
-  if (planIsEmpty(plan)) return { ok: true, versionId, writes: 0 };
+  if (planIsEmpty(plan)) return { ok: true, versionId, writes: 0, ids: {} };
   // Who saved, when, and what: in the same update as the version's own fields (2026-10-22).
-  plan.version = { ...plan.version, ...authorFields(person, new Date(), `saved: ${describePlan(plan)}`, current.editLog) };
+  const now = new Date();
+  const author = authorFields(person, now, auto ? `${AUTOSAVE_WORDS} while editing, starting with ${describePlan(plan)}` : `saved: ${describePlan(plan)}`, current.editLog);
+  // An autosave later in the same sitting moves Last Edited By / At and leaves the log as it is (2026-11-05).
+  if (auto && !autosaveWritesLine(current, person, now)) delete author[VERSION.editLog];
+  plan.version = { ...plan.version, ...author };
   return carryOut(versionId, plan);
 }
 
@@ -206,6 +242,7 @@ const message = (e: unknown) => (e instanceof Error ? e.message : String(e)).sli
  */
 async function carryOut(versionId: string, plan: SavePlan): Promise<SaveResult> {
   let writes = 0;
+  const ids: Record<string, string> = {};
   const count = (n: number) => {
     writes += n;
   };
@@ -217,14 +254,20 @@ async function carryOut(versionId: string, plan: SavePlan): Promise<SaveResult> 
 
     const made = await createRecords(T.options, plan.createOptions.map((o) => ({ ...o.fields, [OPTION.version]: [versionId] })), count);
     const optionId = new Map(plan.createOptions.map((o, i) => [o.ref, made[i].id]));
+    plan.createOptions.forEach((o, i) => {
+      if (o.client) ids[o.client] = made[i].id;
+    });
     const resolve = (ref: string) => optionId.get(ref) ?? ref;
 
     await updateRecords(T.options, plan.updateOptions, count);
-    await createRecords(
+    const lines = await createRecords(
       T.lines,
       plan.createLines.map((l) => ({ ...l.fields, [LINE.version]: [versionId], [LINE.option]: [resolve(l.option)] })),
       count,
     );
+    plan.createLines.forEach((l, i) => {
+      if (l.client) ids[l.client] = lines[i].id;
+    });
     await updateRecords(
       T.lines,
       plan.updateLines.map((l) => ({ id: l.id, fields: { ...l.fields, [LINE.option]: [resolve(l.option)] } })),
@@ -241,5 +284,5 @@ async function carryOut(versionId: string, plan: SavePlan): Promise<SaveResult> 
           : `Only part of this saved before Airtable refused it (${message(e)}). Your changes are still on this device: open the quote to see what's in Airtable, then save them as the next draft.`,
     };
   }
-  return { ok: true, versionId, writes };
+  return { ok: true, versionId, writes, ids };
 }

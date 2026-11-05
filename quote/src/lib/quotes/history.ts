@@ -85,6 +85,28 @@ export function authorFields(person: Person, now: Date, what: string, existingLo
   };
 }
 
+/** How an autosave's Edit Log line starts (2026-11-05). */
+export const AUTOSAVE_WORDS = "autosaved";
+
+/** Autosaves by one person less than this far apart are one sitting, with one Edit Log line. */
+export const SITTING_MINUTES = 15;
+
+/**
+ * Whether an autosave writes its own Edit Log line (Albert, 2026-11-05: autosave without a line for
+ * every few seconds of typing). It does unless the newest line is an autosave by the same person and
+ * they last edited the version under `SITTING_MINUTES` ago; Last Edited At moves on every save, so a
+ * sitting lasts while they keep working. A Save, a send or anyone else in between starts a new line.
+ */
+export function autosaveWritesLine(v: { lastEditedBy?: string | null; lastEditedAt?: string | null; editLog?: string | null }, person: Person, now: Date): boolean {
+  const me = person.email.trim().toLowerCase();
+  const newest = logEntries(v.editLog)[0];
+  if (!newest || newest.who.trim().toLowerCase() !== me || !newest.what.startsWith(AUTOSAVE_WORDS)) return true;
+  if ((v.lastEditedBy ?? "").trim().toLowerCase() !== me) return true;
+  const at = v.lastEditedAt ? Date.parse(v.lastEditedAt) : NaN;
+  const gap = now.getTime() - at;
+  return !(Number.isFinite(gap) && gap >= 0 && gap < SITTING_MINUTES * 60_000);
+}
+
 /** "Albert", from the sign-in's display name, else from the address ("albert@…" → "Albert"); null for a shared box like info@. */
 /**
  * Shared mailboxes that sign as a person (Albert, 2026-11-04: "the Front Desk (info@titanfloors.ca)
