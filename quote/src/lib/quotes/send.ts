@@ -7,14 +7,14 @@ import { fromQuote } from "@/lib/editor/model";
 import { etransferEmail, staffQuoteLink } from "@/lib/accept/settings";
 import { acceptTerms } from "@/lib/accept/live";
 import { BOOKING_URLS } from "@/lib/ghl/ids";
-import { followUpTagBodies, sentComment } from "@/lib/activity/track";
+import { followUpTagBodies, sentNote } from "@/lib/activity/track";
 import { parseAcceptance } from "@/lib/accept/plan";
 import { changeSummary } from "@/lib/change/diff";
 import { contractOn, contractVersions, fromChange, joinChange, serializeContract } from "@/lib/contract/model";
 import { cleanPayments } from "@/lib/billing/doc";
 import { paymentsReaderOn, projectPayments } from "@/lib/notion/payments";
 import { buildContract } from "@/lib/link/ghlRequest";
-import { makeConfigured, sendMessage, sendToGhl, setFollowUpTags } from "@/lib/make/client";
+import { addContactNote, makeConfigured, sendMessage, sendToGhl, setFollowUpTags } from "@/lib/make/client";
 import { acceptedPdfName, COPY_MAX_CHARS, customerCopy, offersPdf, parseCopy, pdfName, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "@/lib/send/copy";
 import { ghlConfigured, locationUsers } from "@/lib/ghl/client";
 import { quoterAllowlist } from "@/lib/access";
@@ -346,13 +346,13 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   } catch {
     notes.push("Airtable didn't record how it was sent.");
   }
-  // A note on the customer's GHL conversation with the link staff can open without counting as an open
-  // (Albert, 2026-11-05). Internal, tags nobody, and never stops a send.
+  // A note on the contact's Notes tab with the link staff can open without counting as an open (Albert,
+  // 2026-11-05: a contact note, not a conversation comment). Never stops a send.
   try {
     const info = { quoteNumber: quote.quoteId ?? "Quote", version: quote.version, basis: quote.basis, sentAt: today, senderName: firstNameOf(person), sentTo: sentTo.join(", ") };
-    await sendMessage({ type: "InternalComment", contactId, message: sentComment(info, link, staffQuoteLink(quote.id)), mentions: [] });
+    await addContactNote(contactId, sentNote(info, link, staffQuoteLink(quote.id)));
   } catch {
-    notes.push("The staff note with the quote link couldn't be posted in GHL; the quote itself went out.");
+    notes.push("The GHL contact note with the quote link couldn't be added; the quote itself went out.");
   }
   // The follow-up sequence (2026-10-27): both quote-sent tags off, this one's on, so a new version
   // restarts its sequence and a measured quote ends the preliminary's. Never stops a send. A change

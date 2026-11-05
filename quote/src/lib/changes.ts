@@ -22,6 +22,15 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-05",
+    kind: "changed",
+    title: "The quote link note goes on the contact's Notes",
+    details: [
+      "The note a send adds, with the customer's staff link and the quote's page here, is now a note on the GHL contact's Notes tab instead of a comment in the conversation.",
+      "Quotes still out with the customer got the same note on their contact.",
+    ],
+  },
+  {
+    date: "2026-11-05",
     kind: "new",
     title: "Quotes sent before today got their link note",
     details: [

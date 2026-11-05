@@ -250,13 +250,16 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   for when this app is down; the app never writes them. Since 2026-10-27 sending adds one thing to GHL
   beyond the message: the follow-up tag (below); no note, stage or field. **Since 2026-11-05 (Albert: "put a
   note when sending the quote out of the link to the quote… the one that does not count towards the open
-  count for staff to click") it also posts one internal comment** on the customer's conversation: what
+  count for staff to click"; then "Not an internal note. A note for the customer section") it also adds one
+  note to the contact's Notes tab** (`addContactNote()` in `src/lib/make/client.ts`, Make 4975508's `note` route,
+  added the same day: a filtered POST to `/contacts/<id>/notes` on its GHL connection, `{"body":"..."}` only): what
   went, by whom and how, the customer link with `#staff` (`staffViewLink()`, never counted) and the
-  version's page in the app when `staffQuoteLink()` knows it (`sentComment()` in `src/lib/activity/track.ts`,
-  tested in `tests/activity.test.ts`). Like every quote comment it tags nobody, rides Make 4975508's `message` route, and a failure never stops a send. Send again posts none. Versions sent before 2026-11-05 got it once, by hand
+  version's page in the app when `staffQuoteLink()` knows it (`sentNote()` in `src/lib/activity/track.ts`,
+  tested in `tests/activity.test.ts`). It tags nobody and a failure never stops a send; it is no longer a conversation comment. Send again posts none. Versions sent before 2026-11-05 got it once, by hand
   (`noteSentLinks()` in `src/lib/quotes/activity.ts`, `{step: "sent-notes"}` on `/api/activity`, run from the
-  manual `.github/workflows/quote-sent-notes.yml` with the exact version ids): only a version still Sent from
-  before `SENT_NOTE_SINCE`, never a replaced one, and nothing is written to Airtable. Counts of preliminaries come
+  manual `.github/workflows/quote-sent-notes.yml` with the exact version ids): only a version still Sent, never a
+  replaced one, and nothing is written to Airtable, so a second run adds the notes again. Its first run (2026-11-05,
+  before the switch) posted the six as conversation comments; those stay where they are. Counts of preliminaries come
   from Quote Versions (Basis, Status, Sent At/By/To), not from the `mobile quote` tag.
 - **Follow-up tags (Albert, 2026-10-27).** Every send removes both `quote sent: preliminary` and
   `quote sent: measured` from the contact, then adds this version's, through Make 4975508's `tags`
@@ -1030,7 +1033,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
 2b. **One file sends to Make:** `src/lib/make/client.ts`, `server-only`, the only reader of
    `QUOTE_MAKE_GHL_HOOK` / `QUOTE_MAKE_GHL_KEY`, called only from `src/lib/quotes/start.ts`, `src/lib/quotes/booking.ts`, `src/lib/quotes/link.ts`, `src/lib/quotes/send.ts`,
    `src/lib/quotes/address.ts` (Address arrived: the contact's street only, never a site on the opportunity),
-   `src/lib/quotes/activity.ts` (internal comments only), `src/lib/accept/record.ts` (acceptance: Won,
+   `src/lib/quotes/activity.ts` (internal comments, and the one-off send notes as contact notes), `src/lib/accept/record.ts` (acceptance: Won,
    cancel, and the acceptance messages) and `src/lib/quotes/billing.ts` (the invoice or receipt email).
    Set those two variables only after the scenario is switched on: a request to a scenario
    that is off waits in Make's queue and would run later.
@@ -1055,7 +1058,8 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
 2c'. **A second path without a sign-in: `/api/activity` (2026-10-27)**, open tracking, called by the
    customer deployment and the daily summary run. The route and every function in
    `src/lib/quotes/activity.ts` check `QUOTE_ACTIVITY_KEY` first (constant-time; unset = off). It writes
-   only the tracking fields of Quote Versions and posts only internal comments; the version is found by
+   only the tracking fields of Quote Versions and posts only internal comments (plus, from the one-off
+   `sent-notes` step, contact notes); the version is found by
    the link's token, never by anything else in the request.
 2c''. **A third path without a sign-in: `/api/accept` (2026-10-27)**, the customer's Accept, called by
    the customer deployment's server, never by a browser. The route and every function in

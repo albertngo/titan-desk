@@ -2,9 +2,9 @@ import "server-only";
 import { timingSafeEqual } from "node:crypto";
 import { listByIds, listRecords, updateRecord } from "@/lib/airtable/client";
 import { QUOTE, T, VERSION } from "@/lib/airtable/fields";
-import { applyActivity, firstOpenComment, parseActivity, sentComment, SENT_NOTE_SINCE, summaryComment, summaryDue, type ActivityInfo, type TrackState } from "@/lib/activity/track";
+import { applyActivity, firstOpenComment, parseActivity, sentNote, summaryComment, summaryDue, type ActivityInfo, type TrackState } from "@/lib/activity/track";
 import { customerUrl, staffQuoteLink } from "@/lib/accept/settings";
-import { makeConfigured, sendMessage } from "@/lib/make/client";
+import { addContactNote, makeConfigured, sendMessage } from "@/lib/make/client";
 import { torontoToday } from "@/lib/send/copy";
 import { customerLinks, isToken } from "@/lib/send/plan";
 import { firstNameOf } from "./history";
@@ -19,8 +19,8 @@ import { bool, ids, num, str } from "./values";
  *     first open of a sent version posts an internal comment on the customer's GHL conversation.
  *   noteSummaries: once a day (GitHub Actions), every version sent three or more days ago, still
  *     Sent (not replaced by a newer one) and tracked, gets one summary comment.
- *   noteSentLinks: once, by hand (2026-11-05), the send note with the staff link for named versions
- *     that went out before sends began posting it themselves.
+ *   noteSentLinks: once, by hand (2026-11-05), the send note (a contact note with the staff link) for
+ *     named versions that went out before sends added it themselves.
  *
  * A comment's "noted" stamp is written before the comment goes and taken back if it fails, so a
  * comment goes at most once and a failed one is tried again. The comments are informative and tag
@@ -125,10 +125,10 @@ export async function noteSummaries(key: string | null, now = new Date()): Promi
 export type SentNotesResult = { ok: true; noted: string[]; skipped: { id: string; why: string }[]; failed: string[] } | { ok: false; status: number; message: string };
 
 /**
- * The send note for versions sent before sends posted it (Albert, 2026-11-05: "scan and write all the sent out
- * quotes so far with the note link"). Run once by hand (.github/workflows/quote-sent-notes.yml) with the exact
- * version ids. Only a version still Sent, sent before SENT_NOTE_SINCE and with a link gets one, so a version
- * whose own send already posted it, or a replaced one, is skipped. Nothing is written to Airtable.
+ * The send note for versions sent before sends added it (Albert, 2026-11-05: "scan and write all the sent out quotes
+ * so far with the note link"; a contact note, "not an internal note"). Run once by hand
+ * (.github/workflows/quote-sent-notes.yml) with the exact version ids. Only a version still Sent and with a link gets
+ * one, so a replaced one is skipped. Nothing is written to Airtable, so running it twice adds the notes twice.
  */
 export async function noteSentLinks(key: string | null, versionIds: unknown): Promise<SentNotesResult> {
   if (!activityKeyOk(key)) return { ok: false, status: 401, message: "Wrong or missing key." };
@@ -148,7 +148,7 @@ export async function noteSentLinks(key: string | null, versionIds: unknown): Pr
     const sentAt = str(f[VERSION.sentAt]);
     const why =
       str(f[VERSION.status]) !== "Sent" ? `status is ${str(f[VERSION.status]) ?? "blank"}, not Sent`
-      : !sentAt || sentAt >= SENT_NOTE_SINCE ? "sent since the send note began; its send posted one"
+      : !sentAt ? "no send date"
       : !isToken(token) ? "no customer link"
       : null;
     if (why) {
@@ -156,22 +156,46 @@ export async function noteSentLinks(key: string | null, versionIds: unknown): Pr
       continue;
     }
     const { link } = customerLinks(base, token!, "x");
-    if (await comment(row, (info) => sentComment(info, link, staffQuoteLink(row.id)))) noted.push(row.id);
-    else failed.push(row.id);
+    const about = await infoOf(row);
+    if (!about) {
+      failed.push(row.id);
+      continue;
+    }
+    try {
+      await addContactNote(about.contactId, sentNote(about.info, link, staffQuoteLink(row.id)));
+      noted.push(row.id);
+    } catch (e) {
+      console.error("sent note", e);
+      failed.push(row.id);
+    }
   }
   return { ok: true, noted, skipped, failed };
 }
 
 /** Post one internal comment on the version's customer conversation. False when it could not go. */
 async function comment(row: Row, words: (info: ActivityInfo) => string): Promise<boolean> {
-  if (!makeConfigured()) return false;
+  const about = await infoOf(row);
+  if (!about) return false;
+  try {
+    // Informative only: nobody is tagged (Albert, 2026-11-05).
+    await sendMessage({ type: "InternalComment", contactId: about.contactId, message: words(about.info), mentions: [] });
+    return true;
+  } catch (e) {
+    console.error("activity comment", e);
+    return false;
+  }
+}
+
+/** The version's GHL contact and what the notes say about it; null when Make is off or the quote can't be read. */
+async function infoOf(row: Row): Promise<{ contactId: string; info: ActivityInfo } | null> {
+  if (!makeConfigured()) return null;
   const f = row.fields;
   const quoteId = ids(f[VERSION.quote])[0];
-  if (!quoteId) return false;
+  if (!quoteId) return null;
   const quote = (await listByIds(T.quotes, [quoteId], [QUOTE.quoteNumber, QUOTE.ghlContactId]))[0];
   const contactId = str(quote?.fields[QUOTE.ghlContactId]);
   const quoteNumber = str(quote?.fields[QUOTE.quoteNumber]);
-  if (!contactId || !quoteNumber) return false;
+  if (!contactId || !quoteNumber) return null;
   const basis = str(f[VERSION.basis]);
   const sentBy = str(f[VERSION.sentBy]);
   const info: ActivityInfo = {
@@ -182,12 +206,5 @@ async function comment(row: Row, words: (info: ActivityInfo) => string): Promise
     senderName: sentBy ? firstNameOf({ email: sentBy, name: null }) : null,
     sentTo: str(f[VERSION.sentTo]),
   };
-  try {
-    // Informative only: nobody is tagged (Albert, 2026-11-05).
-    await sendMessage({ type: "InternalComment", contactId, message: words(info), mentions: [] });
-    return true;
-  } catch (e) {
-    console.error("activity comment", e);
-    return false;
-  }
+  return { contactId, info };
 }
