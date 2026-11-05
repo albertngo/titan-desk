@@ -40,6 +40,7 @@ import { acceptReadiness } from "@/lib/accept/staff";
 import { termsLabel } from "@/lib/accept/terms";
 import { ghlOpportunityUrl } from "@/lib/ghl/ids";
 import { logEntries } from "@/lib/quotes/history";
+import { scheduleFlags } from "@/lib/pricing/schedule";
 import { addDays, leadPrice, offersPdf, partOf, priceRange, quoteSchedule, rangeText, torontoToday, VALID_DAYS } from "@/lib/send/copy";
 import { optionProblem, sendProblems } from "@/lib/send/plan";
 import { parseRooms } from "@/lib/rooms/log";
@@ -135,6 +136,7 @@ export default async function QuotePage({
       textFrom={textFromNumber}
       sendAs={sendAs}
       options={sendOptions}
+      scheduleFlags={draft ? scheduleFlags(quoteSchedule(quote), quote.options.filter((o) => !o.notOffered).map((o) => ({ name: o.name, lines: o.lines, showHst: optionHst(quote, o), discountRate: quote.discountRate }))) : []}
     />
   );
   // The Rooms log lives on the quote (Quotes → Rooms), so every version shows the same rooms.
@@ -211,7 +213,7 @@ export default async function QuotePage({
 
   // The project's invoice or receipt (2026-10-30): on the contract version only, staff only.
   const billing = !customer && quote.link?.contractVersionId === quote.id && ["Accepted", "Won", "Sent"].includes(quote.status ?? "") ? await billingState(quote.id) : null;
-  const billingCard = billing ? <BillingCard versionId={quote.id} s={billing} /> : null;
+  const billingCard = billing ? <BillingCard versionId={quote.id} s={billing} sendAs={sendAs} /> : null;
 
   const changeCard =
     !customer && quote.changeNo ? (

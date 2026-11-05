@@ -58,7 +58,7 @@ import { Picker } from "./Picker";
 import { ScheduleEditor } from "./ScheduleEditor";
 import { SwapOption } from "./SwapOption";
 import type { SwapSource } from "@/lib/change/swap";
-import { shownStage } from "@/lib/pricing/schedule";
+import { scheduleFlags, shownStage } from "@/lib/pricing/schedule";
 import { quoteSchedule } from "@/lib/send/copy";
 import { levelApplies, levelOf, PREMIUM_MARKUP, SERVICE_LEVELS } from "@/lib/pricing/service";
 import { CONTRACTOR_DISCOUNT, DISCOUNTS_SECTION, priceSummary } from "@/lib/pricing/discounts";
@@ -394,6 +394,11 @@ export default function Editor({
   // The version's own schedule, else the automatic one from its HST (2026-11-05).
   const autoPlan = useMemo(() => quoteSchedule({ schedule: null, showHst: quote.showHst, options: quote.options }), [quote.showHst, quote.options]);
   const schedule = quote.schedule ?? autoPlan;
+  // A schedule that goes against the HST rules is flagged, never stopped (2026-11-05).
+  const scheduleWarnings = useMemo(
+    () => scheduleFlags(quote.schedule ?? autoPlan, quote.options.filter((o) => !o.notOffered).map((o) => ({ name: o.name, lines: o.lines, showHst: o.showHst ?? quote.showHst, discountRate: quote.discountRate }))),
+    [quote.schedule, autoPlan, quote.options, quote.showHst, quote.discountRate],
+  );
   const payLine = option && t ? stageAmounts(schedule, option.lines, quote.discountRate, option.showHst ?? quote.showHst, t.total).filter(shownStage).map((x) => x.pct).join(" / ") : "35 / 35 / 30";
   const termsLine = [hstOn ? "HST charged" : "HST off", `payment ${payLine}`].join(" · ");
 
@@ -1176,6 +1181,7 @@ export default function Editor({
               <ScheduleEditor
                 schedule={quote.schedule ?? null}
                 auto={autoPlan}
+                flags={scheduleWarnings}
                 onChange={(next) => apply(setSchedule(quote, next))}
                 amounts={option && t ? stageAmounts(schedule, option.lines, quote.discountRate, hstOn, t.total) : []}
               />

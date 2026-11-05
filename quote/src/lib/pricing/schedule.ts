@@ -1,4 +1,4 @@
-import { chargesHst, isPriced, sectionOf, type LineInput } from "@/lib/calc";
+import { chargesHst, isPriced, materialsDeposit, optionTotals, sectionOf, type LineInput } from "@/lib/calc";
 
 /**
  * The payment schedule (Albert, 2026-10-27): editable per quote. 35 / 35 / 30 is the default, or
@@ -176,6 +176,35 @@ export function autoSchedule(options: { lines: LineInput[]; showHst: boolean }[]
   if (anything && !taxed) return PRESETS.cash.schedule();
   if (options.some((o) => suggestsMaterialDeposit(o.lines, o.showHst))) return PRESETS.materials.schedule();
   return defaultSchedule();
+}
+
+/**
+ * Where a schedule goes against the HST rules (Albert, 2026-11-05: "it should FLAG us if the payment plan picked goes
+ * against the rules for both"), said to staff; empty means it follows them. A flag never stops a save or a send.
+ * - nothing on the quote carries HST: no stage may be paid by e-transfer (cash only);
+ * - HST on the material only: the first stage is the material, and when the material comes to under 35% of an option's
+ *   total, a stage right after it brings the deposit up to 35% (the rest, in store).
+ * `options` carry their names and discount for the money: the material's share is `materialsDeposit()` over the total.
+ */
+export function scheduleFlags(s: PaymentSchedule, options: { name: string; lines: LineInput[]; showHst: boolean; discountRate: number }[]): string[] {
+  const auto = autoSchedule(options);
+  const out: string[] = [];
+  if (auto.preset === "cash") {
+    const et = s.stages.filter((x) => x.pay === "etransfer").map((x) => x.label || "a payment");
+    if (et.length) out.push(`Nothing on this quote carries HST, so it is paid in cash, but ${et.join(" and ")} ${et.length === 1 ? "is" : "are"} set to e-transfer.`);
+  }
+  if (auto.preset === "materials") {
+    if (s.stages[0]?.part.kind !== "materials") out.push(`HST is on the material only, so Materials should come first, but the schedule starts with ${s.stages[0]?.label || "another payment"}.`);
+    else if (s.stages[1]?.part.kind !== "topUp") {
+      for (const o of options) {
+        const total = optionTotals(o.lines, o.discountRate, o.showHst).total;
+        const m = materialsDeposit(o.lines, o.discountRate, o.showHst);
+        if (total > 0 && m < total * 0.35 - 0.005)
+          out.push(`On ${o.name || "an option"} the material is ${Math.round((m / total) * 100)}% of the total, under 35%, and no payment after it brings the deposit up to 35% in store.`);
+      }
+    }
+  }
+  return out;
 }
 
 /** The schedule that applies: the version's own, else the automatic one. */

@@ -17,12 +17,15 @@ import { MAX_STAGES, PAY_HOWS, PAY_LABELS, PRESETS, sameSchedule, scheduleProble
 export function ScheduleEditor({
   schedule,
   auto,
+  flags = [],
   onChange,
   amounts,
 }: {
   schedule: PaymentSchedule | null;
   /** What the version gets with no schedule of its own (2026-11-05). */
   auto: PaymentSchedule;
+  /** Where it goes against the HST rules (2026-11-05): shown, never a stop. */
+  flags?: string[];
   onChange: (next: PaymentSchedule | null) => void;
   /** The stages in dollars for the option on screen, in order. */
   amounts: StageAmount[];
@@ -74,6 +77,16 @@ export function ScheduleEditor({
             </button>
           </p>
         )
+      )}
+      {flags.length > 0 && (
+        <div className="sq-msg warn" role="status">
+          <b>Check the payment schedule</b>
+          <ul>
+            {flags.map((f) => (
+              <li key={f}>{f}</li>
+            ))}
+          </ul>
+        </div>
       )}
       <ol className="sched-l">
         {s.stages.map((x, i) => {

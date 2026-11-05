@@ -144,6 +144,12 @@ async function senderChoices(me: string): Promise<SendAsChoice[]> {
   return sendAsChoices(me, quoterAllowlist(), letterhead().email, users);
 }
 
+/** Who an invoice or receipt email goes out as (2026-11-05), for billing.ts: the person signed in unless they picked someone. */
+export async function pickSender(asEmail: unknown) {
+  const person = await requireQuoterPerson();
+  return senderFor(person, asEmail);
+}
+
 /** Who this send goes out as: the person signed in unless they picked someone on their list (2026-11-05). */
 async function senderFor(person: Person, asEmail: unknown) {
   if (!asEmail || (typeof asEmail === "string" && asEmail.trim().toLowerCase() === person.email.trim().toLowerCase())) return resolveSender(person, null, []);
@@ -346,7 +352,8 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   let textedFrom: string | null = null;
   if (input.channels.sms) {
     try {
-      // From the sender's own GHL number when they have one (2026-11-04); else GHL's main number, as before.
+      // From the sender's own GHL number when they have one (2026-11-04). With none, GHL picks the number itself: on
+      // 2026-11-05 that was the number the contact was last texted from (another person's), not the main line.
       textedFrom = await textFrom(person.email);
       await sendMessage(fromTheirNumber(copy.change ? changeSmsMessage(copy, { contactId, firstName, link }, from) : smsMessage(copy, { contactId, firstName, link }, from), textedFrom));
       sentTo.push("Text");
@@ -380,7 +387,7 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   }
 
   try {
-    const how = `sent by ${sentTo.join(" and ").toLowerCase()}${sentFrom ? ` from ${sentFrom}` : ""}${sentTo.includes("Text") ? `, text from ${textedFrom ?? "the main number"}` : ""}${input.pdf ? ", PDF on the quote page" : ""}${chosenWords(quote, input.optionIds) ? `, ${chosenWords(quote, input.optionIds)}` : ""}${prelim && !input.range ? ", exact price, no range" : ""}`;
+    const how = `sent by ${sentTo.join(" and ").toLowerCase()}${sentFrom ? ` from ${sentFrom}` : ""}${sentTo.includes("Text") ? `, text from ${textedFrom ?? "GHL's pick (no number of their own)"}` : ""}${input.pdf ? ", PDF on the quote page" : ""}${chosenWords(quote, input.optionIds) ? `, ${chosenWords(quote, input.optionIds)}` : ""}${prelim && !input.range ? ", exact price, no range" : ""}`;
     await updateRecord(T.versions, quote.id, { [VERSION.sentTo]: sentTo.join(", "), ...authorFields(actor, new Date(), picked.as ? `${how}, as ${person.email}` : how, quote.editLog) });
   } catch {
     notes.push("Airtable didn't record how it was sent.");

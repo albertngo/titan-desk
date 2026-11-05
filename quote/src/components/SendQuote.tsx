@@ -124,7 +124,7 @@ function CopyLink({ link }: { link: string }) {
   );
 }
 
-type SendAsList = {
+export type SendAsList = {
   me: string;
   choices: { email: string; label: string; emailFrom: string | null; textFrom: string | null }[];
   /** Who sent this quote last (2026-11-05): shown, never picked for you. */
@@ -135,7 +135,7 @@ type SendAsList = {
  * Send as (2026-11-04, opened to everyone 2026-11-05): who the email, the text and the signature come from, always
  * starting on the person signed in. Albert is on the list only when Albert is signed in. Shows who sent it last.
  */
-function SendAsPicker({ list, value, onChange, disabled = false }: { list: SendAsList; value: string; onChange: (email: string) => void; disabled?: boolean }) {
+export function SendAsPicker({ list, value, onChange, disabled = false }: { list: SendAsList; value: string; onChange: (email: string) => void; disabled?: boolean }) {
   const c = list.choices.find((x) => x.email === value);
   const last = list.last ? `Last sent by ${list.last.label}${list.last.version !== null ? ` · v${list.last.version}` : ""}${list.last.on ? ` · ${day(list.last.on)}` : ""}` : null;
   if (list.choices.length < 2) return last ? <p className="faint sq-last">{last}</p> : null;
@@ -152,7 +152,7 @@ function SendAsPicker({ list, value, onChange, disabled = false }: { list: SendA
       {last && <span className="sub sq-last">{last}</span>}
       {c && c.email !== list.me && (
         <span className="sub">
-          Email from {c.emailFrom ?? "nobody (this address can't send email)"}; text from {c.textFrom ?? "the main GHL number"}; signed as them.
+          Email from {c.emailFrom ?? "nobody (this address can't send email)"}; text from {c.textFrom ?? "whichever number GHL picks (they have no GHL number of their own)"}; signed as them.
         </span>
       )}
     </label>
@@ -236,6 +236,7 @@ export function SendQuote({
   textFrom: ownTextFrom = null,
   sendAs = null,
   options,
+  scheduleFlags = [],
 }: {
   versionId: string;
   label: string;
@@ -262,6 +263,8 @@ export function SendQuote({
   sendAs?: SendAsList | null;
   /** The version's options, for choosing which go to the customer (2026-10-24); `range` is what a preliminary shows instead of `price` (2026-10-27). */
   options: { id: string; name: string; price: string; range: string | null; recommended: boolean; notOffered?: boolean; problem: string | null }[];
+  /** Where the payment schedule goes against the HST rules (2026-11-05): a warning, never a stop. */
+  scheduleFlags?: string[];
 }) {
   const router = useRouter();
   /** Unsaved changes for this version on this device (2026-11-05): nothing sends while there are. */
@@ -369,6 +372,12 @@ export function SendQuote({
           </div>
         )}
         {!ready.ready && <p className="sq-msg warn">{ready.why}</p>}
+        {scheduleFlags.length > 0 && (
+          <div className="sq-msg warn">
+            <b>Check the payment schedule</b> <span className="faint">(it can still be sent)</span>
+            <ul>{scheduleFlags.map((p) => <li key={p}>{p}</li>)}</ul>
+          </div>
+        )}
         {unsaved && <UnsavedNote versionId={versionId} at={unsaved} sent={false} />}
 
         {sendAs && <SendAsPicker list={sendAs} value={asEmail} onChange={setAsEmail} disabled={sending || asking} />}
@@ -385,7 +394,7 @@ export function SendQuote({
             <input type="checkbox" checked={bySms && !!phone} disabled={!phone} onChange={(e) => setBySms(e.target.checked)} />
             <span>
               Text <span className="faint">{phone ?? "no phone in GHL"}</span>
-              {phone && <span className="sub">{textFrom ? `Link, from ${textFrom} (${asOther ? "their" : "your"} GHL number)` : `Link, from the main GHL number (${asOther ? "their" : "your"} GHL user has no number of its own)`}</span>}
+              {phone && <span className="sub">{textFrom ? `Link, from ${textFrom} (${asOther ? "their" : "your"} GHL number)` : `Link, from whichever number GHL picks, usually the last one this customer was texted from, which may be someone else's: ${asOther ? "their" : "your"} GHL user has no number of its own`}</span>}
             </span>
           </label>
         </fieldset>

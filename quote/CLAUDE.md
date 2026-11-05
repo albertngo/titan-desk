@@ -452,7 +452,13 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   person logged in").** `SEND_AS_PICKERS` is gone: every sign-in gets Send as, starting on themselves, and Albert
   (`ONLY_THEMSELVES`) is a choice only for Albert; `resolveSender()` refuses anyone else's pick of him. The card says who
   sent the quote last ("Last sent by Joey · v1 · Nov 5", `lastSentOf()` over the quote's versions, `sendAsForCard()`),
-  shown only, never picked for you. Invoice and receipt emails still go from the person signed in.
+  shown only, never picked for you. **Invoice and receipt emails have it too** (Albert, same day: "put the picker there
+  too"): `emailBilling()` takes `as`, checked by `pickSender()` in `send.ts`, and the Edit Log adds "as <email>".
+  **A GHL user with no number of its own is not texted from the main line (checked in GHL, 2026-11-05).** The app then
+  sends no `fromNumber`, and GHL picks one itself: the front desk's quote and won texts that day went from the number
+  the contact had last been texted from (the assigned salesperson's), and so did a text typed in GHL by the front desk.
+  The email is unaffected. The cure is a number on that GHL user (Settings → My Staff → the user → LC Phone); the Send
+  card says so instead of "the main GHL number".
   Make 4975508 forwards the message body verbatim, so nothing changed in Make.
 - **Who worked on a version (Albert, 2026-10-22).** Quote Versions carries **Created By (app)**,
   **Last Edited By**, **Last Edited At** and an append-only **Edit Log** (one line per save, new
@@ -786,7 +792,10 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   **Use it** goes back. The automatic schedule is frozen on the copy like a picked one (`quoteSchedule()` in `copy.ts`).
   The won email, text and accepted page show a two-part deposit as its parts and how to pay each (`depositParts()` /
   `depositSteps()` / `smsDepositHow()` in `plan.ts`), with the letterhead's address for the showroom. Material
-  schedules stored before keep their old stages.
+  schedules stored before keep their old stages. **Flagged, never stopped (same day: "it should FLAG us if the payment
+  plan picked goes against the rules for both"):** `scheduleFlags()` names e-transfer on a quote with no HST, a
+  material-only-HST quote that doesn't start with Materials, and a material under 35% of an option with no top-up after
+  it; the editor's schedule and the Send card show them as Check the payment schedule, and the send still goes.
 - **Acceptance (Albert, 2026-10-27: "it is always best to have an accept step").** Only a **measured**
   version out with the customer and still good (Sent, not past Valid Until, not superseded, not a change)
   can be accepted; a preliminary is an estimate. **On the customer's link** an Accept panel under the

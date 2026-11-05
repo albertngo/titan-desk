@@ -31,6 +31,7 @@ import { appendLog, authorFields, firstNameOf, logLine } from "./history";
 import { loadContract } from "./contract";
 import { getQuote } from "./load";
 import { refreshFromGhl } from "./refresh";
+import { pickSender } from "./send";
 import type { Quote } from "./types";
 import { ids, str } from "./values";
 
@@ -83,7 +84,8 @@ export type BillingState = {
 };
 
 /** How the next export is drawn (2026-10-31). */
-export type BillingChoice = { showCredit: boolean };
+/** `as` (2026-11-05): who the email goes out as, picked on the card like a quote's Send as; absent = the person signed in. */
+export type BillingChoice = { showCredit: boolean; as?: string | null };
 
 type Contract = { quote: Quote; copy: CustomerCopy; kind: BillingKind };
 
@@ -256,7 +258,11 @@ export async function issueBilling(versionId: string, choice: BillingChoice): Pr
 
 /** Email the customer the document, the PDF attached. */
 export async function emailBilling(versionId: string, choice: BillingChoice): Promise<BillingResult> {
-  const person = await requireQuoterPerson();
+  const actor = await requireQuoterPerson();
+  // Who it goes out as (Albert, 2026-11-05: "put the picker there too"): the person signed in unless they picked someone.
+  const picked = await pickSender(choice.as ?? null);
+  if (!picked.ok) return { ok: false, message: picked.message };
+  const person = picked.sender;
   const base = customerUrl();
   if (!base) return { ok: false, message: "The customer link address (QUOTE_CUSTOMER_URL) isn't set for this deployment." };
   const loaded = await getQuote(versionId);
@@ -265,7 +271,7 @@ export async function emailBilling(versionId: string, choice: BillingChoice): Pr
   const contactId = fresh.link?.ghlContactId;
   if (!contactId || !fresh.link?.email) return { ok: false, message: "The GHL contact has no email." };
   if (!isToken(fresh.customerToken)) return { ok: false, message: "This version has no customer link, so the PDF can't be attached." };
-  const r = await exportDoc(versionId, person.email, "emailed", choice);
+  const r = await exportDoc(versionId, actor.email, "emailed", choice);
   if (typeof r === "string") return { ok: false, message: r };
   const t = shownTotals(r.snap);
   const { pdfUrl } = customerLinks(base, fresh.customerToken, billingFile(r.snap.kind, r.snap.number));
@@ -289,7 +295,8 @@ export async function emailBilling(versionId: string, choice: BillingChoice): Pr
   try {
     const F = FIELDS[r.snap.kind];
     await updateRecord(TABLE[r.snap.kind], r.row.id, { [F.lastSentAt]: new Date().toISOString(), [F.sentTo]: fresh.link.email });
-    await updateRecord(T.versions, fresh.id, authorFields(person, new Date(), billingLogWhat(r.snap, "emailed", r.voided), fresh.editLog));
+    const what = billingLogWhat(r.snap, "emailed", r.voided);
+    await updateRecord(T.versions, fresh.id, authorFields(actor, new Date(), picked.as ? `${what}, as ${person.email}` : what, fresh.editLog));
   } catch {
     notes.push("Airtable didn't record that it was emailed.");
   }

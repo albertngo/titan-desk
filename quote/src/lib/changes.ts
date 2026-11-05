@@ -22,6 +22,23 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-05",
+    kind: "new",
+    title: "A payment schedule that breaks the HST rules is flagged",
+    details: [
+      "The editor's payment schedule and the Send card now say Check the payment schedule when the schedule picked goes against the rules: e-transfer on a quote with no HST, or a quote with HST on the material only that doesn't start with the material, or leaves the deposit under 35% with nothing paid in store. It can still be sent.",
+    ],
+  },
+  {
+    date: "2026-11-05",
+    kind: "new",
+    title: "Send as on invoices and receipts",
+    details: [
+      "Email to customer on the invoice or receipt card has Send as too, starting on you, the same list as the Send card.",
+      "The Send card now says plainly that someone with no GHL number of their own texts from whichever number GHL picks, which can be another person's.",
+    ],
+  },
+  {
+    date: "2026-11-05",
     kind: "changed",
     title: "Payment schedule follows the HST",
     details: [

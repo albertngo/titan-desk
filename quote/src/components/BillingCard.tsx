@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { emailBillingAction, issueBillingAction } from "@/app/q/[id]/actions";
 import type { BillingState } from "@/lib/quotes/billing";
+import { SendAsPicker, type SendAsList } from "./SendQuote";
 
 /**
  * The project's invoice or receipt (Albert, 2026-10-30), on its contract version. An invoice when HST is on every
@@ -18,8 +19,10 @@ import type { BillingState } from "@/lib/quotes/billing";
 const cad = new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" });
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric", year: "numeric" }) : null);
 
-export function BillingCard({ versionId, s }: { versionId: string; s: BillingState }) {
+export function BillingCard({ versionId, s, sendAs = null }: { versionId: string; s: BillingState; /** Send as (2026-11-05), as on the Send card; starts on the person signed in. */ sendAs?: SendAsList | null }) {
   const router = useRouter();
+  const [asEmail, setAsEmail] = useState(sendAs?.me ?? "");
+  const asOther = Boolean(sendAs && asEmail && asEmail !== sendAs.me);
   const [busy, start] = useTransition();
   const [asking, setAsking] = useState(false);
   const [msg, setMsg] = useState<{ text: string; bad: boolean } | null>(null);
@@ -31,7 +34,7 @@ export function BillingCard({ versionId, s }: { versionId: string; s: BillingSta
   function go(email: boolean) {
     setMsg(null);
     start(async () => {
-      const r = email ? await emailBillingAction(versionId, { showCredit }) : await issueBillingAction(versionId, { showCredit });
+      const r = email ? await emailBillingAction(versionId, { showCredit, ...(asOther ? { as: asEmail } : {}) }) : await issueBillingAction(versionId, { showCredit });
       setAsking(false);
       if (!r.ok) return setMsg({ text: r.message, bad: true });
       const voided = r.voided.length ? ` ${r.voided.join(", ")} is now void.` : "";
@@ -85,6 +88,7 @@ export function BillingCard({ versionId, s }: { versionId: string; s: BillingSta
         {asking ? (
           <div className="bill-ask">
             <p>Email the {word} to <b>{s.email}</b>, the PDF attached?</p>
+            {sendAs && <SendAsPicker list={sendAs} value={asEmail} onChange={setAsEmail} disabled={busy} />}
             <div className="sq-again-acts">
               <button type="button" className="btn primary small" disabled={busy} onClick={() => go(true)}>{busy ? "Sending…" : "Email it"}</button>
               <button type="button" className="btn small" disabled={busy} onClick={() => setAsking(false)}>Cancel</button>

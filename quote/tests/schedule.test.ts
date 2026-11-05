@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { materialsDeposit, optionTotals, stageAmountProblems, stageAmounts, type LineInput } from "../src/lib/calc";
-import { autoSchedule, cleanSchedule, defaultSchedule, payWords, PRESETS, sameSchedule, scheduleField, scheduleProblems, shownStage, suggestsMaterialDeposit, type PaymentSchedule } from "../src/lib/pricing/schedule";
+import { autoSchedule, scheduleFlags, cleanSchedule, defaultSchedule, payWords, PRESETS, sameSchedule, scheduleField, scheduleProblems, shownStage, suggestsMaterialDeposit, type PaymentSchedule } from "../src/lib/pricing/schedule";
 import { cleanEditorQuote, fingerprint, planSave } from "../src/lib/quotes/savePlan";
 import { VERSION } from "../src/lib/airtable/fields";
 import { blankQuote, setSchedule } from "../src/lib/editor/model";
@@ -310,5 +310,33 @@ describe("the won email's From line (2026-11-05)", () => {
     expect(acceptedFromAttempts({ email: "pat@titanfloors.ca", firstName: "Pat" }, "hello@titanfloors.ca")).toEqual(["Pat @ Titan Flooring <pat@titanfloors.ca>", "pat@titanfloors.ca"]);
     expect(acceptedFromAttempts({ email: "pat@example.com", firstName: "Pat" }, "hello@titanfloors.ca")).toEqual([]);
     expect(acceptedFromAttempts(null, "hello@titanfloors.ca")).toEqual([null]);
+  });
+});
+
+describe("flags a schedule that goes against the HST rules (2026-11-05)", () => {
+  const o = (lines: LineInput[], showHst: boolean) => [{ name: "Option 1", lines, showHst, discountRate: 0 }];
+  const small = L({ section: "Materials", lineType: "Material", qty: 100, unitPriceSnap: 4 }); // 452 with HST
+  const big = L({ qty: 1000, unitPriceSnap: 5 }); // 5,000 untaxed
+
+  it("says nothing when the schedule is the automatic one", () => {
+    expect(scheduleFlags(autoSchedule(o([install, untaxedFloor], false)), o([install, untaxedFloor], false))).toEqual([]);
+    expect(scheduleFlags(autoSchedule(o([big, small], false)), o([big, small], false))).toEqual([]);
+    expect(scheduleFlags(defaultSchedule(), o([install, floor], true))).toEqual([]);
+  });
+
+  it("flags e-transfer on a quote with no HST at all", () => {
+    expect(scheduleFlags(defaultSchedule(), o([install, untaxedFloor], false))).toEqual(["Nothing on this quote carries HST, so it is paid in cash, but Deposit is set to e-transfer."]);
+  });
+
+  it("flags a quote with HST on the material only that doesn't start with the material", () => {
+    expect(scheduleFlags(defaultSchedule(), o([install, floor], false))).toEqual(["HST is on the material only, so Materials should come first, but the schedule starts with Deposit."]);
+  });
+
+  it("flags a material under 35% with nothing after it bringing the deposit up to 35%", () => {
+    const m = PRESETS.materials.schedule();
+    const noTopUp: PaymentSchedule = { preset: "custom", stages: [m.stages[0], m.stages[2], m.stages[3]] };
+    expect(scheduleFlags(noTopUp, o([big, small], false))).toEqual(["On Option 1 the material is 8% of the total, under 35%, and no payment after it brings the deposit up to 35% in store."]);
+    // The material over 35% needs no top-up.
+    expect(scheduleFlags(noTopUp, o([install, floor], false))).toEqual([]);
   });
 });
