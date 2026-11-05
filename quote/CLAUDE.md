@@ -248,7 +248,13 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
 - **The GHL mobile-quote workflow is retired (Albert, 2026-10-18).** Its form, custom fields
   (`remove_1_sqft`, `staircase_profile_1`, `score_5n31`…) and tags stay in GHL as a manual backup
   for when this app is down; the app never writes them. Since 2026-10-27 sending adds one thing to GHL
-  beyond the message: the follow-up tag (below); no note, stage or field. Counts of preliminaries come
+  beyond the message: the follow-up tag (below); no note, stage or field. **Since 2026-11-05 (Albert: "put a
+  note when sending the quote out of the link to the quote… the one that does not count towards the open
+  count for staff to click") it also posts one internal comment** on the customer's conversation: what
+  went, by whom and how, the customer link with `#staff` (`staffViewLink()`, never counted) and the
+  version's page in the app when `staffQuoteLink()` knows it (`sentComment()` in `src/lib/activity/track.ts`,
+  tested in `tests/activity.test.ts`). It tags nobody, rides Make 4975508's `message` route like the open
+  comments, and a failure never stops a send. Send again posts none. Counts of preliminaries come
   from Quote Versions (Basis, Status, Sent At/By/To), not from the `mobile quote` tag.
 - **Follow-up tags (Albert, 2026-10-27).** Every send removes both `quote sent: preliminary` and
   `quote sent: measured` from the contact, then adds this version's, through Make 4975508's `tags`

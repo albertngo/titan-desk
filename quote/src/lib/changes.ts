@@ -21,6 +21,15 @@ export type Change = {
 
 export const CHANGES: Change[] = [
   {
+    date: "2026-11-05",
+    kind: "new",
+    title: "A GHL note with the quote link when you send",
+    details: [
+      "Sending a quote now posts an internal comment on the customer's GHL conversation: which quote went, by whom and how, the customer's link and the quote's page in this app.",
+      "The customer's link in that note is the staff one: opening it shows exactly what the customer sees and is never counted as their open. Nobody is tagged.",
+    ],
+  },
+  {
     date: "2026-11-04",
     kind: "new",
     title: "Albert can send as someone else",

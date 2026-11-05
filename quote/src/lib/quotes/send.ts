@@ -7,7 +7,7 @@ import { fromQuote } from "@/lib/editor/model";
 import { etransferEmail, staffQuoteLink } from "@/lib/accept/settings";
 import { acceptTerms } from "@/lib/accept/live";
 import { BOOKING_URLS } from "@/lib/ghl/ids";
-import { followUpTagBodies } from "@/lib/activity/track";
+import { followUpTagBodies, sentComment } from "@/lib/activity/track";
 import { parseAcceptance } from "@/lib/accept/plan";
 import { changeSummary } from "@/lib/change/diff";
 import { contractOn, contractVersions, fromChange, joinChange, serializeContract } from "@/lib/contract/model";
@@ -345,6 +345,14 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
     await updateRecord(T.versions, quote.id, { [VERSION.sentTo]: sentTo.join(", "), ...authorFields(actor, new Date(), picked.as ? `${how}, as ${person.email}` : how, quote.editLog) });
   } catch {
     notes.push("Airtable didn't record how it was sent.");
+  }
+  // A note on the customer's GHL conversation with the link staff can open without counting as an open
+  // (Albert, 2026-11-05). Internal, tags nobody, and never stops a send.
+  try {
+    const info = { quoteNumber: quote.quoteId ?? "Quote", version: quote.version, basis: quote.basis, sentAt: today, senderName: firstNameOf(person), sentTo: sentTo.join(", ") };
+    await sendMessage({ type: "InternalComment", contactId, message: sentComment(info, link, staffQuoteLink(quote.id)), mentions: [] });
+  } catch {
+    notes.push("The staff note with the quote link couldn't be posted in GHL; the quote itself went out.");
   }
   // The follow-up sequence (2026-10-27): both quote-sent tags off, this one's on, so a new version
   // restarts its sequence and a measured quote ends the preliminary's. Never stops a send. A change

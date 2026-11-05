@@ -9,6 +9,8 @@ import {
   isBot,
   mentionsFor,
   parseActivity,
+  sentComment,
+  staffViewLink,
   summaryComment,
   summaryDue,
   type ActivityInfo,
@@ -87,6 +89,18 @@ describe("the GHL comments", () => {
     );
     expect(firstOpenComment({ ...info, version: 1, basis: "Preliminary" }, T0, "Android phone", [])).toBe(
       "Quote opened: Q-1234 v1 (preliminary) was opened by the customer for the first time, Tue Oct 27, 2:03 pm on an Android phone. Sent Oct 24 by Pat, by email and text.",
+    );
+  });
+
+  it("notes the send with the staff link, which the customer page never counts (2026-11-05)", () => {
+    const link = `https://quote.example.com/c/${TOKEN}`;
+    expect(staffViewLink(link)).toBe(`${link}#staff`);
+    expect(staffViewLink(`${link}#x`)).toBe(`${link}#staff`);
+    expect(sentComment(info, link, "https://staff.example.com/q/recAAAAAAAAAAAAAA")).toBe(
+      `Quote sent: Q-1234 v2 (measured). Sent Oct 24 by Pat, by email and text.\nCustomer's view (staff link, opening it is not counted as an open): ${link}#staff\nIn the quote app: https://staff.example.com/q/recAAAAAAAAAAAAAA`,
+    );
+    expect(sentComment({ ...info, basis: "Preliminary", senderName: null, sentTo: "Text" }, link, null)).toBe(
+      `Quote sent: Q-1234 v2 (preliminary). Sent Oct 24, by text.\nCustomer's view (staff link, opening it is not counted as an open): ${link}#staff`,
     );
   });
 

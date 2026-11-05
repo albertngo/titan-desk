@@ -153,6 +153,28 @@ export function firstOpenComment(i: ActivityInfo, at: Date, device: Device, name
     .join(" ");
 }
 
+/**
+ * The customer's link as staff open it: `#staff` makes the page skip its open report (SeenBeacon), so a
+ * look from GHL or the Send card is never counted as the customer's open (2026-10-27).
+ */
+export const staffViewLink = (link: string) => `${link.replace(/#.*$/, "")}#staff`;
+
+/**
+ * The note posted on the customer's conversation the moment a version goes out (Albert, 2026-11-05: "put a
+ * note when sending the quote out of the link to the quote… the one that does not count towards the open
+ * count for staff to click"). Nobody is tagged: it is for the record, the open and summary comments do the
+ * nudging. `quotePage` is the version's page in the quote app, when this deployment knows its own address.
+ */
+export function sentComment(i: ActivityInfo, link: string, quotePage: string | null): string {
+  return [
+    `Quote sent: ${what(i)}. ${sentWords(i)}`,
+    `Customer's view (staff link, opening it is not counted as an open): ${staffViewLink(link)}`,
+    quotePage ? `In the quote app: ${quotePage}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 /** The comment three days after sending: opens, devices, downloads, last open, or not opened yet. */
 export function summaryComment(i: ActivityInfo, s: TrackState, names: string[]): string {
   const head = `${tagWords(names)}Quote summary, ${SUMMARY_AFTER_DAYS} days after sending: ${what(i)}`;
