@@ -116,6 +116,7 @@ export type CardEntry =
 /** Which Rate Card labour types belong under each section, best match first. */
 export const SECTION_LABOUR: Record<string, string[]> = {
   Install: ["Install", "Refinish", "Sand", "Paint"],
+  Moulding: ["Install", "Paint"],
   Stairs: [],
   Removal: ["Remove"],
   Disposal: ["Disposal"],
@@ -125,9 +126,16 @@ export const SECTION_LABOUR: Record<string, string[]> = {
   Other: ["Other"],
 };
 
+/**
+ * Moulding work (Albert, 2026-11-06): baseboards, shoe mould, casing, quarter round and transitions (T-mouldings,
+ * reducers), and their paint, read from the Rate Card row's specification. Stair nosings stay with the install.
+ */
+export const isMouldingWork = (spec: string | null | undefined) => !!spec && /baseboard|shoe ?mou?ld|casing|quarter|t-?mould|\btm\b|reducer/i.test(spec);
+
 /** Quote Lines.Line Type for a section (Airtable's own select values). */
 export const LINE_TYPE: Record<string, string> = {
   Install: "Install",
+  Moulding: "Install",
   Removal: "Removal",
   Disposal: "Disposal",
   Prep: "Other",
@@ -219,7 +227,10 @@ export const bestContractor = (e: Extract<CardEntry, { kind: "rate" }>) => e.con
 export function searchCatalogue(entries: CardEntry[], query: string, section: string, limit = 40, all = false): CardEntry[] {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   const preferred = SECTION_LABOUR[section];
-  const belongs = (e: CardEntry) => (e.kind === "stair" ? section === "Stairs" : (preferred ?? []).includes(e.labourType));
+  // Moulding (2026-11-06) is Install and Paint work on a moulding row; Install keeps the rest.
+  const moulding = (e: CardEntry) => e.kind === "rate" && isMouldingWork(e.spec);
+  const belongs = (e: CardEntry) =>
+    e.kind === "stair" ? section === "Stairs" : (preferred ?? []).includes(e.labourType) && (section === "Moulding" ? moulding(e) : section === "Install" ? !moulding(e) : true);
   const filtered = !all && preferred !== undefined;
   const rank = (e: CardEntry) => (belongs(e) ? 0 : 1);
   return entries

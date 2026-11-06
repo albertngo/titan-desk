@@ -33,10 +33,12 @@ export const PAYMENT_SPLIT = 0.35;
  * "Add work" buttons and the Analysis tab (Albert, 2026-10-12). Install is the main work and
  * takes in refinishing, painting and sanding. Stairs is its own section again (Albert,
  * 2026-10-18): stair profiles on the preliminary and Stair Items in the editor live there.
+ * Moulding (Albert, 2026-11-06: "Moulding be its own category; right under Install for the Flooring") holds the
+ * baseboards, shoe mould, casing, quarter round and transitions, split out of Install.
  * Discounts (2026-11-04) holds discount items, lines priced below zero; screens show them as discount
  * rows by the price, never as a section of work (src/lib/pricing/discounts.ts).
  */
-export const SECTIONS = ["Install", "Stairs", "Removal", "Disposal", "Prep", "Materials", "Delivery", "Other", "Private", "Discounts", "Exclusions"] as const;
+export const SECTIONS = ["Install", "Moulding", "Stairs", "Removal", "Disposal", "Prep", "Materials", "Delivery", "Other", "Private", "Discounts", "Exclusions"] as const;
 
 /**
  * The Private section (Albert, 2026-10-22): lines priced like any other and counted in every total,

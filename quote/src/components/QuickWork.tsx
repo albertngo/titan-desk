@@ -120,6 +120,8 @@ const CHIP_LIMIT = 6;
 const OPEN_FIRST: readonly QuickGroup[] = ["Install"];
 
 const clean = (s: string) => s.replace(/[$,\s]/g, "");
+/** What a group is called on the form: Baseboards reads Moulding, its quote section (Albert, 2026-11-06). */
+const groupName = (g: QuickGroup) => (g === "Baseboards" ? "Moulding" : g);
 
 /**
  * The quick form: the preliminary, non-measured quote in a minute, laid out for a phone (Albert,
@@ -205,7 +207,7 @@ export function QuickWork({
           return (
             <details key={g} className="qw-wg" open={OPEN_FIRST.includes(g)}>
               <summary>
-                <span className="nm">{g}</span>
+                <span className="nm">{groupName(g)}</span>
                 <span className={`qw-wg-sum${summary ? "" : " faint"}`}>{summary || "Nothing yet"}</span>
               </summary>
               <div className="qw-wg-b">

@@ -299,6 +299,14 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   second. **8mm and 9mm Standard Vinyl** materials (same day; "Make the standard SKU as if it was the same as the 7mm
   method"): catalogue standard-allowance products STD-LVP-8MM ($1.89 / $2.50) and STD-LVP-9MM ($2.29 / $2.99), each
   with a Material Rate Card row behind it as the 7mm has.
+- **Moulding is its own section (Albert, 2026-11-06: "Can we have Moulding be its own category; right under Install for
+  the Flooring? So those options now are split from the Install section").** `SECTIONS` in `calc.ts` puts Moulding
+  right after Install, so the editor, quote page, customer copy, PDF and Analysis all show it there. Moulding work is
+  read from the Rate Card row's specification (`isMouldingWork()` in `model.ts`: baseboard, shoe mould, casing, quarter
+  round, T-moulding / reducer, and their paint); `searchCatalogue()` offers it under Moulding and leaves it off Install.
+  The quick form's Baseboards group reads Moulding and its lines go to that section (`GROUP_SECTION`). Line Type stays
+  Install; Quote Lines → Section gets Moulding by typecast on the first save that uses it. Payout cards tick it like
+  Install. Lines saved under Install before stay there. Tested in `tests/editor.test.ts` and `tests/calc.test.ts`.
 - **Stairs on the preliminary (Albert, 2026-10-18; presets 2026-10-20; Stair Item lines 2026-11-02).** A staircase
   is a row of the read-only Airtable table **Stair Profiles** (`PROFILE_TABLE`): a customer-facing name, a stair type
   (Main stairs / Townhome / Basement / Half staircase), a method (Sand & stain / Solid red oak caps / Vinyl treads /
