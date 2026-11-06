@@ -23,6 +23,12 @@ export type EditorLine = LineInput & {
   contractor: string | null;
   /** The Install Material picked for a Rate Card line (2026-10-16); null/absent = none. See `rateSnap`. */
   materialId?: string | null;
+  /**
+   * The glue's price and cost per unit as typed (2026-11-06: method and glue each adjustable). Present only when typed;
+   * Unit Price / Cost Override then hold method + glue. Quote Lines → Material Unit Price / Cost. See `materialSplit()`.
+   */
+  materialPrice?: number;
+  materialCost?: number;
   /** The Stair Item's Category (2026-10-28), for grouping the Stairs section; display only, never saved. */
   stairCategory?: string | null;
   area: string;
@@ -317,7 +323,23 @@ export function setMaterial(q: EditorQuote, optionId: string, lineId: string, ma
     if (!e || e.kind !== "rate") return l;
     const c = e.contractors.find((x) => x.name === l.contractor);
     if (!c?.material?.choices.some((m) => m.id === materialId)) return l;
-    return snapLine(l, e, c, materialId, level);
+    // A glue typed on the line was for the old glue (2026-11-06): the new one comes in at its card figure and a typed
+    // method stays. A line typed whole, from before the split, keeps its typed figures as before.
+    if (l.materialPrice === undefined && l.materialCost === undefined) return snapLine(l, e, c, materialId, level);
+    const before = materialSplit(l, entries, level);
+    const next = snapLine(l, e, c, materialId, level);
+    const after = materialSplit({ ...next, unitPrice: null, costOverride: null, materialPrice: undefined, materialCost: undefined }, entries, level);
+    if (!before || !after) return next;
+    const out: EditorLine = {
+      ...next,
+      unitPrice: before.methodPrice === null ? null : round2(before.methodPrice + after.cardPrice),
+      costOverride: before.methodCost === null ? null : round2(before.methodCost + after.cardCost),
+      ...(before.methodPrice !== null ? { materialPrice: after.cardPrice } : {}),
+      ...(before.methodCost !== null ? { materialCost: after.cardCost } : {}),
+    };
+    if (before.methodPrice === null) delete out.materialPrice;
+    if (before.methodCost === null) delete out.materialCost;
+    return out;
   });
 }
 
@@ -339,25 +361,70 @@ export function materialSplit(l: EditorLine, entries: CardEntry[], level: Servic
   const chosen = s.material;
   const labourPrice = round2(s.price - chosen.price);
   const labourCost = round2(s.cost - chosen.cost);
+  // Method and glue each adjustable, the unit their sum (Albert, 2026-11-06). The line's Unit Price / Cost Override
+  // always hold method + glue; Material Unit Price / Cost hold the glue as typed, so the method is the rest. A line
+  // typed before those existed has no material figure: the method is the card's and the glue whatever is left.
+  const side = (unit: number | null, mat: number | null | undefined, cardLabour: number, cardMat: number) => {
+    if (mat !== null && mat !== undefined) {
+      const method = unit === null ? cardLabour : round2(unit - mat);
+      return { material: mat, method: method === cardLabour ? null : method, unit: round2(method + mat) };
+    }
+    if (unit !== null) return { material: round2(unit - cardLabour), method: null, unit };
+    return { material: null, method: null, unit: round2(cardLabour + cardMat) };
+  };
+  const p = side(l.unitPrice, l.materialPrice, labourPrice, chosen.price);
+  const k = side(l.costOverride, l.materialCost, labourCost, chosen.cost);
   return {
     labourPrice,
     labourCost,
     cardPrice: chosen.price,
     cardCost: chosen.cost,
-    price: l.unitPrice === null ? null : round2(l.unitPrice - labourPrice),
-    cost: l.costOverride === null ? null : round2(l.costOverride - labourCost),
+    /** The glue's price and cost as typed (null = the card's). */
+    price: p.material,
+    cost: k.material,
+    /** The method's price and cost as typed (null = the card's, at the option's level). */
+    methodPrice: p.method,
+    methodCost: k.method,
+    /** What the line charges and costs per unit: method + glue. */
+    unitPrice: p.unit,
+    unitCost: k.unit,
   };
 }
 
-/** Type the material's price or cost on a line: the line's unit price or cost becomes labour + it. Null goes back to the card. */
-export function setMaterialFigures(q: EditorQuote, optionId: string, lineId: string, patch: { price?: number | null; cost?: number | null }, entries: CardEntry[]): EditorQuote {
+/**
+ * Type the glue's or the method's price or cost on a line (2026-10-28; the method since 2026-11-06). The line's unit
+ * price or cost becomes method + glue, and the glue as typed is kept beside it. Null puts that part back to the card;
+ * with both parts on the card the line has no override at all.
+ */
+export function setMaterialFigures(
+  q: EditorQuote,
+  optionId: string,
+  lineId: string,
+  patch: { price?: number | null; cost?: number | null; methodPrice?: number | null; methodCost?: number | null },
+  entries: CardEntry[],
+): EditorQuote {
   const level = levelOf(q.options.find((o) => o.id === optionId) ?? {});
   return mapLine(q, optionId, lineId, (l) => {
     const m = materialSplit(l, entries, level);
     if (!m) return l;
-    const next = { ...l };
-    if (patch.price !== undefined) next.unitPrice = patch.price === null ? null : round2(m.labourPrice + patch.price);
-    if (patch.cost !== undefined) next.costOverride = patch.cost === null ? null : round2(m.labourCost + patch.cost);
+    const next: EditorLine = { ...l };
+    const put = (methodIn: number | null | undefined, matIn: number | null | undefined, cur: { method: number | null; mat: number | null }, card: { method: number; mat: number }) => {
+      const method = methodIn === undefined ? (cur.method ?? card.method) : (methodIn ?? card.method);
+      const mat = matIn === undefined ? (cur.mat ?? card.mat) : (matIn ?? card.mat);
+      return method === card.method && mat === card.mat ? null : { unit: round2(method + mat), mat };
+    };
+    if (patch.price !== undefined || patch.methodPrice !== undefined) {
+      const r = put(patch.methodPrice, patch.price, { method: m.methodPrice, mat: m.price }, { method: m.labourPrice, mat: m.cardPrice });
+      next.unitPrice = r ? r.unit : null;
+      if (r) next.materialPrice = r.mat;
+      else delete next.materialPrice;
+    }
+    if (patch.cost !== undefined || patch.methodCost !== undefined) {
+      const r = put(patch.methodCost, patch.cost, { method: m.methodCost, mat: m.cost }, { method: m.labourCost, mat: m.cardCost });
+      next.costOverride = r ? r.unit : null;
+      if (r) next.materialCost = r.mat;
+      else delete next.materialCost;
+    }
     return next;
   });
 }
@@ -670,7 +737,12 @@ export function compareCrews(q: EditorQuote, optionId: string, entries: CardEntr
 
 /** "Back to the card": clear both overrides so the line uses the card rate and cost again. */
 export function revertLine(q: EditorQuote, optionId: string, lineId: string): EditorQuote {
-  return updateLine(q, optionId, lineId, { unitPrice: null, costOverride: null });
+  return mapLine(q, optionId, lineId, (l) => {
+    const next: EditorLine = { ...l, unitPrice: null, costOverride: null };
+    delete next.materialPrice;
+    delete next.materialCost;
+    return next;
+  });
 }
 
 export function setTerms(q: EditorQuote, patch: Partial<Pick<EditorQuote, "discountRate" | "showHst" | "discountReason" | "itemised">>): EditorQuote {
@@ -1084,6 +1156,8 @@ export function fromQuote(quote: Quote): EditorQuote {
         description: l.description ?? "",
         contractor: l.contractor,
         materialId: l.materialId ?? null,
+        ...(l.materialPrice != null ? { materialPrice: l.materialPrice } : {}),
+        ...(l.materialCost != null ? { materialCost: l.materialCost } : {}),
         stairCategory: l.stairCategory ?? null,
         area: l.area ?? "",
         uom: l.uom,

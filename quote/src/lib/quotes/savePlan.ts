@@ -67,6 +67,8 @@ function cleanLine(raw: unknown, i: number): EditorLine {
     description: text(r.description),
     contractor: nullableText(r.contractor),
     materialId: kind === "rate" && isRecordId(r.materialId) ? r.materialId : null,
+    ...(kind === "rate" && num(r.materialPrice) !== null ? { materialPrice: num(r.materialPrice)! } : {}),
+    ...(kind === "rate" && num(r.materialCost) !== null ? { materialCost: num(r.materialCost)! } : {}),
     area: text(r.area, 200),
     uom: oneOf(LINE_UOMS, nullableText(r.uom, 40)),
     clientNote: text(r.clientNote),
@@ -163,6 +165,8 @@ export function lineFields(l: EditorLine, sortOrder: number): Fields {
     [LINE.product]: l.sourceKind === "product" && l.sourceId ? [l.sourceId] : [],
     [LINE.stairProfile]: l.sourceKind === "profile" && l.sourceId ? [l.sourceId] : [],
     [LINE.installMaterial]: l.sourceKind === "rate" && l.materialId ? [l.materialId] : [],
+    [LINE.materialPrice]: l.sourceKind === "rate" && l.materialPrice !== undefined ? l.materialPrice : null,
+    [LINE.materialCost]: l.sourceKind === "rate" && l.materialCost !== undefined ? l.materialCost : null,
   };
 }
 

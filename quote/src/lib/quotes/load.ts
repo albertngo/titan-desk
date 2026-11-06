@@ -128,6 +128,8 @@ function toLine(r: AirtableRecord): QuoteLine {
     contractor: str(f[LINE.contractor]),
     materialId: ids(f[LINE.installMaterial])[0] ?? null,
     materialGroup: lookupText(f[LINE.rateMaterialGroup]),
+    materialPrice: num(f[LINE.materialPrice]),
+    materialCost: num(f[LINE.materialCost]),
     stairCategory: lookupText(f[LINE.stairCategory]),
     customerWording: lookupText(f[LINE.stairWording]),
     clientNote: str(f[LINE.clientNote]),

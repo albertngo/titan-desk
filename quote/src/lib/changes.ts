@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-06",
     kind: "changed",
+    title: "Type the method and the glue; the unit works itself out",
+    details: ["On a glue line in the editor, unit cost and unit price are now two boxes each, Method and Glue, and the unit under them is their sum. Leave a box blank to use the card. Picking another glue keeps a method you typed."],
+  },
+  {
+    date: "2026-11-06",
+    kind: "changed",
     title: "Glue lines show Method + Glue = Unit",
     details: ["Under a glue line's unit cost and unit price, the editor now lays the figure out as a sum: the method's labour, plus the glue (still editable), equals the unit. The total is always what the line charges."],
   },

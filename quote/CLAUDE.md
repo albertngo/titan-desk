@@ -245,7 +245,16 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   the new row's group has it, else none is picked, and clears a typed unit price and cost (they were for the other
   work). **Method + Glue = Unit** (same day: "'Material + Method' = Total very clearly"): under a glue line's unit cost
   and price the editor lays out the labour, the glue box (`setMaterialFigures()` as before) and the line's own figure
-  as a sum (`MatSum` in `Editor.tsx`, `.matsum`), so the three always agree. Customer view shows the unit price only. Tested in
+  as a sum (`MatSum` in `Editor.tsx`, `.matsum`), so the three always agree. Customer view shows the unit price only.
+  **Then each part typed, the unit worked out** (same day: "have the method and glue be 'adjustable' and the total is
+  calculated"): Method and Glue are the two boxes (blank = the card's, shown as the placeholder) and the unit is never
+  typed on a glue line. Quote Lines → **Material Unit Price / Cost** (made that day) keep the glue as typed, and Unit
+  Price / Cost Override keep method + glue, so `calc.ts` and Airtable's formulas read exactly as before
+  (`materialSplit()` returns `methodPrice` / `price` / `unitPrice`, `setMaterialFigures()` takes `methodPrice` /
+  `methodCost` too; both parts on the card = no override). A line typed before the split has no glue figure: its method
+  reads as the card's and the glue as the rest, as it did. Swapping the glue keeps a typed method and brings the new
+  glue in at its card figure; Back to the card, a method switch and a whole-line revert clear both. Payout cards pay
+  the cost override less the typed glue cost when there is one (`labourRate()`). Tested in
   `tests/quick.test.ts`, `tests/waterfall.test.ts` and `tests/floorsheet.test.ts`.
 - **Stairs on the preliminary (Albert, 2026-10-18; presets 2026-10-20; Stair Item lines 2026-11-02).** A staircase
   is a row of the read-only Airtable table **Stair Profiles** (`PROFILE_TABLE`): a customer-facing name, a stair type

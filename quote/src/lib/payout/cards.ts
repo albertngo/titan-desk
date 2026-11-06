@@ -110,7 +110,9 @@ export function labourRate(l: QuoteLine, card: RateCard): number | null {
   if (l.sourceKind === "rate" && l.materialId) {
     const row = card.rates.find((r) => r.id === l.sourceId);
     const material = (card.materials ?? []).find((m) => m.id === l.materialId);
-    // A typed cost on a material line is labour from the card + the typed material (setMaterialFigures()): the card's labour.
+    // The glue's cost as typed (2026-11-06): the method is the rest of the line's cost, typed or not.
+    if (l.costOverride && l.materialCost != null) return Math.max(0, round2(l.costOverride - l.materialCost));
+    // A typed cost on a material line from before is labour from the card + the typed material: the card's labour.
     if (l.costOverride && row) return row.cost;
     if (used !== null && material?.cost != null) return Math.max(0, round2(used - material.cost));
     return row ? row.cost : used;

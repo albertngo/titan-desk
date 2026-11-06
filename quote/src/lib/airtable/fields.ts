@@ -232,6 +232,9 @@ export const LINE = {
   installMaterial: "fldLHVDiQWa3lOIcq",
   /** 2026-11-06: lookup of the Rate Card row's Material Group; with no Install Material, the glue isn't picked yet. */
   rateMaterialGroup: "fldBmdSxgPuEI59Vd",
+  /** 2026-11-06: the glue's typed price and cost per unit; Unit Price / Cost Override hold method + glue. */
+  materialPrice: "fldb42mmb4FyjX8s6",
+  materialCost: "fld69rEXAxRZyzuO0",
   /** 2026-10-20: the Stair Profiles row a preliminary's staircase line was priced from. */
   stairProfile: "fldx3bE8kRnoGRRwu",
   /** 2026-11-01: a typed line on a sent quote, matched to or saved as a Rate Card / Stair Items row for review. App-written. */
