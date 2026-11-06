@@ -22,6 +22,12 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-06",
+    kind: "new",
+    title: "Herringbone: pick the method, then the glue",
+    details: ["Herringbone is now one choice on the quick form and in the editor's Add to Install, with its methods underneath: Click, Staple + glue assist and Full gluedown. The glue methods then ask for the type of glue. Prices are unchanged."],
+  },
+  {
+    date: "2026-11-06",
     kind: "changed",
     title: "Full gluedown lines name the wood",
     details: ["Full gluedown and Nail + full gluedown now say Solid Hardwood T&G or Engineered T&G, like the other methods, at the same prices as before."],

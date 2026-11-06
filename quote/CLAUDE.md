@@ -265,8 +265,11 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   day for the T&G, glue-down, herringbone, vinyl and cork rows and every glue. **Every T&G method is its own row per
   wood** (same day, Albert: "DO it"): SOLID / ENGINEERED HARDWOOD - T&G (Full Gluedown) at $2.30 / $1.60 and (Nail +
   Full Gluedown) at $2.99 / $2.30, ROY, labour only, worded with the wood, linked from their four choices. The shared
-  GLUE - Hardwood Full Gluedown rows ("Hardwood T&G" in their wording) stay for odd cases and are back on the editor's
-  plain search. Tested in
+  GLUE - Hardwood Full Gluedown row was deleted the same day (Albert: "get rid of the GLUE shared row"; no line used
+  it); its (WITH Nail) twin stays while two lines made that day still link it. **Herringbone** is the second family
+  (same day, "DO the herringbone now"): Herringbone (Click) / (Staple + Glue Assist) / (Full Gluedown), paths
+  "Herringbone > …", on their existing Rate Card rows, worded "Herringbone install · Click" and "Herringbone 3/4" install
+  · …"; the Flooring Site Sheet's herringbone installs carry the new names (found by record id, as ever). Tested in
   `tests/quick.test.ts`, `tests/waterfall.test.ts` and `tests/floorsheet.test.ts`.
 - **Stairs on the preliminary (Albert, 2026-10-18; presets 2026-10-20; Stair Item lines 2026-11-02).** A staircase
   is a row of the read-only Airtable table **Stair Profiles** (`PROFILE_TABLE`): a customer-facing name, a stair type

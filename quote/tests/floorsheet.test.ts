@@ -166,11 +166,11 @@ describe("what a flooring sheet builds", () => {
   });
 
   it("a choice switched off in Quick Quote Choices has no line, and says so", () => {
-    const off = ALL.filter((c) => c.label !== "Herringbone (Eng)" || c.group !== "Install");
+    const off = ALL.filter((c) => c.label !== "Herringbone (Staple + Glue Assist)" || c.group !== "Install");
     const p = floorPlan(sheet({ want: [{ floor: "hbEng" }, {}] }), off);
-    expect(p.works[0].rows.some((r) => r.choiceId === id("Herringbone (Eng)") && ALL.find((c) => c.id === r.choiceId)?.group === "Install")).toBe(false);
+    expect(p.works[0].rows.some((r) => r.choiceId === id("Herringbone (Staple + Glue Assist)"))).toBe(false);
     expect(p.works[0].rows.find((r) => r.choiceId === ALL.find((c) => c.group === "Material" && c.label === "Herringbone (Eng)")!.id)?.amount).toBe(500);
-    expect(p.notes.some((n) => n.includes('"Herringbone (Eng)" isn\'t switched on'))).toBe(true);
+    expect(p.notes.some((n) => n.includes('"Herringbone (Staple + Glue Assist)" isn\'t switched on'))).toBe(true);
   });
 
   it("finds a choice by name when its record id changed", () => {
