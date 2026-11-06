@@ -22,6 +22,33 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-06",
+    kind: "changed",
+    title: "Full gluedown + nail is now Nail + full gluedown",
+    details: ["The same T&G method under a new name, on both Solid Hardwood T&G and Engineered T&G. The price is unchanged."],
+  },
+  {
+    date: "2026-11-06",
+    kind: "changed",
+    title: "Quieter T&G options",
+    details: ["The methods and glues under a T&G pick are now plain small text with no outline. The one picked is lightly tinted blue."],
+  },
+  {
+    date: "2026-11-06",
+    kind: "changed",
+    title: "The T&G options read as sub-categories",
+    details: ["Under Solid Hardwood T&G or Engineered T&G, the methods and the type of glue are now smaller pills, stepped in under the pick they belong to, so the big buttons stay the main choice."],
+  },
+  {
+    date: "2026-11-06",
+    kind: "new",
+    title: "Hardwood T&G: pick the wood, the method, then the glue",
+    details: [
+      "On the quick form, Install now has one Solid Hardwood T&G and one Engineered T&G. Pick one and its methods appear under it: Nail down, Nail + glue assist, Full gluedown, Full gluedown + nail.",
+      "A glue method then asks Type of glue, starting on the usual one. The glue's price goes on top of the install, so the preliminary includes it (before, a glue-down preliminary priced the labour only). The editor shows the same glue on the line.",
+    ],
+  },
+  {
+    date: "2026-11-06",
     kind: "removed",
     title: "No Build a staircase on stairs options",
     details: ["The + Build a staircase link is gone from a stairs option in the editor. Add stairs from each heading instead (+ Add to steps, + Add to landings…)."],

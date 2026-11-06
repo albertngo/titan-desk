@@ -29,6 +29,13 @@ export const GROUP_SECTION: Record<QuickGroup, string> = {
 /** Baseboards went from 1 to 3 rows on 2026-10-22 (Albert): baseboard in one area, shoe only in another. */
 export const GROUP_ROWS: Record<QuickGroup, number> = { Remove: 3, Disposal: 1, "Subfloor prep": 2, Install: 3, Baseboards: 3, Material: 3 };
 
+/**
+ * An Install Material a Rate Card part can take (Albert, 2026-11-06: "Install T&G -> Full Gluedown -> Type of
+ * glue"): the row's Material Group, as the editor's swappable material reads it. `cost` is null in the browser.
+ */
+export type QuickMaterial = { id: string; name: string; price: number; cost: number | null };
+export type QuickPartMaterial = { group: string; default: QuickMaterial; choices: QuickMaterial[] };
+
 /** One priced piece behind a choice: a Rate Card row or a Stair Item. */
 export type QuickPart = {
   kind: "rate" | "stair";
@@ -41,6 +48,11 @@ export type QuickPart = {
   rate: number;
   cost: number | null;
   minCharge: number | null;
+  /**
+   * The row's swappable material (a glue), added on top of its labour-only rate and cost, as in the editor
+   * (2026-10-28). Absent or null: the row has none.
+   */
+  material?: QuickPartMaterial | null;
 };
 
 export type QuickProduct = { recordId: string; sku: string; name: string; rate: number; cost: number | null };
@@ -50,6 +62,11 @@ export type QuickChoice = {
   group: QuickGroup;
   label: string;
   sort: number;
+  /**
+   * The waterfall (2026-11-06): Quick Quote Choices → Path split on " > ", e.g. ["Solid Hardwood T&G",
+   * "Full gluedown"]. Empty = the choice is its own chip, named by `label`. See `topChoices()` / `waterfall()`.
+   */
+  path?: string[];
   /** Flat-priced parts are counted this many times (e.g. 2 bins). */
   times: number;
   parts: QuickPart[];
@@ -76,21 +93,25 @@ export function amountUnit(c: QuickChoice): "sqft" | "linear ft" | "pieces" | nu
  * or linear foot (or piece) typed on the row, summed over the parts priced that way, and `flat`
  * for the parts counted `times` regardless of amount. A material charges its product's rate.
  */
-export function choiceRate(c: QuickChoice, product: QuickProduct | null = null): { perUnit: number | null; flat: number } {
+export function choiceRate(c: QuickChoice, product: QuickProduct | null = null, materialId: string | null = null): { perUnit: number | null; flat: number } {
   if (c.group === "Material") {
     const p = product ?? c.product;
     if (p) return { perUnit: p.rate, flat: 0 };
     // No product: the Material Rate Card row behind the choice prices it (2026-10-22), below.
   }
   const perUnitParts = c.parts.filter((p) => !isFlat(p.uom));
-  const perUnit = perUnitParts.length ? round2(perUnitParts.reduce((s, p) => s + p.rate, 0)) : null;
+  const perUnit = perUnitParts.length ? round2(perUnitParts.reduce((s, p) => s + p.rate + (pickMaterial(p, materialId)?.price ?? 0), 0)) : null;
   const flat = round2(c.parts.filter((p) => isFlat(p.uom)).reduce((s, p) => s + p.rate * c.times, 0));
   return { perUnit, flat };
 }
 
 // ---------- what the browser sends ----------
 
-export type QuickRow = { choiceId: string; amount: number | null; productId: string | null };
+/**
+ * `materialId` (2026-11-06): the Install Material picked for the choice's parts that take one (the type of glue);
+ * absent or null = each part's default. One that isn't in a part's group is ignored there, never guessed.
+ */
+export type QuickRow = { choiceId: string; amount: number | null; productId: string | null; materialId?: string | null };
 /** One staircase: which Stair Profiles row. No typed price since 2026-11-02 (Albert: "remove different price"). */
 export type StairWork = { profileId: string };
 export type QuickWork = { rows: QuickRow[]; stairs: StairWork[]; extraCost: number | null; description: string; building: string | null };
@@ -154,7 +175,8 @@ export function parseWork(raw: unknown): QuickWork {
     const o = (x && typeof x === "object" ? x : {}) as Record<string, unknown>;
     if (typeof o.choiceId !== "string" || !REC.test(o.choiceId)) return [];
     const productId = typeof o.productId === "string" && REC.test(o.productId) ? o.productId : null;
-    return [{ choiceId: o.choiceId, amount: amountOf(o.amount), productId }];
+    const materialId = typeof o.materialId === "string" && REC.test(o.materialId) ? o.materialId : null;
+    return [{ choiceId: o.choiceId, amount: amountOf(o.amount), productId, ...(materialId ? { materialId } : {}) }];
   });
   // A staircase is a profile id, nothing else: a price sent with it is ignored (2026-11-02). Anything malformed is dropped, never guessed.
   const stairs = (Array.isArray(r.stairs) ? r.stairs : []).slice(0, STAIR_ROWS).flatMap((x): StairWork[] => {
@@ -302,22 +324,25 @@ export function buildPreliminary(choices: QuickChoice[], work: QuickWork, produc
     if (c.group === "Install") installs.push(c.label);
     if (c.group === "Material") materials.push(c.label);
     for (const p of c.parts) {
+      // The glue (2026-11-06): the part's material goes on top of its labour, one line named "work · glue", as the editor prices it.
+      const m = pickMaterial(p, row.materialId ?? null);
       lines.push({
         ...blank(section),
         sourceKind: p.kind,
         sourceId: p.recordId,
         labourType: p.labourType,
         spec: p.spec,
-        description: p.description,
+        description: m ? `${p.description} · ${m.name}` : p.description,
         contractor: p.contractor,
         uom: p.uom,
         qty: isFlat(p.uom) ? c.times : row.amount,
         // A material priced from its Rate Card row (no product) takes the same waste (2026-11-05).
         waste: c.group === "Material" && !isFlat(p.uom) ? materialWaste(c.label, null) : null,
-        unitPriceSnap: p.rate,
-        unitCostSnap: p.cost,
+        unitPriceSnap: m ? round2(p.rate + m.price) : p.rate,
+        unitCostSnap: m ? (p.cost === null || m.cost === null ? null : round2(p.cost + m.cost)) : p.cost,
         minChargeSnap: p.minCharge,
         hasSource: true,
+        ...(m ? { materialId: m.id } : {}),
       });
     }
   }
@@ -369,6 +394,7 @@ export function distinctNames(built: Pick<BuildResult, "name" | "materials">[]):
  * charges count), before discount and HST. Null when the row can't be priced yet.
  */
 export function rowTotal(choices: QuickChoice[], row: QuickRow, products: Map<string, QuickProduct>): number | null {
+  // `row.materialId` (the glue) is priced in, as buildPreliminary prices it.
   const { lines } = buildPreliminary(choices, { rows: [row], stairs: [], extraCost: null, description: "", building: null }, products);
   return lines.length === 0 ? null : optionTotals(lines, 0, false).preDiscount;
 }
@@ -498,4 +524,98 @@ export function followBases<T extends BasisRow>(rows: T[], follows: (r: T) => bo
 /** A copied tab's baseboard rows point at the copy's Install rows, never the original's (Duplicate, 2026-10-31). */
 export function remapBases<T extends BasisRow>(rows: T[], keyFor: Map<string, string>): T[] {
   return rows.map((r) => (r.basis && r.basis !== TOTAL_BASIS ? { ...r, basis: keyFor.get(r.basis) ?? TOTAL_BASIS } : r));
+}
+
+
+// ---------- the waterfall: a choice, then its options (Albert, 2026-11-06) ----------
+//
+// "Selection of the common items have the OPTIONS come up when chosen", starting with "Install T&G -> Full
+// Gluedown -> Type of glue". Choices in one group that share the first part of their Path are one chip; each
+// later part is a row of chips that appears once the one before is picked; the glue after the last part is the
+// Rate Card row's Material Group. Picking a chip at any level moves the row to the first choice (by Sort) under
+// it, so the row is always one real, priced choice and the estimate never waits on a half-made pick. Data, not
+// code: a new waterfall is a Path typed in Quick Quote Choices.
+
+export const PATH_SEP = " > ";
+
+/** A Path as its parts, trimmed, empty ones dropped. "Solid Hardwood T&G > Full gluedown" → two parts. */
+export function splitPath(raw: string | null | undefined): string[] {
+  return (raw ?? "")
+    .split(">")
+    .map((x) => x.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+}
+
+const pathOf = (c: QuickChoice): string[] => (c.path && c.path.length > 0 ? c.path : [c.label]);
+const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+const byOrder = (a: QuickChoice, b: QuickChoice) => a.sort - b.sort || a.label.localeCompare(b.label);
+
+/**
+ * The first level of a group: a choice with no Path as itself; choices sharing a Path's first part as one entry,
+ * pointing at the first of them by Sort, in the order of their first choice.
+ */
+export type TopChoice = { key: string; label: string; choiceId: string; members: string[] };
+export function topChoices(choices: QuickChoice[]): TopChoice[] {
+  const out: TopChoice[] = [];
+  for (const c of [...choices].sort(byOrder)) {
+    const head = pathOf(c)[0];
+    const grouped = (c.path?.length ?? 0) > 1;
+    const found = grouped ? out.find((t) => t.members.length > 0 && same(t.label, head) && t.key.startsWith("path:")) : undefined;
+    if (found) found.members.push(c.id);
+    else out.push({ key: grouped ? `path:${head.toLowerCase()}` : c.id, label: grouped ? head : c.label, choiceId: c.id, members: [c.id] });
+  }
+  return out;
+}
+
+/** The top entry a choice sits under (its own, for a choice with no Path). */
+export const topOf = (tops: TopChoice[], choiceId: string) => tops.find((t) => t.members.includes(choiceId)) ?? null;
+
+/**
+ * The follow-up rows under a picked choice: one per Path part after the first, each listing the parts that can
+ * follow the ones picked above it, and the choice each would move the row to (the first by Sort with that prefix,
+ * keeping the rest of the current path where it can). Empty for a choice with no Path, or one alone under its head.
+ */
+export type WaterfallOption = { label: string; choiceId: string; on: boolean };
+export type WaterfallLevel = { depth: number; options: WaterfallOption[] };
+export function waterfall(choices: QuickChoice[], choiceId: string): WaterfallLevel[] {
+  const current = choices.find((c) => c.id === choiceId);
+  if (!current || (current.path?.length ?? 0) < 2) return [];
+  const path = current.path!;
+  const family = choices.filter((c) => (c.path?.length ?? 0) > 1 && same(c.path![0], path[0])).sort(byOrder);
+  const levels: WaterfallLevel[] = [];
+  for (let d = 1; d < path.length; d++) {
+    const prefix = path.slice(0, d);
+    const under = family.filter((c) => prefix.every((p, i) => c.path![i] !== undefined && same(c.path![i], p)) && c.path!.length > d);
+    const labels: string[] = [];
+    for (const c of under) if (!labels.some((l) => same(l, c.path![d]))) labels.push(c.path![d]);
+    if (labels.length < 2) continue;
+    const options = labels.map((label): WaterfallOption => {
+      const want = [...prefix, label];
+      const matches = under.filter((c) => same(c.path![d], label));
+      // Keep what is picked below this level when the new branch has it (Nail down → Full gluedown keeps the glue's level).
+      const keep = matches.find((c) => path.slice(d + 1).every((p, i) => c.path![d + 1 + i] !== undefined && same(c.path![d + 1 + i], p)));
+      const to = keep ?? matches[0];
+      return { label, choiceId: to.id, on: want.every((p, i) => same(path[i], p)) };
+    });
+    levels.push({ depth: d, options });
+  }
+  return levels;
+}
+
+/** The material a part takes for a pick: the one picked when it is in the part's group, else the part's default. */
+export function pickMaterial(p: Pick<QuickPart, "material">, materialId: string | null | undefined): QuickMaterial | null {
+  const m = p.material;
+  if (!m) return null;
+  return m.choices.find((x) => x.id === materialId) ?? m.default;
+}
+
+/**
+ * The material question under a choice, if it has one: the first part that takes a material, its group's choices
+ * (cheapest first) and the one in use. "Type of glue" for a glue group, else the group's own name.
+ */
+export function materialQuestion(c: QuickChoice | undefined, materialId: string | null | undefined): { label: string; choices: QuickMaterial[]; current: QuickMaterial } | null {
+  const part = c?.parts.find((p) => p.material && p.material.choices.length > 0);
+  if (!part?.material) return null;
+  const current = pickMaterial(part, materialId)!;
+  return { label: /glue/i.test(part.material.group) ? "Type of glue" : part.material.group, choices: part.material.choices, current };
 }

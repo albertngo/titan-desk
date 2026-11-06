@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { searchProductsAction } from "@/app/new/actions";
 import { optionTotals } from "@/lib/calc";
 import { money } from "@/lib/format";
-import { amountUnit, BASIS_GROUPS, basisChoices, BUILDINGS, buildPreliminary, choiceRate, GROUP_ROWS, parseWork, QUICK_GROUPS, remapBases, resolveBasis, rowTotal, followBases, materialWaste, TOTAL_BASIS, type QuickChoice, type QuickGroup, type QuickProduct, type QuickProfile } from "@/lib/quick/plan";
+import { amountUnit, BASIS_GROUPS, basisChoices, BUILDINGS, buildPreliminary, choiceRate, GROUP_ROWS, materialQuestion, parseWork, QUICK_GROUPS, remapBases, resolveBasis, rowTotal, followBases, materialWaste, topChoices, topOf, TOTAL_BASIS, waterfall, type QuickChoice, type QuickGroup, type QuickProduct, type QuickProfile, type TopChoice } from "@/lib/quick/plan";
 import { METHOD_PHRASE, modifierFor, STAIR_ROWS } from "@/lib/quick/stairs";
 import { SAND_DISCLAIMER, sandFlag, sandRole } from "@/lib/editor/sandRule";
 import { wasteMath } from "@/lib/editor/model";
@@ -15,7 +15,8 @@ export type PickedProduct = Pick<QuickProduct, "recordId" | "sku" | "name" | "ra
  * TOTAL_BASIS or an Install row's key; null once staff type their own amount, and on a row added
  * after the first.
  */
-export type WorkRow = { key: string; group: QuickGroup; choiceId: string; amount: string; product: PickedProduct | null; basis?: string | null };
+/** `materialId` (2026-11-06): the Install Material picked on the row (the type of glue); absent = the default. */
+export type WorkRow = { key: string; group: QuickGroup; choiceId: string; amount: string; product: PickedProduct | null; basis?: string | null; materialId?: string | null };
 /** One staircase on the form: the Stair Profiles row picked (no typed price since 2026-11-02). */
 export type StairRowState = { key: string; profileId: string };
 export type WorkState = { rows: WorkRow[]; stairs: StairRowState[]; extraCost: string; description: string; building: string };
@@ -37,7 +38,7 @@ const toNumber = (s: string) => {
 /** What New quote sends: which choice and how much, which staircase, never a price. */
 export function workInput(w: WorkState) {
   return {
-    rows: w.rows.filter((r) => r.choiceId).map((r) => ({ choiceId: r.choiceId, amount: toNumber(r.amount), productId: r.product?.recordId ?? null })),
+    rows: w.rows.filter((r) => r.choiceId).map((r) => ({ choiceId: r.choiceId, amount: toNumber(r.amount), productId: r.product?.recordId ?? null, ...(r.materialId ? { materialId: r.materialId } : {}) })),
     stairs: w.stairs.filter((s) => s.profileId).map((s) => ({ profileId: s.profileId })),
     extraCost: toNumber(w.extraCost),
     description: w.description,
@@ -64,8 +65,8 @@ export function copyWork(w: WorkState): WorkState {
 const UNIT_LABEL = { sqft: "sq ft", "linear ft": "lin ft", pieces: "pcs" } as const;
 
 /** The rate column's text (Albert, 2026-10-18): "$2.50/sq ft", "$300 flat", or both when a choice has both kinds of part. */
-function rateText(c: QuickChoice, unit: keyof typeof UNIT_LABEL | null, product: PickedProduct | null): string {
-  const { perUnit, flat } = choiceRate(c, product ? { ...product, cost: null } : null);
+function rateText(c: QuickChoice, unit: keyof typeof UNIT_LABEL | null, product: PickedProduct | null, materialId: string | null = null): string {
+  const { perUnit, flat } = choiceRate(c, product ? { ...product, cost: null } : null, materialId);
   const parts: string[] = [];
   if (perUnit !== null) parts.push(`${money(perUnit)}/${unit ? UNIT_LABEL[unit] : "unit"}`);
   if (flat > 0) parts.push(`${money(flat)} flat`);
@@ -135,7 +136,8 @@ export function QuickWork({
     if (!c) return null;
     const unit = amountUnit(c);
     const amt = toNumber(r.amount);
-    return `${c.label}${unit && amt !== null ? ` · ${amt} ${UNIT_LABEL[unit]}` : ""}`;
+    const glue = materialQuestion(c, r.materialId);
+    return `${c.label}${glue ? ` · ${glue.current.name}` : ""}${unit && amt !== null ? ` · ${amt} ${UNIT_LABEL[unit]}` : ""}`;
   };
   const groupSummary = (g: QuickGroup) => value.rows.filter((r) => r.group === g).map(rowWords).filter(Boolean).join(" · ");
 
@@ -152,6 +154,8 @@ export function QuickWork({
         {groups.map((g) => {
           const rows = value.rows.filter((r) => r.group === g);
           const options = choices.filter((c) => c.group === g);
+          // The waterfall (2026-11-06): choices sharing a Path's first part are one entry here; their options follow under it.
+          const tops = topChoices(options);
           const summary = groupSummary(g);
           return (
             <details key={g} className="qw-wg" open={OPEN_FIRST.includes(g)}>
@@ -169,10 +173,34 @@ export function QuickWork({
                   // Material waste (2026-11-05): on the line's Waste field, counted in the total beside it.
                   const waste = g === "Material" && c ? materialWaste(c.label, (r.product ?? c.product)?.name ?? null) : null;
                   const following = resolveBasis(r.basis, value.rows);
-                  const total = c ? rowTotal(choices, { choiceId: c.id, amount: toNumber(r.amount), productId: r.product?.recordId ?? null }, picked) : null;
+                  const total = c ? rowTotal(choices, { choiceId: c.id, amount: toNumber(r.amount), productId: r.product?.recordId ?? null, materialId: r.materialId ?? null }, picked) : null;
+                  const levels = c ? waterfall(choices, c.id) : [];
+                  const glue = materialQuestion(c, r.materialId);
                   return (
                     <div key={r.key} className="qw-row">
-                      <ChoiceField label={`${g} ${i + 1}`} none={g === "Disposal" ? "None" : null} options={options} value={r.choiceId} onChange={(id) => setRow(r.key, { choiceId: id, product: null })} />
+                      <ChoiceField label={`${g} ${i + 1}`} none={g === "Disposal" ? "None" : null} options={tops} value={r.choiceId} onChange={(id) => setRow(r.key, { choiceId: id, product: null, materialId: null })} />
+                      {levels.map((lv) => (
+                        <div key={lv.depth} className={`qw-chips qw-fall qw-fall-${Math.min(lv.depth, 3)}`} role="radiogroup" aria-label={`${g} ${i + 1} option ${lv.depth}`}>
+                          {lv.options.map((o) => (
+                            <button type="button" key={o.label} className={`qw-chip${o.on ? " on" : ""}`} role="radio" aria-checked={o.on} onClick={() => setRow(r.key, { choiceId: o.choiceId })}>
+                              {o.label}
+                            </button>
+                          ))}
+                        </div>
+                      ))}
+                      {glue && (
+                        <div className={`qw-chips qw-fall qw-fall-${Math.min(levels.length + 1, 3)}`} role="radiogroup" aria-label={`${g} ${i + 1} ${glue.label}`}>
+                          <span className="qw-fall-k">{glue.label}</span>
+                          {glue.choices.map((m) => {
+                            const on = m.id === glue.current.id;
+                            return (
+                              <button type="button" key={m.id} className={`qw-chip${on ? " on" : ""}`} role="radio" aria-checked={on} title={`+ ${money(m.price)}/sq ft`} onClick={() => setRow(r.key, { materialId: m.id })}>
+                                {m.name} <span className="faint">+{money(m.price)}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                       {(unit || c || rows.length > 1) && (
                         <div className="qw-amt-row">
                           {unit && (
@@ -195,7 +223,7 @@ export function QuickWork({
                           )}
                           {c && (
                             <span className="qw-price" aria-label={`${g} ${i + 1} rate and total`}>
-                              <span className="qw-rate">{rateText(c, unit, r.product)}{waste !== null && ` + ${Math.round(waste * 100)}% waste`}</span>
+                              <span className="qw-rate">{rateText(c, unit, r.product, r.materialId ?? null)}{waste !== null && ` + ${Math.round(waste * 100)}% waste`}</span>
                               <b>{total === null ? "-" : money(total)}</b>
                             </span>
                           )}
@@ -337,8 +365,12 @@ export function QuickWork({
   );
 }
 
-/** A short list as one-tap chips; a long one as a list. */
-function ChoiceField({ label, none, options, value, onChange }: { label: string; none: string | null; options: QuickChoice[]; value: string; onChange: (id: string) => void }) {
+/**
+ * A short list as one-tap chips; a long one as a list. Each entry is a top-level choice (2026-11-06): a choice of
+ * its own, or a waterfall's head standing for the choices under it, shown picked while the row holds any of them.
+ */
+function ChoiceField({ label, none, options, value, onChange }: { label: string; none: string | null; options: TopChoice[]; value: string; onChange: (id: string) => void }) {
+  const current = topOf(options, value);
   if (options.length <= CHIP_LIMIT) {
     return (
       <div className="qw-chips" role="radiogroup" aria-label={label}>
@@ -347,19 +379,22 @@ function ChoiceField({ label, none, options, value, onChange }: { label: string;
             {none}
           </button>
         )}
-        {options.map((o) => (
-          <button type="button" key={o.id} className={`qw-chip${value === o.id ? " on" : ""}`} role="radio" aria-checked={value === o.id} onClick={() => onChange(value === o.id && !none ? "" : o.id)}>
-            {o.label}
-          </button>
-        ))}
+        {options.map((o) => {
+          const on = current?.key === o.key;
+          return (
+            <button type="button" key={o.key} className={`qw-chip${on ? " on" : ""}`} role="radio" aria-checked={on} onClick={() => (on ? !none && onChange("") : onChange(o.choiceId))}>
+              {o.label}
+            </button>
+          );
+        })}
       </div>
     );
   }
   return (
-    <select className="in" aria-label={label} value={value} onChange={(e) => onChange(e.target.value)}>
+    <select className="in" aria-label={label} value={current?.key ?? ""} onChange={(e) => onChange(options.find((o) => o.key === e.target.value)?.choiceId ?? "")}>
       <option value="">{none ?? "Choose…"}</option>
       {options.map((o) => (
-        <option key={o.id} value={o.id}>{o.label}</option>
+        <option key={o.key} value={o.key}>{o.label}</option>
       ))}
     </select>
   );

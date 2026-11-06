@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { optionTotals } from "../src/lib/calc";
-import { buildCatalogue } from "../src/lib/editor/model";
+import { buildCatalogue, materialChoices, rateSnap, type CardEntry } from "../src/lib/editor/model";
 import type { StairProfileRow, StairRow } from "../src/lib/quotes/types";
-import { amountUnit, basisAmount, MATERIAL_WASTE, materialWaste, PATTERN_WASTE, BASEBOARD_PER_SQFT, baseboardDefault, basisChoices, basisSqft, buildPreliminary, followBases, installTotal, remapBases, resolveBasis, TOTAL_BASIS, type BasisRow, choiceRate, distinctNames, MAX_QUICK_OPTIONS, optionName, parseWorks, parseWork, QUICK_GROUPS, browserProfiles, quickProfiles, rowTotal, stairAreas, workIsEmpty, type QuickChoice, type QuickPart, type QuickProduct } from "../src/lib/quick/plan";
+import { amountUnit, basisAmount, MATERIAL_WASTE, materialWaste, PATTERN_WASTE, BASEBOARD_PER_SQFT, baseboardDefault, basisChoices, basisSqft, buildPreliminary, followBases, installTotal, remapBases, resolveBasis, TOTAL_BASIS, type BasisRow, choiceRate, distinctNames, MAX_QUICK_OPTIONS, optionName, parseWorks, parseWork, QUICK_GROUPS, browserProfiles, quickProfiles, rowTotal, stairAreas, workIsEmpty, materialQuestion, pickMaterial, splitPath, topChoices, topOf, waterfall, type QuickChoice, type QuickPart, type QuickPartMaterial, type QuickProduct } from "../src/lib/quick/plan";
 
 // INVENTED rates, costs, ids and products only: this repo is public.
 const part = (o: Partial<QuickPart> & { recordId: string }): QuickPart => ({ kind: "rate", labourType: "Install", spec: "SPEC", description: "Install | SPEC", contractor: "Crew A", uom: "sqft", rate: 2, cost: 1, minCharge: null, ...o });
@@ -357,5 +357,107 @@ describe("several options from one quick form (Albert, 2026-10-31)", () => {
       { name: "Install Nail down", materials: ["Engineered (3/4\")"] },
       { name: "Stairs", materials: [] },
     ])).toEqual(["Install Nail down", "Install Nail down · Engineered (3/4\")", "Install Nail down (3)", "Stairs"]);
+  });
+});
+
+
+describe("quick form: the waterfall, a choice then its options (Albert, 2026-11-06)", () => {
+  // INVENTED: two woods, four methods each, a full-spread glue group of two and an assist group of two.
+  const SPREAD: QuickPartMaterial = { group: "Glue - Full Spread", default: { id: "recGlueSpreadA0AA", name: "Spread A", price: 1.75, cost: 1.5 }, choices: [{ id: "recGlueSpreadB0AA", name: "Spread B", price: 0.8, cost: 0.6 }, { id: "recGlueSpreadA0AA", name: "Spread A", price: 1.75, cost: 1.5 }] };
+  const ASSIST: QuickPartMaterial = { group: "Glue - Assist", default: { id: "recGlueAssistA0AA", name: "Assist A", price: 0.25, cost: 0.1 }, choices: [{ id: "recGlueAssistA0AA", name: "Assist A", price: 0.25, cost: 0.1 }, { id: "recGlueAssistB0AA", name: "Assist B", price: 0.5, cost: 0.3 }] };
+  const tg = part({ recordId: "recRateTG000000AA", spec: "T&G", description: "Install | T&G", rate: 2.3, cost: 1.6 });
+  const assist = part({ recordId: "recRateAssist00AA", spec: "GLUE ASSIST", description: "Install | GLUE ASSIST", rate: 0.5, cost: 0.3, material: ASSIST });
+  const full = part({ recordId: "recRateFull0000AA", spec: "FULL GLUE", description: "Install | FULL GLUE", rate: 2.3, cost: 1.6, material: SPREAD });
+  const fullNail = part({ recordId: "recRateFullNailAA", spec: "FULL GLUE NAIL", description: "Install | FULL GLUE NAIL", rate: 2.99, cost: 2.3, material: SPREAD });
+  const fam = (wood: string, tag: string, sort0: number) => [
+    choice({ id: `rec${tag}Nail00000AA`.slice(0, 17), label: `${wood} (Nail Down)`, sort: sort0, path: [wood, "Nail down"], parts: [tg] }),
+    choice({ id: `rec${tag}Assist000AA`.slice(0, 17), label: `${wood} (Nail + Glue Assist)`, sort: sort0 + 1, path: [wood, "Nail + glue assist"], parts: [assist, tg] }),
+    choice({ id: `rec${tag}Full00000AA`.slice(0, 17), label: `${wood} (Full Gluedown)`, sort: sort0 + 2, path: [wood, "Full gluedown"], parts: [full] }),
+    choice({ id: `rec${tag}FullNail0AA`.slice(0, 17), label: `${wood} (Nail + Full Gluedown)`, sort: sort0 + 3, path: [wood, "Nail + full gluedown"], parts: [fullNail] }),
+  ];
+  const SOLID = fam("Solid Hardwood T&G", "Sol", 3);
+  const ENG = fam("Engineered T&G", "Eng", 3);
+  const CLICK = choice({ id: "recClick00000000A", label: "Laminate | Vinyl | Eng Click", sort: 1, parts: [part({ recordId: "recRateClick000AA" })] });
+  const all = [CLICK, ...SOLID, ...ENG];
+
+  it("reads a Path as its parts", () => {
+    expect(splitPath(" Solid Hardwood T&G  >  Full gluedown ")).toEqual(["Solid Hardwood T&G", "Full gluedown"]);
+    expect(splitPath("")).toEqual([]);
+    expect(splitPath(null)).toEqual([]);
+  });
+
+  it("shows a family as one entry pointing at its first choice by Sort; a choice with no Path stays itself", () => {
+    const tops = topChoices(all);
+    expect(tops.map((t) => [t.label, t.choiceId, t.members.length])).toEqual([
+      ["Laminate | Vinyl | Eng Click", CLICK.id, 1],
+      ["Engineered T&G", ENG[0].id, 4],
+      ["Solid Hardwood T&G", SOLID[0].id, 4],
+    ]);
+    expect(topOf(tops, SOLID[2].id)?.label).toBe("Solid Hardwood T&G");
+    expect(topOf(tops, CLICK.id)?.key).toBe(CLICK.id);
+  });
+
+  it("offers the methods under the picked wood, the one in use on, each moving the row to a real choice", () => {
+    expect(waterfall(all, CLICK.id)).toEqual([]);
+    const levels = waterfall(all, SOLID[0].id);
+    expect(levels).toHaveLength(1);
+    expect(levels[0].options.map((o) => [o.label, o.choiceId, o.on])).toEqual([
+      ["Nail down", SOLID[0].id, true],
+      ["Nail + glue assist", SOLID[1].id, false],
+      ["Full gluedown", SOLID[2].id, false],
+      ["Nail + full gluedown", SOLID[3].id, false],
+    ]);
+    // Engineered's methods are its own, never the solid ones.
+    expect(waterfall(all, ENG[2].id)[0].options.map((o) => o.choiceId)).toEqual(ENG.map((c) => c.id));
+  });
+
+  it("asks the type of glue only for a method that uses glue, starting on the Rate Card row's default", () => {
+    expect(materialQuestion(SOLID[0], null)).toBeNull();
+    const q = materialQuestion(SOLID[2], null)!;
+    expect(q.label).toBe("Type of glue");
+    expect(q.current.id).toBe(SPREAD.default.id);
+    expect(q.choices.map((m) => m.name)).toEqual(["Spread B", "Spread A"]);
+    expect(materialQuestion(SOLID[2], "recGlueSpreadB0AA")!.current.name).toBe("Spread B");
+    // A glue from another group is ignored, never guessed: the default stays.
+    expect(pickMaterial(full, "recGlueAssistB0AA")?.id).toBe(SPREAD.default.id);
+  });
+
+  it("prices the glue on top of the labour, one line named for it, and carries the glue to the editor", () => {
+    const def = buildPreliminary(all, parseWork({ rows: [{ choiceId: SOLID[2].id, amount: 100 }] }), new Map()).lines;
+    expect(def.map((l) => [l.description, l.unitPriceSnap, l.unitCostSnap, l.materialId])).toEqual([["Install | FULL GLUE · Spread A", 4.05, 3.1, SPREAD.default.id]]);
+    const picked = buildPreliminary(all, parseWork({ rows: [{ choiceId: SOLID[2].id, amount: 100, materialId: "recGlueSpreadB0AA" }] }), new Map()).lines;
+    expect(picked.map((l) => [l.description, l.unitPriceSnap, l.unitCostSnap, l.materialId])).toEqual([["Install | FULL GLUE · Spread B", 3.1, 2.2, "recGlueSpreadB0AA"]]);
+    expect(rowTotal(all, { choiceId: SOLID[2].id, amount: 100, productId: null, materialId: "recGlueSpreadB0AA" }, new Map())).toBe(310);
+    expect(choiceRate(SOLID[2], null, "recGlueSpreadB0AA")).toEqual({ perUnit: 3.1, flat: 0 });
+    // Nail + glue assist: the glue goes on the assist line only; the T&G line stays labour.
+    const nailGlue = buildPreliminary(all, parseWork({ rows: [{ choiceId: SOLID[1].id, amount: 100, materialId: "recGlueAssistB0AA" }] }), new Map()).lines;
+    expect(nailGlue.map((l) => [l.sourceId, l.unitPriceSnap, l.materialId ?? null])).toEqual([
+      ["recRateAssist00AA", 1, "recGlueAssistB0AA"],
+      ["recRateTG000000AA", 2.3, null],
+    ]);
+    // Nail down has no glue line at all.
+    expect(buildPreliminary(all, parseWork({ rows: [{ choiceId: SOLID[0].id, amount: 100 }] }), new Map()).lines[0].materialId).toBeUndefined();
+  });
+
+  it("keeps the glue pick through the wire, and drops one that isn't a record id", () => {
+    const w = parseWork({ rows: [{ choiceId: SOLID[2].id, amount: 100, materialId: "recGlueSpreadB0AA" }, { choiceId: SOLID[2].id, amount: 100, materialId: "glue" }] });
+    expect(w.rows).toEqual([
+      { choiceId: SOLID[2].id, amount: 100, productId: null, materialId: "recGlueSpreadB0AA" },
+      { choiceId: SOLID[2].id, amount: 100, productId: null },
+    ]);
+  });
+
+  it("prices the glue the same as the editor does at Standard, so the preliminary opens in the editor unchanged", () => {
+    // The same invented row and glue as the editor's catalogue reads them.
+    const cat: CardEntry[] = buildCatalogue(
+      [{ id: "recRateFull0000AA", labourType: "Install", spec: "FULL GLUE", contractor: "Crew A", uom: "sqft", rate: 2.3, cost: 1.6, minCharge: null, defaultWaste: null, materialGroup: "Glue - Full Spread", defaultMaterialId: "recGlueSpreadA0AA" }],
+      [],
+      SPREAD.choices.map((m) => ({ id: m.id, name: m.name, group: SPREAD.group, cost: m.cost, price: m.price })),
+    );
+    const entry = cat[0] as Extract<CardEntry, { kind: "rate" }>;
+    const line = buildPreliminary(all, parseWork({ rows: [{ choiceId: SOLID[2].id, amount: 100, materialId: "recGlueSpreadB0AA" }] }), new Map()).lines[0];
+    const snap = rateSnap(entry, entry.contractors[0], line.materialId, "Standard");
+    expect([snap.price, snap.cost]).toEqual([line.unitPriceSnap, line.unitCostSnap]);
+    expect(materialChoices({ ...line, contractor: "Crew A" }, cat).current?.id).toBe("recGlueSpreadB0AA");
   });
 });

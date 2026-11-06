@@ -3,7 +3,7 @@ import { stairCost } from "@/lib/pricing/stairCost";
 import { requireQuoter } from "@/lib/auth";
 import { AirtableError, getRecord, listByIds, listRecords, type AirtableRecord } from "@/lib/airtable/client";
 import { CAT, CATALOGUE_TABLE, LINE, MATERIAL, MATERIAL_TABLE, OPTION, PROFILE, PROFILE_TABLE, QUICK, QUICK_TABLE, QUOTE, RATE, RATE_TABLE, STAIR, STAIR_TABLE, T, VERSION } from "@/lib/airtable/fields";
-import { QUICK_GROUPS, quickProfiles, type QuickChoice, type QuickGroup, type QuickPart, type QuickProduct, type QuickProfile } from "@/lib/quick/plan";
+import { QUICK_GROUPS, quickProfiles, splitPath, type QuickChoice, type QuickGroup, type QuickPart, type QuickPartMaterial, type QuickProduct, type QuickProfile } from "@/lib/quick/plan";
 import { buildCatalogue } from "@/lib/editor/model";
 import { stairLineUom } from "@/lib/editor/stairGroups";
 import { parseAcceptance } from "@/lib/accept/plan";
@@ -473,6 +473,12 @@ export async function getQuickForm(): Promise<QuickChoice[]> {
   const [choiceRecs, card] = await Promise.all([listRecords(QUICK_TABLE, { fields: Object.values(QUICK), filterByFormula: `{${QUICK.active}}` }), getRateCard()]);
   const rates = new Map(card.rates.map((r) => [r.id, r]));
   const stairs = new Map(card.stairs.map((s) => [s.id, s]));
+  // Each Rate Card row's swappable material (the glue, 2026-11-06), read exactly as the editor's catalogue reads it.
+  const materialOf = new Map<string, QuickPartMaterial>();
+  for (const e of buildCatalogue(card.rates, [], card.materials ?? []))
+    if (e.kind === "rate")
+      for (const c of e.contractors)
+        if (c.material) materialOf.set(c.recordId, { group: c.material.default.group, default: { id: c.material.default.id, name: c.material.default.name, price: c.material.default.price, cost: c.material.default.cost }, choices: c.material.choices.map((m) => ({ id: m.id, name: m.name, price: m.price, cost: m.cost })) });
   const skus = [...new Set(choiceRecs.map((r) => str(r.fields[QUICK.standardSku])).filter((s): s is string => Boolean(s)))];
   const productRecs = skus.length ? await listRecords(CATALOGUE_TABLE, { fields: Object.values(CAT), filterByFormula: skuFormula(skus) }) : [];
   const bySku = new Map(productRecs.flatMap((r) => { const p = toProduct(r); return p ? [[p.sku, p] as const] : []; }));
@@ -493,11 +499,11 @@ export async function getQuickForm(): Promise<QuickChoice[]> {
       // Otherwise a linked row that's inactive or unpriced makes the whole choice unpriceable: leave it off rather than quote part of it.
       if (!(material && product) && (rateParts.some((x) => !x) || stairParts.some((x) => !x))) return [];
       const parts: QuickPart[] = [
-        ...rateParts.flatMap((x) => (x ? [{ kind: "rate" as const, recordId: x.id, labourType: x.labourType, spec: x.spec, description: `${x.labourType} | ${x.spec}`, contractor: x.contractor, uom: x.uom, rate: x.rate, cost: x.cost, minCharge: x.minCharge }] : [])),
+        ...rateParts.flatMap((x) => (x ? [{ kind: "rate" as const, recordId: x.id, labourType: x.labourType, spec: x.spec, description: `${x.labourType} | ${x.spec}`, contractor: x.contractor, uom: x.uom, rate: x.rate, cost: x.cost, minCharge: x.minCharge, material: materialOf.get(x.id) ?? null }] : [])),
         ...stairParts.flatMap((x) => (x ? [{ kind: "stair" as const, recordId: x.id, labourType: null, spec: null, description: `${x.name}${x.size ? ` (${x.size})` : ""}`, contractor: null, uom: x.unit ?? null, rate: x.rate, cost: x.cost, minCharge: null }] : [])),
       ];
       if (material ? !product && parts.length === 0 : parts.length === 0) return [];
-      return [{ id: r.id, group: group as QuickGroup, label, sort: num(f[QUICK.sort]) ?? 999, times: Math.max(1, Math.round(num(f[QUICK.times]) ?? 1)), parts, product }];
+      return [{ id: r.id, group: group as QuickGroup, label, sort: num(f[QUICK.sort]) ?? 999, path: splitPath(str(f[QUICK.path])), times: Math.max(1, Math.round(num(f[QUICK.times]) ?? 1)), parts, product }];
     })
     .sort((a, b) => QUICK_GROUPS.indexOf(a.group) - QUICK_GROUPS.indexOf(b.group) || a.sort - b.sort || a.label.localeCompare(b.label));
 }

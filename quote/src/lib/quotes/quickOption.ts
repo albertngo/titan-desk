@@ -20,7 +20,13 @@ export async function quickFormForBrowser(): Promise<{ choices: QuickChoice[]; p
   return {
     choices: quick.map((c) => ({
       ...c,
-      parts: c.parts.map((p) => ({ ...p, cost: null, contractor: null })),
+      // The glue's charge rate stays (it's in the row's rate); its cost doesn't (2026-11-06).
+      parts: c.parts.map((p) => ({
+        ...p,
+        cost: null,
+        contractor: null,
+        material: p.material ? { ...p.material, default: { ...p.material.default, cost: null }, choices: p.material.choices.map((m) => ({ ...m, cost: null })) } : null,
+      })),
       product: c.product ? { ...c.product, cost: null } : null,
     })),
     // Each staircase's preset Stair Item lines at charge rates; cost and the template stay on the server.
