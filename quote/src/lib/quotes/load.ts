@@ -507,7 +507,7 @@ export async function getQuickForm(): Promise<QuickChoice[]> {
         ...stairParts.flatMap((x) => (x ? [{ kind: "stair" as const, recordId: x.id, labourType: null, spec: null, description: `${x.name}${x.size ? ` (${x.size})` : ""}`, contractor: null, uom: x.unit ?? null, rate: x.rate, cost: x.cost, minCharge: null }] : [])),
       ];
       if (material ? !product && parts.length === 0 : parts.length === 0) return [];
-      return [{ id: r.id, group: group as QuickGroup, label, sort: num(f[QUICK.sort]) ?? 999, path: splitPath(str(f[QUICK.path])), times: Math.max(1, Math.round(num(f[QUICK.times]) ?? 1)), parts, product }];
+      return [{ id: r.id, group: group as QuickGroup, label, sort: num(f[QUICK.sort]) ?? 999, path: splitPath(str(f[QUICK.path])), suggestMaterial: ids(f[QUICK.suggestMaterial])[0] ?? null, times: Math.max(1, Math.round(num(f[QUICK.times]) ?? 1)), parts, product }];
     })
     .sort((a, b) => QUICK_GROUPS.indexOf(a.group) - QUICK_GROUPS.indexOf(b.group) || a.sort - b.sort || a.label.localeCompare(b.label));
 }

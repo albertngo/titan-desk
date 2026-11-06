@@ -67,6 +67,11 @@ export type QuickChoice = {
    * "Full gluedown"]. Empty = the choice is its own chip, named by `label`. See `topChoices()` / `waterfall()`.
    */
   path?: string[];
+  /**
+   * Install choices (2026-11-06): the Material choice an install's material card starts on (Quick Quote Choices →
+   * Suggested Material). Absent: the card starts on Not needed.
+   */
+  suggestMaterial?: string | null;
   /** Flat-priced parts are counted this many times (e.g. 2 bins). */
   times: number;
   parts: QuickPart[];

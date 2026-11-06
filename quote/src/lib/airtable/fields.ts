@@ -399,6 +399,8 @@ export const QUICK = {
   needs: "fldTEn9j8KzrJDeQX",
   /** 2026-11-06: the waterfall, parts split on " > " ("Solid Hardwood T&G > Full gluedown"); blank = its own chip. */
   path: "fldtooWZybh3XscTb",
+  /** 2026-11-06: an Install choice's suggested Material choice (a link to this table); blank = no material to start. */
+  suggestMaterial: "fldRPmoMoex1e20wd",
 } as const;
 
 /** The Master Flooring Catalogue, read-only: material prices for the quick form. Ids from platform-settings/airtable.json. */
