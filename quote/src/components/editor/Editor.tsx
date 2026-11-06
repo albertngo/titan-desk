@@ -838,9 +838,10 @@ export default function Editor({
                         startQuick(async () => {
                           const r = await quickOptionAction(workInput(quick.work, quick.choices), quote.options.map((o) => o.name));
                           if (!r.ok) return setQuickNote(r.message);
-                          const next = addBuiltOption(quote, r.option);
+                          // Flooring and stairs from one tab are two options (2026-11-06); the first one added opens.
+                          const next = r.options.reduce((q, o) => addBuiltOption(q, o), quote);
                           apply(next);
-                          setActiveId(next.options[next.options.length - 1].id);
+                          setActiveId(next.options[quote.options.length]?.id ?? next.options[next.options.length - 1].id);
                           setQuick(null);
                           setQuickNote(r.skipped.length ? `Added. Left out: ${r.skipped.join("; ")}.` : null);
                         })

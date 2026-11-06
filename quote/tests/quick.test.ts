@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { optionTotals } from "../src/lib/calc";
 import { buildCatalogue, materialChoices, rateSnap, type CardEntry } from "../src/lib/editor/model";
 import type { StairProfileRow, StairRow } from "../src/lib/quotes/types";
-import { amountUnit, basisAmount, MATERIAL_WASTE, materialWaste, PATTERN_WASTE, BASEBOARD_PER_SQFT, baseboardDefault, basisChoices, basisSqft, buildPreliminary, followBases, installTotal, remapBases, resolveBasis, TOTAL_BASIS, type BasisRow, choiceRate, distinctNames, MAX_QUICK_OPTIONS, optionName, parseWorks, parseWork, QUICK_GROUPS, browserProfiles, quickProfiles, rowTotal, stairAreas, workIsEmpty, materialDeltas, materialQuestion, pickMaterial, splitPath, topChoices, topOf, waterfall, type QuickChoice, type QuickPart, type QuickPartMaterial, type QuickProduct } from "../src/lib/quick/plan";
+import { amountUnit, basisAmount, MATERIAL_WASTE, materialWaste, PATTERN_WASTE, BASEBOARD_PER_SQFT, baseboardDefault, basisChoices, basisSqft, buildPreliminary, followBases, installTotal, remapBases, resolveBasis, TOTAL_BASIS, type BasisRow, choiceRate, distinctNames, MAX_QUICK_OPTIONS, optionName, parseWorks, parseWork, QUICK_GROUPS, browserProfiles, quickProfiles, rowTotal, splitScopes, stairAreas, workIsEmpty, materialDeltas, materialQuestion, pickMaterial, splitPath, topChoices, topOf, waterfall, type QuickChoice, type QuickPart, type QuickPartMaterial, type QuickProduct } from "../src/lib/quick/plan";
 
 // INVENTED rates, costs, ids and products only: this repo is public.
 const part = (o: Partial<QuickPart> & { recordId: string }): QuickPart => ({ kind: "rate", labourType: "Install", spec: "SPEC", description: "Install | SPEC", contractor: "Crew A", uom: "sqft", rate: 2, cost: 1, minCharge: null, ...o });
@@ -476,5 +476,25 @@ describe("quick form: the waterfall, a choice then its options (Albert, 2026-11-
     const snap = rateSnap(entry, entry.contractors[0], line.materialId, "Standard");
     expect([snap.price, snap.cost]).toEqual([line.unitPriceSnap, line.unitCostSnap]);
     expect(materialChoices({ ...line, contractor: "Crew A" }, cat).current?.id).toBe("recGlueSpreadB0AA");
+  });
+});
+
+
+describe("quick form: flooring and stairs are two options (Albert, 2026-11-06)", () => {
+  const work = (rows: number, stairs: number) => ({ rows: Array.from({ length: rows }, () => ({ choiceId: NAIL.id, amount: 100, productId: null })), stairs: Array.from({ length: stairs }, () => ({ profileId: "recProfile0000000" })), extraCost: 50, description: "", building: null });
+  it("splits a tab with both into a flooring work (with the extra cost) and a stairs work", () => {
+    const [floor, stairs] = splitScopes([work(1, 1)]);
+    expect([floor.stairs, floor.work.rows.length, floor.work.stairs.length, floor.work.extraCost]).toEqual([false, 1, 0, 50]);
+    expect([stairs.stairs, stairs.work.rows.length, stairs.work.stairs.length, stairs.work.extraCost]).toEqual([true, 0, 1, null]);
+  });
+  it("leaves a flooring-only or stairs-only tab as one", () => {
+    expect(splitScopes([work(2, 0)]).map((x) => x.stairs)).toEqual([false]);
+    expect(splitScopes([work(0, 1)]).map((x) => x.stairs)).toEqual([true]);
+  });
+  it("keeps a typed material price only on what it is, and never above a sane figure", () => {
+    const w = parseWork({ rows: [{ choiceId: MAT.id, amount: 100, price: 4.25 }, { choiceId: MAT.id, amount: 100, price: 99999 }, { choiceId: MAT.id, amount: 100, price: -1 }] });
+    expect(w.rows.map((r) => r.price ?? null)).toEqual([4.25, null, null]);
+    const l = buildPreliminary(choices, w, new Map()).lines[0];
+    expect([l.unitPriceSnap, l.unitPrice, l.unitCostSnap]).toEqual([3, 4.25, 2]);
   });
 });

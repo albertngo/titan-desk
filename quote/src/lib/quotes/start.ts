@@ -9,7 +9,7 @@ import { buildGhlRequest } from "@/lib/link/ghlRequest";
 import { parseNewQuote, type NewQuoteRequest } from "@/lib/link/newQuote";
 import { makeConfigured, sendToGhl } from "@/lib/make/client";
 import type { CustomerSearch, FoundCustomer, StartResult } from "./types";
-import { buildPreliminary, distinctNames, parseWorks, type QuickWork } from "@/lib/quick/plan";
+import { buildPreliminary, distinctNames, parseWorks, splitScopes, type QuickWork } from "@/lib/quick/plan";
 import { profileOf, stairDescription } from "@/lib/quick/stairs";
 import { getQuickForm, getQuickProfiles, quickProducts } from "./load";
 import { firstVersion, quotesByOpportunity } from "./records";
@@ -210,7 +210,9 @@ async function fillFromQuickForm(quoteId: string, versionId: string, works: Quic
           // Named for what it installs (2026-10-31), never "Preliminary": the basis is the version's and changes when measured.
           name: o.name,
           description: o.description,
-          recommended: i === 0,
+          // Recommended is one per scope (2026-10-28): the first flooring option and the first stairs option.
+          recommended: options.findIndex((x) => (x.scope ?? null) === (o.scope ?? null)) === i,
+          ...(o.scope ? { scope: o.scope } : {}),
           lines: o.lines,
         })),
       });
@@ -235,10 +237,12 @@ export async function buildQuickOptions(works: QuickWork[]) {
   await requireQuoter();
   const [choices, products, profileRows] = await Promise.all([getQuickForm(), quickProducts(works.flatMap((w) => w.rows.flatMap((r) => (r.productId ? [r.productId] : [])))), getQuickProfiles()]);
   const profiles = new Map(profileRows.map((p) => [p.id, p]));
-  const built = works.map((w) => ({ w, b: buildPreliminary(choices, w, products, profiles) }));
+  // Flooring and stairs on one tab are two options (Albert, 2026-11-06), the stairs one scoped Stairs.
+  const built = splitScopes(works).map(({ work: w, stairs }) => ({ w, stairs, b: buildPreliminary(choices, w, products, profiles) }));
   const names = distinctNames(built.map(({ b }) => b));
-  return built.map(({ w, b }, i) => ({
+  return built.map(({ w, stairs, b }, i) => ({
     name: names[i],
+    scope: stairs ? ("Stairs" as const) : null,
     description: stairDescription(w.stairs.flatMap((s) => { const p = profiles.get(s.profileId); return p ? [profileOf(p)] : []; })),
     lines: b.lines,
     skipped: b.skipped,

@@ -67,3 +67,14 @@ describe("material tied to the install (Albert, 2026-11-06)", () => {
     expect(workInput(w, choices).rows).toHaveLength(1);
   });
 });
+
+describe("the material price changed on the preliminary (Albert, 2026-11-06)", () => {
+  it("goes on the material line as its typed price; the cost stays the card's", () => {
+    const w = withInstall(ENG_NAIL.id, "820", { mat: { choiceId: MAT_ENG.id, product: null, price: "3.50" } });
+    expect(workInput(w, choices).rows[1]).toEqual({ choiceId: MAT_ENG.id, amount: 820, productId: null, price: 3.5 });
+    // 820 × 2.30 + 820 × 1.10 × 3.50 = 1,886 + 3,157.
+    expect(estimateWork(choices, [], w).total).toBe(5043);
+    // Blank is the card's price.
+    expect(workInput(withInstall(ENG_NAIL.id, "820", { mat: { choiceId: MAT_ENG.id, product: null, price: "" } }), choices).rows[1]).not.toHaveProperty("price");
+  });
+});

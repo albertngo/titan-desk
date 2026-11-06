@@ -116,7 +116,7 @@ export function choiceRate(c: QuickChoice, product: QuickProduct | null = null, 
  * `materialId` (2026-11-06): the Install Material picked for the choice's parts that take one (the type of glue);
  * absent or null = each part's default. One that isn't in a part's group is ignored there, never guessed.
  */
-export type QuickRow = { choiceId: string; amount: number | null; productId: string | null; materialId?: string | null };
+export type QuickRow = { choiceId: string; amount: number | null; productId: string | null; materialId?: string | null; price?: number | null };
 /** One staircase: which Stair Profiles row. No typed price since 2026-11-02 (Albert: "remove different price"). */
 export type StairWork = { profileId: string };
 export type QuickWork = { rows: QuickRow[]; stairs: StairWork[]; extraCost: number | null; description: string; building: string | null };
@@ -181,7 +181,11 @@ export function parseWork(raw: unknown): QuickWork {
     if (typeof o.choiceId !== "string" || !REC.test(o.choiceId)) return [];
     const productId = typeof o.productId === "string" && REC.test(o.productId) ? o.productId : null;
     const materialId = typeof o.materialId === "string" && REC.test(o.materialId) ? o.materialId : null;
-    return [{ choiceId: o.choiceId, amount: amountOf(o.amount), productId, ...(materialId ? { materialId } : {}) }];
+    // A material's price typed on the preliminary (Albert, 2026-11-06: "the preliminary screen should offer the ability
+    // to change the material price"): kept only on a Material row, at most a sane per-unit figure, and goes on the line as
+    // its typed unit price, exactly as if typed in the editor. Nothing else from the browser is ever a price.
+    const price = amountOf(o.price);
+    return [{ choiceId: o.choiceId, amount: amountOf(o.amount), productId, ...(materialId ? { materialId } : {}), ...(price !== null && price < 10_000 ? { price } : {}) }];
   });
   // A staircase is a profile id, nothing else: a price sent with it is ignored (2026-11-02). Anything malformed is dropped, never guessed.
   const stairs = (Array.isArray(r.stairs) ? r.stairs : []).slice(0, STAIR_ROWS).flatMap((x): StairWork[] => {
@@ -312,6 +316,7 @@ export function buildPreliminary(choices: QuickChoice[], work: QuickWork, produc
           waste,
           unitPriceSnap: p.rate,
           unitCostSnap: p.cost,
+          unitPrice: row.price ?? null,
           hasSource: true,
         });
         materials.push(c.label);
@@ -347,6 +352,8 @@ export function buildPreliminary(choices: QuickChoice[], work: QuickWork, produc
         // A material priced from its Rate Card row (no product) takes the same waste (2026-11-05).
         waste: c.group === "Material" && !isFlat(p.uom) ? materialWaste(c.label, null) : null,
         unitPriceSnap: m ? round2(p.rate + m.price) : p.rate,
+        // A typed material price (2026-11-06) on a Material row priced from its Rate Card row.
+        ...(c.group === "Material" && row.price != null && !isFlat(p.uom) ? { unitPrice: row.price } : {}),
         unitCostSnap: m ? (p.cost === null || m.cost === null ? null : round2(p.cost + m.cost)) : p.cost,
         minChargeSnap: p.minCharge,
         hasSource: true,
@@ -640,4 +647,25 @@ export function materialQuestion(c: QuickChoice | undefined, materialId: string 
   if (!part?.material) return null;
   const current = pickMaterial(part, materialId);
   return { label: /glue/i.test(part.material.group) ? "Type of glue" : part.material.group, choices: part.material.choices, current };
+}
+
+
+// ---------- flooring and stairs apart (Albert, 2026-11-06) ----------
+//
+// Stair quotes stay separate from the flooring quote, as their own option (2026-10-28). A quick-form tab with both
+// flooring rows and staircases is built as two options: the flooring (with the tab's additional cost) and the
+// staircases, scoped Stairs. Before this they went out as one "Install … + Stairs" option, so the customer couldn't
+// take one without the other.
+
+/** Each tab's work, with a tab holding both flooring and stairs split into a flooring work and a stairs work. */
+export function splitScopes(works: QuickWork[]): { work: QuickWork; stairs: boolean }[] {
+  return works.flatMap((w) => {
+    if (w.rows.length > 0 && w.stairs.length > 0) {
+      return [
+        { work: { ...w, stairs: [] }, stairs: false },
+        { work: { ...w, rows: [], extraCost: null }, stairs: true },
+      ];
+    }
+    return [{ work: w, stairs: w.rows.length === 0 && w.stairs.length > 0 }];
+  });
 }

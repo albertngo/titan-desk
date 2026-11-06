@@ -6,8 +6,9 @@ import { cleanFloorSheet, parseFloorStored, serializeFloorStored, type FloorShee
 
 const ALL = previewChoices();
 const id = (label: string) => ALL.find((c) => c.label === label)!.id;
-const CLICK = id("Laminate | Vinyl | Eng Click");
-const VINYL = id("Laminate or Vinyl Click");
+const CLICK = id("Vinyl / Laminate Click");
+const ENG_CLICK = id("Engineered Click");
+const VINYL = id("7mm Standard Vinyl");
 const ENG34 = id('Engineered (3/4")');
 
 function sheet(over: Record<string, unknown> = {}): FloorSheet {
@@ -107,8 +108,9 @@ describe("what a flooring sheet builds", () => {
     expect(p.works).toHaveLength(2);
     expect(p.works[0].rows.find((r) => r.choiceId === CLICK)?.amount).toBe(450);
     expect(p.works[0].rows.find((r) => r.choiceId === VINYL)?.amount).toBe(450);
-    // Option 2: both floors use the click install, so the install is one line of 450; the materials stay apart.
-    expect(p.works[1].rows.filter((r) => r.choiceId === CLICK)).toEqual([{ choiceId: CLICK, amount: 450, productId: null }]);
+    // Option 2: vinyl / laminate and engineered click are their own installs since 2026-11-06, so two lines.
+    expect(p.works[1].rows.filter((r) => r.choiceId === CLICK)).toEqual([{ choiceId: CLICK, amount: 150, productId: null }]);
+    expect(p.works[1].rows.find((r) => r.choiceId === ENG_CLICK)?.amount).toBe(300);
     expect(p.works[1].rows.find((r) => r.choiceId === VINYL)?.amount).toBe(150);
     expect(p.works[1].rows.find((r) => r.choiceId === id("Engineered (Click)"))?.amount).toBe(300);
   });

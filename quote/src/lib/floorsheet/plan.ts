@@ -46,7 +46,9 @@ const C = {
     osb12: { id: "recPuUiqqIboKEJNw", label: '1/2" OSB' },
   },
   install: {
-    click: { id: "recmwVhyrxhuyZUa1", label: "Laminate | Vinyl | Eng Click" },
+    // The combined click install split in two (2026-11-06, Albert): vinyl / laminate, and engineered.
+    click: { id: "recmwVhyrxhuyZUa1", label: "Vinyl / Laminate Click" },
+    engClick: { id: "recrz4aiUYElu8C3y", label: "Engineered Click" },
     hbVinyl: { id: "recBE2cHFL0ngL9oQ", label: "Herringbone (Click)" },
     hbEng: { id: "recELGNm4rIni3mpJ", label: "Herringbone (Staple + Glue Assist)" },
     // Solid and engineered ¾" each have their own T&G choices since 2026-11-06 (Albert: "same rates… but we can be more explicit").
@@ -67,7 +69,7 @@ const C = {
     reinstallBoth: { id: "recOCIPInLjiq43PL", label: "Baseboard + Shoe (Labor)" },
   },
   material: {
-    vinylClick: { id: "recwij8RSbK4WP2bK", label: "Laminate or Vinyl Click" },
+    vinylClick: { id: "recwij8RSbK4WP2bK", label: "7mm Standard Vinyl" },
     wpLaminate: { id: "recH0iMQfzZC4g8By", label: "Waterproof Laminate" },
     engClick: { id: "recsvImgYqb1IDpH4", label: "Engineered (Click)" },
     eng34: { id: "recgJaqaPxD5DdA7X", label: 'Engineered (3/4")' },
@@ -91,7 +93,7 @@ export function previewChoices(): Pick<QuickChoice, "id" | "label" | "group">[] 
 const INSTALL_OF: Record<Exclude<FloorKind, "eng34" | "solid">, Ref> = {
   vinylClick: C.install.click,
   wpLaminate: C.install.click,
-  engClick: C.install.click,
+  engClick: C.install.engClick,
   tile: C.install.tile,
   hbVinyl: C.install.hbVinyl,
   hbEng: C.install.hbEng,

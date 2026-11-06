@@ -22,6 +22,24 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-06",
+    kind: "changed",
+    title: "Flooring and stairs are separate options from the quick form",
+    details: ["A quick-form tab with both a floor and a staircase now makes two options, the flooring and the stairs, so the customer can take one without the other. The editor's + From quick form does the same."],
+  },
+  {
+    date: "2026-11-06",
+    kind: "new",
+    title: "Change a material's price on the preliminary",
+    details: ["The material card has a Price box. Leave it blank for the usual price, or type the price for this quote; it goes on the quote line like a price typed in the editor."],
+  },
+  {
+    date: "2026-11-06",
+    kind: "changed",
+    title: "Click installs, and 8mm and 9mm vinyl",
+    details: ["Laminate | Vinyl | Eng Click is now two installs: Vinyl / Laminate Click (suggests 7mm Standard Vinyl) and Engineered Click (suggests Engineered Click). There are new 8mm and 9mm Standard Vinyl materials."],
+  },
+  {
+    date: "2026-11-06",
     kind: "new",
     title: "Material goes with each install",
     details: [
