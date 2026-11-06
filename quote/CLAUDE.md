@@ -229,7 +229,23 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   lines with two quantities that could drift apart; it is now SOLID / ENGINEERED HARDWOOD - T&G (Nail + Glue
   Assist), ROY, $2.80 / $1.90 labour (the two rows added up), Default Material the standard assist glue, linked from
   both Nail + Glue Assist choices. Quotes made before keep their two lines; the plain GLUE ASSIST row stays for odd
-  cases and is back on the editor's search. Tested in
+  cases and is back on the editor's search.
+  **Never a default, everywhere (Albert, same day: "yes" to the quick form picking no glue either).** A Rate Card line
+  whose row has a Material Group and no Install Material has **no glue picked**: `rateSnap()` prices the labour alone
+  (it used to fall back to the row's Default Material, which is now only the "(standard)" label), `materialChoices()`
+  says `missing`, the editor's list reads "Pick the glue…" with a red flag, and `pickMaterial()` on the quick form
+  does the same. Create and Add this option wait for every glue (`needsGlue` from `buildPreliminary()`, `glueWait()`);
+  the Flooring Site Sheet, which never knows the glue, builds the line without one and New quote notes it. **A send
+  is refused** while any line goes without its glue: Quote Lines → **Rate Material Group** (a lookup of the Rate Card
+  row's group, `materialGroup` on the line) set and no Install Material (`optionProblem()` in `send/plan.ts`). Checked
+  in Airtable that day: no line saved before had a glue row and no glue, so nothing already made changed.
+  **The method on a line** (same day: "yes build the method dropdown, keep glue if it fits"): a line on a family's
+  one-row method shows **Method** (`methodChoices()` in `waterfall.ts`); `switchMethod()` moves it to the other row in
+  place (quantity, area, note, in-total and crew stay, the labour follows at the option's level), keeps the glue when
+  the new row's group has it, else none is picked, and clears a typed unit price and cost (they were for the other
+  work). **Method + Glue = Unit** (same day: "'Material + Method' = Total very clearly"): under a glue line's unit cost
+  and price the editor lays out the labour, the glue box (`setMaterialFigures()` as before) and the line's own figure
+  as a sum (`MatSum` in `Editor.tsx`, `.matsum`), so the three always agree. Customer view shows the unit price only. Tested in
   `tests/quick.test.ts`, `tests/waterfall.test.ts` and `tests/floorsheet.test.ts`.
 - **Stairs on the preliminary (Albert, 2026-10-18; presets 2026-10-20; Stair Item lines 2026-11-02).** A staircase
   is a row of the read-only Airtable table **Stair Profiles** (`PROFILE_TABLE`): a customer-facing name, a stair type

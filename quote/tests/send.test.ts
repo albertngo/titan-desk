@@ -997,6 +997,16 @@ describe("choosing which options go to the customer (2026-10-24)", () => {
     expect(optionProblem(q, q.options[0])).toBeNull();
   });
 
+  it("stops a send while a glue-down line has no glue picked (never a default, 2026-11-06)", () => {
+    const q = three();
+    const o = q.options[0];
+    const first = o.lines[0];
+    const noGlue = { ...o, lines: [{ ...first, sourceKind: "rate" as const, materialGroup: "Glue - Full Spread", materialId: null, description: "Install | FULL GLUE" }, ...o.lines.slice(1)] };
+    expect(optionProblem(q, noGlue)).toBe(`${o.name}: pick the glue on "Install | FULL GLUE" in the editor.`);
+    const picked = { ...noGlue, lines: [{ ...noGlue.lines[0], materialId: "recGlueA000000000" }, ...noGlue.lines.slice(1)] };
+    expect(optionProblem(q, picked)).toBeNull();
+  });
+
   it("draws everything the customer gets from the chosen options only", () => {
     const c = customerCopy(chooseOptions(three(), [B]), AT);
     expect(c.options.map((o) => o.name)).toEqual(["Oak"]);

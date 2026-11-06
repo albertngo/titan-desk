@@ -11,7 +11,7 @@ import { distinctNames, MAX_QUICK_OPTIONS, type QuickChoice, type QuickProfile }
 import type { CustomerSearch, FoundCustomer } from "@/lib/quotes/types";
 import { money } from "@/lib/format";
 import { Conversation } from "./Conversation";
-import { copyWork, estimateWork, initialWork, QuickWork, workInput, type WorkState } from "./QuickWork";
+import { copyWork, estimateWork, glueWait, initialWork, QuickWork, workInput, type WorkState } from "./QuickWork";
 import { DESCRIPTION_MAX } from "@/lib/quotes/group";
 
 type Choice = { contactId: string; opportunityId: string | null } | { newCustomer: true } | null;
@@ -93,6 +93,8 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
   const estimates = prelim ? works.map((w) => estimateWork(choices, profiles, w)) : [];
   const names = distinctNames(estimates);
   const estimate = prelim ? estimates[Math.min(tab, works.length - 1)] : null;
+  // Every tab's glue must be picked before Create (2026-11-06): never a default.
+  const glueNote = prelim ? glueWait(estimates.flatMap((e, i) => e.needsGlue.map((g) => (works.length > 1 ? `${g} (option ${i + 1})` : g)))) : null;
 
   /** A tab's change. Building and the description are the quote's, so a change to either goes on every tab. */
   function setWork(next: WorkState) {
@@ -371,7 +373,8 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
             <span className="faint">Opens empty in the editor</span>
           </div>
         )}
-        <button className="btn primary" type="button" disabled={!ready || creating} onClick={() => create()}>
+        {glueNote && <span className="sand-flag" role="status">{glueNote}</span>}
+        <button className="btn primary" type="button" disabled={!ready || creating || glueNote !== null} title={glueNote ?? undefined} onClick={() => create()}>
           {creating ? "Creating…" : prelim ? (works.length > 1 ? `Create preliminary, ${works.length} options` : "Create preliminary") : "Create quote"}
         </button>
       </div>

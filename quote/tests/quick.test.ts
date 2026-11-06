@@ -411,20 +411,25 @@ describe("quick form: the waterfall, a choice then its options (Albert, 2026-11-
     expect(waterfall(all, ENG[2].id)[0].options.map((o) => o.choiceId)).toEqual(ENG.map((c) => c.id));
   });
 
-  it("asks the type of glue only for a method that uses glue, starting on the Rate Card row's default", () => {
+  it("asks the type of glue only for a method that uses glue, with none picked for you (2026-11-06)", () => {
     expect(materialQuestion(SOLID[0], null)).toBeNull();
     const q = materialQuestion(SOLID[2], null)!;
     expect(q.label).toBe("Type of glue");
-    expect(q.current?.id).toBe(SPREAD.default.id);
+    expect(q.current).toBeNull();
     expect(q.choices.map((m) => m.name)).toEqual(["Spread B", "Spread A"]);
     expect(materialQuestion(SOLID[2], "recGlueSpreadB0AA")!.current?.name).toBe("Spread B");
-    // A glue from another group is ignored, never guessed: the default stays.
-    expect(pickMaterial(full, "recGlueAssistB0AA")?.id).toBe(SPREAD.default.id);
+    // A glue from another group is ignored, never guessed: none is picked.
+    expect(pickMaterial(full, "recGlueAssistB0AA")).toBeNull();
   });
 
   it("prices the glue on top of the labour, one line named for it, and carries the glue to the editor", () => {
-    const def = buildPreliminary(all, parseWork({ rows: [{ choiceId: SOLID[2].id, amount: 100 }] }), new Map()).lines;
-    expect(def.map((l) => [l.description, l.unitPriceSnap, l.unitCostSnap, l.materialId])).toEqual([["Install | FULL GLUE · Spread A", 4.05, 3.1, SPREAD.default.id]]);
+    // No glue picked: the labour alone, no glue on the line, and the row is named so Create waits.
+    const none = buildPreliminary(all, parseWork({ rows: [{ choiceId: SOLID[2].id, amount: 100 }] }), new Map());
+    expect(none.lines.map((l) => [l.description, l.unitPriceSnap, l.materialId ?? null])).toEqual([["Install | FULL GLUE", 2.3, null]]);
+    expect(none.needsGlue).toEqual([SOLID[2].label]);
+    const def = buildPreliminary(all, parseWork({ rows: [{ choiceId: SOLID[2].id, amount: 100, materialId: SPREAD.default.id }] }), new Map());
+    expect(def.lines.map((l) => [l.description, l.unitPriceSnap, l.unitCostSnap, l.materialId])).toEqual([["Install | FULL GLUE · Spread A", 4.05, 3.1, SPREAD.default.id]]);
+    expect(def.needsGlue).toEqual([]);
     const picked = buildPreliminary(all, parseWork({ rows: [{ choiceId: SOLID[2].id, amount: 100, materialId: "recGlueSpreadB0AA" }] }), new Map()).lines;
     expect(picked.map((l) => [l.description, l.unitPriceSnap, l.unitCostSnap, l.materialId])).toEqual([["Install | FULL GLUE · Spread B", 3.1, 2.2, "recGlueSpreadB0AA"]]);
     expect(rowTotal(all, { choiceId: SOLID[2].id, amount: 100, productId: null, materialId: "recGlueSpreadB0AA" }, new Map())).toBe(310);

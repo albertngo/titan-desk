@@ -219,7 +219,8 @@ function blank(section: string): Omit<EditorLine, "description" | "sourceKind"> 
   };
 }
 
-export type BuildResult = { lines: EditorLine[]; skipped: string[]; name: string; materials: string[] };
+/** `needsGlue` (2026-11-06): the rows whose glue (or other Install Material) is not picked yet, by choice label. */
+export type BuildResult = { lines: EditorLine[]; skipped: string[]; name: string; materials: string[]; needsGlue: string[] };
 
 /** Install choices that aren't an install: their label already says the work. */
 const NOT_INSTALL = /^(sand|refinish|stain|buff|install)\b/i;
@@ -279,6 +280,7 @@ export function buildPreliminary(choices: QuickChoice[], work: QuickWork, produc
   const skipped: string[] = [];
   const installs: string[] = [];
   const materials: string[] = [];
+  const needsGlue: string[] = [];
   let stairs = false;
   for (const row of work.rows) {
     const c = byId.get(row.choiceId);
@@ -326,6 +328,7 @@ export function buildPreliminary(choices: QuickChoice[], work: QuickWork, produc
     for (const p of c.parts) {
       // The glue (2026-11-06): the part's material goes on top of its labour, one line named "work · glue", as the editor prices it.
       const m = pickMaterial(p, row.materialId ?? null);
+      if (p.material && !m && !needsGlue.includes(c.label)) needsGlue.push(c.label);
       lines.push({
         ...blank(section),
         sourceKind: p.kind,
@@ -360,7 +363,7 @@ export function buildPreliminary(choices: QuickChoice[], work: QuickWork, produc
   if (work.extraCost !== null) {
     lines.push({ ...blank(PRIVATE_SECTION), sourceKind: "manual", description: "Additional work", uom: "flat", qty: 1, unitPrice: work.extraCost });
   }
-  return { lines, skipped, name: optionName(installs, materials, stairs), materials };
+  return { lines, skipped, name: optionName(installs, materials, stairs), materials, needsGlue };
 }
 
 /** At most this many options from one quick form (the one-working-quote decision revisits at about six). */
@@ -602,11 +605,15 @@ export function waterfall(choices: QuickChoice[], choiceId: string): WaterfallLe
   return levels;
 }
 
-/** The material a part takes for a pick: the one picked when it is in the part's group, else the part's default. */
+/**
+ * The material a part takes for a pick: the one picked when it is in the part's group, else none (Albert,
+ * 2026-11-06: the quick form picks no glue for you either). A part with no material picked is the labour alone
+ * and its row is listed in `needsGlue`, which stops Create.
+ */
 export function pickMaterial(p: Pick<QuickPart, "material">, materialId: string | null | undefined): QuickMaterial | null {
   const m = p.material;
   if (!m) return null;
-  return m.choices.find((x) => x.id === materialId) ?? m.default;
+  return m.choices.find((x) => x.id === materialId) ?? null;
 }
 
 /**

@@ -93,3 +93,49 @@ export function familyLines(
   }
   return { lines, missing: null };
 }
+
+// ---------- the method on a line (Albert, 2026-11-06: "yes build the method dropdown, keep glue if it fits") ----------
+//
+// A line whose Rate Card row is the one row of a family choice (each method is one row since the same day) can move to
+// any other method of that family in place: the quantity, area, note, in-total tick and crew stay; the labour follows
+// the new row at the option's service level; the glue stays when the new row's group offers it, and otherwise none is
+// picked and the line asks for one. A typed unit price or cost is cleared, since it was for the other work.
+
+/** The family choices a line can switch between, the one it is on marked; empty when the line is on no family's row. */
+export function methodChoices(l: Pick<EditorLine, "sourceKind" | "labourType" | "spec">, choices: QuickChoice[], catalogue: CardEntry[], section: string): { label: string; choiceId: string; on: boolean }[] {
+  if (l.sourceKind !== "rate") return [];
+  const key = `${l.labourType}|${l.spec}`;
+  for (const f of familiesFor(choices, section)) {
+    const single = f.members.filter((c) => c.parts.length === 1 && c.parts[0].kind === "rate" && (c.path?.length ?? 0) > 1);
+    const entryOf = (c: QuickChoice) => placed(c.parts[0].recordId, catalogue, null)?.entry.key ?? null;
+    const at = single.find((c) => entryOf(c) === key);
+    if (!at) continue;
+    return single.filter((c) => entryOf(c) !== null).map((c) => ({ label: c.path![1], choiceId: c.id, on: c.id === at.id }));
+  }
+  return [];
+}
+
+/** The line moved to another method of its family, or the line as it was when the move can't be made. */
+export function switchMethod(l: EditorLine, choiceId: string, choices: QuickChoice[], catalogue: CardEntry[], section: string, level: ServiceLevel): EditorLine {
+  const target = choices.find((c) => c.id === choiceId);
+  const part = target?.parts.length === 1 ? target.parts[0] : null;
+  if (!target || !part || part.kind !== "rate" || !methodChoices(l, choices, catalogue, section).some((o) => o.choiceId === choiceId)) return l;
+  const at = placed(part.recordId, catalogue, l.contractor);
+  if (!at) return l;
+  const fresh = lineFromEntry(at.entry, l.section ?? section, at.c.name, level, l.materialId ?? null);
+  return {
+    ...l,
+    sourceId: fresh.sourceId,
+    labourType: fresh.labourType,
+    spec: fresh.spec,
+    description: fresh.description,
+    contractor: fresh.contractor,
+    materialId: fresh.materialId ?? null,
+    uom: fresh.uom,
+    unitPriceSnap: fresh.unitPriceSnap,
+    unitCostSnap: fresh.unitCostSnap,
+    minChargeSnap: fresh.minChargeSnap,
+    unitPrice: null,
+    costOverride: null,
+  };
+}

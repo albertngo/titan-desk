@@ -230,6 +230,8 @@ export const LINE = {
   noHst: "fldq8sPfy3iaBFJu5",
   /** 2026-10-16: the Install Material picked for a Rate Card line; its price and cost are in the snaps. */
   installMaterial: "fldLHVDiQWa3lOIcq",
+  /** 2026-11-06: lookup of the Rate Card row's Material Group; with no Install Material, the glue isn't picked yet. */
+  rateMaterialGroup: "fldBmdSxgPuEI59Vd",
   /** 2026-10-20: the Stair Profiles row a preliminary's staircase line was priced from. */
   stairProfile: "fldx3bE8kRnoGRRwu",
   /** 2026-11-01: a typed line on a sent quote, matched to or saved as a Rate Card / Stair Items row for review. App-written. */

@@ -188,6 +188,8 @@ async function fillFromQuickForm(quoteId: string, versionId: string, works: Quic
   try {
     const built = await buildQuickOptions(works);
     const problems = built.flatMap((b, i) => (b.skipped.length ? [`${built.length > 1 ? `option ${i + 1}: ` : ""}${b.skipped.join("; ")}`] : []));
+    // No glue is picked for anyone (2026-11-06): one missing goes in at labour only, is flagged in the editor and stops a send.
+    for (const [i, b] of built.entries()) if (b.needsGlue.length) problems.push(`${built.length > 1 ? `option ${i + 1}: ` : ""}pick the glue in the editor (${b.needsGlue.join(", ")})`);
     const options = built.filter((b) => b.lines.length > 0);
     let filled = false;
     if (options.length > 0) {
@@ -240,6 +242,7 @@ export async function buildQuickOptions(works: QuickWork[]) {
     description: stairDescription(w.stairs.flatMap((s) => { const p = profiles.get(s.profileId); return p ? [profileOf(p)] : []; })),
     lines: b.lines,
     skipped: b.skipped,
+    needsGlue: b.needsGlue,
   }));
 }
 

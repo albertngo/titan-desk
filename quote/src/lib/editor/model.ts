@@ -269,8 +269,10 @@ type RateEntry = Extract<CardEntry, { kind: "rate" }>;
 export function rateSnap(entry: RateEntry, c: CardContractor, materialId: string | null | undefined, level: ServiceLevel) {
   const applies = levelApplies({ sourceKind: "rate", labourType: entry.labourType });
   const m = c.material;
-  if (!m) return { price: levelPrice(c.rate, level, applies), cost: c.cost, material: null };
-  const chosen = m.choices.find((x) => x.id === materialId) ?? m.default;
+  // Never a default (Albert, 2026-11-06): a row's material is the one picked, and with none picked (or one not in
+  // its group) the line is the labour alone until someone picks, flagged and stopping a send.
+  const chosen = m ? (m.choices.find((x) => x.id === materialId) ?? null) : null;
+  if (!m || !chosen) return { price: levelPrice(c.rate, level, applies), cost: c.cost, material: null };
   return {
     price: round2(levelPrice(c.rate, level, applies) + chosen.price),
     cost: round2(c.cost + chosen.cost),
@@ -297,12 +299,14 @@ function snapLine(l: EditorLine, entry: RateEntry, c: CardContractor, materialId
 }
 
 /** The materials a line can be swapped between (empty when it has no choice), and the one it has. */
-export function materialChoices(l: EditorLine, entries: CardEntry[]): { choices: PricedMaterial[]; current: PricedMaterial | null; base: PricedMaterial | null } {
+export function materialChoices(l: EditorLine, entries: CardEntry[]): { choices: PricedMaterial[]; current: PricedMaterial | null; base: PricedMaterial | null; missing: boolean } {
   const e = entryFor(l, entries);
   const c = e && e.kind === "rate" ? e.contractors.find((x) => x.name === l.contractor) : undefined;
   const m = c?.material;
-  if (!m) return { choices: [], current: null, base: null };
-  return { choices: m.choices, current: m.choices.find((x) => x.id === l.materialId) ?? m.default, base: m.default };
+  if (!m) return { choices: [], current: null, base: null, missing: false };
+  // `missing`: the row takes a material and none is picked (2026-11-06, never a default).
+  const current = m.choices.find((x) => x.id === l.materialId) ?? null;
+  return { choices: m.choices, current, base: m.default, missing: current === null };
 }
 
 /** Swap a line's material: price and cost follow the card; a typed price or cost stays as typed. */
@@ -330,7 +334,9 @@ export function materialSplit(l: EditorLine, entries: CardEntry[], level: Servic
   const c = e.contractors.find((x) => x.name === l.contractor);
   if (!c?.material) return null;
   const s = rateSnap(e, c, l.materialId, level);
-  const chosen = s.material!;
+  // No glue picked yet (2026-11-06): nothing of the line is material, so there is no split to show.
+  if (!s.material) return null;
+  const chosen = s.material;
   const labourPrice = round2(s.price - chosen.price);
   const labourCost = round2(s.cost - chosen.cost);
   return {
@@ -373,7 +379,8 @@ export const NEW_QTY = 1;
 
 /**
  * A line priced from the card, at the option's service level (Premium adds to labour only). `materialId` picks the
- * row's material (the waterfall's glue, 2026-11-06); absent, or not in the row's group, it is the row's default.
+ * row's material (the waterfall's glue, 2026-11-06); absent, or not in the row's group, none is picked: the labour
+ * alone, flagged until someone picks (never a default, 2026-11-06).
  */
 export function lineFromEntry(entry: CardEntry, section: string, contractorName?: string, level: ServiceLevel = "Standard", materialId: string | null = null): EditorLine {
   if (entry.kind === "stair") {
@@ -525,7 +532,7 @@ export function setContractor(q: EditorQuote, optionId: string, lineId: string, 
     if (!e || e.kind !== "rate") return l;
     const c = e.contractors.find((x) => x.name === name);
     if (!c) return l;
-    // The material stays when the new contractor's row offers it; otherwise it is that row's default.
+    // The material stays when the new contractor's row offers it; otherwise none is picked and the line asks for one (2026-11-06).
     return snapLine(l, e, c, l.materialId, level);
   });
 }
