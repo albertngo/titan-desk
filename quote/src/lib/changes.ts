@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-06",
     kind: "changed",
+    title: "Quieter stairs add buttons",
+    details: ["The add beside each stairs heading is plain blue text again, with no outline or fill. It stays right next to the heading."],
+  },
+  {
+    date: "2026-11-06",
+    kind: "changed",
     title: "Stairs add buttons next to each heading",
     details: ["In the editor, each stairs heading's add (+ Add to steps, + Add to landings…) now sits right beside the heading as a blue button instead of at the far right. + Build a staircase and + Add to other look the same."],
   },
