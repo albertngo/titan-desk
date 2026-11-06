@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { searchProductsAction } from "@/app/new/actions";
 import { optionTotals } from "@/lib/calc";
 import { money } from "@/lib/format";
-import { amountUnit, BASIS_GROUPS, basisChoices, BUILDINGS, buildPreliminary, choiceRate, GROUP_ROWS, materialQuestion, parseWork, QUICK_GROUPS, remapBases, resolveBasis, rowTotal, followBases, materialWaste, topChoices, topOf, TOTAL_BASIS, waterfall, type QuickChoice, type QuickGroup, type QuickProduct, type QuickProfile, type TopChoice } from "@/lib/quick/plan";
+import { amountUnit, BASIS_GROUPS, basisChoices, BUILDINGS, buildPreliminary, choiceRate, GROUP_ROWS, materialDeltas, materialQuestion, parseWork, QUICK_GROUPS, remapBases, resolveBasis, rowTotal, followBases, materialWaste, topChoices, topOf, TOTAL_BASIS, waterfall, type QuickChoice, type QuickGroup, type QuickProduct, type QuickProfile, type TopChoice } from "@/lib/quick/plan";
 import { METHOD_PHRASE, modifierFor, STAIR_ROWS } from "@/lib/quick/stairs";
 import { SAND_DISCLAIMER, sandFlag, sandRole } from "@/lib/editor/sandRule";
 import { wasteMath } from "@/lib/editor/model";
@@ -137,7 +137,7 @@ export function QuickWork({
     const unit = amountUnit(c);
     const amt = toNumber(r.amount);
     const glue = materialQuestion(c, r.materialId);
-    return `${c.label}${glue ? ` · ${glue.current.name}` : ""}${unit && amt !== null ? ` · ${amt} ${UNIT_LABEL[unit]}` : ""}`;
+    return `${c.label}${glue?.current ? ` · ${glue.current.name}` : ""}${unit && amt !== null ? ` · ${amt} ${UNIT_LABEL[unit]}` : ""}`;
   };
   const groupSummary = (g: QuickGroup) => value.rows.filter((r) => r.group === g).map(rowWords).filter(Boolean).join(" · ");
 
@@ -191,14 +191,20 @@ export function QuickWork({
                       {glue && (
                         <div className={`qw-chips qw-fall qw-fall-${Math.min(levels.length + 1, 3)}`} role="radiogroup" aria-label={`${g} ${i + 1} ${glue.label}`}>
                           <span className="qw-fall-k">{glue.label}</span>
-                          {glue.choices.map((m) => {
-                            const on = m.id === glue.current.id;
-                            return (
-                              <button type="button" key={m.id} className={`qw-chip${on ? " on" : ""}`} role="radio" aria-checked={on} title={`+ ${money(m.price)}/sq ft`} onClick={() => setRow(r.key, { materialId: m.id })}>
-                                {m.name} <span className="faint">+{money(m.price)}</span>
-                              </button>
-                            );
-                          })}
+                          {(() => {
+                            // Each option beside the selected one says what it adds or takes off (2026-11-06); the selected one says nothing.
+                            const delta = new Map(materialDeltas(glue).map((d) => [d.id, d.delta]));
+                            return glue.choices.map((m) => {
+                              const on = m.id === glue.current?.id;
+                              const d = delta.get(m.id) ?? 0;
+                              return (
+                                <button type="button" key={m.id} className={`qw-chip${on ? " on" : ""}`} role="radio" aria-checked={on} title={`${money(m.price)}/sq ft`} onClick={() => setRow(r.key, { materialId: m.id })}>
+                                  {m.name}
+                                  {!on && <span className="faint"> {d === 0 ? "same" : `${d > 0 ? "+" : "-"}${money(Math.abs(d))}`}</span>}
+                                </button>
+                              );
+                            });
+                          })()}
                         </div>
                       )}
                       {(unit || c || rows.length > 1) && (

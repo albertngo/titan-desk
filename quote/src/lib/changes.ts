@@ -23,6 +23,30 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-06",
     kind: "changed",
+    title: "Nail + glue assist is one line",
+    details: ["Solid and Engineered T&G with Nail + glue assist now go on the quote as one line with one square footage, at the same price as before, with the glue picked on it. Quotes made before keep their two lines."],
+  },
+  {
+    date: "2026-11-06",
+    kind: "new",
+    title: "Add T&G in the editor the same way: wood, method, glue",
+    details: [
+      "In the editor, + Add to Install now lists Solid Hardwood T&G and Engineered T&G at the top. Pick one, then how it's installed, then the type of glue. Nothing is picked for you, and Add waits until you have chosen.",
+      "The separate T&G and glue rows no longer show in that list. Tick Search the whole rate card to see them.",
+    ],
+  },
+  {
+    date: "2026-11-06",
+    kind: "new",
+    title: "Glue: Provided by Client, and what each choice adds",
+    details: [
+      "Every type of glue now has Provided by Client as its last choice: the line is the install labour only and says the client provides the glue. It works on the quick form and in the editor's material list.",
+      "On the quick form, each glue beside the one picked shows how much more or less it is per square foot.",
+    ],
+  },
+  {
+    date: "2026-11-06",
+    kind: "changed",
     title: "Full gluedown + nail is now Nail + full gluedown",
     details: ["The same T&G method under a new name, on both Solid Hardwood T&G and Engineered T&G. The price is unchanged."],
   },

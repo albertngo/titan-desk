@@ -149,7 +149,9 @@ const priced = (m: MaterialRow): m is PricedMaterial => m.price !== null && m.co
 /** A row's swappable material, or null when it has none or it isn't fully set up in Airtable. */
 function materialFor(r: RateRow, materials: MaterialRow[]): CardContractor["material"] {
   if (!r.materialGroup || !r.defaultMaterialId) return null;
-  const choices = materials.filter((m): m is PricedMaterial => m.group === r.materialGroup && priced(m)).sort((a, b) => a.price - b.price || a.name.localeCompare(b.name));
+  // Cheapest first; "Provided by Client" (a $0 row, 2026-11-06) last, after every glue.
+  const client = (m: MaterialRow) => (/provided by client/i.test(m.name) ? 1 : 0);
+  const choices = materials.filter((m): m is PricedMaterial => m.group === r.materialGroup && priced(m)).sort((a, b) => client(a) - client(b) || a.price - b.price || a.name.localeCompare(b.name));
   const def = choices.find((m) => m.id === r.defaultMaterialId);
   if (!def) return null;
   return { default: def, choices };
@@ -369,8 +371,11 @@ export const perStaircase = (name: string) => /\(\s*per\s+staircase\s*\)/i.test(
  */
 export const NEW_QTY = 1;
 
-/** A line priced from the card, at the option's service level (Premium adds to labour only). */
-export function lineFromEntry(entry: CardEntry, section: string, contractorName?: string, level: ServiceLevel = "Standard"): EditorLine {
+/**
+ * A line priced from the card, at the option's service level (Premium adds to labour only). `materialId` picks the
+ * row's material (the waterfall's glue, 2026-11-06); absent, or not in the row's group, it is the row's default.
+ */
+export function lineFromEntry(entry: CardEntry, section: string, contractorName?: string, level: ServiceLevel = "Standard", materialId: string | null = null): EditorLine {
   if (entry.kind === "stair") {
     return {
       ...baseLine(section),
@@ -387,7 +392,7 @@ export function lineFromEntry(entry: CardEntry, section: string, contractorName?
     };
   }
   const c = entry.contractors.find((x) => x.name === contractorName) ?? bestContractor(entry);
-  const s = rateSnap(entry, c, null, level);
+  const s = rateSnap(entry, c, materialId, level);
   return {
     ...baseLine(section),
     sourceKind: "rate",

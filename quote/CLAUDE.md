@@ -213,8 +213,24 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   Airtable, no code. **Drawn as secondary categories** (same day: "make the waterfall look like secondary categories"):
   the first pick keeps the big chips; each follow-up row is small text options with no outline (then "even less"),
   indented one step per level on a thin grey rule (`.qw-fall`, `.qw-fall-1`…`-3` in `globals.css`), the picked one
-  tinted. Tested in `tests/quick.test.ts`
-  and `tests/floorsheet.test.ts`.
+  tinted. **Each glue says what it adds or takes off** against the one picked (same day: "show the increase or
+  decrease… from the selected option"; `materialDeltas()`), the picked one saying nothing. **Provided by Client**
+  (same day: "an option where there is NO glue… AKA provided by client"; then "Can't we simply have a 'Provided by
+  Client' an option") is an ordinary Install Materials row at $0 cost and price in each glue group (Full Spread,
+  Assist, Vinyl, Cork), listed last (`materialFor()` in `model.ts`), so the line is the labour alone, named
+  "work · Provided by Client", and every re-price keeps it like any other glue. **The editor's Add search has the
+  waterfall too** (same day: "the same type of 'waterfall selection' for the Nail -> Glue selections. Never a
+  'default'"): in Install, each family leads the list; picking it opens its methods and then its glue with nothing
+  picked, and Add waits for both (`familyLines()` in `src/lib/editor/waterfall.ts`). The lines are the editor's own
+  (`lineFromEntry()`, which now takes the glue), at the option's crew when it has the rate, else the choice's own row,
+  at the option's service level, each at quantity 1. A family's own Rate Card rows are left off that section's search,
+  and Search the whole rate card lists them. The quick form still starts on the row's default glue. **One Rate Card
+  row per method** (same day, Albert: "do the one-row glue assist"): Nail + glue assist was T&G + GLUE ASSIST, two
+  lines with two quantities that could drift apart; it is now SOLID / ENGINEERED HARDWOOD - T&G (Nail + Glue
+  Assist), ROY, $2.80 / $1.90 labour (the two rows added up), Default Material the standard assist glue, linked from
+  both Nail + Glue Assist choices. Quotes made before keep their two lines; the plain GLUE ASSIST row stays for odd
+  cases and is back on the editor's search. Tested in
+  `tests/quick.test.ts`, `tests/waterfall.test.ts` and `tests/floorsheet.test.ts`.
 - **Stairs on the preliminary (Albert, 2026-10-18; presets 2026-10-20; Stair Item lines 2026-11-02).** A staircase
   is a row of the read-only Airtable table **Stair Profiles** (`PROFILE_TABLE`): a customer-facing name, a stair type
   (Main stairs / Townhome / Basement / Half staircase), a method (Sand & stain / Solid red oak caps / Vinyl treads /
