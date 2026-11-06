@@ -41,7 +41,7 @@ const LIMITS = { options: 20, linesPerOption: 200, text: 1000 };
  * would quietly add a new choice for anything else, so a value off these lists is saved blank.
  */
 /** Quote Lines → Section, Airtable's own choices; a value off this list is saved blank. "Private" added 2026-10-22, "Discounts" 2026-11-04 (Airtable gets it by typecast on the first save that uses it). */
-export const LINE_SECTIONS = ["Removal", "Prep", "Materials", "Install", "Stairs", "Refinish", "Paint", "Sand", "Disposal", "Delivery", "Other", "Private", "Discounts", "Exclusions"] as const;
+export const LINE_SECTIONS = ["Removal", "Prep", "Materials", "Install", "Moulding", "Stairs", "Refinish", "Paint", "Sand", "Disposal", "Delivery", "Other", "Private", "Discounts", "Exclusions"] as const;
 export const LINE_TYPES = ["Material", "Install", "Removal", "Stairs", "Disposal", "Delivery", "Moulding", "Other", "Note"] as const;
 /** The four stair units (2026-11-04, `STAIR_UNITS`) are added to Airtable's list by typecast on the first save that uses each. */
 export const LINE_UOMS = ["sqft", "linear ft", "each", "piece", "hour", "roll", "flat", "steps", "sets", "ft", "pcs"] as const;
@@ -105,6 +105,7 @@ export function cleanEditorQuote(raw: unknown): EditorQuote {
       ...(partValue(x.part) ? { part: partValue(x.part)! } : {}),
       ...(x.notOffered === true ? { notOffered: true as const } : {}),
       ...(typeof x.showHst === "boolean" ? { showHst: x.showHst } : {}),
+      ...(typeof x.sqftOk === "string" && /^\d+(\.\d+)?\/\d+(\.\d+)?$/.test(x.sqftOk) ? { sqftOk: x.sqftOk } : {}),
       lines: (Array.isArray(x.lines) ? x.lines : []).slice(0, LIMITS.linesPerOption).map(cleanLine),
     };
   });
@@ -182,6 +183,7 @@ export function optionFields(o: EditorOption, sortOrder: number): Fields {
     [OPTION.scope]: o.scope ?? null,
     [OPTION.part]: o.part ?? null,
     [OPTION.notOffered]: o.notOffered === true,
+    [OPTION.sqftOk]: o.sqftOk ?? null,
     // Its own HST (2026-11-04); blank follows the version's Show HST, as every option did before.
     [OPTION.chargeHst]: o.showHst === undefined ? null : o.showHst ? "Charged" : "Off",
   };

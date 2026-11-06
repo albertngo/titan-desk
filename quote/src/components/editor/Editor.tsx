@@ -10,6 +10,7 @@ import { autosaveVersionAction, quickFormAction, quickOptionAction, saveAsNewVer
 import { estimateWork, glueWait, initialWork, QuickWork, workInput, type WorkState } from "@/components/QuickWork";
 import type { QuickChoice, QuickProfile } from "@/lib/quick/plan";
 import { methodChoices, switchMethod } from "@/lib/editor/waterfall";
+import { sqftCheck, sqftWords } from "@/lib/quotes/sqftCheck";
 import { Financials } from "@/components/Financials";
 import { DEFAULT_PRIVATE_LABEL, PRIVATE_SECTION, SECTIONS, isPriced, lineCost, lineFlags, lineTotal, optionTotals, privateRollup, sectionOf, stageAmounts } from "@/lib/calc";
 import { manualLine,
@@ -25,6 +26,7 @@ import { manualLine,
   entryFor,
   exclusionLine,
   materialChoices,
+  setSqftOk,
   materialWords,
   parseNum,
   removeLine,
@@ -857,6 +859,24 @@ export default function Editor({
           {option && t ? (
             <>
               {option.notOffered && <p className="no-offer-banner" role="note"><b>Not offered.</b> This option stays on the quote but is never sent to the customer. Untick Not offered below to send it.</p>}
+              {/* The material against the install (2026-11-06): outside 10-15% over, it stops a send until OK'd for these figures. */}
+              {!customer &&
+                (() => {
+                  const sq = sqftCheck(option.lines);
+                  if (!sq || sq.inBand) return null;
+                  const ok = option.sqftOk === sq.key;
+                  return ok ? (
+                    <p className="sqft-ok" role="note">
+                      Square feet OK&apos;d: {sqftWords(sq)}{" "}
+                      <button type="button" className="linkbtn" onClick={() => apply(setSqftOk(quote, option.id, null))}>Undo</button>
+                    </p>
+                  ) : (
+                    <p className="sand-flag sqft-flag" role="status">
+                      ⚠ {sqftWords(sq)} It can&apos;t be sent until you check it.{" "}
+                      <button type="button" className="btn small" onClick={() => apply(setSqftOk(quote, option.id, sq.key))}>OK, it&apos;s right</button>
+                    </p>
+                  );
+                })()}
               <section className={option.notOffered ? "card ed-opt no-offer-card" : "card ed-opt"}>
                 <div className="ohead">
                   <div className="oname">

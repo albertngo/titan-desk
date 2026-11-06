@@ -21,7 +21,8 @@ export const GROUP_SECTION: Record<QuickGroup, string> = {
   Disposal: "Disposal",
   "Subfloor prep": "Prep",
   Install: "Install",
-  Baseboards: "Install",
+  // Moulding is its own section since 2026-11-06 (Albert), right under Install.
+  Baseboards: "Moulding",
   Material: "Materials",
 };
 

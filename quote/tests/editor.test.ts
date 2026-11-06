@@ -759,3 +759,25 @@ describe("autosave keeps the editor's ids on screen (2026-11-05)", () => {
     expect(new Set(fixed.options[0].lines.map((l) => l.id)).size).toBe(2);
   });
 });
+
+
+describe("Moulding is its own section (Albert, 2026-11-06)", () => {
+  const rows: RateRow[] = [
+    R({ id: "recRateBase000001", spec: "BASEBOARD - 4-5in (Labor Only)", uom: "linear ft" }),
+    R({ id: "recRateShoe000001", spec: "SHOEMOLD - (Labor Only)", uom: "linear ft" }),
+    R({ id: "recRateTm00000001", spec: "TM and Reducers", uom: "each" }),
+    R({ id: "recRatePaint00001", labourType: "Paint", spec: "PAINT: Baseboards", uom: "linear ft" }),
+    R({ id: "recRateTG00000001", spec: "SOLID HARDWOOD - T&G" }),
+    R({ id: "recRateNose000001", spec: "NOSINGS", uom: "each" }),
+  ];
+  const c2 = buildCatalogue(rows, []);
+  const specs = (section: string) => searchCatalogue(c2, "", section, 50).map((e) => (e.kind === "rate" ? e.spec : ""));
+  it("offers mouldings and their paint under Moulding, and no longer under Install", () => {
+    expect(specs("Moulding").sort()).toEqual(["BASEBOARD - 4-5in (Labor Only)", "PAINT: Baseboards", "SHOEMOLD - (Labor Only)", "TM and Reducers"]);
+    expect(specs("Install").sort()).toEqual(["NOSINGS", "SOLID HARDWOOD - T&G"]);
+  });
+  it("puts a moulding line in Moulding as Install work", () => {
+    const l = lineFromEntry(c2.find((e) => e.kind === "rate" && e.spec.startsWith("BASEBOARD"))!, "Moulding");
+    expect([l.section, l.lineType]).toEqual(["Moulding", "Install"]);
+  });
+});

@@ -16,7 +16,7 @@ import type { CopyItem, CopyOption, CustomerCopy } from "./copy";
 export type QuoteKind = "flooring" | "stairs" | "both" | "none";
 
 /** Sections that count as flooring work. "Other" (the quick form's additional cost) decides nothing. */
-const FLOORING = new Set(["Install", "Removal", "Disposal", "Prep", "Materials", "Delivery"]);
+const FLOORING = new Set(["Install", "Moulding", "Removal", "Disposal", "Prep", "Materials", "Delivery"]);
 
 /** A stair line: a Stair Item, a stair profile (preset or typed), or anything filed under Stairs. */
 export const isStairLine = (l: Pick<QuoteLine, "lineType" | "sourceKind" | "section">) =>

@@ -55,6 +55,8 @@ export type EditorOption = {
   notOffered?: true;
   /** This option's own HST (2026-11-04); absent = the version's Show HST. Absent rather than null, so older drafts keep their fingerprint. */
   showHst?: boolean;
+  /** The square feet OK'd outside the 10-15% band (2026-11-06), "install/material"; absent = none. See sqftCheck.ts. */
+  sqftOk?: string;
   lines: EditorLine[];
 };
 
@@ -116,6 +118,7 @@ export type CardEntry =
 /** Which Rate Card labour types belong under each section, best match first. */
 export const SECTION_LABOUR: Record<string, string[]> = {
   Install: ["Install", "Refinish", "Sand", "Paint"],
+  Moulding: ["Install", "Paint"],
   Stairs: [],
   Removal: ["Remove"],
   Disposal: ["Disposal"],
@@ -125,9 +128,16 @@ export const SECTION_LABOUR: Record<string, string[]> = {
   Other: ["Other"],
 };
 
+/**
+ * Moulding work (Albert, 2026-11-06): baseboards, shoe mould, casing, quarter round and transitions (T-mouldings,
+ * reducers), and their paint, read from the Rate Card row's specification. Stair nosings stay with the install.
+ */
+export const isMouldingWork = (spec: string | null | undefined) => !!spec && /baseboard|shoe ?mou?ld|casing|quarter|t-?mould|\btm\b|reducer/i.test(spec);
+
 /** Quote Lines.Line Type for a section (Airtable's own select values). */
 export const LINE_TYPE: Record<string, string> = {
   Install: "Install",
+  Moulding: "Install",
   Removal: "Removal",
   Disposal: "Disposal",
   Prep: "Other",
@@ -219,7 +229,10 @@ export const bestContractor = (e: Extract<CardEntry, { kind: "rate" }>) => e.con
 export function searchCatalogue(entries: CardEntry[], query: string, section: string, limit = 40, all = false): CardEntry[] {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   const preferred = SECTION_LABOUR[section];
-  const belongs = (e: CardEntry) => (e.kind === "stair" ? section === "Stairs" : (preferred ?? []).includes(e.labourType));
+  // Moulding (2026-11-06) is Install and Paint work on a moulding row; Install keeps the rest.
+  const moulding = (e: CardEntry) => e.kind === "rate" && isMouldingWork(e.spec);
+  const belongs = (e: CardEntry) =>
+    e.kind === "stair" ? section === "Stairs" : (preferred ?? []).includes(e.labourType) && (section === "Moulding" ? moulding(e) : section === "Install" ? !moulding(e) : true);
   const filtered = !all && preferred !== undefined;
   const rank = (e: CardEntry) => (belongs(e) ? 0 : 1);
   return entries
@@ -779,6 +792,23 @@ export function setTerms(q: EditorQuote, patch: Partial<Pick<EditorQuote, "disco
  * Charge HST on one option only (Albert, 2026-11-04: "ONLY apply for the option it is on. Not to all options"). The
  * other options keep theirs; one never set follows the version's Show HST, as before.
  */
+/**
+ * OK the material's square feet against the install (Albert, 2026-11-06: "give an option to 'ok' it and re-open the
+ * send option"): `key` is the "install/material" figures OK'd (`sqftKey()`); null takes the OK back.
+ */
+export function setSqftOk(q: EditorQuote, optionId: string, key: string | null): EditorQuote {
+  return {
+    ...q,
+    options: q.options.map((o) => {
+      if (o.id !== optionId) return o;
+      const next: EditorOption = { ...o };
+      if (key) next.sqftOk = key;
+      else delete next.sqftOk;
+      return next;
+    }),
+  };
+}
+
 export function setOptionHst(q: EditorQuote, optionId: string, on: boolean): EditorQuote {
   return { ...q, options: q.options.map((o) => (o.id === optionId ? { ...o, showHst: on } : o)) };
 }
@@ -1173,6 +1203,7 @@ export function fromQuote(quote: Quote): EditorQuote {
       ...(o.part ? { part: o.part } : {}),
       ...(o.notOffered ? { notOffered: true as const } : {}),
       ...(o.showHst !== undefined ? { showHst: o.showHst } : {}),
+      ...(o.sqftOk ? { sqftOk: o.sqftOk } : {}),
       lines: o.lines.map((l: QuoteLine): EditorLine => ({
         id: l.id,
         sourceKind: l.sourceKind,

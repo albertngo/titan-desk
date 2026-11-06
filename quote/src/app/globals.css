@@ -1874,6 +1874,10 @@ select.cell-in.missing { border-color: var(--red, #c62828); }
 .qw-matline { flex: 1 1 auto; font-size: 13px; color: #0d5b4e; font-weight: 500; }
 @media (max-width: 640px) { .qw-matcard { margin-left: 0; } :is(.ed-quick, .newq) .qw-matcard .qw-chips, .qw-matcard .qw-chips { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
+/* The material against the install (2026-11-06): the flag with its OK, and the quiet note once OK'd. */
+.sqft-flag { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.sqft-ok { font-size: 12.5px; color: var(--fg-dim); margin: 4px 0; }
+
 /* The option's price card (Albert, 2026-11-04): discount items on the left, the accepted price on the
    right with its margin and profit helper, the 20% (i), and Reset. Stacks on a phone. */
 .pc { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 1px; background: var(--line); border-top: 1px solid var(--line); }

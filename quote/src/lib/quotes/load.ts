@@ -153,6 +153,7 @@ function toOption(r: AirtableRecord, lines: QuoteLine[]): QuoteOption {
     scope: scopeValue(f[OPTION.scope]),
     part: partValue(f[OPTION.part]),
     notOffered: bool(f[OPTION.notOffered]),
+    sqftOk: str(f[OPTION.sqftOk]),
     ...hstValue(f[OPTION.chargeHst]),
     lines,
     airtable: {

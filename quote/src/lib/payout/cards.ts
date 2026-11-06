@@ -22,7 +22,7 @@ import type { Quote, QuoteLine, QuoteOption, RateCard } from "@/lib/quotes/types
 
 export const PAYOUTS_VERSION = 1;
 /** Ticked on a new card: the work a contractor does. */
-export const ON_SECTIONS: ReadonlySet<string> = new Set(["Install", "Stairs", "Removal", "Prep", "Disposal"]);
+export const ON_SECTIONS: ReadonlySet<string> = new Set(["Install", "Moulding", "Stairs", "Removal", "Prep", "Disposal"]);
 /** Never on a card: not labour. */
 export const OFF_LIMITS: ReadonlySet<string> = new Set(["Materials", "Discounts", "Exclusions"]);
 /** What a typed line on a card is filed under. */

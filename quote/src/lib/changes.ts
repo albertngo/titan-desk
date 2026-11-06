@@ -22,6 +22,18 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-06",
+    kind: "new",
+    title: "Material square feet are checked against the install",
+    details: ["Each option's material (with its waste) should be 10 to 15% over the install's square feet. Outside that, the editor flags the option and it can't be sent; press OK, it's right if it is, and Send opens again. Change either square footage afterwards and the flag comes back. An option with no material isn't checked."],
+  },
+  {
+    date: "2026-11-06",
+    kind: "new",
+    title: "Moulding is its own section",
+    details: ["Baseboards, shoe mould, casing, quarter round and transitions now sit in their own Moulding section, right under Install, on the quote, the customer's copy and the PDF. On the quick form the Baseboards group is called Moulding. In the editor, + Add to Moulding lists them and Add to Install no longer does. Lines already on a quote stay where they are."],
+  },
+  {
+    date: "2026-11-06",
     kind: "changed",
     title: "Flooring and stairs are separate options from the quick form",
     details: ["A quick-form tab with both a floor and a staircase now makes two options, the flooring and the stairs, so the customer can take one without the other. The editor's + From quick form does the same."],
