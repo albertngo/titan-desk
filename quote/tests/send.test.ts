@@ -535,6 +535,18 @@ describe("the Private section (2026-10-22)", () => {
     expect(o.totals.subtotal).toBe(700);
   });
 
+  it("on a stairs option shows the row with no amount and the section with no total, like every stair line (2026-11-06)", () => {
+    const stair = line({ section: "Stairs", lineType: "Other", sourceKind: "stair", description: "Keep Existing Steps (Sand + Stain)", qty: 13, uom: "steps", unitPriceSnap: 100 });
+    const c = customerCopy(quote({ discountRate: 0, options: [option("Stairs", [stair, lines[1]], 0, true, { scope: "Stairs" })] }), AT);
+    const o = c.options[0];
+    const other = o.sections.find((s) => s.name === "Other")!;
+    expect(other.lines).toEqual([expect.objectContaining({ description: "Additional work", amount: null, unitPrice: null })]);
+    expect(other.total).toBeNull();
+    expect(o.sections.find((s) => s.name === "Stairs")).toMatchObject({ total: null, lines: [expect.objectContaining({ qty: 13, unitPrice: null, amount: null })] });
+    // The price is still the whole option's.
+    expect(o.totals.subtotal).toBe(1800);
+  });
+
   it("defaults the row's name, and never lets a private line's own words or cost reach the customer", () => {
     const c = customerCopy(quote({ options: [option("A", lines, 0, true)] }), AT);
     const text = serializeCopy(c);

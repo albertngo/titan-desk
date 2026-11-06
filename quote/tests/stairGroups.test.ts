@@ -32,10 +32,10 @@ describe("what an option can add (2026-10-30)", () => {
   const sections = ["Install", "Stairs", "Removal", "Disposal", "Prep", "Materials", "Delivery", "Other", "Private"];
   it("a stairs option: the builder, the Stair Item categories in work order, a typed line, and Private (stair items only)", () => {
     const c = addChoices("Stairs", ["Railing", "Step", null, "Riser", "step", "Weird"], sections);
-    expect(c.map((x) => x.label)).toEqual(["Staircase", "Steps", "Risers", "Railing", "Weird", "Typed line", "Private"]);
+    expect(c.map((x) => x.label)).toEqual(["Staircase", "Steps", "Risers", "Railing", "Weird", "Typed line", "Other"]);
     expect(c.find((x) => x.label === "Steps")).toEqual({ label: "Steps", section: "Stairs", category: "step" });
     expect(c.find((x) => x.label === "Typed line")?.typed).toBe(true);
-    expect(c.find((x) => x.label === "Private")).toEqual({ label: "Private", section: "Private", stairsOnly: true });
+    expect(c.find((x) => x.section === "Private")).toEqual({ label: "Other", section: "Private", stairsOnly: true });
     // Customer view leaves Private out of the sections, and so out of the choices.
     expect(addChoices("Stairs", ["Step"], sections.filter((s) => s !== "Private")).map((x) => x.label)).toEqual(["Staircase", "Steps", "Typed line"]);
   });

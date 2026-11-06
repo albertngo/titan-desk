@@ -319,6 +319,10 @@ export function stagesOf(o: CopyOption): CopyStage[] {
 
 function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lumpSum = false, ranged = false, schedule: PaymentSchedule = defaultSchedule()): CopyOption {
   let n = 0;
+  // A stairs option never shows a rate (Albert, 2026-11-06: "any additional work PRIVATE section should never show
+  // rates. It should be the same as the rule for the stairs items"): every section on it goes like Stairs, quantities
+  // only, and the Private roll-up row has no amount. Add-ons still say their price.
+  const stairsOption = optionScope(o) === "Stairs";
   const sections: CopySection[] = [];
   for (const name of sectionNames(o.lines)) {
     const lines: (CopyItem | CopyText)[] = [];
@@ -342,7 +346,7 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
       if (l.include) total += amount;
       // Lump sum: a counted line shows what it is and how much, never what it costs. An add-on must still say its price.
       // Stairs are always one price (Albert, 2026-10-28): a breakdown itemises the flooring only.
-      const lump = (lumpSum || name === "Stairs") && l.include;
+      const lump = (lumpSum || name === "Stairs" || stairsOption) && l.include;
       // Quantities always show (Albert, 2026-11-04: "no matter what view is sent to the customer. The quantities are always
       // shown. Stairs never has line item PRICING but will always show the quantities of each line item"): every section,
       // lump sum, preliminary and breakdown alike. This replaces the 2026-10-22 rule of quantities on the scope sections only.
@@ -379,7 +383,7 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
       lines.push(item);
       if (key) merged.set(key, item);
     }
-    if (lines.length) sections.push({ name: name === "Unsorted" ? "Other" : name, total: lumpSum || name === "Stairs" ? null : round2(total), lines });
+    if (lines.length) sections.push({ name: name === "Unsorted" ? "Other" : name, total: lumpSum || name === "Stairs" || stairsOption ? null : round2(total), lines });
   }
   // The Private section as the customer sees it (2026-10-22): one row in Other, the option's name for it, the total, nothing else.
   // On a lump sum there is no row at all (Albert, 2026-10-22): the amount is already inside the one price.
@@ -387,10 +391,10 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
   if (hidden > 0) {
     let other = sections.find((s) => s.name === "Other");
     if (!other) {
-      other = { name: "Other", total: lumpSum ? null : 0, lines: [] };
+      other = { name: "Other", total: lumpSum || stairsOption ? null : 0, lines: [] };
       sections.push(other);
     }
-    other.lines.push({ kind: "item", n: ++n, description: clean(o.privateLabel) ?? DEFAULT_PRIVATE_LABEL, note: null, qty: null, uom: null, wastePct: null, unitPrice: null, minimum: false, amount: lumpSum ? null : hidden, optional: false });
+    other.lines.push({ kind: "item", n: ++n, description: clean(o.privateLabel) ?? DEFAULT_PRIVATE_LABEL, note: null, qty: null, uom: null, wastePct: null, unitPrice: null, minimum: false, amount: lumpSum || stairsOption ? null : hidden, optional: false });
     if (other.total !== null) other.total = round2(other.total + hidden);
   }
   const t = optionTotals(o.lines, discountRate, showHst);

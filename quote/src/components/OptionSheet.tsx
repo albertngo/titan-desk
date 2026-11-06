@@ -18,6 +18,7 @@ import {
 } from "@/lib/calc";
 import { money, pct, rate } from "@/lib/format";
 import type { QuoteLine, QuoteOption } from "@/lib/quotes/types";
+import { optionScope } from "@/lib/quotes/scope";
 
 const LABEL: Record<keyof OptionTotals, string> = {
   preDiscount: "Pre-discount",
@@ -88,7 +89,7 @@ function Parity({ option, t }: { option: QuoteOption; t: OptionTotals }) {
 }
 
 /** `lump`: Customer view on a lump-sum quote (2026-10-22): no unit price, no line total. */
-function Row({ l, n, customer, lump }: { l: QuoteLine; n: number | undefined; customer: boolean; lump: boolean }) {
+function Row({ l, n, customer, lump, stairsOpt = false }: { l: QuoteLine; n: number | undefined; customer: boolean; lump: boolean; /** A stairs option (2026-11-06): no line is priced for the customer. */ stairsOpt?: boolean }) {
   if (!isPriced(l)) {
     return (
       <tr>
@@ -107,7 +108,7 @@ function Row({ l, n, customer, lump }: { l: QuoteLine; n: number | undefined; cu
   const costOvr = !!l.costOverride && !!l.unitCostSnap && l.costOverride !== l.unitCostSnap;
   const margin = total && total > 0 && cost !== null ? ((total - cost) / total) * 100 : null;
   // Stairs are one price for the customer (2026-10-28): in Customer view an included stair line keeps its quantity, never a price.
-  const stairPrice = customer && sectionOf(l) === "Stairs" && l.include;
+  const stairPrice = customer && (sectionOf(l) === "Stairs" || stairsOpt) && l.include;
   return (
     <tr className={l.include ? undefined : "off"}>
       <td className="idx">{n ?? ""}</td>
@@ -179,6 +180,8 @@ export function OptionSheet({
   for (const s of order) for (const l of sectionLinesInOrder(s, option.lines.filter((x) => sectionOf(x) === s))) if (isPriced(l) && l.include) nums.set(l.id, ++i);
   // Customer view: the Private section's total as one numbered row at the end of Other; not on a lump sum.
   const hidden = customer && !lump ? privateRollup(option.lines) : 0;
+  // A stairs option never shows a rate to the customer (2026-11-06): its Private section is "Other", rolled up with no amount.
+  const stairsOpt = optionScope(option) === "Stairs";
 
   return (
     <>
@@ -219,10 +222,10 @@ export function OptionSheet({
                   return [
                     <tr className={s === PRIVATE_SECTION ? "sect priv" : "sect"} key={`s-${s}`}>
                       <td colSpan={lump ? 3 : customer ? 4 : 7}>
-                        {s === PRIVATE_SECTION ? <span className="priv-tag">Private</span> : s}
-                        {s === PRIVATE_SECTION && <span className="sub"> · not itemised for the customer: one row, “{option.privateLabel ?? DEFAULT_PRIVATE_LABEL}”</span>}
+                        {s === PRIVATE_SECTION ? stairsOpt ? "Other" : <span className="priv-tag">Private</span> : s}
+                        {s === PRIVATE_SECTION && <span className="sub"> · not itemised for the customer: one row, “{option.privateLabel ?? DEFAULT_PRIVATE_LABEL}”{stairsOpt ? ", no price" : ""}</span>}
                       </td>
-                      <td className="r">{lump || (customer && s === "Stairs") ? "" : money(sum)}</td>
+                      <td className="r">{lump || (customer && (s === "Stairs" || stairsOpt)) ? "" : money(sum)}</td>
                     </tr>,
                     // Stairs grouped by the Stair Item's Category (2026-10-28), a small heading over each group.
                     ...(s === "Stairs"
@@ -234,9 +237,9 @@ export function OptionSheet({
                                 </tr>,
                               ]
                             : []),
-                          ...g.lines.map((l) => <Row key={l.id} l={l} n={nums.get(l.id)} customer={customer} lump={lump} />),
+                          ...g.lines.map((l) => <Row key={l.id} l={l} n={nums.get(l.id)} customer={customer} lump={lump} stairsOpt={stairsOpt} />),
                         ])
-                      : lines.map((l) => <Row key={l.id} l={l} n={nums.get(l.id)} customer={customer} lump={lump} />)),
+                      : lines.map((l) => <Row key={l.id} l={l} n={nums.get(l.id)} customer={customer} lump={lump} stairsOpt={stairsOpt} />)),
                     ...(rollup > 0
                       ? [
                           <tr key="private-rollup" className="rollup">
@@ -244,7 +247,7 @@ export function OptionSheet({
                             <td>{option.privateLabel ?? DEFAULT_PRIVATE_LABEL}</td>
                             <td className="r">-</td>
                             {!lump && <td className="r">-</td>}
-                            <td className="r">{lump ? "" : <b>{money(rollup)}</b>}</td>
+                            <td className="r">{lump || stairsOpt ? "" : <b>{money(rollup)}</b>}</td>
                           </tr>,
                         ]
                       : []),

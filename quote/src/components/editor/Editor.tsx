@@ -986,10 +986,18 @@ export default function Editor({
                         return [
                           <tr className={s === PRIVATE_SECTION ? "sect priv" : "sect"} key={`s-${s}`}>
                             <td colSpan={customer ? 4 : 6}>
-                              {s === PRIVATE_SECTION ? <span className="priv-tag">Private</span> : s}{" "}
+                              {/* On a stairs option the Private section is called Other (Albert, 2026-11-06), and the customer sees no price for it. */}
+                              {s === PRIVATE_SECTION ? stairsOption ? "Other" : <span className="priv-tag">Private</span> : s}{" "}
                               {s === PRIVATE_SECTION && !customer && (
-                                <span className="priv-as" title="These lines are never itemised for the customer. On the page, the PDF and the email they roll up into one row in Other with this name and their total.">
-                                  Not itemised for the customer. Shown as{" "}
+                                <span
+                                  className="priv-as"
+                                  title={
+                                    stairsOption
+                                      ? "These lines are never itemised for the customer and, like every stair line, never priced: they show as one row in Other with this name and no amount."
+                                      : "These lines are never itemised for the customer. On the page, the PDF and the email they roll up into one row in Other with this name and their total."
+                                  }
+                                >
+                                  {stairsOption ? "Not itemised or priced for the customer." : "Not itemised for the customer."} Shown as{" "}
                                   <TextCell
                                     value={option.privateLabel ?? ""}
                                     placeholder={DEFAULT_PRIVATE_LABEL}
@@ -1000,7 +1008,7 @@ export default function Editor({
                                 </span>
                               )}
                             </td>
-                            <td className="r">{money(sum)}</td>
+                            <td className="r">{customer && stairsOption ? "" : money(sum)}</td>
                           </tr>,
                           // A stairs option: the builder right under Stairs, then every category, empty or not, its add on its
                           // heading, so a picked item lands right there (2026-11-04). Private's add sits right under its header.
@@ -1040,8 +1048,8 @@ export default function Editor({
                                 <tr className="sect-add top" key="a-private">
                                   <td />
                                   <td colSpan={customer ? 4 : 6}>
-                                    <button className="addrow" onClick={() => setPicking({ label: s, section: s, stairsOnly: true })}>
-                                      + Add to Private
+                                    <button className="addrow" onClick={() => setPicking({ label: "Other", section: s, stairsOnly: true })}>
+                                      + Add to other
                                     </button>
                                   </td>
                                 </tr>,
@@ -1070,7 +1078,7 @@ export default function Editor({
                                   <td>{option.privateLabel ?? DEFAULT_PRIVATE_LABEL}</td>
                                   <td className="r">-</td>
                                   <td className="r">-</td>
-                                  <td className="r"><b>{money(rollup)}</b></td>
+                                  <td className="r">{stairsOption ? "" : <b>{money(rollup)}</b>}</td>
                                 </tr>,
                               ]
                             : []),
@@ -1272,6 +1280,7 @@ export default function Editor({
       {picking && option && (
         <Picker
           section={picking.section}
+          heading={picking.label}
           category={picking.category ?? null}
           stairsOnly={picking.stairsOnly === true}
           catalogue={catalogue}

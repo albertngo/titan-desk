@@ -91,6 +91,7 @@ export function addChoices(scope: "Flooring" | "Stairs", categories: (string | n
     { label: "Staircase", section: "Stairs" },
     ...groups.map((g) => ({ label: stairGroupLabel(g), section: "Stairs", category: g })),
     { label: "Typed line", section: "Stairs", typed: true as const },
-    ...(sections.includes("Private") ? [{ label: "Private", section: "Private", stairsOnly: true as const }] : []),
+    // Called Other on a stairs option (Albert, 2026-11-06); still the Private section, rolled up for the customer with no price.
+    ...(sections.includes("Private") ? [{ label: "Other", section: "Private", stairsOnly: true as const }] : []),
   ];
 }

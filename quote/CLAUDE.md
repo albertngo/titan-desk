@@ -1112,6 +1112,14 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   card about its own unsaved changes through `EditorSend` (a same-tab storage read can't see them), so Send is off
   until autosave or Save lands, and each autosave refreshes the card so it checks what Airtable holds. Never in
   Customer view.
+- **A stairs option never shows a rate, its Other row included (Albert, 2026-11-06: "any additional work PRIVATE
+  section should never show rates. It should be the same as the rule for the stairs items. Stairs never has itemized
+  rates, just quantities. Lets rename the section for the stairs quotes editing tab… make the section OTHER
+  instead").** On an option whose scope is Stairs, `copyOption()` treats every section like Stairs (quantities, no unit
+  price, amount or section total; add-ons keep their price) and the Private roll-up row has no amount; the quote
+  page's and the editor's Customer view do the same. In the editor (and the staff quote page) a stairs option's Private
+  section is labelled **Other** with **+ Add to other** (`addChoices()`); it is still Section `Private` in Airtable,
+  still rolled up as one row for the customer. Tested in `tests/send.test.ts` and `tests/stairGroups.test.ts`.
 
 ## Hard rules
 

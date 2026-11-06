@@ -21,6 +21,50 @@ export type Change = {
 
 export const CHANGES: Change[] = [
   {
+    date: "2026-11-06",
+    kind: "changed",
+    title: "Stairs options show no price on Other either",
+    details: [
+      "On a stairs option, the customer's Other row (Additional work, or whatever the option names it) now shows no amount and no section total, the same as every stair line. The option's price is unchanged.",
+      "In the editor, a stairs option's Private section is now called Other, with + Add to other. Its lines still go to the customer as that one row.",
+    ],
+  },
+  {
+    date: "2026-11-06",
+    kind: "new",
+    title: "Send from the editor",
+    details: ["The Send card now sits in the editor's sidebar, under Customer and terms, as well as on the quote page. Sending is off while the editor has unsaved changes and comes back once they save."],
+  },
+  {
+    date: "2026-11-06",
+    kind: "changed",
+    title: "The material first when it costs the deposit",
+    details: [
+      "When an option's material comes to 35% of its total or more, the automatic payment schedule now asks for the material first, worded \"Purchasing of the flooring material is required first\". With no HST on the quote, it is paid in cash.",
+    ],
+  },
+  {
+    date: "2026-11-06",
+    kind: "new",
+    title: "Waste worked out on material lines",
+    details: ["A material line shows its math under the quantity, for example 820 sf + 10% = 902 sf. Type the square feet and the waste; the rest is worked out. The preliminary's Material rows show it too."],
+  },
+  {
+    date: "2026-11-06",
+    kind: "changed",
+    title: "Every new line starts at 1",
+    details: ["Anything picked or typed into a quote now starts at quantity 1. The preliminary, the stair builder and the site sheets still put in their own amounts."],
+  },
+  {
+    date: "2026-11-06",
+    kind: "new",
+    title: "Sand steps: painted risers and stringers only",
+    details: [
+      "On an option with sanded steps, oak-skinned (glue and stain) stringers and any riser other than Paint Risers White are greyed out in the picker, and the other way round. A line that clashes anyway gets a red flag.",
+      "Sand steps show a note saying risers are painted white only and stringers are painted white or sanded and stained.",
+    ],
+  },
+  {
     date: "2026-11-05",
     kind: "changed",
     title: "A wrong payment schedule stops the send",
