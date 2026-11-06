@@ -72,7 +72,7 @@ describe("what a flooring sheet builds", () => {
     const p = floorPlan(sheet({ want: [{ floor: "vinylClick" }, { floor: "solid", nail: "nail" }] }), ALL);
     expect(p.works).toHaveLength(2);
     expect(p.works[0].rows.find((r) => r.choiceId === CLICK)?.amount).toBe(500);
-    expect(p.works[1].rows.find((r) => r.choiceId === id("Hardwood (Nail Down)"))?.amount).toBe(500);
+    expect(p.works[1].rows.find((r) => r.choiceId === id("Solid Hardwood T&G (Nail Down)"))?.amount).toBe(500);
     expect(p.works[1].rows.some((r) => r.choiceId === CLICK)).toBe(false);
   });
 
@@ -88,7 +88,9 @@ describe("what a flooring sheet builds", () => {
     expect(p.works).toHaveLength(1);
     const rows = p.works[0].rows;
     expect(rows.find((r) => r.choiceId === CLICK)?.amount).toBe(150);
-    expect(rows.find((r) => r.choiceId === id("Hardwood (Nail + Glue Assist)"))?.amount).toBe(300);
+    // Engineered ¾" takes the Engineered T&G choice (2026-11-06), never the solid one.
+    expect(rows.find((r) => r.choiceId === id("Engineered T&G (Nail + Glue Assist)"))?.amount).toBe(300);
+    expect(rows.some((r) => r.choiceId === id("Solid Hardwood T&G (Nail + Glue Assist)"))).toBe(false);
     expect(rows.find((r) => r.choiceId === ENG34)?.amount).toBe(300);
     expect(p.works[0].description).toBe("Vinyl click: Bedroom (150 sq ft) · Engineered ¾\": Living (300 sq ft)");
   });
@@ -127,7 +129,7 @@ describe("what a flooring sheet builds", () => {
 
   it("nailed wood with no method ticked is priced as nail down, and says so", () => {
     const p = floorPlan(sheet({ want: [{ floor: "solid" }, {}] }), ALL);
-    expect(p.works[0].rows.find((r) => r.choiceId === id("Hardwood (Nail Down)"))?.amount).toBe(500);
+    expect(p.works[0].rows.find((r) => r.choiceId === id("Solid Hardwood T&G (Nail Down)"))?.amount).toBe(500);
     expect(p.notes.some((n) => n.includes("priced as nail down"))).toBe(true);
   });
 

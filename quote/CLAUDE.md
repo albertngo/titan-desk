@@ -196,6 +196,20 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   `src/lib/quick/plan.ts`, tested in `tests/quick.test.ts`. A flat card row (a bin) goes in at its choice's
   Times, 1 unless set ("Large Disposal (Bin x 2)" is 2), and since 2026-11-04 a flat row picked in the editor
   starts at 1 too (`lineFromEntry()`; Albert: "it should already go as 1 as the quantity").
+- **The waterfall: a choice, then its options (Albert, 2026-11-06: "the selection of the common items have the OPTIONS
+  come up when chosen… Install T&G -> Full Gluedown -> Type of glue").** Quick Quote Choices → **Path** (text, parts split
+  on " > ", `splitPath()`): choices in one group sharing a Path's first part are one entry on the form (`topChoices()`),
+  and each later part is a row of chips under it (`waterfall()`); picking any chip moves the row to the first choice by
+  Sort under it, so a row is always one real, priced choice. Blank Path = the choice is its own entry, as before. After
+  the last part, a choice whose Rate Card row names a Material Group asks for it (**Type of glue** for a glue group,
+  `materialQuestion()`), starting on the row's Default Material; the browser sends `materialId` and the server prices
+  the line as the editor does: the row's labour + the glue, one line "work · glue", `materialId` on the line
+  (`pickMaterial()`; a glue outside the part's group is ignored). Before this, a glue-down preliminary priced the labour
+  only. The browser never gets a glue's cost. First family: **Solid Hardwood T&G** and **Engineered T&G** (same rates,
+  Albert: "we can be more explicit"), each Nail down / Nail + glue assist / Full gluedown / Full gluedown + nail; the
+  three hardwood rows were renamed that day and four Engineered rows and Solid Full gluedown + nail were added. The
+  Flooring Site Sheet's engineered ¾" now builds on the Engineered T&G choices. Another family is a Path typed in
+  Airtable, no code. Tested in `tests/quick.test.ts` and `tests/floorsheet.test.ts`.
 - **Stairs on the preliminary (Albert, 2026-10-18; presets 2026-10-20; Stair Item lines 2026-11-02).** A staircase
   is a row of the read-only Airtable table **Stair Profiles** (`PROFILE_TABLE`): a customer-facing name, a stair type
   (Main stairs / Townhome / Basement / Half staircase), a method (Sand & stain / Solid red oak caps / Vinyl treads /

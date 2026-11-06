@@ -12,7 +12,8 @@ import { DISPOSAL_NAME, FLOOR_NAME, NAILED, NO_MATERIAL, NOW_NAME, SUBFLOOR_NAME
  * - Two floors at most, set room by room. A room's New floor left blank gets every floor written in W.
  * - A room with both floors (ticked both, or blank with two floors written) is a choice: the quote gets two
  *   options, one with Floor 1 there and one with Floor 2. Without such a room it is one option holding both floors.
- * - W1 names the material and so the install; engineered ¾" and solid take Nail down / Nail + glue.
+ * - W1 names the material and so the install; engineered ¾" and solid take Nail down / Nail + glue, each on its own
+ *   T&G choice (Solid Hardwood T&G / Engineered T&G, 2026-11-06) with the glue's default type.
  * - W2 blank or Standard = the choice's standard product; Customer supplies = no material line; a SKU = that
  *   catalogue product, and a SKU not in the catalogue is left for staff, never swapped for the standard one.
  * - Remove and Disposal left blank mean the customer does it: no line.
@@ -48,8 +49,11 @@ const C = {
     click: { id: "recmwVhyrxhuyZUa1", label: "Laminate | Vinyl | Eng Click" },
     hbVinyl: { id: "recBE2cHFL0ngL9oQ", label: "Herringbone (Vinyl)" },
     hbEng: { id: "recELGNm4rIni3mpJ", label: "Herringbone (Eng)" },
-    nail: { id: "recDZUCKLfDZh0SBF", label: "Hardwood (Nail Down)" },
-    nailGlue: { id: "rec8guBtkBFdvCjNp", label: "Hardwood (Nail + Glue Assist)" },
+    // Solid and engineered ¾" each have their own T&G choices since 2026-11-06 (Albert: "same rates… but we can be more explicit").
+    nail: { id: "recDZUCKLfDZh0SBF", label: "Solid Hardwood T&G (Nail Down)" },
+    nailGlue: { id: "rec8guBtkBFdvCjNp", label: "Solid Hardwood T&G (Nail + Glue Assist)" },
+    engNail: { id: "reczBjuulrJInwGsB", label: "Engineered T&G (Nail Down)" },
+    engNailGlue: { id: "recOXc7NMRkU6oA96", label: "Engineered T&G (Nail + Glue Assist)" },
     tile: { id: "recLvjGl6OlmK2eub", label: "Tiles" },
     sand: { id: "recGfOEAkweDrFmbG", label: "Sand and Stain Existing Hardwood" },
     buff: { id: "recQAGXShfgRXLETG", label: "Refinish (Buff And Polish Only)" },
@@ -161,7 +165,8 @@ export function floorPlan(sheet: FloorSheet, choices: Pick<QuickChoice, "id" | "
       let install: Ref;
       if (NAILED.includes(kind)) {
         if (!w.nail) note(`Floor ${f} (${FLOOR_NAME[kind]}) has no Nail down / Nail + glue ticked, so it's priced as nail down.`);
-        install = w.nail === "nailGlue" ? C.install.nailGlue : C.install.nail;
+        const eng = kind === "eng34";
+        install = w.nail === "nailGlue" ? (eng ? C.install.engNailGlue : C.install.nailGlue) : eng ? C.install.engNail : C.install.nail;
       } else {
         install = INSTALL_OF[kind as keyof typeof INSTALL_OF];
       }
