@@ -22,6 +22,12 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-06",
+    kind: "changed",
+    title: "Nail + glue assist is one line",
+    details: ["Solid and Engineered T&G with Nail + glue assist now go on the quote as one line with one square footage, at the same price as before, with the glue picked on it. Quotes made before keep their two lines."],
+  },
+  {
+    date: "2026-11-06",
     kind: "new",
     title: "Add T&G in the editor the same way: wood, method, glue",
     details: [
