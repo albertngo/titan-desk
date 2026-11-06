@@ -210,8 +210,9 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   three hardwood rows were renamed that day and four Engineered rows and Solid Full gluedown + nail were added. The
   Flooring Site Sheet's engineered ¾" now builds on the Engineered T&G choices. Another family is a Path typed in
   Airtable, no code. **Drawn as secondary categories** (same day: "make the waterfall look like secondary categories"):
-  the first pick keeps the big chips; each follow-up row is small outlined pills, indented one step per level on a thin
-  accent rule (`.qw-fall`, `.qw-fall-1`…`-3` in `globals.css`), the picked one tinted. Tested in `tests/quick.test.ts`
+  the first pick keeps the big chips; each follow-up row is small text options with no outline (then "even less"),
+  indented one step per level on a thin grey rule (`.qw-fall`, `.qw-fall-1`…`-3` in `globals.css`), the picked one
+  tinted. Tested in `tests/quick.test.ts`
   and `tests/floorsheet.test.ts`.
 - **Stairs on the preliminary (Albert, 2026-10-18; presets 2026-10-20; Stair Item lines 2026-11-02).** A staircase
   is a row of the read-only Airtable table **Stair Profiles** (`PROFILE_TABLE`): a customer-facing name, a stair type
