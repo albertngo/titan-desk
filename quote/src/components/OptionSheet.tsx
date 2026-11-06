@@ -18,7 +18,7 @@ import {
 } from "@/lib/calc";
 import { money, pct, rate } from "@/lib/format";
 import type { QuoteLine, QuoteOption } from "@/lib/quotes/types";
-import { optionScope } from "@/lib/quotes/scope";
+import { optionScope, stairsOptionLines } from "@/lib/quotes/scope";
 
 const LABEL: Record<keyof OptionTotals, string> = {
   preDiscount: "Pre-discount",
@@ -172,11 +172,10 @@ export function OptionSheet({
   /** The version is a lump sum: in Customer view, no unit prices, line or section amounts (2026-10-22). */
   lumpSum?: boolean;
 }) {
-  // On a stairs option there is no Private section (Albert, 2026-11-06: "For Stairs; we do not want a 'PRIVATE' section.
-  // Please keep it as an OTHER section and all the same rules as the normal stair items"): its lines are Other lines,
-  // each shown with its quantity and, for the customer, no rate. Display only; Airtable keeps them in Private.
+  // A stairs option has one section, Stairs (Albert, 2026-11-06: "simply eliminate the PRIVATE logic in stairs
+  // altogether"): lines saved in Private or Other show under its Other heading, as stair lines. Display only.
   const stairsOpt = optionScope(given) === "Stairs";
-  const option = stairsOpt ? { ...given, lines: given.lines.map((l) => (sectionOf(l) === PRIVATE_SECTION ? { ...l, section: "Other" } : l)) } : given;
+  const option = stairsOpt ? { ...given, lines: stairsOptionLines(given.lines) } : given;
   const lump = customer && lumpSum === true;
   const order = sectionOrder(option.lines, customer, lump);
   const exclusions = option.lines.filter((l) => l.section === "Exclusions" && l.description);

@@ -30,15 +30,13 @@ describe("the Stairs section grouped by Stair Item category (2026-10-28)", () =>
 
 describe("what an option can add (2026-10-30)", () => {
   const sections = ["Install", "Stairs", "Removal", "Disposal", "Prep", "Materials", "Delivery", "Other", "Private"];
-  it("a stairs option: the builder, the Stair Item categories in work order, a typed line, and Other, never Private (2026-11-06)", () => {
+  it("a stairs option: the builder, the Stair Item categories in work order and a typed line; no Private or Other section (2026-11-06)", () => {
     const c = addChoices("Stairs", ["Railing", "Step", null, "Riser", "step", "Weird"], sections);
-    expect(c.map((x) => x.label)).toEqual(["Staircase", "Steps", "Risers", "Railing", "Weird", "Typed line", "Other"]);
+    expect(c.map((x) => x.label)).toEqual(["Staircase", "Steps", "Risers", "Railing", "Weird", "Typed line"]);
     expect(c.find((x) => x.label === "Steps")).toEqual({ label: "Steps", section: "Stairs", category: "step" });
     expect(c.find((x) => x.label === "Typed line")?.typed).toBe(true);
-    expect(c.find((x) => x.label === "Other")).toEqual({ label: "Other", section: "Other", stairsOnly: true });
-    expect(c.some((x) => x.section === "Private")).toBe(false);
-    // Customer view leaving Private out changes nothing on a stairs option.
-    expect(addChoices("Stairs", ["Step"], sections.filter((s) => s !== "Private")).map((x) => x.label)).toEqual(["Staircase", "Steps", "Typed line", "Other"]);
+    expect(c.every((x) => x.section === "Stairs")).toBe(true);
+    expect(addChoices("Stairs", ["Step"], sections.filter((s) => s !== "Private")).map((x) => x.label)).toEqual(["Staircase", "Steps", "Typed line"]);
   });
   it("a flooring option: every work section but Stairs", () => {
     expect(addChoices("Flooring", ["Step"], sections).map((x) => x.section)).toEqual(["Install", "Removal", "Disposal", "Prep", "Materials", "Delivery", "Other", "Private"]);

@@ -55,7 +55,7 @@ import { ghlContactUrl } from "@/lib/ghl/ids";
 import { fixAddressLink } from "@/lib/link/linkJob";
 import { money, pct, rate } from "@/lib/format";
 import type { RateCard } from "@/lib/quotes/types";
-import { optionScope, PARTS, partValue, scopeGroups } from "@/lib/quotes/scope";
+import { STAIRS_FOLDED, optionScope, PARTS, partValue, scopeGroups } from "@/lib/quotes/scope";
 import { Picker } from "./Picker";
 import { ScheduleEditor } from "./ScheduleEditor";
 import { SwapOption } from "./SwapOption";
@@ -417,20 +417,19 @@ export default function Editor({
   const payLine = option && t ? stageAmounts(schedule, option.lines, quote.discountRate, option.showHst ?? quote.showHst, t.total).filter(shownStage).map((x) => x.pct).join(" / ") : "35 / 35 / 30";
   const termsLine = [hstOn ? "HST charged" : "HST off", `payment ${payLine}`].join(" · ");
 
-  // A stairs option always shows Stairs and Private, empty or not, each category with its own add (2026-11-04).
+  // A stairs option always shows Stairs, empty or not, each category with its own add (2026-11-04).
   const stairsOption = !!option && optionScope(option) === "Stairs";
-  // Customer view leaves the Private section out and shows its total as one row in Other (2026-10-22). Not on a stairs
-  // option, which has no Private section (2026-11-06): it is Other there, and its lines are listed like stair lines.
+  // Customer view leaves the Private section out and shows its total as one row in Other (2026-10-22). Never on a stairs option.
   const hidden = option && customer && !stairsOption ? privateRollup(option.lines) : 0;
-  // No Private logic on a stairs option (Albert, 2026-11-06: "PRIVATE logic doesnt exist in the stairs options, but OTHER
-  // does"): it adds to Other, and a Private line saved on one before is shown, and counted, as an Other line.
-  const secOf = (l: EditorLine) => (stairsOption && sectionOf(l) === PRIVATE_SECTION ? "Other" : sectionOf(l));
+  // A stairs option has no Private or Other section (Albert, 2026-11-06: "simply eliminate the PRIVATE logic in stairs
+  // altogether… just a header separation"): Other is the heading inside Stairs, and a line saved in either before shows there.
+  const secOf = (l: EditorLine) => (stairsOption && STAIRS_FOLDED.includes(sectionOf(l)) ? "Stairs" : sectionOf(l));
   const stairCats = card.stairs.map((x) => x.category);
   const sectionsShown: string[] = option
     ? WORK_SECTIONS.filter((s) =>
-        s === PRIVATE_SECTION && (customer || stairsOption)
+        s === PRIVATE_SECTION && customer
           ? false
-          : option.lines.some((l) => secOf(l) === s) || (s === "Other" && hidden > 0) || (stairsOption && (s === "Stairs" || s === "Other")),
+          : option.lines.some((l) => secOf(l) === s) || (s === "Other" && hidden > 0) || (stairsOption && s === "Stairs"),
       )
     : [];
   if (option?.lines.some((l) => sectionOf(l) === "Unsorted")) sectionsShown.push("Unsorted");
@@ -1039,21 +1038,9 @@ export default function Editor({
                                   ...g.lines.map(row),
                                 ]),
                               ]
-                            : stairsOption && s === "Other"
-                            ? [
-                                <tr className="sect-add top" key="a-other">
-                                  <td />
-                                  <td colSpan={customer ? 4 : 6}>
-                                    <button className="addrow" onClick={() => setPicking({ label: "Other", section: "Other", stairsOnly: true })}>
-                                      + Add to other
-                                    </button>
-                                  </td>
-                                </tr>,
-                                ...lines.map(row),
-                              ]
                             : []),
                           // Stairs grouped by the Stair Item's Category (2026-10-28), a small heading over each group.
-                          ...(stairsOption && (s === "Stairs" || s === "Other")
+                          ...(stairsOption && s === "Stairs"
                             ? []
                             : s === "Stairs"
                             ? stairGroups(lines).flatMap((g) => [

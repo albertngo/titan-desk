@@ -2,7 +2,7 @@ import { acceptedLabel, DISCOUNTS_SECTION, isAcceptedLine, isDiscountLine } from
 import { DEFAULT_PRIVATE_LABEL, optionHst, PRIVATE_SECTION, SECTIONS, chargesHst, isPriced, lineTotal, optionTotals, priceUsed, privateRollup, round2, sectionOf, stageAmounts, type LineInput } from "@/lib/calc";
 import type { CopyChange } from "@/lib/change/diff";
 import { defaultSchedule, payWords, sameSchedule, scheduleFor, type PayHow, type PaymentSchedule } from "@/lib/pricing/schedule";
-import { optionScope } from "@/lib/quotes/scope";
+import { optionScope, stairsOptionLines } from "@/lib/quotes/scope";
 import type { Part, Quote, QuoteLine, QuoteOption, Scope } from "@/lib/quotes/types";
 import { copyKind } from "./summary";
 
@@ -320,12 +320,12 @@ export function stagesOf(o: CopyOption): CopyStage[] {
 function copyOption(given: QuoteOption, discountRate: number, showHst: boolean, lumpSum = false, ranged = false, schedule: PaymentSchedule = defaultSchedule()): CopyOption {
   let n = 0;
   // A stairs option never shows a rate (Albert, 2026-11-06: "any additional work PRIVATE section should never show
-  // rates. It should be the same as the rule for the stairs items"), and has no Private section (same day: "keep it as
-  // an OTHER section and all the same rules as the normal stair items. Which is Description always shown with quantity,
-  // but no rates"): its Private lines are Other lines, listed like any other, and every section goes like Stairs,
-  // quantities only. Add-ons still say their price. The money is unchanged: a line's section never enters a total.
+  // rates. It should be the same as the rule for the stairs items"), and has no Private or Other section (same day:
+  // "simply eliminate the PRIVATE logic in stairs altogether"): `stairsOptionLines()` reads those lines as Stairs lines,
+  // so they go as stair lines do, words and quantity, no rate. Any other section on it goes the same way. Add-ons still
+  // say their price. The money is unchanged: a line's section never enters a total.
   const stairsOption = optionScope(given) === "Stairs";
-  const o: QuoteOption = stairsOption ? { ...given, lines: given.lines.map((l) => (sectionOf(l) === PRIVATE_SECTION ? { ...l, section: "Other" } : l)) } : given;
+  const o: QuoteOption = stairsOption ? { ...given, lines: stairsOptionLines(given.lines) } : given;
   const sections: CopySection[] = [];
   for (const name of sectionNames(o.lines)) {
     const lines: (CopyItem | CopyText)[] = [];

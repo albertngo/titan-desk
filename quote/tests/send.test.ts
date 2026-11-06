@@ -535,24 +535,25 @@ describe("the Private section (2026-10-22)", () => {
     expect(o.totals.subtotal).toBe(700);
   });
 
-  it("on a stairs option lists each Private line under Other with its quantity and no rate, like a stair line (2026-11-06)", () => {
+  it("on a stairs option has no Private or Other section: those lines go as stair lines, quantity and no rate (2026-11-06)", () => {
     const stair = line({ section: "Stairs", lineType: "Other", sourceKind: "stair", description: "Keep Existing Steps (Sand + Stain)", qty: 13, uom: "steps", unitPriceSnap: 100 });
     const haul = priv({ description: "Haul away old carpet", qty: 2, uom: "trips", unitPrice: 50, costOverride: 20 });
-    const c = customerCopy(quote({ discountRate: 0, options: [option("Stairs", [stair, haul, lines[1]], 0, true, { scope: "Stairs" })] }), AT);
+    const other = line({ section: "Other", lineType: "Other", sourceKind: "manual", description: "Move the piano", qty: 1, uom: "flat", unitPrice: 80, unitPriceSnap: null });
+    const c = customerCopy(quote({ discountRate: 0, options: [option("Stairs", [stair, haul, other, lines[1]], 0, true, { scope: "Stairs" })] }), AT);
     const o = c.options[0];
-    expect(o.sections.map((s) => s.name)).toEqual(["Stairs", "Other"]);
-    const other = o.sections.find((s) => s.name === "Other")!;
-    expect(other.total).toBeNull();
-    expect(other.lines).toEqual([
-      expect.objectContaining({ description: "Haul away old carpet", qty: 2, uom: "trips", unitPrice: null, amount: null }),
-      expect.objectContaining({ description: "Rep referral fee", qty: 1, unitPrice: null, amount: null }),
+    expect(o.sections.map((s) => s.name)).toEqual(["Stairs"]);
+    const st = o.sections[0];
+    expect(st.total).toBeNull();
+    expect(st.lines.map((l) => (l.kind === "item" ? [l.description, l.qty, l.unitPrice, l.amount] : null))).toEqual([
+      ["Keep Existing Steps (Sand + Stain)", 13, null, null],
+      ["Haul away old carpet", 2, null, null],
+      ["Move the piano", 1, null, null],
+      ["Rep referral fee", 1, null, null],
     ]);
-    // No roll-up row on a stairs option.
     expect(serializeCopy(c)).not.toContain("Additional work");
-    expect(o.sections.find((s) => s.name === "Stairs")).toMatchObject({ total: null, lines: [expect.objectContaining({ qty: 13, unitPrice: null, amount: null })] });
-    // The price is still the whole option's: 1,300 + 100 + 500.
-    expect(o.totals.subtotal).toBe(1900);
-    // A flooring option still rolls them up, unchanged.
+    // The price is still the whole option's: 1,300 + 100 + 80 + 500.
+    expect(o.totals.subtotal).toBe(1980);
+    // A flooring option still rolls Private up, unchanged.
     expect(customerCopy(quote({ discountRate: 0, options: [option("A", lines, 0, true)] }), AT).options[0].sections.find((s) => s.name === "Other")!.lines).toEqual([
       expect.objectContaining({ description: "Additional work", amount: 500 }),
     ]);
