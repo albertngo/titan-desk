@@ -535,16 +535,27 @@ describe("the Private section (2026-10-22)", () => {
     expect(o.totals.subtotal).toBe(700);
   });
 
-  it("on a stairs option shows the row with no amount and the section with no total, like every stair line (2026-11-06)", () => {
+  it("on a stairs option lists each Private line under Other with its quantity and no rate, like a stair line (2026-11-06)", () => {
     const stair = line({ section: "Stairs", lineType: "Other", sourceKind: "stair", description: "Keep Existing Steps (Sand + Stain)", qty: 13, uom: "steps", unitPriceSnap: 100 });
-    const c = customerCopy(quote({ discountRate: 0, options: [option("Stairs", [stair, lines[1]], 0, true, { scope: "Stairs" })] }), AT);
+    const haul = priv({ description: "Haul away old carpet", qty: 2, uom: "trips", unitPrice: 50, costOverride: 20 });
+    const c = customerCopy(quote({ discountRate: 0, options: [option("Stairs", [stair, haul, lines[1]], 0, true, { scope: "Stairs" })] }), AT);
     const o = c.options[0];
+    expect(o.sections.map((s) => s.name)).toEqual(["Stairs", "Other"]);
     const other = o.sections.find((s) => s.name === "Other")!;
-    expect(other.lines).toEqual([expect.objectContaining({ description: "Additional work", amount: null, unitPrice: null })]);
     expect(other.total).toBeNull();
+    expect(other.lines).toEqual([
+      expect.objectContaining({ description: "Haul away old carpet", qty: 2, uom: "trips", unitPrice: null, amount: null }),
+      expect.objectContaining({ description: "Rep referral fee", qty: 1, unitPrice: null, amount: null }),
+    ]);
+    // No roll-up row on a stairs option.
+    expect(serializeCopy(c)).not.toContain("Additional work");
     expect(o.sections.find((s) => s.name === "Stairs")).toMatchObject({ total: null, lines: [expect.objectContaining({ qty: 13, unitPrice: null, amount: null })] });
-    // The price is still the whole option's.
-    expect(o.totals.subtotal).toBe(1800);
+    // The price is still the whole option's: 1,300 + 100 + 500.
+    expect(o.totals.subtotal).toBe(1900);
+    // A flooring option still rolls them up, unchanged.
+    expect(customerCopy(quote({ discountRate: 0, options: [option("A", lines, 0, true)] }), AT).options[0].sections.find((s) => s.name === "Other")!.lines).toEqual([
+      expect.objectContaining({ description: "Additional work", amount: 500 }),
+    ]);
   });
 
   it("defaults the row's name, and never lets a private line's own words or cost reach the customer", () => {

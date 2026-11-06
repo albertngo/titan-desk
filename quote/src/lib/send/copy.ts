@@ -317,12 +317,15 @@ export function stagesOf(o: CopyOption): CopyStage[] {
   ];
 }
 
-function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lumpSum = false, ranged = false, schedule: PaymentSchedule = defaultSchedule()): CopyOption {
+function copyOption(given: QuoteOption, discountRate: number, showHst: boolean, lumpSum = false, ranged = false, schedule: PaymentSchedule = defaultSchedule()): CopyOption {
   let n = 0;
   // A stairs option never shows a rate (Albert, 2026-11-06: "any additional work PRIVATE section should never show
-  // rates. It should be the same as the rule for the stairs items"): every section on it goes like Stairs, quantities
-  // only, and the Private roll-up row has no amount. Add-ons still say their price.
-  const stairsOption = optionScope(o) === "Stairs";
+  // rates. It should be the same as the rule for the stairs items"), and has no Private section (same day: "keep it as
+  // an OTHER section and all the same rules as the normal stair items. Which is Description always shown with quantity,
+  // but no rates"): its Private lines are Other lines, listed like any other, and every section goes like Stairs,
+  // quantities only. Add-ons still say their price. The money is unchanged: a line's section never enters a total.
+  const stairsOption = optionScope(given) === "Stairs";
+  const o: QuoteOption = stairsOption ? { ...given, lines: given.lines.map((l) => (sectionOf(l) === PRIVATE_SECTION ? { ...l, section: "Other" } : l)) } : given;
   const sections: CopySection[] = [];
   for (const name of sectionNames(o.lines)) {
     const lines: (CopyItem | CopyText)[] = [];
@@ -391,10 +394,10 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
   if (hidden > 0) {
     let other = sections.find((s) => s.name === "Other");
     if (!other) {
-      other = { name: "Other", total: lumpSum || stairsOption ? null : 0, lines: [] };
+      other = { name: "Other", total: lumpSum ? null : 0, lines: [] };
       sections.push(other);
     }
-    other.lines.push({ kind: "item", n: ++n, description: clean(o.privateLabel) ?? DEFAULT_PRIVATE_LABEL, note: null, qty: null, uom: null, wastePct: null, unitPrice: null, minimum: false, amount: lumpSum || stairsOption ? null : hidden, optional: false });
+    other.lines.push({ kind: "item", n: ++n, description: clean(o.privateLabel) ?? DEFAULT_PRIVATE_LABEL, note: null, qty: null, uom: null, wastePct: null, unitPrice: null, minimum: false, amount: lumpSum ? null : hidden, optional: false });
     if (other.total !== null) other.total = round2(other.total + hidden);
   }
   const t = optionTotals(o.lines, discountRate, showHst);

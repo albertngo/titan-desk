@@ -151,7 +151,7 @@ function Row({ l, n, customer, lump, stairsOpt = false }: { l: QuoteLine; n: num
 }
 
 export function OptionSheet({
-  option,
+  option: given,
   t,
   discountRate,
   showHst,
@@ -172,6 +172,11 @@ export function OptionSheet({
   /** The version is a lump sum: in Customer view, no unit prices, line or section amounts (2026-10-22). */
   lumpSum?: boolean;
 }) {
+  // On a stairs option there is no Private section (Albert, 2026-11-06: "For Stairs; we do not want a 'PRIVATE' section.
+  // Please keep it as an OTHER section and all the same rules as the normal stair items"): its lines are Other lines,
+  // each shown with its quantity and, for the customer, no rate. Display only; Airtable keeps them in Private.
+  const stairsOpt = optionScope(given) === "Stairs";
+  const option = stairsOpt ? { ...given, lines: given.lines.map((l) => (sectionOf(l) === PRIVATE_SECTION ? { ...l, section: "Other" } : l)) } : given;
   const lump = customer && lumpSum === true;
   const order = sectionOrder(option.lines, customer, lump);
   const exclusions = option.lines.filter((l) => l.section === "Exclusions" && l.description);
@@ -180,8 +185,6 @@ export function OptionSheet({
   for (const s of order) for (const l of sectionLinesInOrder(s, option.lines.filter((x) => sectionOf(x) === s))) if (isPriced(l) && l.include) nums.set(l.id, ++i);
   // Customer view: the Private section's total as one numbered row at the end of Other; not on a lump sum.
   const hidden = customer && !lump ? privateRollup(option.lines) : 0;
-  // A stairs option never shows a rate to the customer (2026-11-06): its Private section is "Other", rolled up with no amount.
-  const stairsOpt = optionScope(option) === "Stairs";
 
   return (
     <>
@@ -222,8 +225,8 @@ export function OptionSheet({
                   return [
                     <tr className={s === PRIVATE_SECTION ? "sect priv" : "sect"} key={`s-${s}`}>
                       <td colSpan={lump ? 3 : customer ? 4 : 7}>
-                        {s === PRIVATE_SECTION ? stairsOpt ? "Other" : <span className="priv-tag">Private</span> : s}
-                        {s === PRIVATE_SECTION && <span className="sub"> · not itemised for the customer: one row, “{option.privateLabel ?? DEFAULT_PRIVATE_LABEL}”{stairsOpt ? ", no price" : ""}</span>}
+                        {s === PRIVATE_SECTION ? <span className="priv-tag">Private</span> : s}
+                        {s === PRIVATE_SECTION && <span className="sub"> · not itemised for the customer: one row, “{option.privateLabel ?? DEFAULT_PRIVATE_LABEL}”</span>}
                       </td>
                       <td className="r">{lump || (customer && (s === "Stairs" || stairsOpt)) ? "" : money(sum)}</td>
                     </tr>,
@@ -247,7 +250,7 @@ export function OptionSheet({
                             <td>{option.privateLabel ?? DEFAULT_PRIVATE_LABEL}</td>
                             <td className="r">-</td>
                             {!lump && <td className="r">-</td>}
-                            <td className="r">{lump || stairsOpt ? "" : <b>{money(rollup)}</b>}</td>
+                            <td className="r">{lump ? "" : <b>{money(rollup)}</b>}</td>
                           </tr>,
                         ]
                       : []),

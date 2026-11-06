@@ -417,14 +417,15 @@ export default function Editor({
   const payLine = option && t ? stageAmounts(schedule, option.lines, quote.discountRate, option.showHst ?? quote.showHst, t.total).filter(shownStage).map((x) => x.pct).join(" / ") : "35 / 35 / 30";
   const termsLine = [hstOn ? "HST charged" : "HST off", `payment ${payLine}`].join(" · ");
 
-  // Customer view leaves the Private section out and shows its total as one row in Other (2026-10-22).
-  const hidden = option && customer ? privateRollup(option.lines) : 0;
   // A stairs option always shows Stairs and Private, empty or not, each category with its own add (2026-11-04).
   const stairsOption = !!option && optionScope(option) === "Stairs";
+  // Customer view leaves the Private section out and shows its total as one row in Other (2026-10-22). Not on a stairs
+  // option, which has no Private section (2026-11-06): it is Other there, and its lines are listed like stair lines.
+  const hidden = option && customer && !stairsOption ? privateRollup(option.lines) : 0;
   const stairCats = card.stairs.map((x) => x.category);
   const sectionsShown: string[] = option
     ? WORK_SECTIONS.filter((s) =>
-        customer && s === PRIVATE_SECTION
+        customer && s === PRIVATE_SECTION && !stairsOption
           ? false
           : option.lines.some((l) => sectionOf(l) === s) || (s === "Other" && hidden > 0) || (stairsOption && (s === "Stairs" || s === PRIVATE_SECTION)),
       )
@@ -984,20 +985,14 @@ export default function Editor({
                         const rollup = s === "Other" && hidden > 0 ? hidden : 0;
                         const sum = lines.reduce((a, l) => a + (lineTotal(l) ?? 0), 0) + rollup;
                         return [
-                          <tr className={s === PRIVATE_SECTION ? "sect priv" : "sect"} key={`s-${s}`}>
+                          <tr className={s === PRIVATE_SECTION && !stairsOption ? "sect priv" : "sect"} key={`s-${s}`}>
                             <td colSpan={customer ? 4 : 6}>
-                              {/* On a stairs option the Private section is called Other (Albert, 2026-11-06), and the customer sees no price for it. */}
+                              {/* A stairs option has no Private section (Albert, 2026-11-06: "keep it as an OTHER section and all the
+                                  same rules as the normal stair items"): it reads Other, and the customer sees each line and its quantity, no rate. */}
                               {s === PRIVATE_SECTION ? stairsOption ? "Other" : <span className="priv-tag">Private</span> : s}{" "}
-                              {s === PRIVATE_SECTION && !customer && (
-                                <span
-                                  className="priv-as"
-                                  title={
-                                    stairsOption
-                                      ? "These lines are never itemised for the customer and, like every stair line, never priced: they show as one row in Other with this name and no amount."
-                                      : "These lines are never itemised for the customer. On the page, the PDF and the email they roll up into one row in Other with this name and their total."
-                                  }
-                                >
-                                  {stairsOption ? "Not itemised or priced for the customer." : "Not itemised for the customer."} Shown as{" "}
+                              {s === PRIVATE_SECTION && !customer && !stairsOption && (
+                                <span className="priv-as" title="These lines are never itemised for the customer. On the page, the PDF and the email they roll up into one row in Other with this name and their total.">
+                                  Not itemised for the customer. Shown as{" "}
                                   <TextCell
                                     value={option.privateLabel ?? ""}
                                     placeholder={DEFAULT_PRIVATE_LABEL}
@@ -1078,7 +1073,7 @@ export default function Editor({
                                   <td>{option.privateLabel ?? DEFAULT_PRIVATE_LABEL}</td>
                                   <td className="r">-</td>
                                   <td className="r">-</td>
-                                  <td className="r">{stairsOption ? "" : <b>{money(rollup)}</b>}</td>
+                                  <td className="r"><b>{money(rollup)}</b></td>
                                 </tr>,
                               ]
                             : []),
