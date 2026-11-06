@@ -535,6 +535,30 @@ describe("the Private section (2026-10-22)", () => {
     expect(o.totals.subtotal).toBe(700);
   });
 
+  it("on a stairs option has no Private or Other section: those lines go as stair lines, quantity and no rate (2026-11-06)", () => {
+    const stair = line({ section: "Stairs", lineType: "Other", sourceKind: "stair", description: "Keep Existing Steps (Sand + Stain)", qty: 13, uom: "steps", unitPriceSnap: 100 });
+    const haul = priv({ description: "Haul away old carpet", qty: 2, uom: "trips", unitPrice: 50, costOverride: 20 });
+    const other = line({ section: "Other", lineType: "Other", sourceKind: "manual", description: "Move the piano", qty: 1, uom: "flat", unitPrice: 80, unitPriceSnap: null });
+    const c = customerCopy(quote({ discountRate: 0, options: [option("Stairs", [stair, haul, other, lines[1]], 0, true, { scope: "Stairs" })] }), AT);
+    const o = c.options[0];
+    expect(o.sections.map((s) => s.name)).toEqual(["Stairs"]);
+    const st = o.sections[0];
+    expect(st.total).toBeNull();
+    expect(st.lines.map((l) => (l.kind === "item" ? [l.description, l.qty, l.unitPrice, l.amount] : null))).toEqual([
+      ["Keep Existing Steps (Sand + Stain)", 13, null, null],
+      ["Haul away old carpet", 2, null, null],
+      ["Move the piano", 1, null, null],
+      ["Rep referral fee", 1, null, null],
+    ]);
+    expect(serializeCopy(c)).not.toContain("Additional work");
+    // The price is still the whole option's: 1,300 + 100 + 80 + 500.
+    expect(o.totals.subtotal).toBe(1980);
+    // A flooring option still rolls Private up, unchanged.
+    expect(customerCopy(quote({ discountRate: 0, options: [option("A", lines, 0, true)] }), AT).options[0].sections.find((s) => s.name === "Other")!.lines).toEqual([
+      expect.objectContaining({ description: "Additional work", amount: 500 }),
+    ]);
+  });
+
   it("defaults the row's name, and never lets a private line's own words or cost reach the customer", () => {
     const c = customerCopy(quote({ options: [option("A", lines, 0, true)] }), AT);
     const text = serializeCopy(c);

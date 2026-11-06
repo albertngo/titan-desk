@@ -18,6 +18,7 @@ import {
 } from "@/lib/calc";
 import { money, pct, rate } from "@/lib/format";
 import type { QuoteLine, QuoteOption } from "@/lib/quotes/types";
+import { optionScope, stairsOptionLines } from "@/lib/quotes/scope";
 
 const LABEL: Record<keyof OptionTotals, string> = {
   preDiscount: "Pre-discount",
@@ -88,7 +89,7 @@ function Parity({ option, t }: { option: QuoteOption; t: OptionTotals }) {
 }
 
 /** `lump`: Customer view on a lump-sum quote (2026-10-22): no unit price, no line total. */
-function Row({ l, n, customer, lump }: { l: QuoteLine; n: number | undefined; customer: boolean; lump: boolean }) {
+function Row({ l, n, customer, lump, stairsOpt = false }: { l: QuoteLine; n: number | undefined; customer: boolean; lump: boolean; /** A stairs option (2026-11-06): no line is priced for the customer. */ stairsOpt?: boolean }) {
   if (!isPriced(l)) {
     return (
       <tr>
@@ -107,7 +108,7 @@ function Row({ l, n, customer, lump }: { l: QuoteLine; n: number | undefined; cu
   const costOvr = !!l.costOverride && !!l.unitCostSnap && l.costOverride !== l.unitCostSnap;
   const margin = total && total > 0 && cost !== null ? ((total - cost) / total) * 100 : null;
   // Stairs are one price for the customer (2026-10-28): in Customer view an included stair line keeps its quantity, never a price.
-  const stairPrice = customer && sectionOf(l) === "Stairs" && l.include;
+  const stairPrice = customer && (sectionOf(l) === "Stairs" || stairsOpt) && l.include;
   return (
     <tr className={l.include ? undefined : "off"}>
       <td className="idx">{n ?? ""}</td>
@@ -150,7 +151,7 @@ function Row({ l, n, customer, lump }: { l: QuoteLine; n: number | undefined; cu
 }
 
 export function OptionSheet({
-  option,
+  option: given,
   t,
   discountRate,
   showHst,
@@ -171,6 +172,10 @@ export function OptionSheet({
   /** The version is a lump sum: in Customer view, no unit prices, line or section amounts (2026-10-22). */
   lumpSum?: boolean;
 }) {
+  // A stairs option has one section, Stairs (Albert, 2026-11-06: "simply eliminate the PRIVATE logic in stairs
+  // altogether"): lines saved in Private or Other show under its Other heading, as stair lines. Display only.
+  const stairsOpt = optionScope(given) === "Stairs";
+  const option = stairsOpt ? { ...given, lines: stairsOptionLines(given.lines) } : given;
   const lump = customer && lumpSum === true;
   const order = sectionOrder(option.lines, customer, lump);
   const exclusions = option.lines.filter((l) => l.section === "Exclusions" && l.description);
@@ -222,7 +227,7 @@ export function OptionSheet({
                         {s === PRIVATE_SECTION ? <span className="priv-tag">Private</span> : s}
                         {s === PRIVATE_SECTION && <span className="sub"> · not itemised for the customer: one row, “{option.privateLabel ?? DEFAULT_PRIVATE_LABEL}”</span>}
                       </td>
-                      <td className="r">{lump || (customer && s === "Stairs") ? "" : money(sum)}</td>
+                      <td className="r">{lump || (customer && (s === "Stairs" || stairsOpt)) ? "" : money(sum)}</td>
                     </tr>,
                     // Stairs grouped by the Stair Item's Category (2026-10-28), a small heading over each group.
                     ...(s === "Stairs"
@@ -234,9 +239,9 @@ export function OptionSheet({
                                 </tr>,
                               ]
                             : []),
-                          ...g.lines.map((l) => <Row key={l.id} l={l} n={nums.get(l.id)} customer={customer} lump={lump} />),
+                          ...g.lines.map((l) => <Row key={l.id} l={l} n={nums.get(l.id)} customer={customer} lump={lump} stairsOpt={stairsOpt} />),
                         ])
-                      : lines.map((l) => <Row key={l.id} l={l} n={nums.get(l.id)} customer={customer} lump={lump} />)),
+                      : lines.map((l) => <Row key={l.id} l={l} n={nums.get(l.id)} customer={customer} lump={lump} stairsOpt={stairsOpt} />)),
                     ...(rollup > 0
                       ? [
                           <tr key="private-rollup" className="rollup">

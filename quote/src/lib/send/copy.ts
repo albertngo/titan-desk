@@ -2,7 +2,7 @@ import { acceptedLabel, DISCOUNTS_SECTION, isAcceptedLine, isDiscountLine } from
 import { DEFAULT_PRIVATE_LABEL, optionHst, PRIVATE_SECTION, SECTIONS, chargesHst, isPriced, lineTotal, optionTotals, priceUsed, privateRollup, round2, sectionOf, stageAmounts, type LineInput } from "@/lib/calc";
 import type { CopyChange } from "@/lib/change/diff";
 import { defaultSchedule, payWords, sameSchedule, scheduleFor, type PayHow, type PaymentSchedule } from "@/lib/pricing/schedule";
-import { optionScope } from "@/lib/quotes/scope";
+import { optionScope, stairsOptionLines } from "@/lib/quotes/scope";
 import type { Part, Quote, QuoteLine, QuoteOption, Scope } from "@/lib/quotes/types";
 import { copyKind } from "./summary";
 
@@ -317,8 +317,15 @@ export function stagesOf(o: CopyOption): CopyStage[] {
   ];
 }
 
-function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lumpSum = false, ranged = false, schedule: PaymentSchedule = defaultSchedule()): CopyOption {
+function copyOption(given: QuoteOption, discountRate: number, showHst: boolean, lumpSum = false, ranged = false, schedule: PaymentSchedule = defaultSchedule()): CopyOption {
   let n = 0;
+  // A stairs option never shows a rate (Albert, 2026-11-06: "any additional work PRIVATE section should never show
+  // rates. It should be the same as the rule for the stairs items"), and has no Private or Other section (same day:
+  // "simply eliminate the PRIVATE logic in stairs altogether"): `stairsOptionLines()` reads those lines as Stairs lines,
+  // so they go as stair lines do, words and quantity, no rate. Any other section on it goes the same way. Add-ons still
+  // say their price. The money is unchanged: a line's section never enters a total.
+  const stairsOption = optionScope(given) === "Stairs";
+  const o: QuoteOption = stairsOption ? { ...given, lines: stairsOptionLines(given.lines) } : given;
   const sections: CopySection[] = [];
   for (const name of sectionNames(o.lines)) {
     const lines: (CopyItem | CopyText)[] = [];
@@ -342,7 +349,7 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
       if (l.include) total += amount;
       // Lump sum: a counted line shows what it is and how much, never what it costs. An add-on must still say its price.
       // Stairs are always one price (Albert, 2026-10-28): a breakdown itemises the flooring only.
-      const lump = (lumpSum || name === "Stairs") && l.include;
+      const lump = (lumpSum || name === "Stairs" || stairsOption) && l.include;
       // Quantities always show (Albert, 2026-11-04: "no matter what view is sent to the customer. The quantities are always
       // shown. Stairs never has line item PRICING but will always show the quantities of each line item"): every section,
       // lump sum, preliminary and breakdown alike. This replaces the 2026-10-22 rule of quantities on the scope sections only.
@@ -379,7 +386,7 @@ function copyOption(o: QuoteOption, discountRate: number, showHst: boolean, lump
       lines.push(item);
       if (key) merged.set(key, item);
     }
-    if (lines.length) sections.push({ name: name === "Unsorted" ? "Other" : name, total: lumpSum || name === "Stairs" ? null : round2(total), lines });
+    if (lines.length) sections.push({ name: name === "Unsorted" ? "Other" : name, total: lumpSum || name === "Stairs" || stairsOption ? null : round2(total), lines });
   }
   // The Private section as the customer sees it (2026-10-22): one row in Other, the option's name for it, the total, nothing else.
   // On a lump sum there is no row at all (Albert, 2026-10-22): the amount is already inside the one price.

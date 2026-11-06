@@ -1112,6 +1112,17 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   card about its own unsaved changes through `EditorSend` (a same-tab storage read can't see them), so Send is off
   until autosave or Save lands, and each autosave refreshes the card so it checks what Airtable holds. Never in
   Customer view.
+- **A stairs option is one section, Stairs: no Private, no separate Other (Albert, 2026-11-06: "any additional work
+  PRIVATE section should never show rates. It should be the same as the rule for the stairs items"; then "simply
+  eliminate the PRIVATE logic in stairs altogether. Only the OTHER section is visible. and Other section behaves like it
+  does as any other section. just a header separation").** Other is the Stairs heading for lines with no Stair Item
+  category (+ Add a typed line), like Steps or Landings. `addChoices()` offers a stairs option no Private or Other
+  section, and the editor shows none. A line saved on a stairs option in Private or Other is read as a Stairs line
+  (`stairsOptionLines()` / `STAIRS_FOLDED` in `src/lib/quotes/scope.ts`, used by `copyOption()`, `OptionSheet` and the
+  editor), so it lands under Other and goes as a stair line: words and quantity, no unit price, amount or section
+  total; no "Additional work" roll-up. Every section on a stairs option goes that way; add-ons keep their price. Display
+  only: the line keeps its saved section, and a section never enters a total. Flooring options are unchanged. Tested
+  in `tests/send.test.ts` and `tests/stairGroups.test.ts`.
 
 ## Hard rules
 

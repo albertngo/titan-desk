@@ -79,8 +79,8 @@ export function sectionLinesInOrder<T extends { stairCategory?: string | null }>
 /**
  * What an option can add (Albert, 2026-10-30: "For stairs, the only options should be from stair items. And the select
  * options should be from the category there"; a hand-typed line and the Private section stay). A Stairs option: the
- * staircase builder, then one button per Stair Item category in work order, a typed line, and Private (stair items
- * or a typed line only). A Flooring option: every work section but Stairs. Lines already on an option are untouched.
+ * staircase builder, then one button per Stair Item category in work order, and a typed line (the Other heading).
+ * No Private or Other section (Albert, 2026-11-06: "simply eliminate the PRIVATE logic in stairs altogether"). A Flooring option: every work section but Stairs. Lines already on an option are untouched.
  */
 export type AddChoice = { label: string; section: string; category?: string; stairsOnly?: true; typed?: true };
 
@@ -91,6 +91,5 @@ export function addChoices(scope: "Flooring" | "Stairs", categories: (string | n
     { label: "Staircase", section: "Stairs" },
     ...groups.map((g) => ({ label: stairGroupLabel(g), section: "Stairs", category: g })),
     { label: "Typed line", section: "Stairs", typed: true as const },
-    ...(sections.includes("Private") ? [{ label: "Private", section: "Private", stairsOnly: true as const }] : []),
   ];
 }

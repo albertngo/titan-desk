@@ -21,6 +21,56 @@ export type Change = {
 
 export const CHANGES: Change[] = [
   {
+    date: "2026-11-06",
+    kind: "changed",
+    title: "Stairs add buttons next to each heading",
+    details: ["In the editor, each stairs heading's add (+ Add to steps, + Add to landings…) now sits right beside the heading as a blue button instead of at the far right. + Build a staircase and + Add to other look the same."],
+  },
+  {
+    date: "2026-11-06",
+    kind: "changed",
+    title: "Stairs options have no Private or Other section",
+    details: [
+      "A stairs option is just Stairs now: Other is its last heading, like Steps or Landings, with + Add a typed line. There is no Private section on a stairs option any more.",
+      "Lines that were saved in Private or Other on a stairs option show under that Other heading. The customer sees each one with its quantity and no rate, like every stair line, instead of one Additional work row with an amount. The option's price is unchanged. Flooring options keep their Private section as before.",
+    ],
+  },
+  {
+    date: "2026-11-06",
+    kind: "new",
+    title: "Send from the editor",
+    details: ["The Send card now sits in the editor's sidebar, under Customer and terms, as well as on the quote page. Sending is off while the editor has unsaved changes and comes back once they save."],
+  },
+  {
+    date: "2026-11-06",
+    kind: "changed",
+    title: "The material first when it costs the deposit",
+    details: [
+      "When an option's material comes to 35% of its total or more, the automatic payment schedule now asks for the material first, worded \"Purchasing of the flooring material is required first\". With no HST on the quote, it is paid in cash.",
+    ],
+  },
+  {
+    date: "2026-11-06",
+    kind: "new",
+    title: "Waste worked out on material lines",
+    details: ["A material line shows its math under the quantity, for example 820 sf + 10% = 902 sf. Type the square feet and the waste; the rest is worked out. The preliminary's Material rows show it too."],
+  },
+  {
+    date: "2026-11-06",
+    kind: "changed",
+    title: "Every new line starts at 1",
+    details: ["Anything picked or typed into a quote now starts at quantity 1. The preliminary, the stair builder and the site sheets still put in their own amounts."],
+  },
+  {
+    date: "2026-11-06",
+    kind: "new",
+    title: "Sand steps: painted risers and stringers only",
+    details: [
+      "On an option with sanded steps, oak-skinned (glue and stain) stringers and any riser other than Paint Risers White are greyed out in the picker, and the other way round. A line that clashes anyway gets a red flag.",
+      "Sand steps show a note saying risers are painted white only and stringers are painted white or sanded and stained.",
+    ],
+  },
+  {
     date: "2026-11-05",
     kind: "changed",
     title: "A wrong payment schedule stops the send",
