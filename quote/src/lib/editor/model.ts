@@ -537,8 +537,18 @@ export function addOption(q: EditorQuote, name = `Option ${q.options.length + 1}
  * An option built elsewhere (the editor's + From quick form, 2026-10-31) added at the end, with
  * fresh ids so it never shares a line id with the quote it joins.
  */
-export function addBuiltOption(q: EditorQuote, built: { name: string; description: string; lines: EditorLine[] }): EditorQuote {
-  const option: EditorOption = { id: newId("opt"), name: built.name, description: built.description, recommended: false, serviceLevel: "Standard", crew: null, lines: built.lines.map((l) => ({ ...l, id: newId("line") })) };
+export function addBuiltOption(q: EditorQuote, built: { name: string; description: string; lines: EditorLine[]; scope?: "Stairs" }): EditorQuote {
+  const option: EditorOption = {
+    id: newId("opt"),
+    name: built.name,
+    description: built.description,
+    recommended: false,
+    serviceLevel: "Standard",
+    crew: null,
+    // A stairs option from the quick form says so (2026-11-06), as a site-sheet one does.
+    ...(built.scope ? { scope: built.scope } : {}),
+    lines: built.lines.map((l) => ({ ...l, id: newId("line") })),
+  };
   return { ...q, options: [...q.options, option] };
 }
 

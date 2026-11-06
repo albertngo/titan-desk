@@ -1866,6 +1866,10 @@ select.cell-in.missing { border-color: var(--red, #c62828); }
 .qw-matcard .sq { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 8px; font-size: 13px; }
 .qw-matcard .sq b { font-size: 14px; }
 .qw-matcard .qw-mat-done { justify-self: start; }
+.qw-mat-price { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 13px; }
+.qw-mat-price > span:first-child { font-weight: 600; color: #11695a; }
+.qw-mat-price .qw-amt { display: inline-flex; align-items: center; gap: 4px; }
+.qw-mat-price .qw-amt input { width: 90px; background: #fff; }
 .qw-matcard.folded { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 8px 12px; }
 .qw-matline { flex: 1 1 auto; font-size: 13px; color: #0d5b4e; font-weight: 500; }
 @media (max-width: 640px) { .qw-matcard { margin-left: 0; } :is(.ed-quick, .newq) .qw-matcard .qw-chips, .qw-matcard .qw-chips { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

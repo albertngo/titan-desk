@@ -23,7 +23,7 @@ export type WorkRow = { key: string; group: QuickGroup; choiceId: string; amount
  * choice ("" until one is picked); `open` shows the card, else it folds to one line. On the row: absent = follow the
  * install's Suggested Material (Needed when it has one, Not needed when not); null = Not needed.
  */
-export type TiedMaterial = { choiceId: string; product: PickedProduct | null; open?: boolean };
+export type TiedMaterial = { choiceId: string; product: PickedProduct | null; open?: boolean; price?: string };
 
 /** An Install row's material as it stands: what is set, else the install choice's suggestion, else none. */
 export function tiedMaterial(r: Pick<WorkRow, "group" | "choiceId" | "mat">, byId: Map<string, QuickChoice>): TiedMaterial | null {
@@ -64,7 +64,8 @@ export function workInput(w: WorkState, choices: QuickChoice[] = []) {
     rows: w.rows.filter((r) => r.choiceId && r.group !== "Material").flatMap((r) => {
       const row = { choiceId: r.choiceId, amount: toNumber(r.amount), productId: r.product?.recordId ?? null, ...(r.materialId ? { materialId: r.materialId } : {}) };
       const m = tiedMaterial(r, byId);
-      return m?.choiceId ? [row, { choiceId: m.choiceId, amount: row.amount, productId: m.product?.recordId ?? null }] : [row];
+      const price = m?.price ? toNumber(m.price) : null;
+      return m?.choiceId ? [row, { choiceId: m.choiceId, amount: row.amount, productId: m.product?.recordId ?? null, ...(price !== null ? { price } : {}) }] : [row];
     }),
     stairs: w.stairs.filter((s) => s.profileId).map((s) => ({ profileId: s.profileId })),
     extraCost: toNumber(w.extraCost),
@@ -577,7 +578,8 @@ function TiedMaterialCard({
   const c = mat?.choiceId ? byId.get(mat.choiceId) : undefined;
   const waste = c ? materialWaste(c.label, (mat?.product ?? c.product)?.name ?? null) : null;
   const math = waste !== null ? wasteMath({ qty: sqft, waste }) : null;
-  const total = c ? rowTotal(choices, { choiceId: c.id, amount: sqft, productId: mat?.product?.recordId ?? null }, picked) : null;
+  const typed = mat?.price ? toNumber(mat.price) : null;
+  const total = c ? rowTotal(choices, { choiceId: c.id, amount: sqft, productId: mat?.product?.recordId ?? null, price: typed }, picked) : null;
   const fmt = (v: number) => v.toLocaleString("en-CA", { maximumFractionDigits: 2 });
   const open = !!mat && (!mat.choiceId || mat.open === true);
   return (
@@ -614,17 +616,29 @@ function TiedMaterialCard({
           </div>
           <div className="qw-chips" role="radiogroup" aria-label={`${label} which material`}>
             {options.map((o) => (
-              <button type="button" key={o.id} className={`qw-chip${o.id === mat.choiceId ? " on" : ""}`} role="radio" aria-checked={o.id === mat.choiceId} onClick={() => onChange({ ...mat, choiceId: o.id, product: null })}>
+              <button type="button" key={o.id} className={`qw-chip${o.id === mat.choiceId ? " on" : ""}`} role="radio" aria-checked={o.id === mat.choiceId} onClick={() => onChange({ ...mat, choiceId: o.id, product: null, price: "" })}>
                 {o.label}
               </button>
             ))}
           </div>
-          {c && <ProductPick product={mat.product} standard={c.product} fallback={c.parts.length > 0 ? "allowance from the rate card" : "none set"} onPick={(p) => onChange({ ...mat, product: p })} />}
+          {c && <ProductPick product={mat.product} standard={c.product} fallback={c.parts.length > 0 ? "allowance from the rate card" : "none set"} onPick={(p) => onChange({ ...mat, product: p, price: "" })} />}
+          {/* The material's price, changeable here (Albert, 2026-11-06); blank = the card's, shown as the placeholder. */}
+          {c && (
+            <label className="qw-mat-price">
+              <span>Price</span>
+              <span className="qw-amt">
+                <span>$</span>
+                <input className="in" inputMode="decimal" placeholder={rateText(c, "sqft", mat.product).replace(/\/sq ft$/, "").replace(/^\$/, "")} aria-label={`${label} material price per sq ft`} value={mat.price ?? ""} onChange={(e) => onChange({ ...mat, price: e.target.value })} />
+                <span>/sq ft</span>
+              </span>
+              {typed !== null && <span className="faint">card {rateText(c, "sqft", mat.product)}</span>}
+            </label>
+          )}
           {c && (
             <div className="sq">
               <span>{math && math.typed > 0 ? <>{fmt(math.typed)} sf + {math.pct}% waste = <b>{fmt(math.actual)} sf</b></> : "Type the install's sq ft"}</span>
               <span className="qw-price">
-                <span className="qw-rate">{rateText(c, "sqft", mat.product)}</span>
+                <span className="qw-rate">{typed !== null ? `${money(typed)}/sq ft (typed)` : rateText(c, "sqft", mat.product)}</span>
                 <b>{total === null ? "-" : money(total)}</b>
               </span>
             </div>

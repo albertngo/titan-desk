@@ -192,7 +192,10 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   product, never a requirement (2026-10-22: the eight Material choices had vanished because each
   also linked an inactive Material row). Prices are never
   stored on a choice and never taken from the browser: the server re-prices from Airtable at
-  create time. A choice whose linked row is inactive or unpriced is left off the form. Rules:
+  create time. **One exception (Albert, 2026-11-06: "the preliminary screen should offer the ability to change the
+  material price"):** a material's price typed on its material card goes on its line as the line's typed unit price,
+  as if typed in the editor (the cost stays the card's, so the margin shows it); only on a Material row, under $10,000
+  a unit (`parseWork()`), and blank is the card's. A choice whose linked row is inactive or unpriced is left off the form. Rules:
   `src/lib/quick/plan.ts`, tested in `tests/quick.test.ts`. A flat card row (a bin) goes in at its choice's
   Times, 1 unless set ("Large Disposal (Bin x 2)" is 2), and since 2026-11-04 a flat row picked in the editor
   starts at 1 too (`lineFromEntry()`; Albert: "it should already go as 1 as the quantity").
@@ -286,6 +289,16 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   are unchanged; Create and Add this option wait for a Needed material not yet picked (`materialWaits()`,
   `glueWait()`). The editor's + From quick form is the same component (same day: "the editors and prelim form ALWAYS
   mirror each other. with every change"). Tested in `tests/tiedMaterial.test.ts`.
+  **Flooring and stairs are two options** (same day: "Yes" to the split, after Q-1061 went out as one "Install … +
+  Stairs" option): `splitScopes()` builds a tab with both into a flooring option (with the tab's additional cost) and a
+  Stairs option scoped Stairs, each recommended within its scope; the editor's + From quick form adds both
+  (`quickOption()` returns `options[]`, `addBuiltOption()` takes the scope). **Click installs split (same day: "The new
+  installs replace the Vinyl or Laminate or Eng click one item"):** Vinyl / Laminate Click (Rate Card VINYL / LAMINATE
+  - Click, suggests 7mm Standard Vinyl, the old Laminate or Vinyl Click renamed) and Engineered Click (ENGINEERED -
+  Click, suggests Engineered (Click)), ROY $1.90 / $1.20 each; the Flooring Site Sheet's engineered click builds on the
+  second. **8mm and 9mm Standard Vinyl** materials (same day; "Make the standard SKU as if it was the same as the 7mm
+  method"): catalogue standard-allowance products STD-LVP-8MM ($1.89 / $2.50) and STD-LVP-9MM ($2.29 / $2.99), each
+  with a Material Rate Card row behind it as the 7mm has.
 - **Stairs on the preliminary (Albert, 2026-10-18; presets 2026-10-20; Stair Item lines 2026-11-02).** A staircase
   is a row of the read-only Airtable table **Stair Profiles** (`PROFILE_TABLE`): a customer-facing name, a stair type
   (Main stairs / Townhome / Basement / Half staircase), a method (Sand & stain / Solid red oak caps / Vinyl treads /

@@ -72,7 +72,7 @@ export async function floorOptions(rawSheet: unknown, taken: unknown): Promise<F
 }
 
 export type QuickOptionResult =
-  | { ok: true; option: { name: string; description: string; lines: EditorLine[] }; skipped: string[] }
+  | { ok: true; options: { name: string; description: string; lines: EditorLine[]; scope?: "Stairs" }[]; skipped: string[] }
   | { ok: false; message: string };
 
 /**
@@ -85,12 +85,18 @@ export async function quickOption(raw: unknown, taken: unknown): Promise<QuickOp
   const work = parseWork(raw);
   if (workIsEmpty(work)) return { ok: false, message: "Pick some work first." };
   try {
-    const [built] = await buildQuickOptions([work]);
-    if (built.lines.length === 0) return { ok: false, message: built.skipped.length ? `Nothing could be priced: ${built.skipped.join("; ")}.` : "Nothing could be priced." };
+    // A tab with flooring and stairs comes back as two options (2026-11-06), the stairs one scoped Stairs.
+    const built = (await buildQuickOptions([work])).filter((b) => b.lines.length > 0);
+    const skipped = [...new Set(built.flatMap((b) => b.skipped))];
+    if (built.length === 0) return { ok: false, message: skipped.length ? `Nothing could be priced: ${skipped.join("; ")}.` : "Nothing could be priced." };
     const used = new Set((Array.isArray(taken) ? taken : []).filter((t): t is string => typeof t === "string").map((t) => t.trim().toLowerCase()));
-    let name = built.name;
-    for (let n = 2; used.has(name.toLowerCase()); n++) name = `${built.name} (${n})`;
-    return { ok: true, option: { name, description: built.description, lines: built.lines }, skipped: built.skipped };
+    const options = built.map((b) => {
+      let name = b.name;
+      for (let n = 2; used.has(name.toLowerCase()); n++) name = `${b.name} (${n})`;
+      used.add(name.toLowerCase());
+      return { name, description: b.description, lines: b.lines, ...(b.scope ? { scope: b.scope } : {}) };
+    });
+    return { ok: true, options, skipped };
   } catch (e) {
     console.error("quickOption", e);
     return { ok: false, message: "The quick form couldn't be priced. Try again in a moment." };
