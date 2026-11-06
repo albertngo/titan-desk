@@ -198,6 +198,12 @@ table.items tr.off td { color: var(--fg-faint); }
 .chgd { color: var(--warn); font-weight: 600; }
 .flag { display: inline-block; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 4px; background: var(--warn-soft); color: var(--warn); margin: 4px 4px 0 0; }
 .flag.UNIT { background: var(--bad-soft); color: var(--bad); }
+/* Sand steps → painted risers and stringers only (2026-11-06): the disclaimer on a sanding line, the flag on a clash. */
+.sand-note { font-size: 11.5px; color: var(--fg-dim); margin-top: 4px; }
+.sand-flag { display: block; font-size: 11.5px; font-weight: 600; color: var(--bad); background: var(--bad-soft); border-radius: 4px; padding: 3px 6px; margin-top: 4px; }
+.pick:disabled { opacity: .5; cursor: not-allowed; }
+.pick .mt.blocked { color: var(--bad); }
+.pick .mt.disclaim { display: block; color: var(--warn); }
 .note { font-size: 12px; color: var(--fg-dim); font-style: italic; }
 
 /* ---------- notes + overview row ---------- */
@@ -427,7 +433,10 @@ table.items.edit .desc { font-weight: 500; }
 .qty .cell-in.num { width: 68px; }
 .uomtxt { font-size: 12px; min-width: 44px; text-align: left; }
 .cell-in.uom { width: auto; font-size: 12px; padding: 4px; }
-.wastein { margin-top: 4px; display: flex; justify-content: flex-end; }
+.wastein { margin-top: 4px; display: flex; justify-content: flex-end; align-items: center; gap: 4px; font-size: 11.5px; }
+.wastemath { margin-top: 3px; font-size: 11.5px; color: var(--fg-dim); text-align: right; white-space: nowrap; }
+.wastemath b { color: inherit; font-weight: 600; }
+.wastemath.qw-math { text-align: left; margin: 2px 0 0; font-size: 13px; }
 .wastein .cell-in { width: 68px; font-size: 11.5px; padding: 3px 6px; }
 .matin { margin-top: 6px; display: flex; flex-direction: column; align-items: flex-end; }
 .matin .cell-in { width: 68px; font-size: 11.5px; padding: 3px 6px; }
@@ -1691,6 +1700,7 @@ table.cmp th { font-size: 12.5px; font-weight: 500; color: var(--fg-dim); text-t
   table.items .iconbtn { width: 44px; height: 44px; font-size: 15px; border-radius: 10px; }
   table.items .wastein { justify-content: flex-start; margin-top: 8px; }
   table.items .wastein .cell-in { width: 100%; font-size: 16px; padding: 6px 10px; }
+  table.items .wastemath { text-align: left; font-size: 14px; }
   table.items .mat select.cell-in { max-width: none; width: 100%; font-size: 16px; }
   table.items .mat { flex-wrap: wrap; font-size: 13px; }
   table.items.edit select.cell-in { min-width: 0; width: 100%; }

@@ -170,7 +170,7 @@ describe("lines", () => {
     expect(lineFlags(m)).toEqual(["NOSRC"]);
   });
 
-  it("a stair item charged per staircase starts at 1; any other stair item starts blank (2026-11-04)", () => {
+  it("every new line starts at 1 (2026-11-06; per-staircase items since 2026-11-04), a typed line too, an exclusion never", () => {
     const card = buildCatalogue([], [
       { id: "recStair000000002", name: "Stringers Paint White (per staircase)", category: "stringer", size: null, rate: 100, cost: 50 },
       { id: "recStair000000003", name: "Plain riser", category: "riser", size: null, rate: 20, cost: 10 },
@@ -178,7 +178,10 @@ describe("lines", () => {
     const [white, riser] = ["recStair000000002", "recStair000000003"].map((id) => card.find((e) => e.kind === "stair" && e.recordId === id)!);
     expect(lineFromEntry(white, "Stairs").qty).toBe(1);
     expect(lineTotal(lineFromEntry(white, "Stairs"))).toBe(100);
-    expect(lineFromEntry(riser, "Stairs").qty).toBeNull();
+    expect(lineFromEntry(riser, "Stairs").qty).toBe(1);
+    expect(manualLine("Other", "Haul away the piano").qty).toBe(1);
+    expect(manualLine("Exclusions", "Painting").qty).toBeNull();
+    expect(exclusionLine("Appliances by others").qty).toBeNull();
     expect([perStaircase("Stringers Oak Skin, Glue and Stain (per staircase)"), perStaircase("Post (PER  Staircase)"), perStaircase("Staircase landing")]).toEqual([true, true, false]);
   });
 

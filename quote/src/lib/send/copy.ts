@@ -469,10 +469,11 @@ export function scopeLeads(copy: Pick<CustomerCopy, "options" | "showHst">, mone
 
 /**
  * The schedule a quote is paid by (2026-11-05): its own, else the automatic one from its options' HST
- * (`autoSchedule()`: cash with no HST, the material first when only the material carries it).
+ * (`autoSchedule()`: cash with no HST, the material first when only the material carries it or when it costs the
+ * 35% deposit or more).
  */
-export const quoteSchedule = (q: { schedule?: PaymentSchedule | null; showHst: boolean; options: { lines: LineInput[]; showHst?: boolean }[] }): PaymentSchedule =>
-  scheduleFor(q.schedule, q.options.map((o) => ({ lines: o.lines, showHst: optionHst(q, o) })));
+export const quoteSchedule = (q: { schedule?: PaymentSchedule | null; showHst: boolean; discountRate?: number; options: { lines: LineInput[]; showHst?: boolean }[] }): PaymentSchedule =>
+  scheduleFor(q.schedule, q.options.map((o) => ({ lines: o.lines, showHst: optionHst(q, o), discountRate: q.discountRate ?? 0 })));
 
 /** "Flooring options", "Stairs option": the heading over a scope's options. */
 export const scopeHeading = (scope: Scope, count: number) => `${scope} option${count === 1 ? "" : "s"}`;

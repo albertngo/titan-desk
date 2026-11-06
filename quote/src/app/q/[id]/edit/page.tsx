@@ -1,6 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { ConversationDrawer } from "@/components/Conversation";
 import { EditorClient } from "@/components/editor/EditorClient";
+import { SendQuote } from "@/components/SendQuote";
+import { sendCardData } from "@/lib/quotes/sendCard";
 import { TopBar } from "@/components/TopBar";
 import { requireQuoter } from "@/lib/auth";
 import { fromQuote } from "@/lib/editor/model";
@@ -39,13 +41,16 @@ export default async function EditQuotePage({ params, searchParams }: { params: 
   const swap = accepted?.acceptance
     ? swapSource(fromQuote(accepted), picksOf(accepted.acceptance).map((p) => p.ref), accepted.version, others.map((v) => ({ version: v.version, quote: fromQuote(v) })))
     : null;
+  // The Send card in the editor (Albert, 2026-11-06), the same card the quote page shows; never in Customer view.
+  const sending = customer ? null : await sendCardData(quote, customer);
+  const sendCard = sending?.props ? <SendQuote {...sending.props} /> : null;
   const version = { id: quote.id, label: quote.quoteId, version: quote.version, status: quote.status, basis: quote.basis, base: fingerprint(initial), change, agreed: Boolean(quote.acceptance && !quote.acceptance.cancelled) };
   return (
     <>
       <TopBar email={email} />
       {/* The customer's GHL conversation beside the lines being priced: staff only, never in Customer view. */}
       {!customer && quote.link?.ghlContactId && <ConversationDrawer contactId={quote.link.ghlContactId} />}
-      <EditorClient initial={initial} card={card} backHref={`/q/${quote.id}`} version={version} customer={customer} swap={swap} swapTo={typeof swapTo === "string" && /^rec[A-Za-z0-9]{14}$/.test(swapTo) ? swapTo : null} />
+      <EditorClient initial={initial} card={card} backHref={`/q/${quote.id}`} version={version} customer={customer} swap={swap} swapTo={typeof swapTo === "string" && /^rec[A-Za-z0-9]{14}$/.test(swapTo) ? swapTo : null} sendCard={sendCard} />
     </>
   );
 }

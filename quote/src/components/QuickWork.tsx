@@ -6,6 +6,8 @@ import { optionTotals } from "@/lib/calc";
 import { money } from "@/lib/format";
 import { amountUnit, BASIS_GROUPS, basisChoices, BUILDINGS, buildPreliminary, choiceRate, GROUP_ROWS, parseWork, QUICK_GROUPS, remapBases, resolveBasis, rowTotal, followBases, materialWaste, TOTAL_BASIS, type QuickChoice, type QuickGroup, type QuickProduct, type QuickProfile } from "@/lib/quick/plan";
 import { METHOD_PHRASE, modifierFor, STAIR_ROWS } from "@/lib/quick/stairs";
+import { SAND_DISCLAIMER, sandFlag, sandRole } from "@/lib/editor/sandRule";
+import { wasteMath } from "@/lib/editor/model";
 
 export type PickedProduct = Pick<QuickProduct, "recordId" | "sku" | "name" | "rate">;
 /**
@@ -204,6 +206,16 @@ export function QuickWork({
                           )}
                         </div>
                       )}
+                      {/* The material's math (2026-11-06): the square feet typed + the waste = what is ordered. */}
+                      {waste !== null &&
+                        (() => {
+                          const m = wasteMath({ qty: toNumber(r.amount), waste });
+                          return m && m.typed > 0 ? (
+                            <p className="wastemath qw-math">
+                              {m.typed.toLocaleString("en-CA", { maximumFractionDigits: 2 })} sf + {m.pct}% waste = <b>{m.actual.toLocaleString("en-CA", { maximumFractionDigits: 2 })} sf</b>
+                            </p>
+                          ) : null;
+                        })()}
                       {bases.length > 0 && (
                         <div className="qw-chips qw-basis" role="radiogroup" aria-label={`${g} ${i + 1} follows`}>
                           {bases.map((b) => {
@@ -278,6 +290,16 @@ export function QuickWork({
                   <b>{profile.name}</b> {METHOD_PHRASE[profile.method]} {modifierFor(profile.type)}
                 </p>
               )}
+              {/* Sand steps → painted risers and stringers only (2026-11-06): the disclaimer, and a flag if the profile's own items clash. */}
+              {profile && (profile.method === "Sand & stain" || profile.lines.some((l) => sandRole({ id: l.sourceId, name: l.description, category: l.stairCategory }) === "sand")) && (
+                <p className="sand-note">{SAND_DISCLAIMER}</p>
+              )}
+              {profile &&
+                [...new Set(profile.lines.map((l) => sandFlag(l, profile.lines)).filter((x): x is string => x !== null))].map((f) => (
+                  <p key={f} className="sand-flag" role="status">
+                    ⚠ {f}
+                  </p>
+                ))}
             </div>
           );
         })}

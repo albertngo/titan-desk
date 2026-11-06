@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { HstAll } from "./HstAll";
 import { addChoices, sectionLinesInOrder, stairGroupLabel, stairGroups, stairSections, type AddChoice } from "@/lib/editor/stairGroups";
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import type { AutosaveResult } from "@/lib/quotes/save";
 import { autosaveVersionAction, quickFormAction, quickOptionAction, saveAsNewVersionAction, saveVersionAction } from "@/app/q/[id]/edit/actions";
 import { estimateWork, initialWork, QuickWork, workInput, type WorkState } from "@/components/QuickWork";
@@ -39,6 +40,7 @@ import { manualLine,
   setAllHst,
   setOptionHst,
   showsWaste,
+  wasteMath,
   withCustomerFrom,
   updateLine,
   updateOption,
@@ -59,6 +61,8 @@ import { ScheduleEditor } from "./ScheduleEditor";
 import { SwapOption } from "./SwapOption";
 import type { SwapSource } from "@/lib/change/swap";
 import { scheduleFlags, shownStage } from "@/lib/pricing/schedule";
+import { SAND_DISCLAIMER, sandFlag, sandRole } from "@/lib/editor/sandRule";
+import { EditorSend } from "@/components/editor/EditorSend";
 import { quoteSchedule } from "@/lib/send/copy";
 import { levelApplies, levelOf, PREMIUM_MARKUP, SERVICE_LEVELS } from "@/lib/pricing/service";
 import { CONTRACTOR_DISCOUNT, DISCOUNTS_SECTION, priceSummary } from "@/lib/pricing/discounts";
@@ -75,6 +79,9 @@ const AUTOSAVE_AFTER_MS = 4000;
 const AUTOSAVE_RETRY_MS = 30_000;
 /** `paused`: a save was refused. A conflict holds autosave until someone acts; anything else, until the next edit. */
 type AutoState = { state: "idle" } | { state: "saving" } | { state: "saved"; at: string } | { state: "offline" } | { state: "paused"; conflict: boolean; on: string };
+
+/** A quantity for the waste math: whole numbers bare, else up to two decimals, with thousands commas. */
+const fmtQty = (n: number) => n.toLocaleString("en-CA", { maximumFractionDigits: 2 });
 
 const clock = (iso: string) => new Date(iso).toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit" });
 
@@ -166,6 +173,7 @@ export default function Editor({
   customer,
   swap = null,
   swapTo = null,
+  sendCard = null,
 }: {
   initial: EditorQuote;
   card: RateCard;
@@ -177,7 +185,10 @@ export default function Editor({
   swap?: SwapSource | null;
   /** Put on contract (2026-10-30): the option to start the swap with, opened and chosen. */
   swapTo?: string | null;
+  /** The Send card (2026-11-06), drawn on the server as on the quote page; null in Customer view. */
+  sendCard?: ReactNode;
 }) {
+  const router = useRouter();
   const key = draftKey(initial);
   const [boot] = useState(() => loadDraft(key));
   // A restored draft keeps the base it was started from, so a save can tell if Airtable moved on since.
@@ -213,6 +224,7 @@ export default function Editor({
   /** The editor's quote in Airtable's ids: what is saved, compared and kept on the device. */
   const asSaved = useMemo(() => renameIds(quote, ids), [quote, ids]);
   const changed = useMemo(() => JSON.stringify(asSaved) !== JSON.stringify(saved), [asSaved, saved]);
+  const hasSendCard = sendCard !== null && sendCard !== undefined;
 
   // Keep a draft on this device: closing the tab or losing signal never loses work.
   useEffect(() => {
@@ -285,7 +297,9 @@ export default function Editor({
     setRestoredAt(null);
     setSaveError(null);
     setAuto({ state: "saved", at: new Date().toISOString() });
-  }, [version.id, initial, key]);
+    // The Send card in the editor (2026-11-06) checks the version as Airtable now has it.
+    if (hasSendCard) router.refresh();
+  }, [version.id, initial, key, hasSendCard, router]);
 
   // A refusal that wasn't a conflict (a payment schedule that doesn't add up) waits for the edit that fixes it.
   const held = auto.state === "paused" && (auto.conflict || auto.on === JSON.stringify(asSaved));
@@ -393,7 +407,7 @@ export default function Editor({
   const termsRef = useRef<HTMLDetailsElement>(null);
   // The version's own schedule, else the automatic one from its HST (2026-11-05).
   // Over the options that go to the customer, as the frozen copy works it out (2026-11-05).
-  const autoPlan = useMemo(() => quoteSchedule({ schedule: null, showHst: quote.showHst, options: quote.options.filter((o) => !o.notOffered) }), [quote.showHst, quote.options]);
+  const autoPlan = useMemo(() => quoteSchedule({ schedule: null, showHst: quote.showHst, discountRate: quote.discountRate, options: quote.options.filter((o) => !o.notOffered) }), [quote.showHst, quote.discountRate, quote.options]);
   const schedule = quote.schedule ?? autoPlan;
   // A schedule that goes against the HST rules is flagged, never stopped (2026-11-05).
   const scheduleWarnings = useMemo(
@@ -438,6 +452,8 @@ export default function Editor({
     if (st === "cannot") return <span className="crew-mark warn">no {option.crew} rate</span>;
     return null;
   };
+
+  const sandFlagOf = (l: EditorLine) => (option ? sandFlag(l, option.lines) : null);
 
   const row = (l: EditorLine) => {
     if (!option) return null;
@@ -486,6 +502,13 @@ export default function Editor({
             </span>
           </div>
           {!customer && flags.length > 0 && <div>{flags.map((f) => <span key={f} className={`flag ${f}`}>{f}</span>)}</div>}
+          {/* Sand steps → painted risers and stringers only (2026-11-06): the disclaimer, and a flag on a clash. */}
+          {sectionOf(l) === "Stairs" && sandRole({ id: l.sourceId, name: l.description, category: l.stairCategory }) === "sand" && <div className="sand-note">{SAND_DISCLAIMER}</div>}
+          {sectionOf(l) === "Stairs" && sandFlagOf(l) && (
+            <div className="sand-flag" role="status">
+              ⚠ {sandFlagOf(l)}
+            </div>
+          )}
         </td>
         {!customer && (
           <td data-label="Contractor">
@@ -522,9 +545,22 @@ export default function Editor({
           </div>
           {showsWaste(l) && (
             <div className="wastein">
-              <NumCell value={l.waste === null ? null : Math.round(l.waste * 1000) / 10} label="Waste percent" placeholder="waste %" onCommit={(v) => upd({ waste: v === null ? null : v / 100 })} />
+              <span className="faint">+</span>
+              <NumCell value={l.waste === null ? null : Math.round(l.waste * 1000) / 10} label="Waste percent" placeholder="0" onCommit={(v) => upd({ waste: v === null ? null : v / 100 })} />
+              <span className="faint">% waste</span>
             </div>
           )}
+          {/* The material's math, worked out, never typed (2026-11-06): what is typed + the waste = what is ordered. */}
+          {showsWaste(l) &&
+            (() => {
+              const m = wasteMath(l);
+              const u = l.uom ?? "";
+              return m ? (
+                <div className="wastemath" aria-label="Quantity with waste">
+                  {fmtQty(m.typed)} {u} + {fmtQty(m.pct)}% = <b>{fmtQty(m.actual)} {u}</b>
+                </div>
+              ) : null;
+            })()}
         </td>
         {/* Unit cost in its own column again (Albert, 2026-11-01: "Can unit cost and price be on different row"). Staff only. */}
         {!customer && (
@@ -1224,6 +1260,12 @@ export default function Editor({
               </button>
             </div>
           </section>
+          {/* The Send card (2026-11-06), as on the quote page; off while this screen holds unsaved changes. */}
+          {hasSendCard && (
+            <div className="ed-send">
+              <EditorSend.Provider value={{ unsavedAt: changed || auto.state === "saving" ? (savedAt ?? "unknown") : null }}>{sendCard}</EditorSend.Provider>
+            </div>
+          )}
         </aside>
       </div>
 
@@ -1235,6 +1277,7 @@ export default function Editor({
           catalogue={catalogue}
           profiles={card.profiles ?? []}
           profileLines={option.lines.filter((l) => l.sourceKind === "profile").map((l) => ({ id: l.id, sourceId: l.sourceId }))}
+          optionLines={option.lines}
           level={levelOf(option)}
           crew={option.crew ?? null}
           onClose={() => setPicking(null)}

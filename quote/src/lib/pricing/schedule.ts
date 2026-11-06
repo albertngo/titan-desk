@@ -1,4 +1,4 @@
-import { chargesHst, isPriced, materialsDeposit, optionTotals, sectionOf, type LineInput } from "@/lib/calc";
+import { chargesHst, isPriced, materialsDeposit, optionTotals, PAYMENT_SPLIT, sectionOf, type LineInput } from "@/lib/calc";
 
 /**
  * The payment schedule (Albert, 2026-10-27): editable per quote. 35 / 35 / 30 is the default, or
@@ -25,7 +25,9 @@ import { chargesHst, isPriced, materialsDeposit, optionTotals, sectionOf, type L
  * site, paid in store, in cash at the showroom, in cash to the project manager, or nothing said.
  *
  * With no schedule of its own a version follows `autoSchedule()` (Albert, 2026-11-05): cash when nothing on
- * it carries HST, the material first when only the material does, else 35 / 35 / 30.
+ * it carries HST, the material first when only the material does, else 35 / 35 / 30. Since 2026-11-06 the material
+ * also comes first whenever it costs as much as the 35% deposit or more (`materialFirst()`), worded "Purchasing of the
+ * flooring material is required first".
  */
 
 export type StagePart =
@@ -130,6 +132,42 @@ export const PRESETS: Record<Exclude<PresetKey, "custom">, { name: string; sched
 /** The default, for a version with no schedule of its own: exactly the old 35 / 35 / balance. */
 export const defaultSchedule = (): PaymentSchedule => PRESETS["35-35-30"].schedule();
 
+/**
+ * The words on the material stage when the material costs as much as the deposit or more (Albert, 2026-11-06: "if the
+ * material cost is above the 35% or above the deposit requirement amount; then the wording should be - purchasing of
+ * the flooring material is required first. And the selected option of clearing material first is selected").
+ */
+export const MATERIAL_FIRST_WHEN = "Purchasing of the flooring material is required first";
+
+/**
+ * The material deposit with the material-first words (2026-11-06). `cash` (nothing on the quote carries HST) pays every
+ * stage in cash, as `PRESETS.cash` does, so it never asks for an e-transfer.
+ */
+export function materialFirstSchedule(cash: boolean): PaymentSchedule {
+  const s = PRESETS.materials.schedule();
+  return {
+    preset: "materials",
+    stages: s.stages.map((x, i) => ({
+      ...x,
+      when: i === 0 ? MATERIAL_FIRST_WHEN : x.when,
+      pay: cash ? (i === 0 || x.part.kind === "topUp" ? "cash" : "cashOnsite") : x.pay,
+    })),
+  };
+}
+
+/**
+ * Whether the material on any option costs at least the 35% deposit (2026-11-06): `materialsDeposit()` (the material,
+ * after the discount, with its HST) against 35% of that option's total.
+ */
+export function materialFirst(options: { lines: LineInput[]; showHst: boolean; discountRate?: number }[]): boolean {
+  return options.some((o) => {
+    const rate = o.discountRate ?? 0;
+    const total = optionTotals(o.lines, rate, o.showHst).total;
+    const m = materialsDeposit(o.lines, rate, o.showHst);
+    return total > 0 && m > 0 && m >= total * PAYMENT_SPLIT - 0.005;
+  });
+}
+
 /** How a stage is paid, in the customer's words. Never says why. */
 export const payWords = (pay: PayHow): string | null =>
   pay === "etransfer"
@@ -163,19 +201,39 @@ export function suggestsMaterialDeposit(lines: LineInput[], showHst: boolean): b
   return priced.some((l) => !chargesHst(l, showHst));
 }
 
-/**
- * The schedule a version gets when it has none of its own (Albert, 2026-11-05). Every option on it is looked at:
- * nothing priced on any of them carries HST → cash (`PRESETS.cash`); some option bills HST on its material while other
- * work carries none → the material first (`PRESETS.materials`); otherwise 35 / 35 / 30 with the deposit by e-transfer.
- * Staff can still pick any schedule in the editor, which then stays.
- */
-export function autoSchedule(options: { lines: LineInput[]; showHst: boolean }[]): PaymentSchedule {
+/** The schedule the HST rules alone give (2026-11-05), before the material-first rule; what `scheduleFlags()` checks. */
+function hstSchedule(options: { lines: LineInput[]; showHst: boolean }[]): PaymentSchedule {
   const priced = options.map((o) => ({ showHst: o.showHst, lines: o.lines.filter((l) => isPriced(l) && l.include) }));
   const anything = priced.some((o) => o.lines.length > 0);
   const taxed = priced.some((o) => o.lines.some((l) => chargesHst(l, o.showHst)));
   if (anything && !taxed) return PRESETS.cash.schedule();
   if (options.some((o) => suggestsMaterialDeposit(o.lines, o.showHst))) return PRESETS.materials.schedule();
   return defaultSchedule();
+}
+
+/**
+ * The schedule a version gets when it has none of its own (Albert, 2026-11-05). Every option on it is looked at:
+ * nothing priced on any of them carries HST → cash (`PRESETS.cash`); some option bills HST on its material while other
+ * work carries none → the material first (`PRESETS.materials`); otherwise 35 / 35 / 30 with the deposit by e-transfer.
+ * Since 2026-11-06, an option whose material costs the 35% deposit or more puts the material first whatever the HST
+ * (`materialFirstSchedule()`, in cash when nothing carries HST). Staff can still pick any schedule in the editor, which
+ * then stays.
+ */
+export function autoSchedule(options: { lines: LineInput[]; showHst: boolean; discountRate?: number }[]): PaymentSchedule {
+  const byHst = hstSchedule(options);
+  if (materialFirst(options)) return materialFirstSchedule(byHst.preset === "cash");
+  return byHst;
+}
+
+/** Why the automatic schedule is what it is, in the editor's words (2026-11-06). */
+export function autoReason(auto: PaymentSchedule): string {
+  if (auto.preset === "materials" && auto.stages[0]?.when === MATERIAL_FIRST_WHEN)
+    return auto.stages[0].pay === "cash"
+      ? "The material costs the 35% deposit or more, so purchasing it is required first, in cash: nothing on this quote carries HST."
+      : "The material costs the 35% deposit or more, so purchasing it is required first, by e-transfer, then the rest of a 35% deposit in store if it falls short.";
+  if (auto.preset === "cash") return "Nothing on this quote carries HST, so it is paid in cash: the deposit at the showroom, the rest to the PM on site.";
+  if (auto.preset === "materials") return "HST is on the material only, so the material comes first by e-transfer, then the rest of a 35% deposit in store.";
+  return "Automatic: 35 / 35 / 30, the deposit by e-transfer.";
 }
 
 /**
@@ -187,7 +245,7 @@ export function autoSchedule(options: { lines: LineInput[]; showHst: boolean }[]
  * `options` carry their names and discount for the money: the material's share is `materialsDeposit()` over the total.
  */
 export function scheduleFlags(s: PaymentSchedule, options: { name: string; lines: LineInput[]; showHst: boolean; discountRate: number }[]): string[] {
-  const auto = autoSchedule(options);
+  const auto = hstSchedule(options);
   const out: string[] = [];
   if (auto.preset === "cash") {
     const et = s.stages.filter((x) => x.pay === "etransfer").map((x) => x.label || "a payment");
@@ -208,7 +266,8 @@ export function scheduleFlags(s: PaymentSchedule, options: { name: string; lines
 }
 
 /** The schedule that applies: the version's own, else the automatic one. */
-export const scheduleFor = (schedule: PaymentSchedule | null | undefined, options: { lines: LineInput[]; showHst: boolean }[]): PaymentSchedule => schedule ?? autoSchedule(options);
+export const scheduleFor = (schedule: PaymentSchedule | null | undefined, options: { lines: LineInput[]; showHst: boolean; discountRate?: number }[]): PaymentSchedule =>
+  schedule ?? autoSchedule(options);
 
 /**
  * Whether a stage is shown to anyone (2026-11-05): a top-up the material already covered, or a material deposit on an
