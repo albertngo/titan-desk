@@ -22,6 +22,12 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-06",
+    kind: "changed",
+    title: "The T&G options read as sub-categories",
+    details: ["Under Solid Hardwood T&G or Engineered T&G, the methods and the type of glue are now smaller pills, stepped in under the pick they belong to, so the big buttons stay the main choice."],
+  },
+  {
+    date: "2026-11-06",
     kind: "new",
     title: "Hardwood T&G: pick the wood, the method, then the glue",
     details: [

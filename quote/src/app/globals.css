@@ -1824,11 +1824,20 @@ table.cmp th { font-size: 12.5px; font-weight: 500; color: var(--fg-dim); text-t
 .qw-basis-note { font-size: 12px; color: var(--fg-faint); }
 @media (max-width: 640px) { :is(.ed-quick, .newq) .qw-chips.qw-basis { display: flex; } .qw-chips.qw-basis .qw-chip { min-height: 36px; font-size: 13px; } }
 
-/* Quick form: the waterfall (Albert, 2026-11-06: "Install T&G -> Full Gluedown -> Type of glue"). Each follow-up
-   row sits under the pick it belongs to, indented on a thin accent rule, so the steps read top to bottom. */
-.qw-chips.qw-fall { margin: 2px 0 0 6px; padding-left: 10px; border-left: 2px solid color-mix(in srgb, var(--accent) 35%, transparent); align-items: center; }
+/* Quick form: the waterfall (Albert, 2026-11-06: "Install T&G -> Full Gluedown -> Type of glue"), drawn as
+   secondary categories (same day: "make the waterfall look like secondary categories"). The first pick keeps the
+   big chips; each follow-up row is a lower tier: small outlined pills, indented one step per level on a thin accent
+   rule under the pick it belongs to, the one picked tinted, never the solid accent. Like the basis chips, quieter. */
+:is(.ed-quick, .newq) .qw-chips.qw-fall, .qw-chips.qw-fall { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: -4px; padding: 6px 0 2px 12px; border-left: 2px solid color-mix(in srgb, var(--accent) 30%, transparent); }
+.qw-chips.qw-fall-1 { margin-left: 10px; }
+.qw-chips.qw-fall-2 { margin-left: 26px; }
+.qw-chips.qw-fall-3 { margin-left: 42px; }
+:is(.ed-quick, .newq) .qw-chips.qw-fall .qw-chip, .qw-chips.qw-fall .qw-chip { min-height: 34px; padding: 5px 12px; border-radius: 999px; font-size: 13px; font-weight: 500; line-height: 1.25; text-align: left; border-color: var(--line); background: transparent; color: var(--fg-dim); box-shadow: none; }
+.qw-chips.qw-fall .qw-chip:hover { border-color: var(--line-strong); color: var(--fg); }
+:is(.ed-quick, .newq) .qw-chips.qw-fall .qw-chip.on, .qw-chips.qw-fall .qw-chip.on { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 45%, transparent); color: var(--accent); font-weight: 600; box-shadow: none; }
 .qw-chips.qw-fall .qw-chip .faint { font-weight: 500; }
-.qw-fall-k { flex-basis: 100%; grid-column: 1 / -1; font-size: 12px; font-weight: 600; color: var(--fg-dim); }
+.qw-fall-k { flex-basis: 100%; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--fg-faint); }
+@media (max-width: 640px) { :is(.ed-quick, .newq) .qw-chips.qw-fall .qw-chip { min-height: 38px; font-size: 14px; } }
 
 /* The option's price card (Albert, 2026-11-04): discount items on the left, the accepted price on the
    right with its margin and profit helper, the 20% (i), and Reset. Stacks on a phone. */

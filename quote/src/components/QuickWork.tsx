@@ -180,7 +180,7 @@ export function QuickWork({
                     <div key={r.key} className="qw-row">
                       <ChoiceField label={`${g} ${i + 1}`} none={g === "Disposal" ? "None" : null} options={tops} value={r.choiceId} onChange={(id) => setRow(r.key, { choiceId: id, product: null, materialId: null })} />
                       {levels.map((lv) => (
-                        <div key={lv.depth} className="qw-chips qw-fall" role="radiogroup" aria-label={`${g} ${i + 1} option ${lv.depth}`}>
+                        <div key={lv.depth} className={`qw-chips qw-fall qw-fall-${Math.min(lv.depth, 3)}`} role="radiogroup" aria-label={`${g} ${i + 1} option ${lv.depth}`}>
                           {lv.options.map((o) => (
                             <button type="button" key={o.label} className={`qw-chip${o.on ? " on" : ""}`} role="radio" aria-checked={o.on} onClick={() => setRow(r.key, { choiceId: o.choiceId })}>
                               {o.label}
@@ -189,7 +189,7 @@ export function QuickWork({
                         </div>
                       ))}
                       {glue && (
-                        <div className="qw-chips qw-fall" role="radiogroup" aria-label={`${g} ${i + 1} ${glue.label}`}>
+                        <div className={`qw-chips qw-fall qw-fall-${Math.min(levels.length + 1, 3)}`} role="radiogroup" aria-label={`${g} ${i + 1} ${glue.label}`}>
                           <span className="qw-fall-k">{glue.label}</span>
                           {glue.choices.map((m) => {
                             const on = m.id === glue.current.id;
