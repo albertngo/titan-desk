@@ -55,6 +55,8 @@ export type EditorOption = {
   notOffered?: true;
   /** This option's own HST (2026-11-04); absent = the version's Show HST. Absent rather than null, so older drafts keep their fingerprint. */
   showHst?: boolean;
+  /** The square feet OK'd outside the 10-15% band (2026-11-06), "install/material"; absent = none. See sqftCheck.ts. */
+  sqftOk?: string;
   lines: EditorLine[];
 };
 
@@ -790,6 +792,23 @@ export function setTerms(q: EditorQuote, patch: Partial<Pick<EditorQuote, "disco
  * Charge HST on one option only (Albert, 2026-11-04: "ONLY apply for the option it is on. Not to all options"). The
  * other options keep theirs; one never set follows the version's Show HST, as before.
  */
+/**
+ * OK the material's square feet against the install (Albert, 2026-11-06: "give an option to 'ok' it and re-open the
+ * send option"): `key` is the "install/material" figures OK'd (`sqftKey()`); null takes the OK back.
+ */
+export function setSqftOk(q: EditorQuote, optionId: string, key: string | null): EditorQuote {
+  return {
+    ...q,
+    options: q.options.map((o) => {
+      if (o.id !== optionId) return o;
+      const next: EditorOption = { ...o };
+      if (key) next.sqftOk = key;
+      else delete next.sqftOk;
+      return next;
+    }),
+  };
+}
+
 export function setOptionHst(q: EditorQuote, optionId: string, on: boolean): EditorQuote {
   return { ...q, options: q.options.map((o) => (o.id === optionId ? { ...o, showHst: on } : o)) };
 }
@@ -1184,6 +1203,7 @@ export function fromQuote(quote: Quote): EditorQuote {
       ...(o.part ? { part: o.part } : {}),
       ...(o.notOffered ? { notOffered: true as const } : {}),
       ...(o.showHst !== undefined ? { showHst: o.showHst } : {}),
+      ...(o.sqftOk ? { sqftOk: o.sqftOk } : {}),
       lines: o.lines.map((l: QuoteLine): EditorLine => ({
         id: l.id,
         sourceKind: l.sourceKind,

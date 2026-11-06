@@ -307,6 +307,16 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   The quick form's Baseboards group reads Moulding and its lines go to that section (`GROUP_SECTION`). Line Type stays
   Install; Quote Lines → Section gets Moulding by typecast on the first save that uses it. Payout cards tick it like
   Install. Lines saved under Install before stay there. Tested in `tests/editor.test.ts` and `tests/calc.test.ts`.
+- **Material square feet against the install (Albert, 2026-11-06: "a check for sf of flooring; and sf of install. This
+  should usually fall inside of the 10-15% rule difference… flag this as well and give an option to 'ok' it and re-open
+  the send option… unless theres no material at all of course").** `sqftCheck()` in `src/lib/quotes/sqftCheck.ts`: the
+  option's Install square feet (not refinish, sand or paint, nor a stand-alone glue assist line) against what its
+  square-foot Materials lines order (quantity × (1 + waste)); 10 to 15% over (half a percent either side for rounding)
+  is in the band; no material or no install is not checked; only lines in the total count. Outside the band,
+  `optionProblem()` refuses the send and the editor shows the flag with **OK, it's right** (`setSqftOk()`), which keeps
+  the figures OK'd on Quote Options → **Sqft Check OK** ("install/material", made that day; absent when not set, so older
+  drafts keep their fingerprint). Change either figure and the flag comes back. The quote page's Send card names it and
+  points to the editor. Tested in `tests/sqftCheck.test.ts`.
 - **Stairs on the preliminary (Albert, 2026-10-18; presets 2026-10-20; Stair Item lines 2026-11-02).** A staircase
   is a row of the read-only Airtable table **Stair Profiles** (`PROFILE_TABLE`): a customer-facing name, a stair type
   (Main stairs / Townhome / Basement / Half staircase), a method (Sand & stain / Solid red oak caps / Vinyl treads /

@@ -63,6 +63,8 @@ export type QuoteOption = {
   notOffered?: boolean;
   /** Quote Options → Charge HST (2026-11-04): this option's own HST; absent = the version's Show HST. See optionHst(). */
   showHst?: boolean;
+  /** Quote Options → Sqft Check OK (2026-11-06): the "install/material" square feet OK'd outside the 10-15% band. */
+  sqftOk?: string | null;
   lines: QuoteLine[];
   /** Airtable's own option rollups, for the parity check. */
   airtable: Partial<OptionTotals>;

@@ -1,5 +1,6 @@
 import { optionHst, optionTotals, parityDiffs, round2, stageAmountProblems, stageAmounts } from "@/lib/calc";
 import type { Quote } from "@/lib/quotes/types";
+import { sqftFlag, sqftWords } from "@/lib/quotes/sqftCheck";
 import { payWords, scheduleFlags, scheduleProblems, shownStage } from "@/lib/pricing/schedule";
 import type { Acceptance } from "@/lib/accept/plan";
 import { changeWords as changeLine, paidLeft } from "@/lib/change/diff";
@@ -84,6 +85,9 @@ export function optionProblem(quote: Pick<Quote, "discountRate" | "showHst" | "s
   const hst = optionHst(quote, o);
   const t = optionTotals(o.lines, quote.discountRate, hst);
   if (t.total <= 0) return `${o.name} has nothing priced in it.`;
+  // The material against the install (Albert, 2026-11-06): 10 to 15% over, or OK'd in the editor for these figures.
+  const sq = sqftFlag(o.lines, o.sqftOk);
+  if (sq) return `${o.name}: ${sqftWords(sq)} Check it, or press OK in the editor.`;
   // Never a default (Albert, 2026-11-06): a line whose work takes a glue goes only once its glue is picked.
   const noGlue = o.lines.find((l) => l.sourceKind === "rate" && l.materialGroup && !l.materialId);
   if (noGlue) return `${o.name}: pick the glue on "${noGlue.description ?? "a glue-down line"}" in the editor.`;

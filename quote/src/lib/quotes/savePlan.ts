@@ -105,6 +105,7 @@ export function cleanEditorQuote(raw: unknown): EditorQuote {
       ...(partValue(x.part) ? { part: partValue(x.part)! } : {}),
       ...(x.notOffered === true ? { notOffered: true as const } : {}),
       ...(typeof x.showHst === "boolean" ? { showHst: x.showHst } : {}),
+      ...(typeof x.sqftOk === "string" && /^\d+(\.\d+)?\/\d+(\.\d+)?$/.test(x.sqftOk) ? { sqftOk: x.sqftOk } : {}),
       lines: (Array.isArray(x.lines) ? x.lines : []).slice(0, LIMITS.linesPerOption).map(cleanLine),
     };
   });
@@ -182,6 +183,7 @@ export function optionFields(o: EditorOption, sortOrder: number): Fields {
     [OPTION.scope]: o.scope ?? null,
     [OPTION.part]: o.part ?? null,
     [OPTION.notOffered]: o.notOffered === true,
+    [OPTION.sqftOk]: o.sqftOk ?? null,
     // Its own HST (2026-11-04); blank follows the version's Show HST, as every option did before.
     [OPTION.chargeHst]: o.showHst === undefined ? null : o.showHst ? "Charged" : "Off",
   };
