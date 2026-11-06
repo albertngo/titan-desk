@@ -1839,6 +1839,16 @@ table.cmp th { font-size: 12.5px; font-weight: 500; color: var(--fg-dim); text-t
 .qw-fall-k { flex-basis: 100%; padding-left: 9px; font-size: 11px; font-weight: 500; color: var(--fg-faint); }
 @media (max-width: 640px) { :is(.ed-quick, .newq) .qw-chips.qw-fall .qw-chip { min-height: 34px; font-size: 13px; } }
 
+/* Method + material = unit under a material line's unit cost and price (Albert, 2026-11-06: "'Material + Method' =
+   Total very clearly"). A small right-aligned sum: labels left, figures right, a rule above the total. */
+.matsum { display: grid; grid-template-columns: auto minmax(64px, auto); justify-content: end; align-items: center; column-gap: 8px; row-gap: 2px; margin-top: 6px; font-size: 12px; color: var(--fg-dim); }
+.matsum .k { text-align: left; }
+.matsum .v { text-align: right; font-variant-numeric: tabular-nums; }
+.matsum .v .cell-in { width: 64px; }
+.matsum .eq { border-top: 1px solid var(--line); padding-top: 2px; font-weight: 600; color: var(--fg); }
+.matsum .v.eq .faint { font-weight: 400; }
+select.cell-in.missing { border-color: var(--red, #c62828); }
+
 /* The option's price card (Albert, 2026-11-04): discount items on the left, the accepted price on the
    right with its margin and profit helper, the 20% (i), and Reset. Stacks on a phone. */
 .pc { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 1px; background: var(--line); border-top: 1px solid var(--line); }

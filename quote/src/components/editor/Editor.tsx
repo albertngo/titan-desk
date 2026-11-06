@@ -7,9 +7,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type 
 import { useRouter } from "next/navigation";
 import type { AutosaveResult } from "@/lib/quotes/save";
 import { autosaveVersionAction, quickFormAction, quickOptionAction, saveAsNewVersionAction, saveVersionAction } from "@/app/q/[id]/edit/actions";
-import { estimateWork, initialWork, QuickWork, workInput, type WorkState } from "@/components/QuickWork";
+import { estimateWork, glueWait, initialWork, QuickWork, workInput, type WorkState } from "@/components/QuickWork";
 import type { QuickChoice, QuickProfile } from "@/lib/quick/plan";
-import { SECTION_GROUP } from "@/lib/editor/waterfall";
+import { methodChoices, switchMethod } from "@/lib/editor/waterfall";
 import { Financials } from "@/components/Financials";
 import { DEFAULT_PRIVATE_LABEL, PRIVATE_SECTION, SECTIONS, isPriced, lineCost, lineFlags, lineTotal, optionTotals, privateRollup, sectionOf, stageAmounts } from "@/lib/calc";
 import { manualLine,
@@ -210,9 +210,9 @@ export default function Editor({
   /** + From quick form (2026-10-31): the preliminary's screen, opened beside the tabs to build one more option. */
   const [quick, setQuick] = useState<{ choices: QuickChoice[]; profiles: QuickProfile[]; work: WorkState } | "loading" | null>(null);
   const [quickNote, setQuickNote] = useState<string | null>(null);
-  /** The waterfall families for the Add search (2026-11-06), fetched the first time a section that has them is opened. */
+  /** The waterfall families (2026-11-06), for the Add search and each line's Method; fetched once, after the editor draws. */
   const [families, setFamilies] = useState<QuickChoice[] | null>(null);
-  const wantsFamilies = picking !== null && SECTION_GROUP[picking.section] !== undefined && families === null;
+  const wantsFamilies = families === null;
   useEffect(() => {
     if (!wantsFamilies) return;
     let live = true;
@@ -494,18 +494,35 @@ export default function Editor({
           ) : (
             <div className="desc">{l.description}</div>
           )}
-          {mat.choices.length > 1 && (
+          {/* The method, in place (2026-11-06): same quantity and crew; the glue stays when it fits. */}
+          {(() => {
+            const methods = methodChoices(l, families ?? [], pricing, l.section ?? "Install");
+            if (methods.length < 2) return null;
+            return (
+              <label className="mat">
+                Method
+                <select className="cell-in" value={methods.find((m) => m.on)?.choiceId ?? ""} onChange={(e) => apply(updateLine(quote, option.id, l.id, switchMethod(l, e.target.value, families ?? [], pricing, l.section ?? "Install", levelOf(option))))}>
+                  {methods.map((m) => (
+                    <option key={m.choiceId} value={m.choiceId}>{m.label}</option>
+                  ))}
+                </select>
+              </label>
+            );
+          })()}
+          {mat.choices.length > 0 && (
             <label className="mat">
-              Material
-              <select className="cell-in" value={mat.current?.id ?? ""} onChange={(e) => apply(setMaterial(quote, option.id, l.id, e.target.value, pricing))}>
+              {glueWord(mat.base?.group)}
+              <select className={`cell-in${mat.missing ? " missing" : ""}`} value={mat.current?.id ?? ""} onChange={(e) => e.target.value && apply(setMaterial(quote, option.id, l.id, e.target.value, pricing))}>
+                {mat.missing && <option value="">Pick the {glueWord(mat.base?.group).toLowerCase()}…</option>}
                 {mat.choices.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.name} · {money(m.price)}/{l.uom ?? "unit"}
                     {!customer ? ` · cost ${money(m.cost)}` : ""}
-                    {m.id === mat.base?.id ? " (standard)" : ""}
                   </option>
                 ))}
               </select>
+              {/* Never a default (2026-11-06): the line is the labour alone until a glue is picked, and it can't be sent. */}
+              {mat.missing && <span className="sand-flag" role="status">Pick the {glueWord(mat.base?.group).toLowerCase()}: this line is labour only and can&apos;t be sent yet</span>}
             </label>
           )}
           <div className="subins">
@@ -585,10 +602,10 @@ export default function Editor({
             <NumCell value={l.costOverride} label="Unit cost" placeholder={l.unitCostSnap !== null ? rate(l.unitCostSnap) : "cost"} onCommit={(v) => upd({ costOverride: v })} />
             {l.unitCostSnap !== null && l.costOverride !== null && <span className="sub">card {money(l.unitCostSnap)}</span>}
             {split && (
-              <div className="matin" title="The material's cost per unit, on top of the labour. Blank follows the card.">
+              // Method + material = unit (Albert, 2026-11-06: "'Material + Method' = Total very clearly"): the sum is the line's own figure.
+              <MatSum word={glueWord(mat.current?.group)} labour={split.labourCost} unit={l.costOverride ?? l.unitCostSnap} uom={l.uom}>
                 <NumCell value={split.cost} label="Material unit cost" placeholder={rate(split.cardCost)} onCommit={(v) => setMat({ cost: v })} />
-                <span className="sub">material · labour {money(split.labourCost)}</span>
-              </div>
+              </MatSum>
             )}
           </td>
         )}
@@ -600,11 +617,10 @@ export default function Editor({
               {levelOf(option) === "Premium" && levelApplies(l) ? `card +${Math.round(PREMIUM_MARKUP * 100)}%` : "card"} {money(l.unitPriceSnap)}
             </span>
           )}
-          {split && (
-            <div className="matin" title="The material's price per unit, on top of the labour. Blank follows the card.">
+          {split && !customer && (
+            <MatSum word={glueWord(mat.current?.group)} labour={split.labourPrice} unit={l.unitPrice ?? l.unitPriceSnap} uom={l.uom}>
               <NumCell value={split.price} label="Material unit price" placeholder={rate(split.cardPrice)} onCommit={(v) => setMat({ price: v })} />
-              {!customer && <span className="sub">material · labour {money(split.labourPrice)}</span>}
-            </div>
+            </MatSum>
           )}
         </td>
         <td className="r amt" data-label="Line total">
@@ -802,11 +818,12 @@ export default function Editor({
                       <span>{est.lines > 0 ? "Estimate, before discount and HST" : "Pick the work"}</span>
                       {est.lines > 0 && <b>{money(est.total)}</b>}
                     </span>
+                    {glueWait(est.needsGlue) && <span className="sand-flag" role="status">{glueWait(est.needsGlue)}</span>}
                     <button type="button" className="btn" onClick={() => setQuick(null)} disabled={addingQuick}>Cancel</button>
                     <button
                       type="button"
                       className="btn primary"
-                      disabled={addingQuick || est.lines === 0}
+                      disabled={addingQuick || est.lines === 0 || est.needsGlue.length > 0}
                       onClick={() =>
                         startQuick(async () => {
                           const r = await quickOptionAction(workInput(quick.work), quote.options.map((o) => o.name));
@@ -1292,6 +1309,30 @@ export default function Editor({
           }}
         />
       )}
+    </div>
+  );
+}
+
+
+/** What a Rate Card row's material is called on the line: Glue for a glue group, else Material (2026-11-06). */
+function glueWord(group: string | null | undefined): string {
+  return group && /glue/i.test(group) ? "Glue" : "Material";
+}
+
+/**
+ * Method + material = unit, laid out as a sum under the unit box (Albert, 2026-11-06). `labour` is the card row's at
+ * the option's level, the box is the material (typed or the card's), and `unit` is what the line charges or costs, so
+ * the three always agree: a typed material is stored as labour + it (`setMaterialFigures()`).
+ */
+function MatSum({ word, labour, unit, uom, children }: { word: string; labour: number; unit: number | null; uom: string | null; children: ReactNode }) {
+  return (
+    <div className="matsum" title={`The work's labour, plus the ${word.toLowerCase()} per unit. Blank follows the card.`}>
+      <span className="k">Method</span>
+      <span className="v">{money(labour)}</span>
+      <span className="k">+ {word}</span>
+      <span className="v">{children}</span>
+      <span className="k eq">=</span>
+      <span className="v eq">{unit === null ? "-" : money(unit)}<span className="faint">/{uom ?? "unit"}</span></span>
     </div>
   );
 }

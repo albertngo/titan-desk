@@ -20,6 +20,8 @@ export type QuoteLine = LineInput & {
   contractor: string | null;
   /** The Install Material picked for a Rate Card line (2026-10-16); null/absent = none. */
   materialId?: string | null;
+  /** The Rate Card row's Material Group (2026-11-06, a lookup): set and no `materialId` = the glue isn't picked. */
+  materialGroup?: string | null;
   /** The Stair Item's Category (Quote Lines → Stair Category, 2026-10-28), for grouping the Stairs section; display only. */
   stairCategory?: string | null;
   /** The Stair Item's Customer Wording (Quote Lines → Stair Customer Wording, 2026-11-02): customer copy only. */

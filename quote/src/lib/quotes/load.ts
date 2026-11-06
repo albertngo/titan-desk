@@ -127,6 +127,7 @@ function toLine(r: AirtableRecord): QuoteLine {
     uom: stairLineUom(str(f[LINE.uom]), ids(f[LINE.stairItem]).length > 0, lookupText(f[LINE.stairUnit])),
     contractor: str(f[LINE.contractor]),
     materialId: ids(f[LINE.installMaterial])[0] ?? null,
+    materialGroup: lookupText(f[LINE.rateMaterialGroup]),
     stairCategory: lookupText(f[LINE.stairCategory]),
     customerWording: lookupText(f[LINE.stairWording]),
     clientNote: str(f[LINE.clientNote]),

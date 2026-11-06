@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildCatalogue } from "../src/lib/editor/model";
-import { familiesFor, familyGlue, familyLines, familyMethods, familyRows } from "../src/lib/editor/waterfall";
+import { familiesFor, familyGlue, familyLines, familyMethods, familyRows, methodChoices, switchMethod } from "../src/lib/editor/waterfall";
 import type { QuickChoice, QuickPart } from "../src/lib/quick/plan";
 import type { MaterialRow, RateRow } from "../src/lib/quotes/types";
 
@@ -11,6 +11,7 @@ const rates: RateRow[] = [
   R({ id: "recRateTGB0000000", spec: "T&G", contractor: "Crew B", cost: 1.5 }),
   R({ id: "recRateFullA00000", spec: "FULL GLUE", materialGroup: "Glue - Full Spread", defaultMaterialId: "recGlueA000000000" }),
   R({ id: "recRateClickA0000", spec: "CLICK", rate: 1.9, cost: 1.2 }),
+  R({ id: "recRateNailFullA0", spec: "FULL GLUE NAIL", rate: 2.99, cost: 2.3, materialGroup: "Glue - Full Spread", defaultMaterialId: "recGlueA000000000" }),
 ];
 const mats: MaterialRow[] = [
   { id: "recGlueA000000000", name: "Glue A", group: "Glue - Full Spread", cost: 1.5, price: 1.75 },
@@ -24,22 +25,23 @@ const choice = (o: Partial<QuickChoice> & { id: string; label: string }): QuickC
 const NAIL = choice({ id: "recSolNail0000000", label: "Solid Hardwood T&G (Nail Down)", sort: 3, path: ["Solid Hardwood T&G", "Nail down"], parts: [part("recRateTGA0000000")] });
 const FULL = choice({ id: "recSolFull0000000", label: "Solid Hardwood T&G (Full Gluedown)", sort: 5, path: ["Solid Hardwood T&G", "Full gluedown"], parts: [part("recRateFullA00000")] });
 const CLICK = choice({ id: "recClick000000000", label: "Laminate | Vinyl | Eng Click", sort: 1, parts: [part("recRateClickA0000")] });
-const choices = [CLICK, NAIL, FULL];
+const NAIL_FULL = choice({ id: "recSolNailFull000", label: "Solid Hardwood T&G (Nail + Full Gluedown)", sort: 6, path: ["Solid Hardwood T&G", "Nail + full gluedown"], parts: [part("recRateNailFullA0")] });
+const choices = [CLICK, NAIL, FULL, NAIL_FULL];
 
 describe("the waterfall in the editor's Add search (Albert, 2026-11-06)", () => {
   it("offers a family in its section only, matched on its name or its members'", () => {
-    expect(familiesFor(choices, "Install").map((f) => [f.label, f.members.map((m) => m.id)])).toEqual([["Solid Hardwood T&G", [NAIL.id, FULL.id]]]);
+    expect(familiesFor(choices, "Install").map((f) => [f.label, f.members.map((m) => m.id)])).toEqual([["Solid Hardwood T&G", [NAIL.id, FULL.id, NAIL_FULL.id]]]);
     expect(familiesFor(choices, "Install", "glue").map((f) => f.label)).toEqual(["Solid Hardwood T&G"]);
     expect(familiesFor(choices, "Install", "tile")).toEqual([]);
     expect(familiesFor(choices, "Removal")).toEqual([]);
     // A choice with no Path is never a family: it stays on the plain search.
-    expect(familyRows(choices, "Install")).toEqual(new Set(["recRateTGA0000000", "recRateFullA00000"]));
+    expect(familyRows(choices, "Install")).toEqual(new Set(["recRateTGA0000000", "recRateFullA00000", "recRateNailFullA0"]));
   });
 
   it("picks nothing for you: no method on, and Add waits for a method and then a glue", () => {
     const f = familiesFor(choices, "Install")[0];
-    expect(familyMethods(f, null).map((o) => [o.label, o.on])).toEqual([["Nail down", false], ["Full gluedown", false]]);
-    expect(familyMethods(f, FULL.id).map((o) => o.on)).toEqual([false, true]);
+    expect(familyMethods(f, null).map((o) => [o.label, o.on])).toEqual([["Nail down", false], ["Full gluedown", false], ["Nail + full gluedown", false]]);
+    expect(familyMethods(f, FULL.id).map((o) => o.on)).toEqual([false, true, false]);
     expect(familyLines(undefined, null, cat, "Install", null, "Standard")).toEqual({ lines: [], missing: "Pick how it's installed." });
     expect(familyLines(FULL, null, cat, "Install", null, "Standard")).toEqual({ lines: [], missing: "Pick the type of glue." });
   });
@@ -72,5 +74,24 @@ describe("the waterfall in the editor's Add search (Albert, 2026-11-06)", () => 
   it("names a part that is no longer on the rate card, never guessing", () => {
     const gone = choice({ ...NAIL, parts: [part("recRateGone000000")] });
     expect(familyLines(gone, null, cat, "Install", null, "Standard")).toEqual({ lines: [], missing: "recRateGone000000 is no longer on the rate card." });
+  });
+
+  it("switches a line's method in place: quantity and area stay, the glue stays when it fits (2026-11-06)", () => {
+    const start = { ...familyLines(FULL, "recGlueB000000000", cat, "Install", null, "Standard").lines[0], qty: 820, area: "Main floor", unitPrice: 9 };
+    expect(methodChoices(start, choices, cat, "Install").map((o) => [o.label, o.on])).toEqual([["Nail down", false], ["Full gluedown", true], ["Nail + full gluedown", false]]);
+    // Full gluedown → Nail + full gluedown: same glue group, so Glue B stays; the typed price goes.
+    const nf = switchMethod(start, NAIL_FULL.id, choices, cat, "Install", "Standard");
+    expect([nf.sourceId, nf.qty, nf.area, nf.materialId, nf.unitPriceSnap, nf.unitPrice, nf.description]).toEqual(["recRateNailFullA0", 820, "Main floor", "recGlueB000000000", 3.79, null, "Install | FULL GLUE NAIL · Glue B"]);
+    // → Nail down: no glue on that row.
+    const nd = switchMethod(nf, NAIL.id, choices, cat, "Install", "Standard");
+    expect([nd.sourceId, nd.qty, nd.materialId, nd.unitPriceSnap, nd.description]).toEqual(["recRateTGA0000000", 820, null, 2.3, "Install | T&G"]);
+    // → Full gluedown again: nothing to keep, so no glue is picked for you.
+    const back = switchMethod(nd, FULL.id, choices, cat, "Install", "Standard");
+    expect([back.sourceId, back.materialId, back.unitPriceSnap]).toEqual(["recRateFullA00000", null, 2.3]);
+    // A line on no family's row has no methods, and an unknown choice changes nothing.
+    const click = familyLines(CLICK, null, cat, "Install", null, "Standard");
+    expect(click.missing).toBeNull();
+    expect(methodChoices(click.lines[0], choices, cat, "Install")).toEqual([]);
+    expect(switchMethod(start, "recNope0000000000", choices, cat, "Install", "Standard")).toBe(start);
   });
 });

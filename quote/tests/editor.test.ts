@@ -462,7 +462,8 @@ describe("swappable material on a Rate Card line (one line, material named)", ()
   function withGlue(level?: "Premium") {
     let q = blankQuote();
     const opt = q.options[0].id;
-    q = addLine(q, opt, { ...lineFromEntry(glue, "Install", "Crew A", level), qty: 100 });
+    // The glue is picked by hand (never a default, 2026-11-06): Glue One, as the old default was.
+    q = addLine(q, opt, { ...lineFromEntry(glue, "Install", "Crew A", level, "recMat00000000001"), qty: 100 });
     return { q, opt, id: q.options[0].lines[0].id };
   }
 
@@ -472,10 +473,22 @@ describe("swappable material on a Rate Card line (one line, material named)", ()
     expect(mc.find((e) => e.key === "Install|BAD")!.kind === "rate" && (mc.find((e) => e.key === "Install|BAD") as typeof glue).contractors[0].material).toBeNull();
   });
 
-  it("a new line is the row's labour plus its default material, named with it (2026-10-28)", () => {
+  it("a new line is the row's labour plus the material picked, named with it (2026-10-28)", () => {
     const { q } = withGlue();
     const l = q.options[0].lines[0];
     expect([l.unitPriceSnap, l.unitCostSnap, l.materialId, l.description]).toEqual([5, 3.8, "recMat00000000001", "Install | FULL GLUE · Glue One"]);
+  });
+
+  it("never picks a material for you: labour alone, flagged, until one is picked (2026-11-06)", () => {
+    const l = lineFromEntry(glue, "Install", "Crew A");
+    expect([l.unitPriceSnap, l.unitCostSnap, l.materialId, l.description]).toEqual([4, 3, null, "Install | FULL GLUE"]);
+    expect(materialChoices(l, mc)).toMatchObject({ current: null, missing: true });
+    expect(materialSplit(l, mc, "Standard")).toBeNull();
+    const b0 = blankQuote();
+    const q0 = addLine(b0, b0.options[0].id, l);
+    const picked = setMaterial(q0, q0.options[0].id, q0.options[0].lines[0].id, "recMat00000000002", mc).options[0].lines[0];
+    expect([picked.unitPriceSnap, picked.materialId]).toEqual([6, "recMat00000000002"]);
+    expect(materialChoices(picked, mc).missing).toBe(false);
   });
 
   it("swapping changes price and cost by the difference, and back again exactly", () => {

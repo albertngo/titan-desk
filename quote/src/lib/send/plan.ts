@@ -84,6 +84,9 @@ export function optionProblem(quote: Pick<Quote, "discountRate" | "showHst" | "s
   const hst = optionHst(quote, o);
   const t = optionTotals(o.lines, quote.discountRate, hst);
   if (t.total <= 0) return `${o.name} has nothing priced in it.`;
+  // Never a default (Albert, 2026-11-06): a line whose work takes a glue goes only once its glue is picked.
+  const noGlue = o.lines.find((l) => l.sourceKind === "rate" && l.materialGroup && !l.materialId);
+  if (noGlue) return `${o.name}: pick the glue on "${noGlue.description ?? "a glue-down line"}" in the editor.`;
   if (parityDiffs(t, o.airtable).length > 0) return `The app and Airtable disagree on ${o.name}. Fix that before sending.`;
   // The schedule's own amounts on this option (2026-10-27): nothing negative, and a deposit that is something.
   const stages = stageAmounts(quoteSchedule(quote), o.lines, quote.discountRate, hst, t.total);

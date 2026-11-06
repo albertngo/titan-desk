@@ -23,6 +23,27 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-06",
     kind: "changed",
+    title: "Glue lines show Method + Glue = Unit",
+    details: ["Under a glue line's unit cost and unit price, the editor now lays the figure out as a sum: the method's labour, plus the glue (still editable), equals the unit. The total is always what the line charges."],
+  },
+  {
+    date: "2026-11-06",
+    kind: "new",
+    title: "Change a line's method in the editor",
+    details: ["A T&G line now has a Method list (Nail down, Nail + glue assist, Full gluedown, Nail + full gluedown). Switching keeps the quantity, area, note and crew. The glue stays when the new method uses the same glues; otherwise you pick one. A typed price is cleared, since it was for the other method."],
+  },
+  {
+    date: "2026-11-06",
+    kind: "changed",
+    title: "The glue is never picked for you",
+    details: [
+      "On the quick form and in the editor, a glue-down line starts with no glue. Until you pick one it is priced at labour only and says Pick the glue.",
+      "Create (and Add this option) waits until every glue is picked, and a quote can't be sent while any line still needs one.",
+    ],
+  },
+  {
+    date: "2026-11-06",
+    kind: "changed",
     title: "Nail + glue assist is one line",
     details: ["Solid and Engineered T&G with Nail + glue assist now go on the quote as one line with one square footage, at the same price as before, with the glue picked on it. Quotes made before keep their two lines."],
   },

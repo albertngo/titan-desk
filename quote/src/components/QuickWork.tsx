@@ -50,10 +50,13 @@ export function workInput(w: WorkState) {
 const pickedProducts = (value: WorkState) => new Map(value.rows.flatMap((r) => (r.product ? [[r.product.recordId, { ...r.product, cost: null }] as const] : [])));
 
 /** The running estimate, the same way the server will price it (before discount and HST). */
-export function estimateWork(choices: QuickChoice[], profiles: QuickProfile[], value: WorkState): { total: number; lines: number; name: string; materials: string[] } {
-  const { lines, name, materials } = buildPreliminary(choices, parseWork(workInput(value)), pickedProducts(value), new Map(profiles.map((p) => [p.id, p])));
-  return { total: optionTotals(lines, 0, false).preDiscount, lines: lines.length, name, materials };
+export function estimateWork(choices: QuickChoice[], profiles: QuickProfile[], value: WorkState): { total: number; lines: number; name: string; materials: string[]; needsGlue: string[] } {
+  const { lines, name, materials, needsGlue } = buildPreliminary(choices, parseWork(workInput(value)), pickedProducts(value), new Map(profiles.map((p) => [p.id, p])));
+  return { total: optionTotals(lines, 0, false).preDiscount, lines: lines.length, name, materials, needsGlue };
 }
+
+/** Why Create waits (Albert, 2026-11-06: the glue is never picked for you), or null. */
+export const glueWait = (needsGlue: string[]) => (needsGlue.length ? `Pick the type of glue: ${needsGlue.join(", ")}.` : null);
 
 /** A full, independent copy of one option's work (Duplicate, 2026-10-31): new row keys, nothing shared. */
 export function copyWork(w: WorkState): WorkState {
