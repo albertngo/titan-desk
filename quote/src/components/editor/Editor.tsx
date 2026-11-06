@@ -25,6 +25,7 @@ import { manualLine,
   entryFor,
   exclusionLine,
   materialChoices,
+  materialWords,
   parseNum,
   removeLine,
   removeOption,
@@ -492,7 +493,7 @@ export default function Editor({
           {l.sourceKind === "manual" ? (
             <TextCell value={l.description} label="Description" placeholder="Describe the work" onCommit={(v) => upd({ description: v })} />
           ) : (
-            <div className="desc">{l.description}</div>
+            <div className="desc" title={l.sourceKind === "rate" && l.labourType ? `${l.labourType} | ${l.spec ?? ""}` : undefined}>{l.description}</div>
           )}
           {/* The method, in place (2026-11-06): same quantity and crew; the glue stays when it fits. */}
           {(() => {
@@ -516,7 +517,7 @@ export default function Editor({
                 {mat.missing && <option value="">Pick the {glueWord(mat.base?.group).toLowerCase()}…</option>}
                 {mat.choices.map((m) => (
                   <option key={m.id} value={m.id}>
-                    {m.name} · {money(m.price)}/{l.uom ?? "unit"}
+                    {materialWords(m)} · {money(m.price)}/{l.uom ?? "unit"}
                     {!customer ? ` · cost ${money(m.cost)}` : ""}
                   </option>
                 ))}

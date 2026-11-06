@@ -254,7 +254,16 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   `methodCost` too; both parts on the card = no override). A line typed before the split has no glue figure: its method
   reads as the card's and the glue as the rest, as it did. Swapping the glue keeps a typed method and brings the new
   glue in at its card figure; Back to the card, a method switch and a whole-line revert clear both. Payout cards pay
-  the cost override less the typed glue cost when there is one (`labourRate()`). Tested in
+  the cost override less the typed glue cost when there is one (`labourRate()`).
+  **Line words from Customer Wording** (same day: "draft the wordings, use everywhere"): Rate Card → **Customer
+  Wording** names the work and Install Materials → **Customer Wording** the glue (both made that day; blank = the row's
+  own "Labor Type | Specification" or Name). A line reads `entryWords()` + `materialPart()`, e.g. "Solid Hardwood T&G
+  install · Nail + glue assist · Glue: Silane, Bona R850T or equivalent" (`rateWording()` in `model.ts`, the quick
+  form's `buildPreliminary()` the same), on staff screens and the customer copy alike; the glue choices show the glue's
+  wording; a rate line's tooltip and the picker's keep the row's own name, and search matches both. A line's words
+  change only when it is made or its glue changes, so lines already on a quote keep theirs. First wordings drafted that
+  day for the T&G, glue-down, herringbone, vinyl and cork rows and every glue (Full gluedown and Nail + full gluedown
+  are one row each for both woods, so they say "Hardwood T&G"). Tested in
   `tests/quick.test.ts`, `tests/waterfall.test.ts` and `tests/floorsheet.test.ts`.
 - **Stairs on the preliminary (Albert, 2026-10-18; presets 2026-10-20; Stair Item lines 2026-11-02).** A staircase
   is a row of the read-only Airtable table **Stair Profiles** (`PROFILE_TABLE`): a customer-facing name, a stair type

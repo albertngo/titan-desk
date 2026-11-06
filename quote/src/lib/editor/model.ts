@@ -108,6 +108,8 @@ export type CardEntry =
       minCharge: number | null;
       defaultWaste: number | null;
       contractors: CardContractor[];
+      /** Rate Card → Customer Wording (2026-11-06): the first of its rows that has one; null = "Labor Type | Specification". */
+      wording?: string | null;
     }
   | { kind: "stair"; key: string; name: string; size: string | null; category: string | null; rate: number; cost: number | null; recordId: string; unit?: string | null };
 
@@ -176,7 +178,9 @@ export function buildCatalogue(rates: RateRow[], stairs: StairRow[], materials: 
       minCharge: r.minCharge,
       defaultWaste: r.defaultWaste,
       contractors: [],
+      wording: null as string | null,
     };
+    if (!e.wording && r.wording) e.wording = r.wording;
     e.contractors.push({ name: r.contractor, rate: r.rate, cost: r.cost, recordId: r.id, material: materialFor(r, materials) });
     byKey.set(key, e);
   }
@@ -189,6 +193,18 @@ export function buildCatalogue(rates: RateRow[], stairs: StairRow[], materials: 
 
 export const entryLabel = (e: CardEntry) =>
   e.kind === "rate" ? `${e.labourType} | ${e.spec}` : `${e.name}${e.size ? ` (${e.size})` : ""}`;
+
+/**
+ * The words a line carries for this work, on staff screens and everything the customer gets (Albert, 2026-11-06:
+ * "draft the wordings, use everywhere"): the Rate Card row's Customer Wording, else the row's own name.
+ */
+export const entryWords = (e: CardEntry) => (e.kind === "rate" && e.wording ? e.wording : entryLabel(e));
+/** A glue's words: Install Materials → Customer Wording, else its Name. */
+export const materialWords = (m: Pick<MaterialRow, "name" | "wording">) => m.wording || m.name;
+/** What a material is called after the work on a line: "Glue" for a glue group, else "Material". */
+export const materialKind = (group: string | null | undefined) => (group && /glue/i.test(group) ? "Glue" : "Material");
+/** The line's words for its material: " · Glue: Silane, Bona R850T or equivalent". */
+export const materialPart = (group: string | null | undefined, words: string) => ` · ${materialKind(group)}: ${words}`;
 
 /** Cheapest contractor for the same work; the card lists them cheapest first. */
 export const bestContractor = (e: Extract<CardEntry, { kind: "rate" }>) => e.contractors[0];
@@ -210,7 +226,7 @@ export function searchCatalogue(entries: CardEntry[], query: string, section: st
     .filter((e) => e.kind !== "stair" || section === "Stairs")
     .filter((e) => !filtered || belongs(e))
     .filter((e) => {
-      const hay = entryLabel(e).toLowerCase();
+      const hay = `${entryLabel(e)} ${e.kind === "rate" ? (e.wording ?? "") : ""}`.toLowerCase();
       return words.every((w) => hay.includes(w));
     })
     .sort((a, b) => rank(a) - rank(b) || entryLabel(a).localeCompare(entryLabel(b)))
@@ -287,7 +303,7 @@ export function rateSnap(entry: RateEntry, c: CardContractor, materialId: string
 }
 
 /** The wording of a Rate Card line: the work, then the material when it has one. */
-export const rateWording = (entry: RateEntry, material: MaterialRow | null) => (material ? `${entryLabel(entry)} · ${material.name}` : entryLabel(entry));
+export const rateWording = (entry: RateEntry, material: MaterialRow | null) => `${entryWords(entry)}${material ? materialPart(material.group, materialWords(material)) : ""}`;
 
 /** Re-price a Rate Card line from the card for a contractor and material. Typed overrides stay as typed. */
 function snapLine(l: EditorLine, entry: RateEntry, c: CardContractor, materialId: string | null | undefined, level: ServiceLevel): EditorLine {

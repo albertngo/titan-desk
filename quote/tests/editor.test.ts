@@ -476,7 +476,7 @@ describe("swappable material on a Rate Card line (one line, material named)", ()
   it("a new line is the row's labour plus the material picked, named with it (2026-10-28)", () => {
     const { q } = withGlue();
     const l = q.options[0].lines[0];
-    expect([l.unitPriceSnap, l.unitCostSnap, l.materialId, l.description]).toEqual([5, 3.8, "recMat00000000001", "Install | FULL GLUE · Glue One"]);
+    expect([l.unitPriceSnap, l.unitCostSnap, l.materialId, l.description]).toEqual([5, 3.8, "recMat00000000001", "Install | FULL GLUE · Glue: Glue One"]);
   });
 
   it("never picks a material for you: labour alone, flagged, until one is picked (2026-11-06)", () => {
@@ -495,7 +495,7 @@ describe("swappable material on a Rate Card line (one line, material named)", ()
     const { q, opt, id } = withGlue();
     const two = setMaterial(q, opt, id, "recMat00000000002", mc);
     const l = two.options[0].lines[0];
-    expect([l.unitPriceSnap, l.unitCostSnap, l.description]).toEqual([6, 4.5, "Install | FULL GLUE · Glue Two"]);
+    expect([l.unitPriceSnap, l.unitCostSnap, l.description]).toEqual([6, 4.5, "Install | FULL GLUE · Glue: Glue Two"]);
     const back = setMaterial(two, opt, id, "recMat00000000001", mc).options[0].lines[0];
     expect([back.unitPriceSnap, back.unitCostSnap]).toEqual([5, 3.8]);
     // Not in the group, or not priced: nothing happens.

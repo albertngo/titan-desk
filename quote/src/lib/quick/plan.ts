@@ -1,6 +1,6 @@
 import { optionTotals, round2 } from "@/lib/calc";
 import { PRIVATE_SECTION } from "@/lib/calc";
-import { LINE_TYPE, type CardEntry, type EditorLine } from "@/lib/editor/model";
+import { LINE_TYPE, materialPart, type CardEntry, type EditorLine } from "@/lib/editor/model";
 import { defaultInput, expandProfile } from "@/lib/editor/stairBuilder";
 import type { StairProfileRow } from "@/lib/quotes/types";
 import { profileLine, STAIR_ROWS } from "./stairs";
@@ -335,7 +335,7 @@ export function buildPreliminary(choices: QuickChoice[], work: QuickWork, produc
         sourceId: p.recordId,
         labourType: p.labourType,
         spec: p.spec,
-        description: m ? `${p.description} · ${m.name}` : p.description,
+        description: m ? `${p.description}${materialPart(p.material?.group, m.name)}` : p.description,
         contractor: p.contractor,
         uom: p.uom,
         qty: isFlat(p.uom) ? c.times : row.amount,

@@ -4,7 +4,7 @@ import { requireQuoter } from "@/lib/auth";
 import { AirtableError, getRecord, listByIds, listRecords, type AirtableRecord } from "@/lib/airtable/client";
 import { CAT, CATALOGUE_TABLE, LINE, MATERIAL, MATERIAL_TABLE, OPTION, PROFILE, PROFILE_TABLE, QUICK, QUICK_TABLE, QUOTE, RATE, RATE_TABLE, STAIR, STAIR_TABLE, T, VERSION } from "@/lib/airtable/fields";
 import { QUICK_GROUPS, quickProfiles, splitPath, type QuickChoice, type QuickGroup, type QuickPart, type QuickPartMaterial, type QuickProduct, type QuickProfile } from "@/lib/quick/plan";
-import { buildCatalogue } from "@/lib/editor/model";
+import { buildCatalogue, materialWords } from "@/lib/editor/model";
 import { stairLineUom } from "@/lib/editor/stairGroups";
 import { parseAcceptance } from "@/lib/accept/plan";
 import { cleanSchedule } from "@/lib/pricing/schedule";
@@ -433,6 +433,7 @@ export async function getRateCard(): Promise<RateCard> {
           defaultWaste: num(f[RATE.defaultWaste]),
           materialGroup: str(f[RATE.materialGroup]),
           defaultMaterialId: ids(f[RATE.defaultMaterial])[0] ?? null,
+          wording: str(f[RATE.wording]),
         },
       ];
     });
@@ -449,7 +450,7 @@ export async function getRateCard(): Promise<RateCard> {
     const f = r.fields;
     const name = str(f[MATERIAL.name]);
     const group = str(f[MATERIAL.group]);
-    return name && group ? [{ id: r.id, name, group, cost: num(f[MATERIAL.cost]), price: num(f[MATERIAL.price]) }] : [];
+    return name && group ? [{ id: r.id, name, group, cost: num(f[MATERIAL.cost]), price: num(f[MATERIAL.price]), wording: str(f[MATERIAL.wording]) }] : [];
   });
   return { rates, stairs, materials, profiles };
 }
@@ -481,7 +482,7 @@ export async function getQuickForm(): Promise<QuickChoice[]> {
   for (const e of buildCatalogue(card.rates, [], card.materials ?? []))
     if (e.kind === "rate")
       for (const c of e.contractors)
-        if (c.material) materialOf.set(c.recordId, { group: c.material.default.group, default: { id: c.material.default.id, name: c.material.default.name, price: c.material.default.price, cost: c.material.default.cost }, choices: c.material.choices.map((m) => ({ id: m.id, name: m.name, price: m.price, cost: m.cost })) });
+        if (c.material) materialOf.set(c.recordId, { group: c.material.default.group, default: { id: c.material.default.id, name: materialWords(c.material.default), price: c.material.default.price, cost: c.material.default.cost }, choices: c.material.choices.map((m) => ({ id: m.id, name: materialWords(m), price: m.price, cost: m.cost })) });
   const skus = [...new Set(choiceRecs.map((r) => str(r.fields[QUICK.standardSku])).filter((s): s is string => Boolean(s)))];
   const productRecs = skus.length ? await listRecords(CATALOGUE_TABLE, { fields: Object.values(CAT), filterByFormula: skuFormula(skus) }) : [];
   const bySku = new Map(productRecs.flatMap((r) => { const p = toProduct(r); return p ? [[p.sku, p] as const] : []; }));
@@ -502,7 +503,7 @@ export async function getQuickForm(): Promise<QuickChoice[]> {
       // Otherwise a linked row that's inactive or unpriced makes the whole choice unpriceable: leave it off rather than quote part of it.
       if (!(material && product) && (rateParts.some((x) => !x) || stairParts.some((x) => !x))) return [];
       const parts: QuickPart[] = [
-        ...rateParts.flatMap((x) => (x ? [{ kind: "rate" as const, recordId: x.id, labourType: x.labourType, spec: x.spec, description: `${x.labourType} | ${x.spec}`, contractor: x.contractor, uom: x.uom, rate: x.rate, cost: x.cost, minCharge: x.minCharge, material: materialOf.get(x.id) ?? null }] : [])),
+        ...rateParts.flatMap((x) => (x ? [{ kind: "rate" as const, recordId: x.id, labourType: x.labourType, spec: x.spec, description: x.wording || `${x.labourType} | ${x.spec}`, contractor: x.contractor, uom: x.uom, rate: x.rate, cost: x.cost, minCharge: x.minCharge, material: materialOf.get(x.id) ?? null }] : [])),
         ...stairParts.flatMap((x) => (x ? [{ kind: "stair" as const, recordId: x.id, labourType: null, spec: null, description: `${x.name}${x.size ? ` (${x.size})` : ""}`, contractor: null, uom: x.unit ?? null, rate: x.rate, cost: x.cost, minCharge: null }] : [])),
       ];
       if (material ? !product && parts.length === 0 : parts.length === 0) return [];

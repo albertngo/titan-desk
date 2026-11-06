@@ -298,6 +298,8 @@ export const RATE = {
   /** Import Status: OK / Needs Review. A row the app makes is always Needs Review. */
   importStatus: "fldt43qJAQUirdaQ7",
   productNote: "fldttQIgxw4WpiGec",
+  /** 2026-11-06: how a line names this work, staff and customer alike; blank = "Labor Type | Specification". */
+  wording: "fldOUi7gGpzh0eGjC",
 } as const;
 
 /** Install Materials (2026-10-16), read-only: what a Rate Card job's material can be swapped for. */
@@ -308,6 +310,8 @@ export const MATERIAL = {
   cost: "fldcSDm7iSlX6u9ZA",
   price: "fldlWjoshIgciIxIy",
   active: "fldK9CMq2NQfVi2L9",
+  /** 2026-11-06: how a line and the glue choices name this material; blank = Name. */
+  wording: "fldOo2QfHYm7Tet6X",
 } as const;
 
 /**
