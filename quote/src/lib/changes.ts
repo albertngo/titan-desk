@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-06",
     kind: "changed",
+    title: "Full gluedown lines name the wood",
+    details: ["Full gluedown and Nail + full gluedown now say Solid Hardwood T&G or Engineered T&G, like the other methods, at the same prices as before."],
+  },
+  {
+    date: "2026-11-06",
+    kind: "changed",
     title: "Clearer line names for installs and glue",
     details: [
       "T&G and glue-down lines now read like \"Solid Hardwood T&G install · Nail + glue assist · Glue: Silane, Bona R850T or equivalent\", on screen and on everything the customer gets. Hover a line to see its rate card name.",
