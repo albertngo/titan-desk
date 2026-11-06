@@ -15,8 +15,23 @@ export type PickedProduct = Pick<QuickProduct, "recordId" | "sku" | "name" | "ra
  * TOTAL_BASIS or an Install row's key; null once staff type their own amount, and on a row added
  * after the first.
  */
-/** `materialId` (2026-11-06): the Install Material picked on the row (the type of glue); absent = the default. */
-export type WorkRow = { key: string; group: QuickGroup; choiceId: string; amount: string; product: PickedProduct | null; basis?: string | null; materialId?: string | null };
+/** `materialId` (2026-11-06): the Install Material picked on the row (the type of glue); absent = none picked. */
+export type WorkRow = { key: string; group: QuickGroup; choiceId: string; amount: string; product: PickedProduct | null; basis?: string | null; materialId?: string | null; mat?: TiedMaterial | null };
+/**
+ * The material tied to an Install row (Albert, 2026-11-06: "for every install option; I can PICK whether there will be
+ * materials needed or not… the sqft mirrors off the attached install sqft + the % waste"). `choiceId` is a Material
+ * choice ("" until one is picked); `open` shows the card, else it folds to one line. On the row: absent = follow the
+ * install's Suggested Material (Needed when it has one, Not needed when not); null = Not needed.
+ */
+export type TiedMaterial = { choiceId: string; product: PickedProduct | null; open?: boolean };
+
+/** An Install row's material as it stands: what is set, else the install choice's suggestion, else none. */
+export function tiedMaterial(r: Pick<WorkRow, "group" | "choiceId" | "mat">, byId: Map<string, QuickChoice>): TiedMaterial | null {
+  if (r.group !== "Install" || !r.choiceId) return null;
+  if (r.mat !== undefined) return r.mat;
+  const s = byId.get(r.choiceId)?.suggestMaterial;
+  return s && byId.get(s)?.group === "Material" ? { choiceId: s, product: null } : null;
+}
 /** One staircase on the form: the Stair Profiles row picked (no typed price since 2026-11-02). */
 export type StairRowState = { key: string; profileId: string };
 export type WorkState = { rows: WorkRow[]; stairs: StairRowState[]; extraCost: string; description: string; building: string };
@@ -25,8 +40,11 @@ let n = 0;
 const newRow = (group: QuickGroup, basis: string | null = null): WorkRow => ({ key: `r${++n}`, group, choiceId: "", amount: "", product: null, ...(BASIS_GROUPS.includes(group) ? { basis } : {}) });
 const newStair = (): StairRowState => ({ key: `s${++n}`, profileId: "" });
 
+/** The groups the form shows: Material is tied to each install now (2026-11-06), never a section of its own. */
+const formGroups = (choices: QuickChoice[]) => QUICK_GROUPS.filter((g) => g !== "Material" && choices.some((c) => c.group === g));
+
 export function initialWork(choices: QuickChoice[]): WorkState {
-  const groups = QUICK_GROUPS.filter((g) => choices.some((c) => c.group === g));
+  const groups = formGroups(choices);
   return { rows: groups.map((g) => newRow(g, BASIS_GROUPS.includes(g) ? TOTAL_BASIS : null)), stairs: [], extraCost: "", description: "", building: "" };
 }
 
@@ -35,10 +53,19 @@ const toNumber = (s: string) => {
   return Number.isFinite(v) && v > 0 ? v : null;
 };
 
-/** What New quote sends: which choice and how much, which staircase, never a price. */
-export function workInput(w: WorkState) {
+/**
+ * What New quote sends: which choice and how much, which staircase, never a price. An install's tied material goes as
+ * a Material row right after it at the install's square feet (2026-11-06), so the server prices it, waste and all, as
+ * it always has. `choices` is needed to read an install's suggestion; without it only materials set on the row go.
+ */
+export function workInput(w: WorkState, choices: QuickChoice[] = []) {
+  const byId = new Map(choices.map((c) => [c.id, c]));
   return {
-    rows: w.rows.filter((r) => r.choiceId).map((r) => ({ choiceId: r.choiceId, amount: toNumber(r.amount), productId: r.product?.recordId ?? null, ...(r.materialId ? { materialId: r.materialId } : {}) })),
+    rows: w.rows.filter((r) => r.choiceId && r.group !== "Material").flatMap((r) => {
+      const row = { choiceId: r.choiceId, amount: toNumber(r.amount), productId: r.product?.recordId ?? null, ...(r.materialId ? { materialId: r.materialId } : {}) };
+      const m = tiedMaterial(r, byId);
+      return m?.choiceId ? [row, { choiceId: m.choiceId, amount: row.amount, productId: m.product?.recordId ?? null }] : [row];
+    }),
     stairs: w.stairs.filter((s) => s.profileId).map((s) => ({ profileId: s.profileId })),
     extraCost: toNumber(w.extraCost),
     description: w.description,
@@ -47,16 +74,27 @@ export function workInput(w: WorkState) {
 }
 
 /** The products staff picked on material rows, by record id, as the pricing needs them (no cost in the browser). */
-const pickedProducts = (value: WorkState) => new Map(value.rows.flatMap((r) => (r.product ? [[r.product.recordId, { ...r.product, cost: null }] as const] : [])));
+const pickedProducts = (value: WorkState) =>
+  new Map(value.rows.flatMap((r) => [r.product, r.mat?.product ?? null].flatMap((p) => (p ? [[p.recordId, { ...p, cost: null }] as const] : []))));
 
-/** The running estimate, the same way the server will price it (before discount and HST). */
-export function estimateWork(choices: QuickChoice[], profiles: QuickProfile[], value: WorkState): { total: number; lines: number; name: string; materials: string[]; needsGlue: string[] } {
-  const { lines, name, materials, needsGlue } = buildPreliminary(choices, parseWork(workInput(value)), pickedProducts(value), new Map(profiles.map((p) => [p.id, p])));
-  return { total: optionTotals(lines, 0, false).preDiscount, lines: lines.length, name, materials, needsGlue };
+/** The installs whose material is Needed but not picked yet, by label (2026-11-06): Create waits for them. */
+export function materialWaits(choices: QuickChoice[], value: WorkState): string[] {
+  const byId = new Map(choices.map((c) => [c.id, c]));
+  return value.rows.flatMap((r) => {
+    const m = tiedMaterial(r, byId);
+    return m && !m.choiceId ? [byId.get(r.choiceId)?.label ?? "an install"] : [];
+  });
 }
 
-/** Why Create waits (Albert, 2026-11-06: the glue is never picked for you), or null. */
-export const glueWait = (needsGlue: string[]) => (needsGlue.length ? `Pick the type of glue: ${needsGlue.join(", ")}.` : null);
+/** The running estimate, the same way the server will price it (before discount and HST). */
+export function estimateWork(choices: QuickChoice[], profiles: QuickProfile[], value: WorkState): { total: number; lines: number; name: string; materials: string[]; needsGlue: string[]; needsMaterial: string[] } {
+  const { lines, name, materials, needsGlue } = buildPreliminary(choices, parseWork(workInput(value, choices)), pickedProducts(value), new Map(profiles.map((p) => [p.id, p])));
+  return { total: optionTotals(lines, 0, false).preDiscount, lines: lines.length, name, materials, needsGlue, needsMaterial: materialWaits(choices, value) };
+}
+
+/** Why Create waits (Albert, 2026-11-06: the glue is never picked for you; a needed material is picked), or null. */
+export const glueWait = (needsGlue: string[], needsMaterial: string[] = []) =>
+  [needsGlue.length ? `Pick the type of glue: ${needsGlue.join(", ")}.` : null, needsMaterial.length ? `Pick the material: ${needsMaterial.join(", ")}.` : null].filter(Boolean).join(" ") || null;
 
 /** A full, independent copy of one option's work (Duplicate, 2026-10-31): new row keys, nothing shared. */
 export function copyWork(w: WorkState): WorkState {
@@ -78,7 +116,7 @@ function rateText(c: QuickChoice, unit: keyof typeof UNIT_LABEL | null, product:
 /** Up to this many choices a group shows them as chips, one tap each; more and it is a list. */
 const CHIP_LIMIT = 6;
 /** Groups open on first view; the rest start folded with their summary line. */
-const OPEN_FIRST: readonly QuickGroup[] = ["Install", "Material"];
+const OPEN_FIRST: readonly QuickGroup[] = ["Install"];
 
 const clean = (s: string) => s.replace(/[$,\s]/g, "");
 
@@ -106,8 +144,9 @@ export function QuickWork({
   const byId = useMemo(() => new Map(choices.map((c) => [c.id, c])), [choices]);
   const profileById = useMemo(() => new Map(profiles.map((p) => [p.id, p])), [profiles]);
   const picked = useMemo(() => pickedProducts(value), [value]);
-  const groups = QUICK_GROUPS.filter((g) => choices.some((c) => c.group === g));
-  const missing = QUICK_GROUPS.filter((g) => !groups.includes(g));
+  const groups = formGroups(choices);
+  const missing = QUICK_GROUPS.filter((g) => g !== "Material" && !groups.includes(g));
+  const materialChoices = choices.filter((c) => c.group === "Material");
 
   const set = (patch: Partial<WorkState>) => onChange({ ...value, ...patch });
 
@@ -140,7 +179,9 @@ export function QuickWork({
     const unit = amountUnit(c);
     const amt = toNumber(r.amount);
     const glue = materialQuestion(c, r.materialId);
-    return `${c.label}${glue?.current ? ` · ${glue.current.name}` : ""}${unit && amt !== null ? ` · ${amt} ${UNIT_LABEL[unit]}` : ""}`;
+    const m = tiedMaterial(r, byId);
+    const mat = r.group !== "Install" ? "" : m ? ` + ${byId.get(m.choiceId)?.label ?? "material to pick"}` : " · no material";
+    return `${c.label}${glue?.current ? ` · ${glue.current.name}` : ""}${unit && amt !== null ? ` · ${amt} ${UNIT_LABEL[unit]}` : ""}${mat}`;
   };
   const groupSummary = (g: QuickGroup) => value.rows.filter((r) => r.group === g).map(rowWords).filter(Boolean).join(" · ");
 
@@ -181,7 +222,7 @@ export function QuickWork({
                   const glue = materialQuestion(c, r.materialId);
                   return (
                     <div key={r.key} className="qw-row">
-                      <ChoiceField label={`${g} ${i + 1}`} none={g === "Disposal" ? "None" : null} options={tops} value={r.choiceId} onChange={(id) => setRow(r.key, { choiceId: id, product: null, materialId: null })} />
+                      <ChoiceField label={`${g} ${i + 1}`} none={g === "Disposal" ? "None" : null} options={tops} value={r.choiceId} onChange={(id) => setRow(r.key, { choiceId: id, product: null, materialId: null, mat: undefined })} />
                       {levels.map((lv) => (
                         <div key={lv.depth} className={`qw-chips qw-fall qw-fall-${Math.min(lv.depth, 3)}`} role="radiogroup" aria-label={`${g} ${i + 1} option ${lv.depth}`}>
                           {lv.options.map((o) => (
@@ -266,7 +307,20 @@ export function QuickWork({
                           {following === null && <span className="qw-basis-note">{r.amount.trim() ? "Typed by hand" : "Pick one to follow the install"}</span>}
                         </div>
                       )}
-                      {g === "Material" && c && <ProductPick row={r} standard={c.product} fallback={c.parts.length > 0 ? "allowance from the rate card" : "none set"} onPick={(p) => setRow(r.key, { product: p })} />}
+                      {g === "Material" && c && <ProductPick product={r.product} standard={c.product} fallback={c.parts.length > 0 ? "allowance from the rate card" : "none set"} onPick={(p) => setRow(r.key, { product: p })} />}
+                      {g === "Install" && c && (
+                        <TiedMaterialCard
+                          label={`${g} ${i + 1}`}
+                          mat={tiedMaterial(r, byId)}
+                          suggest={c.suggestMaterial && byId.get(c.suggestMaterial)?.group === "Material" ? c.suggestMaterial : null}
+                          sqft={toNumber(r.amount)}
+                          options={materialChoices}
+                          byId={byId}
+                          choices={choices}
+                          picked={picked}
+                          onChange={(mat) => setRow(r.key, { mat })}
+                        />
+                      )}
                     </div>
                   );
                 })}
@@ -423,12 +477,12 @@ function Chips({ label, options, value, onChange, allowNone = false }: { label: 
 }
 
 /** A material row's product: the standard one, or one staff search for by SKU or name. */
-function ProductPick({ row, standard, fallback, onPick }: { row: WorkRow; standard: QuickProduct | null; fallback: string; onPick: (p: PickedProduct | null) => void }) {
+function ProductPick({ product, standard, fallback, onPick }: { product: PickedProduct | null; standard: QuickProduct | null; fallback: string; onPick: (p: PickedProduct | null) => void }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [found, setFound] = useState<PickedProduct[] | null>(null);
   const [searching, start] = useTransition();
-  const shown = row.product ?? standard;
+  const shown = product ?? standard;
 
   function search(e?: React.FormEvent) {
     e?.preventDefault();
@@ -439,12 +493,12 @@ function ProductPick({ row, standard, fallback, onPick }: { row: WorkRow; standa
   return (
     <div className="qw-prod">
       <span className="mt">
-        {row.product ? "Chosen" : "Standard"}: {shown ? `${shown.name}${shown.sku ? ` (${shown.sku})` : ""} · ${money(shown.rate)}/sq ft` : fallback}
+        {product ? "Chosen" : "Standard"}: {shown ? `${shown.name}${shown.sku ? ` (${shown.sku})` : ""} · ${money(shown.rate)}/sq ft` : fallback}
       </span>
       <button type="button" className="linkbtn" onClick={() => setOpen(!open)} aria-expanded={open}>
         {open ? "Close" : "Choose a specific product"}
       </button>
-      {row.product && (
+      {product && (
         <button type="button" className="linkbtn" onClick={() => onPick(null)}>
           Back to standard
         </button>
@@ -489,5 +543,100 @@ function ProductPick({ row, standard, fallback, onPick }: { row: WorkRow; standa
         </div>
       )}
     </div>
+  );
+}
+
+
+/**
+ * The material tied to an install (Albert, 2026-11-06), in its own green tone so it reads as the material section:
+ * Needed or Not needed, then the material and product, its square feet always the install's plus the waste. Folded to
+ * one line once a material is picked ("go with a"); Change opens it. Changing the install type follows the new
+ * install's suggestion (same day: "always follow the new install's suggestion"); changing the method keeps it.
+ */
+function TiedMaterialCard({
+  label,
+  mat,
+  suggest,
+  sqft,
+  options,
+  byId,
+  choices,
+  picked,
+  onChange,
+}: {
+  label: string;
+  mat: TiedMaterial | null;
+  suggest: string | null;
+  sqft: number | null;
+  options: QuickChoice[];
+  byId: Map<string, QuickChoice>;
+  choices: QuickChoice[];
+  picked: Map<string, QuickProduct>;
+  onChange: (m: TiedMaterial | null) => void;
+}) {
+  const c = mat?.choiceId ? byId.get(mat.choiceId) : undefined;
+  const waste = c ? materialWaste(c.label, (mat?.product ?? c.product)?.name ?? null) : null;
+  const math = waste !== null ? wasteMath({ qty: sqft, waste }) : null;
+  const total = c ? rowTotal(choices, { choiceId: c.id, amount: sqft, productId: mat?.product?.recordId ?? null }, picked) : null;
+  const fmt = (v: number) => v.toLocaleString("en-CA", { maximumFractionDigits: 2 });
+  const open = !!mat && (!mat.choiceId || mat.open === true);
+  return (
+    <>
+      <div className="qw-need" role="radiogroup" aria-label={`${label} material`}>
+        <span className="k">Material</span>
+        <button type="button" className={`qw-chip${mat ? " on" : ""}`} role="radio" aria-checked={!!mat} onClick={() => !mat && onChange({ choiceId: suggest ?? "", product: null })}>
+          Needed
+        </button>
+        <button type="button" className={`qw-chip${mat ? "" : " on"}`} role="radio" aria-checked={!mat} onClick={() => onChange(null)}>
+          Not needed
+        </button>
+      </div>
+      {mat && !open && c && (
+        <div className="qw-matcard folded">
+          <span className="qw-mat-tag">MATERIAL</span>
+          <span className="qw-matline">
+            {c.label}
+            {math && math.typed > 0 ? ` · ${fmt(math.actual)} sf` : ""}
+            {total !== null ? ` · ${money(total)}` : ""}
+          </span>
+          <button type="button" className="linkbtn" onClick={() => onChange({ ...mat, open: true })}>
+            Change
+          </button>
+        </div>
+      )}
+      {mat && open && (
+        <div className="qw-matcard" aria-label={`${label} material`}>
+          <div className="h">
+            <span>
+              <span className="qw-mat-tag">MATERIAL</span>For this install
+            </span>
+            <span className="faint">{sqft ? `follows its ${fmt(sqft)} sq ft` : "follows the install's sq ft"}</span>
+          </div>
+          <div className="qw-chips" role="radiogroup" aria-label={`${label} which material`}>
+            {options.map((o) => (
+              <button type="button" key={o.id} className={`qw-chip${o.id === mat.choiceId ? " on" : ""}`} role="radio" aria-checked={o.id === mat.choiceId} onClick={() => onChange({ ...mat, choiceId: o.id, product: null })}>
+                {o.label}
+              </button>
+            ))}
+          </div>
+          {c && <ProductPick product={mat.product} standard={c.product} fallback={c.parts.length > 0 ? "allowance from the rate card" : "none set"} onPick={(p) => onChange({ ...mat, product: p })} />}
+          {c && (
+            <div className="sq">
+              <span>{math && math.typed > 0 ? <>{fmt(math.typed)} sf + {math.pct}% waste = <b>{fmt(math.actual)} sf</b></> : "Type the install's sq ft"}</span>
+              <span className="qw-price">
+                <span className="qw-rate">{rateText(c, "sqft", mat.product)}</span>
+                <b>{total === null ? "-" : money(total)}</b>
+              </span>
+            </div>
+          )}
+          {!c && <p className="sand-flag" role="status">Pick the material for this install</p>}
+          {c && (
+            <button type="button" className="linkbtn qw-mat-done" onClick={() => onChange({ ...mat, open: false })}>
+              Done
+            </button>
+          )}
+        </div>
+      )}
+    </>
   );
 }

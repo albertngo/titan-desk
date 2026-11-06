@@ -23,6 +23,15 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-06",
     kind: "new",
+    title: "Material goes with each install",
+    details: [
+      "On the quick form (and + From quick form in the editor) each install now asks Material: Needed or Not needed. Needed opens a green material card that starts on the install's usual material; pick another material or product there.",
+      "The material's square feet are always the install's plus the waste (10%, 15% for herringbone and tile), and change when the install's do. Once picked, the card folds to one line; Change opens it. Changing the install type moves the material to that install's usual one. The separate Material section is gone.",
+    ],
+  },
+  {
+    date: "2026-11-06",
+    kind: "new",
     title: "Herringbone: pick the method, then the glue",
     details: ["Herringbone is now one choice on the quick form and in the editor's Add to Install, with its methods underneath: Click, Staple + glue assist and Full gluedown. The glue methods then ask for the type of glue. Prices are unchanged."],
   },

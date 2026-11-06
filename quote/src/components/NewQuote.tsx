@@ -72,7 +72,7 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
 
   function create(forceNew = false) {
     setError(null);
-    const shared = { timing, kind: prelim ? "preliminary" : "measured", works: prelim ? works.map(workInput) : undefined, origin: prelim && origin ? origin : undefined, description: description.trim() || undefined };
+    const shared = { timing, kind: prelim ? "preliminary" : "measured", works: prelim ? works.map((w) => workInput(w, choices)) : undefined, origin: prelim && origin ? origin : undefined, description: description.trim() || undefined };
     const input = picked
       ? { ...shared, contactId: picked.contact.id, opportunityId: (choice as { opportunityId: string | null }).opportunityId, addressConfirmed: confirmed }
       : { ...shared, newCustomer: nc, forceNew };
@@ -93,8 +93,9 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
   const estimates = prelim ? works.map((w) => estimateWork(choices, profiles, w)) : [];
   const names = distinctNames(estimates);
   const estimate = prelim ? estimates[Math.min(tab, works.length - 1)] : null;
-  // Every tab's glue must be picked before Create (2026-11-06): never a default.
-  const glueNote = prelim ? glueWait(estimates.flatMap((e, i) => e.needsGlue.map((g) => (works.length > 1 ? `${g} (option ${i + 1})` : g)))) : null;
+  // Every tab's glue and tied material must be picked before Create (2026-11-06): never a default.
+  const tag = (g: string, i: number) => (works.length > 1 ? `${g} (option ${i + 1})` : g);
+  const glueNote = prelim ? glueWait(estimates.flatMap((e, i) => e.needsGlue.map((g) => tag(g, i))), estimates.flatMap((e, i) => e.needsMaterial.map((g) => tag(g, i)))) : null;
 
   /** A tab's change. Building and the description are the quote's, so a change to either goes on every tab. */
   function setWork(next: WorkState) {
