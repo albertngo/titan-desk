@@ -2036,3 +2036,11 @@ table.items.edit tr.sect-add.top .addrow:focus-visible { outline: 2px solid var(
   table.items.edit tr.subsect.with-add .addrow,
   table.items.edit tr.sect-add.top .addrow { min-height: 36px; font-size: 14px; }
 }
+
+/* Private section banners, look B (Albert, 2026-11-06): flooring shows what the customer sees, stairs says never. */
+table.items tr.priv-ban-row td { padding: 6px 12px 8px; background: #f4f5f7; }
+.priv-ban { border-radius: 8px; padding: 8px 10px; font-size: 12.5px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.priv-ban.show { background: #f3f0fb; border: 1px solid #d9cff5; color: #4a3594; }
+.priv-ban.never { background: #fbeff0; border: 1px solid #f1c9cd; color: #8f2430; font-weight: 600; }
+.priv-prev { background: #fff; border: 1px dashed #cbbcf0; border-radius: 6px; padding: 3px 8px; color: #222; display: inline-flex; gap: 14px; }
+@media (max-width: 640px) { table.items tr.priv-ban-row, table.items tr.priv-ban-row td { display: block; } }

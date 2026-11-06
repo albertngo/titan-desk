@@ -11,7 +11,9 @@ import { makeConfigured, sendToGhl } from "@/lib/make/client";
 import type { CustomerSearch, FoundCustomer, StartResult } from "./types";
 import { buildPreliminary, distinctNames, parseWorks, splitScopes, type QuickWork } from "@/lib/quick/plan";
 import { profileOf, stairDescription } from "@/lib/quick/stairs";
-import { getQuickForm, getQuickProfiles, quickProducts } from "./load";
+import { getQuickForm, getQuickProfiles, getRateCard, quickProducts } from "./load";
+import { buildCatalogue } from "@/lib/editor/model";
+import { stairBaseLine } from "./fees";
 import { firstVersion, quotesByOpportunity } from "./records";
 import { fillVersion } from "./save";
 import { num, str } from "./values";
@@ -192,6 +194,9 @@ async function fillFromQuickForm(quoteId: string, versionId: string, works: Quic
     for (const [i, b] of built.entries()) if (b.needsGlue.length) problems.push(`${built.length > 1 ? `option ${i + 1}: ` : ""}pick the glue in the editor (${b.needsGlue.join(", ")})`);
     const options = built.filter((b) => b.lines.length > 0);
     let filled = false;
+    // A stairs option starts at the stair base fee (2026-11-06), in its Private section; a preliminary has no delivery fee.
+    const card = options.some((o) => o.scope === "Stairs") ? await getRateCard().catch(() => null) : null;
+    const base = card ? stairBaseLine(buildCatalogue(card.rates, card.stairs, card.materials)) : null;
     if (options.length > 0) {
       const r = await fillVersion(versionId, {
         quoteRecordId: quoteId,
@@ -210,10 +215,11 @@ async function fillFromQuickForm(quoteId: string, versionId: string, works: Quic
           // Named for what it installs (2026-10-31), never "Preliminary": the basis is the version's and changes when measured.
           name: o.name,
           description: o.description,
-          // Recommended is one per scope (2026-10-28): the first flooring option and the first stairs option.
-          recommended: options.findIndex((x) => (x.scope ?? null) === (o.scope ?? null)) === i,
+          // No option is marked Recommended for you (Albert, 2026-11-06: "There should never be a 'recommended' option
+          // selected automatically"); staff mark one in the editor if they want.
+          recommended: false,
           ...(o.scope ? { scope: o.scope } : {}),
-          lines: o.lines,
+          lines: o.scope === "Stairs" && base ? [...o.lines, base] : o.lines,
         })),
       });
       if (r.ok) filled = true;

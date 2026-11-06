@@ -18,7 +18,7 @@ import { addContactNote, makeConfigured, sendMessage, sendToGhl, setFollowUpTags
 import { acceptedPdfName, COPY_MAX_CHARS, customerCopy, offersPdf, parseCopy, pdfName, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "@/lib/send/copy";
 import { ghlConfigured, locationUsers } from "@/lib/ghl/client";
 import { quoterAllowlist } from "@/lib/access";
-import { lastSentOf, resolveSender, sendAsChoices, type SendAsChoice } from "@/lib/send/sendAs";
+import { lastSentOf, lastSentWay, resolveSender, sendAsChoices, type LastSentWay, type SendAsChoice } from "@/lib/send/sendAs";
 import { changeEmailMessage, changeSmsMessage, fromTheirNumber, textFromFor, chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, fromAttempts, noNumberWords, noSenderWords, isToken, newToken, parseOptionIds, parseResend, resendEmailMessage, resendKind, resendProblems, resendSmsMessage, sendProblems, smsMessage, type Channels, type Sender } from "@/lib/send/plan";
 import { authorFields, firstNameOf, type Person } from "./history";
 import { loadContract } from "./contract";
@@ -184,6 +184,19 @@ export async function sendAsForCard(quote: Pick<Quote, "link"> | null = null): P
     choices,
     last: last ? { label: labelOf(last.email, users.find((u) => u.email === last.email)?.name ?? null), version: last.version, on: last.on } : null,
   };
+}
+
+/** How the newest version that went out was sent (2026-11-06), for the Send card's default; null when none or unreadable. */
+export async function lastSentWayFor(quoteRecordId: string | null): Promise<LastSentWay | null> {
+  await requireQuoter();
+  if (!quoteRecordId || !REC_ID.test(quoteRecordId)) return null;
+  try {
+    const q = await listByIds(T.quotes, [quoteRecordId], [QUOTE.versions]);
+    const rows = await listByIds(T.versions, ids(q[0]?.fields[QUOTE.versions]), [VERSION.version, VERSION.sentAt, VERSION.status, VERSION.basis, VERSION.customerCopy]);
+    return lastSentWay(rows.map((r) => ({ version: typeof r.fields[VERSION.version] === "number" ? (r.fields[VERSION.version] as number) : null, sentAt: str(r.fields[VERSION.sentAt]), status: str(r.fields[VERSION.status]), basis: str(r.fields[VERSION.basis]), copy: str(r.fields[VERSION.customerCopy]) })));
+  } catch {
+    return null;
+  }
 }
 
 /** The newest version of the quote that went out and who sent it; null when none has, or it can't be read. */

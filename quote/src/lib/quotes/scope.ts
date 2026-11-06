@@ -1,4 +1,4 @@
-import { PRIVATE_SECTION, sectionOf } from "@/lib/calc";
+import { sectionOf } from "@/lib/calc";
 import { quoteKind } from "@/lib/send/summary";
 import type { Part, Scope } from "./types";
 
@@ -57,7 +57,10 @@ export function scopeGroups<O extends Parameters<typeof optionScope>[0]>(options
  * it lands under that heading and follows the stair rules: quantity, never a rate for the customer. Display only; the
  * money is the same, since a section never enters a total.
  */
-export const STAIRS_FOLDED: readonly string[] = [PRIVATE_SECTION, "Other"];
+// Private came back on stairs options (Albert, 2026-11-06, later the same day: "Should we bring back the private
+// section? Where for stairs only; explicitly says it will NEVER be shown to the customer"). Its lines are counted in the
+// stairs price and never listed, not even as an "Additional work" row; the stair base fee sits there. Only Other folds.
+export const STAIRS_FOLDED: readonly string[] = ["Other"];
 
 export function stairsOptionLines<L extends { section: string | null }>(lines: L[]): L[] {
   return lines.map((l) => (STAIRS_FOLDED.includes(sectionOf(l)) ? { ...l, section: "Stairs" } : l));

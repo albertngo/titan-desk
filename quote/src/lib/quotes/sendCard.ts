@@ -5,7 +5,7 @@ import { optionHst, optionTotals } from "@/lib/calc";
 import { fromQuote } from "@/lib/editor/model";
 import { money } from "@/lib/format";
 import { fingerprint } from "@/lib/quotes/savePlan";
-import { previewCopy, sendAsForCard, sendingReady, sendsFrom, sentLink, textsFrom } from "@/lib/quotes/send";
+import { lastSentWayFor, previewCopy, sendAsForCard, sendingReady, sendsFrom, sentLink, textsFrom } from "@/lib/quotes/send";
 import type { Quote } from "@/lib/quotes/types";
 import { addDays, leadPrice, offersPdf, priceRange, rangeText, torontoToday, VALID_DAYS } from "@/lib/send/copy";
 import { optionProblem, sendProblems } from "@/lib/send/plan";
@@ -21,7 +21,8 @@ export async function sendCardData(quote: Quote, customer: boolean) {
   const base = fingerprint(fromQuote(quote));
   const defaultUntil = quote.validUntil && quote.validUntil >= today ? quote.validUntil : addDays(today, VALID_DAYS);
   const draft = quote.status === "Draft";
-  const [ready, link, from, textFromNumber, sendAs] = await Promise.all([sendingReady(), sentLink(quote.customerToken), sendsFrom(), textsFrom(), sendAsForCard(quote)]);
+  // The way the last version went (Albert, 2026-11-06): the card says it and starts on it, for a draft only.
+  const [ready, link, from, textFromNumber, sendAs, lastSent] = await Promise.all([sendingReady(), sentLink(quote.customerToken), sendsFrom(), textsFrom(), sendAsForCard(quote), draft ? lastSentWayFor(quote.link?.quoteRecordId ?? null) : Promise.resolve(null)]);
   const problems = draft
     ? sendProblems(quote, { base, validUntil: defaultUntil, channels: { email: !!quote.link?.email, sms: !!quote.link?.phone } }, { today, fingerprint: base, skipOptions: true })
     : [];
@@ -58,6 +59,7 @@ export async function sendCardData(quote: Quote, customer: boolean) {
         textFrom: textFromNumber,
         sendAs,
         options: sendOptions,
+        lastSent,
       };
   return { props, link, sendAs, base };
 }

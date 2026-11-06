@@ -335,6 +335,7 @@ export default async function QuotePage({
                   initial={fromQuote(quote)}
                   base={base}
                   card={sheetCard}
+                  measured={quote.basis !== "Preliminary"}
                   enabled={sheetOn}
                   camLinked={Boolean(camUrl)}
                   floorRaw={quote.link.floorSheet ?? ""}

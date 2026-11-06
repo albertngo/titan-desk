@@ -3,7 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { floorOptionsAction, saveFloorSheetAction, saveRoomsAction } from "@/app/q/[id]/actions";
-import { draftKey, type EditorQuote } from "@/lib/editor/model";
+import { draftKey, type CardEntry, type EditorQuote } from "@/lib/editor/model";
+import { newOptionIds, withFees } from "@/lib/quotes/fees";
 import { floorPlan, previewChoices, roomsFromSheet, sheetSkus } from "@/lib/floorsheet/plan";
 import { cleanFloorSheet, MAX_ROOMS, parseFloorStored, type FloorSheet } from "@/lib/floorsheet/sheet";
 import { parseRooms } from "@/lib/rooms/log";
@@ -50,6 +51,8 @@ export function FloorSheetPanel({
   base,
   versionId,
   camLinked,
+  catalogue,
+  measured,
 }: {
   quoteRecordId: string;
   raw: string;
@@ -59,6 +62,9 @@ export function FloorSheetPanel({
   base: string;
   versionId: string;
   camLinked: boolean;
+  /** For the fee each new option starts with (2026-11-06): delivery on a measured version. */
+  catalogue: CardEntry[];
+  measured: boolean;
 }) {
   const [seen, setSeen] = useState(raw);
   const stored = useMemo(() => parseFloorStored(seen), [seen]);
@@ -156,11 +162,11 @@ export function FloorSheetPanel({
         const r = await floorOptionsAction(clean, begin.quote.options.map((o) => o.name));
         if (!r.ok) return setMessage({ text: r.message, bad: true });
         let q = begin.quote;
-        const rec = q.options.some((x) => x.recommended && x.scope !== "Stairs");
         r.options.forEach((o, i) => {
           const id = `opt-fs-${i}-${Date.now().toString(36)}`;
-          q = { ...q, options: [...q.options, { id, name: o.name, description: o.description, recommended: i === 0 && !rec, serviceLevel: "Standard", crew: null, scope: "Flooring", lines: o.lines }] };
+          q = { ...q, options: [...q.options, { id, name: o.name, description: o.description, recommended: false /* never picked for you (Albert, 2026-11-06) */, serviceLevel: "Standard", crew: null, scope: "Flooring", lines: o.lines }] };
         });
+        q = withFees(q, catalogue, measured, newOptionIds(begin.quote, q));
         try {
           window.localStorage.setItem(key, JSON.stringify({ savedAt: new Date().toISOString(), quote: q, base: begin.base ?? base }));
         } catch {

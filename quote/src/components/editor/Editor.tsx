@@ -11,6 +11,7 @@ import { estimateWork, glueWait, initialWork, QuickWork, workInput, type WorkSta
 import type { QuickChoice, QuickProfile } from "@/lib/quick/plan";
 import { methodChoices, switchMethod } from "@/lib/editor/waterfall";
 import { sqftCheck, sqftWords } from "@/lib/quotes/sqftCheck";
+import { newOptionIds, withFees } from "@/lib/quotes/fees";
 import { Financials } from "@/components/Financials";
 import { DEFAULT_PRIVATE_LABEL, PRIVATE_SECTION, SECTIONS, isPriced, lineCost, lineFlags, lineTotal, optionTotals, privateRollup, sectionOf, stageAmounts } from "@/lib/calc";
 import { manualLine,
@@ -231,6 +232,8 @@ export default function Editor({
   // The rate card and the stair items, for the picker and for re-pricing (service level, contractor, material).
   const catalogue = useMemo(() => buildCatalogue(card.rates, card.stairs, card.materials), [card]);
   const pricing = catalogue;
+  /** This version is measured (2026-11-06): its new flooring options start with the delivery fee. */
+  const measured = version.basis !== "Preliminary";
   const [levelNote, setLevelNote] = useState<string | null>(null);
   const [holdNote, setHoldNote] = useState<string | null>(null);
   const [crewNote, setCrewNote] = useState<string | null>(null);
@@ -394,7 +397,9 @@ export default function Editor({
     setSaveError(null);
     startSave(async () => {
       try {
-        const r = await saveAsNewVersionAction(version.id, asSaved, basis);
+        // A preliminary saved as the measured next draft (2026-11-06): each flooring option gains the delivery fee.
+        const toSave = basis === "Measured" && version.basis === "Preliminary" ? withFees(asSaved, catalogue, true, asSaved.options.filter((o) => optionScope(o) === "Flooring").map((o) => o.id)) : asSaved;
+        const r = await saveAsNewVersionAction(version.id, toSave, basis);
         if (r.ok) done(r.versionId);
         else setSaveError({ message: r.message, conflict: false });
       } catch {
@@ -438,15 +443,15 @@ export default function Editor({
   const stairsOption = !!option && optionScope(option) === "Stairs";
   // Customer view leaves the Private section out and shows its total as one row in Other (2026-10-22). Never on a stairs option.
   const hidden = option && customer && !stairsOption ? privateRollup(option.lines) : 0;
-  // A stairs option has no Private or Other section (Albert, 2026-11-06: "simply eliminate the PRIVATE logic in stairs
-  // altogether… just a header separation"): Other is the heading inside Stairs, and a line saved in either before shows there.
+  // A stairs option has no Other section (Albert, 2026-11-06: "just a header separation"): Other is the heading inside
+  // Stairs, and a line saved there shows under it. Its Private section came back the same day, staff only (see below).
   const secOf = (l: EditorLine) => (stairsOption && STAIRS_FOLDED.includes(sectionOf(l)) ? "Stairs" : sectionOf(l));
   const stairCats = card.stairs.map((x) => x.category);
   const sectionsShown: string[] = option
     ? WORK_SECTIONS.filter((s) =>
         s === PRIVATE_SECTION && customer
           ? false
-          : option.lines.some((l) => secOf(l) === s) || (s === "Other" && hidden > 0) || (stairsOption && s === "Stairs"),
+          : option.lines.some((l) => secOf(l) === s) || (s === "Other" && hidden > 0) || (stairsOption && (s === "Stairs" || s === PRIVATE_SECTION)),
       )
     : [];
   if (option?.lines.some((l) => sectionOf(l) === "Unsorted")) sectionsShown.push("Unsorted");
@@ -779,7 +784,9 @@ export default function Editor({
             <button
               className="tab ed-add-blank"
               onClick={() => {
-                const next = addOption(quote);
+                // A new option starts with its fee (2026-11-06): delivery on a measured version.
+                const added = addOption(quote);
+                const next = withFees(added, catalogue, measured, newOptionIds(quote, added));
                 apply(next);
                 setActiveId(next.options[next.options.length - 1].id);
               }}
@@ -841,7 +848,8 @@ export default function Editor({
                           const r = await quickOptionAction(workInput(quick.work, quick.choices), quote.options.map((o) => o.name));
                           if (!r.ok) return setQuickNote(r.message);
                           // Flooring and stairs from one tab are two options (2026-11-06); the first one added opens.
-                          const next = r.options.reduce((q, o) => addBuiltOption(q, o), quote);
+                          const built = r.options.reduce((q, o) => addBuiltOption(q, o), quote);
+                          const next = withFees(built, catalogue, measured, newOptionIds(quote, built));
                           apply(next);
                           setActiveId(next.options[quote.options.length]?.id ?? next.options[next.options.length - 1].id);
                           setQuick(null);
@@ -903,7 +911,11 @@ export default function Editor({
                         className="in"
                         aria-label="Scope"
                         value={option.scope ?? ""}
-                        onChange={(e) => apply(updateOption(quote, option.id, { scope: e.target.value === "Flooring" || e.target.value === "Stairs" ? e.target.value : null }))}
+                        onChange={(e) => {
+                          const next = updateOption(quote, option.id, { scope: e.target.value === "Flooring" || e.target.value === "Stairs" ? e.target.value : null });
+                          // Made a stairs option (2026-11-06): it gains the stair base fee if it has none.
+                          apply(optionScope(next.options.find((o) => o.id === option.id)!) === "Stairs" ? withFees(next, catalogue, measured, [option.id]) : next);
+                        }}
                       >
                         <option value="">Auto ({optionScope({ ...option, scope: null })})</option>
                         <option value="Flooring">Flooring</option>
@@ -1052,7 +1064,7 @@ export default function Editor({
                           <tr className={s === PRIVATE_SECTION ? "sect priv" : "sect"} key={`s-${s}`}>
                             <td colSpan={customer ? 4 : 6}>
                               {s === PRIVATE_SECTION ? <span className="priv-tag">Private</span> : s}{" "}
-                              {s === PRIVATE_SECTION && !customer && (
+                              {s === PRIVATE_SECTION && !customer && !stairsOption && (
                                 <span className="priv-as" title="These lines are never itemised for the customer. On the page, the PDF and the email they roll up into one row in Other with this name and their total.">
                                   Not itemised for the customer. Shown as{" "}
                                   <TextCell
@@ -1067,6 +1079,27 @@ export default function Editor({
                             </td>
                             <td className="r">{customer && stairsOption ? "" : money(sum)}</td>
                           </tr>,
+                          // Look B (Albert, 2026-11-06): the Private section says plainly whether the customer sees it, and how.
+                          // Flooring: one line, its name and total, on a breakdown. Stairs: never, its money inside the stairs price.
+                          ...(s === PRIVATE_SECTION && !customer
+                            ? [
+                                <tr className="priv-ban-row" key="priv-ban">
+                                  <td colSpan={7}>
+                                    {stairsOption ? (
+                                      <div className="priv-ban never" role="note">Never shown to the customer. Its {money(sum)} is inside the stairs price.</div>
+                                    ) : (
+                                      <div className="priv-ban show" role="note">
+                                        The customer sees one line:{" "}
+                                        <span className="priv-prev">
+                                          {option.privateLabel ?? DEFAULT_PRIVATE_LABEL} <b>{money(sum)}</b>
+                                        </span>{" "}
+                                        The lines below are never listed. On a lump sum it is inside the one price.
+                                      </div>
+                                    )}
+                                  </td>
+                                </tr>,
+                              ]
+                            : []),
                           // A stairs option: every category, empty or not, its add on its
                           // heading, so a picked item lands right there (2026-11-04). Private's add sits right under its header.
                           ...(stairsOption && s === "Stairs"
@@ -1124,7 +1157,7 @@ export default function Editor({
                           // "+ Add to …" closes each section (Option C, 2026-11-01). It follows the option's scope (2026-10-30):
                           // a stairs option adds only to Stairs and Private (stair items or typed), a flooring option never to Stairs.
                           // A stairs option's adds are at the top of its sections (above), so none closes them.
-                          ...(!stairsOption && s !== "Stairs"
+                          ...((!stairsOption && s !== "Stairs") || (stairsOption && s === PRIVATE_SECTION)
                             ? [
                                 <tr className="sect-add" key={`a-${s}`}>
                                   <td />
