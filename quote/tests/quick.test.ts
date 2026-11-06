@@ -373,7 +373,7 @@ describe("quick form: the waterfall, a choice then its options (Albert, 2026-11-
     choice({ id: `rec${tag}Nail00000AA`.slice(0, 17), label: `${wood} (Nail Down)`, sort: sort0, path: [wood, "Nail down"], parts: [tg] }),
     choice({ id: `rec${tag}Assist000AA`.slice(0, 17), label: `${wood} (Nail + Glue Assist)`, sort: sort0 + 1, path: [wood, "Nail + glue assist"], parts: [assist, tg] }),
     choice({ id: `rec${tag}Full00000AA`.slice(0, 17), label: `${wood} (Full Gluedown)`, sort: sort0 + 2, path: [wood, "Full gluedown"], parts: [full] }),
-    choice({ id: `rec${tag}FullNail0AA`.slice(0, 17), label: `${wood} (Full Gluedown + Nail)`, sort: sort0 + 3, path: [wood, "Full gluedown + nail"], parts: [fullNail] }),
+    choice({ id: `rec${tag}FullNail0AA`.slice(0, 17), label: `${wood} (Nail + Full Gluedown)`, sort: sort0 + 3, path: [wood, "Nail + full gluedown"], parts: [fullNail] }),
   ];
   const SOLID = fam("Solid Hardwood T&G", "Sol", 3);
   const ENG = fam("Engineered T&G", "Eng", 3);
@@ -405,7 +405,7 @@ describe("quick form: the waterfall, a choice then its options (Albert, 2026-11-
       ["Nail down", SOLID[0].id, true],
       ["Nail + glue assist", SOLID[1].id, false],
       ["Full gluedown", SOLID[2].id, false],
-      ["Full gluedown + nail", SOLID[3].id, false],
+      ["Nail + full gluedown", SOLID[3].id, false],
     ]);
     // Engineered's methods are its own, never the solid ones.
     expect(waterfall(all, ENG[2].id)[0].options.map((o) => o.choiceId)).toEqual(ENG.map((c) => c.id));

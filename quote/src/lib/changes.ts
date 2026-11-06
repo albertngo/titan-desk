@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-06",
     kind: "changed",
+    title: "Full gluedown + nail is now Nail + full gluedown",
+    details: ["The same T&G method under a new name, on both Solid Hardwood T&G and Engineered T&G. The price is unchanged."],
+  },
+  {
+    date: "2026-11-06",
+    kind: "changed",
     title: "Quieter T&G options",
     details: ["The methods and glues under a T&G pick are now plain small text with no outline. The one picked is lightly tinted blue."],
   },

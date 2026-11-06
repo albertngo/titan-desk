@@ -206,8 +206,9 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   the line as the editor does: the row's labour + the glue, one line "work · glue", `materialId` on the line
   (`pickMaterial()`; a glue outside the part's group is ignored). Before this, a glue-down preliminary priced the labour
   only. The browser never gets a glue's cost. First family: **Solid Hardwood T&G** and **Engineered T&G** (same rates,
-  Albert: "we can be more explicit"), each Nail down / Nail + glue assist / Full gluedown / Full gluedown + nail; the
-  three hardwood rows were renamed that day and four Engineered rows and Solid Full gluedown + nail were added. The
+  Albert: "we can be more explicit"), each Nail down / Nail + glue assist / Full gluedown / Nail + full gluedown (renamed
+  from "Full gluedown + nail" the same day, Albert); the
+  three hardwood rows were renamed that day and four Engineered rows and Solid Nail + full gluedown were added. The
   Flooring Site Sheet's engineered ¾" now builds on the Engineered T&G choices. Another family is a Path typed in
   Airtable, no code. **Drawn as secondary categories** (same day: "make the waterfall look like secondary categories"):
   the first pick keeps the big chips; each follow-up row is small text options with no outline (then "even less"),
