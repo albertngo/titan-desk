@@ -1079,6 +1079,40 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   `src/lib/notion/payments.ts`, hard rule 2f). Rules in
   the repo CLAUDE.md, rule 8.
 
+- **Sand steps → painted risers and stringers only (Albert, 2026-11-06: "Logic to not allow for glue and stain
+  stringers when sanding steps! only white stringers or sand and stain stringers. Risers will also only be able to be
+  painted white… It should grey the other option out if one is selected. Some sort of flag should be shown in the
+  selections").** On one option, sanding the steps (Keep Existing Steps (Sand + Stain), a Sand & stain profile line)
+  rules out oak-skinned (Glue and Stain) stringers and every riser that is not Paint Risers White, and either of those
+  rules out sanding. Whichever is on the option first wins: the editor's picker greys the other out and says why; a
+  line that clashes anyway (added before, or by a profile) carries a red flag in the editor, the builder and the quick
+  form. Sanding shows `SAND_DISCLAIMER` wherever it is picked. A flag never stops a save or a send. Items are matched
+  by record id first, then name. Rules: `src/lib/editor/sandRule.ts`, tested in `tests/sandRule.test.ts`.
+- **Every new line starts at 1 (Albert, 2026-11-06: "All items always start off with value of 1 (for everything)
+  unless otherwise edited or entered by another part of the system (aka preliminary quote)").** `NEW_QTY` in
+  `lineFromEntry()` and `manualLine()` (`src/lib/editor/model.ts`); the quick form, the builder and the site sheets
+  still set their own quantity; exclusions and notes keep none. Replaces the 2026-11-04 flat-row and per-staircase
+  rules, which this covers. Tested in `tests/editor.test.ts` and `tests/discounts.test.ts`.
+- **The material's math is shown (Albert, 2026-11-06: "sf typed + wastage % = actual sqft. Total is not editable.
+  only the sf typed and wastage is").** Under a Materials line's quantity and waste boxes, "820 sf + 10% = 902 sf"
+  (`wasteMath()` in `model.ts`, Qty × (1 + Waste) as `calc.ts` prices it); the ordered amount is worked out, never
+  typed. The quick form's Material rows show the same line. Tested in `tests/sandRule.test.ts`.
+- **The material first when it costs the deposit (Albert, 2026-11-06: "if the material cost is above the 35% or above
+  the deposit requirement amount; then the wording should be - purchasing of the flooring material is required first.
+  And the selected option of clearing material first is selected").** `autoSchedule()` picks the Material deposit
+  whenever an offered option's material (`materialsDeposit()`, after the discount, with its HST) is 35% of its total
+  or more, whatever the HST, with the first stage worded `MATERIAL_FIRST_WHEN`, "Purchasing of the flooring material
+  is required first" (`materialFirstSchedule()` in `src/lib/pricing/schedule.ts`; paid in cash when nothing carries
+  HST). The top-up after it brings any other option up to 35% and is hidden where the material covers it.
+  `scheduleFlags()` still checks the HST rules only (`hstSchedule()`), so a schedule picked by hand is never newly
+  blocked. Picking the preset the automatic one already is keeps it automatic. Tested in `tests/schedule.test.ts`.
+- **The Send card in the editor (Albert, 2026-11-06: "Send option card WITHIN the 'edit' screen is also
+  available").** The edit page builds the same card as the quote page (`sendCardData()` in
+  `src/lib/quotes/sendCard.ts`, used by both) and the editor shows it under Customer and terms. The editor tells the
+  card about its own unsaved changes through `EditorSend` (a same-tab storage read can't see them), so Send is off
+  until autosave or Save lands, and each autosave refreshes the card so it checks what Airtable holds. Never in
+  Customer view.
+
 ## Hard rules
 
 1. **One file talks to Airtable:** `src/lib/airtable/client.ts`. It alone reads

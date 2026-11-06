@@ -9,6 +9,7 @@ import { money } from "@/lib/format";
 import { levelPrice, type ServiceLevel } from "@/lib/pricing/service";
 import { STAIR_METHODS, STAIR_TYPES, profileName, stairProfileLine } from "@/lib/quick/stairs";
 import type { StairProfileRow } from "@/lib/quotes/types";
+import { SAND_DISCLAIMER, sandBlocks, sandFlag, sandRole } from "@/lib/editor/sandRule";
 
 /** The fallback when Airtable has no Stair Profiles: type × method, at a price staff type on the line. */
 const CODE_PROFILES = STAIR_TYPES.flatMap((type) => STAIR_METHODS.map((method) => ({ type, method })));
@@ -45,6 +46,7 @@ export function Picker({
   profiles,
   profileLines,
   onPickMany,
+  optionLines = [],
 }: {
   section: string;
   /** A stairs option's category button (2026-10-30): only Stair Items of that category, no builder. */
@@ -65,6 +67,8 @@ export function Picker({
   profileLines?: { id: string; sourceId: string | null }[];
   /** Several lines at once, in place of the given line ids (the builder). */
   onPickMany?: (lines: EditorLine[], replacing: string[]) => void;
+  /** The option's lines (2026-11-06), so an item that clashes with sanded steps is greyed out. */
+  optionLines?: EditorLine[];
 }) {
   const [q, setQ] = useState("");
   const [building, setBuilding] = useState<StairProfileRow | null>(null);
@@ -139,13 +143,20 @@ export function Picker({
             ) : (
               <>
                 <ul className="sb-lines">
-                  {built.lines.map((l) => (
-                    <li key={l.id}>
-                      <span>{l.description}</span>
-                      <span className="faint">{l.qty} × {money(l.unitPriceSnap ?? 0)}</span>
-                    </li>
-                  ))}
+                  {built.lines.map((l) => {
+                    const clash = sandFlag(l, [...optionLines.filter((x) => !replacing.includes(x.id) || !replace), ...built.lines]);
+                    return (
+                      <li key={l.id}>
+                        <span>
+                          {l.description}
+                          {clash && <span className="sand-flag">⚠ {clash}</span>}
+                        </span>
+                        <span className="faint">{l.qty} × {money(l.unitPriceSnap ?? 0)}</span>
+                      </li>
+                    );
+                  })}
                 </ul>
+                {built.lines.some((l) => sandRole({ id: l.sourceId, name: l.description, category: l.stairCategory }) === "sand") && <p className="sand-note">{SAND_DISCLAIMER}</p>}
                 {built.missing.length > 0 && <p className="sb-msg warn">{built.missing.length} linked Stair Item{built.missing.length === 1 ? " is" : "s are"} inactive or gone and left out.</p>}
                 {replacing.length > 0 && (
                   <label className="check-in">
@@ -171,6 +182,7 @@ export function Picker({
                   <span className="nm">{p.name}</span>
                   <span className="mt">
                     {p.steps ? `${p.steps} steps · ` : ""}build it into Stair Item lines
+                    {p.method === "Sand & stain" && <span className="mt disclaim">{SAND_DISCLAIMER}</span>}
                   </span>
                 </button>
               </li>
@@ -180,16 +192,25 @@ export function Picker({
               <li key={profileName(p)}>
                 <button className="pick" onClick={() => onPick(stairProfileLine(p.type, p.method, null))}>
                   <span className="nm">{profileName(p)}</span>
-                  <span className="mt">Whole staircase at a price you type · its description goes on the option</span>
+                  <span className="mt">
+                    Whole staircase at a price you type · its description goes on the option
+                    {p.method === "Sand & stain" && <span className="mt disclaim">{SAND_DISCLAIMER}</span>}
+                  </span>
                 </button>
               </li>
             ))}
           {results.map((e) => {
             const from = e.kind === "rate" ? (e.contractors.find((c) => c.name === crew) ?? bestContractor(e)) : null;
+            // Sand steps → painted risers and stringers only (2026-11-06): whichever is on the option first greys the other out.
+            const stairItem = e.kind === "stair" ? { id: e.recordId, name: e.name, category: e.category } : null;
+            const blocked = stairItem ? sandBlocks(stairItem, optionLines) : null;
+            const sanding = stairItem ? sandRole(stairItem) === "sand" : false;
             return (
               <li key={e.key}>
-                <button className="pick" onClick={() => onPick(lineFromEntry(e, section, crew ?? undefined, level))}>
+                <button className="pick" disabled={blocked !== null} title={blocked ?? undefined} onClick={() => onPick(lineFromEntry(e, section, crew ?? undefined, level))}>
                   <span className="nm">{entryLabel(e)}</span>
+                  {blocked && <span className="mt blocked">{blocked}</span>}
+                  {sanding && <span className="mt disclaim">{SAND_DISCLAIMER}</span>}
                   <span className="mt">
                     {e.kind === "rate"
                       ? `${money(rateSnap(e, from!, null, level).price)} / ${e.uom ?? "unit"}${customer ? "" : ` · ${e.contractors.length} contractor${e.contractors.length === 1 ? "" : "s"}, ${from!.name === crew ? "crew" : "cheapest"} ${from!.name}`}${from!.material && from!.material.choices.length > 1 ? ` · ${from!.material.choices.length} materials` : ""}`

@@ -215,6 +215,17 @@ export function searchCatalogue(entries: CardEntry[], query: string, section: st
  */
 export const showsWaste = (l: Pick<EditorLine, "section" | "waste">) => sectionOf(l) === "Materials" || (l.waste ?? 0) !== 0;
 
+/**
+ * The material's math, shown on the line (Albert, 2026-11-06: "the math is visibly shown. (sf typed + wastage % =
+ * actual sqft). Total is not editable. only the sf typed and wastage is"): the quantity typed, the waste as a whole
+ * percent, and what is ordered, Qty × (1 + Waste) as `calc.ts` prices it, to two decimals. Null with no quantity.
+ */
+export function wasteMath(l: Pick<EditorLine, "qty" | "waste">): { typed: number; pct: number; actual: number } | null {
+  if (l.qty === null || !Number.isFinite(l.qty)) return null;
+  const waste = l.waste ?? 0;
+  return { typed: l.qty, pct: Math.round(waste * 1000) / 10, actual: Math.round(l.qty * (1 + waste) * 100) / 100 };
+}
+
 // ---------- building lines ----------
 
 function baseLine(section: string): Omit<EditorLine, "description" | "sourceKind"> {
@@ -346,9 +357,17 @@ export function setMaterialFigures(q: EditorQuote, optionId: string, lineId: str
 /**
  * A Stair Item charged once per staircase starts at quantity 1 (Albert, 2026-11-04: "Stringers painting white should
  * auto 1"). Read from the item's name, "(per staircase)", which the three stringer items (paint white, oak skin, sand
- * and stain) carry; staff can still change it. The builder and the site sheet set their own quantity.
+ * and stain) carry; staff can still change it. The builder and the site sheet set their own quantity. Since
+ * 2026-11-06 every new line starts at 1 (`NEW_QTY`), so this only names the per-staircase items.
  */
 export const perStaircase = (name: string) => /\(\s*per\s+staircase\s*\)/i.test(name);
+
+/**
+ * Every line picked or typed in starts at quantity 1 (Albert, 2026-11-06: "All items always start off with value of 1
+ * (for everything) unless otherwise edited or entered by another part of the system (aka preliminary quote)"). The
+ * quick form, the builder and the site sheets set their own quantity on the line they make; text-only rows keep none.
+ */
+export const NEW_QTY = 1;
 
 /** A line priced from the card, at the option's service level (Premium adds to labour only). */
 export function lineFromEntry(entry: CardEntry, section: string, contractorName?: string, level: ServiceLevel = "Standard"): EditorLine {
@@ -361,7 +380,7 @@ export function lineFromEntry(entry: CardEntry, section: string, contractorName?
       description: entryLabel(entry),
       // The Stair Item's own Unit (2026-11-04): steps, sets, ft, pcs, or none for the number alone.
       uom: entry.unit ?? null,
-      qty: perStaircase(entry.name) ? 1 : null,
+      qty: NEW_QTY,
       unitPriceSnap: levelPrice(entry.rate, level, true),
       unitCostSnap: entry.cost,
       hasSource: true,
@@ -379,9 +398,8 @@ export function lineFromEntry(entry: CardEntry, section: string, contractorName?
     contractor: c.name,
     materialId: s.material?.id ?? null,
     uom: entry.uom,
-    // A flat card row (a bin, a trip) starts at one (Albert, 2026-11-04: "it should already go as 1 as the
-    // quantity"), as the preliminary has always made it; anything measured starts blank for the amount.
-    ...(entry.uom === "flat" ? { qty: 1 } : {}),
+    // Starts at one (2026-11-04 for a flat row, 2026-11-06 for everything); staff type the amount over it.
+    qty: NEW_QTY,
     // A card row's default waste is taken only in Materials (2026-10-27); see showsWaste.
     waste: section === "Materials" ? entry.defaultWaste : null,
     unitPriceSnap: s.price,
@@ -392,7 +410,7 @@ export function lineFromEntry(entry: CardEntry, section: string, contractorName?
 }
 
 export function manualLine(section: string, description = ""): EditorLine {
-  return { ...baseLine(section), sourceKind: "manual", description, uom: section === "Delivery" ? "flat" : null };
+  return { ...baseLine(section), sourceKind: "manual", description, uom: section === "Delivery" ? "flat" : null, qty: section === "Exclusions" ? null : NEW_QTY };
 }
 
 export function exclusionLine(text: string): EditorLine {

@@ -2,7 +2,7 @@
 
 import type { StageAmount } from "@/lib/calc";
 import { money } from "@/lib/format";
-import { MAX_STAGES, PAY_HOWS, PAY_LABELS, PRESETS, sameSchedule, scheduleProblems, type PayHow, type PaymentSchedule, type PresetKey, type ScheduleStage } from "@/lib/pricing/schedule";
+import { autoReason, MAX_STAGES, PAY_HOWS, PAY_LABELS, PRESETS, sameSchedule, scheduleProblems, type PayHow, type PaymentSchedule, type PresetKey, type ScheduleStage } from "@/lib/pricing/schedule";
 
 /**
  * The payment schedule in the editor's terms (Albert, 2026-10-27): pick a preset, then change any
@@ -38,7 +38,7 @@ export function ScheduleEditor({
     if (key === "custom") return;
     // The automatic one is stored as nothing at all, so it keeps following the quote's HST.
     const next = PRESETS[key].schedule();
-    onChange(sameSchedule(next, auto) ? null : next);
+    onChange(key === auto.preset || sameSchedule(next, auto) ? null : next);
   };
   const add = () => {
     const at = s.stages.length - 1;
@@ -61,12 +61,7 @@ export function ScheduleEditor({
       </div>
       {!schedule ? (
         <p className="sched-tip">
-          {auto.preset === "cash"
-            ? "Nothing on this quote carries HST, so it is paid in cash: the deposit at the showroom, the rest to the PM on site."
-            : auto.preset === "materials"
-              ? "HST is on the material only, so the material comes first by e-transfer, then the rest of a 35% deposit in store."
-              : "Automatic: 35 / 35 / 30, the deposit by e-transfer."}{" "}
-          It follows the quote&rsquo;s HST until you change it.
+          {autoReason(auto)} It follows the quote&rsquo;s HST and material until you change it.
         </p>
       ) : (
         !sameSchedule(schedule, auto) && (

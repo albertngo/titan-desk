@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useState, useSyncExternalStore, useTransition } from "react";
+import { useCallback, useContext, useState, useSyncExternalStore, useTransition } from "react";
+import { EditorSend } from "@/components/editor/EditorSend";
 import { resendQuoteAction, sendQuoteAction } from "@/app/q/[id]/actions";
 import { activityEntries, devicesSeen, whenWords } from "@/lib/activity/track";
 import { draftKey, unsavedDraftAt } from "@/lib/editor/model";
@@ -39,6 +40,19 @@ const keptWhen = (at: string) =>
 
 /** Why sending is off while the device holds unsaved changes, with the way to the editor. */
 function UnsavedNote({ versionId, at, sent }: { versionId: string; at: string; sent: boolean }) {
+  // In the editor (2026-11-06) the changes are the ones on screen: a draft saves itself in a few seconds.
+  const inEditor = useContext(EditorSend) !== null;
+  if (inEditor)
+    return (
+      <div className="sq-msg warn sq-unsaved" role="status">
+        <b>Unsaved changes</b>
+        <p>
+          {sent
+            ? "Send again is off until they are saved as the next draft or discarded."
+            : "Sending is off until they are saved: a draft saves itself a few seconds after the last change, or press Save."}
+        </p>
+      </div>
+    );
   return (
     <div className="sq-msg warn sq-unsaved" role="status">
       <b>Unsaved changes on this device{keptWhen(at)}</b>
@@ -269,7 +283,10 @@ export function SendQuote({
 }) {
   const router = useRouter();
   /** Unsaved changes for this version on this device (2026-11-05): nothing sends while there are. */
-  const unsaved = useUnsavedAt(versionId);
+  // In the editor (2026-11-06), the editor says whether it holds unsaved changes; elsewhere, this device's storage.
+  const editor = useContext(EditorSend);
+  const stored = useUnsavedAt(versionId);
+  const unsaved = editor ? editor.unsavedAt : stored;
   /** Who it goes out as (2026-11-05, anyone): their own sign-in unless they pick someone else. */
   const [asEmail, setAsEmail] = useState(sendAs?.me ?? "");
   const asChoice = sendAs?.choices.find((c) => c.email === asEmail) ?? null;

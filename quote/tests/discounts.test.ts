@@ -219,12 +219,12 @@ describe("Contractor pricing (Albert, 2026-11-04)", () => {
   });
 });
 
-describe("a flat card row starts at one (Albert, 2026-11-04)", () => {
-  it("puts a bin in at quantity 1 from the editor's picker, and leaves a measured row blank", () => {
+describe("a flat card row starts at one (Albert, 2026-11-04); every row since 2026-11-06", () => {
+  it("puts a bin in at quantity 1 from the editor's picker, and a measured row at 1 too", () => {
     const bin = { ...RATE, id: "recRateBin0000000", labourType: "Disposal", spec: "Bin", uom: "flat", rate: 400, cost: 250 } as RateRow;
     const [binEntry, installEntry] = buildCatalogue([bin, RATE], []).sort((a) => (a.kind === "rate" && a.uom === "flat" ? -1 : 1));
     expect(lineFromEntry(binEntry, "Disposal")).toMatchObject({ qty: 1, uom: "flat", unitPriceSnap: 400 });
-    expect(lineFromEntry(installEntry, "Install").qty).toBeNull();
+    expect(lineFromEntry(installEntry, "Install").qty).toBe(1);
   });
 });
 

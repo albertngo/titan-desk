@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { materialsDeposit, optionTotals, stageAmountProblems, stageAmounts, type LineInput } from "../src/lib/calc";
-import { autoSchedule, scheduleFlags, cleanSchedule, defaultSchedule, payWords, PRESETS, sameSchedule, scheduleField, scheduleProblems, shownStage, suggestsMaterialDeposit, type PaymentSchedule } from "../src/lib/pricing/schedule";
+import { autoReason, autoSchedule, MATERIAL_FIRST_WHEN, materialFirst, materialFirstSchedule, scheduleFlags, cleanSchedule, defaultSchedule, payWords, PRESETS, sameSchedule, scheduleField, scheduleProblems, shownStage, suggestsMaterialDeposit, type PaymentSchedule } from "../src/lib/pricing/schedule";
 import { cleanEditorQuote, fingerprint, planSave } from "../src/lib/quotes/savePlan";
 import { VERSION } from "../src/lib/airtable/fields";
 import { blankQuote, setSchedule } from "../src/lib/editor/model";
@@ -170,12 +170,50 @@ describe("payment schedule: the money (calc.ts)", () => {
     expect(cash.stages.map((x) => x.pay)).toEqual(["cash", "cashOnsite", "cashOnsite"]);
     // HST on the material only: the material first.
     expect(autoSchedule([{ lines: [install, floor], showHst: false }]).preset).toBe("materials");
-    // Taxed throughout: 35 / 35 / 30 by e-transfer.
-    expect(autoSchedule([{ lines: [install, floor], showHst: true }])).toEqual(defaultSchedule());
+    // Taxed throughout, the material under 35% of the total: 35 / 35 / 30 by e-transfer.
+    const cheapFloor = L({ section: "Materials", lineType: "Material", qty: 100, unitPriceSnap: 4 }); // 400 of 1,900
+    expect(autoSchedule([{ lines: [install, cheapFloor], showHst: true }])).toEqual(defaultSchedule());
+    // Taxed throughout with the material at 35% or more: the material first (2026-11-06).
+    expect(autoSchedule([{ lines: [install, floor], showHst: true }])).toEqual(materialFirstSchedule(false));
     // Nothing priced yet: the default.
     expect(autoSchedule([{ lines: [], showHst: false }])).toEqual(defaultSchedule());
     // One option taxed throughout and one with no HST at all: not every option is untaxed, so no cash.
     expect(autoSchedule([{ lines: [install], showHst: true }, { lines: [install], showHst: false }])).toEqual(defaultSchedule());
+  });
+
+  it("puts the material first when it costs the 35% deposit or more, with the words Albert gave (2026-11-06)", () => {
+    const at35 = L({ section: "Materials", lineType: "Material", qty: 100, unitPriceSnap: 10.5 }); // 1,050 of 3,000 = 35%
+    const big = L({ qty: 650, unitPriceSnap: 3 }); // 1,950 with at35 = 3,000
+    const under = L({ section: "Materials", lineType: "Material", qty: 100, unitPriceSnap: 10 }); // 1,000 of 2,950
+    expect(materialFirst([{ lines: [big, at35], showHst: true }])).toBe(true);
+    expect(materialFirst([{ lines: [big, under], showHst: true }])).toBe(false);
+    // The quote's discount is on both sides, so it never tips the rule.
+    expect(materialFirst([{ lines: [big, at35], showHst: true, discountRate: 0.1 }])).toBe(true);
+    // No material: never.
+    expect(materialFirst([{ lines: [install], showHst: true }])).toBe(false);
+    // Any one option is enough; the others still get their 35% through the top-up.
+    expect(materialFirst([{ lines: [big, under], showHst: true }, { lines: [big, at35], showHst: true }])).toBe(true);
+
+    const s = autoSchedule([{ lines: [big, at35], showHst: true }]);
+    expect(s.preset).toBe("materials");
+    expect(s.stages[0]).toMatchObject({ label: "Materials", when: MATERIAL_FIRST_WHEN, part: { kind: "materials" }, pay: "etransfer" });
+    expect(MATERIAL_FIRST_WHEN).toBe("Purchasing of the flooring material is required first");
+    expect(scheduleProblems(s)).toEqual([]);
+    expect(autoReason(s)).toMatch(/purchasing it is required first/);
+    // The material covers the deposit, so the top-up comes to nothing and is never shown.
+    const amounts = stageAmounts(s, [big, at35], 0, true, optionTotals([big, at35], 0, true).total);
+    expect(amounts.filter(shownStage).map((x) => x.label)).toEqual(["Materials", "Second payment", "Final payment"]);
+
+    // Nothing on the quote carries HST: the material first, all in cash, never e-transfer.
+    const untaxedBig = L({ section: "Materials", lineType: "Material", qty: 500, unitPriceSnap: 5, noHst: true }); // 2,500 of 4,000
+    const cash = autoSchedule([{ lines: [install, untaxedBig], showHst: false }]);
+    expect(cash.stages[0].when).toBe(MATERIAL_FIRST_WHEN);
+    expect(cash.stages.map((x) => x.pay)).toEqual(["cash", "cash", "cashOnsite", "cashOnsite"]);
+    expect(scheduleFlags(cash, [{ name: "Option 1", lines: [install, untaxedBig], showHst: false, discountRate: 0 }])).toEqual([]);
+    // Still the cash rule's flags: a plain 35 / 35 / 30 by e-transfer is flagged, nothing about the material.
+    expect(scheduleFlags(defaultSchedule(), [{ name: "Option 1", lines: [install, untaxedBig], showHst: false, discountRate: 0 }])).toEqual([
+      "Nothing on this quote carries HST, so it is paid in cash, but Deposit is set to e-transfer.",
+    ]);
   });
 
   it("fits the material deposit only when some material carries HST and some work carries none", () => {
