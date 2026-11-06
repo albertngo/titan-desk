@@ -47,7 +47,6 @@ export function Picker({
   profileLines,
   onPickMany,
   optionLines = [],
-  heading,
 }: {
   section: string;
   /** A stairs option's category button (2026-10-30): only Stair Items of that category, no builder. */
@@ -70,8 +69,6 @@ export function Picker({
   onPickMany?: (lines: EditorLine[], replacing: string[]) => void;
   /** The option's lines (2026-11-06), so an item that clashes with sanded steps is greyed out. */
   optionLines?: EditorLine[];
-  /** What the section is called on screen when it isn't its own name (a stairs option's Private is "Other", 2026-11-06). */
-  heading?: string;
 }) {
   const [q, setQ] = useState("");
   const [building, setBuilding] = useState<StairProfileRow | null>(null);
@@ -99,10 +96,10 @@ export function Picker({
   }
 
   return (
-    <div className="modal" role="dialog" aria-modal="true" aria-label={`Add to ${section === "Private" && heading ? heading : section}`} onClick={onClose} onKeyDown={(e) => e.key === "Escape" && onClose()}>
+    <div className="modal" role="dialog" aria-modal="true" aria-label={`Add to ${section}`} onClick={onClose} onKeyDown={(e) => e.key === "Escape" && onClose()}>
       <div className="modal-card" onClick={(e) => e.stopPropagation()}>
         <div className="card-h">
-          Add to {section === "Private" && heading ? heading : section}
+          Add to {section}
           {category !== null && ` · ${stairGroupLabel(category)}`}
           <button className="linkbtn right" onClick={onClose}>Close</button>
         </div>

@@ -1116,11 +1116,12 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   section should never show rates. It should be the same as the rule for the stairs items"; then "For Stairs; we do not
   want a 'PRIVATE' section. Please keep it as an OTHER section and all the same rules as the normal stair items. Which
   is Description always shown with quantity, but no rates. That is it").** On an option whose scope is Stairs,
-  `copyOption()` reads its Private lines as Other lines (display only: they stay Section `Private` in Airtable, and a
-  section never enters a total) and treats every section like Stairs: each line's words and quantity, no unit price,
+  `copyOption()` reads any Private lines on it as Other lines (a section never enters a total, so no money moves) and treats every section like Stairs: each line's words and quantity, no unit price,
   amount or section total; no "Additional work" roll-up row; add-ons keep their price. The quote page (`OptionSheet`)
-  and the editor do the same in every view: the section reads **Other**, with **+ Add to other** (`addChoices()`), and
-  no PRIVATE tag or "Shown as" name. A Private line priced at nothing therefore shows on a stairs option, as any stair
+  and the editor do the same in every view (same day: "PRIVATE logic doesnt exist in the stairs options, but OTHER
+  does"): the editor shows a stairs option Stairs and **Other**, never Private; **+ Add to other** (`addChoices()`)
+  saves new lines in Section `Other`; a Private line already on one is shown and numbered under Other (`secOf` in
+  `Editor.tsx`), with no PRIVATE tag or "Shown as" name. A Private line priced at nothing therefore shows on a stairs option, as any stair
   line does. Flooring options are unchanged. Tested in `tests/send.test.ts` and `tests/stairGroups.test.ts`.
 
 ## Hard rules

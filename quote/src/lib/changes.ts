@@ -32,7 +32,7 @@ export const CHANGES: Change[] = [
     title: "Stairs options have no Private section",
     details: [
       "On a stairs option, what was the Private section is now an ordinary Other section. The customer sees each of its lines with its quantity and no rate, the same as every stair line, instead of one Additional work row with an amount. Section totals don't show either. The option's price is unchanged.",
-      "In the editor it is called Other, with + Add to other. Flooring options keep their Private section as before.",
+      "In the editor a stairs option has Other, with + Add to other, and new lines go into Other. Any Private lines it already had show under Other too. Flooring options keep their Private section as before.",
     ],
   },
   {

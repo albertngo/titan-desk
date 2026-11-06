@@ -422,12 +422,15 @@ export default function Editor({
   // Customer view leaves the Private section out and shows its total as one row in Other (2026-10-22). Not on a stairs
   // option, which has no Private section (2026-11-06): it is Other there, and its lines are listed like stair lines.
   const hidden = option && customer && !stairsOption ? privateRollup(option.lines) : 0;
+  // No Private logic on a stairs option (Albert, 2026-11-06: "PRIVATE logic doesnt exist in the stairs options, but OTHER
+  // does"): it adds to Other, and a Private line saved on one before is shown, and counted, as an Other line.
+  const secOf = (l: EditorLine) => (stairsOption && sectionOf(l) === PRIVATE_SECTION ? "Other" : sectionOf(l));
   const stairCats = card.stairs.map((x) => x.category);
   const sectionsShown: string[] = option
     ? WORK_SECTIONS.filter((s) =>
-        customer && s === PRIVATE_SECTION && !stairsOption
+        s === PRIVATE_SECTION && (customer || stairsOption)
           ? false
-          : option.lines.some((l) => sectionOf(l) === s) || (s === "Other" && hidden > 0) || (stairsOption && (s === "Stairs" || s === PRIVATE_SECTION)),
+          : option.lines.some((l) => secOf(l) === s) || (s === "Other" && hidden > 0) || (stairsOption && (s === "Stairs" || s === "Other")),
       )
     : [];
   if (option?.lines.some((l) => sectionOf(l) === "Unsorted")) sectionsShown.push("Unsorted");
@@ -435,7 +438,7 @@ export default function Editor({
 
   let n = 0;
   const numberOf = new Map<string, number>();
-  if (option) for (const s of sectionsShown) for (const l of sectionLinesInOrder(s, option.lines.filter((x) => sectionOf(x) === s))) if (isPriced(l) && l.include) numberOf.set(l.id, ++n);
+  if (option) for (const s of sectionsShown) for (const l of sectionLinesInOrder(s, option.lines.filter((x) => secOf(x) === s))) if (isPriced(l) && l.include) numberOf.set(l.id, ++n);
 
   // How a line stands against the option's crew: set by hand (with a way back), or not theirs to do.
   const crewMark = (l: EditorLine) => {
@@ -981,16 +984,14 @@ export default function Editor({
                         </tr>
                       )}
                       {sectionsShown.flatMap((s) => {
-                        const lines = option.lines.filter((l) => sectionOf(l) === s);
+                        const lines = option.lines.filter((l) => secOf(l) === s);
                         const rollup = s === "Other" && hidden > 0 ? hidden : 0;
                         const sum = lines.reduce((a, l) => a + (lineTotal(l) ?? 0), 0) + rollup;
                         return [
-                          <tr className={s === PRIVATE_SECTION && !stairsOption ? "sect priv" : "sect"} key={`s-${s}`}>
+                          <tr className={s === PRIVATE_SECTION ? "sect priv" : "sect"} key={`s-${s}`}>
                             <td colSpan={customer ? 4 : 6}>
-                              {/* A stairs option has no Private section (Albert, 2026-11-06: "keep it as an OTHER section and all the
-                                  same rules as the normal stair items"): it reads Other, and the customer sees each line and its quantity, no rate. */}
-                              {s === PRIVATE_SECTION ? stairsOption ? "Other" : <span className="priv-tag">Private</span> : s}{" "}
-                              {s === PRIVATE_SECTION && !customer && !stairsOption && (
+                              {s === PRIVATE_SECTION ? <span className="priv-tag">Private</span> : s}{" "}
+                              {s === PRIVATE_SECTION && !customer && (
                                 <span className="priv-as" title="These lines are never itemised for the customer. On the page, the PDF and the email they roll up into one row in Other with this name and their total.">
                                   Not itemised for the customer. Shown as{" "}
                                   <TextCell
@@ -1038,12 +1039,12 @@ export default function Editor({
                                   ...g.lines.map(row),
                                 ]),
                               ]
-                            : stairsOption && s === PRIVATE_SECTION
+                            : stairsOption && s === "Other"
                             ? [
-                                <tr className="sect-add top" key="a-private">
+                                <tr className="sect-add top" key="a-other">
                                   <td />
                                   <td colSpan={customer ? 4 : 6}>
-                                    <button className="addrow" onClick={() => setPicking({ label: "Other", section: s, stairsOnly: true })}>
+                                    <button className="addrow" onClick={() => setPicking({ label: "Other", section: "Other", stairsOnly: true })}>
                                       + Add to other
                                     </button>
                                   </td>
@@ -1052,7 +1053,7 @@ export default function Editor({
                               ]
                             : []),
                           // Stairs grouped by the Stair Item's Category (2026-10-28), a small heading over each group.
-                          ...(stairsOption && (s === "Stairs" || s === PRIVATE_SECTION)
+                          ...(stairsOption && (s === "Stairs" || s === "Other")
                             ? []
                             : s === "Stairs"
                             ? stairGroups(lines).flatMap((g) => [
@@ -1275,7 +1276,6 @@ export default function Editor({
       {picking && option && (
         <Picker
           section={picking.section}
-          heading={picking.label}
           category={picking.category ?? null}
           stairsOnly={picking.stairsOnly === true}
           catalogue={catalogue}
