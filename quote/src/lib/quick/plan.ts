@@ -610,12 +610,22 @@ export function pickMaterial(p: Pick<QuickPart, "material">, materialId: string 
 }
 
 /**
+ * What each pick adds or takes off against the one selected, per unit (Albert, 2026-11-06: show the "increase or
+ * decrease" the other options give "from the selected option"); the selected one is 0. "Provided by Client" is an
+ * ordinary $0 Install Material, so it reads as taking the selected glue's price off.
+ */
+export function materialDeltas(q: { choices: QuickMaterial[]; current: QuickMaterial | null }): { id: string; delta: number }[] {
+  const base = q.current?.price ?? 0;
+  return q.choices.map((m) => ({ id: m.id, delta: round2(m.price - base) }));
+}
+
+/**
  * The material question under a choice, if it has one: the first part that takes a material, its group's choices
  * (cheapest first) and the one in use. "Type of glue" for a glue group, else the group's own name.
  */
-export function materialQuestion(c: QuickChoice | undefined, materialId: string | null | undefined): { label: string; choices: QuickMaterial[]; current: QuickMaterial } | null {
+export function materialQuestion(c: QuickChoice | undefined, materialId: string | null | undefined): { label: string; choices: QuickMaterial[]; current: QuickMaterial | null } | null {
   const part = c?.parts.find((p) => p.material && p.material.choices.length > 0);
   if (!part?.material) return null;
-  const current = pickMaterial(part, materialId)!;
+  const current = pickMaterial(part, materialId);
   return { label: /glue/i.test(part.material.group) ? "Type of glue" : part.material.group, choices: part.material.choices, current };
 }

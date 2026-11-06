@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { optionTotals } from "../src/lib/calc";
 import { buildCatalogue, materialChoices, rateSnap, type CardEntry } from "../src/lib/editor/model";
 import type { StairProfileRow, StairRow } from "../src/lib/quotes/types";
-import { amountUnit, basisAmount, MATERIAL_WASTE, materialWaste, PATTERN_WASTE, BASEBOARD_PER_SQFT, baseboardDefault, basisChoices, basisSqft, buildPreliminary, followBases, installTotal, remapBases, resolveBasis, TOTAL_BASIS, type BasisRow, choiceRate, distinctNames, MAX_QUICK_OPTIONS, optionName, parseWorks, parseWork, QUICK_GROUPS, browserProfiles, quickProfiles, rowTotal, stairAreas, workIsEmpty, materialQuestion, pickMaterial, splitPath, topChoices, topOf, waterfall, type QuickChoice, type QuickPart, type QuickPartMaterial, type QuickProduct } from "../src/lib/quick/plan";
+import { amountUnit, basisAmount, MATERIAL_WASTE, materialWaste, PATTERN_WASTE, BASEBOARD_PER_SQFT, baseboardDefault, basisChoices, basisSqft, buildPreliminary, followBases, installTotal, remapBases, resolveBasis, TOTAL_BASIS, type BasisRow, choiceRate, distinctNames, MAX_QUICK_OPTIONS, optionName, parseWorks, parseWork, QUICK_GROUPS, browserProfiles, quickProfiles, rowTotal, stairAreas, workIsEmpty, materialDeltas, materialQuestion, pickMaterial, splitPath, topChoices, topOf, waterfall, type QuickChoice, type QuickPart, type QuickPartMaterial, type QuickProduct } from "../src/lib/quick/plan";
 
 // INVENTED rates, costs, ids and products only: this repo is public.
 const part = (o: Partial<QuickPart> & { recordId: string }): QuickPart => ({ kind: "rate", labourType: "Install", spec: "SPEC", description: "Install | SPEC", contractor: "Crew A", uom: "sqft", rate: 2, cost: 1, minCharge: null, ...o });
@@ -415,9 +415,9 @@ describe("quick form: the waterfall, a choice then its options (Albert, 2026-11-
     expect(materialQuestion(SOLID[0], null)).toBeNull();
     const q = materialQuestion(SOLID[2], null)!;
     expect(q.label).toBe("Type of glue");
-    expect(q.current.id).toBe(SPREAD.default.id);
+    expect(q.current?.id).toBe(SPREAD.default.id);
     expect(q.choices.map((m) => m.name)).toEqual(["Spread B", "Spread A"]);
-    expect(materialQuestion(SOLID[2], "recGlueSpreadB0AA")!.current.name).toBe("Spread B");
+    expect(materialQuestion(SOLID[2], "recGlueSpreadB0AA")!.current?.name).toBe("Spread B");
     // A glue from another group is ignored, never guessed: the default stays.
     expect(pickMaterial(full, "recGlueAssistB0AA")?.id).toBe(SPREAD.default.id);
   });
@@ -437,6 +437,18 @@ describe("quick form: the waterfall, a choice then its options (Albert, 2026-11-
     ]);
     // Nail down has no glue line at all.
     expect(buildPreliminary(all, parseWork({ rows: [{ choiceId: SOLID[0].id, amount: 100 }] }), new Map()).lines[0].materialId).toBeUndefined();
+  });
+
+  it("says what each other glue adds or takes off against the one selected (2026-11-06)", () => {
+    // "Provided by Client" is an ordinary $0 glue in the group.
+    const CLIENT = { id: "recGlueClient00AA", name: "Provided by Client", price: 0, cost: 0 };
+    const withClient = choice({ ...SOLID[2], parts: [part({ ...full, material: { ...SPREAD, choices: [...SPREAD.choices, CLIENT] } })] });
+    const at = (id: string | null) => Object.fromEntries(materialDeltas(materialQuestion(withClient, id)!).map((d) => [d.id, d.delta]));
+    expect(at("recGlueSpreadB0AA")).toEqual({ recGlueSpreadB0AA: 0, recGlueSpreadA0AA: 0.95, recGlueClient00AA: -0.8 });
+    expect(at(CLIENT.id)).toEqual({ recGlueSpreadB0AA: 0.8, recGlueSpreadA0AA: 1.75, recGlueClient00AA: 0 });
+    // Picked, it is the labour alone, named for who brings the glue.
+    const l = buildPreliminary([withClient], parseWork({ rows: [{ choiceId: withClient.id, amount: 100, materialId: CLIENT.id }] }), new Map()).lines[0];
+    expect([l.description, l.unitPriceSnap, l.unitCostSnap, l.materialId]).toEqual(["Install | FULL GLUE · Provided by Client", 2.3, 1.6, CLIENT.id]);
   });
 
   it("keeps the glue pick through the wire, and drops one that isn't a record id", () => {

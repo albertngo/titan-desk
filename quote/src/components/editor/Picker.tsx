@@ -10,6 +10,8 @@ import { levelPrice, type ServiceLevel } from "@/lib/pricing/service";
 import { STAIR_METHODS, STAIR_TYPES, profileName, stairProfileLine } from "@/lib/quick/stairs";
 import type { StairProfileRow } from "@/lib/quotes/types";
 import { SAND_DISCLAIMER, sandBlocks, sandFlag, sandRole } from "@/lib/editor/sandRule";
+import { familiesFor, familyGlue, familyLines, familyMethods, familyRows, type Family } from "@/lib/editor/waterfall";
+import { materialDeltas, type QuickChoice } from "@/lib/quick/plan";
 
 /** The fallback when Airtable has no Stair Profiles: type × method, at a price staff type on the line. */
 const CODE_PROFILES = STAIR_TYPES.flatMap((type) => STAIR_METHODS.map((method) => ({ type, method })));
@@ -38,6 +40,7 @@ export function Picker({
   category = null,
   stairsOnly = false,
   catalogue,
+  families: families0,
   onPick,
   onClose,
   customer,
@@ -69,16 +72,28 @@ export function Picker({
   onPickMany?: (lines: EditorLine[], replacing: string[]) => void;
   /** The option's lines (2026-11-06), so an item that clashes with sanded steps is greyed out. */
   optionLines?: EditorLine[];
+  /** Quick Quote Choices (2026-11-06): their waterfall families (Solid Hardwood T&G…) lead the search. */
+  families?: QuickChoice[];
 }) {
   const [q, setQ] = useState("");
   const [building, setBuilding] = useState<StairProfileRow | null>(null);
   const [input, setInput] = useState<BuilderInput>({ steps: 0, boxedSteps: null, openSideSteps: 0, curvedSteps: 0, handrailFt: 0, nosingFt: 0, landings: 0, spindles: 0, posts: 0 });
   const [replace, setReplace] = useState(true);
   const [all, setAll] = useState(false);
+  // The waterfall (2026-11-06): a family, then how it's installed, then the glue. Nothing is picked for you.
+  const [fam, setFam] = useState<Family | null>(null);
+  const [famPick, setFamPick] = useState<string | null>(null);
+  const [famGlue, setFamGlue] = useState<string | null>(null);
   const narrowed = category !== null || stairsOnly;
+  const families = narrowed ? [] : familiesFor(families0 ?? [], section, q);
+  // A family's own Rate Card rows are left off the plain search; the whole rate card still lists them.
+  const hidden = narrowed || all ? new Set<string>() : familyRows(families0 ?? [], section);
   const results = narrowed
     ? searchCatalogue(catalogue, q, "Stairs", Infinity).filter((e) => category === null || (e.kind === "stair" && stairGroupOf({ stairCategory: e.category }) === category)).slice(0, 40)
-    : searchCatalogue(catalogue, q, section, 40, all);
+    : searchCatalogue(catalogue, q, section, 40 + hidden.size, all).filter((e) => e.kind !== "rate" || !e.contractors.some((c) => hidden.has(c.recordId))).slice(0, 40);
+  const famChoice = fam && famPick ? fam.members.find((c) => c.id === famPick) : undefined;
+  const famGlueQ = famChoice ? familyGlue(famChoice, catalogue, crew) : null;
+  const famBuilt = fam ? familyLines(famChoice, famGlue, catalogue, section, crew, level) : null;
   // Only a section with work of its own is filtered, so only there is widening offered; never on a stairs option.
   const filterable = !narrowed && SECTION_LABOUR[section] !== undefined;
   const elsewhere = filterable && !all ? searchCatalogue(catalogue, q, section, Infinity, true).length - searchCatalogue(catalogue, q, section, Infinity).length : 0;
@@ -119,6 +134,50 @@ export function Picker({
             </label>
           )}
         </div>
+        {fam && famBuilt && (
+          <div className="sb" role="group" aria-label={`Add ${fam.label}`}>
+            <div className="sb-h">
+              <b>{fam.label}</b>
+              <button className="linkbtn" onClick={() => setFam(null)}>Back</button>
+            </div>
+            <div className="qw-chips qw-fall qw-fall-1" role="radiogroup" aria-label={`${fam.label}: how it's installed`}>
+              {familyMethods(fam, famPick).map((o) => (
+                <button type="button" key={o.label} className={`qw-chip${o.on ? " on" : ""}`} role="radio" aria-checked={o.on} onClick={() => setFamPick(o.choiceId)}>
+                  {o.label}
+                </button>
+              ))}
+            </div>
+            {famGlueQ && (
+              <div className="qw-chips qw-fall qw-fall-2" role="radiogroup" aria-label={`${fam.label}: ${famGlueQ.label}`}>
+                <span className="qw-fall-k">{famGlueQ.label}</span>
+                {(() => {
+                  const current = famGlueQ.choices.find((m) => m.id === famGlue) ?? null;
+                  // Before a glue is picked each says its own price; after, what it adds or takes off against the one picked.
+                  const delta = new Map(materialDeltas({ choices: famGlueQ.choices, current }).map((d) => [d.id, d.delta]));
+                  return famGlueQ.choices.map((m) => {
+                    const on = m.id === famGlue;
+                    const d = delta.get(m.id) ?? 0;
+                    return (
+                      <button type="button" key={m.id} className={`qw-chip${on ? " on" : ""}`} role="radio" aria-checked={on} onClick={() => setFamGlue(m.id)}>
+                        {m.name}
+                        {!on && <span className="faint"> {d === 0 && current ? "same" : `${d < 0 ? "-" : "+"}${money(Math.abs(d))}`}</span>}
+                        {!on && !customer && current === null && <span className="faint"> · cost {money(m.cost)}</span>}
+                      </button>
+                    );
+                  });
+                })()}
+              </div>
+            )}
+            <div className="sb-sum">
+              <span>
+                {famBuilt.missing ?? `${famBuilt.lines.length} line${famBuilt.lines.length === 1 ? "" : "s"} · ${famBuilt.lines.map((l) => `${money(l.unitPriceSnap ?? 0)} / ${l.uom ?? "unit"}`).join(" + ")}`}
+              </span>
+              <button className="btn small primary" disabled={famBuilt.missing !== null} onClick={() => (onPickMany ? onPickMany(famBuilt.lines, []) : famBuilt.lines.forEach(onPick))}>
+                Add
+              </button>
+            </div>
+          </div>
+        )}
         {building && built && (
           <div className="sb" role="group" aria-label={`Build ${building.name}`}>
             <div className="sb-h">
@@ -176,6 +235,23 @@ export function Picker({
         )}
         <ul className="pick-list">
           {!building &&
+            !fam &&
+            families.map((f) => (
+              <li key={f.key}>
+                <button
+                  className="pick"
+                  onClick={() => {
+                    setFam(f);
+                    setFamPick(null);
+                    setFamGlue(null);
+                  }}
+                >
+                  <span className="nm">{f.label}</span>
+                  <span className="mt">Pick how it&apos;s installed, then the glue when it takes one</span>
+                </button>
+              </li>
+            ))}
+          {!building &&
             rows.map((p) => (
               <li key={p.id}>
                 <button className="pick" onClick={() => startBuilding(p)}>
@@ -220,7 +296,7 @@ export function Picker({
               </li>
             );
           })}
-          {results.length === 0 && rows.length === 0 && codeProfiles.length === 0 && <li className="empty">{narrowed ? `No stair item${category !== null ? ` in ${stairGroupLabel(category)}` : ""} matches “${q}”.` : filterable && !all ? `Nothing in ${section} matches “${q}”.` : `Nothing on the rate card matches “${q}”.`}</li>}
+          {results.length === 0 && rows.length === 0 && codeProfiles.length === 0 && families.length === 0 && <li className="empty">{narrowed ? `No stair item${category !== null ? ` in ${stairGroupLabel(category)}` : ""} matches “${q}”.` : filterable && !all ? `Nothing in ${section} matches “${q}”.` : `Nothing on the rate card matches “${q}”.`}</li>}
           <li>
             <button className="pick manual" onClick={() => onPick(manualLine(section, q.trim()))}>
               <span className="nm">Type it in yourself{q.trim() ? `: “${q.trim()}”` : ""}</span>

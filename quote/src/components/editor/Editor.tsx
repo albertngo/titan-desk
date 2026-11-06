@@ -9,6 +9,7 @@ import type { AutosaveResult } from "@/lib/quotes/save";
 import { autosaveVersionAction, quickFormAction, quickOptionAction, saveAsNewVersionAction, saveVersionAction } from "@/app/q/[id]/edit/actions";
 import { estimateWork, initialWork, QuickWork, workInput, type WorkState } from "@/components/QuickWork";
 import type { QuickChoice, QuickProfile } from "@/lib/quick/plan";
+import { SECTION_GROUP } from "@/lib/editor/waterfall";
 import { Financials } from "@/components/Financials";
 import { DEFAULT_PRIVATE_LABEL, PRIVATE_SECTION, SECTIONS, isPriced, lineCost, lineFlags, lineTotal, optionTotals, privateRollup, sectionOf, stageAmounts } from "@/lib/calc";
 import { manualLine,
@@ -209,6 +210,19 @@ export default function Editor({
   /** + From quick form (2026-10-31): the preliminary's screen, opened beside the tabs to build one more option. */
   const [quick, setQuick] = useState<{ choices: QuickChoice[]; profiles: QuickProfile[]; work: WorkState } | "loading" | null>(null);
   const [quickNote, setQuickNote] = useState<string | null>(null);
+  /** The waterfall families for the Add search (2026-11-06), fetched the first time a section that has them is opened. */
+  const [families, setFamilies] = useState<QuickChoice[] | null>(null);
+  const wantsFamilies = picking !== null && SECTION_GROUP[picking.section] !== undefined && families === null;
+  useEffect(() => {
+    if (!wantsFamilies) return;
+    let live = true;
+    quickFormAction()
+      .then((f) => live && setFamilies(f.choices))
+      .catch(() => live && setFamilies([]));
+    return () => {
+      live = false;
+    };
+  }, [wantsFamilies]);
   const [addingQuick, startQuick] = useTransition();
 
   // The rate card and the stair items, for the picker and for re-pricing (service level, contractor, material).
@@ -1263,6 +1277,7 @@ export default function Editor({
           profiles={card.profiles ?? []}
           profileLines={option.lines.filter((l) => l.sourceKind === "profile").map((l) => ({ id: l.id, sourceId: l.sourceId }))}
           optionLines={option.lines}
+          families={families ?? []}
           level={levelOf(option)}
           crew={option.crew ?? null}
           onClose={() => setPicking(null)}
