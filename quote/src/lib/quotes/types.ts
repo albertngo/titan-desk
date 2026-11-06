@@ -22,6 +22,9 @@ export type QuoteLine = LineInput & {
   materialId?: string | null;
   /** The Rate Card row's Material Group (2026-11-06, a lookup): set and no `materialId` = the glue isn't picked. */
   materialGroup?: string | null;
+  /** Quote Lines → Material Unit Price / Cost (2026-11-06): the glue as typed; null = the card's. */
+  materialPrice?: number | null;
+  materialCost?: number | null;
   /** The Stair Item's Category (Quote Lines → Stair Category, 2026-10-28), for grouping the Stairs section; display only. */
   stairCategory?: string | null;
   /** The Stair Item's Customer Wording (Quote Lines → Stair Customer Wording, 2026-11-02): customer copy only. */
@@ -183,10 +186,12 @@ export type RateRow = {
   materialGroup?: string | null;
   /** The Install Material a line starts with; its price and cost are added to `rate` and `cost` (labour only). */
   defaultMaterialId?: string | null;
+  /** Rate Card → Customer Wording (2026-11-06): the line's name for this work; absent = "Labor Type | Specification". */
+  wording?: string | null;
 };
 
 /** An Install Material: cost and customer price per unit of the job (per sqft on a sqft row). */
-export type MaterialRow = { id: string; name: string; group: string; cost: number | null; price: number | null };
+export type MaterialRow = { id: string; name: string; group: string; cost: number | null; price: number | null; wording?: string | null };
 
 export type StairRow = {
   id: string;

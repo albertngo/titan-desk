@@ -25,6 +25,7 @@ import { manualLine,
   entryFor,
   exclusionLine,
   materialChoices,
+  materialWords,
   parseNum,
   removeLine,
   removeOption,
@@ -481,7 +482,7 @@ export default function Editor({
     const contractors = entry && entry.kind === "rate" ? entry.contractors : [];
     const mat = materialChoices(l, pricing);
     const split = mat.current ? materialSplit(l, pricing, levelOf(option)) : null;
-    const setMat = (patch: { price?: number | null; cost?: number | null }) => apply(setMaterialFigures(quote, option.id, l.id, patch, pricing));
+    const setMat = (patch: { price?: number | null; cost?: number | null; methodPrice?: number | null; methodCost?: number | null }) => apply(setMaterialFigures(quote, option.id, l.id, patch, pricing));
     const overridden = l.unitPrice !== null || l.costOverride !== null;
     const margin = total && total > 0 && cost !== null ? ((total - cost) / total) * 100 : null;
     const upd = (patch: Partial<EditorLine>) => apply(updateLine(quote, option.id, l.id, patch));
@@ -492,7 +493,7 @@ export default function Editor({
           {l.sourceKind === "manual" ? (
             <TextCell value={l.description} label="Description" placeholder="Describe the work" onCommit={(v) => upd({ description: v })} />
           ) : (
-            <div className="desc">{l.description}</div>
+            <div className="desc" title={l.sourceKind === "rate" && l.labourType ? `${l.labourType} | ${l.spec ?? ""}` : undefined}>{l.description}</div>
           )}
           {/* The method, in place (2026-11-06): same quantity and crew; the glue stays when it fits. */}
           {(() => {
@@ -516,7 +517,7 @@ export default function Editor({
                 {mat.missing && <option value="">Pick the {glueWord(mat.base?.group).toLowerCase()}…</option>}
                 {mat.choices.map((m) => (
                   <option key={m.id} value={m.id}>
-                    {m.name} · {money(m.price)}/{l.uom ?? "unit"}
+                    {materialWords(m)} · {money(m.price)}/{l.uom ?? "unit"}
                     {!customer ? ` · cost ${money(m.cost)}` : ""}
                   </option>
                 ))}
@@ -599,28 +600,37 @@ export default function Editor({
         {/* Unit cost in its own column again (Albert, 2026-11-01: "Can unit cost and price be on different row"). Staff only. */}
         {!customer && (
           <td className="r" data-label="Unit cost">
-            <NumCell value={l.costOverride} label="Unit cost" placeholder={l.unitCostSnap !== null ? rate(l.unitCostSnap) : "cost"} onCommit={(v) => upd({ costOverride: v })} />
-            {l.unitCostSnap !== null && l.costOverride !== null && <span className="sub">card {money(l.unitCostSnap)}</span>}
-            {split && (
-              // Method + material = unit (Albert, 2026-11-06: "'Material + Method' = Total very clearly"): the sum is the line's own figure.
-              <MatSum word={glueWord(mat.current?.group)} labour={split.labourCost} unit={l.costOverride ?? l.unitCostSnap} uom={l.uom}>
-                <NumCell value={split.cost} label="Material unit cost" placeholder={rate(split.cardCost)} onCommit={(v) => setMat({ cost: v })} />
-              </MatSum>
+            {split ? (
+              // Method and glue each adjustable, the unit worked out (Albert, 2026-11-06: "have the method and glue be
+              // 'adjustable' and the total is calculated"). The unit is the line's own figure, so the sum always agrees.
+              <MatSum word={glueWord(mat.current?.group)} unit={split.unitCost} uom={l.uom}
+                method={<NumCell value={split.methodCost} label="Method unit cost" placeholder={rate(split.labourCost)} onCommit={(v) => setMat({ methodCost: v })} />}
+                glue={<NumCell value={split.cost} label="Glue unit cost" placeholder={rate(split.cardCost)} onCommit={(v) => setMat({ cost: v })} />}
+              />
+            ) : (
+              <>
+                <NumCell value={l.costOverride} label="Unit cost" placeholder={l.unitCostSnap !== null ? rate(l.unitCostSnap) : "cost"} onCommit={(v) => upd({ costOverride: v })} />
+                {l.unitCostSnap !== null && l.costOverride !== null && <span className="sub">card {money(l.unitCostSnap)}</span>}
+              </>
             )}
           </td>
         )}
         <td className="r" data-label="Unit price">
-          <NumCell value={l.unitPrice} label="Unit price" placeholder={l.unitPriceSnap !== null ? rate(l.unitPriceSnap) : "price"} onCommit={(v) => upd({ unitPrice: v })} />
-          {/* The card figure is the box's placeholder, so it is only spelled out once typed over or marked up (2026-11-01). */}
-          {!customer && l.unitPriceSnap !== null && (l.unitPrice !== null || (levelOf(option) === "Premium" && levelApplies(l))) && (
-            <span className="sub">
-              {levelOf(option) === "Premium" && levelApplies(l) ? `card +${Math.round(PREMIUM_MARKUP * 100)}%` : "card"} {money(l.unitPriceSnap)}
-            </span>
-          )}
-          {split && !customer && (
-            <MatSum word={glueWord(mat.current?.group)} labour={split.labourPrice} unit={l.unitPrice ?? l.unitPriceSnap} uom={l.uom}>
-              <NumCell value={split.price} label="Material unit price" placeholder={rate(split.cardPrice)} onCommit={(v) => setMat({ price: v })} />
-            </MatSum>
+          {split ? (
+            <MatSum word={glueWord(mat.current?.group)} unit={split.unitPrice} uom={l.uom}
+              method={<NumCell value={split.methodPrice} label="Method unit price" placeholder={rate(split.labourPrice)} onCommit={(v) => setMat({ methodPrice: v })} />}
+              glue={<NumCell value={split.price} label="Glue unit price" placeholder={rate(split.cardPrice)} onCommit={(v) => setMat({ price: v })} />}
+            />
+          ) : (
+            <>
+              <NumCell value={l.unitPrice} label="Unit price" placeholder={l.unitPriceSnap !== null ? rate(l.unitPriceSnap) : "price"} onCommit={(v) => upd({ unitPrice: v })} />
+              {/* The card figure is the box's placeholder, so it is only spelled out once typed over or marked up (2026-11-01). */}
+              {!customer && l.unitPriceSnap !== null && (l.unitPrice !== null || (levelOf(option) === "Premium" && levelApplies(l))) && (
+                <span className="sub">
+                  {levelOf(option) === "Premium" && levelApplies(l) ? `card +${Math.round(PREMIUM_MARKUP * 100)}%` : "card"} {money(l.unitPriceSnap)}
+                </span>
+              )}
+            </>
           )}
         </td>
         <td className="r amt" data-label="Line total">
@@ -1320,17 +1330,16 @@ function glueWord(group: string | null | undefined): string {
 }
 
 /**
- * Method + material = unit, laid out as a sum under the unit box (Albert, 2026-11-06). `labour` is the card row's at
- * the option's level, the box is the material (typed or the card's), and `unit` is what the line charges or costs, so
- * the three always agree: a typed material is stored as labour + it (`setMaterialFigures()`).
+ * Method + glue = unit (Albert, 2026-11-06): the method and the glue are the two boxes, each blank on the card's figure
+ * (its placeholder), and the unit under them is worked out, never typed (`materialSplit()` / `setMaterialFigures()`).
  */
-function MatSum({ word, labour, unit, uom, children }: { word: string; labour: number; unit: number | null; uom: string | null; children: ReactNode }) {
+function MatSum({ word, method, glue, unit, uom }: { word: string; method: ReactNode; glue: ReactNode; unit: number | null; uom: string | null }) {
   return (
-    <div className="matsum" title={`The work's labour, plus the ${word.toLowerCase()} per unit. Blank follows the card.`}>
+    <div className="matsum" title={`The method's labour plus the ${word.toLowerCase()}, per unit. A blank box follows the card.`}>
       <span className="k">Method</span>
-      <span className="v">{money(labour)}</span>
+      <span className="v">{method}</span>
       <span className="k">+ {word}</span>
-      <span className="v">{children}</span>
+      <span className="v">{glue}</span>
       <span className="k eq">=</span>
       <span className="v eq">{unit === null ? "-" : money(unit)}<span className="faint">/{uom ?? "unit"}</span></span>
     </div>

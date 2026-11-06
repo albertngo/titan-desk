@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { optionTotals } from "@/lib/calc";
-import { bestContractor, entryLabel, lineFromEntry, manualLine, rateSnap, searchCatalogue, SECTION_LABOUR, type CardEntry, type EditorLine } from "@/lib/editor/model";
+import { bestContractor, entryLabel, entryWords, lineFromEntry, manualLine, materialWords, rateSnap, searchCatalogue, SECTION_LABOUR, type CardEntry, type EditorLine } from "@/lib/editor/model";
 import { defaultInput, expandProfile, stepSplit, type BuilderInput } from "@/lib/editor/stairBuilder";
 import { stairGroupLabel, stairGroupOf } from "@/lib/editor/stairGroups";
 import { money } from "@/lib/format";
@@ -159,7 +159,7 @@ export function Picker({
                     const d = delta.get(m.id) ?? 0;
                     return (
                       <button type="button" key={m.id} className={`qw-chip${on ? " on" : ""}`} role="radio" aria-checked={on} onClick={() => setFamGlue(m.id)}>
-                        {m.name}
+                        {materialWords(m)}
                         {!on && <span className="faint"> {d === 0 && current ? "same" : `${d < 0 ? "-" : "+"}${money(Math.abs(d))}`}</span>}
                         {!on && !customer && current === null && <span className="faint"> · cost {money(m.cost)}</span>}
                       </button>
@@ -284,7 +284,8 @@ export function Picker({
             return (
               <li key={e.key}>
                 <button className="pick" disabled={blocked !== null} title={blocked ?? undefined} onClick={() => onPick(lineFromEntry(e, section, crew ?? undefined, level))}>
-                  <span className="nm">{entryLabel(e)}</span>
+                  {/* The line's words (2026-11-06), with the row's own name when they differ. */}
+                  <span className="nm" title={entryLabel(e)}>{entryWords(e)}</span>
                   {blocked && <span className="mt blocked">{blocked}</span>}
                   {sanding && <span className="mt disclaim">{SAND_DISCLAIMER}</span>}
                   <span className="mt">

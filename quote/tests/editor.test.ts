@@ -476,7 +476,7 @@ describe("swappable material on a Rate Card line (one line, material named)", ()
   it("a new line is the row's labour plus the material picked, named with it (2026-10-28)", () => {
     const { q } = withGlue();
     const l = q.options[0].lines[0];
-    expect([l.unitPriceSnap, l.unitCostSnap, l.materialId, l.description]).toEqual([5, 3.8, "recMat00000000001", "Install | FULL GLUE · Glue One"]);
+    expect([l.unitPriceSnap, l.unitCostSnap, l.materialId, l.description]).toEqual([5, 3.8, "recMat00000000001", "Install | FULL GLUE · Glue: Glue One"]);
   });
 
   it("never picks a material for you: labour alone, flagged, until one is picked (2026-11-06)", () => {
@@ -495,7 +495,7 @@ describe("swappable material on a Rate Card line (one line, material named)", ()
     const { q, opt, id } = withGlue();
     const two = setMaterial(q, opt, id, "recMat00000000002", mc);
     const l = two.options[0].lines[0];
-    expect([l.unitPriceSnap, l.unitCostSnap, l.description]).toEqual([6, 4.5, "Install | FULL GLUE · Glue Two"]);
+    expect([l.unitPriceSnap, l.unitCostSnap, l.description]).toEqual([6, 4.5, "Install | FULL GLUE · Glue: Glue Two"]);
     const back = setMaterial(two, opt, id, "recMat00000000001", mc).options[0].lines[0];
     expect([back.unitPriceSnap, back.unitCostSnap]).toEqual([5, 3.8]);
     // Not in the group, or not priced: nothing happens.
@@ -535,7 +535,7 @@ describe("swappable material on a Rate Card line (one line, material named)", ()
   it("the material's own price and cost can be typed on top of the labour (2026-10-28)", () => {
     const { q, opt, id } = withGlue();
     const l0 = q.options[0].lines[0];
-    expect(materialSplit(l0, mc, "Standard")).toEqual({ labourPrice: 4, labourCost: 3, cardPrice: 1, cardCost: 0.8, price: null, cost: null });
+    expect(materialSplit(l0, mc, "Standard")).toEqual({ labourPrice: 4, labourCost: 3, cardPrice: 1, cardCost: 0.8, price: null, cost: null, methodPrice: null, methodCost: null, unitPrice: 5, unitCost: 3.8 });
     const typed = setMaterialFigures(q, opt, id, { price: 1.6, cost: 1.1 }, mc);
     const l = typed.options[0].lines[0];
     expect([l.unitPrice, l.costOverride]).toEqual([5.6, 4.1]);
@@ -549,6 +549,40 @@ describe("swappable material on a Rate Card line (one line, material named)", ()
     const { q: pq, opt: po, id: pid } = withGlue("Premium");
     const pq2 = { ...pq, options: [{ ...pq.options[0], serviceLevel: "Premium" as const }] };
     expect(setMaterialFigures(pq2, po, pid, { price: 2 }, mc).options[0].lines[0].unitPrice).toBe(6.6);
+  });
+
+  it("the method and the glue are each typed, and the unit is their sum (2026-11-06)", () => {
+    const { q, opt, id } = withGlue();
+    // Method typed: the glue stays the card's, the unit is method + glue.
+    const m1 = setMaterialFigures(q, opt, id, { methodPrice: 4.5 }, mc);
+    let l = m1.options[0].lines[0];
+    expect([l.unitPrice, l.materialPrice]).toEqual([5.5, 1]);
+    expect(materialSplit(l, mc, "Standard")).toMatchObject({ methodPrice: 4.5, price: 1, unitPrice: 5.5 });
+    // Then the glue typed too: the method stays as typed.
+    l = setMaterialFigures(m1, opt, id, { price: 1.25 }, mc).options[0].lines[0];
+    expect([l.unitPrice, l.materialPrice]).toEqual([5.75, 1.25]);
+    expect(materialSplit(l, mc, "Standard")).toMatchObject({ methodPrice: 4.5, price: 1.25, unitPrice: 5.75 });
+    // Cost works the same way, and the line's cost is the sum.
+    const c = setMaterialFigures(q, opt, id, { methodCost: 2.5, cost: 0.5 }, mc).options[0].lines[0];
+    expect([c.costOverride, c.materialCost]).toEqual([3, 0.5]);
+    // Both parts back to the card: no override at all.
+    const back = setMaterialFigures(setMaterialFigures(m1, opt, id, { price: 1.25 }, mc), opt, id, { methodPrice: null, price: null }, mc).options[0].lines[0];
+    expect([back.unitPrice, back.materialPrice]).toEqual([null, undefined]);
+    // A new glue comes in at its card price; the typed method stays.
+    const swapped = setMaterial(setMaterialFigures(m1, opt, id, { price: 1.25 }, mc), opt, id, "recMat00000000002", mc).options[0].lines[0];
+    expect([swapped.unitPrice, swapped.materialPrice, swapped.materialId]).toEqual([6.5, 2, "recMat00000000002"]);
+    // Back to the card clears everything typed.
+    const rev = revertLine(m1, opt, id).options[0].lines[0];
+    expect([rev.unitPrice, rev.materialPrice, rev.costOverride]).toEqual([null, undefined, null]);
+  });
+
+  it("saves the glue's typed figures beside the line's, and only on lines that have them", () => {
+    const clean = cleanEditorQuote({ options: [{ name: "A", lines: [
+      { sourceKind: "rate", sourceId: "recRateM000000001", materialId: "recMat00000000001", unitPrice: 5.5, materialPrice: 1 },
+      { sourceKind: "rate", sourceId: "recRateM000000001", materialId: "recMat00000000001" },
+    ] }] });
+    expect(clean.options[0].lines.map((l) => l.materialPrice)).toEqual([1, undefined]);
+    expect(JSON.stringify(clean.options[0].lines[1])).not.toContain("materialPrice");
   });
 
   it("is saved as a link on Rate Card lines only", () => {

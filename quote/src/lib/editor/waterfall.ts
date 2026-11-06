@@ -123,8 +123,11 @@ export function switchMethod(l: EditorLine, choiceId: string, choices: QuickChoi
   const at = placed(part.recordId, catalogue, l.contractor);
   if (!at) return l;
   const fresh = lineFromEntry(at.entry, l.section ?? section, at.c.name, level, l.materialId ?? null);
+  const { materialPrice: _p, materialCost: _c, ...rest } = l;
+  void _p;
+  void _c;
   return {
-    ...l,
+    ...rest,
     sourceId: fresh.sourceId,
     labourType: fresh.labourType,
     spec: fresh.spec,

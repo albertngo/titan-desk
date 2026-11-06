@@ -428,10 +428,10 @@ describe("quick form: the waterfall, a choice then its options (Albert, 2026-11-
     expect(none.lines.map((l) => [l.description, l.unitPriceSnap, l.materialId ?? null])).toEqual([["Install | FULL GLUE", 2.3, null]]);
     expect(none.needsGlue).toEqual([SOLID[2].label]);
     const def = buildPreliminary(all, parseWork({ rows: [{ choiceId: SOLID[2].id, amount: 100, materialId: SPREAD.default.id }] }), new Map());
-    expect(def.lines.map((l) => [l.description, l.unitPriceSnap, l.unitCostSnap, l.materialId])).toEqual([["Install | FULL GLUE · Spread A", 4.05, 3.1, SPREAD.default.id]]);
+    expect(def.lines.map((l) => [l.description, l.unitPriceSnap, l.unitCostSnap, l.materialId])).toEqual([["Install | FULL GLUE · Glue: Spread A", 4.05, 3.1, SPREAD.default.id]]);
     expect(def.needsGlue).toEqual([]);
     const picked = buildPreliminary(all, parseWork({ rows: [{ choiceId: SOLID[2].id, amount: 100, materialId: "recGlueSpreadB0AA" }] }), new Map()).lines;
-    expect(picked.map((l) => [l.description, l.unitPriceSnap, l.unitCostSnap, l.materialId])).toEqual([["Install | FULL GLUE · Spread B", 3.1, 2.2, "recGlueSpreadB0AA"]]);
+    expect(picked.map((l) => [l.description, l.unitPriceSnap, l.unitCostSnap, l.materialId])).toEqual([["Install | FULL GLUE · Glue: Spread B", 3.1, 2.2, "recGlueSpreadB0AA"]]);
     expect(rowTotal(all, { choiceId: SOLID[2].id, amount: 100, productId: null, materialId: "recGlueSpreadB0AA" }, new Map())).toBe(310);
     expect(choiceRate(SOLID[2], null, "recGlueSpreadB0AA")).toEqual({ perUnit: 3.1, flat: 0 });
     // Nail + glue assist: the glue goes on the assist line only; the T&G line stays labour.
@@ -453,7 +453,7 @@ describe("quick form: the waterfall, a choice then its options (Albert, 2026-11-
     expect(at(CLIENT.id)).toEqual({ recGlueSpreadB0AA: 0.8, recGlueSpreadA0AA: 1.75, recGlueClient00AA: 0 });
     // Picked, it is the labour alone, named for who brings the glue.
     const l = buildPreliminary([withClient], parseWork({ rows: [{ choiceId: withClient.id, amount: 100, materialId: CLIENT.id }] }), new Map()).lines[0];
-    expect([l.description, l.unitPriceSnap, l.unitCostSnap, l.materialId]).toEqual(["Install | FULL GLUE · Provided by Client", 2.3, 1.6, CLIENT.id]);
+    expect([l.description, l.unitPriceSnap, l.unitCostSnap, l.materialId]).toEqual(["Install | FULL GLUE · Glue: Provided by Client", 2.3, 1.6, CLIENT.id]);
   });
 
   it("keeps the glue pick through the wire, and drops one that isn't a record id", () => {
