@@ -22,6 +22,12 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-06",
+    kind: "removed",
+    title: "No Build a staircase on stairs options",
+    details: ["The + Build a staircase link is gone from a stairs option in the editor. Add stairs from each heading instead (+ Add to steps, + Add to landings…)."],
+  },
+  {
+    date: "2026-11-06",
     kind: "changed",
     title: "Quieter stairs add buttons",
     details: ["The add beside each stairs heading is plain blue text again, with no outline or fill. It stays right next to the heading."],

@@ -942,7 +942,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   PRESENT; even when empty. On each section's header, or right under it, should be the add button… it shows up right
   where they picked the item").** In the editor a Stairs option always shows Stairs and Private; Stairs lists every
   category the card offers or a line has, in work order, then Other (typed lines), each heading with its own add
-  (`stairSections()`), and **+ Build a staircase** right under the Stairs header. Private's add sits right under its
+  (`stairSections()`), and, until 2026-11-06, **+ Build a staircase** right under the Stairs header (removed that day, Albert: "You can take away the 'build staircase' option"; the builder is no longer reached from a stairs option). Private's add sits right under its
   header. A stairs option has no Add work bar at the bottom; a flooring option keeps it, unchanged. The quote page and
   customer copy are unchanged (empty groups never show there).
 - **After the first acceptance, everything is for the record (Albert, 2026-10-31; vault

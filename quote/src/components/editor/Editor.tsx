@@ -1005,18 +1005,12 @@ export default function Editor({
                             </td>
                             <td className="r">{customer && stairsOption ? "" : money(sum)}</td>
                           </tr>,
-                          // A stairs option: the builder right under Stairs, then every category, empty or not, its add on its
+                          // A stairs option: every category, empty or not, its add on its
                           // heading, so a picked item lands right there (2026-11-04). Private's add sits right under its header.
                           ...(stairsOption && s === "Stairs"
                             ? [
-                                <tr className="sect-add top" key="a-staircase">
-                                  <td />
-                                  <td colSpan={customer ? 4 : 6}>
-                                    <button className="addrow" onClick={() => setPicking({ label: "Staircase", section: "Stairs" })}>
-                                      + Build a staircase
-                                    </button>
-                                  </td>
-                                </tr>,
+                                // No + Build a staircase (Albert, 2026-11-06: "You can take away the 'build staircase' option"):
+                                // stairs are added from each category's heading.
                                 ...stairSections(lines, stairCats).flatMap((g) => [
                                   <tr className="subsect with-add" key={`g-${g.group ?? "other"}`}>
                                     <td colSpan={customer ? 5 : 7}>
