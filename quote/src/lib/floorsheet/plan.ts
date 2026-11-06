@@ -47,8 +47,8 @@ const C = {
   },
   install: {
     click: { id: "recmwVhyrxhuyZUa1", label: "Laminate | Vinyl | Eng Click" },
-    hbVinyl: { id: "recBE2cHFL0ngL9oQ", label: "Herringbone (Vinyl)" },
-    hbEng: { id: "recELGNm4rIni3mpJ", label: "Herringbone (Eng)" },
+    hbVinyl: { id: "recBE2cHFL0ngL9oQ", label: "Herringbone (Click)" },
+    hbEng: { id: "recELGNm4rIni3mpJ", label: "Herringbone (Staple + Glue Assist)" },
     // Solid and engineered ¾" each have their own T&G choices since 2026-11-06 (Albert: "same rates… but we can be more explicit").
     nail: { id: "recDZUCKLfDZh0SBF", label: "Solid Hardwood T&G (Nail Down)" },
     nailGlue: { id: "rec8guBtkBFdvCjNp", label: "Solid Hardwood T&G (Nail + Glue Assist)" },
