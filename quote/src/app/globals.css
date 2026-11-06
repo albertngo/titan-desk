@@ -1965,3 +1965,21 @@ table.items tr.subsect td, table.items.edit tr.subsect td {
 .sq-as .k { font-size: 12.5px; font-weight: 600; color: var(--fg-dim); }
 .sq-as select { max-width: 100%; }
 .sq-as .sub { font-size: 12px; color: var(--fg-dim); }
+
+/* Stairs adds beside their heading (Albert, 2026-11-06: "I dont like the 'add' on the right far side. Can we make it easier
+   to visibly see and reach?"): each category's add sits right after its name as a small blue pill, not at the row's far
+   end, and Build a staircase and the Other / Private add match it. Display only. */
+table.items.edit tr.subsect.with-add .subsect-in { justify-content: flex-start; align-items: center; gap: 10px; }
+table.items.edit tr.subsect.with-add .addrow,
+table.items.edit tr.sect-add.top .addrow {
+  display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 600; line-height: 1;
+  padding: 6px 11px; border-radius: 999px; border: 1px solid var(--accent); background: var(--accent-soft); color: var(--accent);
+}
+table.items.edit tr.subsect.with-add .addrow:hover,
+table.items.edit tr.sect-add.top .addrow:hover { background: var(--accent); color: var(--accent-ink); text-decoration: none; }
+table.items.edit tr.subsect.with-add .addrow:focus-visible,
+table.items.edit tr.sect-add.top .addrow:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 640px), (pointer: coarse) {
+  table.items.edit tr.subsect.with-add .addrow,
+  table.items.edit tr.sect-add.top .addrow { min-height: 36px; padding: 8px 14px; font-size: 14px; }
+}

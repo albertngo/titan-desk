@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-06",
     kind: "changed",
+    title: "Stairs add buttons next to each heading",
+    details: ["In the editor, each stairs heading's add (+ Add to steps, + Add to landings…) now sits right beside the heading as a blue button instead of at the far right. + Build a staircase and + Add to other look the same."],
+  },
+  {
+    date: "2026-11-06",
+    kind: "changed",
     title: "Stairs options show no price on Other either",
     details: [
       "On a stairs option, the customer's Other row (Additional work, or whatever the option names it) now shows no amount and no section total, the same as every stair line. The option's price is unchanged.",
