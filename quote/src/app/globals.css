@@ -1849,6 +1849,27 @@ table.cmp th { font-size: 12.5px; font-weight: 500; color: var(--fg-dim); text-t
 .matsum .v.eq .faint { font-weight: 400; }
 select.cell-in.missing { border-color: var(--red, #c62828); }
 
+/* The material tied to an install (Albert, 2026-11-06), in its own green tone so it reads as the material section
+   ("give the background of the materials a little more of a different tone"). Green, as Airtable marks Material. */
+.qw-need { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 2px; }
+.qw-need .k { font-size: 12px; font-weight: 600; color: var(--fg-dim); margin-right: 2px; }
+:is(.ed-quick, .newq) .qw-need .qw-chip, .qw-need .qw-chip { min-height: 32px; padding: 4px 12px; border: 0; border-radius: 6px; font-size: 13px; font-weight: 500; background: transparent; color: var(--fg-dim); box-shadow: none; }
+:is(.ed-quick, .newq) .qw-need .qw-chip.on, .qw-need .qw-chip.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; box-shadow: none; }
+.qw-matcard { margin: 2px 0 2px 8px; border: 1px solid #c9e6df; border-left: 4px solid #1f9e88; border-radius: 10px; padding: 10px 12px; display: grid; gap: 8px; background: #eaf6f3; }
+.qw-matcard .h { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 8px; font-size: 13px; font-weight: 600; color: #11695a; }
+.qw-matcard .h .faint { font-weight: 400; color: #4f8a7f; }
+.qw-mat-tag { display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: .06em; color: #fff; background: #1f9e88; border-radius: 4px; padding: 1px 6px; margin-right: 6px; vertical-align: 1px; }
+.qw-matcard .qw-chips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+:is(.ed-quick, .newq) .qw-matcard .qw-chip, .qw-matcard .qw-chip { background: #fff; border-color: #c9e6df; min-height: 40px; font-size: 14px; }
+:is(.ed-quick, .newq) .qw-matcard .qw-chip.on, .qw-matcard .qw-chip.on { background: #d3efe8; border-color: #1f9e88; box-shadow: inset 0 0 0 1px #1f9e88; color: #0d5b4e; }
+.qw-matcard .qw-prod { background: #fff; border-radius: 8px; padding: 6px 8px; }
+.qw-matcard .sq { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 8px; font-size: 13px; }
+.qw-matcard .sq b { font-size: 14px; }
+.qw-matcard .qw-mat-done { justify-self: start; }
+.qw-matcard.folded { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 8px 12px; }
+.qw-matline { flex: 1 1 auto; font-size: 13px; color: #0d5b4e; font-weight: 500; }
+@media (max-width: 640px) { .qw-matcard { margin-left: 0; } :is(.ed-quick, .newq) .qw-matcard .qw-chips, .qw-matcard .qw-chips { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
 /* The option's price card (Albert, 2026-11-04): discount items on the left, the accepted price on the
    right with its margin and profit helper, the 20% (i), and Reset. Stacks on a phone. */
 .pc { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 1px; background: var(--line); border-top: 1px solid var(--line); }

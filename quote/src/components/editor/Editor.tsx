@@ -828,15 +828,15 @@ export default function Editor({
                       <span>{est.lines > 0 ? "Estimate, before discount and HST" : "Pick the work"}</span>
                       {est.lines > 0 && <b>{money(est.total)}</b>}
                     </span>
-                    {glueWait(est.needsGlue) && <span className="sand-flag" role="status">{glueWait(est.needsGlue)}</span>}
+                    {glueWait(est.needsGlue, est.needsMaterial) && <span className="sand-flag" role="status">{glueWait(est.needsGlue, est.needsMaterial)}</span>}
                     <button type="button" className="btn" onClick={() => setQuick(null)} disabled={addingQuick}>Cancel</button>
                     <button
                       type="button"
                       className="btn primary"
-                      disabled={addingQuick || est.lines === 0 || est.needsGlue.length > 0}
+                      disabled={addingQuick || est.lines === 0 || est.needsGlue.length > 0 || est.needsMaterial.length > 0}
                       onClick={() =>
                         startQuick(async () => {
-                          const r = await quickOptionAction(workInput(quick.work), quote.options.map((o) => o.name));
+                          const r = await quickOptionAction(workInput(quick.work, quick.choices), quote.options.map((o) => o.name));
                           if (!r.ok) return setQuickNote(r.message);
                           const next = addBuiltOption(quote, r.option);
                           apply(next);

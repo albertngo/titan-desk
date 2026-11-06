@@ -271,6 +271,21 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   "Herringbone > …", on their existing Rate Card rows, worded "Herringbone install · Click" and "Herringbone 3/4" install
   · …"; the Flooring Site Sheet's herringbone installs carry the new names (found by record id, as ever). Tested in
   `tests/quick.test.ts`, `tests/waterfall.test.ts` and `tests/floorsheet.test.ts`.
+- **Material tied to the install (Albert, 2026-11-06: "for every install option; I can PICK whether there will be
+  materials needed or not… the sqft mirrors off the attached install sqft + the % waste. updating the sqft on the
+  install will auto update on the material attached").** The quick form has no Material section any more
+  (`formGroups()`): each Install row carries `mat` (`TiedMaterial`), shown as **Material: Needed | Not needed** and a
+  green material card (`TiedMaterialCard` in `QuickWork.tsx`, `.qw-matcard`; same day: "a little more of a different
+  tone"). The card starts on the install choice's **Suggested Material** (Quick Quote Choices → Suggested Material, a
+  link to a Material choice; same day: "Suggest but lets choose the options now ourselves"; blank = Not needed, as on
+  the two refinishes), has the material chips and the product pick, no square-foot box, and shows "820 sf + 10% waste
+  = 902 sf" with its rate and total; once a material is picked it folds to one line with Change ("go with a").
+  Changing the install type follows the new install's suggestion (same day: "always follow the new install's
+  suggestion"); a method change keeps it. `workInput(w, choices)` sends the material as a Material row right after
+  its install at the install's square feet, so the server, the waste (`materialWaste()`) and the Flooring Site Sheet
+  are unchanged; Create and Add this option wait for a Needed material not yet picked (`materialWaits()`,
+  `glueWait()`). The editor's + From quick form is the same component (same day: "the editors and prelim form ALWAYS
+  mirror each other. with every change"). Tested in `tests/tiedMaterial.test.ts`.
 - **Stairs on the preliminary (Albert, 2026-10-18; presets 2026-10-20; Stair Item lines 2026-11-02).** A staircase
   is a row of the read-only Airtable table **Stair Profiles** (`PROFILE_TABLE`): a customer-facing name, a stair type
   (Main stairs / Townhome / Basement / Half staircase), a method (Sand & stain / Solid red oak caps / Vinyl treads /
