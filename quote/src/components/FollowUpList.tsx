@@ -129,7 +129,7 @@ export function FollowUpList({ data }: { data: FollowUpPage }) {
             </div>
           </div>
           {!data.ghlOn && <p className="fu-warn">GHL isn&apos;t connected here, so only &quot;I followed up&quot; counts and the GHL buttons are off.</p>}
-          {data.ghlOn && data.lostReasons === null && <p className="fu-warn">GHL&apos;s lost reasons couldn&apos;t be read, so Lost will ask you to set the reason in GHL.</p>}
+          {data.ghlOn && !data.lostReasons?.length && <p className="fu-warn">GHL&apos;s lost reasons couldn&apos;t be read, so Lost is off for now. Mark a lost quote in GHL, or reload in a moment.</p>}
           {!data.briefsOn && <p className="fu-warn">Briefs aren&apos;t set up on this deployment (the Claude key isn&apos;t set).</p>}
         </div>
         {result && (
@@ -387,8 +387,9 @@ function ActionModal({ modal, data, busy, onClose, onRun }: { modal: NonNullable
   const linked = Boolean(row.opportunityId);
   const title = kind === "lost" ? "Mark lost" : kind === "postpone" ? "Postpone" : "I followed up";
   const reasons = data.lostReasons ?? [];
-  const needReason = kind === "lost" && linked && reasons.length > 0;
-  const ready = kind === "postpone" ? until > data.today : needReason ? reason !== "" : true;
+  const needReason = kind === "lost" && linked;
+  const noReasons = needReason && reasons.length === 0;
+  const ready = kind === "postpone" ? until > data.today : needReason ? reason !== "" && !noReasons : true;
   const submit = () => {
     if (!ready) return;
     if (kind === "lost") onRun(() => lostAction(row.quoteRecordId, row.seen, reason, note));
@@ -413,7 +414,8 @@ function ActionModal({ modal, data, busy, onClose, onRun }: { modal: NonNullable
               <input ref={(el) => void (first.current = el)} className="in" type="date" min={data.today} value={until} onChange={(e) => setUntil(e.target.value)} />
             </label>
           )}
-          {kind === "lost" && needReason && (
+          {noReasons && <p className="fu-warn">GHL&apos;s lost reasons couldn&apos;t be read, so this can&apos;t be marked lost here. Mark it lost in GHL instead.</p>}
+          {kind === "lost" && needReason && !noReasons && (
             <label className="fu-field">
               <span className="k">Why (GHL&apos;s lost reasons)</span>
               <select ref={(el) => void (first.current = el)} className="in" value={reason} onChange={(e) => setReason(e.target.value)}>

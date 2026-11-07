@@ -490,17 +490,17 @@ export async function markLost(quoteRecordId: string, seen: string, reasonId: un
   let reason: { id: string; name: string } | null = null;
 
   if (c.opportunityId && makeConfigured()) {
-    const list = await lostReasons().catch(() => null);
-    if (list && list.length) {
-      reason = list.find((r) => r.id === reasonId) ?? null;
-      if (!reason) return { ok: false, message: "Pick one of GHL's lost reasons." };
-    }
+    // A reason is required (2026-11-07): sent without one, GHL put its own ("Not price") on Sharon's opportunity.
+    const list = await lostReasons().catch((e) => (console.error("lostReasons", e), null));
+    if (!list || list.length === 0) return { ok: false, message: "GHL's lost reasons couldn't be read, so nothing was changed. Try again in a moment, or mark it lost in GHL." };
+    reason = list.find((r) => r.id === reasonId) ?? null;
+    if (!reason) return { ok: false, message: "Pick one of GHL's lost reasons." };
     try {
       await setOpportunityStatus(c.opportunityId, lostStatusBody(reason?.id ?? null));
     } catch (e) {
       return { ok: false, message: `GHL wasn't changed (${e instanceof Error ? e.message.slice(0, 100) : "error"}), so nothing was saved. Try again.` };
     }
-    notes.push(reason ? `The opportunity is Lost: ${reason.name}.` : "The opportunity is Lost. GHL's lost reasons couldn't be read, so set the reason in GHL.");
+    notes.push(`The opportunity is Lost: ${reason.name}.`);
   } else {
     notes.push(c.opportunityId ? "Make isn't switched on here, so GHL wasn't changed." : "This quote isn't linked to an opportunity, so GHL wasn't changed.");
   }
