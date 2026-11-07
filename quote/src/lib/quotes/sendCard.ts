@@ -8,7 +8,7 @@ import { money } from "@/lib/format";
 import { fingerprint } from "@/lib/quotes/savePlan";
 import { lastSentWayFor, previewCopy, sendAsForCard, sendingReady, sendsFrom, sentLink, textsFrom } from "@/lib/quotes/send";
 import type { Quote } from "@/lib/quotes/types";
-import { addDays, leadPrice, offersPdf, priceRange, rangeText, torontoToday, VALID_DAYS } from "@/lib/send/copy";
+import { addDays, leadPrice, offersPdf, priceRange, rangeText, torontoToday, VALID_DAYS, wordsOnly } from "@/lib/send/copy";
 import { optionProblem, sendProblems } from "@/lib/send/plan";
 
 /**
@@ -38,7 +38,9 @@ export async function sendCardData(quote: Quote, customer: boolean) {
     const stairs = optionScope(o) === "Stairs";
     const privAmount = privateRollup(o.lines);
     const priv = privAmount > 0 ? { label: o.privateLabel?.trim() || DEFAULT_PRIVATE_LABEL, amount: money(privAmount), stairs } : null;
-    return { id: o.id, name: o.name, price: `${money(lead.amount)} ${lead.tag}`, range, recommended: o.recommended, notOffered: o.notOffered === true, problem: optionProblem(quote, o), priv };
+    // A preliminary's stairs option goes as its words only (2026-11-07): the card shows them, so the sender knows exactly what goes.
+    const words = wordsOnly(o, preliminary) ? (o.description ?? "").trim() : null;
+    return { id: o.id, name: o.name, price: `${money(lead.amount)} ${lead.tag}`, range, recommended: o.recommended, notOffered: o.notOffered === true, problem: optionProblem(quote, o), priv, words };
   });
   // Send again (2026-10-30) says whether their page already offers the PDF: read from the frozen copy, only for a version out with the customer.
   const sentPdf = !customer && quote.status === "Sent" ? offersPdf((await previewCopy(quote.id)) ?? { pdf: false }) : false;

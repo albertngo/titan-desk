@@ -2443,3 +2443,12 @@ table.items tr.subsect td { box-shadow: none !important; border-left: 0 !importa
    was still 11.5-12.5px comes up to 13px, the size Segoe UI is drawn crisply at on the store's screens. */
 .ql-row .mt, .ql-v .mt, .ql-basis, .ql-from, .ql-v-n, .ql-when, .ql-sb, .ql-who .ql-desc, .ql-seen .none, .ql-open,
 .card-h .right, .field .k, .chips .lbl, .tab .t-amt, .tab .t-part, .crumb, .qp-t .k, .qp-t .sub, .flag { font-size: 13px; }
+
+/* A preliminary stairs option's Customer wording (2026-11-07): a real text box, since it is all the customer sees. */
+.ed-opt .words-h { display: flex; flex-direction: column; gap: 2px; margin-top: 8px; font-size: 13px; }
+.ed-opt .words-h span { color: var(--fg-dim); }
+.ed-opt .in.area.words { border-color: var(--line-strong); background: var(--card); color: var(--fg); padding: 8px; margin-left: 0; min-height: 180px; font-size: 14px; }
+.sq-words { margin: 10px 0; padding: 10px 12px; border: 1px solid var(--line-strong); border-left: 3px solid var(--accent); border-radius: 6px; background: var(--card); }
+.sq-words-h { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.sq-words-h span { color: var(--fg-dim); }
+.sq-words blockquote { margin: 8px 0 0; white-space: pre-line; font-size: 14px; line-height: 1.5; color: var(--fg); }

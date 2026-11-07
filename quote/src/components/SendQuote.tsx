@@ -281,7 +281,7 @@ export function SendQuote({
   /** Albert only (2026-11-04): who he may send as, each with the address and number it would go from; null for everyone else. */
   sendAs?: SendAsList | null;
   /** The version's options, for choosing which go to the customer (2026-10-24); `range` is what a preliminary shows instead of `price` (2026-10-27). */
-  options: { id: string; name: string; price: string; range: string | null; recommended: boolean; notOffered?: boolean; problem: string | null; priv?: { label: string; amount: string; stairs: boolean } | null }[];
+  options: { id: string; name: string; price: string; range: string | null; recommended: boolean; notOffered?: boolean; problem: string | null; priv?: { label: string; amount: string; stairs: boolean } | null; words?: string | null }[];
   /** How the newest sent version went (Albert, 2026-11-06): the card says so and starts on the same way. */
   lastSent?: LastSentWay | null;
 }) {
@@ -479,6 +479,18 @@ export function SendQuote({
             {!everyOption && chosen.length > 0 && <p className="note">The customer sees only these, numbered from 1, on the page, the PDF, the email and the text.</p>}
           </fieldset>
         )}
+
+        {/* A preliminary's stairs options go as their words only (Albert, 2026-11-07: "make sure the sender KNOWS that is the
+            words going out to the customer"): each chosen one's exact text, as the customer will read it. */}
+        {options.filter((o) => chosen.includes(o.id) && o.words).map((o) => (
+          <div key={`w-${o.id}`} className="sq-words" role="note">
+            <div className="sq-words-h">
+              <b>{options.length > 1 ? `${options.findIndex((x) => x.id === o.id) + 1}. ${o.name}: ` : ""}the customer gets these words, word for word</b>
+              <span>with its price, {preliminary && !exact && o.range ? o.range : o.price}. No lines, quantities or items. To change the words, edit Customer wording in the editor.</span>
+            </div>
+            <blockquote>{o.words}</blockquote>
+          </div>
+        ))}
 
         {/* A preliminary is always a lump sum (Albert, 2026-10-27); only a measured quote can go with the breakdown. */}
         {!preliminary && (

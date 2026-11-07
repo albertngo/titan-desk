@@ -896,11 +896,20 @@ export default function Editor({
                   <div className="oname">
                     <TextCell className="in title" value={option.name} label="Option name" placeholder="Option name" onCommit={(v) => apply(updateOption(quote, option.id, { name: v }))} />
                   </div>
+                  {/* A preliminary's stairs option goes to the customer as these words only (2026-11-07, `wordsOnly()` in
+                      copy.ts), so the box says so and is drawn as a plain text box to edit by hand (Albert, same day:
+                      "Can we have the wordings in a text box that we can edit manually?"). */}
+                  {!measured && stairsOption && (
+                    <div className="words-h">
+                      <b>Customer wording</b>
+                      <span>Goes to the customer word for word: on a preliminary these words and the price range are all they get for this option, no lines. Edit it freely; the Send card shows it again before it goes. Left empty, the lines go instead.</span>
+                    </div>
+                  )}
                   <textarea
                     key={`${option.id}:${option.description}`}
-                    className="in area"
-                    aria-label="Option description"
-                    placeholder="What the client gets with this option. This text prints on the quote."
+                    className={!measured && stairsOption ? "in area words" : "in area"}
+                    aria-label={!measured && stairsOption ? "Customer wording" : "Option description"}
+                    placeholder={!measured && stairsOption ? "The words the customer gets for these stairs." : "What the client gets with this option. This text prints on the quote."}
                     defaultValue={option.description}
                     onBlur={(e) => {
                       if (e.currentTarget.value !== option.description) apply(updateOption(quote, option.id, { description: e.currentTarget.value }));
