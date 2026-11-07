@@ -20,7 +20,7 @@ export default async function QuotesPage() {
             <p>Every quote, newest first. Open a row to see its versions.</p>
           </div>
           <div className="pageacts">
-            <Link className="btn" href="/new?kind=preliminary">+ Preliminary quote</Link>
+            <Link className="btn" href="/new?kind=preliminary">+ From Quick Form</Link>
             <Link className="btn primary" href="/new">+ New quote</Link>
           </div>
         </div>

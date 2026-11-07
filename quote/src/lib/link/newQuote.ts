@@ -38,7 +38,7 @@ export type NewQuoteRequest = {
   newCustomer: NewCustomer | null;
   /** Staff saw the GHL matches for this phone or email and confirmed it's a different person. */
   forceNew: boolean;
-  /** Version 1's basis: Preliminary from the quick form, Measured for a full quote. */
+  /** Version 1's basis, picked on the screen (2026-11-07; Preliminary unless changed), whichever screen made it. */
   basis: Basis;
   /** Where they found us (2026-10-27), or null when not picked; anything off the list reads as not picked. */
   origin: Origin | null;
@@ -65,7 +65,10 @@ export function parseNewQuote(raw: unknown): Parsed<NewQuoteRequest> {
   if (contactId && !GHL_ID.test(contactId)) return { ok: false, message: "That GHL contact id isn't valid." };
   if (opportunityId && !GHL_ID.test(opportunityId)) return { ok: false, message: "That GHL opportunity id isn't valid." };
 
-  const basis: Basis = r.kind === "measured" ? "Measured" : "Preliminary";
+  // The basis is picked on both screens (Albert, 2026-11-07: "there should always be an option to pick if the quote being
+  // sent out will be a preliminary; or measured… The default should be a preliminary if it is a completely new quote").
+  // `basis` wins; a request without one keeps the old reading of `kind`.
+  const basis: Basis = r.basis === "Measured" || r.basis === "Preliminary" ? r.basis : r.kind === "measured" ? "Measured" : "Preliminary";
   const origin = isOrigin(r.origin) ? r.origin : null;
   const description = cleanDescription(r.description);
   if (contactId) {

@@ -67,6 +67,7 @@ import { SwapOption } from "./SwapOption";
 import type { SwapSource } from "@/lib/change/swap";
 import { scheduleFlags, shownStage } from "@/lib/pricing/schedule";
 import { SAND_DISCLAIMER, sandFlag, sandRole } from "@/lib/editor/sandRule";
+import { syncStairWording } from "@/lib/quick/stairs";
 import { EditorSend } from "@/components/editor/EditorSend";
 import { quoteSchedule } from "@/lib/send/copy";
 import { levelApplies, levelOf, PREMIUM_MARKUP, SERVICE_LEVELS } from "@/lib/pricing/service";
@@ -347,7 +348,9 @@ export default function Editor({
   const apply = (next: EditorQuote): boolean => {
     // The accepted price is held, firmly (Albert, 2026-11-04): a change that would move it is taken up by
     // the option's accepted discount, and one that could only be held with a markup is refused.
-    const r = holdAccepted(quote, settleContractor(next));
+    // On a preliminary, an option's Customer wording follows its Stair Profile lines (2026-11-07): rewritten when they change.
+    const worded = measured ? next : syncStairWording(quote, next, card.profiles ?? []);
+    const r = holdAccepted(quote, settleContractor(worded));
     if (r.refused) {
       setHoldNote(
         `Not changed: that would bring ${r.refused.name ? `"${r.refused.name}"` : "this option"} under its accepted price of ${money(r.refused.price)}, and the accepted price never moves on its own. Press Reset in its price card first to change the price.`,

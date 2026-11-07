@@ -37,6 +37,8 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
   const [choice, setChoice] = useState<Choice>(null);
   const [nc, setNc] = useState(blankCustomer);
   const [timing, setTiming] = useState<Timing | null>(null);
+  /** What version 1 goes out as (Albert, 2026-11-07): picked on both screens, Preliminary for a completely new quote. */
+  const [basis, setBasis] = useState<"Preliminary" | "Measured">("Preliminary");
   const [confirmed, setConfirmed] = useState(false);
   /** Where they found us (2026-10-27): preliminaries only; fills Quote Origin and Source in GHL where blank. */
   const [origin, setOrigin] = useState("");
@@ -72,7 +74,7 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
 
   function create(forceNew = false) {
     setError(null);
-    const shared = { timing, kind: prelim ? "preliminary" : "measured", works: prelim ? works.map((w) => workInput(w, choices)) : undefined, origin: prelim && origin ? origin : undefined, description: description.trim() || undefined };
+    const shared = { timing, basis, kind: prelim ? "preliminary" : "measured", works: prelim ? works.map((w) => workInput(w, choices)) : undefined, origin: prelim && origin ? origin : undefined, description: description.trim() || undefined };
     const input = picked
       ? { ...shared, contactId: picked.contact.id, opportunityId: (choice as { opportunityId: string | null }).opportunityId, addressConfirmed: confirmed }
       : { ...shared, newCustomer: nc, forceNew };
@@ -125,11 +127,11 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
       <div className="pagehead">
         <div className="titles">
           <Link className="crumb" href="/">← Quotes</Link>
-          <h1>{prelim ? "Preliminary quote" : "New quote"}</h1>
+          <h1>{prelim ? "From quick form" : "New quote"}</h1>
           <p>
             {prelim
-              ? "Pick the work, find the customer in GHL and their opportunity, then say when they plan to do the project. It becomes the preliminary quote."
-              : "Find the customer in GHL, pick their opportunity and say when they plan to do the project. The quote opens empty in the editor, as a measured version."}
+              ? "Pick the work, find the customer in GHL and their opportunity, then say when they plan to do the project. Choose below whether it goes out as a preliminary or a measured quote."
+              : "Find the customer in GHL, pick their opportunity and say when they plan to do the project. The quote opens empty in the editor; choose below whether it goes out as a preliminary or a measured quote."}
           </p>
         </div>
       </div>
@@ -347,6 +349,26 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
         </div>
       </section>
 
+      {/* Preliminary or measured (2026-11-07): what version 1 goes out as, whichever screen this is. */}
+      <section className="card">
+        <div className="card-h">This quote goes out as <span className="right">You can pick again for every new version</span></div>
+        <div className="card-b">
+          <div className="nq-seg" role="radiogroup" aria-label="This quote goes out as">
+            {(["Preliminary", "Measured"] as const).map((b) => (
+              <label key={b} className={`nq-seg-b${basis === b ? " on" : ""}`}>
+                <input type="radio" name="nq-basis" checked={basis === b} onChange={() => setBasis(b)} />
+                <span className="nm">{b}</span>
+              </label>
+            ))}
+          </div>
+          <p className="note">
+            {basis === "Preliminary"
+              ? "A preliminary goes as a price range, with no good-until date, before anyone has measured."
+              : "A measured quote goes as one price with a good-until date, and flooring options start with Delivery."}
+          </p>
+        </div>
+      </section>
+
       <div className="nq-foot">
         {(picked || isNew) && (
           <p className="note">
@@ -364,19 +386,19 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
       <div className="qw-foot" aria-live="polite">
         {estimate ? (
           <div className="est">
-            <span className="k">{works.length > 1 ? `Option ${Math.min(tab, works.length - 1) + 1} of ${works.length}` : "Preliminary estimate"}</span>
+            <span className="k">{works.length > 1 ? `Option ${Math.min(tab, works.length - 1) + 1} of ${works.length}` : `${basis} estimate`}</span>
             <b>{money(estimate.total)}</b>
             <span className="faint">{estimate.lines} line{estimate.lines === 1 ? "" : "s"}, before discount and HST</span>
           </div>
         ) : (
           <div className="est">
-            <span className="k">Measured quote</span>
+            <span className="k">{basis} quote</span>
             <span className="faint">Opens empty in the editor</span>
           </div>
         )}
         {glueNote && <span className="sand-flag" role="status">{glueNote}</span>}
         <button className="btn primary" type="button" disabled={!ready || creating || glueNote !== null} title={glueNote ?? undefined} onClick={() => create()}>
-          {creating ? "Creating…" : prelim ? (works.length > 1 ? `Create preliminary, ${works.length} options` : "Create preliminary") : "Create quote"}
+          {creating ? "Creating…" : `Create ${basis.toLowerCase()}${prelim && works.length > 1 ? `, ${works.length} options` : ""}`}
         </button>
       </div>
     </div>

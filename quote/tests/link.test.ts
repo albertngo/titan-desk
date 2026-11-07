@@ -169,6 +169,13 @@ describe("the New quote form", () => {
     expect(p.ok && p.value.basis).toBe("Preliminary");
     const odd = parseNewQuote({ timing: "Not sure", newCustomer: { firstName: "Sam", phone: "416-555-0100" }, kind: "whatever" });
     expect(odd.ok && odd.value.basis).toBe("Preliminary");
+    // Picked on either screen since 2026-11-07: `basis` wins over the screen.
+    const pick = parseNewQuote({ contactId: "abcDEF123456", timing: "Not sure", kind: "preliminary", basis: "Measured" });
+    expect(pick.ok && pick.value.basis).toBe("Measured");
+    const pick2 = parseNewQuote({ contactId: "abcDEF123456", timing: "Not sure", kind: "measured", basis: "Preliminary" });
+    expect(pick2.ok && pick2.value.basis).toBe("Preliminary");
+    const bad = parseNewQuote({ contactId: "abcDEF123456", timing: "Not sure", kind: "measured", basis: "Sometime" });
+    expect(bad.ok && bad.value.basis).toBe("Measured");
   });
 
   it("refuses ids that aren't GHL ids, and an opportunity with no customer", () => {

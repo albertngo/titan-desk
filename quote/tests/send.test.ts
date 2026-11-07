@@ -1198,3 +1198,26 @@ describe("texts go from the sender's own GHL number (Albert, 2026-11-04)", () =>
     expect(fromTheirNumber(email, "+15550100001")).toEqual(email);
   });
 });
+
+describe("a flooring material's rate always reaches the customer (2026-11-04, checked 2026-11-07)", () => {
+  it("keeps the Materials rate on a breakdown, a lump sum, a preliminary range and a preliminary exact price, never its amount on a lump sum", () => {
+    const mat = line({ section: "Materials", lineType: "Material", sourceKind: "product", description: "Oak plank", qty: 500, waste: 0.1, uom: "sqft", unitPriceSnap: 4.5 });
+    const install = line({ description: "Click install", qty: 500, unitPriceSnap: 2 });
+    const opt = option("Oak", [install, mat], 0, true);
+    const rateOf = (c: CustomerCopy) => {
+      const l = c.options[0].sections.find((s) => s.name === "Materials")!.lines[0];
+      return l.kind === "item" ? [l.unitPrice, l.amount] : null;
+    };
+    expect(rateOf(customerCopy(quote({ discountRate: 0, itemised: true, options: [opt] }), AT))).toEqual([4.5, 2475]);
+    expect(rateOf(customerCopy(quote({ discountRate: 0, itemised: false, options: [opt] }), AT))).toEqual([4.5, null]);
+    expect(rateOf(customerCopy(quote({ discountRate: 0, basis: "Preliminary", options: [opt] }), AT))).toEqual([4.5, null]);
+    expect(rateOf(customerCopy(quote({ discountRate: 0, basis: "Preliminary", options: [opt] }), { ...AT, range: false }))).toEqual([4.5, null]);
+    // The install line loses its rate on a lump sum, as before.
+    const inst = customerCopy(quote({ discountRate: 0, itemised: false, options: [opt] }), AT).options[0].sections.find((s) => s.name === "Install")!.lines[0];
+    expect(inst.kind === "item" && inst.unitPrice).toBeNull();
+    // The PDF heads the column Rate and prints it.
+    const pdf = Buffer.from(quotePdf(customerCopy(quote({ discountRate: 0, basis: "Preliminary", options: [opt] }), AT))).toString("latin1");
+    expect(pdf).toContain("(Rate)");
+    expect(pdf).toContain("$4.50");
+  });
+});
