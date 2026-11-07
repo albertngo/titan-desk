@@ -80,7 +80,8 @@ export function AcceptForCustomer({
           <>
             <p className="acc-actions">
               {link && (
-                <a className="btn primary" href={`${link}?store=1`} target="_blank" rel="noreferrer" title="Opens their link in store mode: hand the tablet over, they tick, type their name and sign.">
+                // Secondary (Albert, 2026-11-07): Edit quote is the page's one main button.
+                <a className="btn" href={`${link}?store=1`} target="_blank" rel="noreferrer" title="Opens their link in store mode: hand the tablet over, they tick, type their name and sign.">
                   Accept with customer ↗
                 </a>
               )}

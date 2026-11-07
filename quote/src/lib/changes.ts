@@ -23,6 +23,25 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-07",
     kind: "changed",
+    title: "The app wears Titan's colours",
+    details: [
+      "Navy, the logo's blue, is now the app's one accent colour, and the mascot sits in the top bar.",
+      "Colour is kept for problems: Needs linking, Expires and Not opened chips stay tinted, the rest are quiet text with a dot, and a margin under 20% shows in amber.",
+      "On a quote page, Accept with customer is now a plain button, so Edit quote is the one main action.",
+    ],
+  },
+  {
+    date: "2026-11-07",
+    kind: "changed",
+    title: "The customer's quote looks like Titan",
+    details: [
+      "The link a customer opens now has the Titan Flooring logo, the website's cream and navy, the customer's name and the price in the brand's headline font, and the mascot signing off at the bottom.",
+      "The price is the one large figure on the page; the solid blue bar is gone. The PDF and the email are unchanged.",
+    ],
+  },
+  {
+    date: "2026-11-07",
+    kind: "changed",
     title: "The stairs fee is the Delivery line",
     details: ["A new stairs option now starts with the same $200 Delivery line as flooring, in its Private section, so the customer never sees it. The separate Stair base fee item is switched off."],
   },

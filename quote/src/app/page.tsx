@@ -24,6 +24,8 @@ export default async function QuotesPage() {
             <Link className="btn primary" href="/new">+ New quote</Link>
           </div>
         </div>
+        {/* The tape-measure rule (2026-11-07), the same signature the customer page puts over its price. */}
+        <div className="tape" aria-hidden />
         {/* Address arrived (2026-10-27): quotes still without an address read the customers' messages for one, after the list has drawn. */}
         <AddressScan />
         <QuoteList groups={groups} />
