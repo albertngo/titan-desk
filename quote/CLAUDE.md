@@ -124,6 +124,14 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   timeline, with the step numbers counted; v1 is *Preliminary* with one priced option per Job tab
   (2026-10-31, below), opened for review). The request says `kind: "measured"` for the first; anything else is a preliminary
   (`parseNewQuote()` in `src/lib/link/newQuote.ts`).
+  **The basis is picked on both screens (Albert, 2026-11-07: "there should always be an option to pick if the quote
+  being sent out will be a preliminary; or measured. Allowing us to still send out multiple preliminaires. The default
+  should be a preliminary if it is a completely new quote. But default to measured if it is a quote after the
+  preliminary").** New quote's **This quote goes out as** card (Preliminary | Measured, Preliminary to start) sends
+  `basis`, which wins over `kind`; `kind` now only picks the screen (the quick form, or an empty editor). A quick-form
+  quote made Measured gets its options as usual plus each flooring option's Delivery line (`withDelivery()` in
+  `start.ts`, the `feeFor()` rule). After a sent version, the editor's existing **The next draft is** pick starts on
+  Measured and can still be Preliminary, so several preliminaries can go out in a row.
 - **Where they found us (Albert, 2026-10-27).** A preliminary's customer step asks **Where did they
   find us?** from a fixed list (`ORIGINS` in `src/lib/link/origin.ts`). The pick is the most
   trusted answer: it goes into the GHL contact's **Quote Origin** custom field (`CONTACT_ORIGIN_FIELD`),

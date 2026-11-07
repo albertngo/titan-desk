@@ -12,8 +12,8 @@ import type { CustomerSearch, FoundCustomer, StartResult } from "./types";
 import { buildPreliminary, distinctNames, parseWorks, splitScopes, type QuickWork } from "@/lib/quick/plan";
 import { profileUses, profileWording } from "@/lib/quick/stairs";
 import { getQuickForm, getQuickProfiles, getRateCard, quickProducts } from "./load";
-import { buildCatalogue } from "@/lib/editor/model";
-import { stairBaseLine } from "./fees";
+import { buildCatalogue, type CardEntry, type EditorLine } from "@/lib/editor/model";
+import { feeFor, stairBaseLine } from "./fees";
 import { firstVersion, quotesByOpportunity } from "./records";
 import { fillVersion } from "./save";
 import { num, str } from "./values";
@@ -98,7 +98,7 @@ export async function startQuote(raw: unknown): Promise<StartResult> {
     if (req.opportunityId) {
       const hit = (await quotesByOpportunity()).get(req.opportunityId);
       if (hit) {
-        const versionId = hit.versionId ?? (await firstVersion(hit.quoteId, hit.quoteNumber ?? "Q-?", "Preliminary", person));
+        const versionId = hit.versionId ?? (await firstVersion(hit.quoteId, hit.quoteNumber ?? "Q-?", req.basis, person));
         return { ok: true, versionId, reused: true, filled: false };
       }
     }
@@ -166,8 +166,8 @@ export async function startQuote(raw: unknown): Promise<StartResult> {
     const quoteNo = str(quote.fields[QUOTE.quoteNumber]) ?? quoteNumber(num(quote.fields[QUOTE.seq]) ?? 0);
     const versionId = await firstVersion(quote.id, quoteNo, req.basis, person);
     await pushToGhl(quote.id, quoteNo, str(quote.fields[QUOTE.displayName]) ?? quoteNo, req, who, linkedOpp, today, existing);
-    // Only a preliminary takes the quick form's work; a full quote opens empty in the editor.
-    const filled = req.basis === "Preliminary" && works.length > 0 ? await fillFromQuickForm(quote.id, versionId, works, today) : false;
+    // The quick form's work goes in whatever the basis (2026-11-07: the basis is picked apart from the screen); a full quote opens empty.
+    const filled = works.length > 0 ? await fillFromQuickForm(quote.id, versionId, works, today, req.basis === "Measured") : false;
     return { ok: true, versionId, reused: false, filled };
   } catch (e) {
     console.error("startQuote", e);
@@ -186,7 +186,7 @@ export async function startQuote(raw: unknown): Promise<StartResult> {
  * the quote: whatever couldn't be priced, or a failed save, is noted on the quote and the editor
  * opens instead.
  */
-async function fillFromQuickForm(quoteId: string, versionId: string, works: QuickWork[], today: string): Promise<boolean> {
+async function fillFromQuickForm(quoteId: string, versionId: string, works: QuickWork[], today: string, measured = false): Promise<boolean> {
   try {
     const built = await buildQuickOptions(works);
     const problems = built.flatMap((b, i) => (b.skipped.length ? [`${built.length > 1 ? `option ${i + 1}: ` : ""}${b.skipped.join("; ")}`] : []));
@@ -194,9 +194,11 @@ async function fillFromQuickForm(quoteId: string, versionId: string, works: Quic
     for (const [i, b] of built.entries()) if (b.needsGlue.length) problems.push(`${built.length > 1 ? `option ${i + 1}: ` : ""}pick the glue in the editor (${b.needsGlue.join(", ")})`);
     const options = built.filter((b) => b.lines.length > 0);
     let filled = false;
-    // A stairs option starts with Delivery in its Private section (2026-11-06/07, never shown); a preliminary flooring option has none.
-    const card = options.some((o) => o.scope === "Stairs") ? await getRateCard().catch(() => null) : null;
-    const base = card ? stairBaseLine(buildCatalogue(card.rates, card.stairs, card.materials)) : null;
+    // A stairs option starts with Delivery in its Private section (2026-11-06/07, never shown); a flooring option gets
+    // its Delivery line only when version 1 is Measured (picked on the screen, 2026-11-07), never on a preliminary.
+    const card = options.some((o) => o.scope === "Stairs") || measured ? await getRateCard().catch(() => null) : null;
+    const entries = card ? buildCatalogue(card.rates, card.stairs, card.materials) : [];
+    const base = card ? stairBaseLine(entries) : null;
     if (options.length > 0) {
       const r = await fillVersion(versionId, {
         quoteRecordId: quoteId,
@@ -219,7 +221,7 @@ async function fillFromQuickForm(quoteId: string, versionId: string, works: Quic
           // selected automatically"); staff mark one in the editor if they want.
           recommended: false,
           ...(o.scope ? { scope: o.scope } : {}),
-          lines: o.scope === "Stairs" && base ? [...o.lines, base] : o.lines,
+          lines: o.scope === "Stairs" ? (base ? [...o.lines, base] : o.lines) : measured ? withDelivery(o, entries) : o.lines,
         })),
       });
       if (r.ok) filled = true;
@@ -244,9 +246,9 @@ export async function buildQuickOptions(works: QuickWork[]) {
   const [choices, products, profileRows] = await Promise.all([getQuickForm(), quickProducts(works.flatMap((w) => w.rows.flatMap((r) => (r.productId ? [r.productId] : [])))), getQuickProfiles()]);
   const profiles = new Map(profileRows.map((p) => [p.id, p]));
   // Flooring and stairs on one tab are two options (Albert, 2026-11-06), the stairs one scoped Stairs.
-  const built = splitScopes(works).map(({ work: w, stairs }) => ({ w, stairs, b: buildPreliminary(choices, w, products, profiles) }));
+  const built = splitScopes(works).map(({ work: w, stairs }) => ({ stairs, b: buildPreliminary(choices, w, products, profiles) }));
   const names = distinctNames(built.map(({ b }) => b));
-  return built.map(({ w, stairs, b }, i) => ({
+  return built.map(({ stairs, b }, i) => ({
     name: names[i],
     scope: stairs ? ("Stairs" as const) : null,
     // The wording names each Stair Profile on the option (2026-11-07), written from the lines it got.
@@ -255,6 +257,12 @@ export async function buildQuickOptions(works: QuickWork[]) {
     skipped: b.skipped,
     needsGlue: b.needsGlue,
   }));
+}
+
+/** A flooring option's Delivery line on a measured version 1 (the same rule as `withFees()`), when the card still has it. */
+function withDelivery(o: { name: string; description: string; lines: EditorLine[] }, entries: CardEntry[]): EditorLine[] {
+  const fee = feeFor({ id: "new", name: o.name, description: o.description, recommended: false, serviceLevel: "Standard", crew: null, lines: o.lines }, entries, true);
+  return fee ? [...o.lines, fee] : o.lines;
 }
 
 async function noteOnQuote(quoteId: string, line: string) {
