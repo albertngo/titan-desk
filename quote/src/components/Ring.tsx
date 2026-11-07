@@ -1,5 +1,5 @@
 /** A small progress ring with the percentage in the middle. `pct` is 0–100; null draws an empty ring. */
-export function Ring({ pct, size = 52 }: { pct: number | null; size?: number }) {
+export function Ring({ pct, size = 52, color = "var(--accent)" }: { pct: number | null; size?: number; color?: string }) {
   const stroke = 4;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
@@ -12,7 +12,7 @@ export function Ring({ pct, size = 52 }: { pct: number | null; size?: number }) 
         cy={size / 2}
         r={r}
         fill="none"
-        stroke="var(--accent)"
+        stroke={color}
         strokeWidth={stroke}
         strokeLinecap="round"
         strokeDasharray={`${(p / 100) * c} ${c}`}

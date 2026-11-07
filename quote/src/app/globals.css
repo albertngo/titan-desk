@@ -239,6 +239,8 @@ table.items tr.off td { color: var(--fg-faint); }
 .fin .k { font-size: 12.5px; font-weight: 600; }
 .fin .s { font-size: 11.5px; color: var(--fg-faint); margin-top: 1px; }
 .fin .v { font-size: 17px; font-weight: 600; color: var(--accent); margin-top: 6px; font-variant-numeric: tabular-nums; }
+.fin.good .txt { border-left-color: var(--good); } .fin.good .v { color: var(--good); }
+.fin.warn .txt { border-left-color: var(--warn); } .fin.warn .v { color: var(--warn); }
 .ring { flex: 0 0 auto; }
 .ring text { font: 600 11px var(--sans); fill: var(--fg); }
 .pay { display: flex; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid var(--line); font-size: 13px; }
