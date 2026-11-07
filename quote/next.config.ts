@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 import { execSync } from "node:child_process";
+import { readdirSync } from "node:fs";
+import { join } from "node:path";
 
 /**
  * The build line at the top of every page (2026-11-03): which commit this build is and when it was
@@ -26,9 +28,25 @@ function buildStamp(): Record<string, string> {
   return { BUILD_SHA: sha, BUILD_MESSAGE: message.slice(0, 500), BUILD_TIME: new Date().toISOString() };
 }
 
+/**
+ * Company files (2026-11-07): the names in quote/sheets/, inlined as COMPANY_SHEETS so the top bar can name the
+ * newest version of each site sheet without reading the disk on every page (src/lib/files/sheets.ts).
+ */
+function companySheets(): Record<string, string> {
+  let names: string[] = [];
+  try {
+    names = readdirSync(join(process.cwd(), "sheets")).filter((n) => n.endsWith(".pdf"));
+  } catch {
+    // no sheets folder: the menu stays hidden
+  }
+  return { COMPANY_SHEETS: JSON.stringify(names) };
+}
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  env: buildStamp(),
+  env: { ...buildStamp(), ...companySheets() },
+  // /files/<kind> reads the PDF from quote/sheets/ at request time, so only that route carries the files.
+  outputFileTracingIncludes: { "/files/*": ["./sheets/*.pdf"] },
   poweredByHeader: false,
   async headers() {
     // Quotes carry customer addresses and margins: never let a shared cache or a frame hold them.

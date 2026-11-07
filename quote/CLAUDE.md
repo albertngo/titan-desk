@@ -1238,6 +1238,15 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
     apart), Follow up, Accepted this month (Accepted At in this Toronto month on an Accepted or Won version, at its
     contract value) and Needs linking. Over every quote whatever the search; the three with a filter behind them are
     buttons that set it (`pulse()` in `pipeline.ts`). Tested in `tests/pipeline.test.ts`.
+- **Company files (Albert, 2026-11-07: "an option to download the Site Sheets (Flooring, Stairs) and show the latest
+  version… inside the What's new section as 'Company Files'… Keep the two files separate downloads").** A **Company
+  files** menu beside What's new in the top bar (`src/components/CompanyFiles.tsx`, staff only, never in Customer view)
+  lists the newest Flooring Site Sheet and Stair Site Sheet with their versions, each its own download. The newest is the
+  highest `<kind>-site-sheet-vN.pdf` in `quote/sheets/` (`latestSheets()` in `src/lib/files/sheets.ts`, tested in
+  `tests/companyFiles.test.ts`): `next.config.ts` inlines the folder's names as COMPANY_SHEETS at build and traces
+  `sheets/*.pdf` into `/files/<kind>` (`src/app/files/[kind]/route.ts`), which checks the sign-in again, serves only a
+  kind on that list (never a path from the request), and 404s on the customer deployment. Older versions stay in the
+  folder for reference and are never offered.
 - **Report a bug (2026-10-28).** The header's Report a bug (staff only, hidden in Customer view and
   until `NOTION_BUG_TOKEN` is set) posts a summary, an urgency and up to five screenshots (shrunk in
   the browser to stay under Vercel's 4.5 MB body limit) to `/api/bug`. That signed-in route makes

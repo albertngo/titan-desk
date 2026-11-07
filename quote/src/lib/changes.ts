@@ -22,6 +22,12 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-07",
+    kind: "new",
+    title: "Company files: download the site sheets",
+    details: ["Company files, beside What's new in the top bar, downloads the latest Flooring Site Sheet and Stair Site Sheet, each on its own, with its version shown. A new version appears there by itself."],
+  },
+  {
+    date: "2026-11-07",
     kind: "changed",
     title: "The app wears Titan's colours",
     details: [
