@@ -114,9 +114,13 @@ export type EditorVersion = {
   change?: { no: number; contractTotal: number | null } | null;
   /** The accepted (or won) quote (2026-10-27): never copied into a new version; it changes only through Make a change. */
   agreed?: boolean;
+  /** Two or more measured versions have gone out (Albert, 2026-11-07): Preliminary is not offered, as a switch or as the next draft. */
+  prelimLocked?: boolean;
 };
 
 const BASES = ["Preliminary", "Measured"] as const;
+/** The bases this version may pick: Measured only once two measured quotes have gone out (2026-11-07). */
+const basesFor = (v: { prelimLocked?: boolean }) => (v.prelimLocked ? (["Measured"] as const) : BASES);
 
 function loadDraft(key: string): Draft | null {
   try {
@@ -727,11 +731,17 @@ export default function Editor({
           </Link>
           <h1>{quote.quoteRecordId ? quote.customerName || "No customer" : "New quote"}</h1>
           {/* Pick it before it goes out (Albert, 2026-11-07): a Draft switches in place; a sent version picks the next draft's beside Save. */}
-          {isDraft && !version.change && (
+          {isDraft && !version.change && version.prelimLocked && measured && (
+            <div className="ed-basis">
+              <span className="k">Goes out as</span>
+              <span className="sub" title="Two or more measured quotes have already gone out on this quote">Measured · two measured quotes have gone out, so it stays measured</span>
+            </div>
+          )}
+          {isDraft && !version.change && !(version.prelimLocked && measured) && (
             <div className="ed-basis">
               <span className="k" id="ed-basis-k">Goes out as</span>
               <span className="ed-basis-seg" role="group" aria-labelledby="ed-basis-k">
-                {BASES.map((b) => (
+                {basesFor(version).map((b) => (
                   <button key={b} type="button" className={(b === "Preliminary") !== measured ? "on" : ""} aria-pressed={(b === "Preliminary") !== measured} disabled={switchingBasis} onClick={() => switchBasis(b)}>
                     {b}
                   </button>
@@ -766,7 +776,7 @@ export default function Editor({
           {!isDraft && !version.change && !version.agreed && (
             <span className="saveas">
               <select className="in" value={basis} onChange={(e) => setBasis(e.target.value)} aria-label="The next draft is" title="Whether the next draft is a preliminary or a measured quote" disabled={saving}>
-                {BASES.map((b) => (
+                {basesFor(version).map((b) => (
                   <option key={b} value={b}>{b}</option>
                 ))}
               </select>

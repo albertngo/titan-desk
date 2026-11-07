@@ -14,7 +14,7 @@ import { floorSheetRaw } from "@/lib/floorsheet/sheet";
 import { sheetRaw } from "@/lib/sitesheet/sheet";
 import { payoutsRaw } from "@/lib/payout/cards";
 import { partValue, scopeValue } from "./scope";
-import { workingDraft } from "./savePlan";
+import { measuredOut, workingDraft } from "./savePlan";
 import { bool, ids, num, str } from "./values";
 import { groupVersions, type QuoteGroup, type QuoteHead } from "./group";
 import type { OptionMoney } from "./group";
@@ -400,6 +400,21 @@ export async function workingDraftOf(q: Quote): Promise<WorkingDraft | null> {
   const quote = (await listByIds(T.quotes, [q.link.quoteRecordId], [QUOTE.versions]))[0];
   const rows = quote ? await listByIds(T.versions, ids(quote.fields[QUOTE.versions]), [VERSION.version, VERSION.status, VERSION.changeNo]) : [];
   return workingDraft(rows.map((v) => ({ id: v.id, status: str(v.fields[VERSION.status]), changeNo: num(v.fields[VERSION.changeNo]), version: num(v.fields[VERSION.version]) })), q.id);
+}
+
+/** How many measured versions of this quote have gone out (2026-11-07, `measuredOut()`); 0 when unlinked. */
+export async function measuredOutOf(q: Quote): Promise<number> {
+  await requireQuoter();
+  if (!q.link) return 0;
+  return measuredOutFor(q.link.quoteRecordId);
+}
+
+/** The same count, by the Quotes record id. */
+export async function measuredOutFor(quoteRecordId: string): Promise<number> {
+  await requireQuoter();
+  const quote = (await listByIds(T.quotes, [quoteRecordId], [QUOTE.versions]))[0];
+  const rows = quote ? await listByIds(T.versions, ids(quote.fields[QUOTE.versions]), [VERSION.basis, VERSION.sentAt, VERSION.status, VERSION.changeNo]) : [];
+  return measuredOut(rows.map((v) => ({ basis: str(v.fields[VERSION.basis]), sentAt: str(v.fields[VERSION.sentAt]), status: str(v.fields[VERSION.status]), changeNo: num(v.fields[VERSION.changeNo]) })));
 }
 
 /**

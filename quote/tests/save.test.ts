@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { LINE, OPTION, VERSION } from "../src/lib/airtable/fields";
 import type { EditorLine, EditorOption, EditorQuote } from "../src/lib/editor/model";
-import { alreadySaved, basisRefusal, changeSlot, cleanEditorQuote, isRecordId, lineFields, newVersionRefusal, planIsEmpty, planSave, workingDraft } from "../src/lib/quotes/savePlan";
+import { alreadySaved, basisRefusal, changeSlot, measuredOut, prelimRefusal, cleanEditorQuote, isRecordId, lineFields, newVersionRefusal, planIsEmpty, planSave, workingDraft } from "../src/lib/quotes/savePlan";
 import { profileLine, stairProfileLine } from "../src/lib/quick/stairs";
 
 // INVENTED rates, quantities and ids only: this repo is public.
@@ -289,5 +289,22 @@ describe("basisRefusal (a Draft switched Preliminary <-> Measured, 2026-11-07)",
     expect(basisRefusal({ status: "Sent", changeNo: null }, "Measured")).toMatch(/keeps the basis/);
     expect(basisRefusal({ status: "Draft", changeNo: 1 }, "Preliminary")).toMatch(/always measured/);
     expect(basisRefusal({ status: "Draft", changeNo: null }, "measured")).toMatch(/Choose/);
+  });
+});
+
+describe("Preliminary locked after two measured quotes (Albert, 2026-11-07)", () => {
+  const v = (basis: string, status: string, sentAt: string | null = "2026-11-01", changeNo: number | null = null) => ({ basis, status, sentAt, changeNo });
+  it("counts measured versions that went out, never drafts, preliminaries or changes", () => {
+    expect(measuredOut([v("Measured", "Superseded"), v("Measured", "Sent"), v("Measured", "Draft", null), v("Preliminary", "Superseded"), v("Measured", "Sent", "2026-11-03", 1)])).toBe(2);
+    expect(measuredOut([v("Measured", "Lost"), v("Measured", "Expired")])).toBe(2);
+    expect(measuredOut([v("Measured", "Sent", null)])).toBe(0);
+  });
+  it("refuses Preliminary at two, on a draft and on the next draft, and lets Measured through", () => {
+    expect(prelimRefusal("Preliminary", 1)).toBeNull();
+    expect(prelimRefusal("Preliminary", 2)).toMatch(/2 measured quotes/);
+    expect(prelimRefusal("Measured", 5)).toBeNull();
+    expect(basisRefusal({ status: "Draft", changeNo: null }, "Preliminary", 2)).toMatch(/can't go back to a preliminary/);
+    expect(basisRefusal({ status: "Draft", changeNo: null }, "Preliminary", 1)).toBeNull();
+    expect(basisRefusal({ status: "Draft", changeNo: null }, "Measured", 2)).toBeNull();
   });
 });

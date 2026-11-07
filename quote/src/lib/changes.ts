@@ -22,6 +22,12 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-07",
+    kind: "changed",
+    title: "No going back to preliminary after two measured quotes",
+    details: ["Once two measured quotes have gone out on a quote, the editor only offers Measured, both for a draft and for the next draft."],
+  },
+  {
+    date: "2026-11-07",
     kind: "fixed",
     title: "Moulding shows up in the editor's search again",
     details: ["+ Add to Moulding lists baseboards, shoe mould, casing, transitions and nosings again, and Premium marks them up like other labour."],

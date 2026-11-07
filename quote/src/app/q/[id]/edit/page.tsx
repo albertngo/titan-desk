@@ -9,9 +9,9 @@ import { fromQuote } from "@/lib/editor/model";
 import { previewCopy } from "@/lib/quotes/send";
 import { picksOf } from "@/lib/accept/plan";
 import { swapSource } from "@/lib/change/swap";
-import { acceptedVersionOf, getQuote, getRateCard, otherVersionsOf, workingDraftOf } from "@/lib/quotes/load";
+import { acceptedVersionOf, getQuote, getRateCard, measuredOutOf, otherVersionsOf, workingDraftOf } from "@/lib/quotes/load";
 import { refreshFromGhl } from "@/lib/quotes/refresh";
-import { fingerprint } from "@/lib/quotes/savePlan";
+import { fingerprint, preliminaryLocked } from "@/lib/quotes/savePlan";
 import { customerView } from "@/lib/view";
 
 export const dynamic = "force-dynamic";
@@ -44,7 +44,9 @@ export default async function EditQuotePage({ params, searchParams }: { params: 
   // The Send card in the editor (Albert, 2026-11-06), the same card the quote page shows; never in Customer view.
   const sending = customer ? null : await sendCardData(quote, customer);
   const sendCard = sending?.props ? <SendQuote {...sending.props} /> : null;
-  const version = { id: quote.id, label: quote.quoteId, version: quote.version, status: quote.status, basis: quote.basis, base: fingerprint(initial), change, agreed: Boolean(quote.acceptance && !quote.acceptance.cancelled) };
+  // Two measured quotes out (2026-11-07): Preliminary is no longer offered, here or on the next draft.
+  const prelimLocked = preliminaryLocked(await measuredOutOf(quote));
+  const version = { prelimLocked, id: quote.id, label: quote.quoteId, version: quote.version, status: quote.status, basis: quote.basis, base: fingerprint(initial), change, agreed: Boolean(quote.acceptance && !quote.acceptance.cancelled) };
   return (
     <>
       <TopBar email={email} />

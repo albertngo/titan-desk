@@ -138,7 +138,12 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   line straight away (`setDraftBasis()` in `save.ts`, refused by `basisRefusal()` in `savePlan.ts` on anything but a
   Draft that isn't a change). Going Measured gives each flooring option its Delivery line as an ordinary editor change
   (`withFees()`), which autosave keeps and staff can remove; going Preliminary takes nothing off and says so. Basis is
-  not in the save fingerprint, so the switch never makes an open editor conflict. Tested in `tests/save.test.ts`.
+  not in the save fingerprint, so the switch never makes an open editor conflict.
+  **Measured only after two measured quotes (Albert, 2026-11-07: "if 2 or more measured quotes have went out in the past;
+  there shouldn't be the option to switch to preliminary anymore").** Once `MEASURED_LOCK` (2) ordinary versions with
+  Basis Measured have gone out (Sent At set, no longer a Draft; changes not counted, `measuredOut()` in `savePlan.ts`), the
+  editor offers Measured only, on Goes out as and on The next draft is, and the server refuses Preliminary on both
+  (`prelimRefusal()`, `measuredOutFor()` in `load.ts`). One measured quote out still allows a preliminary. Tested in `tests/save.test.ts`.
 - **Where they found us (Albert, 2026-10-27).** A preliminary's customer step asks **Where did they
   find us?** from a fixed list (`ORIGINS` in `src/lib/link/origin.ts`). The pick is the most
   trusted answer: it goes into the GHL contact's **Quote Origin** custom field (`CONTACT_ORIGIN_FIELD`),
