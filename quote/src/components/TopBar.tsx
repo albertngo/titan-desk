@@ -29,8 +29,10 @@ export async function TopBar({ email }: { email: string }) {
             <span className="tb-sep" aria-hidden />
             <div className="tb-group">
               <Link className="tb-btn" href="/changes" aria-label="What's new" title={`Last change ${CHANGES[0]?.date ?? ""}: ${CHANGES[0]?.title ?? ""}`}>
-                <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round">
-                  <path d="M8 1.5 9.4 6.6 14.5 8 9.4 9.4 8 14.5 6.6 9.4 1.5 8 6.6 6.6Z" />
+                {/* A newspaper, not the AI sparkle (2026-11-07). */}
+                <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2" />
+                  <path d="M18 14h-8M15 18h-5M10 6h8v4h-8z" />
                 </svg>
                 <span className="lbl">What&apos;s new</span>
               </Link>

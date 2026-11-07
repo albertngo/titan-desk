@@ -519,6 +519,24 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   is still one framed section with a header band (a quieter frame, no blue stripe), nothing under 13px, greys
   that pass AA on the card, 44px targets. All of it is the last block of `globals.css`, scoped to `.cq`, so it
   reaches the customer link and the staff Preview and nothing else. The PDF and email are unchanged.
+  **Then the brand guide (Albert, same day: "ship customer brand version").** The 2024 brand guide
+  (titan-website `public/brand`, Social Estates) replaces the warm paper and IBM Plex: cream `#F3F1E7`, navy
+  `#293895`, orange `#CF6335` darkened to `#b6532a` for actions and Recommended so white text passes AA; **Cysan**
+  for the customer's name, the option prices and the total only (`src/fonts/cysan-regular.woff`, `next/font/local`
+  in `CustomerQuote.tsx`); **PT Serif** for headings and **Inter** for everything else (`next/font/google` in the root
+  layout). The logo lockup (`public/brand/titan-flooring-logo.png`) heads the page and the mascot
+  (`public/brand/titan-mascot-blue.png`) signs it off, "Thanks for choosing <company>", hidden in print. The block
+  "Titan's brand on the customer page" in `globals.css` overrides the warm-paper one; the 2026-10-31 rules still hold.
+- **The staff screens' look (Albert, 2026-11-07: "navy, yes make accept secondary").** On top of option C, which
+  stays the layout: **navy `#293895` replaces RiderBlue** as the one accent (the logo's blue, as the email already
+  uses); Inter everywhere, the mascot and a PT Serif "Titan Quotes" in the top bar, no display face on staff
+  screens; **colour only for problems**: `.chip.warn` / `.chip.bad` (and a follow-up reason in Attention) stay tinted,
+  informational chips are quiet text with a dot, a margin under the 20% minimum (`.fin.warn`) is amber with
+  "under 20%", the strip's Follow up / Needs linking numbers keep their tone; row heights as before; status pills
+  are a dot and a word. **Accept with customer is a secondary button** (`AcceptStaff.tsx`), so Edit quote is the
+  quote page's one main action. A tape-measure rule (`.tape`) sits under the front page's header. All of it is the
+  block "Staff screens, unslopped" at the end of `globals.css`; the customer page defines its own tokens and is
+  unaffected. Mockups and the reasoning (usability over aesthetics) were reviewed in the session before shipping.
 - **A preliminary goes as a range (Albert, 2026-10-27).** Customers took a preliminary's one number as
   the price, so a measured quote that came in higher read as a change. Everything the customer gets
   (email, text, page, PDF) shows the price before HST as a range instead: **3% under to 10% over, the top

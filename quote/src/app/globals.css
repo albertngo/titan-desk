@@ -2108,7 +2108,7 @@ table.items tr.priv-ban-row td { padding: 6px 12px 8px; background: #f4f5f7; }
   --accent: #1e6fff; --accent-fill: #1a5fe0; --accent-text: #1658d0; --accent-soft: #edf3ff;
   --cq-ease: cubic-bezier(.22, 1, .36, 1);
   --cq-w: 800px;
-  font-family: var(--font-plex-sans, var(--sans)); font-size: 16px; line-height: 24px;
+  font-family: var(--sans); font-size: 16px; line-height: 24px; font-feature-settings: "tnum" 1;
   background: var(--bg); color: var(--fg); -webkit-font-smoothing: antialiased;
 }
 .cq a { color: var(--accent-text); }
@@ -2117,7 +2117,7 @@ table.items tr.priv-ban-row td { padding: 6px 12px 8px; background: #f4f5f7; }
 .cq .btn:active:not(:disabled) { transform: scale(.98); }
 .cq .btn.primary { background: var(--accent-fill); border-color: var(--accent-fill); color: #fff; }
 .cq .btn.primary:hover:not(:disabled) { background: #1652c4; border-color: #1652c4; color: #fff; }
-.cq .num-mono, .cq .cq-kicker, .cq .cq-num, .cq .cq-tab .no, .cq .cq-li .n, .cq .cq-legal { font-family: var(--font-plex-mono, var(--mono)); font-weight: 400; letter-spacing: 0; text-transform: none; }
+.cq .cq-kicker, .cq .cq-num, .cq .cq-tab .no, .cq .cq-li .n, .cq .cq-legal { font-family: var(--sans); font-variant-numeric: tabular-nums; font-weight: 400; letter-spacing: 0; text-transform: none; }
 
 /* the signature: a tape measure, a tick every 4px and a longer one every 16 */
 .cq .cq-tape { height: 8px; border-bottom: 1px solid var(--line-strong); background:
@@ -2247,3 +2247,183 @@ table.items tr.priv-ban-row td { padding: 6px 12px 8px; background: #f4f5f7; }
   .cq .cq-totals .total dd { font-size: 40px; line-height: 48px; }
 }
 @media print { .cq { background: #fff; } .cq .cq-card { box-shadow: none; } }
+
+/* ---------- Titan's brand on the customer page (2026-11-07, Albert: "ship customer brand version") ----------
+   The 2024 brand guide (titan-website/public/brand, Social Estates): navy #293895, orange #CF6335 (darkened to
+   #b6532a so white text passes AA), cream #F3F1E7, sky #CFE2EE; Cysan for the customer's name, the option prices
+   and the total only; PT Serif for headings; Inter for everything else. The logo lockup heads the page and the
+   mascot signs it off. Overrides the warm-paper block above; the 2026-10-31 readability rules still hold. */
+.cq {
+  --bg: #f3f1e7; --card: #fffdf8; --card-2: #ece8da; --head: #ece8da;
+  --fg: #20243a; --fg-dim: #464b63; --fg-faint: #5c6179;
+  --line: rgba(41, 56, 149, .1); --line-strong: rgba(41, 56, 149, .2);
+  --accent: #293895; --accent-fill: #b6532a; --accent-text: #293895; --accent-soft: #e9f1f6;
+  --navy: #293895; --orange-fill: #b6532a; --sky-soft: #e9f1f6;
+  /* Cysan's variable is set on .cq itself, so the display stack is worked out here, not on :root. */
+  --display: var(--font-cysan), var(--font-ptserif), Georgia, serif;
+}
+.cq .cq-co { display: flex; align-items: center; }
+.cq .cq-logo { display: block; width: 168px; height: auto; }
+.cq .cq-kicker { font-size: 14px; font-weight: 500; color: var(--navy); }
+.cq .cq-hero h1 { font-family: var(--display); font-weight: 400; font-size: 48px; line-height: 56px; letter-spacing: 0; color: var(--navy); }
+.cq .cq-meta dd { color: var(--fg); }
+.cq .cq-switch-h h2, .cq .cq-bh, .cq .cq-opt h2, .cq .cq-accept h2, .cq .cq-accepted h2, .cq .cq-change h2, .cq .cq-part-h h3 { font-family: var(--serif); font-weight: 700; color: var(--navy); letter-spacing: 0; }
+.cq .cq-opt h2 { font-size: 26px; line-height: 34px; }
+.cq .cq-bh { font-size: 20px; }
+.cq .cq-tab .pr { font-family: var(--display); font-weight: 400; font-size: 26px; line-height: 32px; letter-spacing: 0; color: var(--navy); }
+.cq .cq-tab.on { border-color: var(--navy); box-shadow: inset 0 0 0 1px var(--navy); }
+.cq .cq-tab .rec, .cq .cq-tab.on .rec, .cq .cq-rec { color: var(--orange-fill); font-weight: 600; }
+.cq .cq-sec h3 { background: var(--sky-soft); color: var(--navy); font-weight: 600; }
+.cq .cq-li .tag { color: var(--navy); box-shadow: inset 0 0 0 1px rgba(41, 56, 149, .3); }
+.cq .cq-totals .total dd { font-family: var(--display); font-weight: 400; font-size: 64px; line-height: 72px; letter-spacing: 0; color: var(--navy); }
+.cq .cq-totals .total.range dd { font-size: 44px; line-height: 52px; }
+.cq .cq-totals .with dd { color: var(--navy); }
+.cq .cq-accepted .dep .v { font-family: var(--display); font-weight: 400; color: var(--navy); }
+.cq .btn { border-color: rgba(41, 56, 149, .3); color: var(--navy); }
+.cq .btn.primary { background: var(--orange-fill); border-color: var(--orange-fill); color: #fff; }
+.cq .btn.primary:hover:not(:disabled) { background: #9c4522; border-color: #9c4522; color: #fff; }
+.cq .acc-opts label.on { border-color: var(--navy); box-shadow: inset 0 0 0 1px var(--navy); }
+.cq .cq-signoff { display: grid; justify-items: center; gap: 8px; padding-top: 16px; }
+.cq .cq-signoff img { width: 96px; height: auto; }
+.cq .cq-signoff p { font-family: var(--serif); font-size: 17px; color: var(--navy); }
+@media (max-width: 640px) {
+  .cq .cq-hero h1 { font-size: 36px; line-height: 44px; }
+  .cq .cq-totals .total dd { font-size: 48px; line-height: 56px; }
+  .cq .cq-totals .total.range dd { font-size: 36px; line-height: 44px; }
+  .cq .cq-logo { width: 140px; }
+}
+@media print { .cq .cq-signoff { display: none; } }
+
+/* ---------- Staff screens, unslopped (2026-11-07, Albert: "navy, yes make accept secondary … merge") ----------
+   On top of option C, which stays the layout (2026-11-01). Navy, the logo's blue, replaces RiderBlue as the one
+   accent; Inter everywhere, the mascot and a PT Serif wordmark in the top bar, no display face. Colour only for
+   problems: warning and error chips tinted, informational ones quiet text with a dot, a margin under 20% amber.
+   Row heights as before; a 4px grid; sentence case; weights 400 to 600. The .cq rules above win on the customer
+   page, which defines its own tokens. */
+:root {
+  --bg: #f6f6f7; --card: #fff; --card-2: #f4f4f5; --head: #f4f4f5;
+  --fg: #1b1d2a; --fg-dim: #4d5163; --fg-faint: #6c7084;
+  --line: rgba(24, 24, 27, .08); --line-strong: rgba(24, 24, 27, .14);
+  --accent: #293895; --accent-soft: #eef0f9; --accent-ink: #fff;
+  --good: #15803d; --warn: #a15c00; --bad: #b42318; --warn-soft: #fdf3e1; --bad-soft: #fdecea;
+  --radius: 10px; --shadow: 0 1px 2px rgba(0, 0, 0, .04);
+  --sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --serif: var(--font-ptserif), Georgia, serif;
+  --display: var(--font-cysan), var(--font-ptserif), Georgia, serif;
+  --navy: #293895; --navy-ink: #1f2a73;
+  --ease: cubic-bezier(.22, 1, .36, 1);
+}
+body { line-height: 20px; -webkit-font-smoothing: antialiased; }
+
+/* the tape-measure rule: a tick every 4px and a longer one every 16 */
+.tape { height: 8px; margin: 0 0 16px; border-bottom: 1px solid rgba(41, 56, 149, .22); background:
+  repeating-linear-gradient(90deg, rgba(41, 56, 149, .22) 0 1px, transparent 1px 16px) bottom / 100% 8px no-repeat,
+  repeating-linear-gradient(90deg, rgba(41, 56, 149, .12) 0 1px, transparent 1px 4px) bottom / 100% 4px no-repeat; }
+
+/* top bar */
+.buildline { font-size: 12px; padding: 4px clamp(16px, 2.5vw, 32px); background: var(--card-2); }
+.buildline a { font-weight: 500; }
+.topbar-in { min-height: 56px; padding: 0 clamp(16px, 2.5vw, 32px); }
+.brand { font-family: var(--serif); font-weight: 700; font-size: 17px; color: var(--navy); gap: 8px; }
+.brand-mark { width: 32px; height: 32px; border-radius: 0; background: url(/brand/titan-mascot-blue.png) center / contain no-repeat; color: transparent; font-size: 0; }
+.viewsw { font-size: 13px; font-weight: 500; border-radius: 8px; border-color: var(--line-strong); }
+.viewsw:hover { border-color: var(--line-strong); color: var(--fg); background: var(--card-2); }
+.tb-btn { border-radius: 8px; padding: 4px 12px; gap: 8px; transition: background-color .15s var(--ease), color .15s var(--ease); }
+.tb-btn:hover { background: var(--card-2); }
+.avatar { width: 28px; height: 28px; background: var(--card-2); color: var(--fg-dim); font-weight: 500; box-shadow: inset 0 0 0 1px var(--line); }
+
+/* page head and buttons */
+.page { padding-top: 24px; }
+.pagehead h1, .ed-head h1 { font-size: 24px; line-height: 32px; font-weight: 600; letter-spacing: -.01em; }
+.pagehead p { font-size: 14px; margin-top: 4px; }
+.ed-head > .actions { align-self: flex-start; margin-top: 8px; }
+.crumb { font-size: 13px; }
+.btn { font-size: 13px; font-weight: 500; min-height: 36px; padding: 0 16px; gap: 8px; border-radius: 8px; border-color: var(--line-strong); transition: background-color .15s var(--ease), border-color .15s var(--ease), color .15s var(--ease), transform .12s var(--ease); }
+.btn:hover { border-color: var(--line-strong); background: var(--card-2); color: var(--fg); }
+.btn:active:not(:disabled) { transform: scale(.98); }
+.btn.primary { background: var(--navy); border-color: var(--navy); color: #fff; }
+.btn.primary:hover:not(:disabled) { background: var(--navy-ink); border-color: var(--navy-ink); color: #fff; }
+.btn.small { min-height: 28px; padding: 0 12px; }
+.status { font-size: 13px; font-weight: 500; padding: 0; border-radius: 0; background: none !important; color: var(--fg-dim) !important; display: inline-flex; align-items: center; gap: 8px; }
+.status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--fg-faint); }
+.status.Sent::before { background: var(--accent); }
+.status.Accepted::before, .status.Won::before { background: var(--good); }
+.status.Lost::before, .status.Expired::before { background: var(--bad); }
+
+/* chips: quiet with a dot when informational, tinted when something needs doing */
+.chip { font-size: 13px; padding: 0; border-radius: 0; background: none; color: var(--fg-dim); display: inline-flex; align-items: center; gap: 8px; }
+.chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--fg-faint); flex: none; }
+.chip.good, .chip.accent { background: none; color: var(--fg-dim); }
+.chip.good::before { background: var(--good); }
+.chip.accent::before { background: var(--accent); }
+a.chip, a.chip.good, a.chip.accent, a.chip.warn { color: var(--accent); background: none; padding: 0; }
+a.chip::before { display: none; }
+.chip.warn, .chip.bad, .ql-flags .chip.accent { padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 500; }
+.chip.warn { background: var(--warn-soft); color: #8a5300; }
+.chip.bad { background: var(--bad-soft); color: var(--bad); }
+.ql-flags .chip.accent { background: var(--accent-soft); color: var(--navy); }
+.chip.warn::before, .chip.bad::before, .ql-flags .chip.accent::before { display: none; }
+.chips { gap: 4px 16px; }
+.chips .lbl { font-size: 13px; min-width: 48px; }
+
+/* cards, fields, banners, tabs */
+.card { border-radius: 12px; border-color: var(--line); box-shadow: var(--shadow); }
+.card-h { font-size: 14px; font-weight: 500; }
+.field { font-size: 13px; padding: 8px 0; }
+.banner { font-size: 13px; padding: 8px 16px; }
+.banner.ok { background: none; color: var(--fg-dim); display: flex; align-items: center; gap: 8px; }
+.banner.ok::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--good); flex: none; }
+.banner.warn, .banner.bad { font-weight: 500; }
+.tab { border-color: var(--line-strong); }
+.tab[aria-current="page"] { background: var(--card); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.tab-scope { font-size: 13px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--fg-dim); }
+table.items th { font-size: 12px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--fg-faint); }
+table.items tr.sect td { font-weight: 500; }
+table.items tr.subsect td { box-shadow: none !important; border-left: 0 !important; font-size: 13px; font-weight: 500; color: var(--fg-dim); }
+.flag { font-weight: 500; letter-spacing: 0; border-radius: 4px; }
+
+/* the sidebar's money: plain figures; a margin under the minimum in amber */
+.fin { padding: 12px 16px; gap: 16px; }
+.fin .txt { border-left: 0; padding-left: 0; }
+.fin .k { font-size: 13px; font-weight: 500; color: var(--fg-dim); }
+.fin .s { font-size: 12px; }
+.fin .v, .fin.good .v { font-size: 20px; line-height: 28px; font-weight: 500; color: var(--fg); margin-top: 4px; }
+.fin.warn .v { font-size: 20px; line-height: 28px; font-weight: 500; color: var(--warn); }
+.fin.warn .k::after { content: " · under 20%"; font-weight: 400; color: var(--warn); }
+.fin svg.ring circle { display: none; }
+.fin svg.ring text { font-family: var(--sans); font-size: 13px; font-weight: 500; fill: var(--fg-dim); }
+
+/* All quotes: the strip and the list */
+.qp { grid-template-columns: 2fr 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.qp-t { padding: 12px 16px; border-radius: 12px; border-color: var(--line); box-shadow: var(--shadow); }
+.qp-t .k { font-size: 13px; font-weight: 400; color: var(--fg-dim); }
+.qp-t .big { font-size: 24px; line-height: 32px; font-weight: 600; letter-spacing: -.01em; color: var(--fg); }
+.qp-t:first-child .big { font-size: 28px; line-height: 36px; }
+.qp-t.good .big { color: var(--fg); }
+.qp-t.warn .big { color: var(--warn); }
+.qp-t.bad .big { color: var(--bad); }
+@media (max-width: 860px) { .qp { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.ql-card { border-radius: 12px; overflow: hidden; }
+.ql-search input { border-color: var(--line-strong); }
+.ql-search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.ql-f { font-size: 13px; border-radius: 8px; }
+.ql-f[aria-pressed="true"] { background: var(--card-2); border-color: var(--line-strong); color: var(--fg); }
+.ql-f .n { font-size: 12px; padding: 0; min-width: 0; background: none; color: var(--fg-faint); }
+.ql-f[aria-pressed="true"] .n { background: none; color: var(--fg-dim); }
+.ql-head { font-size: 12px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--fg-faint); background: var(--card-2); }
+.ql-sort.on { color: var(--fg); }
+.ql-row:hover .cust { color: var(--fg); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-strong); }
+.ql-tog:hover { background: var(--card-2); color: var(--fg); }
+.ql-av { border-radius: 8px; background: var(--card-2); color: var(--fg-dim); font-size: 12px; font-weight: 500; letter-spacing: 0; box-shadow: inset 0 0 0 1px var(--line); }
+.ql-who .cust { font-weight: 500; }
+.ql-num > span:first-child { font-family: var(--sans); font-weight: 500; font-variant-numeric: tabular-nums; }
+.ql-sb { font-size: 13px; font-weight: 400; color: var(--fg); }
+.ql-sb i { width: 6px; height: 6px; }
+.ql-sb.Draft i { background: var(--fg-faint); }
+.ql-val .amt { font-weight: 500; }
+.ql-val.won .amt { color: var(--fg); }
+.ql-val.won .mt { color: var(--good); }
+.ql-seen .at { font-size: 13px; font-weight: 400; color: var(--fg); }
+.ql-v:hover { background: var(--card-2); }
+.ql-cur { font-size: 12px; font-weight: 500; }
+.ql-open { font-size: 13px; font-weight: 400; color: var(--fg-dim); }

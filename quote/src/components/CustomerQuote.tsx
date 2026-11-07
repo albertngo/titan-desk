@@ -1,13 +1,13 @@
-import { IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
+import localFont from "next/font/local";
 import { shownStage } from "@/lib/pricing/schedule";
 import { changeWords, itemDifference, paidLeft, signedMoney, type CopyChange } from "@/lib/change/diff";
 import { money, rate } from "@/lib/format";
 import { OptionSwitcher } from "@/components/OptionSwitcher";
 import { discountRows, hstRow, isLump, isSplit, scopeHeading, scopeOf, scopesOf, itemHstNote, leadPrice, longDate, partGroups, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyState, type CopyText, type CustomerCopy } from "@/lib/send/copy";
 
-/** The customer page's type (2026-11-07): IBM Plex Sans, Plex Mono for quote and option numbers. Scoped to .cq. */
-const plexSans = IBM_Plex_Sans({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-plex-sans", display: "swap" });
-const plexMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-plex-mono", display: "swap" });
+/** The customer page's display face (2026-11-07, brand guide): Cysan, for the customer's name, the option
+ *  prices and the total only. Inter and PT Serif come from the root layout. Scoped to .cq. */
+const cysan = localFont({ src: "../fonts/cysan-regular.woff", variable: "--font-cysan", display: "swap" });
 
 /**
  * The quote as the customer sees it, drawn from the frozen customer copy only. Used by the
@@ -281,11 +281,13 @@ export function CustomerQuote({
   const site = [copy.customer.siteAddress, copy.customer.siteCity].filter(Boolean).join(", ");
 
   return (
-    <div className={`cq ${plexSans.variable} ${plexMono.variable}`}>
+    <div className={`cq ${cysan.variable}`}>
       {banner}
       <header className="cq-head">
         <div className="cq-co">
-          <div className="cq-logo">{c.name}</div>
+          {/* The brand guide's horizontal lockup (2026-11-07), as the email's header has it. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="cq-logo" src="/brand/titan-flooring-logo.png" alt={c.name} width={168} height={50} />
           {c.address && <div>{c.address}</div>}
         </div>
         {pdfHref && (
@@ -366,6 +368,12 @@ export function CustomerQuote({
         {/* The "Questions?" card with Call / Email buttons is gone (Albert, 2026-10-24): replies go to the
             message the quote came in. The website stays, as one quiet line. No HST number (Albert,
             2026-10-27: "This is just an estimate, so it's not like a formal invoice"). */}
+        {/* The brand's mascot as a sign-off (2026-11-07). */}
+        <div className="cq-signoff">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brand/titan-mascot-blue.png" alt="" width={96} height={94} />
+          <p>Thanks for choosing {c.name}</p>
+        </div>
         {c.website && <footer className="cq-legal">{c.website}</footer>}
       </main>
     </div>
