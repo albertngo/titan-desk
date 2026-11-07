@@ -315,6 +315,18 @@ export function newVersionRefusal(from: { changeNo: number | null; agreed: boole
 }
 
 /**
+ * Why a draft's basis can't be switched in place, or null (Albert, 2026-11-07: pick Preliminary or Measured on
+ * the edit screen before it goes out). Only an ordinary Draft: a sent version keeps the basis it went out as, and
+ * a change to the accepted quote is always Measured.
+ */
+export function basisRefusal(v: { status: string | null; changeNo: number | null }, basis: string): string | null {
+  if (basis !== "Preliminary" && basis !== "Measured") return "Choose Preliminary or Measured.";
+  if (v.status !== "Draft") return `This version is ${(v.status ?? "not a draft").toLowerCase()}, so it keeps the basis it went out as. Pick the next draft's basis beside Save as the next draft.`;
+  if ((v.changeNo ?? 0) > 0) return "A change to the accepted quote is always measured.";
+  return null;
+}
+
+/**
  * The quote's working draft (2026-10-30, vault 05_decisions/2026-10-30-quote-one-working-quote): staff work on one
  * quote and sending takes the snapshot, so there is at most one ordinary draft. The newest Draft that isn't a change,
  * other than `self`; null when there is none.

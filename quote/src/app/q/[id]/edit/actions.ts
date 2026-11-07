@@ -1,7 +1,7 @@
 "use server";
 
 import { quickFormForBrowser, quickOption, type QuickOptionResult } from "@/lib/quotes/quickOption";
-import { autosaveVersion, saveAsNewVersion, saveVersion, type AutosaveResult, type SaveResult } from "@/lib/quotes/save";
+import { autosaveVersion, saveAsNewVersion, saveVersion, setDraftBasis, type AutosaveResult, type SaveResult } from "@/lib/quotes/save";
 
 /** Server actions for the editor. Each checks the quoter allowlist inside. Quote pages are dynamic, so nothing needs revalidating. */
 
@@ -16,6 +16,11 @@ export async function autosaveVersionAction(versionId: string, quote: unknown, b
 
 export async function saveAsNewVersionAction(versionId: string, quote: unknown, basis: string): Promise<SaveResult> {
   return saveAsNewVersion(String(versionId ?? ""), quote, String(basis ?? ""));
+}
+
+/** A Draft switched between Preliminary and Measured before it goes out (2026-11-07). */
+export async function setDraftBasisAction(versionId: string, basis: string) {
+  return setDraftBasis(String(versionId ?? ""), String(basis ?? ""));
 }
 
 /** "+ From quick form" (2026-10-31): the form's choices, opened on demand so the editor never waits for them. */

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { LINE, OPTION, VERSION } from "../src/lib/airtable/fields";
 import type { EditorLine, EditorOption, EditorQuote } from "../src/lib/editor/model";
-import { alreadySaved, changeSlot, cleanEditorQuote, isRecordId, lineFields, newVersionRefusal, planIsEmpty, planSave, workingDraft } from "../src/lib/quotes/savePlan";
+import { alreadySaved, basisRefusal, changeSlot, cleanEditorQuote, isRecordId, lineFields, newVersionRefusal, planIsEmpty, planSave, workingDraft } from "../src/lib/quotes/savePlan";
 import { profileLine, stairProfileLine } from "../src/lib/quick/stairs";
 
 // INVENTED rates, quantities and ids only: this repo is public.
@@ -277,5 +277,17 @@ describe("a save that landed without an answer (autosave, 2026-11-05)", () => {
     const extra = mine();
     extra.options.push(O({ id: "opt_local_9", name: "Tile" }));
     expect(alreadySaved(landed(), extra)).toBeNull();
+  });
+});
+
+describe("basisRefusal (a Draft switched Preliminary <-> Measured, 2026-11-07)", () => {
+  it("lets an ordinary draft switch either way", () => {
+    expect(basisRefusal({ status: "Draft", changeNo: null }, "Measured")).toBeNull();
+    expect(basisRefusal({ status: "Draft", changeNo: 0 }, "Preliminary")).toBeNull();
+  });
+  it("refuses a sent version, a change, and anything but the two bases", () => {
+    expect(basisRefusal({ status: "Sent", changeNo: null }, "Measured")).toMatch(/keeps the basis/);
+    expect(basisRefusal({ status: "Draft", changeNo: 1 }, "Preliminary")).toMatch(/always measured/);
+    expect(basisRefusal({ status: "Draft", changeNo: null }, "measured")).toMatch(/Choose/);
   });
 });

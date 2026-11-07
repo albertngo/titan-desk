@@ -1441,6 +1441,14 @@ a.chip.accent:hover { text-decoration: underline; }
 .qd-form input:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
 .qd-hint, .qd-err { flex-basis: 100%; margin: 0; font-size: 12px; color: var(--fg-faint); }
 .qd-err { color: var(--bad, #c0392b); }
+/* Goes out as: Preliminary | Measured on a Draft (2026-11-07). */
+.ed-basis { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 6px; font-size: 13px; }
+.ed-basis .k { color: var(--fg-dim); }
+.ed-basis .sub { color: var(--fg-dim); flex-basis: 100%; max-width: 70ch; }
+.ed-basis-seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+.ed-basis-seg button { border: 0; background: var(--card); color: var(--fg-dim); font: inherit; font-weight: 600; padding: 4px 12px; min-height: 32px; cursor: pointer; }
+.ed-basis-seg button.on { background: var(--accent); color: #fff; }
+.ed-basis-seg button:disabled { cursor: progress; opacity: .7; }
 .ed-head .ed-hint { font-size: 13px; color: var(--fg-dim); margin-top: 4px; max-width: 70ch; }
 .ed-head .actions { flex-wrap: nowrap; }
 .ed-head .btn { padding: 8px 14px; font-size: 13.5px; border-radius: 10px; }
