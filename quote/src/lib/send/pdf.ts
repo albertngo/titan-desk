@@ -360,6 +360,8 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
     if (l.qty !== null) doc.text(COL.qty, y, `${plain.format(l.qty)}${l.uom ? ` ${l.uom}` : ""}`, { size: 9, color, align: "right" });
     if (l.unitPrice !== null) doc.text(COL.unit, y, money(l.unitPrice), { size: 9, color, align: "right" });
     if (l.amount !== null) doc.text(COL.amount - 4, y, l.optional ? `Optional · ${money(l.amount)}` : l.added ? `Added · ${money(l.amount)}` : money(l.amount), { size: 9, font: l.optional ? "R" : "B", color, align: "right" });
+    // A preliminary's add-on goes with no price (2026-11-07): it still says it is optional.
+    else if (l.optional || l.added) doc.text(COL.amount - 4, y, l.optional ? "Optional" : "Added", { size: 9, color, align: "right" });
     y -= lines.length * 12;
     for (const t of notes) {
       doc.text(COL.item, y + 1, t, { size: 8, color: FAINT });

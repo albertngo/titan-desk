@@ -367,6 +367,14 @@ function copyOption(given: QuoteOption, discountRate: number, showHst: boolean, 
       // One wording, one line (Albert, 2026-11-02: "consolidate the steps to just be one generic step … and then just combine
       // the quantity"): Stair Items that share a Customer Wording read as one line, their quantities and amounts added.
       // The unit is part of the key now that the quantity shows, so steps and feet are never added together.
+      // Rates on a flooring option (Albert, 2026-11-07: "On a preliminary; Material section: Rate + qty shown; Other
+      // sections: qty only shown. On a measured: Material section: Rate + qty; Other sections qty + rate shown. For
+      // Flooring Options"). A preliminary: the material's rate only, and no line amount at all, an add-on's included, so
+      // no exact price sits beside the range. A measured quote: every line's rate, lump sum or breakdown; the amounts
+      // still only on a breakdown (an add-on keeps its price). Stairs lines and stairs options never show a price.
+      const stairLine = name === "Stairs" || stairsOption;
+      const shownRate = !minimum && (name === "Materials" || (!stairLine && !preliminary) || (!lump && !preliminary));
+      const noAmount = lump || (preliminary && !stairsOption);
       const wording = name === "Stairs" ? clean(l.customerWording) : null;
       const key = wording ? [wording.toLowerCase(), (clean(l.uom) ?? "").toLowerCase(), l.include, note ?? "", chargesHst(l, showHst)].join("|") : null;
       const same = key ? merged.get(key) : undefined;
@@ -388,9 +396,9 @@ function copyOption(given: QuoteOption, discountRate: number, showHst: boolean, 
         wastePct: l.waste ? Math.round(l.waste * 100) : null,
         // A material always shows its rate (Albert, 2026-11-04: "Material Rates in the material section should ALWAYS
         // show the rate; no matter what the form the quote is sending in"): lump sum and preliminary too, never its amount.
-        unitPrice: minimum || (lump && name !== "Materials") ? null : price,
-        minimum: lump ? false : minimum,
-        amount: lump ? null : amount,
+        unitPrice: shownRate ? price : null,
+        minimum: noAmount ? false : minimum,
+        amount: noAmount ? null : amount,
         optional: !l.include,
         ...(chargesHst(l, showHst) !== showHst ? { hst: showHst ? ("none" as const) : ("plus" as const) } : {}),
       };

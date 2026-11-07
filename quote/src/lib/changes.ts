@@ -22,6 +22,16 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-07",
+    kind: "changed",
+    title: "Flooring rates: preliminary shows material rates only, measured shows every rate",
+    details: [
+      "On a preliminary, the customer sees each material's quantity and rate, and only the quantity for everything else, with no line prices.",
+      "On a measured quote, every flooring line shows its quantity and rate, lump sum or breakdown; the line amounts still show only on a breakdown.",
+      "The link, the PDF and Customer view all follow it. Stairs are unchanged.",
+    ],
+  },
+  {
+    date: "2026-11-07",
     kind: "fixed",
     title: "Material rates show in Customer view on a lump sum",
     details: ["The quote page's Customer view now shows each flooring material's rate beside its quantity on a lump sum and on a preliminary, as the customer's link and PDF already did."],

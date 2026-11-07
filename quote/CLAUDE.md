@@ -1295,6 +1295,15 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   preliminary stairs option is headed **Customer wording**, drawn as a full text box (`.words`), saying it goes word
   for word. The Send card shows each chosen option's words exactly as they go, with its price, in a box of its own
   (`words` on `sendCardData()`'s options, `.sq-words`).
+- **Flooring rates by basis (Albert, 2026-11-07: "On a preliminary; Material section: Rate + qty shown; Other sections:
+  qty only shown. On a measured: Material section: Rate + qty; Other sections qty + rate shown… For Flooring Options").**
+  In the customer copy (`copyOption()` in `copy.ts`, so the link and the PDF, which always mirror each other since both
+  draw the one frozen copy): a **preliminary** flooring option shows each Materials line's quantity × rate and every
+  other line's quantity only, and no line amount anywhere, an add-on's included (it still says Optional, on the PDF too);
+  a **measured** one shows every line's quantity × rate, lump sum or breakdown, the amounts still only on a breakdown and
+  an add-on keeping its price. A line under its minimum charge shows no rate. Stairs lines and stairs options are
+  unchanged (quantity only). The quote page's Customer view follows the same rule (`OptionSheet`: `prelimView`,
+  `rateCol`). This replaces the 2026-10-22 lump-sum rule of no rate on labour. Tested in `tests/send.test.ts`.
 - **Company files (Albert, 2026-11-07: "an option to download the Site Sheets (Flooring, Stairs) and show the latest
   version… inside the What's new section as 'Company Files'… Keep the two files separate downloads").** A **Company
   files** menu beside What's new in the top bar (`src/components/CompanyFiles.tsx`, staff only, never in Customer view)
