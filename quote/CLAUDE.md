@@ -528,13 +528,14 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   (`public/brand/titan-mascot-blue.png`) signs it off, "Thanks for choosing <company>", hidden in print. The block
   "Titan's brand on the customer page" in `globals.css` overrides the warm-paper one; the 2026-10-31 rules still hold.
 - **The staff screens' look (Albert, 2026-11-07: "navy, yes make accept secondary").** On top of option C, which
-  stays the layout: **navy `#293895` replaces RiderBlue** as the one accent (the logo's blue, as the email already
-  uses); the mascot and a PT Serif "Titan Quotes" in the top bar, no display face on staff screens; **each machine's
+  stays the layout: RiderBlue stays the one accent (navy was tried the same day and reverted, Albert: "I also like
+  the rider blue… instead of navy"; navy is the top bar's wordmark and the customer page's); the mascot and a PT Serif "Titan Quotes" in the top bar, no display face on staff screens; **each machine's
   own font** (Albert, same day: "less readable… staff is all windows": Segoe UI on the store's Windows PCs, San Francisco
   on a Mac; no font smoothing override; names, headings and figures at 600; nothing staff read under 13px). Inter loads
   on the customer page only (`CustomerQuote.tsx`); **colour only for problems**: `.chip.warn` / `.chip.bad` (and a follow-up reason in Attention) stay tinted,
-  informational chips are quiet text with a dot, a margin under the 20% minimum (`.fin.warn`) is amber with
-  "under 20%", the strip's Follow up / Needs linking numbers keep their tone; row heights as before; status pills
+  informational chips are quiet text with a dot; the Financials card keeps its rings, coloured figures and bars, and
+  Gross profit its green / amber by margin, exactly as before (Albert, same day: "keep the circle financials");
+  the strip's Follow up / Needs linking numbers keep their tone; row heights as before; status pills
   are a dot and a word. **Accept with customer is a secondary button** (`AcceptStaff.tsx`), so Edit quote is the
   quote page's one main action. A tape-measure rule (`.tape`) sits under the front page's header. All of it is the
   block "Staff screens, unslopped" at the end of `globals.css`; the customer page defines its own tokens and is

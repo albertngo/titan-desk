@@ -2305,7 +2305,9 @@ table.items tr.priv-ban-row td { padding: 6px 12px 8px; background: #f4f5f7; }
   --bg: #f6f6f7; --card: #fff; --card-2: #f4f4f5; --head: #f4f4f5;
   --fg: #1b1d2a; --fg-dim: #4d5163; --fg-faint: #6c7084;
   --line: rgba(24, 24, 27, .08); --line-strong: rgba(24, 24, 27, .14);
-  --accent: #293895; --accent-soft: #eef0f9; --accent-ink: #fff;
+  /* RiderBlue stays the staff accent (Albert, 2026-11-07: "I also like the rider blue… instead of navy"); navy is the
+     wordmark's and the customer page's. */
+  --accent: #1e6fff; --accent-soft: #e8f0ff; --accent-ink: #fff;
   --good: #15803d; --warn: #a15c00; --bad: #b42318; --warn-soft: #fdf3e1; --bad-soft: #fdecea;
   --radius: 10px; --shadow: 0 1px 2px rgba(0, 0, 0, .04);
   /* Staff read this on Windows PCs at the store, Albert on Macs (2026-11-07): each machine's own interface font
@@ -2344,8 +2346,8 @@ body { line-height: 20px; }
 .btn { font-size: 13px; font-weight: 500; min-height: 36px; padding: 0 16px; gap: 8px; border-radius: 8px; border-color: var(--line-strong); transition: background-color .15s var(--ease), border-color .15s var(--ease), color .15s var(--ease), transform .12s var(--ease); }
 .btn:hover { border-color: var(--line-strong); background: var(--card-2); color: var(--fg); }
 .btn:active:not(:disabled) { transform: scale(.98); }
-.btn.primary { background: var(--navy); border-color: var(--navy); color: #fff; }
-.btn.primary:hover:not(:disabled) { background: var(--navy-ink); border-color: var(--navy-ink); color: #fff; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary:hover:not(:disabled) { background: #1a62e6; border-color: #1a62e6; color: #fff; }
 .btn.small { min-height: 28px; padding: 0 12px; }
 .status { font-size: 13px; font-weight: 500; padding: 0; border-radius: 0; background: none !important; color: var(--fg-dim) !important; display: inline-flex; align-items: center; gap: 8px; }
 .status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--fg-faint); }
@@ -2364,7 +2366,7 @@ a.chip::before { display: none; }
 .chip.warn, .chip.bad, .ql-flags .chip.accent { padding: 2px 8px; border-radius: 6px; font-size: 13px; font-weight: 500; }
 .chip.warn { background: var(--warn-soft); color: #8a5300; }
 .chip.bad { background: var(--bad-soft); color: var(--bad); }
-.ql-flags .chip.accent { background: var(--accent-soft); color: var(--navy); }
+.ql-flags .chip.accent { background: var(--accent-soft); color: #1559d6; }
 .chip.warn::before, .chip.bad::before, .ql-flags .chip.accent::before { display: none; }
 .chips { gap: 4px 16px; }
 .chips .lbl { font-size: 13px; min-width: 48px; }
@@ -2385,16 +2387,9 @@ table.items tr.sect td { font-weight: 600; }
 table.items tr.subsect td { box-shadow: none !important; border-left: 0 !important; font-size: 13px; font-weight: 500; color: var(--fg-dim); }
 .flag { font-weight: 500; letter-spacing: 0; border-radius: 4px; }
 
-/* the sidebar's money: plain figures; a margin under the minimum in amber */
-.fin { padding: 12px 16px; gap: 16px; }
-.fin .txt { border-left: 0; padding-left: 0; }
-.fin .k { font-size: 13px; font-weight: 600; color: var(--fg-dim); }
-.fin .s { font-size: 13px; }
-.fin .v, .fin.good .v { font-size: 20px; line-height: 28px; font-weight: 600; color: var(--fg); margin-top: 4px; }
-.fin.warn .v { font-size: 20px; line-height: 28px; font-weight: 600; color: var(--warn); }
-.fin.warn .k::after { content: " · under 20%"; font-weight: 400; color: var(--warn); }
-.fin svg.ring circle { display: none; }
-.fin svg.ring text { font-family: var(--sans); font-size: 13px; font-weight: 500; fill: var(--fg-dim); }
+/* the sidebar's money keeps its rings, coloured figures and bars (Albert, 2026-11-07: "keep the circle financials…
+   the colors on the numbers… the logic to color the gross profit as before"); only its two small labels grow to 13px. */
+.fin .k, .fin .s { font-size: 13px; }
 
 /* All quotes: the strip and the list */
 .qp { grid-template-columns: 2fr 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }

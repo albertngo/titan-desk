@@ -37,8 +37,8 @@ export const CHANGES: Change[] = [
     kind: "changed",
     title: "The app wears Titan's colours",
     details: [
-      "Navy, the logo's blue, is now the app's one accent colour, and the mascot sits in the top bar.",
-      "Colour is kept for problems: Needs linking, Expires and Not opened chips stay tinted, the rest are quiet text with a dot, and a margin under 20% shows in amber.",
+      "The mascot and the Titan Quotes name sit in the top bar; the app's blue stays.",
+      "Colour is kept for problems: Needs linking, Expires and Not opened chips stay tinted, the rest are quiet text with a dot. The Financials card keeps its rings and coloured figures.",
       "On a quote page, Accept with customer is now a plain button, so Edit quote is the one main action.",
     ],
   },
