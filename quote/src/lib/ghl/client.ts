@@ -221,3 +221,39 @@ export async function pipelines(): Promise<GhlPipeline[]> {
   pipelineCache = { at: Date.now(), value };
   return value;
 }
+
+/* ---------- the Follow up page (2026-11-07): read only ---------- */
+
+let lostCache: { at: number; value: { id: string; name: string }[] } | null = null;
+
+/** The location's own lost reasons (GET /opportunities/lost-reason, opportunities.readonly), by name. Cached ten minutes. */
+export async function lostReasons(): Promise<{ id: string; name: string }[]> {
+  if (lostCache && Date.now() - lostCache.at < 600_000) return lostCache.value;
+  const data = (await get("/opportunities/lost-reason", { locationId: GHL_LOCATION_ID, limit: "100" })) as { lostReasons?: Record<string, unknown>[] };
+  const value = (data.lostReasons ?? [])
+    .filter((r) => typeof r.id === "string" && r.deleted !== true)
+    .map((r) => ({ id: String(r.id), name: s(r.name) ?? "Lost" }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  lostCache = { at: Date.now(), value };
+  return value;
+}
+
+let fieldCache: { at: number; value: string | null } | null = null;
+
+/**
+ * The id of the opportunity date field "Postponed Until" (made by Albert, 2026-11-07), found by name in the location's
+ * opportunity custom fields. Null when it isn't there once, or the token can't read custom fields: the stage still moves.
+ */
+export async function postponedUntilFieldId(): Promise<string | null> {
+  if (fieldCache && Date.now() - fieldCache.at < 600_000) return fieldCache.value;
+  let value: string | null = null;
+  try {
+    const data = (await get(`/locations/${GHL_LOCATION_ID}/customFields`, { model: "opportunity" })) as { customFields?: Record<string, unknown>[] };
+    const found = (data.customFields ?? []).filter((f) => typeof f.id === "string" && /^postponed until$/i.test(s(f.name) ?? ""));
+    value = found.length === 1 ? String(found[0].id) : null;
+  } catch (e) {
+    console.error("postponedUntilFieldId", e);
+  }
+  fieldCache = { at: Date.now(), value };
+  return value;
+}

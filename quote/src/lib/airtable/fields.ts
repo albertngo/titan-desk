@@ -74,6 +74,8 @@ export const QUOTE = {
   versions: "fldasgos7nsSuqkJh",
   /** 2026-10-27: the Rooms tab's log, JSON written by the app only (src/lib/rooms/log.ts). Nothing prices or checks from it. */
   rooms: "fldSzknHoePiGjWoU",
+  /** 2026-11-07: the Follow up page's state, JSON written by the app only (src/lib/followup/plan.ts, src/lib/quotes/followup.ts). */
+  followUp: "flde4OVCLXx5wCjH3",
   /** 2026-10-28: photos of the stair site sheet, uploaded from the Site sheet tab. Attachments, app-written only. */
   siteSheetPhotos: "fldVyJRpAY5Mr8Obn",
   /** 2026-10-28: what was read from the site sheet and what staff checked, JSON (src/lib/sitesheet/sheet.ts). */

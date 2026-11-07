@@ -291,3 +291,40 @@ export function buildContract(i: { contactId: string; opportunityId: string; tot
 export function buildLost(i: { contactId: string; opportunityId: string }): GhlRequest {
   return { mode: "link", contactId: i.contactId, opportunityId: i.opportunityId, contactBody: JSON.stringify({}), oppBody: JSON.stringify({ status: "lost" }) };
 }
+
+/* ---------- the Follow up page (Albert, 2026-11-07) ---------- */
+
+/** The Sales pipeline's "1b. Postponed " stage (trailing space and all), found by name like the won stage; null when it isn't there once. */
+export function postponedStageId(list: GhlPipeline[]): string | null {
+  const sales = list.find((p) => p.id === SALES_PIPELINE_ID);
+  const found = sales?.stages.filter((s) => /postponed/i.test(s.name)) ?? [];
+  return found.length === 1 ? found[0].id : null;
+}
+
+/**
+ * Postpone until a date: the opportunity to the Sales pipeline's Postponed stage, still open, with its Postponed Until
+ * date field (made by Albert in GHL, 2026-11-07) when the app knows the field. Same "link" route as linking a job; the
+ * contact is left as it is.
+ */
+export function buildPostpone(i: { contactId: string; opportunityId: string; stageId: string; untilFieldId: string | null; until: string }): GhlRequest {
+  return {
+    mode: "link",
+    contactId: i.contactId,
+    opportunityId: i.opportunityId,
+    contactBody: JSON.stringify({}),
+    oppBody: JSON.stringify({
+      pipelineId: SALES_PIPELINE_ID,
+      pipelineStageId: i.stageId,
+      status: "open",
+      ...(i.untilFieldId ? { customFields: [{ id: i.untilFieldId, field_value: i.until }] } : {}),
+    }),
+  };
+}
+
+/**
+ * Lost, with GHL's own lost reason: GHL takes the reason only on PUT /opportunities/{id}/status (its docs), so this goes
+ * through Make's "status" route, whose filter takes exactly this shape.
+ */
+export function lostStatusBody(lostReasonId: string | null): string {
+  return JSON.stringify(lostReasonId ? { status: "lost", lostReasonId } : { status: "lost" });
+}

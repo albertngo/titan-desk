@@ -12,7 +12,7 @@ const SRC = path.resolve(__dirname, "../src");
 const CLIENT = "lib/airtable/client.ts";
 const GHL = "lib/ghl/client.ts";
 /** The only files allowed to create or update Airtable records. Adding one is a reviewed decision. */
-const WRITERS = ["lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/describe.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/accept/record.ts", "lib/quotes/sitesheet.ts", "lib/quotes/billing.ts", "lib/quotes/customItems.ts", "lib/quotes/payouts.ts"];
+const WRITERS = ["lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/describe.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/accept/record.ts", "lib/quotes/sitesheet.ts", "lib/quotes/billing.ts", "lib/quotes/customItems.ts", "lib/quotes/payouts.ts", "lib/quotes/followup.ts"];
 const CATALOGUE = "tblfLXD3zkSdNQGbS";
 
 function files(dir: string): string[] {
@@ -87,7 +87,7 @@ describe("Airtable boundary", () => {
   });
 
   it("keeps the client, the loaders and the auth check server-only", () => {
-    for (const rel of [CLIENT, GHL, "lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/describe.ts", "lib/quotes/customer.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/activity/relay.ts", "lib/quotes/acceptClient.ts", "lib/accept/record.ts", "lib/accept/accept.ts", "lib/accept/staff.ts", "lib/accept/live.ts", "lib/quotes/sitesheet.ts", "lib/anthropic/client.ts", "lib/quotes/billing.ts", "lib/notion/payments.ts", "lib/companycam/client.ts", "lib/quotes/companycam.ts", "lib/quotes/payouts.ts", "lib/auth.ts"]) {
+    for (const rel of [CLIENT, GHL, "lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/describe.ts", "lib/quotes/customer.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/activity/relay.ts", "lib/quotes/acceptClient.ts", "lib/accept/record.ts", "lib/accept/accept.ts", "lib/accept/staff.ts", "lib/accept/live.ts", "lib/quotes/sitesheet.ts", "lib/anthropic/client.ts", "lib/quotes/billing.ts", "lib/notion/payments.ts", "lib/companycam/client.ts", "lib/quotes/companycam.ts", "lib/quotes/payouts.ts", "lib/quotes/followup.ts", "lib/auth.ts"]) {
       expect(all.find((f) => f.rel === rel)!.text).toMatch(/^import "server-only";/m);
     }
   });
@@ -106,7 +106,7 @@ describe("Airtable boundary", () => {
 
   it("checks the quoter allowlist in both the proxy and every loader", () => {
     expect(all.find((f) => f.rel === "proxy.ts")!.text).toContain("isQuoter(");
-    for (const rel of ["lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/sitesheet.ts", "lib/quotes/billing.ts", "lib/quotes/companycam.ts", "lib/quotes/payouts.ts"]) {
+    for (const rel of ["lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/sitesheet.ts", "lib/quotes/billing.ts", "lib/quotes/companycam.ts", "lib/quotes/payouts.ts", "lib/quotes/followup.ts"]) {
       const text = all.find((f) => f.rel === rel)!.text;
       const exported = text.match(/export async function \w+/g) ?? [];
       const guarded = text.match(/export async function \w+[^{]*\{\s*(const \w+ = )?await requireQuoter(Person)?\(\);/g) ?? [];
@@ -270,7 +270,7 @@ describe("Make boundary", () => {
   it("is server-only and only reached from starting, booking, linking, sending and tracking a quote, Address arrived, and acceptance", () => {
     expect(all.find((f) => f.rel === "lib/make/client.ts")!.text).toMatch(/^import "server-only";/m);
     const callers = all.filter((f) => f.rel !== "lib/make/client.ts" && /from ["']@\/lib\/make\/client["']/.test(f.text)).map((f) => f.rel);
-    expect(callers.sort()).toEqual(["lib/accept/record.ts", "lib/quotes/activity.ts", "lib/quotes/address.ts", "lib/quotes/billing.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/start.ts"]);
+    expect(callers.sort()).toEqual(["lib/accept/record.ts", "lib/quotes/activity.ts", "lib/quotes/address.ts", "lib/quotes/billing.ts", "lib/quotes/booking.ts", "lib/quotes/followup.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/start.ts"]);
   });
 
   it("Address arrived fills only the contact in GHL and only the Quotes table in Airtable", () => {
@@ -481,5 +481,18 @@ describe("Notion payments (2026-10-30: read-only, for invoices and receipts)", (
     for (const m of text.matchAll(/\b(?:createRecord|updateRecord)\(([^,]+)/g)) expect(["TABLE[c.kind]", "TABLE[r.snap.kind]", "TABLE[d.kind]", "T.versions"]).toContain(m[1].trim());
     for (const m of text.matchAll(/updateRecord\(T\.versions[^)]*authorFields/g)) expect(m[0]).toContain("authorFields");
     expect(text).not.toMatch(/createRecords|updateRecords\(/);
+  });
+});
+
+describe("Follow up (2026-11-07)", () => {
+  const text = () => code(all.find((f) => f.rel === "lib/quotes/followup.ts")!.text);
+  it("writes only the quote's Follow Up, and the sent version's History line and Lost status", () => {
+    const writes = [...text().matchAll(/updateRecord\((T\.\w+), [^,]+, \{ \[(\w+\.\w+)\]/g)].map((m) => `${m[1]} ${m[2]}`);
+    expect(writes.sort()).toEqual(["T.quotes QUOTE.followUp", "T.versions VERSION.editLog"]);
+    expect(text()).not.toMatch(/createRecords?\(|updateRecords\(/);
+  });
+  it("reaches GHL only through Make's link, status, untag and message routes, and comments tag nobody", () => {
+    expect(text()).toMatch(/mentions: \[\]/);
+    expect(text()).not.toMatch(/mentions: \[[^\]]/);
   });
 });

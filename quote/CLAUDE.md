@@ -1282,6 +1282,30 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
     apart), Follow up, Accepted this month (Accepted At in this Toronto month on an Accepted or Won version, at its
     contract value) and Needs linking. Over every quote whatever the search; the three with a filter behind them are
     buttons that set it (`pulse()` in `pipeline.ts`). Tested in `tests/pipeline.test.ts`.
+- **Follow up (Albert, 2026-11-07; vault `05_decisions/2026-11-07-quote-follow-up-worklist`: "a place where we can
+  'followup'… a brief or a suggested next step and somewhere to take action… lost / postponed [date]").** Step 1 of
+  three (the page and its buttons; the Claude brief and sending from the app come later). `/follow-up`, in the top bar,
+  lists every quote whose newest sent version is still Sent or Expired (no yes, no PP, not a change, not marked lost),
+  Mine by default (whoever last sent it, else who created it), Everyone a tap away, in four sections: Due now, Coming up,
+  Snoozed, Postponed. **When it is due** (`dueOf()` in `src/lib/followup/plan.ts`, tested in `tests/followup.test.ts`):
+  the 1st, 2nd and 3rd follow-up 3, 10 and 21 days after sending (`SCHEDULE_DAYS`), never sooner after the last touch
+  than the gap between them; then "close it out or postpone it" at day 45 (`CLOSE_OUT_DAY`) and every 14 days after a
+  touch; never auto-lost. A customer message (or missed call) after our last touch is due the day it came; a passed
+  good-until date is due now. **A touch** is read from GHL (`threadSince()`): a text, email or chat a person sent, or a
+  call that connected, after the send; never an automation or an internal comment; one a day. **I followed up** adds one
+  for what GHL doesn't show. The row says the quote's age against the typical close, day 12 (`TYPICAL_CLOSE_DAYS`, the
+  vault's 11.7-day visit → close median; re-measure sent → accepted and tune). **Snooze** 3 / 7 / 14 days: the app only
+  (a customer message after it ends it). **Postpone…** to a date: the opportunity to the Sales pipeline's Postponed
+  stage, found by name (`postponedStageId()`), still open, with **Postponed Until** (an opportunity date field Albert
+  made that day, found by name, `postponedUntilFieldId()`), on Make's `link` route (`buildPostpone()`); back on the list
+  a month before, or halfway when under two months away (`postponeBack()`). **Lost…** with one of GHL's own lost reasons
+  (read live, `lostReasons()`, `GET /opportunities/lost-reason`): GHL takes a reason only on `PUT
+  /opportunities/{id}/status`, so it goes on Make's new `status` route (`lostStatusBody()`); the sent version becomes
+  Lost. Both take the two `quote sent:` tags off on Make's new `untag` route (`removeFollowUpTags()`), so the
+  follow-up workflows stop, and post an optional note as an internal comment tagging nobody, plus a History line on the
+  version. **Book the visit** (preliminary) copies the in-home calendar link. GHL changes go first; a refusal changes
+  nothing. Quotes → **Follow Up** (JSON, app-written, compare-and-swap, `src/lib/quotes/followup.ts`) keeps only what GHL
+  doesn't: I followed up, the snooze, the postpone, the loss. Pinned by `tests/boundary.test.ts`.
 - **No section totals for the customer (Albert, 2026-11-07: "can we keep the totals of each Section not shown? it has
   too many numbers if too many sections").** On a breakdown the customer's page (`CustomerQuote.tsx`), the PDF
   (`pdf.ts`, so invoices and receipts too) and the quote page's Customer view (`OptionSheet.tsx`) show no subtotal on
