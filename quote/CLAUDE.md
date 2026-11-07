@@ -1193,6 +1193,24 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   never in the customer copy. It does not change the shared name (`displayName()`), which stays fixed once a folder
   has it. Tested in `tests/group.test.ts` and `tests/link.test.ts`.
 
+- **Value, Follow up and the strip on All quotes (Albert, 2026-11-07: "Build value, follow up filter and summary
+  strip").** Three additions to the front page, all read-only, all customer totals only (never cost or margin):
+  - **Value** column, sortable: an accepted or won quote is its contract (Quotes → Contract's total, else the accepted
+    options' totals); anything else is the current version's offered options (Not offered left out), one per Part,
+    then Scope, since the customer takes one of each. Several alternatives read as a range ("$8.2k–$11.4k") with the
+    recommended one under it; the "likely" figure is the recommended option per part, else the cheapest. Options with
+    neither Part nor Scope set are one group, so such a floor-and-stairs quote shows a range, not a sum: an estimate
+    for the list, never a price. Totals are Airtable's own option Total (with HST, as GHL's value is), read in
+    `listQuoteGroups()` in one extra listing of Quote Options. `quoteValue()` / `offerValue()` in `group.ts`, words in
+    `valueWords()` in `pipeline.ts`.
+  - **Follow up** filter: a quote whose newest sent version is still Sent (no yes, no PP, not Lost or Expired; a draft
+    above it does not stop it) and that was sent 2+ days ago and never opened (tracked links only), or opened 3+
+    times, or is 7 days or less from its Valid Until or past it (`FOLLOW_UP`, `followUpReasons()` in `group.ts`, days
+    in Toronto). The reasons show as chips in the Attention column.
+  - **The strip** above the list: Out with customers (the Sent filter's count and likely value, unpriced counted
+    apart), Follow up, Accepted this month (Accepted At in this Toronto month on an Accepted or Won version, at its
+    contract value) and Needs linking. Over every quote whatever the search; the three with a filter behind them are
+    buttons that set it (`pulse()` in `pipeline.ts`). Tested in `tests/pipeline.test.ts`.
 - **Report a bug (2026-10-28).** The header's Report a bug (staff only, hidden in Customer view and
   until `NOTION_BUG_TOKEN` is set) posts a summary, an urgency and up to five screenshots (shrunk in
   the browser to stay under Vercel's 4.5 MB body limit) to `/api/bug`. That signed-in route makes

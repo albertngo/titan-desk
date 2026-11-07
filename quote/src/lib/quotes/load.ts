@@ -17,6 +17,8 @@ import { partValue, scopeValue } from "./scope";
 import { workingDraft } from "./savePlan";
 import { bool, ids, num, str } from "./values";
 import { groupVersions, type QuoteGroup, type QuoteHead } from "./group";
+import type { OptionMoney } from "./group";
+import { parseContract } from "@/lib/contract/model";
 import type { MaterialRow, Quote, QuoteLine, QuoteLink, QuoteOption, RateCard, RateRow, StairProfileRow, StairRow } from "./types";
 
 /** Read-side loaders. Each one checks the caller is a quoter before touching Airtable. */
@@ -24,14 +26,35 @@ import type { MaterialRow, Quote, QuoteLine, QuoteLink, QuoteOption, RateCard, R
 /** Every quote, newest first, with its versions under it (the All quotes page). */
 export async function listQuoteGroups(): Promise<QuoteGroup[]> {
   await requireQuoter();
-  const [versions, quotes] = await Promise.all([
+  const [versions, quotes, options] = await Promise.all([
     listRecords(T.versions, {
-      fields: [VERSION.label, VERSION.version, VERSION.status, VERSION.basis, VERSION.quote, VERSION.options, VERSION.openedCount, VERSION.lastOpenedAt, VERSION.trackActivity, VERSION.supersedes, VERSION.changeNo],
+      fields: [VERSION.label, VERSION.version, VERSION.status, VERSION.basis, VERSION.quote, VERSION.options, VERSION.openedCount, VERSION.lastOpenedAt, VERSION.trackActivity, VERSION.supersedes, VERSION.changeNo, VERSION.sentAt, VERSION.validUntil, VERSION.acceptedOption, VERSION.acceptedAt],
     }),
     listRecords(T.quotes, {
-      fields: [QUOTE.customerName, QUOTE.lastName, QUOTE.firstName, QUOTE.siteCity, QUOTE.quoteNumber, QUOTE.linkStatus, QUOTE.addressStatus, QUOTE.phone, QUOTE.email, QUOTE.projectNumber, QUOTE.description],
+      fields: [QUOTE.customerName, QUOTE.lastName, QUOTE.firstName, QUOTE.siteCity, QUOTE.quoteNumber, QUOTE.linkStatus, QUOTE.addressStatus, QUOTE.phone, QUOTE.email, QUOTE.projectNumber, QUOTE.description, QUOTE.contract],
+    }),
+    // The Value column and the strip (2026-11-07): each option's customer total, never its cost or margin.
+    listRecords(T.options, {
+      fields: [OPTION.total, OPTION.recommended, OPTION.notOffered, OPTION.scope, OPTION.part, OPTION.sortOrder, OPTION.version],
     }),
   ]);
+  const optionsOf = new Map<string, OptionMoney[]>();
+  for (const o of options) {
+    const v = ids(o.fields[OPTION.version])[0];
+    if (!v) continue; // a removed option is detached from its version, never deleted
+    optionsOf.set(v, [
+      ...(optionsOf.get(v) ?? []),
+      {
+        id: o.id,
+        total: num(o.fields[OPTION.total]),
+        recommended: bool(o.fields[OPTION.recommended]),
+        notOffered: bool(o.fields[OPTION.notOffered]),
+        part: partValue(str(o.fields[OPTION.part])),
+        scope: scopeValue(str(o.fields[OPTION.scope])),
+        sortOrder: num(o.fields[OPTION.sortOrder]),
+      },
+    ]);
+  }
   const heads = new Map<string, QuoteHead>(
     quotes.map((q) => [
       q.id,
@@ -46,6 +69,7 @@ export async function listQuoteGroups(): Promise<QuoteGroup[]> {
         linkStatus: str(q.fields[QUOTE.linkStatus]),
         addressStatus: str(q.fields[QUOTE.addressStatus]),
         description: str(q.fields[QUOTE.description]),
+        contractTotal: parseContract(str(q.fields[QUOTE.contract]))?.totals.total ?? null,
       },
     ]),
   );
@@ -63,6 +87,11 @@ export async function listQuoteGroups(): Promise<QuoteGroup[]> {
       tracked: bool(r.fields[VERSION.trackActivity]),
       supersedes: ids(r.fields[VERSION.supersedes])[0] ?? null,
       changeNo: num(r.fields[VERSION.changeNo]),
+      sentAt: str(r.fields[VERSION.sentAt]),
+      validUntil: str(r.fields[VERSION.validUntil]),
+      acceptedOptionIds: ids(r.fields[VERSION.acceptedOption]),
+      acceptedAt: str(r.fields[VERSION.acceptedAt]),
+      options: optionsOf.get(r.id) ?? [],
       createdTime: r.createdTime,
     })),
     heads,

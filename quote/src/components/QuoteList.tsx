@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { whenWords } from "@/lib/activity/track";
 import { displayPhone } from "@/lib/link/identity";
-import { ago, DEFAULT_SORT, fromWords, inFilter, isQuoteSort, lastSentVersion, matchesSearch, nextSort, openedOn, opensWords, QUOTE_FILTERS, QUOTE_SORTS, sortGroups, type QuoteFilter, type QuoteGroup, type QuoteSort, type QuoteSortKey, type VersionRow } from "@/lib/quotes/group";
+import { ago, DEFAULT_SORT, followUpReasons, fromWords, inFilter, quoteValue, reasonWords, isQuoteSort, lastSentVersion, matchesSearch, nextSort, openedOn, opensWords, QUOTE_FILTERS, QUOTE_SORTS, sortGroups, type QuoteFilter, type QuoteGroup, type QuoteSort, type QuoteSortKey, type VersionRow } from "@/lib/quotes/group";
+import { money, pulse, valueWords } from "@/lib/quotes/pipeline";
 
 const dateOf = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric", year: "numeric" });
 const initials = (name: string | null) =>
@@ -126,6 +127,7 @@ function parseSort(raw: string): QuoteSort {
 const dirWords = (key: QuoteSortKey, dir: "asc" | "desc") => {
   if (key === "customer" || key === "quote") return dir === "asc" ? "A to Z" : "Z to A";
   if (key === "version") return dir === "asc" ? "drafts first" : "outcomes first";
+  if (key === "value") return dir === "desc" ? "highest first" : "lowest first";
   if (key === "attention") return dir === "desc" ? "most first" : "least first";
   return dir === "desc" ? "newest first" : "oldest first";
 };
@@ -152,6 +154,57 @@ function SortHead({ k, label, sort, onSort, className, title }: { k: QuoteSortKe
         </svg>
       </button>
     </span>
+  );
+}
+
+/**
+ * The Value column (2026-11-07): the contract once accepted, else what the current version offers, with HST.
+ * Several options read as a range, with the recommended price under it.
+ */
+function Value({ g }: { g: QuoteGroup }) {
+  const w = valueWords(quoteValue(g));
+  if (!w) return <div className="ql-val none" title="No priced option on the current version">No price</div>;
+  return (
+    <div className={`ql-val${w.sub === "Contract" ? " won" : ""}`} title={`${w.title}, with HST`}>
+      <span className="amt">{w.main}</span>
+      {w.sub && <span className="mt">{w.sub}</span>}
+    </div>
+  );
+}
+
+/** One number in the strip; a button when a filter is behind it (pressed again, it shows everything). */
+function Tile({ f, k, big, sub, tone, filter, onFilter }: { f?: QuoteFilter; k: string; big: string; sub: string; tone?: string; filter: QuoteFilter; onFilter: (f: QuoteFilter) => void }) {
+  const body = (
+    <>
+      <span className="k">{k}</span>
+      <span className="big">{big}</span>
+      <span className="sub">{sub}</span>
+    </>
+  );
+  if (!f) return <div className={`qp-t${tone ? ` ${tone}` : ""}`}>{body}</div>;
+  const on = filter === f;
+  return (
+    <button type="button" className={`qp-t${tone ? ` ${tone}` : ""}`} aria-pressed={on} onClick={() => onFilter(on ? "all" : f)} title={on ? "Show all quotes" : `Show ${k.toLowerCase()}`}>
+      {body}
+    </button>
+  );
+}
+
+/**
+ * The strip above the list (2026-11-07): what is out with customers, what to chase, what came in this month,
+ * and what is blocked. Over every quote, whatever the search; a tile with a filter behind it opens it.
+ */
+function Pulse({ groups, now, filter, onFilter }: { groups: QuoteGroup[]; now: Date; filter: QuoteFilter; onFilter: (f: QuoteFilter) => void }) {
+  const p = useMemo(() => pulse(groups, now), [groups, now]);
+  const month = now.toLocaleDateString("en-CA", { timeZone: "America/Toronto", month: "long" });
+  const quotes = (n: number) => `${n} quote${n === 1 ? "" : "s"}`;
+  return (
+    <div className="qp" role="group" aria-label="At a glance">
+      <Tile filter={filter} onFilter={onFilter} f="sent" k="Out with customers" big={money(p.out.value, true)} sub={`${quotes(p.out.count)}${p.out.unpriced ? `, ${p.out.unpriced} unpriced` : ""}`} />
+      <Tile filter={filter} onFilter={onFilter} f="followup" k="Follow up" big={String(p.followUp)} sub={p.followUp ? "sent quotes to nudge" : "nothing to chase"} tone={p.followUp ? "warn" : undefined} />
+      <Tile filter={filter} onFilter={onFilter} k={`Accepted in ${month}`} big={money(p.acceptedThisMonth.value, true)} sub={quotes(p.acceptedThisMonth.count)} tone="good" />
+      <Tile filter={filter} onFilter={onFilter} f="linking" k="Needs linking" big={String(p.linking)} sub={p.linking ? "not on an opportunity yet" : "all linked"} tone={p.linking ? "bad" : undefined} />
+    </div>
   );
 }
 
@@ -192,8 +245,8 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
   }, []);
 
   const searched = useMemo(() => groups.filter((g) => matchesSearch(g, query)), [groups, query]);
-  const counts = useMemo(() => Object.fromEntries(QUOTE_FILTERS.map((f) => [f.key, searched.filter((g) => inFilter(g, f.key)).length])), [searched]);
-  const shown = useMemo(() => sortGroups(searched.filter((g) => inFilter(g, filter)), sort), [searched, filter, sort]);
+  const counts = useMemo(() => Object.fromEntries(QUOTE_FILTERS.map((f) => [f.key, searched.filter((g) => inFilter(g, f.key, now)).length])), [searched, now]);
+  const shown = useMemo(() => sortGroups(searched.filter((g) => inFilter(g, filter, now)), sort), [searched, filter, sort, now]);
   const keyOf = (g: QuoteGroup) => g.quoteRecordId ?? g.versions[0].id;
   const toggle = (k: string) =>
     setOpen((s) => {
@@ -209,6 +262,8 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
   };
 
   return (
+    <>
+    {groups.length > 0 && <Pulse groups={groups} now={now} filter={filter} onFilter={setFilter} />}
     <section className="card ql-card">
       <div className="ql-tools">
         <label className="ql-search">
@@ -278,7 +333,7 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
               label={c.label}
               sort={sort}
               onSort={sortBy}
-              className={c.key === "customer" ? "c-who" : c.key === "created" ? "c-when" : undefined}
+              className={c.key === "customer" ? "c-who" : c.key === "created" ? "c-when" : c.key === "value" ? "c-val" : undefined}
               title={c.key === "created" ? "When the current version was created. Sort by it" : undefined}
             />
           ))}
@@ -318,8 +373,18 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
                     <Status status={latest.status} />
                     {latest.basis && <span className={`ql-basis ${latest.basis}`}>{latest.basis}</span>}
                   </div>
+                  <Value g={g} />
                   <LastOpened versions={g.versions} now={now} />
                   <div className="ql-flags">
+                    {/* Follow up (2026-11-07): why this sent quote wants a nudge. */}
+                    {followUpReasons(g, now).map((r) => {
+                      const w = reasonWords(r);
+                      return (
+                        <span key={r.kind} className={`chip ${w.tone}`}>
+                          {w.text}
+                        </span>
+                      );
+                    })}
                     {g.linkStatus === "Needs linking" && <span className="chip bad">Needs linking</span>}
                     {g.addressStatus === "Unconfirmed" && <span className="chip warn">Address unconfirmed</span>}
                     {g.addressStatus === "No address" && <span className="chip warn">No address yet</span>}
@@ -356,5 +421,6 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
         </>
       )}
     </section>
+    </>
   );
 }
