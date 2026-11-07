@@ -734,7 +734,7 @@ export default function Editor({
           {isDraft && !version.change && version.prelimLocked && measured && (
             <div className="ed-basis">
               <span className="k">Goes out as</span>
-              <span className="sub" title="Two or more measured quotes have already gone out on this quote">Measured · two measured quotes have gone out, so it stays measured</span>
+              <span className="ed-basis-on" title="Two measured quotes have already gone out on this quote, so it stays measured">Measured</span>
             </div>
           )}
           {isDraft && !version.change && !(version.prelimLocked && measured) && (
