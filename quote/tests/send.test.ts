@@ -546,7 +546,9 @@ describe("the Private section (2026-10-22)", () => {
     expect(st.sections).toEqual([]);
     expect(st.description).toBe(words);
     expect(st.totals.subtotal).toBe(1300);
-    expect(st.range).toBeDefined();
+    // The price is the calculated one (13 steps × $100 = $1,300), as a range of 3% under to 10% over:
+    // $1,261 to $1,430, each end rounded outward to $50 (over $1,000): $1,250 to $1,450.
+    expect(st.range).toMatchObject({ low: 1250, high: 1450 });
     // The flooring option on the same preliminary keeps its lines.
     expect(c.options.find((o) => o.scope !== "Stairs")!.sections.length).toBeGreaterThan(0);
     // Exact price too: still words only.
