@@ -358,6 +358,18 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   first category** in the Stairs section (`STAIR_GROUP_ORDER` in `stairGroups.ts`, label "Stair Profile"), above
   Steps. The customer wording is unchanged (`stairDescription()`). Tested in `tests/quick.test.ts` and
   `tests/stairGroups.test.ts`.
+- **The wording follows the Stair Profile lines (Albert, 2026-11-07: "when in a preliminary; on an option; the
+  description/customer wording should always be populated to the stair profile line items chosen. If there is more
+  than one. simply make it clear in the description the profiles and wordings").** `profileUses()` in
+  `src/lib/quick/stairs.ts` reads which Stair Profiles an option's lines are (each one's Standard Stair Item, or an
+  older one-line preset; lines left out don't count; quantity 2 is two of it), and `profileWording()` writes one block
+  per profile: its name (with "× 2"), then the old GHL words for its method and stair type; blocks a blank line apart;
+  the closing sentence once, only when no staircase got a sentence of its own. The quick form writes it on Create and
+  + From quick form (`buildQuickOptions()` in `start.ts`, from the lines it built). On a preliminary the editor
+  rewrites an option's wording whenever its Stair Profile lines change (`syncStairWording()`, run by the editor's
+  `apply` before the price hold), and fills a new option with none; a typed edit stays until the staircases change,
+  and taking the last one off leaves the words for a person to clear. Measured quotes are never touched.
+  `stairDescription()` stays for the type × method fallback. Tested in `tests/stairs.test.ts`.
 - **The stair builder (Albert, 2026-10-20).** In the editor's Stairs picker, picking a Stair Profile
   opens the builder: steps, boxed / open-side / curved steps, landings, handrail and nosing feet, spindles and posts, starting
   from the row's step count and preset counts (2026-11-02).

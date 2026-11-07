@@ -10,7 +10,7 @@ import { parseNewQuote, type NewQuoteRequest } from "@/lib/link/newQuote";
 import { makeConfigured, sendToGhl } from "@/lib/make/client";
 import type { CustomerSearch, FoundCustomer, StartResult } from "./types";
 import { buildPreliminary, distinctNames, parseWorks, splitScopes, type QuickWork } from "@/lib/quick/plan";
-import { profileOf, stairDescription } from "@/lib/quick/stairs";
+import { profileUses, profileWording } from "@/lib/quick/stairs";
 import { getQuickForm, getQuickProfiles, getRateCard, quickProducts } from "./load";
 import { buildCatalogue } from "@/lib/editor/model";
 import { stairBaseLine } from "./fees";
@@ -249,7 +249,8 @@ export async function buildQuickOptions(works: QuickWork[]) {
   return built.map(({ w, stairs, b }, i) => ({
     name: names[i],
     scope: stairs ? ("Stairs" as const) : null,
-    description: stairDescription(w.stairs.flatMap((s) => { const p = profiles.get(s.profileId); return p ? [profileOf(p)] : []; })),
+    // The wording names each Stair Profile on the option (2026-11-07), written from the lines it got.
+    description: profileWording(profileUses(b.lines, profileRows.map((p) => ({ id: p.id, name: p.name, type: p.type, method: p.method, standardItemId: p.lines[0]?.sourceId ?? null })))),
     lines: b.lines,
     skipped: b.skipped,
     needsGlue: b.needsGlue,
