@@ -1,6 +1,7 @@
 import { lineFlags, stageAmounts, type LineInput, type OptionTotals } from "@/lib/calc";
 import { defaultSchedule, PAY_LABELS, payWords, shownStage, type PaymentSchedule } from "@/lib/pricing/schedule";
 import { money, pct } from "@/lib/format";
+import { MIN_MARGIN_PCT } from "@/lib/pricing/discounts";
 import { Ring } from "./Ring";
 
 /**
@@ -29,6 +30,8 @@ export function Financials({
   const costShare = t.subtotal > 0 ? (t.cost / t.subtotal) * 100 : null;
   const flags = lines.flatMap(lineFlags);
   const count = (f: string) => flags.filter((x) => x === f).length;
+  // Gross profit is green at or above the 20% margin minimum, yellow below it (Albert, 2026-11-07).
+  const gpTone = t.marginPct === null ? null : t.marginPct >= MIN_MARGIN_PCT ? "good" : "warn";
 
   return (
     <aside className="stack">
@@ -51,13 +54,13 @@ export function Financials({
         </div>
         {!customer && (
           <>
-            <div className="fin">
+            <div className={`fin${gpTone ? ` ${gpTone}` : ""}`}>
               <div className="txt">
                 <div className="k">Gross profit</div>
                 <div className="s">Margin after the discount</div>
                 <div className="v">{money(t.profit)}</div>
               </div>
-              <Ring pct={t.marginPct} />
+              <Ring pct={t.marginPct} color={gpTone ? `var(--${gpTone})` : undefined} />
             </div>
             <div className="fin">
               <div className="txt">
