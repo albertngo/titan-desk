@@ -30,6 +30,7 @@ export const CHANGES: Change[] = [
       "Click a row to see the customer's conversation on the right. It starts on the first quote.",
       "Filter by Last sent by (Pourya, Joey, Albert or Everyone), and each row says who the customer is talking to.",
       "Follow up in the top bar shows a red count of quotes due now.",
+      "Each quote shows where the lead is: No visit yet, Visit booked, Visited, or a no-show. A preliminary whose visit has happened is due the next day, because the measured quote is owed.",
     ],
   },
   {

@@ -30,8 +30,9 @@ import {
   type FollowUpState,
   type Thread,
 } from "@/lib/followup/plan";
-import { conversationMessages, conversationsForContact, ghlConfigured, lostReasons, pipelines, postponedUntilFieldId } from "@/lib/ghl/client";
-import { BOOKING_URLS, ghlContactUrl, ghlConversationUrl } from "@/lib/ghl/ids";
+import { contactAppointments, conversationMessages, conversationsForContact, ghlConfigured, lostReasons, pipelines, postponedUntilFieldId } from "@/lib/ghl/client";
+import { visitFact, visitOf, visitWords, type Visit } from "@/lib/followup/visit";
+import { BOOKING_CALENDAR_IDS, BOOKING_URLS, ghlContactUrl, ghlConversationUrl } from "@/lib/ghl/ids";
 import { buildPostpone, lostStatusBody, postponedStageId } from "@/lib/link/ghlRequest";
 import { makeConfigured, removeFollowUpTags, sendMessage, sendToGhl, setOpportunityStatus } from "@/lib/make/client";
 import { torontoDay } from "./group";
@@ -78,6 +79,9 @@ export type FollowUpRow = {
   ghlUrl: string | null;
   /** False when GHL couldn't be read for this quote: only "I followed up" counted. */
   ghlRead: boolean;
+  /** Where the lead is: no visit yet, booked, visited, missed; null when GHL's appointments couldn't be read. */
+  visit: Visit | null;
+  visitText: string | null;
   /** The kept brief when it was written for the thread as it stands, else null and briefStale. */
   brief: Brief | null;
   briefStale: boolean;
@@ -101,10 +105,16 @@ function customerOf(f: Record<string, unknown>): string | null {
 }
 
 async function readMessages(contactId: string) {
-  const conversations = (await conversationsForContact(contactId)).slice(0, 2);
+  const [conversations, appts] = await Promise.all([
+    conversationsForContact(contactId).then((c) => c.slice(0, 2)),
+    // The visit chip (2026-11-07). Appointments that can't be read leave the chip unknown, never "No visit yet".
+    contactAppointments(contactId).catch((e) => (console.error("contactAppointments", e), null)),
+  ]);
   const pages = await Promise.all(conversations.map((c) => conversationMessages(c.id, 60)));
-  return { messages: sortThread(pages.flatMap((p) => p.messages)), conversationId: conversations[0]?.id ?? null };
+  return { messages: sortThread(pages.flatMap((p) => p.messages)), conversationId: conversations[0]?.id ?? null, appts };
 }
+
+const visitNow = (t: { appts: Parameters<typeof visitOf>[0] } | null, now: Date) => (t ? visitOf(t.appts, now, torontoDay, BOOKING_CALENDAR_IDS) : null);
 
 /** The contact's thread, cached two minutes so a page reload after a button doesn't read GHL again for every quote. */
 async function threadOf(contactId: string): Promise<Awaited<ReturnType<typeof readMessages>> | null> {
@@ -161,10 +171,11 @@ export async function loadFollowUps(): Promise<FollowUpPage> {
     const sentAt = str(c.sent.fields[VERSION.sentAt]) as string;
     const t = threads[i];
     const thread: Thread | null = t ? threadSince(t.messages, sentAt) : null;
-    const sig = signatureOf(t?.messages ?? null, num(c.sent.fields[VERSION.openedCount]) ?? 0, c.state, sentAt);
+    const visit = visitNow(t, now);
+    const sig = signatureOf(t?.messages ?? null, num(c.sent.fields[VERSION.openedCount]) ?? 0, c.state, sentAt, visit);
     const brief = c.state.brief && sig && c.state.brief.basedOn === sig ? c.state.brief : null;
     const named = brief?.nextDay ? { day: brief.nextDay, quote: brief.nextQuote } : null;
-    const due = dueOf({ sentAt, validUntil: str(c.sent.fields[VERSION.validUntil]), state: c.state, thread, now, torontoDay, named });
+    const due = dueOf({ sentAt, validUntil: str(c.sent.fields[VERSION.validUntil]), state: c.state, thread, now, torontoDay, named, visit, preliminary: str(c.sent.fields[VERSION.basis]) === "Preliminary" });
     if (!due) return [];
     const contactId = str(c.q.fields[QUOTE.ghlContactId]);
     return [
@@ -187,6 +198,8 @@ export async function loadFollowUps(): Promise<FollowUpPage> {
         opportunityId: str(c.q.fields[QUOTE.ghlOpportunityId]),
         ghlUrl: t?.conversationId ? ghlConversationUrl(t.conversationId) : contactId ? ghlContactUrl(contactId) : null,
         ghlRead: Boolean(t),
+        visit,
+        visitText: visit ? visitWords(visit) : null,
         // Shown even when stale (with "new activity since"), until the rewrite lands.
         brief: brief ?? c.state.brief ?? null,
         briefStale: !brief && Boolean(sig),
@@ -204,10 +217,10 @@ export async function loadFollowUps(): Promise<FollowUpPage> {
 const nameOf = (email: string | null) => (email ? (firstNameOf({ email, name: null }) ?? email.split("@")[0]) : null);
 
 /** What a brief was written from (src/lib/followup/brief.ts); null when GHL couldn't be read, so no brief is judged stale. */
-function signatureOf(messages: Message[] | null, opens: number, state: FollowUpState, sentAt: string): string | null {
+function signatureOf(messages: Message[] | null, opens: number, state: FollowUpState, sentAt: string, visit: Visit | null): string | null {
   if (!messages) return null;
   const last = messages.at(-1) ?? null;
-  return briefSignature({ lastMessage: last ? { id: last.id, at: last.at } : null, opens, touches: state.touches.length, postponeUntil: state.postpone?.until ?? null, sentAt });
+  return briefSignature({ lastMessage: last ? { id: last.id, at: last.at } : null, opens, touches: state.touches.length, postponeUntil: state.postpone?.until ?? null, sentAt, visit: visit ? visitWords(visit) : null });
 }
 
 /* ---------- the top bar's red count (Albert, 2026-11-07: "a red notif on the top bar for number of ones due now") ---------- */
@@ -273,7 +286,8 @@ export async function writeBrief(quoteRecordId: string, force: boolean): Promise
   if (contactId && !t) return { ok: false, message: "GHL didn't answer, so there's nothing new to read. Try again in a moment." };
   const sentAt = str(sent.fields[VERSION.sentAt]) as string;
   const opens = num(sent.fields[VERSION.openedCount]) ?? 0;
-  const sig = signatureOf(t?.messages ?? [], opens, state, sentAt) as string;
+  const visit = visitNow(t, new Date());
+  const sig = signatureOf(t?.messages ?? [], opens, state, sentAt, visit) as string;
   if (!force && state.brief && state.brief.basedOn === sig) return { ok: true, brief: state.brief, fresh: false };
 
   const opts = await listByIds(T.options, ids(sent.fields[VERSION.options]), [OPTION.name, OPTION.total, OPTION.notOffered]).catch(() => []);
@@ -297,6 +311,7 @@ export async function writeBrief(quoteRecordId: string, force: boolean): Promise
       scheduleDays: SCHEDULE_DAYS,
       postponedTo: state.postpone?.until ?? null,
       loggedHere: state.touches.map((x) => ({ at: x.at, ...(x.note ? { note: x.note } : {}) })),
+      visit: visitFact(visit),
     },
     linesOf(t?.messages ?? [], sentAt),
   );

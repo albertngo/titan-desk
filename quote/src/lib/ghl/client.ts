@@ -257,3 +257,15 @@ export async function postponedUntilFieldId(): Promise<string | null> {
   fieldCache = { at: Date.now(), value };
   return value;
 }
+
+/**
+ * The contact's appointments (Albert, 2026-11-07: "showcase whether there has been; or hasnt been an appt yet"), for
+ * the Follow up page's visit chip: GET /contacts/{id}/appointments (contacts.readonly). Read only.
+ */
+export async function contactAppointments(contactId: string): Promise<{ id: string; calendarId: string | null; start: string | null; status: string | null; title: string | null }[]> {
+  if (!/^[A-Za-z0-9]+$/.test(contactId)) return [];
+  const data = (await get(`/contacts/${contactId}/appointments`, {})) as { events?: Record<string, unknown>[] };
+  return (data.events ?? [])
+    .filter((e) => typeof e.id === "string" && e.deleted !== true)
+    .map((e) => ({ id: String(e.id), calendarId: s(e.calendarId), start: s(e.startTime), status: (s(e.appointmentStatus) ?? s(e.status))?.toLowerCase() ?? null, title: s(e.title) }));
+}

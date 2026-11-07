@@ -234,6 +234,8 @@ function Row(p: {
           {row.quoteNumber ?? ""} · {row.basis ?? "Quote"}
           {row.description ? ` · ${row.description}` : ""}
         </span>
+        {/* Where the lead is in the journey (2026-11-07): from the contact's GHL appointments. */}
+        {row.visit && <span className={`fu-visit ${row.visit.kind}`}>{row.visitText}</span>}
       </div>
       <div className="fu-why">
         <span className={`chip${tone ? ` ${tone}` : ""}`}>{row.why}</span>
