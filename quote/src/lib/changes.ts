@@ -23,6 +23,26 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-07",
     kind: "changed",
+    title: "+ From Quick Form, and Preliminary or Measured on every new quote",
+    details: [
+      "The front page's + Preliminary quote button is now + From Quick Form.",
+      "Both new-quote screens ask This quote goes out as: Preliminary or Measured, starting on Preliminary. A measured one from the quick form gets Delivery on its flooring options.",
+      "After a quote is sent, The next draft is still starts on Measured and can be Preliminary, so several preliminaries can go out.",
+    ],
+  },
+  {
+    date: "2026-11-07",
+    kind: "changed",
+    title: "Preliminary stairs: one standard line per staircase, and the customer gets the wording only",
+    details: [
+      "The quick form adds each staircase as one Stair Item in the new Stair Profile category, at the old preset price, never broken into steps and risers. Stair Profile is the first heading under Stairs.",
+      "On a preliminary, a stairs option goes to the customer as its wording and price range only, with no lines.",
+      "The wording names each staircase profile on the option with its words, and is rewritten when the staircases change. Edit it in the Customer wording box; the Send card shows it word for word before it goes.",
+    ],
+  },
+  {
+    date: "2026-11-07",
+    kind: "changed",
     title: "No section totals for the customer",
     details: ["A breakdown sent to a customer no longer shows a subtotal on each section (Install, Materials and so on): each line keeps its amount and the price block has the total. On the link, the PDF and Customer view. Staff screens keep the section totals."],
   },

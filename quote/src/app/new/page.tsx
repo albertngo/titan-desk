@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 const kindOf = (kind: string | undefined): NewQuoteKind => (kind === "preliminary" ? "preliminary" : "full");
 
 export async function generateMetadata({ searchParams }: { searchParams: Promise<{ kind?: string }> }) {
-  return { title: kindOf((await searchParams).kind) === "preliminary" ? "Preliminary quote" : "New quote" };
+  return { title: kindOf((await searchParams).kind) === "preliminary" ? "From quick form" : "New quote" };
 }
 
 export default async function NewQuotePage({ searchParams }: { searchParams: Promise<{ kind?: string }> }) {

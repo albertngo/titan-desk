@@ -120,7 +120,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   Excel INQ/QE sheets made at booking are left as they are (Albert, 2026-10-27).
 - **Two ways to start a quote (Albert, 2026-10-18).** The front page has **+ New quote** (`/new`:
   customer with the site address folded in, then timeline; v1 is *Measured* and opens empty in the
-  editor) and **+ Preliminary quote** (`/new?kind=preliminary`: the job first, then customer, then
+  editor) and **+ From Quick Form** (named + Preliminary quote until 2026-11-07; `/new?kind=preliminary`: the job first, then customer, then
   timeline, with the step numbers counted; v1 is *Preliminary* with one priced option per Job tab
   (2026-10-31, below), opened for review). The request says `kind: "measured"` for the first; anything else is a preliminary
   (`parseNewQuote()` in `src/lib/link/newQuote.ts`).

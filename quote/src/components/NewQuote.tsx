@@ -127,11 +127,11 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
       <div className="pagehead">
         <div className="titles">
           <Link className="crumb" href="/">← Quotes</Link>
-          <h1>{prelim ? "Preliminary quote" : "New quote"}</h1>
+          <h1>{prelim ? "From quick form" : "New quote"}</h1>
           <p>
             {prelim
-              ? "Pick the work, find the customer in GHL and their opportunity, then say when they plan to do the project. It becomes the preliminary quote."
-              : "Find the customer in GHL, pick their opportunity and say when they plan to do the project. The quote opens empty in the editor, as a measured version."}
+              ? "Pick the work, find the customer in GHL and their opportunity, then say when they plan to do the project. Choose below whether it goes out as a preliminary or a measured quote."
+              : "Find the customer in GHL, pick their opportunity and say when they plan to do the project. The quote opens empty in the editor; choose below whether it goes out as a preliminary or a measured quote."}
           </p>
         </div>
       </div>
