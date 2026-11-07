@@ -1088,12 +1088,27 @@ export default function Editor({
                                     {stairsOption ? (
                                       <div className="priv-ban never" role="note">Never shown to the customer. Its {money(sum)} is inside the stairs price.</div>
                                     ) : (
+                                      // Each way it can be sent, side by side (2026-11-07: "it will show at breakdown, but never lumpsum.
+                                      // How can we signify this clearly?"). A preliminary is always a lump sum, so only that way applies.
                                       <div className="priv-ban show" role="note">
-                                        The customer sees one line:{" "}
-                                        <span className="priv-prev">
-                                          {option.privateLabel ?? DEFAULT_PRIVATE_LABEL} <b>{money(sum)}</b>
-                                        </span>{" "}
-                                        The lines below are never listed. On a lump sum it is inside the one price.
+                                        <span className="priv-way">
+                                          <span className={`priv-way-k${measured ? "" : " off"}`}>Breakdown</span>
+                                          {measured ? (
+                                            <>
+                                              one line, total only:{" "}
+                                              <span className="priv-prev">
+                                                {option.privateLabel ?? DEFAULT_PRIVATE_LABEL} <b>{money(sum)}</b>
+                                              </span>
+                                            </>
+                                          ) : (
+                                            "never: a preliminary is always a lump sum"
+                                          )}
+                                        </span>
+                                        <span className="priv-way">
+                                          <span className="priv-way-k">Lump sum</span>
+                                          not shown, its {money(sum)} is inside the one price
+                                        </span>
+                                        <span className="priv-way-foot">Never listed line by line, with no quantities or line prices, either way.</span>
                                       </div>
                                     )}
                                   </td>

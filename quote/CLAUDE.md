@@ -1253,6 +1253,11 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   under the Private header: flooring, a purple banner previewing the customer's one line ("Additional work $X", the
   option's Private Line Name) and "The lines below are never listed"; stairs, a red one, "Never shown to the customer.
   Its $X is inside the stairs price." (`.priv-ban` in `globals.css`.)
+  **2026-11-07 (Albert: "in Flooring: it will show at breakdown, but never lumpsum. How can we signify this clearly?"):**
+  the flooring banner shows both ways side by side, a **Breakdown** tag with the line preview and a **Lump sum** tag
+  with "not shown, inside the one price" (Breakdown greyed on a preliminary, always a lump sum), and "never listed
+  line by line, no quantities or line prices, either way". The Send card says the same under Pricing shown for the
+  picked choice and the chosen options (`priv` on each `sendCardData` option: flooring only, `privateRollup()`).
 - **Two fees every option starts with (Albert, 2026-11-06), `src/lib/quotes/fees.ts`.** **Delivery**: Rate Card
   `Delivery | Standard Delivery | TITAN` (`recqMUZswPhpbrHuX`, $200 flat, cost 0: "we deliver. all margin"), a
   Delivery line the customer sees, on every flooring option of a **measured** version, never a preliminary.

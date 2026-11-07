@@ -21,6 +21,15 @@ export type Change = {
 
 export const CHANGES: Change[] = [
   {
+    date: "2026-11-07",
+    kind: "changed",
+    title: "Private says what each way of sending shows",
+    details: [
+      "In the editor, a flooring option's Private section now shows both ways side by side: Breakdown, one line with its total (Additional work $350); Lump sum, not shown, its amount inside the one price. On a preliminary, Breakdown is greyed out. Its lines are never listed and never show quantities.",
+      "The Send card says the same under Pricing shown, for the choice you have picked and the options you are sending.",
+    ],
+  },
+  {
     date: "2026-11-06",
     kind: "new",
     title: "Delivery and the stair base fee are added for you",

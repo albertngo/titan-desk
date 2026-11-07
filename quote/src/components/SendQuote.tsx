@@ -281,7 +281,7 @@ export function SendQuote({
   /** Albert only (2026-11-04): who he may send as, each with the address and number it would go from; null for everyone else. */
   sendAs?: SendAsList | null;
   /** The version's options, for choosing which go to the customer (2026-10-24); `range` is what a preliminary shows instead of `price` (2026-10-27). */
-  options: { id: string; name: string; price: string; range: string | null; recommended: boolean; notOffered?: boolean; problem: string | null }[];
+  options: { id: string; name: string; price: string; range: string | null; recommended: boolean; notOffered?: boolean; problem: string | null; priv?: { label: string; amount: string } | null }[];
   /** How the newest sent version went (Albert, 2026-11-06): the card says so and starts on the same way. */
   lastSent?: LastSentWay | null;
 }) {
@@ -316,6 +316,28 @@ export function SendQuote({
   // Every offered option ticked = no list sent: the server sends every option still offered, as the previews do.
   const everyOption = chosen.length === offerable.length;
   const optionIds = everyOption ? null : chosen;
+  /** The chosen options' Private lines (2026-11-07): flooring only, the line a breakdown shows; never on a lump sum. */
+  const privs = options.filter((o) => chosen.includes(o.id) && o.priv);
+  const privNote = (shown: boolean) =>
+    privs.length === 0 ? null : (
+      <span className={`sub priv-send ${shown ? "show" : "never"}`} role="note">
+        {shown ? (
+          <>
+            Private: shown as one line, its total only, no quantities or line prices:{" "}
+            {privs.map((o, i) => (
+              <span key={o.id}>
+                {i > 0 && "; "}
+                {privs.length > 1 && `${o.name}: `}
+                <b>{o.priv!.label} {o.priv!.amount}</b>
+              </span>
+            ))}
+            .
+          </>
+        ) : (
+          <>Private: not shown. {privs.length === 1 ? `Its ${privs[0].priv!.amount} is` : "Each option's Private total is"} inside the one price.</>
+        )}
+      </span>
+    );
   const optionProblems = options.filter((o) => chosen.includes(o.id) && o.problem).map((o) => o.problem!);
   const allProblems = [
     ...problems,
@@ -464,6 +486,7 @@ export function SendQuote({
             <option value="breakdown">Send breakdown</option>
           </select>
           <span className="sub">{breakdown ? "Every flooring line with its unit price and amount, section totals and the discount. Stairs stay one price." : "What the work includes and one price; no line prices."}</span>
+          {privNote(breakdown)}
           {lastSent && <span className="sub">{lastSentWords(lastSent)}</span>}
         </label>
         )}
@@ -483,6 +506,7 @@ export function SendQuote({
                   ? <>3% under the price to 10% over it (at most $3,000 over), rounded out{options.length === 1 && options[0].range ? <>: <b>{options[0].range}</b></> : ", per option above"}. Always a lump sum.</>
                   : <>The one price, as a rough total{options.length === 1 ? <>: <b>{options[0].price}</b></> : ""}. Always a lump sum.</>}
               </span>
+              {privNote(false)}
               {lastSent && <span className="sub">{lastSentWords(lastSent)}</span>}
             </label>
           </>
