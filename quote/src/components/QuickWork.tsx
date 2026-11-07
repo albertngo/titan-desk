@@ -128,7 +128,7 @@ const groupName = (g: QuickGroup) => (g === "Baseboards" ? "Moulding" : g);
  * 2026-10-18): Flooring, then Stairs, then anything else; each work group folds to one line that
  * says what is in it; short lists are chips; square footage can be copied from Install. Choices
  * and prices come from Airtable (Quick Quote Choices); the server re-prices on create. Stairs are
- * Stair Profiles rows, each adding its preset Stair Item lines (2026-11-02, src/lib/quick/plan.ts).
+ * Stair Profiles rows, each adding its one standard Stair Item line (2026-11-07, src/lib/quick/plan.ts).
  */
 export function QuickWork({
   choices,
@@ -371,10 +371,11 @@ export function QuickWork({
               {profile && (
                 <div className="qw-amt-row">
                   <span className="qw-rate">
-                    {profile.storedPrice ? "Stored price: link this row's Stair Items in Stair Profiles to add them instead" : `Adds ${profile.lines.map((l) => `${l.qty} × ${l.description}`).join(" · ")}`}
+                    {/* One standard Stair Item per staircase (2026-11-07), never the breakdown. */}
+                    {`Adds one standard line: ${profile.lines.map((l) => l.description).join(" · ")}`}
                   </span>
                   <span className="qw-price" aria-label={`Staircase ${i + 1} price`}>
-                    <span className="qw-rate">{`${profile.storedPrice ? "preset" : "Stair Items"}${profile.steps ? ` · ${profile.steps} steps` : ""}`}</span>
+                    <span className="qw-rate">{`standard${profile.steps ? ` · ${profile.steps} steps` : ""}`}</span>
                     <b>{money(profile.total)}</b>
                   </span>
                 </div>

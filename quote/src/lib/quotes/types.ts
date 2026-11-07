@@ -244,6 +244,8 @@ export type StairProfileRow = {
   sort: number;
   template: StairTemplate;
   preset: StairPreset;
+  /** 2026-11-07: Stair Profiles → Standard Stair Item, the one line the quick form adds; null when not linked. */
+  standardItemId?: string | null;
 };
 
 export type RateCard = { rates: RateRow[]; stairs: StairRow[]; materials?: MaterialRow[]; profiles?: StairProfileRow[] };

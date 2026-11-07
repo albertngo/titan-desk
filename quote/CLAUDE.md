@@ -344,6 +344,20 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   one bullet per staircase, the stair type's sentence, the closing sentence only when no staircase got one. Create
   writes it into the option's description. With no rows at all the editor's picker falls back to type × method at a
   typed price. Tested in `tests/quick.test.ts`, `tests/stairs.test.ts` and `tests/stairBuilder.test.ts`.
+- **One standard Stair Item per staircase on the quick form (Albert, 2026-11-07: "from the quick form, lets only ever
+  use those standard line items in the editor. Never the breakdown to the line items that it is current at right
+  now").** Each of the 11 Stair Profiles rows has its own Stair Item in the new Stair Items category **Stair Profile**
+  (made that day, named as the profile, Titan Rate = the profile's old stored GHL price, Labor Cost left blank for
+  Albert to enter, Active, Needs Review), linked from Stair Profiles → **Standard Stair Item** (`PROFILE.standardItem`,
+  made that day). `quickProfiles()` in `src/lib/quick/plan.ts` makes each staircase that one line, quantity 1, at the
+  item's price (`lineFromEntry()`, so Premium marks it up like any stair item, and its cost is the item's once entered),
+  in the preliminary and the editor's + From quick form alike. A profile with no standard item linked, or one the card
+  no longer offers, is left off the form: never broken down, never priced from the profile's own Price. This replaces
+  the 2026-11-02 preset expansion and the stored-price changeover above for the quick form; lines already on quotes
+  keep what they were made with, and the editor's stair builder still expands a profile there. **Stair Profile is the
+  first category** in the Stairs section (`STAIR_GROUP_ORDER` in `stairGroups.ts`, label "Stair Profile"), above
+  Steps. The customer wording is unchanged (`stairDescription()`). Tested in `tests/quick.test.ts` and
+  `tests/stairGroups.test.ts`.
 - **The stair builder (Albert, 2026-10-20).** In the editor's Stairs picker, picking a Stair Profile
   opens the builder: steps, boxed / open-side / curved steps, landings, handrail and nosing feet, spindles and posts, starting
   from the row's step count and preset counts (2026-11-02).

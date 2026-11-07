@@ -346,6 +346,7 @@ async function loadProfiles(): Promise<StairProfileRow[]> {
           price: num(f[PROFILE.price]),
           cost: num(f[PROFILE.cost]),
           sort: num(f[PROFILE.sort]) ?? 999,
+          standardItemId: ids(f[PROFILE.standardItem])[0] ?? null,
           preset: {
             boxedSteps: num(f[PROFILE.presetBoxed]),
             openSideSteps: num(f[PROFILE.presetOpenSides]) ?? 0,
