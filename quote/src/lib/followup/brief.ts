@@ -34,8 +34,8 @@ export type ThreadLine = { at: string | null; who: "customer" | "staff" | "autom
  * What a kept brief was written from: the newest thing in the thread, the opens, the follow-ups logged here, and the
  * postpone. Any of them moving means a new brief.
  */
-export function briefSignature(i: { lastMessage: { id: string; at: string | null } | null; opens: number; touches: number; postponeUntil: string | null; sentAt: string }): string {
-  return [i.sentAt, i.lastMessage ? `${i.lastMessage.id}@${i.lastMessage.at ?? ""}` : "none", `o${i.opens}`, `t${i.touches}`, `p${i.postponeUntil ?? ""}`].join("|");
+export function briefSignature(i: { lastMessage: { id: string; at: string | null } | null; opens: number; touches: number; postponeUntil: string | null; sentAt: string; visit?: string | null }): string {
+  return [i.sentAt, i.lastMessage ? `${i.lastMessage.id}@${i.lastMessage.at ?? ""}` : "none", `o${i.opens}`, `t${i.touches}`, `p${i.postponeUntil ?? ""}`, `v${i.visit ?? ""}`].join("|");
 }
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
@@ -101,6 +101,8 @@ export type BriefFacts = {
   scheduleDays: readonly number[];
   postponedTo: string | null;
   loggedHere: { at: string; note?: string }[];
+  /** Where the lead is: "No visit yet", "Visit booked Nov 12 · in-home", "Visited Nov 4 · in store"… */
+  visit: string;
 };
 
 const money = (n: number) => `$${Math.round(n).toLocaleString("en-CA")}`;
@@ -125,6 +127,7 @@ QUOTE
 - Quote: ${f.quoteNumber ?? "?"} (${f.basis ?? "quote"}). A Preliminary is a rough estimate sent as a price range before anyone has measured; the next step for one is usually booking an in-home measure or a store visit. A Measured quote is the real price after a site visit; the next step is the customer accepting.
 - Sent ${f.sentDay}, ${f.age} days ago, by ${f.sender ?? "staff"}. Most quotes close by about day ${f.typicalCloseDay}.
 - Good until: ${f.validUntil ?? "no date (preliminary)"}
+- Visit (from GHL appointments): ${f.visit}. A preliminary with no visit yet should usually be steered to booking one; a preliminary whose visit has happened is owed a measured quote, so say so.
 - The customer has opened the quote link ${f.opens} time${f.opens === 1 ? "" : "s"}${f.lastOpened ? `, last on ${f.lastOpened.slice(0, 10)}` : ""}.
 - Options:
 ${opts}

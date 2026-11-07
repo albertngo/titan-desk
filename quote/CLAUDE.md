@@ -1323,9 +1323,18 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   same day still counts). **Last sent by** filters by each sender's first name (`firstNameOf()`, so info@ is Joey), starting
   on the signed-in person when they have any; each row says **with Joey** beside the customer's name; column headings sit
   over the list. **The conversation** is the quote page's drawer (`ConversationDrawer`, now with `title` and `openSignal`):
-  clicking a row, or its Conversation button, shows that customer's thread; it starts on the first row. **The top bar's red
+  clicking a row, or its Conversation button, shows that customer's thread; it starts on the first row. **The brief opens only on the selected row** (same day: "make the brief expand only when selected"); every other row shows it folded to one line, its next step and where it stands. **The top bar's red
   count** is everyone's quotes due now (`FollowUpBadge`, `dueCountNow()`), asked for after the page draws and kept three
   minutes on the server. Tested in `tests/followup.test.ts` and `tests/boundary.test.ts`.
+  **Where the lead is (same day: "showcase whether there has been; or hasnt been an appt yet… so its clear where the lead
+  is in the overall lead journey").** Each row has a visit chip from the contact's GHL appointments
+  (`contactAppointments()`, `GET /contacts/{id}/appointments`, read only; `visitOf()` / `visitWords()` in
+  `src/lib/followup/visit.ts`): a booked one ahead ("Visit booked Nov 12 · in-home"), else the latest that went ahead
+  ("Visited Nov 4 · in store"), else the latest cancelled or no-show, else "No visit yet"; in-home and in-store by the
+  two booking calendars (`BOOKING_CALENDAR_IDS`), else the title. Unreadable appointments show no chip, never "No visit
+  yet". **A preliminary whose visit has happened is due the next day** ("Visited: the measured quote is owed", reason
+  `measure` in `dueOf()`), since a preliminary is a quote before a visit (2026-10-27). The brief is told the visit and
+  is rewritten when it changes (it joins `briefSignature()`).
 - **No section totals for the customer (Albert, 2026-11-07: "can we keep the totals of each Section not shown? it has
   too many numbers if too many sections").** On a breakdown the customer's page (`CustomerQuote.tsx`), the PDF
   (`pdf.ts`, so invoices and receipts too) and the quote page's Customer view (`OptionSheet.tsx`) show no subtotal on

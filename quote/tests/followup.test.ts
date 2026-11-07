@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ageWords, byUrgency, dueOf, emptyState, parseState, postponeBack, postponeProblem, serializeState, threadSince, withLost, withSnooze, withTouch, type FollowUpState, type Thread } from "../src/lib/followup/plan";
 import { buildPostpone, lostStatusBody, postponedStageId } from "../src/lib/link/ghlRequest";
+import { visitOf, visitWords } from "../src/lib/followup/visit";
 import { briefPrompt, briefSignature, cleanBrief, parseBrief } from "../src/lib/followup/brief";
 
 // Invented dates and ids only: this repo is public.
@@ -163,12 +164,36 @@ describe("the brief (step 2)", () => {
   });
   it("tells Claude no cost, and asks for the JSON", () => {
     const p = briefPrompt(
-      { today: "2026-11-07", customer: "Sam", quoteNumber: "Q-1", basis: "Preliminary", sentDay: "2026-11-03", age: 4, validUntil: null, opens: 2, lastOpened: null, options: [{ name: "Vinyl", total: 5000 }], sender: "Joey", typicalCloseDay: 12, scheduleDays: [3, 10, 21], postponedTo: null, loggedHere: [] },
+      { today: "2026-11-07", customer: "Sam", quoteNumber: "Q-1", basis: "Preliminary", sentDay: "2026-11-03", age: 4, validUntil: null, opens: 2, lastOpened: null, options: [{ name: "Vinyl", total: 5000 }], sender: "Joey", typicalCloseDay: 12, scheduleDays: [3, 10, 21], postponedTo: null, loggedHere: [], visit: "No visit yet" },
       [{ id: "1", at: at("2026-11-04"), who: "customer", channel: "sms", body: "Can you do stairs too?" }],
     );
     expect(p).toMatch(/CUSTOMER via sms: Can you do stairs too\?/);
     expect(p).toMatch(/"nextDay"/);
     expect(p).toMatch(/Never mention internal notes, costs or margins/);
     expect(p).not.toMatch(/margin %|cost:/i);
+  });
+});
+
+describe("the visit chip (2026-11-07)", () => {
+  const cal = { inHome: "home1", inStore: "store1" };
+  const now = new Date("2026-11-07T17:00:00Z");
+  const appt = (o: Partial<{ id: string; calendarId: string; start: string; status: string; title: string }>) => ({ id: "a", calendarId: null, start: null, status: "confirmed", title: null, ...o });
+  it("reads booked ahead first, then the latest visit, then a miss, then none", () => {
+    expect(visitOf([appt({ calendarId: "home1", start: "2026-11-12T15:00:00Z" }), appt({ calendarId: "store1", start: "2026-11-02T15:00:00Z" })], now, day, cal)).toEqual({ kind: "booked", day: "2026-11-12", where: "in-home" });
+    expect(visitOf([appt({ calendarId: "store1", start: "2026-11-02T15:00:00Z", status: "showed" })], now, day, cal)).toEqual({ kind: "visited", day: "2026-11-02", where: "in store" });
+    expect(visitOf([appt({ start: "2026-11-03T15:00:00Z", status: "noshow", title: "In-home measure" })], now, day, cal)).toEqual({ kind: "missed", day: "2026-11-03", where: "in-home", why: "no-show" });
+    expect(visitOf([], now, day, cal)).toEqual({ kind: "none" });
+    expect(visitOf(null, now, day, cal)).toBeNull();
+  });
+  it("words it plainly", () => {
+    expect(visitWords({ kind: "none" })).toBe("No visit yet");
+    expect(visitWords({ kind: "booked", day: "2026-11-12", where: "in-home" })).toBe("Visit booked Nov 12 · in-home");
+    expect(visitWords({ kind: "visited", day: "2026-11-04", where: "appointment" })).toBe("Visited Nov 4");
+  });
+  it("a preliminary whose visit happened is owed the measured quote the next day", () => {
+    const d = dueOf({ sentAt: "2026-11-01", validUntil: null, state: emptyState(), thread: { staffTouches: [], lastCustomer: null }, now: new Date(at("2026-11-07")), torontoDay: day, visit: { kind: "visited", day: "2026-11-05", where: "in-home" }, preliminary: true });
+    expect(d).toMatchObject({ bucket: "due", day: "2026-11-04", reason: { kind: "measure" } });
+    const m = dueOf({ sentAt: "2026-11-01", validUntil: null, state: emptyState(), thread: { staffTouches: [], lastCustomer: null }, now: new Date(at("2026-11-07")), torontoDay: day, visit: { kind: "visited", day: "2026-11-05", where: "in-home" }, preliminary: false });
+    expect(m?.reason.kind).toBe("scheduled");
   });
 });

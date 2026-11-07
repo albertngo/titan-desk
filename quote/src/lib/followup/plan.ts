@@ -7,6 +7,7 @@
  */
 
 import { parseBrief, type Brief } from "./brief";
+import type { Visit } from "./visit";
 
 /** Days after the quote is sent when, with nothing else to go on, a follow-up is due (Albert: "the looser"). */
 export const SCHEDULE_DAYS = [3, 10, 21] as const;
@@ -136,7 +137,8 @@ export type DueReason =
   | { kind: "close-out" } // day 45: close it out or postpone it
   | { kind: "postponed"; until: string } // back from a postpone
   | { kind: "expired" } // past its good-until date
-  | { kind: "named"; day: string; quote: string | null }; // the customer named a time ("next week"), read by the brief
+  | { kind: "named"; day: string; quote: string | null } // the customer named a time ("next week"), read by the brief
+  | { kind: "measure"; day: string }; // a preliminary whose visit happened: the measured quote is owed
 
 export type Bucket = "due" | "upcoming" | "snoozed" | "postponed";
 
@@ -164,6 +166,9 @@ export type DueInput = {
   torontoDay: (s: string | Date) => string;
   /** The day the customer named, from a brief written for the thread as it stands; it replaces the fallback schedule. */
   named?: { day: string; quote: string | null } | null;
+  /** The visit, from GHL's appointments (null when they couldn't be read), and whether the quote out is a preliminary. */
+  visit?: Visit | null;
+  preliminary?: boolean;
 };
 
 /**
@@ -220,6 +225,12 @@ export function dueOf(i: DueInput): Due | null {
     reason = { kind: "named", day: i.named.day, quote: i.named.quote };
   }
 
+  // A preliminary is a quote before a visit (2026-10-27): once the visit has happened, the measured quote is owed.
+  if (i.preliminary && i.visit?.kind === "visited" && i.visit.day >= sent && i.visit.day < today && reason.kind !== "postponed") {
+    due = earlier(due, addDays(i.visit.day, 1));
+    reason = { kind: "measure", day: i.visit.day };
+  }
+
   const replied = i.thread?.lastCustomer ? day(i.thread.lastCustomer) : null;
   const unanswered = replied && replied >= sent && (!lastTouch || replied > lastTouch) ? replied : null;
   if (unanswered) {
@@ -253,6 +264,8 @@ export function dueWords(d: Due): string {
       return "Past its good-until date: send it again or close it out";
     case "named":
       return r.quote ? `They said: "${r.quote}"` : "Around the time they asked for";
+    case "measure":
+      return "Visited: the measured quote is owed";
   }
 }
 

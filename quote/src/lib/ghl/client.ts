@@ -229,10 +229,14 @@ let lostCache: { at: number; value: { id: string; name: string }[] } | null = nu
 /** The location's own lost reasons (GET /opportunities/lost-reason, opportunities.readonly), by name. Cached ten minutes. */
 export async function lostReasons(): Promise<{ id: string; name: string }[]> {
   if (lostCache && Date.now() - lostCache.at < 600_000) return lostCache.value;
-  const data = (await get("/opportunities/lost-reason", { locationId: GHL_LOCATION_ID, limit: "100" })) as { lostReasons?: Record<string, unknown>[] };
-  const value = (data.lostReasons ?? [])
-    .filter((r) => typeof r.id === "string" && r.deleted !== true)
-    .map((r) => ({ id: String(r.id), name: s(r.name) ?? "Lost" }))
+  const data = (await get("/opportunities/lost-reason", { locationId: GHL_LOCATION_ID, limit: "100" })) as Record<string, unknown>;
+  // GHL's docs name the array lostReasons with id and name; read the other spellings too, so a shape change shows as
+  // reasons rather than as an empty list (2026-11-07: an empty read let Lost go out with no reason at all).
+  const list = [data.lostReasons, data.lostReason, data.reasons, data.data].find(Array.isArray) as Record<string, unknown>[] | undefined;
+  const value = (list ?? [])
+    .map((r) => ({ id: s(r.id) ?? s(r._id), name: s(r.name) ?? s(r.title), deleted: r.deleted === true }))
+    .filter((r): r is { id: string; name: string; deleted: boolean } => Boolean(r.id && r.name) && !r.deleted)
+    .map(({ id, name }) => ({ id, name }))
     .sort((a, b) => a.name.localeCompare(b.name));
   lostCache = { at: Date.now(), value };
   return value;
@@ -256,4 +260,16 @@ export async function postponedUntilFieldId(): Promise<string | null> {
   }
   fieldCache = { at: Date.now(), value };
   return value;
+}
+
+/**
+ * The contact's appointments (Albert, 2026-11-07: "showcase whether there has been; or hasnt been an appt yet"), for
+ * the Follow up page's visit chip: GET /contacts/{id}/appointments (contacts.readonly). Read only.
+ */
+export async function contactAppointments(contactId: string): Promise<{ id: string; calendarId: string | null; start: string | null; status: string | null; title: string | null }[]> {
+  if (!/^[A-Za-z0-9]+$/.test(contactId)) return [];
+  const data = (await get(`/contacts/${contactId}/appointments`, {})) as { events?: Record<string, unknown>[] };
+  return (data.events ?? [])
+    .filter((e) => typeof e.id === "string" && e.deleted !== true)
+    .map((e) => ({ id: String(e.id), calendarId: s(e.calendarId), start: s(e.startTime), status: (s(e.appointmentStatus) ?? s(e.status))?.toLowerCase() ?? null, title: s(e.title) }));
 }
