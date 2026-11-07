@@ -2,6 +2,7 @@ import "server-only";
 import { hasMore, htmlToText, parseMessages, type Message } from "@/lib/conversation/thread";
 import { ACCEPT_FIELDS, CONTACT_ORIGIN_FIELD, GHL_LOCATION_ID, LOST_REASONS, OPP_FIELDS } from "./ids";
 import type { GhlContact, GhlConversation, GhlOpportunity, GhlPipeline, GhlSite } from "./types";
+import { torontoTime } from "@/lib/followup/visit";
 
 export type { GhlContact, GhlConversation, GhlOpportunity, GhlPipeline, GhlSite };
 
@@ -294,7 +295,7 @@ export async function contactAppointments(contactId: string): Promise<{ id: stri
   const data = (await get(`/contacts/${contactId}/appointments`, {})) as { events?: Record<string, unknown>[] };
   return (data.events ?? [])
     .filter((e) => typeof e.id === "string" && e.deleted !== true)
-    .map((e) => ({ id: String(e.id), calendarId: s(e.calendarId), start: s(e.startTime), status: (s(e.appointmentStatus) ?? s(e.status))?.toLowerCase() ?? null, title: s(e.title) }));
+    .map((e) => ({ id: String(e.id), calendarId: s(e.calendarId), start: torontoTime(s(e.startTime)), status: (s(e.appointmentStatus) ?? s(e.status))?.toLowerCase() ?? null, title: s(e.title) }));
 }
 
 /**
@@ -306,5 +307,5 @@ export async function calendarEvents(calendarId: string, from: Date, to: Date): 
   const data = (await get("/calendars/events", { locationId: GHL_LOCATION_ID, calendarId, startTime: String(from.getTime()), endTime: String(to.getTime()) })) as { events?: Record<string, unknown>[] };
   return (data.events ?? [])
     .filter((e) => typeof e.id === "string" && e.deleted !== true)
-    .map((e) => ({ id: String(e.id), contactId: s(e.contactId), calendarId: s(e.calendarId) ?? calendarId, start: s(e.startTime), status: (s(e.appointmentStatus) ?? s(e.status))?.toLowerCase() ?? null, title: s(e.title), assignedUserId: s(e.assignedUserId) }));
+    .map((e) => ({ id: String(e.id), contactId: s(e.contactId), calendarId: s(e.calendarId) ?? calendarId, start: torontoTime(s(e.startTime)), status: (s(e.appointmentStatus) ?? s(e.status))?.toLowerCase() ?? null, title: s(e.title), assignedUserId: s(e.assignedUserId) }));
 }

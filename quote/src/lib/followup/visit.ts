@@ -12,6 +12,33 @@ export type Visit =
   | { kind: "visited"; day: string; where: Where }
   | { kind: "missed"; day: string; where: Where; why: "cancelled" | "no-show" };
 
+const NAIVE = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/;
+
+/** What a UTC instant reads as on a Toronto clock, as if that reading were UTC. */
+function torontoWall(t: number): number {
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })
+      .formatToParts(new Date(t))
+      .map((x) => [x.type, x.value]),
+  );
+  return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second);
+}
+
+/**
+ * A GHL time as an ISO instant. GET /contacts/{id}/appointments gives "2026-10-24 16:30:00", Toronto wall time with no
+ * offset (checked live 2026-11-07 against /calendars/events, which gives "2026-10-24T16:30:00-04:00" for the same
+ * visit); read as is, a UTC server put it 4 to 5 hours early. A time that carries its zone passes through unchanged.
+ */
+export function torontoTime(s: string | null): string | null {
+  if (!s) return null;
+  const m = NAIVE.exec(s.trim());
+  if (!m) return s;
+  const wall = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] ?? 0));
+  let t = wall - (torontoWall(wall) - wall);
+  t = wall - (torontoWall(t) - t);
+  return new Date(t).toISOString();
+}
+
 const MISSED = new Set(["cancelled", "canceled", "noshow", "no_show", "no-show", "invalid"]);
 
 function whereOf(a: Appointment, calendars: { inHome: string; inStore: string }): Where {
