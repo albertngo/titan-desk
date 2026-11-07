@@ -122,9 +122,8 @@ describe("customer copy", () => {
     for (const leak of ["Crew Alpha", "Crew Beta", "price sensitive", "cost", "Cost", "margin", "profit", "contractor", "Snap", "recLINE", "recRATE", "Standard"]) {
       expect(text).not.toContain(leak);
     }
-    // The card rate (25) of the overridden add-on never appears; its charged rate (30) does.
-    const addOn = o.sections.flatMap((s) => s.lines).find((l) => l.kind === "item" && l.description === "Stair nosing");
-    expect(addOn).toMatchObject({ unitPrice: 30, amount: 120, optional: true, n: null });
+    // An unticked line is dropped from what the customer sees (2026-11-07): the old add-on never reaches the copy.
+    expect(text).not.toContain("Stair nosing");
   });
 
   it("shows quantity with waste included, so quantity × price is the amount", () => {
@@ -139,11 +138,12 @@ describe("customer copy", () => {
 
   it("numbers included lines only, keeps text rows, and lists exclusions apart", () => {
     const items = o.sections.flatMap((s) => s.lines).filter((l) => l.kind === "item");
-    expect(items.map((l) => (l.kind === "item" ? l.n : null))).toEqual([1, 2, 3, null]);
+    expect(items.map((l) => (l.kind === "item" ? l.n : null))).toEqual([1, 2, 3]);
     expect(o.sections.flatMap((s) => s.lines).some((l) => l.kind === "text" && l.text === "Furniture moved by the homeowner")).toBe(true);
     expect(o.exclusions).toEqual(["Painting"]);
-    expect(o.sections.map((s) => s.name)).toEqual(["Install", "Removal", "Delivery", "Other"]);
-    expect(o.sections.find((s) => s.name === "Other")!.total).toBe(0);
+    expect(o.sections.map((s) => s.name)).toEqual(["Install", "Removal", "Delivery"]);
+    // Other held only the unticked add-on, so it is gone (2026-11-07).
+    expect(o.sections.some((s) => s.name === "Other")).toBe(false);
   });
 
   it("says where a material's HST differs from the quote's (2026-10-16)", () => {
@@ -483,7 +483,7 @@ describe("the PDF", () => {
   it("prints the customer's figures and none of the internal ones", () => {
     const text = Buffer.from(quotePdf(customerCopy(quote(), AT))).toString("latin1");
     // Leads before HST (2026-10-24): the bar is the subtotal "+ HST"; the tax and the total with it follow.
-    for (const s of ["(Subtotal before HST)", "($684.00)", "(HST \\(13%\\))", "($88.92)", "(Total with HST)", "($772.92)", "(PAYMENT SCHEDULE, WITH HST)", "(PREPARED FOR)", "(Pat Example)", "(Optional \\267 $120.00)", "(Living room \\267 includes 10% waste allowance)", "(minimum charge)"]) expect(text).toContain(s);
+    for (const s of ["(Subtotal before HST)", "($684.00)", "(HST \\(13%\\))", "($88.92)", "(Total with HST)", "($772.92)", "(PAYMENT SCHEDULE, WITH HST)", "(PREPARED FOR)", "(Pat Example)", "(Living room \\267 includes 10% waste allowance)", "(minimum charge)"]) expect(text).toContain(s);
     expect(text).not.toContain("HST #");
     // A copy frozen before 2026-10-27 still carries the number; it is never drawn.
     const old = { ...customerCopy(quote(), AT), company: { ...COMPANY, hstNumber: "123456789 RT0001" } } as CustomerCopy;
@@ -684,20 +684,21 @@ describe("discount reason (2026-10-22)", () => {
 });
 
 describe("lump sum (2026-10-22)", () => {
-  it("keeps what the work includes and drops every price but the add-ons' and the totals", () => {
+  it("keeps what the work includes, no rate but a material's and no amount (Albert, 2026-11-07: lump sum = material rates only)", () => {
     const c = customerCopy(quote({ itemised: false }), AT);
     expect(c.pricing).toBe("lump");
     const o = c.options[0];
     const items = o.sections.flatMap((s) => s.lines).filter((l): l is Extract<typeof l, { kind: "item" }> => l.kind === "item");
+    // A measured lump sum shows no rate outside Materials ("Measured lumpsum should ONLY show material section rates.
+    // NEVER other sections"), and no amount.
     for (const l of items.filter((x) => !x.optional)) expect([l.unitPrice, l.amount, l.minimum]).toEqual([null, null, false]);
-    expect(items.find((x) => x.optional)).toMatchObject({ unitPrice: 30, amount: 120 });
+    expect(items.some((x) => x.optional)).toBe(false);
     // Quantities always show, every section (Albert, 2026-11-04), replacing the scope-sections-only rule of 2026-10-22.
     const qtyBySection = o.sections.map((s) => [s.name, s.lines.filter((l) => l.kind === "item" && !l.optional).map((l) => (l.kind === "item" ? [l.qty, l.uom] : null))]);
     expect(qtyBySection).toEqual([
       ["Install", [[220, "sqft"]]],
       ["Removal", [[200, "sqft"]]],
       ["Delivery", [[1, "flat"]]],
-      ["Other", []],
     ]);
     expect(o.sections.every((s) => s.total === null)).toBe(true);
     expect(o.totals).toEqual(customerCopy(quote(), AT).options[0].totals);
@@ -719,7 +720,7 @@ describe("lump sum (2026-10-22)", () => {
       const c = customerCopy(q, AT);
       const materials = c.options[0].sections.find((s) => s.name === "Materials");
       expect(materials?.lines[0]).toMatchObject({ kind: "item", qty: 200, unitPrice: 4.5, amount: null });
-      // Labour on the same lump sum still shows no price.
+      // Labour on the same lump sum shows no rate and no amount, measured or preliminary (2026-11-07).
       expect(c.options[0].sections.find((s) => s.name === "Install")?.lines[0]).toMatchObject({ unitPrice: null, amount: null });
     }
   });
@@ -771,7 +772,6 @@ describe("lump sum (2026-10-22)", () => {
       ["Solid red oak tread caps", "Main stairs", 1, 13, null, false],
       ["Riser", "Main stairs", 2, 13, null, false],
       ["Solid red oak tread caps", "Basement", 3, 5, null, false],
-      ["Solid red oak tread caps", "Main stairs", null, 2, 455, true],
     ]);
     // A shared wording in another unit stays its own line: steps and feet are never added together.
     const nosing = st({ id: "h", description: "Nosing", customerWording: "Solid red oak tread caps", uom: "ft", qty: 6, unitPriceSnap: 30 });
@@ -780,8 +780,7 @@ describe("lump sum (2026-10-22)", () => {
       [11, "piece"],
       [6, "ft"],
     ]);
-    const addOn = stairs.lines[3];
-    expect(addOn.kind === "item" && addOn.unitPrice).toBeNull();
+    expect(stairs.lines).toHaveLength(3);
     // Flooring is never merged, wording or not.
     const floor = customerCopy(quote({ options: [option("A", [line({ id: "x", customerWording: "Same" }), line({ id: "y", customerWording: "Same" })], 0, true)] }), AT);
     expect(floor.options[0].sections[0].lines).toHaveLength(2);
@@ -1212,12 +1211,51 @@ describe("a flooring material's rate always reaches the customer (2026-11-04, ch
     expect(rateOf(customerCopy(quote({ discountRate: 0, itemised: false, options: [opt] }), AT))).toEqual([4.5, null]);
     expect(rateOf(customerCopy(quote({ discountRate: 0, basis: "Preliminary", options: [opt] }), AT))).toEqual([4.5, null]);
     expect(rateOf(customerCopy(quote({ discountRate: 0, basis: "Preliminary", options: [opt] }), { ...AT, range: false }))).toEqual([4.5, null]);
-    // The install line loses its rate on a lump sum, as before.
-    const inst = customerCopy(quote({ discountRate: 0, itemised: false, options: [opt] }), AT).options[0].sections.find((s) => s.name === "Install")!.lines[0];
-    expect(inst.kind === "item" && inst.unitPrice).toBeNull();
+    // The install line (2026-11-07): no rate on any lump sum, measured or preliminary.
+    const instOf = (c: CustomerCopy) => c.options[0].sections.find((s) => s.name === "Install")!.lines[0];
+    const inst = instOf(customerCopy(quote({ discountRate: 0, itemised: false, options: [opt] }), AT));
+    expect(inst.kind === "item" && [inst.unitPrice, inst.amount]).toEqual([null, null]);
+    const pInst = instOf(customerCopy(quote({ discountRate: 0, basis: "Preliminary", options: [opt] }), AT));
+    expect(pInst.kind === "item" && [pInst.unitPrice, pInst.amount]).toEqual([null, null]);
     // The PDF heads the column Rate and prints it.
     const pdf = Buffer.from(quotePdf(customerCopy(quote({ discountRate: 0, basis: "Preliminary", options: [opt] }), AT))).toString("latin1");
-    expect(pdf).toContain("(Rate)");
-    expect(pdf).toContain("$4.50");
+    // Only the material has a rate on a preliminary, so it sits with the quantity and there is no Rate column (2026-11-07).
+    expect(pdf).not.toContain("(Rate)");
+    expect(pdf).toContain("(550 sqft \\327 $4.50)");
+    // A measured lump sum the same: the material's rate with its quantity, the install's quantity alone, no Rate column.
+    const lumpPdf = Buffer.from(quotePdf(customerCopy(quote({ discountRate: 0, itemised: false, options: [opt] }), AT))).toString("latin1");
+    expect(lumpPdf).not.toContain("(Rate)");
+    expect(lumpPdf).toContain("(550 sqft \\327 $4.50)");
+    expect(lumpPdf).not.toContain("\\327 $2.00");
+  });
+});
+
+describe("flooring rates by basis (Albert, 2026-11-07)", () => {
+  it("drops an unticked line from what the customer sees, preliminary or measured (2026-11-07)", () => {
+    const unticked = line({ description: "Stair nosing upgrade", section: "Install", include: false, qty: 4, uom: "ft", unitPriceSnap: 30 });
+    const opt = option("A", [line({}), unticked], 0, true);
+    for (const q of [quote({ discountRate: 0, basis: "Preliminary", options: [opt] }), quote({ discountRate: 0, itemised: false, options: [opt] }), quote({ discountRate: 0, itemised: true, options: [opt] })]) {
+      const c = customerCopy(q, AT);
+      expect(serializeCopy(c)).not.toContain("Stair nosing upgrade");
+      expect(Buffer.from(quotePdf(c)).toString("latin1")).not.toContain("Stair nosing upgrade");
+    }
+  });
+
+  it("a measured breakdown shows every rate and amount, as before", () => {
+    const c = customerCopy(quote({ discountRate: 0, itemised: true, options: [option("A", [line({})], 0, true)] }), AT);
+    expect(c.options[0].sections[0].lines[0]).toMatchObject({ unitPrice: 2, amount: 200 });
+  });
+});
+
+describe("a breakdown PDF with nothing to price (2026-11-07)", () => {
+  it("draws no Unit price or Amount column for a stairs-only breakdown, and keeps both when a line is priced", () => {
+    const st = line({ section: "Stairs", lineType: "Stairs", sourceKind: "stair", description: "Step", qty: 12, uom: "steps", unitPriceSnap: 160 });
+    const stairsOnly = Buffer.from(quotePdf(customerCopy(quote({ discountRate: 0, itemised: true, options: [option("Main stairs", [st], 0, true, { scope: "Stairs" })] }), AT))).toString("latin1");
+    expect(stairsOnly).not.toContain("(Unit price)");
+    expect(stairsOnly).not.toContain("(Amount)");
+    expect(stairsOnly).toContain("(12 steps)");
+    const floor = Buffer.from(quotePdf(customerCopy(quote({ discountRate: 0, itemised: true, options: [option("A", [line({})], 0, true)] }), AT))).toString("latin1");
+    expect(floor).toContain("(Unit price)");
+    expect(floor).toContain("(Amount)");
   });
 });

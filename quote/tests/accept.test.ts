@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { withLegacyAddOns } from "./legacyAddOns";
 import { acceptedCopy, acceptProblems, addOnsOf, buildAcceptance, notAcceptable, parseAcceptance, parseSignature, readAcceptInput, serializeAcceptance, type AcceptInput } from "../src/lib/accept/plan";
 import { termsHref, termsLabel, type Terms } from "../src/lib/accept/terms";
 import { optionTotals } from "../src/lib/calc";
@@ -89,7 +90,8 @@ const quote = (p: Partial<Quote> = {}): Quote => ({
   ...p,
 });
 const COMPANY: Letterhead = { name: "Titan Flooring", address: null, phone: null, email: "hello@example.com", website: null };
-const copyOf = (q = quote()) => customerCopy(q, { sentOn: "2026-10-27", validUntil: "2026-11-30", company: COMPANY });
+// Add-ons are built as copies sent before 2026-11-07 carry them: a fresh copy drops unticked lines.
+const copyOf = (q = quote()) => withLegacyAddOns(customerCopy(q, { sentOn: "2026-10-27", validUntil: "2026-11-30", company: COMPANY }), q);
 const TERMS: Terms = { id: "recTermsAAAAAAAAA", on: "2026-10-27" };
 const input = (p: Partial<AcceptInput> = {}): AcceptInput => ({ optionIndexes: [0], addOns: [], name: "Sam Sample", terms: true, termsId: TERMS.id, signature: null, reason: null, ...p });
 const NOW = new Date("2026-11-03T19:14:00Z"); // 2:14 pm in Toronto

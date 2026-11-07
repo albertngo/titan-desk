@@ -1295,6 +1295,27 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   preliminary stairs option is headed **Customer wording**, drawn as a full text box (`.words`), saying it goes word
   for word. The Send card shows each chosen option's words exactly as they go, with its price, in a box of its own
   (`words` on `sendCardData()`'s options, `.sq-words`).
+- **Flooring rates by basis (Albert, 2026-11-07: "On a preliminary; Material section: Rate + qty shown; Other sections:
+  qty only shown. On a measured: Material section: Rate + qty; Other sections qty + rate shown… For Flooring Options").**
+  In the customer copy (`copyOption()` in `copy.ts`, so the link and the PDF, which always mirror each other since both
+  draw the one frozen copy): a **preliminary** flooring option shows each Materials line's quantity × rate and every
+  other line's quantity only, and no line amount anywhere, an add-on's included (it still says Optional, on the PDF too);
+  a **measured** one shows every line's quantity × rate and amount on a breakdown, and on a lump sum only the Materials
+  rates, like a preliminary (same day, settled: "Measured lumpsum should ONLY show material section rates. NEVER other
+  sections. hence the lumpsum"; an hour earlier it had shown every rate on a lump sum). A line under its minimum charge shows no rate. Stairs lines and stairs options are
+  unchanged (quantity only). The quote page's Customer view follows the same rule (`OptionSheet`: `prelimView`,
+  `rateCol`). Tested in `tests/send.test.ts`.
+  **No Rate column on a lump sum (same day: "Im not a fan of having the rate column present if only material shows the
+  rate. So combine it into the qty"; "PDF and Quote link should always mirror eachother").** A lump-sum PDF, every
+  preliminary included, writes a line's rate with its quantity, "550 sqft × $2.99", as the customer's link always has,
+  and heads the column Quantity alone (`ratesInline` in `pdf.ts`); a breakdown keeps its Unit price and Amount columns,
+  unless no line on it has a price or an amount (a stairs-only breakdown, same day: "can we not have the unit price and
+  amount column shown in this scenario?"), when it is drawn the same way (`priceCols`).
+  **Unticked lines are dropped (same day: "unticked means dropped from what they see. Nothing to do with optional logic
+  right now").** A line whose Include box is unticked never reaches the customer copy (`copyOption()`), so the link, the
+  PDF and the email never show it, and Customer view leaves it out too. It used to go as an Optional add-on the customer
+  could tick on the Accept panel; a fresh copy now has none. Copies frozen before keep theirs, and the add-on code that
+  reads them (acceptance, contract, What changed) is unchanged; tests build such copies with `tests/legacyAddOns.ts`.
 - **Company files (Albert, 2026-11-07: "an option to download the Site Sheets (Flooring, Stairs) and show the latest
   version… inside the What's new section as 'Company Files'… Keep the two files separate downloads").** A **Company
   files** menu beside What's new in the top bar (`src/components/CompanyFiles.tsx`, staff only, never in Customer view)

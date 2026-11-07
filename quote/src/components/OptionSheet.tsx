@@ -90,12 +90,12 @@ function Parity({ option, t }: { option: QuoteOption; t: OptionTotals }) {
 }
 
 /** `lump`: Customer view on a lump-sum quote (2026-10-22): no unit price, no line total. */
-function Row({ l, n, customer, lump, stairsOpt = false }: { l: QuoteLine; n: number | undefined; customer: boolean; lump: boolean; /** A stairs option (2026-11-06): no line is priced for the customer. */ stairsOpt?: boolean }) {
+function Row({ l, n, customer, lump, stairsOpt = false, rateCol = !lump, prelim = false }: { l: QuoteLine; n: number | undefined; customer: boolean; lump: boolean; /** A stairs option (2026-11-06): no line is priced for the customer. */ stairsOpt?: boolean; /** The Unit price column is drawn (2026-11-07: a measured quote shows every rate, lump sum or not). */ rateCol?: boolean; /** Customer view of a preliminary (2026-11-07): only a material's rate, and no add-on price. */ prelim?: boolean }) {
   if (!isPriced(l)) {
     return (
       <tr>
         <td className="idx" />
-        <td colSpan={lump ? 2 : customer ? 4 : 7}>
+        <td colSpan={!rateCol ? 2 : customer ? 4 : 7}>
           {l.description}
           {l.clientNote && <span className="sub">{l.clientNote}</span>}
         </td>
@@ -124,7 +124,7 @@ function Row({ l, n, customer, lump, stairsOpt = false }: { l: QuoteLine; n: num
         {rate(l.qty)} <span className="faint">{l.uom ?? ""}</span>
         {/* A material always shows its rate (Albert, 2026-11-04), so on a lump sum, where there is no Unit price column,
             it sits beside the quantity, as on the customer's link. */}
-        {lump && sectionOf(l) === "Materials" && <span className="faint"> × {money(priceUsed(l))}</span>}
+        {!rateCol && sectionOf(l) === "Materials" && <span className="faint"> × {money(priceUsed(l))}</span>}
         {l.waste ? <span className="sub">+{Math.round(l.waste * 100)}% waste</span> : null}
       </td>
       {!customer && (
@@ -134,7 +134,7 @@ function Row({ l, n, customer, lump, stairsOpt = false }: { l: QuoteLine; n: num
           {!!l.manualCost && <span className="sub">manual line cost</span>}
         </td>
       )}
-      {!lump && (
+      {rateCol && (
         <td className="r" data-label="Unit price">
           {stairPrice ? null : (
             <>
@@ -146,7 +146,7 @@ function Row({ l, n, customer, lump, stairsOpt = false }: { l: QuoteLine; n: num
       )}
       {!customer && <td className="r muted" data-label="Margin">{pct(margin, 0)}</td>}
       {lump || stairPrice ? (
-        <td className="r amt" data-label="Line total">{l.include ? "" : <span className="note">optional · {money(total)}</span>}</td>
+        <td className="r amt" data-label="Line total">{l.include ? "" : <span className="note">{prelim ? "optional" : `optional · ${money(total)}`}</span>}</td>
       ) : (
         <td className="r amt" data-label="Line total">{l.include ? money(total) : <span className="note">optional</span>}</td>
       )}
@@ -182,8 +182,14 @@ export function OptionSheet({
   // A stairs option (Albert, 2026-11-06): lines saved in Other show under its Other heading, as stair lines; its Private
   // section (back the same day) is staff only, never shown to the customer, not even as a roll-up row.
   const stairsOpt = optionScope(given) === "Stairs";
-  const option = stairsOpt ? { ...given, lines: stairsOptionLines(given.lines) } : given;
-  const lump = customer && lumpSum === true;
+  const folded = stairsOpt ? { ...given, lines: stairsOptionLines(given.lines) } : given;
+  // Customer view drops unticked lines, as the customer's copy does (2026-11-07).
+  const option = customer ? { ...folded, lines: folded.lines.filter((l) => l.include || !isPriced(l)) } : folded;
+  // Customer view (2026-11-07): a preliminary is always a lump sum, and on any lump sum only a material shows its rate,
+  // beside its quantity; a breakdown draws the Unit price column.
+  const prelimView = customer && preliminary === true;
+  const lump = prelimView || (customer && lumpSum === true);
+  const rateCol = !lump;
   // A preliminary's stairs option goes as its words only (2026-11-07, `wordsOnly()` in copy.ts): Customer view shows no lines.
   const order = customer && wordsOnly(given, preliminary === true) ? [] : sectionOrder(option.lines, customer, lump || stairsOpt);
   const exclusions = option.lines.filter((l) => l.section === "Exclusions" && l.description);
@@ -219,7 +225,7 @@ export function OptionSheet({
                   {!customer && <th>Contractor</th>}
                   <th className="r">Quantity</th>
                   {!customer && <th className="r">Cost</th>}
-                  {!lump && <th className="r">Unit price</th>}
+                  {rateCol && <th className="r">Unit price</th>}
                   {!customer && <th className="r">Margin</th>}
                   <th className="r">{lump ? "" : "Line total"}</th>
                 </tr>
@@ -231,7 +237,7 @@ export function OptionSheet({
                   const sum = lines.reduce((a, l) => a + (lineTotal(l) ?? 0), 0) + rollup;
                   return [
                     <tr className={s === PRIVATE_SECTION ? "sect priv" : "sect"} key={`s-${s}`}>
-                      <td colSpan={lump ? 3 : customer ? 4 : 7}>
+                      <td colSpan={!rateCol ? 3 : customer ? 4 : 7}>
                         {s === PRIVATE_SECTION ? <span className="priv-tag">Private</span> : s}
                         {s === PRIVATE_SECTION && <span className="sub">{stairsOpt ? " · never shown to the customer: inside the stairs price" : <> · not itemised for the customer: one row, “{option.privateLabel ?? DEFAULT_PRIVATE_LABEL}”</>}</span>}
                       </td>
@@ -244,13 +250,13 @@ export function OptionSheet({
                           ...(g.heading
                             ? [
                                 <tr className="subsect" key={`g-${g.group ?? "other"}`}>
-                                  <td colSpan={lump ? 4 : customer ? 5 : 8}>{stairGroupLabel(g.group)}</td>
+                                  <td colSpan={!rateCol ? 4 : customer ? 5 : 8}>{stairGroupLabel(g.group)}</td>
                                 </tr>,
                               ]
                             : []),
-                          ...g.lines.map((l) => <Row key={l.id} l={l} n={nums.get(l.id)} customer={customer} lump={lump} stairsOpt={stairsOpt} />),
+                          ...g.lines.map((l) => <Row key={l.id} l={l} n={nums.get(l.id)} customer={customer} lump={lump} stairsOpt={stairsOpt} rateCol={rateCol} prelim={prelimView} />),
                         ])
-                      : lines.map((l) => <Row key={l.id} l={l} n={nums.get(l.id)} customer={customer} lump={lump} stairsOpt={stairsOpt} />)),
+                      : lines.map((l) => <Row key={l.id} l={l} n={nums.get(l.id)} customer={customer} lump={lump} stairsOpt={stairsOpt} rateCol={rateCol} prelim={prelimView} />)),
                     ...(rollup > 0
                       ? [
                           <tr key="private-rollup" className="rollup">

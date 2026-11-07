@@ -351,7 +351,10 @@ function copyOption(given: QuoteOption, discountRate: number, showHst: boolean, 
       }
       // An add-on is shown at the price it would add; it is not counted.
       const amount = lineTotal({ ...l, include: true }) ?? 0;
-      if (amount === 0 && !l.include) continue;
+      // An unticked line is dropped from everything the customer gets (Albert, 2026-11-07: "unticked means dropped from
+      // what they see. Nothing to do with optional logic right now"). Copies frozen before keep their Optional lines,
+      // and the add-on code that reads them stays.
+      if (!l.include) continue;
       const extent = (l.qty ?? 0) * (1 + (l.waste ?? 0));
       const price = priceUsed(l);
       // calc.ts charges the minimum when the line comes in under it; say so rather than show a price that doesn't multiply out.
@@ -367,6 +370,13 @@ function copyOption(given: QuoteOption, discountRate: number, showHst: boolean, 
       // One wording, one line (Albert, 2026-11-02: "consolidate the steps to just be one generic step … and then just combine
       // the quantity"): Stair Items that share a Customer Wording read as one line, their quantities and amounts added.
       // The unit is part of the key now that the quantity shows, so steps and feet are never added together.
+      // Rates on a flooring option (Albert, 2026-11-07, settled: "Measured lumpsum should ONLY show material section
+      // rates. NEVER other sections. hence the lumpsum"): any lump sum, a preliminary included, shows a Materials line's
+      // rate and every other line's quantity only; a breakdown shows every rate and amount. A preliminary shows no line
+      // amount at all. Stairs lines and stairs options never show a price.
+      const stairLine = name === "Stairs" || stairsOption;
+      const shownRate = !minimum && (name === "Materials" || (!lumpSum && !stairLine));
+      const noAmount = lump || (preliminary && !stairsOption);
       const wording = name === "Stairs" ? clean(l.customerWording) : null;
       const key = wording ? [wording.toLowerCase(), (clean(l.uom) ?? "").toLowerCase(), l.include, note ?? "", chargesHst(l, showHst)].join("|") : null;
       const same = key ? merged.get(key) : undefined;
@@ -388,9 +398,9 @@ function copyOption(given: QuoteOption, discountRate: number, showHst: boolean, 
         wastePct: l.waste ? Math.round(l.waste * 100) : null,
         // A material always shows its rate (Albert, 2026-11-04: "Material Rates in the material section should ALWAYS
         // show the rate; no matter what the form the quote is sending in"): lump sum and preliminary too, never its amount.
-        unitPrice: minimum || (lump && name !== "Materials") ? null : price,
-        minimum: lump ? false : minimum,
-        amount: lump ? null : amount,
+        unitPrice: shownRate ? price : null,
+        minimum: noAmount ? false : minimum,
+        amount: noAmount ? null : amount,
         optional: !l.include,
         ...(chargesHst(l, showHst) !== showHst ? { hst: showHst ? ("none" as const) : ("plus" as const) } : {}),
       };

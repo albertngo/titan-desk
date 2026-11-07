@@ -22,6 +22,28 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-07",
+    kind: "changed",
+    title: "No Rate column on a lump-sum PDF",
+    details: ["A lump-sum PDF, every preliminary included, writes each rate beside its quantity (550 sqft × $2.99), the same as the customer's link. A breakdown keeps its Unit price and Amount columns, unless nothing on it has a price (a stairs-only breakdown), which now has neither."],
+  },
+  {
+    date: "2026-11-07",
+    kind: "changed",
+    title: "Unticked lines are left off what the customer sees",
+    details: ["A line with Include unticked no longer goes to the customer as an Optional add-on: it is left off the link, the PDF, the email and Customer view. Quotes already sent keep what they went out with."],
+  },
+  {
+    date: "2026-11-07",
+    kind: "changed",
+    title: "Flooring rates: a lump sum shows material rates only",
+    details: [
+      "On a preliminary or a measured lump sum, the customer sees each material's quantity and rate, and only the quantity for everything else, with no line prices.",
+      "A measured breakdown shows every flooring line's quantity, rate and amount.",
+      "The link, the PDF and Customer view all follow it. Stairs are unchanged.",
+    ],
+  },
+  {
+    date: "2026-11-07",
     kind: "fixed",
     title: "Material rates show in Customer view on a lump sum",
     details: ["The quote page's Customer view now shows each flooring material's rate beside its quantity on a lump sum and on a preliminary, as the customer's link and PDF already did."],
