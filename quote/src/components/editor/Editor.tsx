@@ -6,7 +6,7 @@ import { addChoices, sectionLinesInOrder, stairGroupLabel, stairGroups, stairSec
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { AutosaveResult } from "@/lib/quotes/save";
-import { autosaveVersionAction, quickFormAction, quickOptionAction, saveAsNewVersionAction, saveVersionAction } from "@/app/q/[id]/edit/actions";
+import { autosaveVersionAction, quickFormAction, quickOptionAction, saveAsNewVersionAction, saveVersionAction, setDraftBasisAction } from "@/app/q/[id]/edit/actions";
 import { estimateWork, glueWait, initialWork, QuickWork, workInput, type WorkState } from "@/components/QuickWork";
 import type { QuickChoice, QuickProfile } from "@/lib/quick/plan";
 import { methodChoices, switchMethod } from "@/lib/editor/waterfall";
@@ -236,8 +236,12 @@ export default function Editor({
   // The rate card and the stair items, for the picker and for re-pricing (service level, contractor, material).
   const catalogue = useMemo(() => buildCatalogue(card.rates, card.stairs, card.materials), [card]);
   const pricing = catalogue;
+  /** What this version goes out as. A Draft can switch it in place before it is sent (Albert, 2026-11-07). */
+  const [basisNow, setBasisNow] = useState<string | null>(version.basis);
+  const [switchingBasis, startBasis] = useTransition();
+  const [basisNote, setBasisNote] = useState<string | null>(null);
   /** This version is measured (2026-11-06): its new flooring options start with the delivery fee. */
-  const measured = version.basis !== "Preliminary";
+  const measured = basisNow !== "Preliminary";
   /** The flooring Private note's switch (look D, 2026-11-07): which way it shows; a preliminary is always a lump sum. */
   const [privWay, setPrivWay] = useState<"breakdown" | "lump">(lastWay === "lump" ? "lump" : "breakdown");
   const privShown = measured && privWay === "breakdown";
@@ -398,6 +402,36 @@ export default function Editor({
         if (r.ok || !r.conflict) setAuto({ state: "idle" });
       } catch {
         setSaveError({ message: LOST, conflict: false });
+      }
+    });
+  };
+
+  /**
+   * Preliminary <-> Measured on a Draft (Albert, 2026-11-07). The Basis is written straight away; going Measured
+   * also gives each flooring option its Delivery line as an ordinary change, which autosave keeps (and which can
+   * be removed like any line). Going back to Preliminary takes nothing off.
+   */
+  const switchBasis = (to: (typeof BASES)[number]) => {
+    if (to === basisNow || switchingBasis) return;
+    setBasisNote(null);
+    startBasis(async () => {
+      try {
+        const r = await setDraftBasisAction(version.id, to);
+        if (!r.ok) {
+          setBasisNote(r.message);
+          return;
+        }
+        setBasisNow(r.basis);
+        if (r.basis === "Measured") {
+          const next = withFees(quote, catalogue, true, quote.options.filter((o) => optionScope(o) === "Flooring").map((o) => o.id));
+          const added = next !== quote && apply(next);
+          setBasisNote(added ? "Now measured: each flooring option got its Delivery line. The customer can get a breakdown, and the quote has a good-until date." : "Now measured: the customer can get a breakdown, and the quote has a good-until date.");
+        } else {
+          setBasisNote("Now a preliminary: it goes out as one price (or a range), with no good-until date. Delivery lines already on the options stay; remove any you don't want.");
+        }
+        router.refresh();
+      } catch {
+        setBasisNote("Lost the connection, so the switch may not have gone through. Open the quote to check which it is.");
       }
     });
   };
@@ -689,9 +723,24 @@ export default function Editor({
       <div className="pagehead ed-head">
         <div className="titles">
           <Link href={backHref} className="crumb">
-            ← {[version.label ?? (version.version !== null ? `v${version.version}` : null), version.basis].filter(Boolean).join(" · ") || "Back"}
+            ← {[version.label ?? (version.version !== null ? `v${version.version}` : null), basisNow].filter(Boolean).join(" · ") || "Back"}
           </Link>
           <h1>{quote.quoteRecordId ? quote.customerName || "No customer" : "New quote"}</h1>
+          {/* Pick it before it goes out (Albert, 2026-11-07): a Draft switches in place; a sent version picks the next draft's beside Save. */}
+          {isDraft && !version.change && (
+            <div className="ed-basis">
+              <span className="k" id="ed-basis-k">Goes out as</span>
+              <span className="ed-basis-seg" role="group" aria-labelledby="ed-basis-k">
+                {BASES.map((b) => (
+                  <button key={b} type="button" className={(b === "Preliminary") !== measured ? "on" : ""} aria-pressed={(b === "Preliminary") !== measured} disabled={switchingBasis} onClick={() => switchBasis(b)}>
+                    {b}
+                  </button>
+                ))}
+              </span>
+              {switchingBasis && <span className="sub">Switching…</span>}
+              {basisNote && !switchingBasis && <span className="sub" role="status">{basisNote}</span>}
+            </div>
+          )}
           {!isDraft && (
             <p className="ed-hint">
               {version.agreed || version.change

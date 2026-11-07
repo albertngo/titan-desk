@@ -12,7 +12,7 @@ import type { Quote, QuoteOption } from "./types";
 import { AUTOSAVE_WORDS, authorFields, autosaveWritesLine, describePlan, type Person } from "./history";
 import { loadContract } from "./contract";
 import { getQuote } from "./load";
-import { alreadySaved, changeSlot, workingDraft, cleanEditorQuote, fingerprint, isRecordId, newVersionRefusal, planIsEmpty, planSave, type SavePlan } from "./savePlan";
+import { alreadySaved, basisRefusal, changeSlot, workingDraft, cleanEditorQuote, fingerprint, isRecordId, newVersionRefusal, planIsEmpty, planSave, type SavePlan } from "./savePlan";
 import { ids, num, str } from "./values";
 
 /**
@@ -42,6 +42,7 @@ function scheduleTrouble(q: EditorQuote): string | null {
   return bad.length ? `Nothing was saved: ${bad.join(" ")}` : null;
 }
 export type Basis = (typeof BASES)[number];
+export type BasisResult = { ok: true; basis: Basis } | { ok: false; message: string };
 
 /** Overwrite a Draft version with what the editor holds. Refused if Airtable changed since the editor opened it. */
 export async function saveVersion(versionId: string, raw: unknown, base: string): Promise<SaveResult> {
@@ -94,6 +95,26 @@ async function saveDraft(person: Person, versionId: string, raw: unknown, base: 
   if (auto && !autosaveWritesLine(current, person, now)) delete author[VERSION.editLog];
   plan.version = { ...plan.version, ...author };
   return carryOut(versionId, plan);
+}
+
+/**
+ * Switch a Draft between Preliminary and Measured before it goes out (Albert, 2026-11-07). Writes the version's
+ * Basis and an Edit Log line, nothing else: the delivery fee a measured version's flooring options start with is
+ * added by the editor as an ordinary unsaved change, so it saves (and can be removed) like any other line.
+ */
+export async function setDraftBasis(versionId: string, basis: string): Promise<BasisResult> {
+  const person = await requireQuoterPerson();
+  if (!isRecordId(versionId)) return { ok: false, message: "That isn't a quote version." };
+  const current = await getQuote(versionId);
+  if (!current) return { ok: false, message: "This version isn't in Airtable any more." };
+  const refused = basisRefusal({ status: current.status, changeNo: current.changeNo ?? null }, basis);
+  if (refused) return { ok: false, message: refused };
+  if (current.basis === basis) return { ok: true, basis: basis as Basis };
+  await updateRecord(T.versions, versionId, {
+    [VERSION.basis]: basis,
+    ...authorFields(person, new Date(), `switched to ${basis.toLowerCase()} (was ${(current.basis ?? "not set").toLowerCase()})`, current.editLog),
+  });
+  return { ok: true, basis: basis as Basis };
 }
 
 /** Save what the editor holds as the next version of the same quote, leaving the version it came from as it was. */

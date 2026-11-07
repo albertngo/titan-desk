@@ -132,6 +132,13 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   quote made Measured gets its options as usual plus each flooring option's Delivery line (`withDelivery()` in
   `start.ts`, the `feeFor()` rule). After a sent version, the editor's existing **The next draft is** pick starts on
   Measured and can still be Preliminary, so several preliminaries can go out in a row.
+  **A Draft switches in place too (Albert, 2026-11-07: "yes build it", after asking for "a spot where I can select if
+  this quote is going to go out as a preliminary or a measured" on the edit screen).** Under the customer's name an
+  unsent ordinary Draft shows **Goes out as** Preliminary | Measured; a tap writes the version's Basis and an Edit Log
+  line straight away (`setDraftBasis()` in `save.ts`, refused by `basisRefusal()` in `savePlan.ts` on anything but a
+  Draft that isn't a change). Going Measured gives each flooring option its Delivery line as an ordinary editor change
+  (`withFees()`), which autosave keeps and staff can remove; going Preliminary takes nothing off and says so. Basis is
+  not in the save fingerprint, so the switch never makes an open editor conflict. Tested in `tests/save.test.ts`.
 - **Where they found us (Albert, 2026-10-27).** A preliminary's customer step asks **Where did they
   find us?** from a fixed list (`ORIGINS` in `src/lib/link/origin.ts`). The pick is the most
   trusted answer: it goes into the GHL contact's **Quote Origin** custom field (`CONTACT_ORIGIN_FIELD`),
