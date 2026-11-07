@@ -293,7 +293,7 @@ table.cmp td:first-child { text-align: left; color: var(--fg-dim); }
 .ql { list-style: none; margin: 0; padding: 0; }
 .ql-q { border-bottom: 1px solid var(--line); }
 .ql-q:last-child { border-bottom: 0; }
-.ql-card { --ql-cols: 28px 32px minmax(0, 1.6fr) minmax(84px, .5fr) minmax(0, .9fr) minmax(120px, .7fr) minmax(0, 1fr) 84px; }
+.ql-card { --ql-cols: 28px 32px minmax(0, 1.6fr) minmax(84px, .5fr) minmax(0, .9fr) minmax(92px, .55fr) minmax(120px, .7fr) minmax(0, 1fr) 84px; }
 /* Column headings: same grid as the rows, held under the page top while the list scrolls. */
 .ql-head { position: sticky; top: 0; z-index: 2; display: grid; grid-template-columns: var(--ql-cols); gap: 12px; padding: 8px 16px 8px 8px; background: var(--head); border-bottom: 1px solid var(--line); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--fg-dim); white-space: nowrap; }
 .ql-head > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
@@ -357,12 +357,35 @@ table.cmp td:first-child { text-align: left; color: var(--fg-dim); }
 .ql-v:hover { background: var(--accent-soft); }
 .ql-v .nm { font-family: var(--mono); font-size: 12.5px; font-weight: 600; }
 .ql-cur { font-size: 11px; font-weight: 600; color: var(--accent); }
+/* Value column (2026-11-07): the customer's total with HST, right-aligned figures. */
+.ql-head .c-val { text-align: right; }
+.ql-head .c-val .ql-sort { flex-direction: row-reverse; }
+.ql-val { display: grid; gap: 2px; min-width: 0; text-align: right; }
+.ql-val .amt { font-size: 13px; font-weight: 600; color: var(--fg); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ql-val.won .amt { color: var(--good); }
+.ql-val.none { color: var(--fg-faint); }
+/* The strip above All quotes (2026-11-07): four numbers; the ones with a filter behind them are buttons. */
+.qp { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+.qp-t { font: inherit; text-align: left; display: grid; gap: 2px; align-content: start; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--fg); }
+button.qp-t { cursor: pointer; transition: border-color .12s, background .12s; }
+button.qp-t:hover { border-color: var(--line-strong); background: var(--card-2); }
+button.qp-t[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+button.qp-t:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.qp-t .k { font-size: 12px; font-weight: 500; color: var(--fg-dim); }
+.qp-t .big { font-size: 22px; font-weight: 650; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.qp-t .sub { font-size: 12px; color: var(--fg-faint); }
+.qp-t.warn .big { color: var(--warn); }
+.qp-t.bad .big { color: var(--bad); }
+.qp-t.good .big { color: var(--good); }
+@media (max-width: 860px) { .qp { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .ql-empty { display: grid; gap: 10px; justify-items: start; padding: 28px 16px; }
 .ql-empty .t { font-weight: 600; }
 .ql-empty .s { color: var(--fg-dim); font-size: 13px; }
 @media (max-width: 860px) {
   .ql-row { grid-template-columns: 28px 32px minmax(0, 1fr) auto; row-gap: 6px; }
-  .ql-latest, .ql-flags, .ql-seen { grid-column: 3 / -1; }
+  .ql-latest, .ql-flags, .ql-seen, .ql-val { grid-column: 3 / -1; }
+  .ql-val { display: flex; align-items: baseline; gap: 8px; text-align: left; }
+  .ql-val.none { display: none; }
   .ql-flags:empty, .ql-seen:empty { display: none; }
   .ql-seen { display: flex; align-items: baseline; gap: 8px; }
   .ql-seen .k { position: static; width: auto; height: auto; clip: auto; font-weight: 500; color: var(--fg-dim); }
@@ -1746,7 +1769,7 @@ table.cmp th { font-size: 12.5px; font-weight: 500; color: var(--fg-dim); text-t
   /* All quotes: no initials badge, so the name gets the room; bigger rows, filters and version links. */
   .ql-av { display: none; }
   .ql-row { grid-template-columns: 40px minmax(0, 1fr) auto; padding: 12px 14px 12px 4px; font-size: 14px; }
-  .ql-latest, .ql-flags, .ql-seen { grid-column: 2 / -1; }
+  .ql-latest, .ql-flags, .ql-seen, .ql-val { grid-column: 2 / -1; }
   .ql-who .cust { font-size: 16px; }
   .ql-who .ql-desc, .ql-row .mt, .ql-num > span:first-child { font-size: 13.5px; }
   .ql-tog { width: 40px; height: 40px; margin-left: 0; }
