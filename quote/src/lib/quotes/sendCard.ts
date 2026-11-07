@@ -1,11 +1,12 @@
 import "server-only";
 import type { ComponentProps } from "react";
 import type { SendQuote } from "@/components/SendQuote";
-import { optionHst, optionTotals } from "@/lib/calc";
+import { DEFAULT_PRIVATE_LABEL, optionHst, optionTotals, privateRollup } from "@/lib/calc";
+import { optionScope } from "@/lib/quotes/scope";
 import { fromQuote } from "@/lib/editor/model";
 import { money } from "@/lib/format";
 import { fingerprint } from "@/lib/quotes/savePlan";
-import { previewCopy, sendAsForCard, sendingReady, sendsFrom, sentLink, textsFrom } from "@/lib/quotes/send";
+import { lastSentWayFor, previewCopy, sendAsForCard, sendingReady, sendsFrom, sentLink, textsFrom } from "@/lib/quotes/send";
 import type { Quote } from "@/lib/quotes/types";
 import { addDays, leadPrice, offersPdf, priceRange, rangeText, torontoToday, VALID_DAYS } from "@/lib/send/copy";
 import { optionProblem, sendProblems } from "@/lib/send/plan";
@@ -21,7 +22,8 @@ export async function sendCardData(quote: Quote, customer: boolean) {
   const base = fingerprint(fromQuote(quote));
   const defaultUntil = quote.validUntil && quote.validUntil >= today ? quote.validUntil : addDays(today, VALID_DAYS);
   const draft = quote.status === "Draft";
-  const [ready, link, from, textFromNumber, sendAs] = await Promise.all([sendingReady(), sentLink(quote.customerToken), sendsFrom(), textsFrom(), sendAsForCard(quote)]);
+  // The way the last version went (Albert, 2026-11-06): the card says it and starts on it, for a draft only.
+  const [ready, link, from, textFromNumber, sendAs, lastSent] = await Promise.all([sendingReady(), sentLink(quote.customerToken), sendsFrom(), textsFrom(), sendAsForCard(quote), draft ? lastSentWayFor(quote.link?.quoteRecordId ?? null) : Promise.resolve(null)]);
   const problems = draft
     ? sendProblems(quote, { base, validUntil: defaultUntil, channels: { email: !!quote.link?.email, sms: !!quote.link?.phone } }, { today, fingerprint: base, skipOptions: true })
     : [];
@@ -32,7 +34,11 @@ export async function sendCardData(quote: Quote, customer: boolean) {
     const lead = leadPrice({ showHst: optionHst(quote, o) }, optionTotals(o.lines, quote.discountRate, optionHst(quote, o)));
     const r = priceRange(lead.amount);
     const range = preliminary && lead.amount > 0 ? `${rangeText(r.low, r.high)} ${lead.tag}` : null;
-    return { id: o.id, name: o.name, price: `${money(lead.amount)} ${lead.tag}`, range, recommended: o.recommended, notOffered: o.notOffered === true, problem: optionProblem(quote, o) };
+    // A flooring option's Private section (2026-11-07): the one line a breakdown shows; a stairs option's never shows.
+    const stairs = optionScope(o) === "Stairs";
+    const privAmount = privateRollup(o.lines);
+    const priv = privAmount > 0 ? { label: o.privateLabel?.trim() || DEFAULT_PRIVATE_LABEL, amount: money(privAmount), stairs } : null;
+    return { id: o.id, name: o.name, price: `${money(lead.amount)} ${lead.tag}`, range, recommended: o.recommended, notOffered: o.notOffered === true, problem: optionProblem(quote, o), priv };
   });
   // Send again (2026-10-30) says whether their page already offers the PDF: read from the frozen copy, only for a version out with the customer.
   const sentPdf = !customer && quote.status === "Sent" ? offersPdf((await previewCopy(quote.id)) ?? { pdf: false }) : false;
@@ -58,6 +64,7 @@ export async function sendCardData(quote: Quote, customer: boolean) {
         textFrom: textFromNumber,
         sendAs,
         options: sendOptions,
+        lastSent,
       };
   return { props, link, sendAs, base };
 }

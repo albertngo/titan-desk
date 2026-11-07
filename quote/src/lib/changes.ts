@@ -21,6 +21,46 @@ export type Change = {
 
 export const CHANGES: Change[] = [
   {
+    date: "2026-11-07",
+    kind: "changed",
+    title: "Private says what each way of sending shows",
+    details: [
+      "In the editor, a flooring option's Private section has a Breakdown / Lump sum switch, starting on the way the last version went: Breakdown shows the one line the customer sees (Additional work $350); Lump sum says it is not shown, its amount inside the one price. On a preliminary, Breakdown can't be picked. Its lines are never listed and never show quantities.",
+      "A stairs option's Private section says outright it is never shown to the customer: not on a breakdown, a lump sum, the PDF or the email.",
+      "The Send card says the same under Pricing shown, as Flooring Private, for the choice you have picked and the options you are sending, and adds that stairs Private never shows when a stairs option is going.",
+    ],
+  },
+  {
+    date: "2026-11-06",
+    kind: "new",
+    title: "Delivery and the stair base fee are added for you",
+    details: [
+      "Every flooring option on a measured quote starts with a $200 Delivery line, which the customer sees. Remove it if the job has none. A preliminary has no delivery; saving a preliminary as the measured next draft adds it to each flooring option.",
+      "Every stairs option starts with a $200 stair base fee in its Private section, even before any stairs are added. The customer never sees it: it is inside the stairs price.",
+    ],
+  },
+  {
+    date: "2026-11-06",
+    kind: "changed",
+    title: "Private is back on stairs options, and every Private section says what the customer sees",
+    details: [
+      "A stairs option has a Private section again, for staff only: a red note says it is never shown to the customer and its amount is inside the stairs price.",
+      "On a flooring option, a purple note under Private shows the one line the customer sees (Additional work, or the name you give it) and its total; the lines below it are never listed.",
+    ],
+  },
+  {
+    date: "2026-11-06",
+    kind: "changed",
+    title: "Send starts the way the last version went",
+    details: ["The Send card now says how the last version went out (a lump sum or a breakdown; for a preliminary, a range or an exact price) and starts on the same choice. Change it if this one should go differently."],
+  },
+  {
+    date: "2026-11-06",
+    kind: "changed",
+    title: "No option is marked Recommended for you",
+    details: ["Options from the quick form and the site sheets start unticked. Tick Recommended in the editor if you want one."],
+  },
+  {
     date: "2026-11-06",
     kind: "new",
     title: "Material square feet are checked against the install",

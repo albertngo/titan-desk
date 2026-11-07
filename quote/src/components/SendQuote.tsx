@@ -7,6 +7,7 @@ import { resendQuoteAction, sendQuoteAction } from "@/app/q/[id]/actions";
 import { activityEntries, devicesSeen, whenWords } from "@/lib/activity/track";
 import { draftKey, unsavedDraftAt } from "@/lib/editor/model";
 import type { QuoteActivity } from "@/lib/quotes/types";
+import { lastSentWords, type LastSentWay } from "@/lib/send/sendAs";
 
 /**
  * Unsaved changes for this version on this device (Albert, 2026-11-05): the editor keeps them under
@@ -254,6 +255,7 @@ export function SendQuote({
   textFrom: ownTextFrom = null,
   sendAs = null,
   options,
+  lastSent = null,
 }: {
   versionId: string;
   label: string;
@@ -279,7 +281,9 @@ export function SendQuote({
   /** Albert only (2026-11-04): who he may send as, each with the address and number it would go from; null for everyone else. */
   sendAs?: SendAsList | null;
   /** The version's options, for choosing which go to the customer (2026-10-24); `range` is what a preliminary shows instead of `price` (2026-10-27). */
-  options: { id: string; name: string; price: string; range: string | null; recommended: boolean; notOffered?: boolean; problem: string | null }[];
+  options: { id: string; name: string; price: string; range: string | null; recommended: boolean; notOffered?: boolean; problem: string | null; priv?: { label: string; amount: string; stairs: boolean } | null }[];
+  /** How the newest sent version went (Albert, 2026-11-06): the card says so and starts on the same way. */
+  lastSent?: LastSentWay | null;
 }) {
   const router = useRouter();
   /** Unsaved changes for this version on this device (2026-11-05): nothing sends while there are. */
@@ -297,10 +301,10 @@ export function SendQuote({
   const [byEmail, setByEmail] = useState(!!email);
   const [bySms, setBySms] = useState(!!phone);
   /** What the customer gets: the lump sum, always the default, or the breakdown (Albert, 2026-10-22). A preliminary is always a lump sum (2026-10-27). */
-  const [breakdown, setBreakdown] = useState(false);
+  const [breakdown, setBreakdown] = useState(!preliminary && lastSent?.way === "itemised");
   const itemised = !preliminary && breakdown;
   /** A preliminary's price: the range, always the default, or the exact price (Albert, 2026-10-27). */
-  const [range, setRange] = useState(true);
+  const [range, setRange] = useState(!(preliminary && lastSent?.way === "exact"));
   const exact = preliminary && !range;
   /** The quote page offers the PDF (Albert, 2026-10-27): off by default. Never attached to the email. */
   const [pdf, setPdf] = useState(false);
@@ -312,6 +316,31 @@ export function SendQuote({
   // Every offered option ticked = no list sent: the server sends every option still offered, as the previews do.
   const everyOption = chosen.length === offerable.length;
   const optionIds = everyOption ? null : chosen;
+  /** The chosen options' Private lines (2026-11-07): flooring only, the line a breakdown shows; never on a lump sum. */
+  // Named for flooring (2026-11-07: "Should I be explicit in saying the flooring options. Since stairs never show anything").
+  const privs = options.filter((o) => chosen.includes(o.id) && o.priv && !o.priv.stairs);
+  const stairsPriv = options.some((o) => chosen.includes(o.id) && o.priv?.stairs);
+  const stairsWords = stairsPriv ? " Stairs Private never shows." : "";
+  const privNote = (shown: boolean) =>
+    privs.length === 0 ? null : (
+      <span className={`sub priv-send ${shown ? "show" : "never"}`} role="note">
+        {shown ? (
+          <>
+            Flooring Private: shown as one line, its total only, no quantities or line prices:{" "}
+            {privs.map((o, i) => (
+              <span key={o.id}>
+                {i > 0 && "; "}
+                {privs.length > 1 && `${o.name}: `}
+                <b>{o.priv!.label} {o.priv!.amount}</b>
+              </span>
+            ))}
+            .{stairsWords}
+          </>
+        ) : (
+          <>Flooring Private: not shown. {privs.length === 1 ? `Its ${privs[0].priv!.amount} is` : "Each option's Private total is"} inside the one price.{stairsWords}</>
+        )}
+      </span>
+    );
   const optionProblems = options.filter((o) => chosen.includes(o.id) && o.problem).map((o) => o.problem!);
   const allProblems = [
     ...problems,
@@ -460,6 +489,8 @@ export function SendQuote({
             <option value="breakdown">Send breakdown</option>
           </select>
           <span className="sub">{breakdown ? "Every flooring line with its unit price and amount, section totals and the discount. Stairs stay one price." : "What the work includes and one price; no line prices."}</span>
+          {privNote(breakdown)}
+          {lastSent && <span className="sub">{lastSentWords(lastSent)}</span>}
         </label>
         )}
 
@@ -478,6 +509,8 @@ export function SendQuote({
                   ? <>3% under the price to 10% over it (at most $3,000 over), rounded out{options.length === 1 && options[0].range ? <>: <b>{options[0].range}</b></> : ", per option above"}. Always a lump sum.</>
                   : <>The one price, as a rough total{options.length === 1 ? <>: <b>{options[0].price}</b></> : ""}. Always a lump sum.</>}
               </span>
+              {privNote(false)}
+              {lastSent && <span className="sub">{lastSentWords(lastSent)}</span>}
             </label>
           </>
         ) : change ? (

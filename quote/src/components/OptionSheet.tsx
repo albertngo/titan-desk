@@ -172,18 +172,18 @@ export function OptionSheet({
   /** The version is a lump sum: in Customer view, no unit prices, line or section amounts (2026-10-22). */
   lumpSum?: boolean;
 }) {
-  // A stairs option has one section, Stairs (Albert, 2026-11-06: "simply eliminate the PRIVATE logic in stairs
-  // altogether"): lines saved in Private or Other show under its Other heading, as stair lines. Display only.
+  // A stairs option (Albert, 2026-11-06): lines saved in Other show under its Other heading, as stair lines; its Private
+  // section (back the same day) is staff only, never shown to the customer, not even as a roll-up row.
   const stairsOpt = optionScope(given) === "Stairs";
   const option = stairsOpt ? { ...given, lines: stairsOptionLines(given.lines) } : given;
   const lump = customer && lumpSum === true;
-  const order = sectionOrder(option.lines, customer, lump);
+  const order = sectionOrder(option.lines, customer, lump || stairsOpt);
   const exclusions = option.lines.filter((l) => l.section === "Exclusions" && l.description);
   const nums = new Map<string, number>();
   let i = 0;
   for (const s of order) for (const l of sectionLinesInOrder(s, option.lines.filter((x) => sectionOf(x) === s))) if (isPriced(l) && l.include) nums.set(l.id, ++i);
   // Customer view: the Private section's total as one numbered row at the end of Other; not on a lump sum.
-  const hidden = customer && !lump ? privateRollup(option.lines) : 0;
+  const hidden = customer && !lump && !stairsOpt ? privateRollup(option.lines) : 0;
 
   return (
     <>
@@ -225,7 +225,7 @@ export function OptionSheet({
                     <tr className={s === PRIVATE_SECTION ? "sect priv" : "sect"} key={`s-${s}`}>
                       <td colSpan={lump ? 3 : customer ? 4 : 7}>
                         {s === PRIVATE_SECTION ? <span className="priv-tag">Private</span> : s}
-                        {s === PRIVATE_SECTION && <span className="sub"> · not itemised for the customer: one row, “{option.privateLabel ?? DEFAULT_PRIVATE_LABEL}”</span>}
+                        {s === PRIVATE_SECTION && <span className="sub">{stairsOpt ? " · never shown to the customer: inside the stairs price" : <> · not itemised for the customer: one row, “{option.privateLabel ?? DEFAULT_PRIVATE_LABEL}”</>}</span>}
                       </td>
                       <td className="r">{lump || (customer && (s === "Stairs" || stairsOpt)) ? "" : money(sum)}</td>
                     </tr>,

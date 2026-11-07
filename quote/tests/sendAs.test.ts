@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { lastSentOf, ONLY_THEMSELVES, resolveSender, sendAsChoices } from "../src/lib/send/sendAs";
+import { lastSentOf, lastSentWay, lastSentWords, ONLY_THEMSELVES, resolveSender, sendAsChoices } from "../src/lib/send/sendAs";
 
 /* Send as someone else (2026-11-04; opened to everyone 2026-11-05). Invented addresses except Albert's. */
 
@@ -43,5 +43,20 @@ describe("send as (2026-11-05)", () => {
     ).toEqual({ email: "pat@titanfloors.ca", version: 2, on: "2026-11-03" });
     // Same day: the higher version.
     expect(lastSentOf([{ version: 1, sentBy: "a@titanfloors.ca", sentAt: "2026-11-03", status: "Superseded" }, { version: 2, sentBy: "b@titanfloors.ca", sentAt: "2026-11-03", status: "Accepted" }])?.email).toBe("b@titanfloors.ca");
+  });
+});
+
+describe("the way the last version went (Albert, 2026-11-06)", () => {
+  const v = (version: number, sentAt: string | null, basis: string, copy: object | null, status = "Sent") => ({ version, sentAt, status, basis, copy: copy ? JSON.stringify(copy) : null });
+  it("reads lump sum or breakdown from the newest sent copy", () => {
+    expect(lastSentWay([v(1, "2026-10-01", "Measured", { pricing: "lump" }), v(2, "2026-10-05", "Measured", { pricing: "itemised" }), v(3, null, "Measured", null, "Draft")])).toEqual({ version: 2, way: "itemised" });
+    expect(lastSentWords({ version: 2, way: "itemised" })).toBe("Last version (v2) was sent as a breakdown.");
+  });
+  it("reads range or exact from a preliminary's options", () => {
+    expect(lastSentWay([v(1, "2026-10-01", "Preliminary", { pricing: "lump", options: [{ range: { low: 1, high: 2 } }] })])?.way).toBe("range");
+    expect(lastSentWay([v(1, "2026-10-01", "Preliminary", { pricing: "lump", options: [{}] })])?.way).toBe("exact");
+  });
+  it("is null when nothing has gone out", () => {
+    expect(lastSentWay([v(1, null, "Measured", null, "Draft")])).toBeNull();
   });
 });

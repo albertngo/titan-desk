@@ -58,3 +58,30 @@ export function lastSentOf(versions: { version: number | null; sentBy: string | 
     .sort((a, b) => (b.sentAt ?? "").localeCompare(a.sentAt ?? "") || (b.version ?? 0) - (a.version ?? 0))[0];
   return out ? { email: norm(out.sentBy), version: out.version, on: out.sentAt } : null;
 }
+
+/**
+ * How the newest version that went out was sent (Albert, 2026-11-06: "send card should also show and default to the
+ * 'breakdown' or 'lumpsum' selection of the previously sent version… or preliminary was sent as a range or exact
+ * price"), read from its frozen copy: a preliminary by whether its options carry a range, a measured quote by the
+ * copy's pricing (a copy frozen before `pricing` existed was itemised). Null when none went out or it can't be read.
+ */
+export type SentWay = "lump" | "itemised" | "range" | "exact";
+export type LastSentWay = { version: number | null; way: SentWay };
+export function lastSentWay(versions: { version: number | null; sentAt: string | null; status: string | null; basis: string | null; copy: string | null }[]): LastSentWay | null {
+  const out = versions
+    .filter((v) => v.sentAt && v.status !== "Draft" && v.copy)
+    .sort((a, b) => (b.sentAt ?? "").localeCompare(a.sentAt ?? "") || (b.version ?? 0) - (a.version ?? 0))[0];
+  if (!out) return null;
+  try {
+    const c = JSON.parse(out.copy!) as { pricing?: string; options?: { range?: unknown }[] };
+    if (out.basis === "Preliminary") return { version: out.version, way: (c.options ?? []).some((o) => o.range) ? "range" : "exact" };
+    return { version: out.version, way: c.pricing === "lump" ? "lump" : "itemised" };
+  } catch {
+    return null;
+  }
+}
+
+/** The card's words for it: "a range", "an exact price", "a lump sum", "a breakdown". */
+export const sentWayWords: Record<SentWay, string> = { range: "a range", exact: "an exact price", lump: "a lump sum", itemised: "a breakdown" };
+/** "Last version (v2) was sent as a breakdown." The Send card's line under its pricing choice. */
+export const lastSentWords = (l: LastSentWay) => `Last version${l.version !== null ? ` (v${l.version})` : ""} was sent as ${sentWayWords[l.way]}.`;

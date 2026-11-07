@@ -1244,6 +1244,38 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   total; no "Additional work" roll-up. Every section on a stairs option goes that way; add-ons keep their price. Display
   only: the line keeps its saved section, and a section never enters a total. Flooring options are unchanged. Tested
   in `tests/send.test.ts` and `tests/stairGroups.test.ts`.
+- **Private is back on stairs options, staff only (Albert, 2026-11-06, later the same day: "Should we bring back the
+  private section? Where for stairs only; explicitly says it will NEVER be shown to the customer").** This reverses the
+  Private half of the note above; Other still folds into Stairs (`STAIRS_FOLDED` is `["Other"]`). A stairs option's
+  Private lines are counted in its price and never reach the customer in any form: no lines, no "Additional work" row
+  (`copyOption()` and `OptionSheet` skip the roll-up for a stairs option). The editor always shows the section on a
+  stairs option, with `+ Add to private`, and `addChoices()` offers it. **Look B** (picked that day) says it plainly
+  under the Private header: flooring, a purple banner previewing the customer's one line ("Additional work $X", the
+  option's Private Line Name) and "The lines below are never listed"; stairs, a red one, "Never shown to the customer.
+  Its $X is inside the stairs price." (`.priv-ban` in `globals.css`.)
+  **2026-11-07 (Albert: "in Flooring: it will show at breakdown, but never lumpsum. How can we signify this clearly?"):**
+  **look D**: the flooring note is one line with a **Breakdown / Lump sum** switch, starting on the way the last version
+  went (`lastWay`, from `sendCardData`); Breakdown shows the line preview, Lump sum "not shown, inside the one price";
+  on a preliminary Breakdown is disabled. Then "never listed line by line, no quantities or line prices, either way".
+  The stairs note leads with a red **Never shown to the customer** tag: "not on a breakdown, not on a lump sum, not on
+  the PDF or the email". The Send card says it under Pricing shown as **Flooring Private** for the picked choice and
+  the chosen options, plus "Stairs Private never shows." when a chosen stairs option has any (`priv` on each
+  `sendCardData` option, `privateRollup()`).
+- **Two fees every option starts with (Albert, 2026-11-06), `src/lib/quotes/fees.ts`.** **Delivery**: Rate Card
+  `Delivery | Standard Delivery | TITAN` (`recqMUZswPhpbrHuX`, $200 flat, cost 0: "we deliver. all margin"), a
+  Delivery line the customer sees, on every flooring option of a **measured** version, never a preliminary.
+  **Stair base fee**: Rate Card `Other | Stair Base Fee | TITAN` (`recRVDLbju11MTF0c`, $200 flat, cost 0), in the
+  Private section of every stairs option, even an empty one ("It should just start at $200, even with NO line items
+  present"), preliminary or measured. `withFees()` adds them only when an option is made (+ Add option, + From quick
+  form, the site and floor sheets' Build, a new preliminary's quick-form options in `start.ts`, a scope changed to
+  Stairs) and when a preliminary is saved as the measured next draft (each flooring option gains delivery), never on
+  load, so a fee someone removed stays removed. Nothing is added twice, and nothing at all if the Rate Card row is
+  gone. Tested in `tests/fees.test.ts`.
+- **The Send card starts the way the last version went (Albert, 2026-11-06: "send card should also show and default
+  to the 'breakdown' or 'lumpsum' selection of the previously sent version").** `lastSentWay()` in
+  `src/lib/send/sendAs.ts` reads the newest sent version's frozen copy: `pricing` gives lump sum or breakdown, and a
+  preliminary's options having a `range` gives range or exact. A draft's card defaults to it and says "Last version
+  (v2) was sent as a breakdown." under Pricing shown (or Price shown). `lastSentWayFor()` in `send.ts`.
 
 ## Hard rules
 

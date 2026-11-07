@@ -5,6 +5,7 @@ import { useMemo, useState, useTransition } from "react";
 import { saveSiteSheetAction } from "@/app/q/[id]/actions";
 import { optionTotals } from "@/lib/calc";
 import { buildCatalogue, draftKey, type EditorQuote } from "@/lib/editor/model";
+import { newOptionIds, withFees } from "@/lib/quotes/fees";
 import { money } from "@/lib/format";
 import type { RateCard } from "@/lib/quotes/types";
 import { derive } from "@/lib/sitesheet/derive";
@@ -45,6 +46,7 @@ export function SiteSheetTab({
   initial,
   base,
   card,
+  measured = true,
   enabled,
   camLinked = false,
   floorRaw = "",
@@ -58,6 +60,8 @@ export function SiteSheetTab({
   initial: EditorQuote;
   base: string;
   card: RateCard;
+  /** The version is measured (2026-11-06): its new flooring options start with the delivery fee. */
+  measured?: boolean;
   enabled: boolean;
   /** The quote links a CompanyCam project (2026-11-03): sheets can be picked from its photos. */
   camLinked?: boolean;
@@ -121,9 +125,10 @@ export function SiteSheetTab({
     for (const o of built.options) {
       const id = `opt-ss-${o.kind}-${Date.now().toString(36)}`;
       // Stairs options (2026-10-28): quoted beside the flooring, one of each taken. Recommended only if no stairs option already is.
-      const stairsRec = q.options.some((x) => x.recommended && x.scope === "Stairs");
-      q = { ...q, options: [...q.options, { id, name: o.name, description: o.description, recommended: o.recommended && !stairsRec, serviceLevel: "Standard", crew: null, scope: "Stairs", lines: o.lines }] };
+      q = { ...q, options: [...q.options, { id, name: o.name, description: o.description, recommended: false /* never picked for you (Albert, 2026-11-06) */, serviceLevel: "Standard", crew: null, scope: "Stairs", lines: o.lines }] };
     }
+    // Each new option starts with its fee (2026-11-06): the stair base fee, in Private.
+    q = withFees(q, catalogue, measured, newOptionIds(start.quote, q));
     try {
       window.localStorage.setItem(key, JSON.stringify({ savedAt: new Date().toISOString(), quote: q, base: start.base ?? base }));
     } catch {
@@ -162,6 +167,8 @@ export function SiteSheetTab({
         base={base}
         versionId={versionId}
         camLinked={camLinked}
+        catalogue={catalogue}
+        measured={measured}
       />
 
       <section className="card">

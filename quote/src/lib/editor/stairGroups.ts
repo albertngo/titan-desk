@@ -91,5 +91,7 @@ export function addChoices(scope: "Flooring" | "Stairs", categories: (string | n
   return [
     ...groups.map((g) => ({ label: stairGroupLabel(g), section: "Stairs", category: g })),
     { label: "Typed line", section: "Stairs", typed: true as const },
+    // Private is back on stairs (2026-11-06): never shown to the customer, its total inside the stairs price.
+    ...(sections.includes("Private") ? [{ label: "Private", section: "Private" }] : []),
   ];
 }

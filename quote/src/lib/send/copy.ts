@@ -390,7 +390,8 @@ function copyOption(given: QuoteOption, discountRate: number, showHst: boolean, 
   }
   // The Private section as the customer sees it (2026-10-22): one row in Other, the option's name for it, the total, nothing else.
   // On a lump sum there is no row at all (Albert, 2026-10-22): the amount is already inside the one price.
-  const hidden = lumpSum ? 0 : privateRollup(o.lines);
+  // A stairs option's Private lines (2026-11-06) are never shown, not even as this row: they are inside the stairs price.
+  const hidden = lumpSum || stairsOption ? 0 : privateRollup(o.lines);
   if (hidden > 0) {
     let other = sections.find((s) => s.name === "Other");
     if (!other) {
