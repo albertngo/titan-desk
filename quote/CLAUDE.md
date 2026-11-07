@@ -510,6 +510,15 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   box with a firm border and a header band ("Flooring options", "Stairs options", or "Your options"), holding its
   option buttons and the chosen option's details, with a clear gap between groups. Readability inside `.cq`: 16px body, 15px
   lines, nothing under 13px, darker greys than the staff app, 44px tap targets. The PDF and email are unchanged.
+  **The customer page's look (Albert, 2026-11-07: "apply it to the customer page in the real app"),** from
+  the unslop skill (`.claude/skills/unslop`): a printed estimate on warm paper. Neutral warm surfaces; RiderBlue
+  only on the chosen option, Recommended and the actions; sentence case and weights 400/500 (no 700/800, no
+  uppercase tracked labels); a 4px grid; IBM Plex Sans with Plex Mono for quote and option numbers (`next/font`,
+  loaded in `CustomerQuote.tsx` only, so the staff app gets no web font). The subtotal is the one large figure,
+  under a tape-measure tick rule (`.cq-tape`), instead of a solid blue bar. The 2026-10-31 rules hold: each group
+  is still one framed section with a header band (a quieter frame, no blue stripe), nothing under 13px, greys
+  that pass AA on the card, 44px targets. All of it is the last block of `globals.css`, scoped to `.cq`, so it
+  reaches the customer link and the staff Preview and nothing else. The PDF and email are unchanged.
 - **A preliminary goes as a range (Albert, 2026-10-27).** Customers took a preliminary's one number as
   the price, so a measured quote that came in higher read as a change. Everything the customer gets
   (email, text, page, PDF) shows the price before HST as a range instead: **3% under to 10% over, the top
