@@ -2108,8 +2108,8 @@ table.items tr.priv-ban-row td { padding: 6px 12px 8px; background: #f4f5f7; }
   --accent: #1e6fff; --accent-fill: #1a5fe0; --accent-text: #1658d0; --accent-soft: #edf3ff;
   --cq-ease: cubic-bezier(.22, 1, .36, 1);
   --cq-w: 800px;
-  font-family: var(--sans); font-size: 16px; line-height: 24px; font-feature-settings: "tnum" 1;
-  background: var(--bg); color: var(--fg); -webkit-font-smoothing: antialiased;
+  font-family: var(--brand-sans); font-size: 16px; line-height: 24px; font-feature-settings: "tnum" 1;
+  background: var(--bg); color: var(--fg);
 }
 .cq a { color: var(--accent-text); }
 .cq .btn { min-height: 44px; padding: 0 16px; font-size: 15px; font-weight: 500; border-radius: 8px; border-color: var(--line-strong); background: var(--card); color: var(--fg); transition: background-color .15s var(--cq-ease), border-color .15s var(--cq-ease), transform .12s var(--cq-ease); }
@@ -2117,7 +2117,7 @@ table.items tr.priv-ban-row td { padding: 6px 12px 8px; background: #f4f5f7; }
 .cq .btn:active:not(:disabled) { transform: scale(.98); }
 .cq .btn.primary { background: var(--accent-fill); border-color: var(--accent-fill); color: #fff; }
 .cq .btn.primary:hover:not(:disabled) { background: #1652c4; border-color: #1652c4; color: #fff; }
-.cq .cq-kicker, .cq .cq-num, .cq .cq-tab .no, .cq .cq-li .n, .cq .cq-legal { font-family: var(--sans); font-variant-numeric: tabular-nums; font-weight: 400; letter-spacing: 0; text-transform: none; }
+.cq .cq-kicker, .cq .cq-num, .cq .cq-tab .no, .cq .cq-li .n, .cq .cq-legal { font-family: var(--brand-sans); font-variant-numeric: tabular-nums; font-weight: 400; letter-spacing: 0; text-transform: none; }
 
 /* the signature: a tape measure, a tick every 4px and a longer one every 16 */
 .cq .cq-tape { height: 8px; border-bottom: 1px solid var(--line-strong); background:
@@ -2261,6 +2261,7 @@ table.items tr.priv-ban-row td { padding: 6px 12px 8px; background: #f4f5f7; }
   --navy: #293895; --orange-fill: #b6532a; --sky-soft: #e9f1f6;
   /* Cysan's variable is set on .cq itself, so the display stack is worked out here, not on :root. */
   --display: var(--font-cysan), var(--font-ptserif), Georgia, serif;
+  --brand-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 .cq .cq-co { display: flex; align-items: center; }
 .cq .cq-logo { display: block; width: 168px; height: auto; }
@@ -2304,16 +2305,20 @@ table.items tr.priv-ban-row td { padding: 6px 12px 8px; background: #f4f5f7; }
   --bg: #f6f6f7; --card: #fff; --card-2: #f4f4f5; --head: #f4f4f5;
   --fg: #1b1d2a; --fg-dim: #4d5163; --fg-faint: #6c7084;
   --line: rgba(24, 24, 27, .08); --line-strong: rgba(24, 24, 27, .14);
-  --accent: #293895; --accent-soft: #eef0f9; --accent-ink: #fff;
+  /* RiderBlue stays the staff accent (Albert, 2026-11-07: "I also like the rider blue… instead of navy"); navy is the
+     wordmark's and the customer page's. */
+  --accent: #1e6fff; --accent-soft: #e8f0ff; --accent-ink: #fff;
   --good: #15803d; --warn: #a15c00; --bad: #b42318; --warn-soft: #fdf3e1; --bad-soft: #fdecea;
   --radius: 10px; --shadow: 0 1px 2px rgba(0, 0, 0, .04);
-  --sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* Staff read this on Windows PCs at the store, Albert on Macs (2026-11-07): each machine's own interface font
+     is the crispest at 13-14px, so staff screens use it. Inter stays on the customer page (.cq). */
+  --sans: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, ui-sans-serif, Roboto, sans-serif;
   --serif: var(--font-ptserif), Georgia, serif;
   --display: var(--font-cysan), var(--font-ptserif), Georgia, serif;
   --navy: #293895; --navy-ink: #1f2a73;
   --ease: cubic-bezier(.22, 1, .36, 1);
 }
-body { line-height: 20px; -webkit-font-smoothing: antialiased; }
+body { line-height: 20px; }
 
 /* the tape-measure rule: a tick every 4px and a longer one every 16 */
 .tape { height: 8px; margin: 0 0 16px; border-bottom: 1px solid rgba(41, 56, 149, .22); background:
@@ -2341,8 +2346,8 @@ body { line-height: 20px; -webkit-font-smoothing: antialiased; }
 .btn { font-size: 13px; font-weight: 500; min-height: 36px; padding: 0 16px; gap: 8px; border-radius: 8px; border-color: var(--line-strong); transition: background-color .15s var(--ease), border-color .15s var(--ease), color .15s var(--ease), transform .12s var(--ease); }
 .btn:hover { border-color: var(--line-strong); background: var(--card-2); color: var(--fg); }
 .btn:active:not(:disabled) { transform: scale(.98); }
-.btn.primary { background: var(--navy); border-color: var(--navy); color: #fff; }
-.btn.primary:hover:not(:disabled) { background: var(--navy-ink); border-color: var(--navy-ink); color: #fff; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.primary:hover:not(:disabled) { background: #1a62e6; border-color: #1a62e6; color: #fff; }
 .btn.small { min-height: 28px; padding: 0 12px; }
 .status { font-size: 13px; font-weight: 500; padding: 0; border-radius: 0; background: none !important; color: var(--fg-dim) !important; display: inline-flex; align-items: center; gap: 8px; }
 .status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--fg-faint); }
@@ -2358,17 +2363,17 @@ body { line-height: 20px; -webkit-font-smoothing: antialiased; }
 .chip.accent::before { background: var(--accent); }
 a.chip, a.chip.good, a.chip.accent, a.chip.warn { color: var(--accent); background: none; padding: 0; }
 a.chip::before { display: none; }
-.chip.warn, .chip.bad, .ql-flags .chip.accent { padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 500; }
+.chip.warn, .chip.bad, .ql-flags .chip.accent { padding: 2px 8px; border-radius: 6px; font-size: 13px; font-weight: 500; }
 .chip.warn { background: var(--warn-soft); color: #8a5300; }
 .chip.bad { background: var(--bad-soft); color: var(--bad); }
-.ql-flags .chip.accent { background: var(--accent-soft); color: var(--navy); }
+.ql-flags .chip.accent { background: var(--accent-soft); color: #1559d6; }
 .chip.warn::before, .chip.bad::before, .ql-flags .chip.accent::before { display: none; }
 .chips { gap: 4px 16px; }
 .chips .lbl { font-size: 13px; min-width: 48px; }
 
 /* cards, fields, banners, tabs */
 .card { border-radius: 12px; border-color: var(--line); box-shadow: var(--shadow); }
-.card-h { font-size: 14px; font-weight: 500; }
+.card-h { font-size: 14px; font-weight: 600; }
 .field { font-size: 13px; padding: 8px 0; }
 .banner { font-size: 13px; padding: 8px 16px; }
 .banner.ok { background: none; color: var(--fg-dim); display: flex; align-items: center; gap: 8px; }
@@ -2377,21 +2382,14 @@ a.chip::before { display: none; }
 .tab { border-color: var(--line-strong); }
 .tab[aria-current="page"] { background: var(--card); border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
 .tab-scope { font-size: 13px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--fg-dim); }
-table.items th { font-size: 12px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--fg-faint); }
-table.items tr.sect td { font-weight: 500; }
+table.items th { font-size: 13px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--fg-faint); }
+table.items tr.sect td { font-weight: 600; }
 table.items tr.subsect td { box-shadow: none !important; border-left: 0 !important; font-size: 13px; font-weight: 500; color: var(--fg-dim); }
 .flag { font-weight: 500; letter-spacing: 0; border-radius: 4px; }
 
-/* the sidebar's money: plain figures; a margin under the minimum in amber */
-.fin { padding: 12px 16px; gap: 16px; }
-.fin .txt { border-left: 0; padding-left: 0; }
-.fin .k { font-size: 13px; font-weight: 500; color: var(--fg-dim); }
-.fin .s { font-size: 12px; }
-.fin .v, .fin.good .v { font-size: 20px; line-height: 28px; font-weight: 500; color: var(--fg); margin-top: 4px; }
-.fin.warn .v { font-size: 20px; line-height: 28px; font-weight: 500; color: var(--warn); }
-.fin.warn .k::after { content: " · under 20%"; font-weight: 400; color: var(--warn); }
-.fin svg.ring circle { display: none; }
-.fin svg.ring text { font-family: var(--sans); font-size: 13px; font-weight: 500; fill: var(--fg-dim); }
+/* the sidebar's money keeps its rings, coloured figures and bars (Albert, 2026-11-07: "keep the circle financials…
+   the colors on the numbers… the logic to color the gross profit as before"); only its two small labels grow to 13px. */
+.fin .k, .fin .s { font-size: 13px; }
 
 /* All quotes: the strip and the list */
 .qp { grid-template-columns: 2fr 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }
@@ -2408,22 +2406,40 @@ table.items tr.subsect td { box-shadow: none !important; border-left: 0 !importa
 .ql-search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .ql-f { font-size: 13px; border-radius: 8px; }
 .ql-f[aria-pressed="true"] { background: var(--card-2); border-color: var(--line-strong); color: var(--fg); }
-.ql-f .n { font-size: 12px; padding: 0; min-width: 0; background: none; color: var(--fg-faint); }
+.ql-f .n { font-size: 13px; padding: 0; min-width: 0; background: none; color: var(--fg-faint); }
 .ql-f[aria-pressed="true"] .n { background: none; color: var(--fg-dim); }
-.ql-head { font-size: 12px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--fg-faint); background: var(--card-2); }
+.ql-head { font-size: 13px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--fg-faint); background: var(--card-2); }
 .ql-sort.on { color: var(--fg); }
 .ql-row:hover .cust { color: var(--fg); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--line-strong); }
 .ql-tog:hover { background: var(--card-2); color: var(--fg); }
 .ql-av { border-radius: 8px; background: var(--card-2); color: var(--fg-dim); font-size: 12px; font-weight: 500; letter-spacing: 0; box-shadow: inset 0 0 0 1px var(--line); }
-.ql-who .cust { font-weight: 500; }
+.ql-who .cust { font-weight: 600; }
 .ql-num > span:first-child { font-family: var(--sans); font-weight: 500; font-variant-numeric: tabular-nums; }
 .ql-sb { font-size: 13px; font-weight: 400; color: var(--fg); }
 .ql-sb i { width: 6px; height: 6px; }
 .ql-sb.Draft i { background: var(--fg-faint); }
-.ql-val .amt { font-weight: 500; }
+.ql-val .amt { font-weight: 600; }
 .ql-val.won .amt { color: var(--fg); }
 .ql-val.won .mt { color: var(--good); }
 .ql-seen .at { font-size: 13px; font-weight: 400; color: var(--fg); }
 .ql-v:hover { background: var(--card-2); }
-.ql-cur { font-size: 12px; font-weight: 500; }
+.ql-cur { font-size: 13px; font-weight: 600; }
 .ql-open { font-size: 13px; font-weight: 400; color: var(--fg-dim); }
+
+/* Company files in the top bar (2026-11-07): the newest site sheets, one download each. */
+.files-pop { min-width: 340px; }
+.files-pop .em { font-size: 13px; font-weight: 500; color: var(--fg); }
+.files-pop .em span { font-size: 13px; font-weight: 400; color: var(--fg-faint); }
+.file-item { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 8px; color: var(--fg); text-decoration: none; }
+.file-item svg { color: var(--fg-faint); }
+.file-item .fi-t { display: grid; gap: 2px; min-width: 0; }
+.file-item .fi-t b { font-size: 13px; font-weight: 500; }
+.file-item .fi-t span { font-size: 13px; color: var(--fg-faint); }
+.file-item .fi-v { font-size: 13px; font-weight: 500; color: var(--fg-dim); font-variant-numeric: tabular-nums; padding: 2px 6px; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--line-strong); }
+.file-item:hover svg, .file-item:focus-visible svg { color: var(--accent); }
+@media print { .files { display: none; } }
+
+/* Staff readability (2026-11-07, Albert: "less readable… staff is all windows"): the option C meta text that
+   was still 11.5-12.5px comes up to 13px, the size Segoe UI is drawn crisply at on the store's screens. */
+.ql-row .mt, .ql-v .mt, .ql-basis, .ql-from, .ql-v-n, .ql-when, .ql-sb, .ql-who .ql-desc, .ql-seen .none, .ql-open,
+.card-h .right, .field .k, .chips .lbl, .tab .t-amt, .tab .t-part, .crumb, .qp-t .k, .qp-t .sub, .flag { font-size: 13px; }

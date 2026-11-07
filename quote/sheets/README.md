@@ -1,5 +1,9 @@
 # Site sheets (printable masters)
 
+Staff download the newest of each from **Company files** in the app's top bar (since 2026-11-07): it offers the
+highest `vN` PDF of each kind in this folder, so a new version needs only the file, named `<kind>-site-sheet-vN.pdf`
+(`src/lib/files/sheets.ts`, served at `/files/flooring` and `/files/stair`).
+
 The paper sheets a PM fills on site. Print them on Letter, one sided. The PM photographs them into CompanyCam
 (tagged **Site Sheet**), and the quote's **Site sheet** tab reads them from there (From CompanyCam: tick the pages,
 then Read as flooring sheet or Read as stair sheet, since 2026-11-03). Uploading photos in the tab still works for

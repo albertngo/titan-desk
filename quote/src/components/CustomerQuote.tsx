@@ -1,3 +1,4 @@
+import { Inter } from "next/font/google";
 import localFont from "next/font/local";
 import { shownStage } from "@/lib/pricing/schedule";
 import { changeWords, itemDifference, paidLeft, signedMoney, type CopyChange } from "@/lib/change/diff";
@@ -6,8 +7,10 @@ import { OptionSwitcher } from "@/components/OptionSwitcher";
 import { discountRows, hstRow, isLump, isSplit, scopeHeading, scopeOf, scopesOf, itemHstNote, leadPrice, longDate, partGroups, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyState, type CopyText, type CustomerCopy } from "@/lib/send/copy";
 
 /** The customer page's display face (2026-11-07, brand guide): Cysan, for the customer's name, the option
- *  prices and the total only. Inter and PT Serif come from the root layout. Scoped to .cq. */
+ *  prices and the total only. PT Serif comes from the root layout. Scoped to .cq. */
 const cysan = localFont({ src: "../fonts/cysan-regular.woff", variable: "--font-cysan", display: "swap" });
+/** Inter, the brand's text face, for the customer page only (staff screens use the system font, 2026-11-07). */
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 
 /**
  * The quote as the customer sees it, drawn from the frozen customer copy only. Used by the
@@ -281,7 +284,7 @@ export function CustomerQuote({
   const site = [copy.customer.siteAddress, copy.customer.siteCity].filter(Boolean).join(", ");
 
   return (
-    <div className={`cq ${cysan.variable}`}>
+    <div className={`cq ${cysan.variable} ${inter.variable}`}>
       {banner}
       <header className="cq-head">
         <div className="cq-co">

@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { bugReportsOn } from "@/lib/bug/notion";
 import { CHANGES } from "@/lib/changes";
+import { companySheets } from "@/lib/files/sheets";
 import { customerView } from "@/lib/view";
 import { AccountMenu } from "./AccountMenu";
 import { BuildLine } from "./BuildLine";
+import { CompanyFiles } from "./CompanyFiles";
 import { ReportBug } from "./ReportBug";
 import { ViewSwitch } from "./ViewSwitch";
 
@@ -36,6 +38,8 @@ export async function TopBar({ email }: { email: string }) {
                 </svg>
                 <span className="lbl">What&apos;s new</span>
               </Link>
+              {/* Company files (2026-11-07): the newest site sheets, each its own download. */}
+              <CompanyFiles sheets={companySheets()} />
               {/* Report a bug (2026-10-28): staff only, and only once the Notion token is set. */}
               {!customer && bugReportsOn() && <ReportBug />}
             </div>
