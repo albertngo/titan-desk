@@ -80,3 +80,11 @@ describe("a stair line's unit (Albert, 2026-11-04)", () => {
     expect(stairLineUom("piece", false, "steps")).toBe("piece");
   });
 });
+
+describe("the Stair Profile category leads (2026-11-07)", () => {
+  it("puts the preliminary's standard staircase lines above every other category", () => {
+    const g = stairGroups([{ stairCategory: "step" }, { stairCategory: "Stair Profile" }, { stairCategory: "railing" }]);
+    expect(g.map((x) => x.group)).toEqual(["stair profile", "step", "railing"]);
+    expect(stairGroupLabel("stair profile")).toBe("Stair Profile");
+  });
+});

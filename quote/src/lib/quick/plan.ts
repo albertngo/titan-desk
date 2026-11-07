@@ -1,9 +1,8 @@
 import { optionTotals, round2 } from "@/lib/calc";
 import { PRIVATE_SECTION } from "@/lib/calc";
-import { LINE_TYPE, materialPart, type CardEntry, type EditorLine } from "@/lib/editor/model";
-import { defaultInput, expandProfile } from "@/lib/editor/stairBuilder";
+import { LINE_TYPE, lineFromEntry, materialPart, type CardEntry, type EditorLine } from "@/lib/editor/model";
 import type { StairProfileRow } from "@/lib/quotes/types";
-import { profileLine, STAIR_ROWS } from "./stairs";
+import { STAIR_ROWS } from "./stairs";
 
 /**
  * The quick form (Albert, 2026-10-15): staff pick the work from short lists and type square
@@ -134,19 +133,20 @@ export type QuickProfile = Pick<StairProfileRow, "id" | "name" | "type" | "metho
 };
 
 /**
- * Every profile the form can offer, expanded into its preset Stair Item lines (Albert, 2026-11-02:
- * "once it processes through, it will add the preset items on the stair items for that particular
- * selection"). One linking an item the card no longer offers, or that comes to no line, is left off:
- * it is never priced from part of its items. The changeover: a row with no Stair Items linked at all
- * keeps its old stored price as one line until its links are set, and is left off without one.
+ * Every profile the form can offer, as its one standard Stair Item (Albert, 2026-11-07: "from the quick form, lets only
+ * ever use those standard line items in the editor. Never the breakdown to the line items"). Stair Profiles → Standard
+ * Stair Item names a Stair Item in the category Stair Profile, priced at the old stored GHL price, its cost entered by
+ * Albert in Airtable; the staircase is that one line, quantity 1, at the item's price. A profile with no standard item
+ * linked, or one the card no longer offers (inactive, no price), is left off the form: it is never broken down into
+ * steps, risers and the rest, and never priced from the profile's own stored price. This replaces the 2026-11-02
+ * preset expansion here; the editor's stair builder still expands a profile when someone picks it there.
  */
 export function quickProfiles(rows: StairProfileRow[], catalogue: CardEntry[]): QuickProfile[] {
   return rows.flatMap((p): QuickProfile[] => {
-    const head = { id: p.id, name: p.name, type: p.type, method: p.method, steps: p.steps };
-    const r = expandProfile(p, defaultInput(p), catalogue);
-    if (r.untemplated) return p.price === null ? [] : [{ ...head, lines: [profileLine(p)], total: p.price, storedPrice: true }];
-    if (r.missing.length > 0 || r.lines.length === 0) return [];
-    return [{ ...head, lines: r.lines, total: optionTotals(r.lines, 0, false).preDiscount, storedPrice: false }];
+    const entry = p.standardItemId ? catalogue.find((e) => e.kind === "stair" && e.recordId === p.standardItemId) : undefined;
+    if (!entry) return [];
+    const line = { ...lineFromEntry(entry, "Stairs"), qty: 1 };
+    return [{ id: p.id, name: p.name, type: p.type, method: p.method, steps: p.steps, lines: [line], total: optionTotals([line], 0, false).preDiscount, storedPrice: false }];
   });
 }
 

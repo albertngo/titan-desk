@@ -352,6 +352,8 @@ export const PROFILE = {
   presetLandings: "fldpijJx6Q3E2UfDU",
   presetSpindles: "fldrqXaGxmJM4rZHI",
   presetPosts: "fld377QxIdjw4DqGs",
+  /** 2026-11-07 (Albert): the one Stair Item (category Stair Profile) the quick form adds for this staircase. */
+  standardItem: "fldV3zSorthG3EFkf",
 } as const;
 
 export const STAIR_TABLE = "tbltRm9tL6r5brZn2";

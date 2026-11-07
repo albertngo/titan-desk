@@ -25,9 +25,11 @@ export function stairLineUom(saved: string | null, linkedToItem: boolean, itemUn
 }
 
 /** Categories in the order the work happens; anything else follows them, under its own name. */
-export const STAIR_GROUP_ORDER = ["step", "bullnose", "riser", "landing", "accent", "railing", "task"] as const;
+// "stair profile" first (Albert, 2026-11-07: "We can make that category start at the very top of the sections"): the
+// preliminary's one standard line per staircase, above the pieces a measured quote adds.
+export const STAIR_GROUP_ORDER = ["stair profile", "step", "bullnose", "riser", "landing", "accent", "railing", "task"] as const;
 
-const LABEL: Record<string, string> = { step: "Steps", bullnose: "Bullnoses", riser: "Risers", landing: "Landings", accent: "Accents", railing: "Railing", task: "Tasks" };
+const LABEL: Record<string, string> = { "stair profile": "Stair Profile", step: "Steps", bullnose: "Bullnoses", riser: "Risers", landing: "Landings", accent: "Accents", railing: "Railing", task: "Tasks" };
 
 /** A line's category, lower case; null when it has none (typed lines, older lines, items with no category). */
 export const stairGroupOf = (l: { stairCategory?: string | null }): string | null => l.stairCategory?.trim().toLowerCase() || null;

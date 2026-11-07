@@ -101,14 +101,14 @@ describe("quick form: the lines it becomes", () => {
   });
 });
 
-describe("quick form: staircases (2026-10-20; Stair Item lines 2026-11-02)", () => {
+describe("quick form: staircases (2026-10-20; one standard Stair Item each, 2026-11-07)", () => {
   // Invented items, prices and ids only (quote/CLAUDE.md rule 4).
-  const item = (id: string, name: string, category: string, rate: number, cost: number): StairRow => ({ id, name, category, size: null, rate, cost });
+  const item = (id: string, name: string, category: string, rate: number, cost: number | null): StairRow => ({ id, name, category, size: null, rate, cost });
   const CAP = item("recCap0000000000A", "Step: Oak Cap", "step", 150, 70);
   const RISER = item("recRiser00000000A", "Riser", "riser", 15, 6);
-  const SPINDLE = item("recSpindle000000A", "Iron Spindle", "railing", 25, 4);
-  const SAND = item("recSand000000000A", "Task: Sand Steps", "task", 90, 40);
-  const cat = buildCatalogue([], [CAP, RISER, SPINDLE, SAND]);
+  const STD_MAIN = item("recStdMain000000A", "Wood on main stairs", "Stair Profile", 4000, 2600);
+  const STD_HALF = item("recStdHalf000000A", "Half staircase, sanded", "Stair Profile", 750, null);
+  const cat = buildCatalogue([], [CAP, RISER, STD_MAIN, STD_HALF]);
   const row = (id: string, p: Partial<StairProfileRow>): StairProfileRow => ({
     id,
     name: "Wood on main stairs",
@@ -118,35 +118,28 @@ describe("quick form: staircases (2026-10-20; Stair Item lines 2026-11-02)", () 
     price: 4000,
     cost: 2600,
     sort: 1,
-    preset: { boxedSteps: null, openSideSteps: 0, curvedSteps: 0, handrailFt: 0, nosingFt: 0, landings: 0, spindles: 0, posts: 0 },
-    template: { perStep: [], perStaircase: [], perOpenSide: [], perHandrailFt: [], perSpindle: [], perPost: [] },
+    preset: { boxedSteps: null, openSideSteps: 0, curvedSteps: 0, handrailFt: 0, nosingFt: 0, landings: 0, spindles: 30, posts: 0 },
+    // A template is still on the row (the editor's builder reads it); the quick form never uses it.
+    template: { perStep: [CAP.id, RISER.id], perStaircase: [], perOpenSide: [], perHandrailFt: [], perSpindle: [], perPost: [] },
     ...p,
   });
-  const MAIN_ROW = row("recProfMain00000A", { template: { perStep: [CAP.id, RISER.id], perStaircase: [], perOpenSide: [], perHandrailFt: [], perSpindle: [SPINDLE.id], perPost: [] }, preset: { boxedSteps: null, openSideSteps: 0, curvedSteps: 0, handrailFt: 0, nosingFt: 0, landings: 0, spindles: 30, posts: 0 } });
-  const HALF_ROW = row("recProfHalf00000A", { name: "Half staircase, sanded", type: "Half staircase", method: "Sand & stain", steps: 5, template: { perStep: [SAND.id], perStaircase: [], perOpenSide: [], perHandrailFt: [], perSpindle: [], perPost: [] } });
-  const EMPTY_ROW = row("recProfEmpty0000A", { name: "Not set up", price: null });
-  const UNLINKED_ROW = row("recProfUnlinked0A", { name: "Old preset", price: 3100, cost: 2000 });
-  const GONE_ROW = row("recProfGone00000A", { name: "Links a dead item", template: { perStep: [CAP.id, "recGone000000000A"], perStaircase: [], perOpenSide: [], perHandrailFt: [], perSpindle: [], perPost: [] } });
-  const offered = quickProfiles([MAIN_ROW, HALF_ROW, EMPTY_ROW, GONE_ROW, UNLINKED_ROW], cat);
+  const MAIN_ROW = row("recProfMain00000A", { standardItemId: STD_MAIN.id });
+  const HALF_ROW = row("recProfHalf00000A", { name: "Half staircase, sanded", type: "Half staircase", method: "Sand & stain", steps: 5, price: 750, standardItemId: STD_HALF.id });
+  const UNLINKED_ROW = row("recProfUnlinked0A", { name: "No standard item yet", price: 3100 });
+  const GONE_ROW = row("recProfGone00000A", { name: "Standard item switched off", standardItemId: "recGone000000000A" });
+  const offered = quickProfiles([MAIN_ROW, HALF_ROW, UNLINKED_ROW, GONE_ROW], cat);
   const profiles = new Map(offered.map((p) => [p.id, p]));
   const MAIN = profiles.get(MAIN_ROW.id)!;
 
-  it("offers a profile only when every Stair Item it links is on the card, with its preset lines and their total", () => {
-    expect(offered.map((p) => p.id)).toEqual([MAIN_ROW.id, HALF_ROW.id, UNLINKED_ROW.id]);
+  it("offers a profile as its one standard Stair Item, never broken down, and leaves off one with no item on the card", () => {
+    expect(offered.map((p) => p.id)).toEqual([MAIN_ROW.id, HALF_ROW.id]);
     expect(MAIN.storedPrice).toBe(false);
-    expect(MAIN.lines.map((l) => [l.description, l.qty, l.unitPriceSnap, l.unitCostSnap])).toEqual([
-      ["Step: Oak Cap", 13, 150, 70],
-      ["Riser", 13, 15, 6],
-      ["Iron Spindle", 30, 25, 4],
+    expect(MAIN.lines.map((l) => [l.sourceKind, l.sourceId, l.description, l.qty, l.unitPriceSnap, l.unitCostSnap, l.stairCategory])).toEqual([
+      ["stair", STD_MAIN.id, "Wood on main stairs", 1, 4000, 2600, "Stair Profile"],
     ]);
-    expect(MAIN.total).toBe(13 * 150 + 13 * 15 + 30 * 25);
-  });
-
-  it("keeps a row with no Stair Items linked at its stored price, one line and no typed price, until its links are set", () => {
-    const old = profiles.get(UNLINKED_ROW.id)!;
-    expect([old.storedPrice, old.total]).toEqual([true, 3100]);
-    expect(old.lines.map((l) => [l.sourceKind, l.sourceId, l.unitPriceSnap, l.unitCostSnap, l.unitPrice])).toEqual([["profile", UNLINKED_ROW.id, 3100, 2000, null]]);
-    expect(buildPreliminary(choices, parseWork({ stairs: [{ profileId: UNLINKED_ROW.id, price: 9999 }] }), new Map(), profiles).lines.map((l) => [l.description, l.unitPrice, l.area])).toEqual([["Old preset", null, "Main stairs"]]);
+    expect(MAIN.total).toBe(4000);
+    // A standard item with no cost yet still prices; its cost stays blank until entered in Airtable.
+    expect(profiles.get(HALF_ROW.id)!.lines.map((l) => [l.unitPriceSnap, l.unitCostSnap])).toEqual([[750, null]]);
   });
 
   it("sends the browser charge rates only, never a cost", () => {
@@ -161,16 +154,14 @@ describe("quick form: staircases (2026-10-20; Stair Item lines 2026-11-02)", () 
     expect(parseWork({ stairs: Array(5).fill({ profileId: MAIN.id }) }).stairs).toHaveLength(3);
   });
 
-  it("adds each staircase's preset Stair Item lines, priced from the card, in the Stairs section", () => {
+  it("adds each staircase as its one standard line, priced from the card, in the Stairs section", () => {
     const { lines, skipped } = buildPreliminary(choices, parseWork({ stairs: [{ profileId: MAIN.id }, { profileId: HALF_ROW.id }] }), new Map(), profiles);
     expect(skipped).toEqual([]);
     expect(lines.map((l) => [l.section, l.sourceKind, l.sourceId, l.qty, l.unitPriceSnap, l.unitPrice, l.area])).toEqual([
-      ["Stairs", "stair", CAP.id, 13, 150, null, "Main stairs"],
-      ["Stairs", "stair", RISER.id, 13, 15, null, "Main stairs"],
-      ["Stairs", "stair", SPINDLE.id, 30, 25, null, "Main stairs"],
-      ["Stairs", "stair", SAND.id, 5, 90, null, "Half staircase"],
+      ["Stairs", "stair", STD_MAIN.id, 1, 4000, null, "Main stairs"],
+      ["Stairs", "stair", STD_HALF.id, 1, 750, null, "Half staircase"],
     ]);
-    expect(optionTotals(lines, 0, false).preDiscount).toBe(MAIN.total + 5 * 90);
+    expect(optionTotals(lines, 0, false).preDiscount).toBe(4750);
     expect(new Set(lines.map((l) => l.id)).size).toBe(lines.length);
   });
 
