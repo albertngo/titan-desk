@@ -3,6 +3,7 @@ import { ageWords, byUrgency, dueOf, emptyState, parseState, postponeBack, postp
 import { buildLostDetails, buildPostpone, lostDetailsText, lostStatusBody, postponedStageId } from "../src/lib/link/ghlRequest";
 import { LOST_REASONS } from "../src/lib/ghl/ids";
 import { visitOf, visitWords } from "../src/lib/followup/visit";
+import { visitsWithoutQuote, type ContactQuotes } from "../src/lib/followup/visits";
 import { briefPrompt, briefSignature, cleanBrief, parseBrief } from "../src/lib/followup/brief";
 
 // Invented dates and ids only: this repo is public.
@@ -214,5 +215,34 @@ describe("lost reasons and Lost Details (2026-11-07)", () => {
     expect(lostDetailsText({ reason: "Price - Too High", note: "Went with someone cheaper", day: "2026-11-07", by: "Joey" })).toBe("Price - Too High · Went with someone cheaper · 2026-11-07 · Joey");
     expect(lostDetailsText({ reason: "We Were Too Slow", day: "2026-11-07", by: "Joey" })).toBe("We Were Too Slow · 2026-11-07 · Joey");
     expect(JSON.parse(buildLostDetails({ contactId: "c", opportunityId: "o", fieldId: "f", text: "t" }).oppBody)).toEqual({ customFields: [{ id: "f", field_value: "t" }] });
+  });
+});
+
+describe("Visited, no quote yet (2026-11-07)", () => {
+  const cal = { inHome: "home1", inStore: "store1" };
+  const now = new Date("2026-11-07T17:00:00Z");
+  const ev = (o: Partial<{ id: string; contactId: string; calendarId: string; start: string; status: string; title: string; assignedUserId: string }>) => ({ id: "e", contactId: "c1", calendarId: "home1", start: "2026-11-05T15:00:00Z", status: "confirmed", title: "Measure - Jane Doe", assignedUserId: "u1", ...o });
+  const q = (o: Partial<ContactQuotes>): ContactQuotes => ({ quoteRecordId: "rec1", quoteNumber: "Q-1", customer: "Jane Doe", versionId: "recV", measuredSent: [], closed: false, ...o });
+  it("lists a finished visit with no measured quote since, newest first", () => {
+    const out = visitsWithoutQuote([ev({}), ev({ contactId: "c2", start: "2026-11-06T15:00:00Z", calendarId: "store1", title: "Store visit - Bo Li" })], new Map([["c1", [q({})]]]), now, day, cal);
+    expect(out.map((v) => [v.contactId, v.day, v.where, v.name, v.days])).toEqual([
+      ["c2", "2026-11-06", "in store", "Bo Li", 1],
+      ["c1", "2026-11-05", "in-home", "Jane Doe", 2],
+    ]);
+    expect(out[1].quote?.versionId).toBe("recV");
+  });
+  it("leaves out a visit with a measured quote sent on or after it, a closed quote, a miss, a future one and other calendars", () => {
+    const quotes = new Map([["c1", [q({ measuredSent: ["2026-11-05"] })]], ["c3", [q({ closed: true })]]]);
+    const out = visitsWithoutQuote(
+      [ev({}), ev({ contactId: "c3" }), ev({ contactId: "c4", status: "noshow" }), ev({ contactId: "c5", start: "2026-11-09T15:00:00Z" }), ev({ contactId: "c6", calendarId: "other" }), ev({ contactId: "c7", start: "2026-10-01T15:00:00Z" })],
+      quotes,
+      now,
+      day,
+      cal,
+    );
+    expect(out).toEqual([]);
+  });
+  it("still flags a visit when the only measured quote went out before it", () => {
+    expect(visitsWithoutQuote([ev({})], new Map([["c1", [q({ measuredSent: ["2026-11-01"] })]]]), now, day, cal)).toHaveLength(1);
   });
 });

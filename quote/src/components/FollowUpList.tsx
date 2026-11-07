@@ -42,7 +42,10 @@ type BriefState = { brief: Brief | null; busy: boolean; error: string | null; st
  */
 export function FollowUpList({ data }: { data: FollowUpPage }) {
   const router = useRouter();
-  const senders = useMemo(() => [...new Set(data.rows.map((r) => r.ownerName).filter((n): n is string => Boolean(n)))].sort((a, b) => a.localeCompare(b)), [data.rows]);
+  const senders = useMemo(
+    () => [...new Set([...data.rows.map((r) => r.ownerName), ...(data.visits ?? []).map((v) => v.visitorName)].filter((n): n is string => Boolean(n)))].sort((a, b) => a.localeCompare(b)),
+    [data.rows, data.visits],
+  );
   const myName = data.rows.find((r) => r.owner === data.me)?.ownerName ?? null;
   const [who, setWho] = useState<string>(myName ?? EVERYONE);
   const [modal, setModal] = useState<Modal>(null);
@@ -59,7 +62,9 @@ export function FollowUpList({ data }: { data: FollowUpPage }) {
   );
 
   const shown = useMemo(() => (who === EVERYONE ? data.rows : data.rows.filter((r) => r.ownerName === who)), [who, data.rows]);
-  const dueOf = (name: string) => data.rows.filter((r) => r.due.bucket === "due" && (name === EVERYONE || r.ownerName === name)).length;
+  const visitsShown = (data.visits ?? []).filter((v) => who === EVERYONE || v.visitorName === who);
+  const dueOf = (name: string) =>
+    data.rows.filter((r) => r.due.bucket === "due" && (name === EVERYONE || r.ownerName === name)).length + (data.visits ?? []).filter((v) => name === EVERYONE || v.visitorName === name).length;
 
   const askBrief = async (row: FollowUpRow, force: boolean) => {
     setBriefs((b) => ({ ...b, [row.quoteRecordId]: { ...b[row.quoteRecordId], busy: true, error: null } }));
@@ -148,6 +153,52 @@ export function FollowUpList({ data }: { data: FollowUpPage }) {
           <span>Why it&apos;s due</span>
           <span>Age and follow-ups</span>
         </div>
+        {/* Visited, no quote yet (2026-11-07): the visits still owed a measured quote, above everything else. */}
+        {data.visits === null && data.ghlOn && <p className="fu-warn fu-pad">GHL&apos;s calendars couldn&apos;t be read, so visits without a quote aren&apos;t shown.</p>}
+        {visitsShown.length > 0 && (
+          <div className="fu-sec visits">
+            <h2 className="fu-h">
+              Visited, no quote yet <span className="n">{visitsShown.length}</span>
+            </h2>
+            {visitsShown.map((v) => (
+              <div key={v.contactId} className={`fu-row can-pick${conv?.contactId === v.contactId ? " picked" : ""}`} onClick={(e) => !(e.target as Element).closest("a, button") && setConv((c) => ({ contactId: v.contactId, name: v.name, signal: (c?.signal ?? 0) + 1 }))}>
+                <div className="fu-who">
+                  <span className="fu-name-line">
+                    {v.quote?.versionId ? (
+                      <Link href={`/q/${v.quote.versionId}`} className="fu-name">
+                        {v.name ?? "Customer"}
+                      </Link>
+                    ) : (
+                      <span className="fu-name">{v.name ?? "Customer"}</span>
+                    )}
+                    {v.visitorName && <span className="fu-with">with {v.visitorName}</span>}
+                  </span>
+                  <span className="fu-meta">{v.quote?.quoteNumber ? `${v.quote.quoteNumber} · no measured quote sent since the visit` : "No quote in the app yet"}</span>
+                </div>
+                <div className="fu-why">
+                  <span className="chip warn">Visited: the measured quote is owed</span>
+                  <span className="fu-when">
+                    Visited {dayWords(v.day, data.today)} · {v.where}
+                  </span>
+                </div>
+                <div className="fu-facts">
+                  <span>{v.days === 0 ? "Today" : `${v.days} day${v.days === 1 ? "" : "s"} since the visit`}</span>
+                </div>
+                <div className="fu-acts">
+                  <button type="button" className={`btn${conv?.contactId === v.contactId ? " on" : ""}`} onClick={() => setConv((c) => ({ contactId: v.contactId, name: v.name, signal: (c?.signal ?? 0) + 1 }))}>
+                    Conversation
+                  </button>
+                  <a className="btn" href={v.ghlUrl} target="_blank" rel="noreferrer">
+                    Open in GHL
+                  </a>
+                  <Link className="btn primary" href={v.quote?.versionId ? `/q/${v.quote.versionId}/edit` : "/new"}>
+                    {v.quote?.versionId ? "Write the measured quote" : "Start a quote"}
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
         {SECTIONS.map((s) => {
           const rows = shown.filter((r) => r.due.bucket === s.bucket);
           if (s.bucket !== "due" && rows.length === 0) return null;

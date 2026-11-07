@@ -30,8 +30,9 @@ import {
   type FollowUpState,
   type Thread,
 } from "@/lib/followup/plan";
-import { contactAppointments, conversationMessages, conversationsForContact, ghlConfigured, lostDetailsFieldId, lostReasons, pipelines, postponedUntilFieldId } from "@/lib/ghl/client";
+import { calendarEvents, contactAppointments, conversationMessages, locationUsers, conversationsForContact, ghlConfigured, lostDetailsFieldId, lostReasons, pipelines, postponedUntilFieldId } from "@/lib/ghl/client";
 import { visitFact, visitOf, visitWords, type Visit } from "@/lib/followup/visit";
+import { VISIT_LOOKBACK_DAYS, visitsWithoutQuote, type ContactQuotes, type VisitNoQuote } from "@/lib/followup/visits";
 import { BOOKING_CALENDAR_IDS, BOOKING_URLS, ghlContactUrl, ghlConversationUrl } from "@/lib/ghl/ids";
 import { buildLostDetails, buildPostpone, lostDetailsText, lostStatusBody, postponedStageId } from "@/lib/link/ghlRequest";
 import { makeConfigured, removeFollowUpTags, sendMessage, sendToGhl, setOpportunityStatus } from "@/lib/make/client";
@@ -96,6 +97,8 @@ export type FollowUpPage = {
   makeOn: boolean;
   /** Claude is set up here, so briefs can be written. */
   briefsOn: boolean;
+  /** "Visited, no quote yet" (2026-11-07); null when GHL's calendars couldn't be read. */
+  visits: (VisitNoQuote & { visitorName: string | null; ghlUrl: string })[] | null;
   today: string;
 };
 
@@ -162,6 +165,7 @@ export async function loadFollowUps(): Promise<FollowUpPage> {
   });
 
   const ghlOn = ghlConfigured();
+  const visitsP = ghlOn ? visitsNoQuote(quotes, byQuote, now) : Promise.resolve(null);
   const threads = await inBatches(candidates, GHL_PARALLEL, async (c) => {
     const contactId = str(c.q.fields[QUOTE.ghlContactId]);
     return ghlOn && contactId && /^[A-Za-z0-9]+$/.test(contactId) ? threadOf(contactId) : null;
@@ -210,8 +214,43 @@ export async function loadFollowUps(): Promise<FollowUpPage> {
 
   let reasons: { id: string; name: string }[] | null = null;
   if (ghlOn) reasons = await lostReasons().catch((e) => (console.error("lostReasons", e), null));
-  dueCache = { at: Date.now(), count: rows.filter((r) => r.due.bucket === "due").length };
-  return { me: person.email.toLowerCase(), rows, lostReasons: reasons, inHomeUrl: BOOKING_URLS.inHome, ghlOn, makeOn: makeConfigured(), briefsOn: readerOn(), today: torontoDay(now) };
+  const visits = await visitsP;
+  dueCache = { at: Date.now(), count: rows.filter((r) => r.due.bucket === "due").length + (visits?.length ?? 0) };
+  return { me: person.email.toLowerCase(), rows, lostReasons: reasons, inHomeUrl: BOOKING_URLS.inHome, ghlOn, makeOn: makeConfigured(), briefsOn: readerOn(), today: torontoDay(now), visits };
+}
+
+type Rec = Awaited<ReturnType<typeof listRecords>>[number];
+
+/**
+ * "Visited, no quote yet" (Albert, 2026-11-07): the last VISIT_LOOKBACK_DAYS of the two booking calendars, against every
+ * quote's GHL contact. Null when a calendar couldn't be read, so the page says so instead of showing nothing owed.
+ */
+async function visitsNoQuote(quotes: Rec[], byQuote: Map<string, Rec[]>, now: Date) {
+  const from = new Date(now.getTime() - VISIT_LOOKBACK_DAYS * 86_400_000);
+  let events;
+  try {
+    events = (await Promise.all([calendarEvents(BOOKING_CALENDAR_IDS.inHome, from, now), calendarEvents(BOOKING_CALENDAR_IDS.inStore, from, now)])).flat();
+  } catch (e) {
+    console.error("visitsNoQuote calendars", e);
+    return null;
+  }
+  const quotesOf = new Map<string, ContactQuotes[]>();
+  for (const q of [...quotes].sort((a, b) => b.createdTime.localeCompare(a.createdTime))) {
+    const contact = str(q.fields[QUOTE.ghlContactId]);
+    if (!contact) continue;
+    const vs = (byQuote.get(q.id) ?? []).sort((a, b) => (num(b.fields[VERSION.version]) ?? 0) - (num(a.fields[VERSION.version]) ?? 0));
+    const statuses = vs.map((v) => str(v.fields[VERSION.status]));
+    const closed = Boolean(str(q.fields[QUOTE.projectNumber])) || statuses.some((x) => x === "Accepted" || x === "Won") || statuses[0] === "Lost" || Boolean(parseState(str(q.fields[QUOTE.followUp])).lost);
+    const measuredSent = vs.filter((v) => str(v.fields[VERSION.basis]) === "Measured" && str(v.fields[VERSION.sentAt])).map((v) => torontoDay(str(v.fields[VERSION.sentAt]) as string));
+    quotesOf.set(contact, [...(quotesOf.get(contact) ?? []), { quoteRecordId: q.id, quoteNumber: str(q.fields[QUOTE.quoteNumber]), customer: customerOf(q.fields), versionId: vs[0]?.id ?? null, measuredSent, closed }]);
+  }
+  const found = visitsWithoutQuote(events, quotesOf, now, torontoDay, BOOKING_CALENDAR_IDS);
+  const users = found.some((v) => v.visitorId) ? await locationUsers().catch(() => []) : [];
+  const first = (id: string | null) => {
+    const u = id ? users.find((x) => x.id === id) : null;
+    return u ? (u.email ? nameOf(u.email) : null) ?? u.name?.split(/\s+/)[0] ?? null : null;
+  };
+  return found.map((v) => ({ ...v, visitorName: first(v.visitorId), ghlUrl: ghlContactUrl(v.contactId) }));
 }
 
 const nameOf = (email: string | null) => (email ? (firstNameOf({ email, name: null }) ?? email.split("@")[0]) : null);
