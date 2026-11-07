@@ -27,7 +27,7 @@ export const CHANGES: Change[] = [
     details: [
       "Each quote gets a short brief: where it stands, what the customer asked and whether we answered, the next step and a message to copy into GHL. It's rewritten when something new happens, and Rewrite asks for a fresh one.",
       "When the customer named a time (\"next week\"), that becomes the next follow-up date.",
-      "Click a row to see the customer's conversation on the right. It starts on the first quote.",
+      "Click a row to see the customer's conversation on the right and open its full brief; other rows show the brief as one line. It starts on the first quote.",
       "Filter by Last sent by (Pourya, Joey, Albert or Everyone), and each row says who the customer is talking to.",
       "Follow up in the top bar shows a red count of quotes due now.",
       "Each quote shows where the lead is: No visit yet, Visit booked, Visited, or a no-show. A preliminary whose visit has happened is due the next day, because the measured quote is owed.",

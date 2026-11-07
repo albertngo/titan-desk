@@ -2501,6 +2501,9 @@ table.items tr.subsect td { box-shadow: none !important; border-left: 0 !importa
 /* The brief (step 2). */
 .fu-brief { grid-column: 1 / -1; display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); font-size: 13.5px; }
 .fu-brief.wait { color: var(--fg-dim); background: var(--card-2); }
+.fu-brief.folded { display: flex; align-items: baseline; gap: 8px; padding: 6px 10px; background: var(--card-2); min-width: 0; }
+.fu-fold-step { font-weight: 600; color: var(--accent); white-space: nowrap; }
+.fu-fold-text { flex: 1; min-width: 0; color: var(--fg-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fu-brief.bad { color: var(--bad); background: var(--bad-soft); border-color: transparent; }
 .fu-brief-h { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; align-items: baseline; }
 .fu-brief-h .k { font-weight: 600; color: var(--fg); }

@@ -1323,7 +1323,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   same day still counts). **Last sent by** filters by each sender's first name (`firstNameOf()`, so info@ is Joey), starting
   on the signed-in person when they have any; each row says **with Joey** beside the customer's name; column headings sit
   over the list. **The conversation** is the quote page's drawer (`ConversationDrawer`, now with `title` and `openSignal`):
-  clicking a row, or its Conversation button, shows that customer's thread; it starts on the first row. **The top bar's red
+  clicking a row, or its Conversation button, shows that customer's thread; it starts on the first row. **The brief opens only on the selected row** (same day: "make the brief expand only when selected"); every other row shows it folded to one line, its next step and where it stands. **The top bar's red
   count** is everyone's quotes due now (`FollowUpBadge`, `dueCountNow()`), asked for after the page draws and kept three
   minutes on the server. Tested in `tests/followup.test.ts` and `tests/boundary.test.ts`.
   **Where the lead is (same day: "showcase whether there has been; or hasnt been an appt yet… so its clear where the lead
