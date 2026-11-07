@@ -381,7 +381,9 @@ function ActionModal({ modal, data, busy, onClose, onRun }: { modal: NonNullable
   const { row, kind } = modal;
   const [note, setNote] = useState("");
   const [until, setUntil] = useState("");
-  const [reason, setReason] = useState("");
+  // The brief's pick (2026-11-07): on a close step it names the GHL reason the conversation points to; staff confirm or change it.
+  const suggested = data.lostReasons?.find((r) => r.name === row.brief?.lostReason)?.id ?? "";
+  const [reason, setReason] = useState(kind === "lost" ? suggested : "");
   const first = useRef<HTMLElement | null>(null);
   useEffect(() => first.current?.focus(), []);
   const linked = Boolean(row.opportunityId);
@@ -417,7 +419,7 @@ function ActionModal({ modal, data, busy, onClose, onRun }: { modal: NonNullable
           {noReasons && <p className="fu-warn">GHL&apos;s lost reasons couldn&apos;t be read, so this can&apos;t be marked lost here. Mark it lost in GHL instead.</p>}
           {kind === "lost" && needReason && !noReasons && (
             <label className="fu-field">
-              <span className="k">Why (GHL&apos;s lost reasons)</span>
+              <span className="k">Why (GHL&apos;s lost reasons){suggested && reason === suggested ? " · suggested from the conversation" : ""}</span>
               <select ref={(el) => void (first.current = el)} className="in" value={reason} onChange={(e) => setReason(e.target.value)}>
                 <option value="">Pick a reason…</option>
                 {reasons.map((r) => (
@@ -440,6 +442,7 @@ function ActionModal({ modal, data, busy, onClose, onRun }: { modal: NonNullable
                   <>
                     <li>{linked ? `Mark the GHL opportunity Lost${reasonName ? ` (${reasonName})` : ""}` : "Leave GHL alone (no opportunity linked)"}</li>
                     <li>Mark the quote Lost and take it off this list</li>
+                    {linked && <li>Write the reason{note.trim() ? " and your note" : ""} into the opportunity&apos;s Lost Details</li>}
                   </>
                 )}
                 {kind === "postpone" && (

@@ -22,6 +22,16 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-07",
+    kind: "fixed",
+    title: "Lost always records one of GHL's reasons, and writes Lost Details",
+    details: [
+      "Lost needs one of GHL's lost reasons and won't go through without one. Before, a quote could be marked lost with no reason, and GHL filled in its own.",
+      "The reason and your note go into the opportunity's Lost Details field in GHL.",
+      "When the brief says to close a quote out, the Lost dropdown starts on the reason the conversation points to. Check it before you confirm.",
+    ],
+  },
+  {
+    date: "2026-11-07",
     kind: "new",
     title: "Follow up: a brief on every quote, the conversation beside it, and a red count in the top bar",
     details: [

@@ -30,10 +30,10 @@ import {
   type FollowUpState,
   type Thread,
 } from "@/lib/followup/plan";
-import { contactAppointments, conversationMessages, conversationsForContact, ghlConfigured, lostReasons, pipelines, postponedUntilFieldId } from "@/lib/ghl/client";
+import { contactAppointments, conversationMessages, conversationsForContact, ghlConfigured, lostDetailsFieldId, lostReasons, pipelines, postponedUntilFieldId } from "@/lib/ghl/client";
 import { visitFact, visitOf, visitWords, type Visit } from "@/lib/followup/visit";
 import { BOOKING_CALENDAR_IDS, BOOKING_URLS, ghlContactUrl, ghlConversationUrl } from "@/lib/ghl/ids";
-import { buildPostpone, lostStatusBody, postponedStageId } from "@/lib/link/ghlRequest";
+import { buildLostDetails, buildPostpone, lostDetailsText, lostStatusBody, postponedStageId } from "@/lib/link/ghlRequest";
 import { makeConfigured, removeFollowUpTags, sendMessage, sendToGhl, setOpportunityStatus } from "@/lib/make/client";
 import { torontoDay } from "./group";
 import { appendLog, firstNameOf, logLine } from "./history";
@@ -312,6 +312,7 @@ export async function writeBrief(quoteRecordId: string, force: boolean): Promise
       postponedTo: state.postpone?.until ?? null,
       loggedHere: state.touches.map((x) => ({ at: x.at, ...(x.note ? { note: x.note } : {}) })),
       visit: visitFact(visit),
+      lostReasons: (await lostReasons()).map((r) => r.name),
     },
     linesOf(t?.messages ?? [], sentAt),
   );
@@ -321,7 +322,7 @@ export async function writeBrief(quoteRecordId: string, force: boolean): Promise
   } catch (e) {
     return { ok: false, message: e instanceof ClaudeError ? e.message : "The brief couldn't be written. Try again." };
   }
-  const brief = cleanBrief(raw, { basedOn: sig, at: now.toISOString(), model: BRIEF_MODEL, today });
+  const brief = cleanBrief(raw, { basedOn: sig, at: now.toISOString(), model: BRIEF_MODEL, today, lostReasons: (await lostReasons()).map((r) => r.name) });
   if (!brief) return { ok: false, message: "Claude's answer wasn't a brief. Try again." };
   // Kept on top of whatever the field holds now, so a button pressed meanwhile is never undone.
   try {
@@ -501,6 +502,16 @@ export async function markLost(quoteRecordId: string, seen: string, reasonId: un
       return { ok: false, message: `GHL wasn't changed (${e instanceof Error ? e.message.slice(0, 100) : "error"}), so nothing was saved. Try again.` };
     }
     notes.push(`The opportunity is Lost: ${reason.name}.`);
+    // Lost Details (Albert, 2026-11-07): the full story on the opportunity itself. Best effort: the loss stands either way.
+    const detailsId = c.contactId ? await lostDetailsFieldId() : null;
+    if (detailsId && c.contactId) {
+      try {
+        await sendToGhl(buildLostDetails({ contactId: c.contactId, opportunityId: c.opportunityId, fieldId: detailsId, text: lostDetailsText({ reason: reason.name, note: n, day: torontoDay(new Date()), by: nameOf(person.email) ?? person.email }) }));
+        notes.push("Lost Details is filled in on the opportunity.");
+      } catch (e) {
+        notes.push(`Lost Details wasn't written (${e instanceof Error ? e.message.slice(0, 80) : "error"}).`);
+      }
+    } else notes.push("The opportunity's Lost Details field couldn't be found, so the note is only in the conversation.");
   } else {
     notes.push(c.opportunityId ? "Make isn't switched on here, so GHL wasn't changed." : "This quote isn't linked to an opportunity, so GHL wasn't changed.");
   }

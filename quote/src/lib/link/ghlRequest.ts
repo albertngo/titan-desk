@@ -328,3 +328,11 @@ export function buildPostpone(i: { contactId: string; opportunityId: string; sta
 export function lostStatusBody(lostReasonId: string | null): string {
   return JSON.stringify(lostReasonId ? { status: "lost", lostReasonId } : { status: "lost" });
 }
+
+/** Lost Details (2026-11-07): the reason, the note, when and who, on the opportunity's own text field, on the "link" route. */
+export function buildLostDetails(i: { contactId: string; opportunityId: string; fieldId: string; text: string }): GhlRequest {
+  return { mode: "link", contactId: i.contactId, opportunityId: i.opportunityId, contactBody: JSON.stringify({}), oppBody: JSON.stringify({ customFields: [{ id: i.fieldId, field_value: i.text }] }) };
+}
+
+/** The words Lost Details holds: "Price - Too High · Went with someone cheaper · 2026-11-07 · Joey". */
+export const lostDetailsText = (i: { reason: string; note?: string | null; day: string; by: string }) => [i.reason, i.note?.trim() || null, i.day, i.by].filter(Boolean).join(" · ").slice(0, 2000);
