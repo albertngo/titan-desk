@@ -22,6 +22,12 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-07",
+    kind: "fixed",
+    title: "Material rates show in Customer view on a lump sum",
+    details: ["The quote page's Customer view now shows each flooring material's rate beside its quantity on a lump sum and on a preliminary, as the customer's link and PDF already did."],
+  },
+  {
+    date: "2026-11-07",
     kind: "changed",
     title: "+ From Quick Form, and Preliminary or Measured on every new quote",
     details: [

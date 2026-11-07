@@ -746,7 +746,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   replacing the Install / Removal / Prep / Materials-only rule (`LUMP_QTY_SECTIONS`, removed); the Private
   roll-up row is the one row with no quantity; **a material always keeps its rate** (Albert,
   2026-11-04: "Material Rates in the material section should ALWAYS show the rate; no matter what the form
-  the quote is sending in"): lump sum and preliminary too, never its amount, headed Rate in the PDF; sections lose their total; the totals
+  the quote is sending in"): lump sum and preliminary too, never its amount, headed Rate in the PDF and, since 2026-11-07, beside the quantity in the quote page's Customer view on a lump sum, which has no Unit price column (`OptionSheet`; checked across breakdown, lump sum, preliminary range and exact price in `tests/send.test.ts`); sections lose their total; the totals
   block shows the price before the discount and the discount (2026-11-03; before that there were no discount
   rows), then price before HST, HST and total with the payment schedule; optional add-ons keep their price, since they are not in it; the
   Private section's roll-up row is not shown at all, its amount being inside the one price. **The

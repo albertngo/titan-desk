@@ -122,6 +122,9 @@ function Row({ l, n, customer, lump, stairsOpt = false }: { l: QuoteLine; n: num
       <td className="r" data-label="Quantity">
         {/* Quantities always show, every section, lump sum or not (Albert, 2026-11-04). */}
         {rate(l.qty)} <span className="faint">{l.uom ?? ""}</span>
+        {/* A material always shows its rate (Albert, 2026-11-04), so on a lump sum, where there is no Unit price column,
+            it sits beside the quantity, as on the customer's link. */}
+        {lump && sectionOf(l) === "Materials" && <span className="faint"> × {money(priceUsed(l))}</span>}
         {l.waste ? <span className="sub">+{Math.round(l.waste * 100)}% waste</span> : null}
       </td>
       {!customer && (
