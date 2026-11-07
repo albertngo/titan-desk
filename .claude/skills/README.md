@@ -39,3 +39,20 @@ pinned commit above. For taste-skill, copy `skills/<folder>/SKILL.md` to
 `<install-name>/SKILL.md`. For awesome-design-md, copy `design-md/<site>/DESIGN.md` to
 `design-md-references/references/<site>/DESIGN.md` and regenerate the index table in
 `design-md-references/SKILL.md` from the upstream README's "Collection" section.
+
+## From [heydamir/unslop](https://github.com/heydamir/unslop)
+
+Pinned at upstream commit `a6f121eee5f29c2f74976b75456feae8b66afb3a` (2026-11-01). CC BY 4.0,
+created by Damir Sokolovsky ([@heydamir](https://x.com/heydamir)); licence in `LICENSE-unslop`.
+Keep the credit in `unslop/SKILL.md` if you edit it.
+
+| Skill | Use it when |
+|---|---|
+| `unslop` | A screen looks AI-generated. Audits the slop, proposes a direction from the product, then fixes spacing, color, icons, copy, type, layout, details, visuals and motion in passes. Invoke with `/unslop <screen>`. |
+
+Its scripts need Playwright (`scripts/snapshot.mjs`, to snapshot a live URL) and ffmpeg
+(`scripts/story.mjs`, the before/after story video). Cloud sessions have both preinstalled;
+on the Mac, `npm install -D playwright && npx playwright install chromium` in the app folder.
+Image generation for hero visuals is optional and asks before every paid call.
+
+To update: clone upstream, replace `unslop/` with its `skills/unslop/`, update the commit above.
