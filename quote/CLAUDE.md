@@ -321,7 +321,10 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   round, T-moulding / reducer, and their paint); `searchCatalogue()` offers it under Moulding and leaves it off Install.
   The quick form's Baseboards group reads Moulding and its lines go to that section (`GROUP_SECTION`). Line Type stays
   Install; Quote Lines → Section gets Moulding by typecast on the first save that uses it. Payout cards tick it like
-  Install. Lines saved under Install before stay there. Tested in `tests/editor.test.ts` and `tests/calc.test.ts`.
+  Install. Lines saved under Install before stay there. **The Rate Card's own Moulding Labor Type (2026-11-07):** its 22 moulding rows,
+  nosings included, were moved to Labor Type Moulding in Airtable, which the search didn't know, so + Add to Moulding
+  came up empty. Moulding now lists Moulding rows plus Install / Paint rows that read as moulding (`isMouldingRow()`),
+  Install never does, and Premium marks Moulding labour up like Install (`PREMIUM_LABOUR_TYPES`). Tested in `tests/editor.test.ts` and `tests/calc.test.ts`.
 - **Material square feet against the install (Albert, 2026-11-06: "a check for sf of flooring; and sf of install. This
   should usually fall inside of the 10-15% rule difference… flag this as well and give an option to 'ok' it and re-open
   the send option… unless theres no material at all of course").** `sqftCheck()` in `src/lib/quotes/sqftCheck.ts`: the

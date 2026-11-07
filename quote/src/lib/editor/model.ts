@@ -118,7 +118,7 @@ export type CardEntry =
 /** Which Rate Card labour types belong under each section, best match first. */
 export const SECTION_LABOUR: Record<string, string[]> = {
   Install: ["Install", "Refinish", "Sand", "Paint"],
-  Moulding: ["Install", "Paint"],
+  Moulding: ["Moulding", "Install", "Paint"],
   Stairs: [],
   Removal: ["Remove"],
   Disposal: ["Disposal"],
@@ -133,6 +133,12 @@ export const SECTION_LABOUR: Record<string, string[]> = {
  * reducers), and their paint, read from the Rate Card row's specification. Stair nosings stay with the install.
  */
 export const isMouldingWork = (spec: string | null | undefined) => !!spec && /baseboard|shoe ?mou?ld|casing|quarter|t-?mould|\btm\b|reducer/i.test(spec);
+
+/**
+ * A Rate Card row that belongs under Moulding: Labor Type **Moulding** (the Rate Card's own choice, set on its 22
+ * moulding rows by 2026-11-07, nosings included), or Install / Paint work whose specification reads as moulding.
+ */
+export const isMouldingRow = (labourType: string | null | undefined, spec: string | null | undefined) => labourType === "Moulding" || isMouldingWork(spec);
 
 /** Quote Lines.Line Type for a section (Airtable's own select values). */
 export const LINE_TYPE: Record<string, string> = {
@@ -229,8 +235,8 @@ export const bestContractor = (e: Extract<CardEntry, { kind: "rate" }>) => e.con
 export function searchCatalogue(entries: CardEntry[], query: string, section: string, limit = 40, all = false): CardEntry[] {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   const preferred = SECTION_LABOUR[section];
-  // Moulding (2026-11-06) is Install and Paint work on a moulding row; Install keeps the rest.
-  const moulding = (e: CardEntry) => e.kind === "rate" && isMouldingWork(e.spec);
+  // Moulding (2026-11-06) is the Rate Card's Moulding rows, and Install / Paint work on a moulding row; Install keeps the rest.
+  const moulding = (e: CardEntry) => e.kind === "rate" && isMouldingRow(e.labourType, e.spec);
   const belongs = (e: CardEntry) =>
     e.kind === "stair" ? section === "Stairs" : (preferred ?? []).includes(e.labourType) && (section === "Moulding" ? moulding(e) : section === "Install" ? !moulding(e) : true);
   const filtered = !all && preferred !== undefined;

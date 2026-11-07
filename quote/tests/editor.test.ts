@@ -776,6 +776,13 @@ describe("Moulding is its own section (Albert, 2026-11-06)", () => {
     expect(specs("Moulding").sort()).toEqual(["BASEBOARD - 4-5in (Labor Only)", "PAINT: Baseboards", "SHOEMOLD - (Labor Only)", "TM and Reducers"]);
     expect(specs("Install").sort()).toEqual(["NOSINGS", "SOLID HARDWOOD - T&G"]);
   });
+  it("offers the Rate Card's own Moulding rows under Moulding, nosings included, and never under Install (2026-11-07)", () => {
+    const c3 = buildCatalogue([R({ id: "recRateCase000001", labourType: "Moulding", spec: "Casing (Material + Labor) - All Types", uom: "linear ft" }), R({ id: "recRateNoseM00001", labourType: "Moulding", spec: "NOSINGS", uom: "each" }), R({ id: "recRateTG00000002", spec: "SOLID HARDWOOD - T&G" })], []);
+    const in3 = (section: string) => searchCatalogue(c3, "", section, 50).map((e) => (e.kind === "rate" ? e.spec : "")).sort();
+    expect(in3("Moulding")).toEqual(["Casing (Material + Labor) - All Types", "NOSINGS"]);
+    expect(in3("Install")).toEqual(["SOLID HARDWOOD - T&G"]);
+    expect(searchCatalogue(c3, "casing", "Moulding", 50)).toHaveLength(1);
+  });
   it("puts a moulding line in Moulding as Install work", () => {
     const l = lineFromEntry(c2.find((e) => e.kind === "rate" && e.spec.startsWith("BASEBOARD"))!, "Moulding");
     expect([l.section, l.lineType]).toEqual(["Moulding", "Install"]);
