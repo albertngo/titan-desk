@@ -31,6 +31,7 @@ export type CardRow = { id: string; laborType: string | null; name: string | nul
 /** Rate Card → Labor Type for a section (its own choices only; no typecast). Refinish, Paint and Sand keep theirs. */
 const LABOR_TYPE: Record<string, string> = {
   Install: "Install",
+  Moulding: "Moulding",
   Removal: "Remove",
   Disposal: "Disposal",
   Refinish: "Refinish",

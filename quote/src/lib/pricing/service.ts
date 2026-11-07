@@ -25,7 +25,7 @@ export type ServiceLevel = (typeof SERVICE_LEVELS)[number];
 export const PREMIUM_MARKUP = 0.15;
 
 /** Rate Card labour types Premium applies to. Disposal is not labour. */
-export const PREMIUM_LABOUR_TYPES: readonly string[] = ["Install", "Remove", "Refinish", "Sand", "Paint"];
+export const PREMIUM_LABOUR_TYPES: readonly string[] = ["Install", "Moulding", "Remove", "Refinish", "Sand", "Paint"];
 
 export const levelOf = (o: { serviceLevel?: string | null }): ServiceLevel =>
   o.serviceLevel === "Premium" ? "Premium" : o.serviceLevel === "Contractor" ? "Contractor" : "Standard";

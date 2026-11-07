@@ -1442,12 +1442,16 @@ a.chip.accent:hover { text-decoration: underline; }
 .qd-hint, .qd-err { flex-basis: 100%; margin: 0; font-size: 12px; color: var(--fg-faint); }
 .qd-err { color: var(--bad, #c0392b); }
 /* Goes out as: Preliminary | Measured on a Draft (2026-11-07). */
-.ed-basis { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 6px; font-size: 13px; }
-.ed-basis .k { color: var(--fg-dim); }
-.ed-basis .sub { color: var(--fg-dim); flex-basis: 100%; max-width: 70ch; }
-.ed-basis-seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
-.ed-basis-seg button { border: 0; background: var(--card); color: var(--fg-dim); font: inherit; font-weight: 600; padding: 4px 12px; min-height: 32px; cursor: pointer; }
-.ed-basis-seg button.on { background: var(--accent); color: #fff; }
+/* Quiet on purpose (Albert, 2026-11-07: "decrease the ui of the switcher… it isnt something we need to advertise"):
+   one line of faint text, the basis it goes out as in plain weight, the other a small underlined word. */
+.ed-basis { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; margin-top: 2px; font-size: 13px; color: var(--fg-faint); }
+.ed-basis .k { color: var(--fg-faint); }
+.ed-basis .sub { color: var(--fg-faint); flex-basis: 100%; max-width: 70ch; }
+.ed-basis-seg { display: inline-flex; gap: 6px; }
+.ed-basis-on { color: var(--fg-dim); font-weight: 500; }
+.ed-basis-seg button { border: 0; background: none; color: var(--fg-faint); font: inherit; font-weight: 400; padding: 0; min-height: 0; cursor: pointer; text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 2px; }
+.ed-basis-seg button.on { color: var(--fg-dim); font-weight: 500; text-decoration: none; cursor: default; }
+.ed-basis-seg button:hover:not(.on) { color: var(--fg); }
 .ed-basis-seg button:disabled { cursor: progress; opacity: .7; }
 .ed-head .ed-hint { font-size: 13px; color: var(--fg-dim); margin-top: 4px; max-width: 70ch; }
 .ed-head .actions { flex-wrap: nowrap; }

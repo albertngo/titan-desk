@@ -246,3 +246,14 @@ describe("Visited, no quote yet (2026-11-07)", () => {
     expect(visitsWithoutQuote([ev({})], new Map([["c1", [q({ measuredSent: ["2026-11-01"] })]]]), now, day, cal)).toHaveLength(1);
   });
 });
+
+describe("torontoTime", () => {
+  it("reads GHL's offset-less appointment time as Toronto wall time", async () => {
+    const { torontoTime } = await import("@/lib/followup/visit");
+    // The same visit, as /contacts/{id}/appointments and /calendars/events gave it on 2026-11-07.
+    expect(torontoTime("2026-10-24 16:30:00")).toBe(new Date("2026-10-24T16:30:00-04:00").toISOString());
+    expect(torontoTime("2026-12-02 09:00:00")).toBe(new Date("2026-12-02T09:00:00-05:00").toISOString());
+    expect(torontoTime("2026-10-24T16:30:00-04:00")).toBe("2026-10-24T16:30:00-04:00");
+    expect(torontoTime(null)).toBeNull();
+  });
+});

@@ -11,8 +11,8 @@ import { contractVersions } from "@/lib/contract/model";
 import type { Quote, QuoteOption } from "./types";
 import { AUTOSAVE_WORDS, authorFields, autosaveWritesLine, describePlan, type Person } from "./history";
 import { loadContract } from "./contract";
-import { getQuote } from "./load";
-import { alreadySaved, basisRefusal, changeSlot, workingDraft, cleanEditorQuote, fingerprint, isRecordId, newVersionRefusal, planIsEmpty, planSave, type SavePlan } from "./savePlan";
+import { getQuote, measuredOutFor } from "./load";
+import { alreadySaved, basisRefusal, measuredOut, prelimRefusal, changeSlot, workingDraft, cleanEditorQuote, fingerprint, isRecordId, newVersionRefusal, planIsEmpty, planSave, type SavePlan } from "./savePlan";
 import { ids, num, str } from "./values";
 
 /**
@@ -107,7 +107,8 @@ export async function setDraftBasis(versionId: string, basis: string): Promise<B
   if (!isRecordId(versionId)) return { ok: false, message: "That isn't a quote version." };
   const current = await getQuote(versionId);
   if (!current) return { ok: false, message: "This version isn't in Airtable any more." };
-  const refused = basisRefusal({ status: current.status, changeNo: current.changeNo ?? null }, basis);
+  const out = basis === "Preliminary" && current.link ? await measuredOutFor(current.link.quoteRecordId) : 0;
+  const refused = basisRefusal({ status: current.status, changeNo: current.changeNo ?? null }, basis, out);
   if (refused) return { ok: false, message: refused };
   if (current.basis === basis) return { ok: true, basis: basis as Basis };
   await updateRecord(T.versions, versionId, {
@@ -134,7 +135,10 @@ export async function saveAsNewVersion(versionId: string, raw: unknown, basis: s
   if (refused) return { ok: false, message: refused };
 
   const quote = await getRecord(T.quotes, quoteId);
-  const siblings = await listByIds(T.versions, ids(quote.fields[QUOTE.versions]), [VERSION.version, VERSION.status, VERSION.changeNo]);
+  const siblings = await listByIds(T.versions, ids(quote.fields[QUOTE.versions]), [VERSION.version, VERSION.status, VERSION.changeNo, VERSION.basis, VERSION.sentAt]);
+  // Two measured quotes out (2026-11-07): the next draft is measured.
+  const locked = prelimRefusal(basis, measuredOut(siblings.map((v) => ({ basis: str(v.fields[VERSION.basis]), sentAt: str(v.fields[VERSION.sentAt]), status: str(v.fields[VERSION.status]), changeNo: num(v.fields[VERSION.changeNo]) }))));
+  if (locked) return { ok: false, message: locked };
   // One working quote (2026-10-30): a second ordinary draft would be a branch. The editor opens the draft instead.
   const draft = workingDraft(siblings.map((v) => ({ id: v.id, status: str(v.fields[VERSION.status]), changeNo: num(v.fields[VERSION.changeNo]), version: num(v.fields[VERSION.version]) })), versionId);
   if (draft) return { ok: false, message: `v${draft.version ?? "?"} is already the draft for this quote, so nothing was saved here. Your changes are still on this device: open v${draft.version ?? "?"} and make them there.` };

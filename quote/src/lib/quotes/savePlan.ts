@@ -319,8 +319,29 @@ export function newVersionRefusal(from: { changeNo: number | null; agreed: boole
  * the edit screen before it goes out). Only an ordinary Draft: a sent version keeps the basis it went out as, and
  * a change to the accepted quote is always Measured.
  */
-export function basisRefusal(v: { status: string | null; changeNo: number | null }, basis: string): string | null {
+/**
+ * Measured quotes out with the customer before (Albert, 2026-11-07: "if 2 or more measured quotes have went out in the
+ * past; there shouldn't be the option to switch to preliminary anymore"). At MEASURED_LOCK of them, a new or draft
+ * version is Measured only. Counts ordinary versions (not changes) whose Basis is Measured and that went out: Sent At
+ * set and no longer a Draft (Sent, Superseded, Accepted, Won, Lost, Expired).
+ */
+export const MEASURED_LOCK = 2;
+
+export function measuredOut(versions: { basis: string | null; sentAt: string | null; status: string | null; changeNo: number | null }[]): number {
+  return versions.filter((v) => v.basis === "Measured" && Boolean(v.sentAt) && v.status !== "Draft" && !((v.changeNo ?? 0) > 0)).length;
+}
+
+export const preliminaryLocked = (out: number) => out >= MEASURED_LOCK;
+
+export const PRELIM_LOCKED_WORDS = `${MEASURED_LOCK} measured quotes have already gone out, so it can't go back to a preliminary.`;
+
+/** Preliminary refused once the quote has had MEASURED_LOCK measured quotes out; null when it may be either. */
+export const prelimRefusal = (basis: string, out: number) => (basis === "Preliminary" && preliminaryLocked(out) ? PRELIM_LOCKED_WORDS : null);
+
+export function basisRefusal(v: { status: string | null; changeNo: number | null }, basis: string, out = 0): string | null {
   if (basis !== "Preliminary" && basis !== "Measured") return "Choose Preliminary or Measured.";
+  const locked = prelimRefusal(basis, out);
+  if (locked) return locked;
   if (v.status !== "Draft") return `This version is ${(v.status ?? "not a draft").toLowerCase()}, so it keeps the basis it went out as. Pick the next draft's basis beside Save as the next draft.`;
   if ((v.changeNo ?? 0) > 0) return "A change to the accepted quote is always measured.";
   return null;
