@@ -17,7 +17,8 @@ import { TREAD_TYPES, type SiteSheet, type TreadType, type WidthCounts } from ".
  *   bullnose (LSO and RSO bullnoses are standard);
  * - wall-rail brackets: the first 1 ft in, then one every 2 ft, so floor((ft − 1) / 2) + 1 a wall run;
  * - picket heights: on the steps they alternate 36" and 39" (more 36s), the flat top is all 36";
- * - oak for landings at about 20 sq ft a box (3 × 3 when the size isn't written).
+ * - oak for landings at about 20 sq ft a box (an other-size landing at its written size, sheet v7; 3 × 3 when it isn't);
+ * - the custom bullnose (B8a, v7): flagged while any of its four measures is blank.
  * Pure; tested in tests/sitesheet.test.ts.
  */
 
@@ -78,6 +79,14 @@ export function pizzaCounts(s: SiteSheet) {
     overCount: byPieces > 0 ? extra : 0,
   };
 }
+/** C1's other-size landings: the count written (v6), else 1 when v7's "__ x __" size is written. */
+export function otherLandings(s: SiteSheet): number {
+  const l = s.landings;
+  return n(l.other) || (n(l.otherLength) > 0 && n(l.otherWidth) > 0 ? 1 : 0);
+}
+/** One other-size landing's square feet: its written size, else a 3 × 3. */
+export const otherLandingSqft = (s: SiteSheet) => (n(s.landings.otherLength) > 0 && n(s.landings.otherWidth) > 0 ? n(s.landings.otherLength) * n(s.landings.otherWidth) : 9);
+
 /** Pizza-set treads: each set is 2 or 3 pieces. */
 export const pizzaTreads = (s: SiteSheet) => pizzaCounts(s).pieces;
 
@@ -102,7 +111,7 @@ export function derive(s: SiteSheet): Derived {
   const treads = by.rso + by.lso + by.boxed + by.two + pizza;
   const sideTreads = n(s.side.steps);
   const halfMoons = n(s.halfMoons.count);
-  const landings = n(s.landings.s3x3) + n(s.landings.s3x6) + n(s.landings.other);
+  const landings = n(s.landings.s3x3) + n(s.landings.s3x6) + otherLandings(s);
   const flags: string[] = [];
 
   const twoSidePizza = pz.twoSide > 0;
@@ -171,7 +180,7 @@ export function derive(s: SiteSheet): Derived {
     flags.push(`Railing on the steps adds up to ${Math.round(stepFt * 10) / 10} ft; ${treads} treads suggest about ${Math.round(expectFt)} ft. Check the lengths or the treads.`);
   if (s.runs.some((x) => x.pickets && x.where === "W")) flags.push("A wall rail run is ticked as having pickets. Check whether it's really on the steps or flat.");
 
-  const landingSqft = n(s.landings.s3x3) * 9 + n(s.landings.s3x6) * 18 + n(s.landings.other) * 9;
+  const landingSqft = n(s.landings.s3x3) * 9 + n(s.landings.s3x6) * 18 + otherLandings(s) * otherLandingSqft(s);
   const oakBoxes = Math.ceil(landingSqft / 20);
 
   if (s.totalTreads !== null && s.totalTreads !== treads) flags.push(`Total treads: the sheet says ${s.totalTreads}, the boxes add up to ${treads}.`);
@@ -184,6 +193,10 @@ export function derive(s: SiteSheet): Derived {
 
   if (pz.overCount > 0) flags.push(`Pizza sets: ${pz.twoSide} marked 2 side open, but the 2-pc and 3-pc boxes add up to fewer (${pz.sets - pz.overCount}). The extra ${pz.overCount} counted as 3-piece; check B7.`);
   const custom = { pizzaSets: pz.custom, bullnoses: n(s.bullnose.two) };
+  // B8a (v7): a custom bullnose is ordered from its four measures, so a blank one is for a person to get.
+  const bm = s.bullnoseMeasures;
+  const missing = ([["riser to riser", bm.riser], ["tread depth", bm.depth], ["nose reach", bm.reach], ["ear", bm.ear]] as const).filter(([, v]) => v === null).map(([k]) => k);
+  if (custom.bullnoses > 0 && missing.length) flags.push(`Custom bullnose (B8a): ${missing.join(", ")} not written. It's ordered to size, so get ${missing.length === 1 ? "it" : "them"} before ordering.`);
   const brackets = s.runs.filter((x) => x.where === "W").reduce((t, x) => t + bracketsFor(n(x.ft)), 0);
   const notes: string[] = [];
   if (s.metalBar) notes.push("Metal bar under the handrail: bring the hardware for it.");
@@ -191,7 +204,7 @@ export function derive(s: SiteSheet): Derived {
     const why = [n(s.pizza.pc2) ? `${n(s.pizza.pc2)} 2-piece` : "", custom.pizzaSets - n(s.pizza.pc2) ? `${custom.pizzaSets - n(s.pizza.pc2)} 3-piece, 2 side open` : ""].filter(Boolean).join(", ");
     notes.push(`${custom.pizzaSets} custom pizza set${custom.pizzaSets === 1 ? "" : "s"} (${why}).`);
   }
-  if (custom.bullnoses) notes.push(`${custom.bullnoses} custom bullnose${custom.bullnoses === 1 ? "" : "s"} (2-side open).`);
+  if (custom.bullnoses) notes.push(`${custom.bullnoses} custom bullnose${custom.bullnoses === 1 ? "" : "s"} (2-side open)${bullnoseSize(s) ? `: ${bullnoseSize(s)}` : ""}.`);
 
   return {
     treads,
@@ -213,4 +226,11 @@ export function derive(s: SiteSheet): Derived {
     notes,
     flags,
   };
+}
+
+/** B8a in words: 'riser to riser 48", depth 11", nose reach 4", ear 1.5"', the measures written; null when none is. */
+export function bullnoseSize(s: SiteSheet): string | null {
+  const b = s.bullnoseMeasures;
+  const parts = ([["riser to riser", b.riser], ["depth", b.depth], ["nose reach", b.reach], ["ear", b.ear]] as const).filter(([, v]) => v !== null).map(([k, v]) => `${k} ${v}"`);
+  return parts.length ? parts.join(", ") : null;
 }

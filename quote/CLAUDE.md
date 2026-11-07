@@ -799,7 +799,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   Customer view has no tab and the customer deployment never reads it. Pure rules in
   `src/lib/rooms/log.ts`, tested in `tests/rooms.test.ts`.
 - **Site sheet (Albert, 2026-10-28).** A **Site sheet** tab on the quote page, beside Rooms, staff only. The PM
-  fills the two-page paper **Stair Site Sheet** (v6 since 2026-10-31; v5 sheets still read) on site: what is there (staircases, shape, what is on the
+  fills the two-page paper **Stair Site Sheet** (v7 since 2026-11-07, below; v6 and v5 sheets still read) on site: what is there (staircases, shape, what is on the
   steps, a tread grid of RSO / LSO / Boxed / 2 side open by 36 / 42 / 48", pie and bullnose by open
   side (LSO / RSO / 2 side open, never boxed), every count box in B1–B8 adding up a count written in parts ("4+3", `sumParts()`, Albert 2026-10-31: "count and write, not mentally add"; Claude adds parts written in one box on the paper), pizza sets as 2-pc and 3-pc counts plus how many of those are 2 side open (2026-10-31; custom = every 2-pc set and any 2 side open, shown on the row; the 2-side-open sets are taken as the 3-piece ones first, so custom pieces are never undercounted; an older stored sheet's single sets count is carried over in `cleanSheet()`),
   landings by size, half moons, stringers (White / Stained; a blank Made of reads as veneer), nosings as a
@@ -810,7 +810,7 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   model `claude-opus-5-5`, one JSON object in the answer's text, the schema written into the message in `src/lib/sitesheet/prompt.ts` (the model refuses a forced tool call and the structured-output setting refused the sheet's 70 nullable fields), read by `jsonFromText()` and then `cleanSheet()`; server-side fallback on a refusal), the
   photos go on **Quotes → Site Sheet Photos** and what was read on **Quotes → Site Sheet** (JSON, app-written,
   compare-and-swap like Rooms; `src/lib/quotes/sitesheet.ts`). A person checks every field beside the photos
-  (uncertain ones are marked) and presses **Save check**. What was read is drawn as the paper sheet (v6) itself, one box for one box
+  (uncertain ones are marked) and presses **Save check**. What was read is drawn as the paper sheet (v7) itself, one box for one box
   (Albert, 2026-10-29), each page beside its photo: `src/components/SiteSheetPaper.tsx`, styles scoped under `.ssp`; every bubble, tick
   and box on it is the control for that field, and a code Claude marked unclear is washed yellow. Change the sheet and this copy together. The app works out, never asks: risers = treads + one
   per landing (a half moon counts) + one for the top floor; open sides from the grid; spindles from the railing runs (2 a foot of
@@ -1271,6 +1271,19 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   Stairs) and when a preliminary is saved as the measured next draft (each flooring option gains delivery), never on
   load, so a fee someone removed stays removed. Nothing is added twice, and nothing at all if the Rate Card row is
   gone. Tested in `tests/fees.test.ts`.
+- **Stair Site Sheet v7 (Albert, 2026-11-06/07).** Source `quote/sheets/stair-site-sheet-v7.html` (the first stair sheet
+  with a source in the repo), PDF beside it; the on-screen copy `SiteSheetPaper.tsx` follows it. **B1-B3 Custom**
+  "__ at (__ x __)": how many at full length x full depth, inches (`WidthCounts.other` / `otherWidth` / new `otherDepth`);
+  the line reads `Step (RSO) (40" x 11.5")`, at the step's one price as before. **B4, 2 side open, riser to riser only**:
+  36 / 42 / 48 hatched, "__ at riser length __" (`otherWidth`; a count an older sheet read still shows). **B5** is for the
+  36 / 42 / 48 columns; a custom tread carries its own depth. **B8**'s 2 side open box reads "how many (custom) · measure in
+  B8a"; **B8a** (Albert: "the diagram as shown in the image… 4 measurements") draws the tread from above with 1 riser to
+  riser, 2 tread depth, 3 nose reach (riser end to outside of nose), 4 ear (nose behind the riser line)
+  (`bullnoseMeasures`, one set; a second that differs goes in N1). Derive flags a custom bullnose with any measure blank
+  and puts the measures in the bullnose line's words. **C1 Other** "__ x __", one landing of that size in feet
+  (`landings.otherLength` / `otherWidth`; `otherLandings()` counts it as one, its oak at that size; still priced as a 3 x 3
+  with a note naming the size). C and D moved to page 2 to make room. Claude's instructions read v7, v6 and v5
+  (`prompt.ts`). Tested in `tests/sitesheet.test.ts`.
 - **The Send card starts the way the last version went (Albert, 2026-11-06: "send card should also show and default
   to the 'breakdown' or 'lumpsum' selection of the previously sent version").** `lastSentWay()` in
   `src/lib/send/sendAs.ts` reads the newest sent version's frozen copy: `pricing` gives lump sum or breakdown, and a

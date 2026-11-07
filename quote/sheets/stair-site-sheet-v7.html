@@ -1,0 +1,253 @@
+<title>Stair Site Sheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@600;700&display=swap">
+<style>
+/*
+ * Stair Site Sheet v7 (Albert, 2026-11-06/07). The printed master: two Letter pages, printed as a pair.
+ * v7 over v6: B1-B3 Custom "__ at (__ x __)" (how many at full length x full depth); B4 2 side open is riser to riser
+ * only, 36/42/48 hatched, "__ at riser length __"; B5 is for the 36/42/48 columns; B8a, the 2-side-open bullnose's four
+ * measures with a drawing; C1 Other is "__ x __". C and D moved to page 2 to make room.
+ * Its on-screen copy is src/components/SiteSheetPaper.tsx: change both together. Rebuild the PDF with render.js.
+ */
+:root { --sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace; }
+body { margin: 0; background: #eef1f5; font-family: var(--sans); }
+.ssp { --ink: #111; --ink-2: #555; --rule: #222; --paper: #fff; --hatch: #ddd; --thead: #eee; width: 816px; margin: 0 auto; color: var(--ink); display: grid; gap: 20px; padding: 20px 0; }
+.page { width: 816px; height: 1056px; box-sizing: border-box; background: var(--paper); color: var(--ink); box-shadow: 0 2px 14px rgba(20,30,45,.18); position: relative; padding: .38in .45in; font-size: 9.6pt; line-height: 1.25; display: flex; flex-direction: column; gap: 6pt; overflow: hidden; }
+.page h3, .page p { margin: 0; }
+.reg { position: absolute; width: 18px; height: 18px; background: var(--ink); }
+.reg.tl { top: .18in; left: .18in; } .reg.tr { top: .18in; right: .18in; } .reg.bl { bottom: .18in; left: .18in; } .reg.br { bottom: .18in; right: .18in; }
+.ph { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4pt 12pt; align-items: end; border-bottom: 2px solid var(--rule); padding-bottom: 5pt; }
+.ph .row .f { flex-direction: row; align-items: baseline; gap: 4pt; }
+.ph .tt { white-space: nowrap; font-size: 14pt; font-weight: 800; letter-spacing: .02em; }
+.ph .tt small { font-size: 8.5pt; font-weight: 600; color: var(--ink-2); letter-spacing: 0; margin-left: 6pt; }
+.lbl { font-size: 8pt; color: var(--ink-2); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.f { display: inline-flex; flex-direction: column; gap: 1pt; }
+.qbox { display: inline-flex; align-items: center; gap: 2pt; font-weight: 800; font-size: 11pt; }
+.qbox i { display: inline-block; width: 15pt; height: 19pt; border: 1px solid var(--ink); }
+.line { display: inline-block; border-bottom: 1px solid var(--ink); height: 13pt; vertical-align: bottom; }
+.bx { display: inline-block; width: 15pt; height: 15pt; border: 1px solid var(--ink); vertical-align: middle; }
+.sec { border: 1.5px solid var(--rule); border-radius: 3pt; }
+.sec > h3 { display: flex; align-items: baseline; gap: 6pt; background: var(--ink); color: var(--paper); font-size: 9.5pt; padding: 2.5pt 6pt; letter-spacing: .03em; font-weight: 700; }
+.sec > h3 .c { font-family: var(--mono); font-size: 8.5pt; }
+.sec > h3 .hint { margin-left: auto; font-weight: 500; font-size: 7.5pt; opacity: .85; }
+.sb { padding: 4pt 6pt; display: grid; gap: 4pt; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 3pt 9pt; }
+.row > .k { font-weight: 700; min-width: 74pt; }
+.code { font-family: var(--mono); font-size: 7.6pt; color: var(--ink-2); font-weight: 700; }
+.o { display: inline-flex; align-items: center; gap: 3pt; white-space: nowrap; }
+.o::before { content: ""; width: 9pt; height: 9pt; border: 1.2px solid var(--ink); border-radius: 50%; display: inline-block; flex: none; box-sizing: border-box; }
+.o.sq::before { border-radius: 1.5pt; }
+.tip { font-size: 7.8pt; color: var(--ink-2); }
+.sub-h { font-size: 8pt; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-2); border-bottom: 1px solid var(--ink); padding-bottom: 1pt; }
+table.g { border-collapse: collapse; width: 100%; font-size: 9pt; }
+table.g th, table.g td { border: 1px solid var(--ink); padding: 1pt 3pt; text-align: center; height: 20pt; }
+table.g th { background: var(--thead); font-size: 8pt; font-weight: 700; line-height: 1.1; }
+table.g th small { display: block; font-weight: 500; color: var(--ink-2); font-size: 7pt; }
+table.g td.k { text-align: left; font-weight: 700; line-height: 1.1; }
+table.g td.k small { display: block; font-weight: 500; color: var(--ink-2); font-size: 7pt; }
+table.g td.x { background: repeating-linear-gradient(135deg, var(--paper) 0 4pt, var(--hatch) 4pt 5pt); }
+table.g td.cu { white-space: nowrap; font-size: 9pt; }
+table.g td.cu small { display: block; font-size: 6.6pt; color: var(--ink-2); margin-top: 1pt; }
+table.tr td { height: 25pt; }
+.p2 table.g th, .p2 table.g td { height: 15.5pt; }
+.p2 .sb { gap: 3pt; padding: 3pt 6pt; }
+.p2 { gap: 5pt; }
+.mark { width: 34pt; }
+.shapes { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2pt; text-align: center; font-size: 7.6pt; }
+.shapes svg { width: 30pt; height: 30pt; stroke: var(--ink); fill: none; stroke-width: 1.4; display: block; margin: 0 auto 2pt; }
+.shapes .o { justify-content: center; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 6pt; }
+.b8a { display: grid; grid-template-columns: 190pt 1fr; gap: 8pt; align-items: center; border: 1.5px solid var(--ink); border-radius: 3pt; padding: 4pt 6pt; }
+.b8a svg { width: 190pt; display: block; }
+.b8a ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 3pt; }
+.b8a li { display: flex; align-items: baseline; gap: 4pt; }
+.n { display: inline-flex; width: 11pt; height: 11pt; border-radius: 50%; background: var(--ink); color: var(--paper); font-size: 7pt; font-weight: 800; align-items: center; justify-content: center; flex: none; }
+.b8a .t { font-weight: 800; font-size: 8.4pt; letter-spacing: .03em; }
+.notes { flex: 1; min-height: 30pt; border: 1.5px solid var(--rule); border-radius: 3pt; padding: 4pt 6pt; }
+.foot { display: flex; justify-content: space-between; gap: 10pt; font-size: 8pt; color: var(--ink-2); border-top: 1px solid var(--ink); padding-top: 3pt; margin-top: auto; }
+.foot b { color: var(--ink); }
+@page { size: letter; margin: 0; }
+@media print {
+  body { background: #fff; }
+  .ssp { display: block; padding: 0; gap: 0; }
+  .page { box-shadow: none; height: 11in; page-break-after: always; break-after: page; }
+}
+</style>
+
+<div class="ssp">
+<!-- ===================== PAGE 1 ===================== -->
+<section class="page" aria-label="Stair Site Sheet, page 1">
+  <i class="reg tl"></i><i class="reg tr"></i><i class="reg bl"></i><i class="reg br"></i>
+  <div class="ph">
+    <div class="tt">TITAN FLOORING · Stair Site Sheet <small>v7 · page 1 of 2</small></div>
+    <span class="f"><span class="lbl">Quote</span><span class="qbox">Q-<i></i><i></i><i></i><i></i></span></span>
+    <div class="row" style="gap:10pt;grid-column:1/-1">
+      <span class="f"><span class="lbl">Customer</span><span class="line" style="width:170pt"></span></span>
+      <span class="f"><span class="lbl">Date</span><span class="line" style="width:62pt"></span></span>
+      <span class="f"><span class="lbl">PM</span><span class="line" style="width:62pt"></span></span>
+      <span class="lbl" style="margin-left:auto">Fill ● · numbers in boxes · wrong? cross out, write beside</span>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h3><span class="c">A</span> Staircases <span class="hint">Tick every one that applies</span></h3>
+    <div class="sb">
+      <div class="row"><span class="k">Where <span class="code">A1</span></span><span class="o sq">Main</span><span class="o sq">Basement</span><span class="o sq">Townhome</span><span class="o sq">Side / half staircase</span></div>
+      <div class="row"><span class="k">Main shape <span class="code">A2</span></span></div>
+      <div class="shapes">
+        <div><svg viewBox="0 0 48 48"><rect x="17" y="2" width="14" height="44"/><path d="M17 8h14M17 14h14M17 20h14M17 26h14M17 32h14M17 38h14"/></svg><span class="o">Straight</span></div>
+        <div><svg viewBox="0 0 48 48"><rect x="4" y="16" width="14" height="30"/><path d="M4 22h14M4 28h14M4 34h14M4 40h14"/><rect x="4" y="2" width="14" height="14"/><rect x="18" y="2" width="26" height="14"/><path d="M26 2v14M34 2v14"/></svg><span class="o">Quarter turn</span></div>
+        <div><svg viewBox="0 0 48 48"><rect x="4" y="16" width="14" height="30"/><path d="M4 22h14M4 28h14M4 34h14M4 40h14"/><rect x="4" y="2" width="14" height="14"/><path d="M18 16L4 2M18 16L11 2M18 16L4 9"/><rect x="18" y="2" width="26" height="14"/><path d="M26 2v14M34 2v14"/></svg><span class="o">Quarter winder</span></div>
+        <div><svg viewBox="0 0 48 48"><rect x="4" y="14" width="14" height="32"/><path d="M4 20h14M4 26h14M4 32h14M4 38h14"/><rect x="4" y="2" width="40" height="12"/><rect x="30" y="14" width="14" height="32"/><path d="M30 20h14M30 26h14M30 32h14M30 38h14"/></svg><span class="o">U, landing</span></div>
+        <div><svg viewBox="0 0 48 48"><path d="M8 44A36 36 0 0 1 40 6M22 44A24 24 0 0 1 42 20"/><path d="M8 44h14M9 34l13 4M13 25l12 8M19 17l10 10M26 11l8 10M33 7l5 11"/></svg><span class="o">Curved</span></div>
+        <div><svg viewBox="0 0 48 48"><circle cx="24" cy="24" r="21"/><circle cx="24" cy="24" r="3"/><path d="M24 3v18M45 24H27M24 45V27M3 24h18M9 9l13 13M39 9L26 22M39 39L26 26M9 39l13-13"/></svg><span class="o">Spiral</span></div>
+        <div><svg viewBox="0 0 48 48"><rect x="4" y="16" width="14" height="30"/><path d="M4 24h14M4 32h14M4 40h14"/><rect x="4" y="2" width="40" height="14"/><path d="M18 16L4 2M18 16L11 2M30 16l14-14M30 16l7-14M24 2v14"/><rect x="30" y="16" width="14" height="30"/><path d="M30 24h14M30 32h14M30 40h14"/></svg><span class="o">Double winder</span></div>
+        <div><svg viewBox="0 0 48 48"><rect x="17" y="2" width="14" height="44"/><path d="M17 6h14M17 10h14M17 14h14M17 32h14M17 36h14M17 40h14"/><rect x="17" y="18" width="14" height="10" fill="#ddd"/></svg><span class="o">Half landing</span></div>
+      </div>
+      <div class="row"><span class="k">On the steps now <span class="code">A3</span></span><span class="o">Carpet</span><span class="o">Wood caps</span><span class="o">Painted wood</span><span class="o">Vinyl</span><span class="o">Other <span class="line" style="width:60pt"></span></span></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h3><span class="c">B</span> Treads, main staircase <span class="hint">How many in each box · count in parts if easier: 4 + 3 · width = wall to wall</span></h3>
+    <div class="sb">
+      <table class="g tr">
+        <thead><tr><th style="width:18%">Tread</th><th style="width:13%">36"</th><th style="width:13%">42"</th><th style="width:13%">48"</th><th>Custom</th></tr></thead>
+        <tbody>
+          <tr><td class="k">RSO <small>right side open · <span class="code">B1</span></small></td><td></td><td></td><td></td><td class="cu"><span class="line" style="width:22pt"></span> at (<span class="line" style="width:34pt"></span> x <span class="line" style="width:34pt"></span>)<small>how many · full length x full depth</small></td></tr>
+          <tr><td class="k">LSO <small>left side open · <span class="code">B2</span></small></td><td></td><td></td><td></td><td class="cu"><span class="line" style="width:22pt"></span> at (<span class="line" style="width:34pt"></span> x <span class="line" style="width:34pt"></span>)<small>how many · full length x full depth</small></td></tr>
+          <tr><td class="k">Boxed <small>walls both sides · <span class="code">B3</span></small></td><td></td><td></td><td></td><td class="cu"><span class="line" style="width:22pt"></span> at (<span class="line" style="width:34pt"></span> x <span class="line" style="width:34pt"></span>)<small>how many · full length x full depth</small></td></tr>
+          <tr><td class="k">2 side open <small>riser to riser only · <span class="code">B4</span></small></td><td class="x"></td><td class="x"></td><td class="x"></td><td class="cu"><span class="line" style="width:22pt"></span> at riser length <span class="line" style="width:40pt"></span>"<small>how many · riser to riser, custom order only</small></td></tr>
+        </tbody>
+      </table>
+      <div class="row"><span class="k">Tread depth <span class="code">B5</span></span><span class="o">Standard 10-5/8"</span><span class="o">Custom <span class="line" style="width:34pt"></span>"</span><span class="lbl">for the 36 / 42 / 48 columns · a custom tread carries its own depth</span></div>
+      <table class="g">
+        <thead><tr><th style="width:24%">Special treads <small>how many of each</small></th><th style="width:9%">Boxed</th><th style="width:13%">LSO</th><th style="width:13%">RSO</th><th style="width:18%">2 side open</th><th>Pizza only</th></tr></thead>
+        <tbody>
+          <tr><td class="k">Pie shape <small>each winder tread · <span class="code">B6</span></small></td><td class="x"></td><td></td><td></td><td></td><td class="x"></td></tr>
+          <tr><td class="k">Pizza set <small>how many sets · one 90° turn each</small><small>custom: every 2-pc · any 2 side open · <span class="code">B7</span></small></td><td class="x"></td><td class="x"></td><td class="x"></td><td><span class="bx" style="width:26pt"></span><div class="tip">of these sets →</div></td><td style="white-space:nowrap"><b>2-pc</b> <span class="bx" style="width:26pt"></span> <b>3-pc</b> <span class="bx" style="width:26pt"></span></td></tr>
+          <tr><td class="k">Bullnose <small>LSO / RSO std (extra large) · <span class="code">B8</span></small></td><td class="x"></td><td></td><td></td><td colspan="2" class="tip" style="text-align:left;padding-left:8pt"><span class="bx" style="width:26pt"></span> &nbsp;how many (custom) · measure in <b>B8a</b> below</td></tr>
+        </tbody>
+      </table>
+      <div class="b8a">
+        <svg viewBox="-14 0 244 112" aria-label="A 2 side open bullnose tread seen from above, with its four measures">
+          <path d="M40 18 H180 A42 42 0 0 1 180 102 H40 A42 42 0 0 1 40 18 Z" fill="#f2f2f2" stroke="#111" stroke-width="1.6"/>
+          <path d="M44 18 V26 H176 V18" fill="none" stroke="#111" stroke-width="3"/>
+          <text x="110" y="64" font-size="8" text-anchor="middle" fill="#555">tread, seen from above</text>
+          <text x="110" y="74" font-size="8" text-anchor="middle" fill="#555">riser at the back</text>
+          <g stroke="#111" stroke-width="1.1" fill="none"><path d="M44 8 H176 M44 4 V12 M176 4 V12"/><path d="M200 26 V102 M196 26 H204 M196 102 H204"/><path d="M-2 90 H44 M-2 86 V94 M44 86 V94"/><path d="M27 18 V26 M24 18 H30 M24 26 H30"/></g>
+          <g font-size="10" font-weight="800" fill="#111" text-anchor="middle"><text x="110" y="7">1</text><text x="212" y="68">2</text><text x="21" y="104">3</text><text x="17" y="31">4</text></g>
+        </svg>
+        <div>
+          <div class="t">B8a · 2 side open bullnose · custom · 4 measures each</div>
+          <ol style="margin-top:4pt">
+            <li><span class="n">1</span> Riser to riser <span class="line" style="width:42pt"></span>"</li>
+            <li><span class="n">2</span> Tread depth (riser to front) <span class="line" style="width:42pt"></span>"</li>
+            <li><span class="n">3</span> Nose reach (riser end to outside of nose) <span class="line" style="width:42pt"></span>"</li>
+            <li><span class="n">4</span> Ear (nose behind the riser line) <span class="line" style="width:42pt"></span>"</li>
+          </ol>
+          <div class="tip" style="margin-top:3pt">More than one, and they differ? Write each one's 1 · 2 · 3 · 4 in N1 on page 2.</div>
+        </div>
+      </div>
+      <div class="row"><span style="margin-left:auto">Total treads <span class="code">B9</span> <span class="bx" style="width:30pt"></span> <span class="lbl">must match B1–B8</span></span></div>
+      <div class="sub-h">Side / half staircase <span class="code">B10</span> · only if ticked in A1</div>
+      <div class="row">Steps <span class="bx" style="width:24pt"></span><span class="o">RSO</span><span class="o">LSO</span><span class="o">Boxed</span><span class="o">2 side open</span><span>Width <span class="o">36"</span> <span class="o">42"</span> <span class="o">48"</span> <span class="o">other <span class="line" style="width:28pt"></span></span></span></div>
+    </div>
+  </div>
+
+  <div class="foot"><span><b>Photos to take:</b> bottom step · top · each open side · one tread close-up · each post · each custom bullnose</span><span><b>P1</b> · keep both pages together</span></div>
+</section>
+
+<!-- ===================== PAGE 2 ===================== -->
+<section class="page p2" aria-label="Stair Site Sheet, page 2">
+  <i class="reg tl"></i><i class="reg tr"></i><i class="reg bl"></i><i class="reg br"></i>
+  <div class="ph">
+    <div class="tt">TITAN FLOORING · Stair Site Sheet <small>v7 · page 2 of 2</small></div>
+    <span class="f"><span class="lbl">Quote</span><span class="qbox">Q-<i></i><i></i><i></i><i></i></span></span>
+  </div>
+
+  <div class="cols">
+    <div class="sec">
+      <h3><span class="c">C</span> Landings &amp; half moons</h3>
+      <div class="sb">
+        <table class="g">
+          <thead><tr><th style="width:30%"></th><th>3 × 3</th><th>≈ 3 × 6</th><th style="width:36%">Other</th></tr></thead>
+          <tbody><tr><td class="k">Landings <small>how many of each · <span class="code">C1</span></small></td><td></td><td></td><td class="cu"><span class="line" style="width:30pt"></span> x <span class="line" style="width:30pt"></span><small>length x width, feet</small></td></tr></tbody>
+        </table>
+        <div class="row"><span class="k">Half moons <span class="code">C2</span></span>How many <span class="bx"></span> Nosing <span class="line" style="width:28pt"></span> ft</div>
+        <div class="row"><span class="o sq">Nosing method (default)</span><span class="o sq">Solid one-piece</span></div>
+      </div>
+    </div>
+    <div class="sec">
+      <h3><span class="c">D</span> Stringers</h3>
+      <div class="sb">
+        <div class="row"><span class="k">Now <span class="code">D1</span></span><span class="o">White</span><span class="o">Stained</span><span class="o">Other</span></div>
+        <div class="row"><span class="k">Made of <span class="code">D2</span></span><span class="o">Veneer</span><span class="o">Solid</span><span class="o">Don't know</span></div>
+        <div class="row"><span class="k">Staircases <span class="code">D3</span></span><span class="bx" style="width:30pt"></span><span class="tip">blank = 1 · 1.5 if there's more</span></div>
+        <div class="tip">Blank Made of reads as veneer. Priced per staircase, both sides.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h3><span class="c">E</span> Nosings <span class="hint">Write a length per piece · everything else follows the default</span></h3>
+    <div class="sb">
+      <div class="row"><span class="k">Default <span class="code">E1</span></span><span class="o sq">Carpet on the nosings now</span><span>thickness</span><span class="o">½"</span><span class="o">¾"</span><span class="o">Not sure</span><span>depth <span class="line" style="width:28pt"></span>" <span class="tip">(blank = 4.5" with overlap)</span></span></div>
+      <table class="g">
+        <thead><tr><th style="width:20%">Piece <span class="code">E2</span></th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th><th>10</th></tr></thead>
+        <tbody>
+          <tr><td class="k">Length <small>feet</small></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr><td class="k">Depth if different <small>inches, else blank</small></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr class="tip"><td class="k">Thickness if different <small>circle ½ or ¾, else blank</small></td><td>½ · ¾</td><td>½ · ¾</td><td>½ · ¾</td><td>½ · ¾</td><td>½ · ¾</td><td>½ · ¾</td><td>½ · ¾</td><td>½ · ¾</td><td>½ · ¾</td><td>½ · ¾</td></tr>
+          <tr><td class="k">Sand instead of new <small>tick only if kept</small></td><td><span class="bx" style="width:10pt;height:10pt"></span></td><td><span class="bx" style="width:10pt;height:10pt"></span></td><td><span class="bx" style="width:10pt;height:10pt"></span></td><td><span class="bx" style="width:10pt;height:10pt"></span></td><td><span class="bx" style="width:10pt;height:10pt"></span></td><td><span class="bx" style="width:10pt;height:10pt"></span></td><td><span class="bx" style="width:10pt;height:10pt"></span></td><td><span class="bx" style="width:10pt;height:10pt"></span></td><td><span class="bx" style="width:10pt;height:10pt"></span></td><td><span class="bx" style="width:10pt;height:10pt"></span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h3><span class="c">F</span> Railing, as it is now <span class="hint">One column per run of handrail</span></h3>
+    <div class="sb">
+      <table class="g">
+        <thead><tr><th style="width:20%">Run <span class="code">F1</span></th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th></tr></thead>
+        <tbody>
+          <tr><td class="k">Length <small>feet</small></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+          <tr class="tip"><td class="k">Where <small>S steps · F flat · W wall</small></td><td>S · F · W</td><td>S · F · W</td><td>S · F · W</td><td>S · F · W</td><td>S · F · W</td><td>S · F · W</td><td>S · F · W</td><td>S · F · W</td></tr>
+          <tr><td class="k">Curved</td><td><span class="bx" style="width:10pt;height:10pt"></span></td><td><span class="bx" style="width:10pt;height:10pt"></span></td><td><span class="bx" style="width:10pt;height:10pt"></span></td><td><span class="bx" style="width:10pt;height:10pt"></span></td><td><span class="bx" style="width:10pt;height:10pt"></span></td><td><span class="bx" style="width:10pt;height:10pt"></span></td><td><span class="bx" style="width:10pt;height:10pt"></span></td><td><span class="bx" style="width:10pt;height:10pt"></span></td></tr>
+          <tr><td class="k">Pickets <small>tick, or feet if part</small></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+        </tbody>
+      </table>
+      <div class="cols" style="gap:4pt 12pt">
+        <div style="display:grid;gap:3pt">
+          <div class="row"><span class="k">Metal bar <span class="code">F2</span></span><span class="o sq">Metal bar under the handrail</span></div>
+          <div class="row"><span class="k">Spindles <span class="code">F2</span> <span class="tip">optional</span></span>steps <span class="bx" style="width:30pt"></span> flat <span class="bx" style="width:30pt"></span></div>
+          <div class="row"><span class="k">Picket heights <span class="code">F3</span></span>36" <span class="bx" style="width:22pt"></span> 39" <span class="bx" style="width:22pt"></span> 42" <span class="bx"></span></div>
+        </div>
+        <div style="display:grid;gap:3pt;align-content:start">
+          <div class="row"><span class="k">Posts <span class="code">F4</span></span>There now <span class="bx" style="width:22pt"></span> To add <span class="bx" style="width:22pt"></span></div>
+          <div class="tip">Spindles and heights are optional: blank, the app counts them from the runs. Wall brackets are worked out (1 ft in, then every 2 ft). Full, half or under post is decided when finalising.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec" style="border-width:2.5px">
+    <h3><span class="c">G</span> What the customer wants <span class="hint">Tick everything they'd consider · the app builds the options</span></h3>
+    <div class="sb" style="gap:1.5pt">
+      <div class="row"><span class="k">Treads <span class="code">G1</span></span><span class="o sq">Sand &amp; refinish existing caps</span><span class="o sq">New wood caps</span><span class="o sq">Vinyl treads</span><span class="o sq">Vinyl steps</span><span class="o sq">Not sure</span></div>
+      <div class="row"><span class="k">Bullnose <span class="code">G1</span></span><span class="o sq">Square off bullnose</span></div>
+      <div class="row"><span class="k">Riser colour <span class="code">G2</span></span><span class="o">White</span><span class="o">Stain</span><span class="o">Not sure</span></div>
+      <div class="row"><span class="k">Stringer colour <span class="code">G3</span></span><span class="o">White</span><span class="o">Stain</span><span class="o">Not sure</span></div>
+      <div class="row"><span class="k">Stain colour <span class="code">G4</span></span><span class="line" style="width:150pt"></span><span class="o">Match floors</span></div>
+      <div class="row"><span class="k">Handrail <span class="code">G5</span></span><span class="o">Keep &amp; refinish</span><span class="o">New</span><span class="o sq">Add wall rail <span class="line" style="width:26pt"></span> ft</span></div>
+      <div class="row"><span class="k">Spindles <span class="code">G6</span></span><span class="o">Keep</span><span class="o">New iron</span><span class="o">New wood</span></div>
+      <div class="row"><span class="k">Posts <span class="code">G7</span></span><span class="o">Keep</span><span class="o">Refinish</span><span class="o">New</span></div>
+      <div class="row"><span class="k">Covers <span class="code">G8</span></span><span class="o">Main only</span><span class="o">Main + side / half</span></div>
+    </div>
+  </div>
+
+  <div class="notes"><span class="lbl">Notes <span class="code">N1</span> · conditions, anything to refinish instead of replace, what the customer said</span></div>
+
+  <div class="foot"><span>Upload: open the quote → <b>Site sheet</b> tab → a photo of each page, or Draw from CompanyCam image</span><span><b>P2</b> · keep both pages together</span></div>
+</section>
+</div>

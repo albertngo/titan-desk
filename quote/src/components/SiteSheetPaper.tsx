@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { sumParts, type NosingPiece, type RailRun, type SiteSheet } from "@/lib/sitesheet/sheet";
 
 /**
- * What was read, drawn as the paper Stair Site Sheet (v6, 2026-10-31) itself, one box for one box (Albert, 2026-10-29:
+ * What was read, drawn as the paper Stair Site Sheet (v7, 2026-11-07; `quote/sheets/stair-site-sheet-v7.html`) itself, one box for one box (Albert, 2026-10-29:
  * "make the extraction of what was read look exactly like the sheet that was filled out"). The same sections,
  * grids, codes and shaded cells as the printed page; each bubble, tick, box and line on it is the control for
  * that field: a filled bubble or tick reads as filled in. A code Claude couldn't read with confidence washes
@@ -130,7 +130,7 @@ function Header({ page, ...p }: PaperProps) {
   return (
     <div className="ph">
       <div className="tt">
-        TITAN FLOORING · Stair Site Sheet <small>v6 · page {page} of 2</small>
+        TITAN FLOORING · Stair Site Sheet <small>v7 · page {page} of 2</small>
       </div>
       <div className="ids">
         <span className={`f${m.uc("Q")}`}>
@@ -212,16 +212,22 @@ function PageOne(p: PaperProps) {
         <div className="sb">
           <table className="g">
             <thead>
-              <tr><th style={{ width: "19%" }}>Tread</th><th style={{ width: "19%" }}>36&quot;</th><th style={{ width: "19%" }}>42&quot;</th><th style={{ width: "19%" }}>48&quot;</th><th>Other width (write it)</th></tr>
+              <tr><th style={{ width: "18%" }}>Tread</th><th style={{ width: "13%" }}>36&quot;</th><th style={{ width: "13%" }}>42&quot;</th><th style={{ width: "13%" }}>48&quot;</th><th>Custom</th></tr>
             </thead>
             <tbody>
               {TREAD_ROWS.map(([t, name, sub, c]) => (
                 <tr key={t} className={m.uc(c)}>
                   <td className="k">{name} <small>{sub}</small>{m.code(c)}</td>
-                  <td>{m.sum(`treads.${t}.w36`, `${name} 36`)}</td>
-                  <td>{m.sum(`treads.${t}.w42`, `${name} 42`)}</td>
-                  <td>{m.sum(`treads.${t}.w48`, `${name} 48`)}</td>
-                  <td className="ow">{m.sum(`treads.${t}.other`, `${name} other count`, 40)} <span className="lbl">at</span> {m.box(`treads.${t}.otherWidth`, `${name} other width`, 30)}&quot;</td>
+                  {/* v7 (2026-11-06): 2 side open is riser to riser only, its standard widths shaded. A count read from an
+                      older sheet still shows in its box, so nothing read is hidden. */}
+                  {(["w36", "w42", "w48"] as const).map((w) =>
+                    t === "two" && (p.sheet.treads.two[w] ?? null) === null ? <td key={w} className="x" /> : <td key={w}>{m.sum(`treads.${t}.${w}`, `${name} ${w.slice(1)}`)}</td>,
+                  )}
+                  {t === "two" ? (
+                    <td className="ow ssp-cu">{m.sum(`treads.${t}.other`, `${name} custom count`, 34)} <span className="lbl">at riser length</span> {m.box(`treads.${t}.otherWidth`, `${name} riser to riser`, 34)}&quot;<small>how many · riser to riser, custom order only</small></td>
+                  ) : (
+                    <td className="ow ssp-cu">{m.sum(`treads.${t}.other`, `${name} custom count`, 34)} <span className="lbl">at (</span>{m.box(`treads.${t}.otherWidth`, `${name} custom full length`, 34)} <span className="lbl">x</span> {m.box(`treads.${t}.otherDepth`, `${name} custom full depth`, 34)}<span className="lbl">)</span><small>how many · full length x full depth</small></td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -234,7 +240,7 @@ function PageOne(p: PaperProps) {
               {/* 0 means standard, so the custom box shows only a custom depth */}
               <input className="ssp-in" style={{ width: 48 }} inputMode="decimal" aria-label="custom tread depth" value={custom ? String(depth) : ""} onChange={(e) => p.edit("treadDepth", e.target.value.trim() === "" ? null : e.target.value)} />&quot;
             </span>
-            <span className="lbl">for the grid above</span>
+            <span className="lbl">for the 36 / 42 / 48 columns · a custom tread carries its own depth</span>
           </div>
           <table className="g">
             <thead>
@@ -265,15 +271,35 @@ function PageOne(p: PaperProps) {
                 </td>
               </tr>
               <tr className={m.uc("B8")}>
-                <td className="k">Bullnose <small>LSO / RSO std (extra large) · 2 side = custom</small>{m.code("B8")}</td>
+                <td className="k">Bullnose <small>LSO / RSO std (extra large)</small>{m.code("B8")}</td>
                 <td className="x" />
                 <td>{m.sum("bullnose.lso", "bullnose LSO")}</td>
                 <td>{m.sum("bullnose.rso", "bullnose RSO")}</td>
-                <td>{m.sum("bullnose.two", "bullnose 2 side open")}</td>
-                <td className="x" />
+                <td colSpan={2} className="ow" style={{ textAlign: "left" }}>{m.sum("bullnose.two", "bullnose 2 side open, custom", 40)} <span className="lbl plain">how many (custom) · measure in <b>B8a</b> below</span></td>
               </tr>
             </tbody>
           </table>
+          {/* B8a (v7, Albert 2026-11-06): the custom bullnose's four measures, numbered on a drawing of the tread. */}
+          <div className={`ssp-b8a${m.uc("B8a")}`}>
+            <svg viewBox="-14 0 244 112" aria-label="A 2 side open bullnose tread seen from above, with its four measures">
+              <path d="M40 18 H180 A42 42 0 0 1 180 102 H40 A42 42 0 0 1 40 18 Z" fill="#f2f2f2" stroke="#111" strokeWidth="1.6" />
+              <path d="M44 18 V26 H176 V18" fill="none" stroke="#111" strokeWidth="3" />
+              <text x="110" y="64" fontSize="8" textAnchor="middle" fill="#555">tread, seen from above</text>
+              <text x="110" y="74" fontSize="8" textAnchor="middle" fill="#555">riser at the back</text>
+              <g stroke="#111" strokeWidth="1.1" fill="none"><path d="M44 8 H176 M44 4 V12 M176 4 V12" /><path d="M200 26 V102 M196 26 H204 M196 102 H204" /><path d="M-2 90 H44 M-2 86 V94 M44 86 V94" /><path d="M27 18 V26 M24 18 H30 M24 26 H30" /></g>
+              <g fontSize="10" fontWeight="800" fill="#111" textAnchor="middle"><text x="110" y="7">1</text><text x="212" y="68">2</text><text x="21" y="104">3</text><text x="17" y="31">4</text></g>
+            </svg>
+            <div>
+              <div className="ssp-b8a-t">B8a · 2 side open bullnose · custom · 4 measures each</div>
+              <ol>
+                <li><span className="ssp-n">1</span> Riser to riser {m.box("bullnoseMeasures.riser", "custom bullnose riser to riser", 40)}&quot;</li>
+                <li><span className="ssp-n">2</span> Tread depth (riser to front) {m.box("bullnoseMeasures.depth", "custom bullnose tread depth", 40)}&quot;</li>
+                <li><span className="ssp-n">3</span> Nose reach (riser end to outside of nose) {m.box("bullnoseMeasures.reach", "custom bullnose nose reach", 40)}&quot;</li>
+                <li><span className="ssp-n">4</span> Ear (nose behind the riser line) {m.box("bullnoseMeasures.ear", "custom bullnose ear", 40)}&quot;</li>
+              </ol>
+              <p className="lbl plain">More than one, and they differ? Write each one&apos;s 1 · 2 · 3 · 4 in N1 on page 2.</p>
+            </div>
+          </div>
           <div className={`row${m.uc("B9")}`}>
             <span style={{ marginLeft: "auto" }}>
               Total treads {m.code("B9")} {m.box("totalTreads", "total treads", 40)} <span className="lbl">must match B1–B8 · boxes add up to {p.treadsAddUp}</span>
@@ -294,18 +320,39 @@ function PageOne(p: PaperProps) {
         </div>
       </div>
 
+      <div className="foot"><span><b>Photos to take:</b> bottom step · top · each open side · one tread close-up · each post · each custom bullnose</span><span><b>P1</b> · keep both pages together</span></div>
+    </>
+  );
+}
+
+/* ---------- page 2 ---------- */
+
+function PageTwo(p: PaperProps) {
+  const m = useMarks(p);
+  const cols10 = Array.from({ length: 10 }, (_, i) => i);
+  const cols8 = Array.from({ length: 8 }, (_, i) => i);
+  const wall = Number(p.get("want.wallRailFt") ?? 0) > 0;
+  return (
+    <>
+      <Header {...p} />
+
       <div className="cols">
         <div className="sec">
           <h3><span className="c">C</span> Landings &amp; half moons</h3>
           <div className="sb">
             <table className="g">
-              <thead><tr><th style={{ width: "28%" }} /><th>3 × 3</th><th>≈ 3 × 6</th><th>Other (write)</th></tr></thead>
+              <thead><tr><th style={{ width: "28%" }} /><th>3 × 3</th><th>≈ 3 × 6</th><th style={{ width: "36%" }}>Other</th></tr></thead>
               <tbody>
                 <tr className={m.uc("C1")}>
                   <td className="k">Landings {m.code("C1")}<small>how many of each</small></td>
                   <td>{m.box("landings.s3x3", "landings 3x3")}</td>
                   <td>{m.box("landings.s3x6", "landings 3x6")}</td>
-                  <td>{m.box("landings.other", "landings other")}</td>
+                  {/* v7: one landing's size, length x width in feet; an older sheet's count still shows beside it. */}
+                  <td className="ow ssp-cu">
+                    {m.box("landings.otherLength", "other landing length, feet", 34)} <span className="lbl">x</span> {m.box("landings.otherWidth", "other landing width, feet", 34)}
+                    {p.sheet.landings.other !== null && <> <span className="lbl">how many</span> {m.box("landings.other", "other landings, how many", 26)}</>}
+                    <small>length x width, feet</small>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -331,22 +378,6 @@ function PageOne(p: PaperProps) {
           </div>
         </div>
       </div>
-
-      <div className="foot"><span><b>Photos to take:</b> bottom step · top · each open side · one tread close-up · each post</span><span><b>P1</b> · keep both pages together</span></div>
-    </>
-  );
-}
-
-/* ---------- page 2 ---------- */
-
-function PageTwo(p: PaperProps) {
-  const m = useMarks(p);
-  const cols10 = Array.from({ length: 10 }, (_, i) => i);
-  const cols8 = Array.from({ length: 8 }, (_, i) => i);
-  const wall = Number(p.get("want.wallRailFt") ?? 0) > 0;
-  return (
-    <>
-      <Header {...p} />
 
       <div className="sec">
         <h3><span className="c">E</span> Nosings <span className="hint">Write a length per piece · everything else follows the default</span></h3>
@@ -472,7 +503,7 @@ function PageTwo(p: PaperProps) {
         <span className="lbl">Notes {m.code("N1")} · conditions, anything to refinish instead of replace, what the customer said</span>
         <textarea aria-label="Notes" value={p.sheet.notes ?? ""} onChange={(e) => p.edit("notes", e.target.value || null)} />
       </div>
-      <div className="foot"><span>Upload: open the quote → <b>Site sheet</b> → a photo of each page</span><span><b>P2</b> · keep both pages together</span></div>
+      <div className="foot"><span>Upload: open the quote → <b>Site sheet</b> tab → a photo of each page, or Draw from CompanyCam image</span><span><b>P2</b> · keep both pages together</span></div>
     </>
   );
 }
