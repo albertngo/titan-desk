@@ -185,11 +185,11 @@ export function OptionSheet({
   const folded = stairsOpt ? { ...given, lines: stairsOptionLines(given.lines) } : given;
   // Customer view drops unticked lines, as the customer's copy does (2026-11-07).
   const option = customer ? { ...folded, lines: folded.lines.filter((l) => l.include || !isPriced(l)) } : folded;
-  // Customer view of a preliminary (2026-11-07): always a lump sum, and only a material shows its rate. A measured quote
-  // shows every rate, lump sum or breakdown, so its Unit price column is always drawn.
+  // Customer view (2026-11-07): a preliminary is always a lump sum, and on any lump sum only a material shows its rate,
+  // beside its quantity; a breakdown draws the Unit price column.
   const prelimView = customer && preliminary === true;
   const lump = prelimView || (customer && lumpSum === true);
-  const rateCol = !prelimView;
+  const rateCol = !lump;
   // A preliminary's stairs option goes as its words only (2026-11-07, `wordsOnly()` in copy.ts): Customer view shows no lines.
   const order = customer && wordsOnly(given, preliminary === true) ? [] : sectionOrder(option.lines, customer, lump || stairsOpt);
   const exclusions = option.lines.filter((l) => l.section === "Exclusions" && l.description);

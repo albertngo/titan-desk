@@ -1300,10 +1300,11 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   In the customer copy (`copyOption()` in `copy.ts`, so the link and the PDF, which always mirror each other since both
   draw the one frozen copy): a **preliminary** flooring option shows each Materials line's quantity × rate and every
   other line's quantity only, and no line amount anywhere, an add-on's included (it still says Optional, on the PDF too);
-  a **measured** one shows every line's quantity × rate, lump sum or breakdown, the amounts still only on a breakdown and
-  an add-on keeping its price. A line under its minimum charge shows no rate. Stairs lines and stairs options are
+  a **measured** one shows every line's quantity × rate and amount on a breakdown, and on a lump sum only the Materials
+  rates, like a preliminary (same day, settled: "Measured lumpsum should ONLY show material section rates. NEVER other
+  sections. hence the lumpsum"; an hour earlier it had shown every rate on a lump sum). A line under its minimum charge shows no rate. Stairs lines and stairs options are
   unchanged (quantity only). The quote page's Customer view follows the same rule (`OptionSheet`: `prelimView`,
-  `rateCol`). This replaces the 2026-10-22 lump-sum rule of no rate on labour. Tested in `tests/send.test.ts`.
+  `rateCol`). Tested in `tests/send.test.ts`.
   **No Rate column on a lump sum (same day: "Im not a fan of having the rate column present if only material shows the
   rate. So combine it into the qty"; "PDF and Quote link should always mirror eachother").** A lump-sum PDF, every
   preliminary included, writes a line's rate with its quantity, "550 sqft × $2.99", as the customer's link always has,

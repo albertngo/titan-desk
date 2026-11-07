@@ -684,15 +684,14 @@ describe("discount reason (2026-10-22)", () => {
 });
 
 describe("lump sum (2026-10-22)", () => {
-  it("keeps what the work includes and every rate, and drops every amount but the add-ons' and the totals (rates 2026-11-07)", () => {
+  it("keeps what the work includes, no rate but a material's and no amount (Albert, 2026-11-07: lump sum = material rates only)", () => {
     const c = customerCopy(quote({ itemised: false }), AT);
     expect(c.pricing).toBe("lump");
     const o = c.options[0];
     const items = o.sections.flatMap((s) => s.lines).filter((l): l is Extract<typeof l, { kind: "item" }> => l.kind === "item");
-    // A measured lump sum shows every flooring line's rate (Albert, 2026-11-07: "On a measured… Other sections qty + rate
-    // shown"), never its amount.
-    // A line under its minimum charge shows no rate, since quantity × rate would not be what it costs.
-    for (const l of items.filter((x) => !x.optional)) expect([l.unitPrice !== null, l.amount, l.minimum]).toEqual([l.description !== "Delivery", null, false]);
+    // A measured lump sum shows no rate outside Materials ("Measured lumpsum should ONLY show material section rates.
+    // NEVER other sections"), and no amount.
+    for (const l of items.filter((x) => !x.optional)) expect([l.unitPrice, l.amount, l.minimum]).toEqual([null, null, false]);
     expect(items.some((x) => x.optional)).toBe(false);
     // Quantities always show, every section (Albert, 2026-11-04), replacing the scope-sections-only rule of 2026-10-22.
     const qtyBySection = o.sections.map((s) => [s.name, s.lines.filter((l) => l.kind === "item" && !l.optional).map((l) => (l.kind === "item" ? [l.qty, l.uom] : null))]);
@@ -721,8 +720,8 @@ describe("lump sum (2026-10-22)", () => {
       const c = customerCopy(q, AT);
       const materials = c.options[0].sections.find((s) => s.name === "Materials");
       expect(materials?.lines[0]).toMatchObject({ kind: "item", qty: 200, unitPrice: 4.5, amount: null });
-      // Labour shows its rate on a measured lump sum and none on a preliminary (2026-11-07); never an amount.
-      expect(c.options[0].sections.find((s) => s.name === "Install")?.lines[0]).toMatchObject({ unitPrice: q.basis === "Preliminary" ? null : 2, amount: null });
+      // Labour on the same lump sum shows no rate and no amount, measured or preliminary (2026-11-07).
+      expect(c.options[0].sections.find((s) => s.name === "Install")?.lines[0]).toMatchObject({ unitPrice: null, amount: null });
     }
   });
 
@@ -1212,10 +1211,10 @@ describe("a flooring material's rate always reaches the customer (2026-11-04, ch
     expect(rateOf(customerCopy(quote({ discountRate: 0, itemised: false, options: [opt] }), AT))).toEqual([4.5, null]);
     expect(rateOf(customerCopy(quote({ discountRate: 0, basis: "Preliminary", options: [opt] }), AT))).toEqual([4.5, null]);
     expect(rateOf(customerCopy(quote({ discountRate: 0, basis: "Preliminary", options: [opt] }), { ...AT, range: false }))).toEqual([4.5, null]);
-    // The install line (2026-11-07): its rate on a measured lump sum, none on a preliminary.
+    // The install line (2026-11-07): no rate on any lump sum, measured or preliminary.
     const instOf = (c: CustomerCopy) => c.options[0].sections.find((s) => s.name === "Install")!.lines[0];
     const inst = instOf(customerCopy(quote({ discountRate: 0, itemised: false, options: [opt] }), AT));
-    expect(inst.kind === "item" && [inst.unitPrice, inst.amount]).toEqual([2, null]);
+    expect(inst.kind === "item" && [inst.unitPrice, inst.amount]).toEqual([null, null]);
     const pInst = instOf(customerCopy(quote({ discountRate: 0, basis: "Preliminary", options: [opt] }), AT));
     expect(pInst.kind === "item" && [pInst.unitPrice, pInst.amount]).toEqual([null, null]);
     // The PDF heads the column Rate and prints it.
@@ -1223,10 +1222,11 @@ describe("a flooring material's rate always reaches the customer (2026-11-04, ch
     // Only the material has a rate on a preliminary, so it sits with the quantity and there is no Rate column (2026-11-07).
     expect(pdf).not.toContain("(Rate)");
     expect(pdf).toContain("(550 sqft \\327 $4.50)");
-    // A measured lump sum writes every rate beside its quantity too, as the link does: no Rate column.
+    // A measured lump sum the same: the material's rate with its quantity, the install's quantity alone, no Rate column.
     const lumpPdf = Buffer.from(quotePdf(customerCopy(quote({ discountRate: 0, itemised: false, options: [opt] }), AT))).toString("latin1");
     expect(lumpPdf).not.toContain("(Rate)");
-    expect(lumpPdf).toContain("(500 sqft \\327 $2.00)");
+    expect(lumpPdf).toContain("(550 sqft \\327 $4.50)");
+    expect(lumpPdf).not.toContain("\\327 $2.00");
   });
 });
 
