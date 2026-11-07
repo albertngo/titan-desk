@@ -222,6 +222,8 @@ function OptionBlock({ o, i, copy }: { o: CopyOption; i: number | null; copy: Cu
           o.description && <p>{o.description}</p>
         )}
       </section>
+      {/* A preliminary's stairs option goes as its words only (2026-11-07): no lines, so no What's included card. */}
+      {(o.sections.length > 0 || o.exclusions.length > 0) && (
       <section className="cq-card cq-block" aria-label="What's included">
         <h3 className="cq-bh">What&apos;s included</h3>
         {groups.map((g, k) =>
@@ -250,6 +252,7 @@ function OptionBlock({ o, i, copy }: { o: CopyOption; i: number | null; copy: Cu
           </div>
         )}
       </section>
+      )}
       <section className="cq-card cq-block cq-price" aria-label="Price and payment">
         <h3 className="cq-bh">Price and payment</h3>
         <Totals o={o} copy={copy} />

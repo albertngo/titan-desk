@@ -19,6 +19,7 @@ import {
 import { money, pct, rate } from "@/lib/format";
 import type { QuoteLine, QuoteOption } from "@/lib/quotes/types";
 import { optionScope, stairsOptionLines } from "@/lib/quotes/scope";
+import { wordsOnly } from "@/lib/send/copy";
 
 const LABEL: Record<keyof OptionTotals, string> = {
   preDiscount: "Pre-discount",
@@ -159,6 +160,7 @@ export function OptionSheet({
   editHref,
   customer,
   lumpSum,
+  preliminary,
 }: {
   option: QuoteOption;
   t: OptionTotals;
@@ -171,13 +173,16 @@ export function OptionSheet({
   customer: boolean;
   /** The version is a lump sum: in Customer view, no unit prices, line or section amounts (2026-10-22). */
   lumpSum?: boolean;
+  /** The version is a preliminary: in Customer view a stairs option shows its words only (2026-11-07). */
+  preliminary?: boolean;
 }) {
   // A stairs option (Albert, 2026-11-06): lines saved in Other show under its Other heading, as stair lines; its Private
   // section (back the same day) is staff only, never shown to the customer, not even as a roll-up row.
   const stairsOpt = optionScope(given) === "Stairs";
   const option = stairsOpt ? { ...given, lines: stairsOptionLines(given.lines) } : given;
   const lump = customer && lumpSum === true;
-  const order = sectionOrder(option.lines, customer, lump || stairsOpt);
+  // A preliminary's stairs option goes as its words only (2026-11-07, `wordsOnly()` in copy.ts): Customer view shows no lines.
+  const order = customer && wordsOnly(given, preliminary === true) ? [] : sectionOrder(option.lines, customer, lump || stairsOpt);
   const exclusions = option.lines.filter((l) => l.section === "Exclusions" && l.description);
   const nums = new Map<string, number>();
   let i = 0;
@@ -200,7 +205,7 @@ export function OptionSheet({
         </div>
         {!customer && <Parity option={option} t={t} />}
         {order.length === 0 ? (
-          <p className="empty">This option has no lines yet.</p>
+          customer && wordsOnly(given, preliminary === true) ? null : <p className="empty">This option has no lines yet.</p>
         ) : (
           <div className="tbl-wrap">
             <table className="items">

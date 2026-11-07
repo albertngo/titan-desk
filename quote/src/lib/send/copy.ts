@@ -317,7 +317,17 @@ export function stagesOf(o: CopyOption): CopyStage[] {
   ];
 }
 
-function copyOption(given: QuoteOption, discountRate: number, showHst: boolean, lumpSum = false, ranged = false, schedule: PaymentSchedule = defaultSchedule()): CopyOption {
+/**
+ * A preliminary's stairs option goes as its words only (Albert, 2026-11-07: "For preliminary stairs; can we NOT put
+ * ANY line items in the customer sent copy. The only thing that goes out is the original wordings. That are preset
+ * from the old mobile quote"): the description `stairDescription()` wrote from the old GHL stairs prompt
+ * (src/lib/quick/stairs.ts), no line, quantity or add-on. One with no description keeps its lines, so the customer is
+ * never sent an option that says nothing.
+ */
+export const wordsOnly = (o: QuoteOption, preliminary: boolean): boolean =>
+  preliminary && optionScope(o) === "Stairs" && Boolean(noEmDash(o.description ?? "").trim());
+
+function copyOption(given: QuoteOption, discountRate: number, showHst: boolean, lumpSum = false, ranged = false, schedule: PaymentSchedule = defaultSchedule(), preliminary = false): CopyOption {
   let n = 0;
   // A stairs option never shows a rate (Albert, 2026-11-06: "any additional work PRIVATE section should never show
   // rates. It should be the same as the rule for the stairs items"), and has no Private or Other section (same day:
@@ -327,7 +337,8 @@ function copyOption(given: QuoteOption, discountRate: number, showHst: boolean, 
   const stairsOption = optionScope(given) === "Stairs";
   const o: QuoteOption = stairsOption ? { ...given, lines: stairsOptionLines(given.lines) } : given;
   const sections: CopySection[] = [];
-  for (const name of sectionNames(o.lines)) {
+  const words = wordsOnly(given, preliminary);
+  for (const name of words ? [] : sectionNames(o.lines)) {
     const lines: (CopyItem | CopyText)[] = [];
     const merged = new Map<string, CopyItem>();
     let total = 0;
@@ -518,7 +529,7 @@ export function customerCopy(quote: Quote, at: { sentOn: string; validUntil: str
     // Flooring options first, then stairs (2026-10-28), so each scope reads as one group; order within a scope is kept.
     options: [...quote.options]
       .sort((a, b) => (optionScope(a) === optionScope(b) ? 0 : optionScope(a) === "Flooring" ? -1 : 1))
-      .map((o) => copyOption(o, quote.discountRate, optionHst(quote, o), lump, prelim && at.range !== false, quoteSchedule(quote))),
+      .map((o) => copyOption(o, quote.discountRate, optionHst(quote, o), lump, prelim && at.range !== false, quoteSchedule(quote), prelim)),
   };
 }
 

@@ -372,6 +372,7 @@ export default async function QuotePage({
                 editHref={locked ? null : `/q/${quote.id}/edit`}
                 customer={customer}
                 lumpSum={quote.itemised !== true}
+                preliminary={quote.basis === "Preliminary"}
               />
               </>
             ) : (

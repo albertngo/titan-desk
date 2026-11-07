@@ -535,6 +535,33 @@ describe("the Private section (2026-10-22)", () => {
     expect(o.totals.subtotal).toBe(700);
   });
 
+  it("a preliminary's stairs option goes as its words only, no line at all (2026-11-07)", () => {
+    const words = "* Main stairs – Sand & stain We will sand your existing wooden steps down to bare wood.";
+    const step = line({ section: "Stairs", lineType: "Stairs", sourceKind: "stair", description: "Step", customerWording: "Step", qty: 13, uom: "steps", unitPriceSnap: 100 });
+    const addOn = line({ section: "Stairs", lineType: "Stairs", sourceKind: "stair", description: "New posts", include: false, qty: 2, uom: "pcs", unitPriceSnap: 150 });
+    const stairs = option("Main stairs", [step, addOn], 0, true, { scope: "Stairs", description: words });
+    const floor = option("Install Vinyl", [line({ description: "Click install" })], 0, true);
+    const c = customerCopy(quote({ basis: "Preliminary", discountRate: 0, options: [floor, stairs] }), AT);
+    const st = c.options.find((o) => o.scope === "Stairs")!;
+    expect(st.sections).toEqual([]);
+    expect(st.description).toBe(words);
+    expect(st.totals.subtotal).toBe(1300);
+    // The price is the calculated one (13 steps × $100 = $1,300), as a range of 3% under to 10% over:
+    // $1,261 to $1,430, each end rounded outward to $50 (over $1,000): $1,250 to $1,450.
+    expect(st.range).toMatchObject({ low: 1250, high: 1450 });
+    // The flooring option on the same preliminary keeps its lines.
+    expect(c.options.find((o) => o.scope !== "Stairs")!.sections.length).toBeGreaterThan(0);
+    // Exact price too: still words only.
+    expect(customerCopy(quote({ basis: "Preliminary", discountRate: 0, options: [stairs] }), { ...AT, range: false }).options[0].sections).toEqual([]);
+    // A measured quote's stairs option keeps its lines.
+    expect(customerCopy(quote({ discountRate: 0, options: [stairs] }), AT).options[0].sections.map((s) => s.name)).toEqual(["Stairs"]);
+    // A preliminary stairs option with no words keeps its lines, so it never goes out saying nothing.
+    const bare = option("Main stairs", [step], 0, true, { scope: "Stairs" });
+    expect(customerCopy(quote({ basis: "Preliminary", discountRate: 0, options: [bare] }), AT).options[0].sections.length).toBe(1);
+    // The PDF draws it.
+    expect(quotePdf(c).length).toBeGreaterThan(0);
+  });
+
   it("on a stairs option: Other goes as stair lines, quantity and no rate; Private is never shown at all (2026-11-06)", () => {
     const stair = line({ section: "Stairs", lineType: "Other", sourceKind: "stair", description: "Keep Existing Steps (Sand + Stain)", qty: 13, uom: "steps", unitPriceSnap: 100 });
     const haul = priv({ description: "Haul away old carpet", qty: 2, uom: "trips", unitPrice: 50, costOverride: 20 });
