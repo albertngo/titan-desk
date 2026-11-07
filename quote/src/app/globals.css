@@ -2445,6 +2445,7 @@ table.items tr.subsect td { box-shadow: none !important; border-left: 0 !importa
 .file-item .fi-t span { font-size: 13px; color: var(--fg-faint); }
 .file-item .fi-v { font-size: 13px; font-weight: 500; color: var(--fg-dim); font-variant-numeric: tabular-nums; padding: 2px 6px; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--line-strong); }
 .file-item:hover svg, .file-item:focus-visible svg { color: var(--accent); }
+.files-group + .files-group { margin-top: 4px; padding-top: 4px; border-top: 1px solid var(--line); }
 @media print { .files { display: none; } }
 
 /* Staff readability (2026-11-07, Albert: "less readable… staff is all windows"): the option C meta text that

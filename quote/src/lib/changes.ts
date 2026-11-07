@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-07",
     kind: "new",
+    title: "Company files: the Follow up staff guide",
+    details: ["Company files in the top bar now has a Staff guides heading with the Follow up staff guide, a four-page PDF on how to work the Follow up page."],
+  },
+  {
+    date: "2026-11-07",
+    kind: "new",
     title: "Follow up: Visited, no quote yet",
     details: [
       "A section at the top of Follow up lists every customer whose in-home or store visit in the last two weeks went ahead with no measured quote sent since. Each one counts in the red number.",

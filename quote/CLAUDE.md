@@ -1399,7 +1399,9 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   `tests/companyFiles.test.ts`): `next.config.ts` inlines the folder's names as COMPANY_SHEETS at build and traces
   `sheets/*.pdf` into `/files/<kind>` (`src/app/files/[kind]/route.ts`), which checks the sign-in again, serves only a
   kind on that list (never a path from the request), and 404s on the customer deployment. Older versions stay in the
-  folder for reference and are never offered.
+  folder for reference and are never offered. **Staff guides** (same day: "add the followup guide in the downloads
+  section"): the same menu offers the newest `follow-up-staff-guide-vN.pdf` from that folder under its own heading, at
+  `/files/followup`, the same way.
 - **Report a bug (2026-10-28).** The header's Report a bug (staff only, hidden in Customer view and
   until `NOTION_BUG_TOKEN` is set) posts a summary, an urgency and up to five screenshots (shrunk in
   the browser to stay under Vercel's 4.5 MB body limit) to `/api/bug`. That signed-in route makes

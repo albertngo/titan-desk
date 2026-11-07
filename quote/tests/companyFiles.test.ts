@@ -13,6 +13,15 @@ describe("latestSheets", () => {
     expect(got[1].downloadName).toBe("Titan-Stair-Site-Sheet-v7.pdf");
   });
 
+  it("offers the Follow up guide under Staff guides", () => {
+    const got = latestSheets(["follow-up-staff-guide-v1.pdf", "follow-up-staff-guide-v2.pdf", "stair-site-sheet-v7.pdf"]);
+    expect(got.map((s) => [s.kind, s.group, s.version])).toEqual([
+      ["stair", "Site sheets", 7],
+      ["followup", "Staff guides", 2],
+    ]);
+    expect(got[1].downloadName).toBe("Titan-Follow-up-staff-guide-v2.pdf");
+  });
+
   it("compares versions as numbers, so v10 beats v9", () => {
     expect(latestSheets(["stair-site-sheet-v9.pdf", "stair-site-sheet-v10.pdf"])[0].version).toBe(10);
   });
@@ -44,6 +53,6 @@ describe("companySheets and sheetFor", () => {
 
   it("finds both kinds in the real sheets folder", () => {
     const got = latestSheets(readdirSync(join(__dirname, "..", "sheets")));
-    expect(got.map((s) => s.kind)).toEqual(["flooring", "stair"]);
+    expect(got.map((s) => s.kind)).toEqual(["flooring", "stair", "followup"]);
   });
 });
