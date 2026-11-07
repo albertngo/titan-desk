@@ -70,7 +70,7 @@ describe("cleaning what was read", () => {
     const s = cleanSheet({ shape: "Zigzag", onSteps: "Carpet", treads: { rso: { w42: "5", w36: -2, w48: "x" } }, where: ["Main", "Attic", "Main"], unclear: ["B6", "nonsense", "B6"], pizza: { sets: 1, pieces: 4 }, pie: { boxed: 2, rso: 1 } });
     expect(s.shape).toBeNull();
     expect(s.onSteps).toBe("Carpet");
-    expect(s.treads.rso).toEqual({ w36: null, w42: 5, w48: null, other: null, otherWidth: null });
+    expect(s.treads.rso).toEqual({ w36: null, w42: 5, w48: null, other: null, otherWidth: null, otherDepth: null });
     expect(s.where).toEqual(["Main"]);
     expect(s.unclear).toEqual(["B6"]);
     // A sheet saved before 2026-10-31 (one sets box, a pieces bubble): unmarked pieces read as 3-piece, as before.
@@ -88,7 +88,7 @@ describe("cleaning what was read", () => {
     expect(sumParts("6")).toEqual({ total: 6, parts: 1 });
     expect(sumParts("4+x")).toEqual({ total: null, parts: 0 });
     const s = cleanSheet({ treads: { lso: { w36: "4+3", w42: 2, other: "1 1", otherWidth: "40" } }, pie: { rso: "1+1" }, bullnose: { two: "2+1" }, pizza: { two: "1+1", pc2: "1", pc3: "2+1" } });
-    expect(s.treads.lso).toEqual({ w36: 7, w42: 2, w48: null, other: 2, otherWidth: 40 });
+    expect(s.treads.lso).toEqual({ w36: 7, w42: 2, w48: null, other: 2, otherWidth: 40, otherDepth: null });
     expect(s.pie.rso).toBe(2);
     expect(s.bullnose.two).toBe(3);
     expect(s.pizza).toEqual({ two: 2, pc2: 1, pc3: 3 });
@@ -406,6 +406,39 @@ describe("Albert's answers on the Stair Items (2026-10-31)", () => {
       ['Step (Right Side Open) (42")', 2, 5],
       ['Step (Right Side Open) (40")', 1, 5],
     ]);
+  });
+
+  it("v7 custom sizes: a custom tread names its length x depth, a 2-side-open one its riser to riser (2026-11-07)", () => {
+    const l = caps({ treads: { rso: { other: 2, otherWidth: 40, otherDepth: 11.5 }, two: { other: 1, otherWidth: 44 } } });
+    const steps = l.filter((x) => x.description.startsWith("Step")).map((x) => [x.description, x.qty]);
+    expect(steps).toContainEqual(['Step (Right Side Open) (40" x 11.5")', 2]);
+    expect(steps.some(([d]) => String(d).includes('riser to riser 44"'))).toBe(true);
+  });
+
+  it("v7 C1: an other-size landing written as a size is one landing, its oak at that size (2026-11-07)", () => {
+    const s = cleanSheet({ treads: { boxed: { w36: 12 } }, landings: { otherLength: 4, otherWidth: 5 } });
+    const d = derive(s);
+    expect(d.landings).toBe(1);
+    expect(d.oakBoxes).toBe(1);
+    expect(derive(cleanSheet({ treads: { boxed: { w36: 12 } }, landings: { otherLength: 6, otherWidth: 8 } })).oakBoxes).toBe(3);
+    const o = buildOptions(curved({ shape: "Straight", landings: { otherLength: 4, otherWidth: 5 }, want: { treads: ["caps"] } }), card).options[0];
+    expect(o.notes.some((n) => n.includes("(4 × 5 ft)"))).toBe(true);
+  });
+});
+
+describe("B8a, the custom bullnose's four measures (sheet v7, 2026-11-07)", () => {
+  it("cleans them, says them in the build, and flags a blank one", () => {
+    const s = cleanSheet({ treads: { boxed: { w36: 12 } }, bullnose: { two: 1 }, bullnoseMeasures: { riser: "48", depth: 11, reach: "4", ear: null } });
+    expect(s.bullnoseMeasures).toEqual({ riser: 48, depth: 11, reach: 4, ear: null });
+    const d = derive(s);
+    expect(d.flags.some((f) => f.startsWith("Custom bullnose (B8a): ear not written"))).toBe(true);
+    expect(d.notes.some((n) => n.includes('riser to riser 48", depth 11", nose reach 4"'))).toBe(true);
+    expect(derive(cleanSheet({ ...s, bullnoseMeasures: { riser: 48, depth: 11, reach: 4, ear: 1.5 } })).flags.some((f) => f.includes("B8a"))).toBe(false);
+    expect(derive(cleanSheet({ treads: { boxed: { w36: 12 } } })).flags.some((f) => f.includes("B8a"))).toBe(false);
+  });
+
+  it("reads B8a as an unclear code", () => {
+    expect(cleanSheet({ unclear: ["B8a", "B8", "Z1"] }).unclear).toEqual(["B8a", "B8"]);
   });
 });
 

@@ -1,16 +1,16 @@
 /**
- * What Claude is told when it reads photos of the stair site sheet (v6, and the older v5), and the JSON schema its answer
+ * What Claude is told when it reads photos of the stair site sheet (v7, and the older v6 and v5), and the JSON schema its answer
  * follows, written into the message itself (see SHEET_PROMPT below). Pure data: src/lib/quotes/sitesheet.ts sends it,
  * src/lib/sitesheet/sheet.ts cleans the answer. The schema mirrors SiteSheet; cleanSheet() still checks
  * every value, so a wrong answer can't get in.
  */
 
-const INSTRUCTIONS = `You are reading photos of Titan Flooring's "Stair Site Sheet" (v6, or the older v5; two Letter pages), filled in by hand on site by a project manager. Read exactly what is written or marked. Never guess and never fill in a typical value: a box left blank is null.
+const INSTRUCTIONS = `You are reading photos of Titan Flooring's "Stair Site Sheet" (v7, or the older v6 or v5; the version is printed in the header; two Letter pages), filled in by hand on site by a project manager. Read exactly what is written or marked. Never guess and never fill in a typical value: a box left blank is null.
 
 How the sheet is marked:
 - Round bubbles and square ticks are chosen when filled, ticked, crossed or circled. An empty bubble is not chosen.
 - Numbers are written in boxes or on lines. A crossed-out number is replaced by the one written beside it.
-- Count boxes in B1–B8 may hold several numbers, because the PM counts a staircase in parts (e.g. "4 + 3", "4 3", or numbers stacked in the box): add them up and return the total as one number. A number on its own is itself. The "at __" width in Other width is never added.
+- Count boxes in B1–B8 may hold several numbers, because the PM counts a staircase in parts (e.g. "4 + 3", "4 3", or numbers stacked in the box): add them up and return the total as one number. A number on its own is itself. The custom sizes ("at (__ x __)", "at riser length __") are never added.
 - Each field has a small code printed beside it (A1, B6, F3 …). Use the codes to find fields.
 
 Page 1:
@@ -18,15 +18,18 @@ Page 1:
 - A1 Where (tick all): Main, Basement, Townhome, Side / half staircase (return "Side").
 - A2 Main shape: one of the eight drawings: Straight, Quarter turn, Quarter winder, U landing ("U, landing"), Curved, Spiral, Double winder, Half landing.
 - A3 On the steps now: Carpet, Wood caps, Painted wood, Vinyl, Other.
-- B1–B4 Treads grid: rows RSO (rso), LSO (lso), Boxed (boxed), 2 side open (two); columns 36", 42", 48", Other width. A number in "Other width" goes in "other"; if the width itself is written (e.g. "40") put it in otherWidth.
-- B5 Tread depth: standard 10-5/8" → 0; custom → the inches written.
+- B1–B4 Treads grid: rows RSO (rso), LSO (lso), Boxed (boxed), 2 side open (two); columns 36", 42", 48", then the last column.
+  - v7, last column "Custom": B1–B3 read "__ at (__ x __)": how many → other, full length (inches) → otherWidth, full depth (inches) → otherDepth. B4 (2 side open) has its 36/42/48 boxes shaded and reads "__ at riser length __": how many → other, the riser-to-riser length → otherWidth, otherDepth null.
+  - v6 and v5, last column "Other width (write it)": the count goes in "other", the width written after "at" in otherWidth, otherDepth null.
+- B5 Tread depth: standard 10-5/8" → 0; custom → the inches written. It is for the 36 / 42 / 48 columns only.
 - B6 Pie shape: counts under LSO / RSO / 2 side open (Boxed is shaded; there is no turn box).
 - B7 Pizza set: under Pizza only, how many 2-piece sets (pizza.pc2, the "2-pc" box) and how many 3-piece sets (pizza.pc3, the "3-pc" box); under 2 side open (the box marked "of these sets →"), how many of those sets are 2 side open (pizza.two; they are already in the 2-pc / 3-pc counts, not extra). Blank → null. On an older print with one "sets" box, 2-pc / 3-pc bubbles and a 2-side-open tick: the sets go in pc2 when 2-pc is chosen, else pc3, and also in two when the tick is marked.
-- B8 Bullnose: counts under LSO / RSO / 2 side open (Boxed and Type are shaded).
+- B8 Bullnose: counts under LSO / RSO / 2 side open (Boxed and Type are shaded). On v7 the 2 side open count is the box beside "how many (custom) · measure in B8a".
+- B8a (v7 only), the 2 side open bullnose's measures in inches, numbered on the drawing: 1 Riser to riser → bullnoseMeasures.riser, 2 Tread depth (riser to front) → depth, 3 Nose reach (riser end to outside of nose) → reach, 4 Ear (nose behind the riser line) → ear. Blank → null. Older sheets: all null.
 - B9 Total treads.
 - B10 Side / half staircase: steps, its tread type (RSO/LSO/Boxed/2 side open → rso/lso/boxed/two), width.
-- C1 Landings: how many at 3×3 (s3x3), ≈3×6 (s3x6), Other (other). C2 Half moons: how many, nosing feet, and solid=true only if "Solid one-piece" is ticked (beside "Nosing method (default)").
-- D1 Stringers now: White, Stained, Other. D2 Made of: Veneer, Solid, Don't know (blank stays null). D3, if the sheet has it: how many staircases' worth of stringer (stringers.count, may be a decimal like 1.5; blank → null).
+- C1 Landings (on page 2 in v7, page 1 before): how many at 3×3 (s3x3), ≈3×6 (s3x6). Other: v7 writes one landing's size "__ x __" (feet) → otherLength x otherWidth, other null; v6 and v5 write how many → other, otherLength / otherWidth null. C2 Half moons: how many, nosing feet, and solid=true only if "Solid one-piece" is ticked (beside "Nosing method (default)").
+- D1 Stringers now (on page 2 in v7, page 1 before): White, Stained, Other. D2 Made of: Veneer, Solid, Don't know (blank stays null). D3, if the sheet has it: how many staircases' worth of stringer (stringers.count, may be a decimal like 1.5; blank → null).
 
 Page 2:
 - E1 Nosing default for the staircase (nosingDefault): carpet true when "Carpet on the nosings now" is ticked; thickness ½" → "1/2", ¾" → "3/4", Not sure → "unsure"; depth: blank or Standard 4.5" → null, else the inches written.
@@ -47,7 +50,7 @@ If you are not confident about a value (smudged, ambiguous, two marks), give you
 
 const N = { type: ["number", "null"] };
 const S = { type: ["string", "null"] };
-const widths = { type: "object", properties: { w36: N, w42: N, w48: N, other: N, otherWidth: N } };
+const widths = { type: "object", properties: { w36: N, w42: N, w48: N, other: N, otherWidth: N, otherDepth: N } };
 const sides = { type: "object", properties: { lso: N, rso: N, two: N } };
 const choice = (values: string[]) => ({ type: ["string", "null"], enum: [...values, null] });
 
@@ -66,9 +69,10 @@ export const SHEET_SCHEMA = {
     pie: sides,
     pizza: { type: "object", properties: { two: N, pc2: N, pc3: N } },
     bullnose: sides,
+    bullnoseMeasures: { type: "object", properties: { riser: N, depth: N, reach: N, ear: N } },
     totalTreads: N,
     side: { type: "object", properties: { steps: N, type: choice(["rso", "lso", "boxed", "two"]), width: N } },
-    landings: { type: "object", properties: { s3x3: N, s3x6: N, other: N } },
+    landings: { type: "object", properties: { s3x3: N, s3x6: N, other: N, otherLength: N, otherWidth: N } },
     halfMoons: { type: "object", properties: { count: N, nosingFt: N, solid: { type: "boolean" } } },
     stringers: { type: "object", properties: { now: choice(["White", "Stained", "Other"]), made: choice(["Veneer", "Solid", "Don't know"]), count: N } },
     nosingDefault: { type: "object", properties: { carpet: { type: "boolean" }, thickness: choice(["1/2", "3/4", "unsure"]), depth: N } },

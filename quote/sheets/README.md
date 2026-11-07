@@ -10,9 +10,11 @@ the stair sheet.
 | `flooring-site-sheet-v1.pdf` | **Flooring Site Sheet v1** (2026-11-03). One page. It goes on top of the Stair Site Sheet. |
 | `flooring-site-sheet-v1.html` | Its source. Shown on screen, it has the review notes beside the page: how each box becomes the quote. Printed, it's the page alone. |
 | `render.js` | Makes the flooring PDF from its source. |
-| `stair-site-sheet-v6.pdf` | **Stair Site Sheet v6** (since 2026-10-31). Two pages, printed as a pair. Today staff upload a photo of each page in the quote's **Site sheet** tab, as its footer says. |
+| `stair-site-sheet-v7.pdf` | **Stair Site Sheet v7** (since 2026-11-07). Two pages, printed as a pair. Staff photograph each page into CompanyCam or upload it in the quote's **Site sheet** tab, as its footer says. |
+| `stair-site-sheet-v7.html` | Its source (new with v7; v6 existed as a PDF only). Rebuild with `render.js`, as below. |
+| `stair-site-sheet-v6.pdf` | **Stair Site Sheet v6** (2026-10-31 to 2026-11-06). Kept for sheets already printed; photos of it still read. |
 
-The stair sheet's source isn't in this repo, only the PDF. Its on-screen copy is
+Since v7 the stair sheet's source is here (`stair-site-sheet-v7.html`). Its on-screen copy is
 `src/components/SiteSheetPaper.tsx`, and that copy has to change whenever the printed sheet does (see the
 Site sheet rule in `../CLAUDE.md`). Replace the PDF here when the printed sheet changes, with the version in
 its file name.
@@ -26,6 +28,12 @@ To change the flooring sheet, edit the HTML, then rebuild the PDF (Playwright is
 
 ```bash
 node quote/sheets/render.js quote/sheets/flooring-site-sheet-v1.html quote/sheets/flooring-site-sheet-v1.pdf /tmp/sheet-check.png
+```
+
+The stair sheet the same way (two pages; the screenshot is page 1):
+
+```bash
+node quote/sheets/render.js quote/sheets/stair-site-sheet-v7.html quote/sheets/stair-site-sheet-v7.pdf /tmp/stair-check.png
 ```
 
 `render.js` prints the page's content height against the page height (`[1056, 1056]` means it fits) and

@@ -1,7 +1,9 @@
 /**
  * The stair site sheet (Albert, 2026-10-28): the two-page paper form a PM fills in on site, photographed
  * into the quote and read by Claude into these fields. Its codes (A1…G8) are printed on the paper, so the
- * shape here follows the sheet box for box; sheet v6 (2026-10-31: count boxes that add up, pizza sets as 2-pc / 3-pc counts, D3 Staircases) is the reference; v5 sheets still read. Pure, no I/O: cleanSheet() is the
+ * shape here follows the sheet box for box; sheet v7 (2026-11-07: custom treads "__ at (__ x __)", B4 riser to riser
+ * only, B8a the custom bullnose's four measures, C1 Other "__ x __"; `quote/sheets/stair-site-sheet-v7.html`) is the
+ * reference; v6 (count boxes that add up, pizza sets as 2-pc / 3-pc counts, D3 Staircases) and v5 sheets still read. Pure, no I/O: cleanSheet() is the
  * only way anything (the model's answer, the browser's edits) becomes a SiteSheet, and it never invents a
  * value: what it can't read is null. Tested in tests/sitesheet.test.ts.
  */
@@ -20,8 +22,14 @@ export const TREAD_NAME: Record<TreadType, string> = { rso: "RSO", lso: "LSO", b
 export const WANT_TREADS = ["sand", "caps", "vinylTreads", "vinylSteps", "unsure"] as const;
 export type WantTread = (typeof WANT_TREADS)[number];
 
-/** How many treads of one type, by width (36" / 42" / 48" / one other width the PM writes). */
-export type WidthCounts = { w36: number | null; w42: number | null; w48: number | null; other: number | null; otherWidth: number | null };
+/**
+ * How many treads of one type, by width (36" / 42" / 48") and one custom size the PM writes. v7 (Albert, 2026-11-06):
+ * "__ at (__ x __)", how many (other) at full length (otherWidth) x full depth (otherDepth), inches. On B4, 2 side open,
+ * only the custom column: how many at riser length (otherWidth), riser to riser. A v6 sheet wrote no depth.
+ */
+export type WidthCounts = { w36: number | null; w42: number | null; w48: number | null; other: number | null; otherWidth: number | null; otherDepth: number | null };
+/** B8a (v7): a 2-side-open (custom) bullnose's four measures, inches: riser to riser, tread depth, nose reach, ear. */
+export type BullnoseMeasures = { riser: number | null; depth: number | null; reach: number | null; ear: number | null };
 /** How many special treads, by which side is open (the columns of B6–B8). */
 export type SideCounts = { boxed: number | null; lso: number | null; rso: number | null; two: number | null };
 export const THICKNESSES = ["1/2", "3/4", "unsure"] as const;
@@ -49,9 +57,14 @@ export type SiteSheet = {
    */
   pizza: { two: number | null; pc2: number | null; pc3: number | null };
   /** B8 (never boxed). LSO and RSO are standard; 2 side open is always custom. */ bullnose: SideCounts;
+  /** B8a (v7): the custom bullnose's four measures (one set; a second that differs goes in N1). */ bullnoseMeasures: BullnoseMeasures;
   /** B9 */ totalTreads: number | null;
   /** B10: the side / half staircase */ side: { steps: number | null; type: TreadType | null; width: number | null };
-  /** C1 */ landings: { s3x3: number | null; s3x6: number | null; other: number | null };
+  /**
+   * C1. v7's Other is "__ x __" (otherLength x otherWidth, feet), one landing of that size; v6 wrote how many (other).
+   * With a size and no count, the count is 1 (`otherLandings()` in derive.ts).
+   */
+  landings: { s3x3: number | null; s3x6: number | null; other: number | null; otherLength: number | null; otherWidth: number | null };
   /** C2 */ halfMoons: { count: number | null; nosingFt: number | null; solid: boolean };
   /**
    * D1, D2 (v5: White / Stained; a blank Made of reads as veneer). D3 (2026-10-31): how many staircases' worth of
@@ -128,7 +141,7 @@ const bool = (v: unknown) => v === true;
 
 function widths(v: unknown): WidthCounts {
   const o = obj(v);
-  return { w36: count(o.w36), w42: count(o.w42), w48: count(o.w48), other: count(o.other), otherWidth: num(o.otherWidth) };
+  return { w36: count(o.w36), w42: count(o.w42), w48: count(o.w48), other: count(o.other), otherWidth: num(o.otherWidth), otherDepth: num(o.otherDepth) };
 }
 function sides(v: unknown, boxed = false): SideCounts {
   const o = obj(v);
@@ -179,9 +192,17 @@ export function cleanSheet(input: unknown): SiteSheet {
     pie: sides(o.pie),
     pizza: pizzaOf(o.pizza),
     bullnose: sides(o.bullnose),
+    bullnoseMeasures: (() => {
+      const b = obj(o.bullnoseMeasures);
+      return { riser: num(b.riser), depth: num(b.depth), reach: num(b.reach), ear: num(b.ear) };
+    })(),
     totalTreads: num(o.totalTreads),
     side: { steps: num(side.steps), type: pick(side.type, TREAD_TYPES), width: num(side.width) },
-    landings: { s3x3: num(land.s3x3), s3x6: num(land.s3x6), other: num(land.other) },
+    landings: (() => {
+      const otherLength = num(land.otherLength);
+      const otherWidth = num(land.otherWidth);
+      return { s3x3: num(land.s3x3), s3x6: num(land.s3x6), other: num(land.other), otherLength, otherWidth };
+    })(),
     halfMoons: { count: num(hm.count), nosingFt: num(hm.nosingFt), solid: bool(hm.solid) },
     stringers: { now: pick(str.now, ["White", "Stained", "Other"] as const), made: pick(str.made, ["Veneer", "Solid", "Don't know"] as const), count: num(str.count) || null },
     nosingDefault: { carpet: bool(nd.carpet), thickness: pick(nd.thickness, THICKNESSES), depth: num(nd.depth) },
@@ -205,7 +226,7 @@ export function cleanSheet(input: unknown): SiteSheet {
       covers: pick(w.covers, ["main", "both"] as const),
     },
     notes: longText(o.notes),
-    unclear: Array.isArray(o.unclear) ? [...new Set(o.unclear.filter((c): c is string => typeof c === "string" && /^[A-GN]\d{1,2}$/.test(c.trim())).map((c) => c.trim()))].slice(0, 40) : [],
+    unclear: Array.isArray(o.unclear) ? [...new Set(o.unclear.filter((c): c is string => typeof c === "string" && /^[A-GN]\d{1,2}a?$/.test(c.trim())).map((c) => c.trim()))].slice(0, 40) : [],
   };
 }
 

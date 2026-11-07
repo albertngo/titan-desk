@@ -1,7 +1,7 @@
 import { lineFromEntry, manualLine, type CardEntry, type EditorLine } from "@/lib/editor/model";
 import type { ServiceLevel } from "@/lib/pricing/service";
 import { METHOD_PHRASE } from "@/lib/quick/stairs";
-import { bracketsFor, derive, type Derived } from "./derive";
+import { bracketsFor, bullnoseSize, derive, otherLandings, type Derived } from "./derive";
 import { TREAD_NAME, type SiteSheet, type TreadType, type WantTread } from "./sheet";
 
 /**
@@ -151,10 +151,12 @@ function build(kind: BuiltOption["kind"], s: SiteSheet, d: Derived, find: (names
     for (const t of ["boxed", "lso", "rso", "two"] as TreadType[]) {
       // One line per width written (Albert, 2026-10-31: "keep the pricing as is, just the different sizing for clarity").
       const w = s.treads[t];
-      const other = w.otherWidth ? `${w.otherWidth}"` : "other width";
+      // A custom size (sheet v7): full length x full depth, or on a 2-side-open tread its riser-to-riser length.
+      const other = t === "two" ? (w.otherWidth ? `riser to riser ${w.otherWidth}"` : "custom") : w.otherWidth ? `${w.otherWidth}"${w.otherDepth ? ` x ${w.otherDepth}"` : ""}` : "custom size";
       for (const [count, size] of [[w.w36, '36"'], [w.w42, '42"'], [w.w48, '48"'], [w.other, other]] as [number | null, string][])
         add(ITEM_NAMES.step[t], n(count), `Step (${TREAD_NAME[t]}, ${size})`, "Main staircase", undefined, size);
-      add(ITEM_NAMES.bullnose[t], n(s.bullnose[t]), `Bullnose (${TREAD_NAME[t]})`);
+      // The custom (2-side-open) bullnose carries its B8a measures (v7) in its words, so the order is right.
+      add(ITEM_NAMES.bullnose[t], n(s.bullnose[t]), `Bullnose (${TREAD_NAME[t]})`, "Main staircase", undefined, t === "two" ? (bullnoseSize(s) ?? undefined) : undefined);
     }
     // A 2-side-open bullnose is the custom bullnose: its own item, nothing on top (Albert, 2026-10-31).
     add(ITEM_NAMES.pie.L, n(s.pie.lso), "Pie shape step (left)");
@@ -163,9 +165,11 @@ function build(kind: BuiltOption["kind"], s: SiteSheet, d: Derived, find: (names
     add(ITEM_NAMES.corner, d.pizzaSets - d.custom.pizzaSets, "Corner turn set");
     add(ITEM_NAMES.pizzaCustom, d.custom.pizzaSets, "Custom corner turn set");
     // A 3x6 is its own item, two 3x3s (Albert, 2026-10-31); an other-size landing is priced as a 3x3 and said so.
-    add(ITEM_NAMES.landing, n(s.landings.s3x3) + n(s.landings.other), "Landing (3x3)");
+    const others = otherLandings(s);
+    const size = s.landings.otherLength && s.landings.otherWidth ? `${s.landings.otherLength} × ${s.landings.otherWidth}` : null;
+    add(ITEM_NAMES.landing, n(s.landings.s3x3) + others, "Landing (3x3)");
     add(ITEM_NAMES.landing3x6, n(s.landings.s3x6), "Landing (3x6)");
-    if (n(s.landings.other) > 0) notes.push(`${n(s.landings.other)} landing${n(s.landings.other) === 1 ? "" : "s"} of another size priced as 3 × 3. Change it if it's bigger.`);
+    if (others > 0) notes.push(`${others} landing${others === 1 ? "" : "s"} of another size${size ? ` (${size} ft)` : ""} priced as 3 × 3. Change it if it's bigger.`);
     if (s.halfMoons.solid) add(ITEM_NAMES.halfMoonSolid, d.halfMoons, "Half moon as one solid piece");
     else add(ITEM_NAMES.halfMoon, d.halfMoons, "Half moon");
     if (both && d.sideTreads > 0) add(ITEM_NAMES.step[s.side.type ?? "boxed"], d.sideTreads, "Side staircase step", "Side staircase");

@@ -59,7 +59,7 @@ export function scopeGroups<O extends Parameters<typeof optionScope>[0]>(options
  */
 // Private came back on stairs options (Albert, 2026-11-06, later the same day: "Should we bring back the private
 // section? Where for stairs only; explicitly says it will NEVER be shown to the customer"). Its lines are counted in the
-// stairs price and never listed, not even as an "Additional work" row; the stair base fee sits there. Only Other folds.
+// stairs price and never listed, not even as an "Additional work" row; its Delivery line sits there. Only Other folds.
 export const STAIRS_FOLDED: readonly string[] = ["Other"];
 
 export function stairsOptionLines<L extends { section: string | null }>(lines: L[]): L[] {

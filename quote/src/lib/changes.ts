@@ -23,6 +23,22 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-07",
     kind: "changed",
+    title: "The stairs fee is the Delivery line",
+    details: ["A new stairs option now starts with the same $200 Delivery line as flooring, in its Private section, so the customer never sees it. The separate Stair base fee item is switched off."],
+  },
+  {
+    date: "2026-11-07",
+    kind: "new",
+    title: "Stair Site Sheet v7",
+    details: [
+      "Custom treads are written as how many at (full length x full depth). 2 side open treads are riser to riser only: write how many at the riser length; the 36, 42 and 48 boxes are shaded.",
+      "A 2 side open bullnose has its own box, B8a, with a drawing and its four measures: riser to riser, tread depth, nose reach and ear. The quote flags any that are blank.",
+      "An other-size landing is written as length x width. Landings and stringers are now at the top of page 2. The Site sheet tab shows v7; photos of a v6 sheet still read. Print the new sheet from quote/sheets/stair-site-sheet-v7.pdf.",
+    ],
+  },
+  {
+    date: "2026-11-07",
+    kind: "changed",
     title: "Private says what each way of sending shows",
     details: [
       "In the editor, a flooring option's Private section has a Breakdown / Lump sum switch, starting on the way the last version went: Breakdown shows the one line the customer sees (Additional work $350); Lump sum says it is not shown, its amount inside the one price. On a preliminary, Breakdown can't be picked. Its lines are never listed and never show quantities.",
