@@ -22,6 +22,12 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-07",
+    kind: "fixed",
+    title: "Easier-to-read text on staff screens",
+    details: ["Staff screens are back on the computer's own font (Segoe UI on the store's Windows PCs), with bolder names and headings and no text smaller than 13. The customer's quote keeps its brand fonts."],
+  },
+  {
+    date: "2026-11-07",
     kind: "new",
     title: "Company files: download the site sheets",
     details: ["Company files, beside What's new in the top bar, downloads the latest Flooring Site Sheet and Stair Site Sheet, each on its own, with its version shown. A new version appears there by itself."],
