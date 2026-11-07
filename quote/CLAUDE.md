@@ -1256,6 +1256,11 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   the quote page's Customer view does the same (`OptionSheet`'s `preliminary`). Exclusions still show. A stairs option
   with no description keeps its lines, so it never goes out saying nothing. Measured quotes and flooring options are
   unchanged; staff screens keep every line. Tested in `tests/send.test.ts`.
+  **The sender knows (same day: "Can we have the wordings in a text box that we can edit manually?"; "make sure the
+  sender KNOWS that is the words going out to the customer").** In the editor the option's description box on a
+  preliminary stairs option is headed **Customer wording**, drawn as a full text box (`.words`), saying it goes word
+  for word. The Send card shows each chosen option's words exactly as they go, with its price, in a box of its own
+  (`words` on `sendCardData()`'s options, `.sq-words`).
 - **Company files (Albert, 2026-11-07: "an option to download the Site Sheets (Flooring, Stairs) and show the latest
   version… inside the What's new section as 'Company Files'… Keep the two files separate downloads").** A **Company
   files** menu beside What's new in the top bar (`src/components/CompanyFiles.tsx`, staff only, never in Customer view)
