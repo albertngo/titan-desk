@@ -95,3 +95,25 @@ export async function setFollowUpTags(contactId: string, bodies: { removeBody: s
   const { res, text, d } = await post({ mode: "tags", contactId, ...bodies });
   if (!res.ok || d.ok !== true) throw new MakeError(`Make didn't confirm the follow-up tags (${res.status}: ${text.slice(0, 120)})`);
 }
+
+/**
+ * The Follow up page (2026-11-07): take both quote-sent tags off, so neither follow-up workflow keeps texting a customer
+ * marked lost or postponed. The scenario's `untag` route: DELETE /contacts/<id>/tags, its filter refusing any tag but the
+ * two quote-sent ones. Throws MakeError unless Make confirms it.
+ */
+export async function removeFollowUpTags(contactId: string, removeBody: string): Promise<void> {
+  if (!GHL_ID.test(contactId)) throw new MakeError("No GHL contact to untag.");
+  const { res, text, d } = await post({ mode: "untag", contactId, removeBody });
+  if (!res.ok || d.ok !== true) throw new MakeError(`Make didn't confirm the follow-up tags came off (${res.status}: ${text.slice(0, 120)})`);
+}
+
+/**
+ * The Follow up page's Lost (2026-11-07): the opportunity's status with GHL's own lost reason, through the scenario's
+ * `status` route (PUT /opportunities/<id>/status, the one place GHL takes a lost reason). Throws MakeError unless Make
+ * confirms it.
+ */
+export async function setOpportunityStatus(opportunityId: string, statusBody: string): Promise<void> {
+  if (!GHL_ID.test(opportunityId)) throw new MakeError("No GHL opportunity on this quote.");
+  const { res, text, d } = await post({ mode: "status", opportunityId, statusBody });
+  if (!res.ok || d.ok !== true) throw new MakeError(`Make didn't confirm the opportunity was marked lost (${res.status}: ${text.slice(0, 120)})`);
+}

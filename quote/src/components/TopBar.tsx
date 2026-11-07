@@ -30,6 +30,15 @@ export async function TopBar({ email }: { email: string }) {
           <>
             <span className="tb-sep" aria-hidden />
             <div className="tb-group">
+              {/* Follow up (2026-11-07): sent quotes waiting on the customer, due first. */}
+              <Link className="tb-btn" href="/follow-up" aria-label="Follow up">
+                <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M8 2v4M16 2v4M3 10h18" />
+                  <rect x="3" y="4" width="18" height="18" rx="2" />
+                  <path d="m9 16 2 2 4-4" />
+                </svg>
+                <span className="lbl">Follow up</span>
+              </Link>
               <Link className="tb-btn" href="/changes" aria-label="What's new" title={`Last change ${CHANGES[0]?.date ?? ""}: ${CHANGES[0]?.title ?? ""}`}>
                 {/* A newspaper, not the AI sparkle (2026-11-07). */}
                 <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">

@@ -22,6 +22,23 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-07",
+    kind: "new",
+    title: "Follow up: every sent quote waiting on a customer, due first",
+    details: [
+      "Follow up in the top bar lists each sent quote with what's due and why: the 1st, 2nd and 3rd follow-up (3, 10 and 21 days after sending), a reply nobody has answered, a passed good-until date, and at day 45 a nudge to close it out or postpone it.",
+      "Texts, emails and calls in GHL count as follow-ups on their own. I followed up covers a call or visit GHL doesn't show.",
+      "Snooze 3, 7 or 14 days. Postpone… moves the opportunity to Postponed with a Postponed Until date and brings it back a month before. Lost… marks the opportunity lost with one of GHL's own reasons. Both stop the automated follow-up texts.",
+      "Mine shows the quotes you sent; Everyone shows the rest.",
+    ],
+  },
+  {
+    date: "2026-11-07",
+    kind: "new",
+    title: "Switch a draft between Preliminary and Measured",
+    details: ["Under the customer's name in the editor, an unsent draft shows Goes out as Preliminary | Measured. Switching to Measured adds each flooring option's Delivery line, which you can remove."],
+  },
+  {
+    date: "2026-11-07",
     kind: "changed",
     title: "No Rate column on a lump-sum PDF",
     details: ["A lump-sum PDF, every preliminary included, writes each rate beside its quantity (550 sqft × $2.99), the same as the customer's link. A breakdown keeps its Unit price and Amount columns, unless nothing on it has a price (a stairs-only breakdown), which now has neither."],
