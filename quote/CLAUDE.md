@@ -1241,6 +1241,12 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
     apart), Follow up, Accepted this month (Accepted At in this Toronto month on an Accepted or Won version, at its
     contract value) and Needs linking. Over every quote whatever the search; the three with a filter behind them are
     buttons that set it (`pulse()` in `pipeline.ts`). Tested in `tests/pipeline.test.ts`.
+- **No section totals for the customer (Albert, 2026-11-07: "can we keep the totals of each Section not shown? it has
+  too many numbers if too many sections").** On a breakdown the customer's page (`CustomerQuote.tsx`), the PDF
+  (`pdf.ts`, so invoices and receipts too) and the quote page's Customer view (`OptionSheet.tsx`) show no subtotal on
+  a section's header; each line keeps its amount and the price block keeps the totals. A lump sum already showed none.
+  Display only: `CopySection.total` is still frozen on the copy, so nothing about sending changed. A receipt's
+  "Materials with HST" band keeps its own total. Staff screens keep every section total.
 - **Company files (Albert, 2026-11-07: "an option to download the Site Sheets (Flooring, Stairs) and show the latest
   version… inside the What's new section as 'Company Files'… Keep the two files separate downloads").** A **Company
   files** menu beside What's new in the top bar (`src/components/CompanyFiles.tsx`, staff only, never in Customer view)

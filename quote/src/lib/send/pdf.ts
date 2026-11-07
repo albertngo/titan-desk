@@ -295,7 +295,8 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
       const startPage = doc.pageCount;
       doc.text(COL.item, y, head, { font: "B", size: 8, color: BLUE });
       if (hstInMaterials && s.lines.some((l) => l.kind === "item")) doc.text(COL.item + textWidth(head, "B", 8) + 6, y, s.name === "Materials" ? "·  HST APPLIES" : "·  NO HST", { font: "B", size: 7.5, color: mat ? BLUE : FAINT });
-      if (s.total !== null && s.lines.some((l) => l.kind === "item" && !l.optional)) doc.text(COL.amount - 4, y, money(s.total), { font: "B", size: 8, color: DIM, align: "right" });
+      // No section totals on the customer's PDF (Albert, 2026-11-07), as on the page; a receipt's HST band on its
+      // materials keeps its own total below.
       y -= 14;
       for (const l of s.lines) row(l);
       if (mat) {
