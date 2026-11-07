@@ -24,7 +24,7 @@ export const CHANGES: Change[] = [
     date: "2026-11-07",
     kind: "changed",
     title: "No Rate column on a lump-sum PDF",
-    details: ["A lump-sum PDF, every preliminary included, writes each rate beside its quantity (550 sqft × $2.99), the same as the customer's link. A breakdown keeps its Unit price and Amount columns."],
+    details: ["A lump-sum PDF, every preliminary included, writes each rate beside its quantity (550 sqft × $2.99), the same as the customer's link. A breakdown keeps its Unit price and Amount columns, unless nothing on it has a price (a stairs-only breakdown), which now has neither."],
   },
   {
     date: "2026-11-07",

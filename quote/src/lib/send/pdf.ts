@@ -75,7 +75,10 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
   // "550 sqft × $2.99", as the customer's link shows it. The quantity moves into the Rate column's place for room.
   // Then for every lump sum (same day: "PDF and Quote link should always mirror eachother"): the link writes every rate
   // beside its quantity, so the PDF does too. Only a breakdown keeps the Unit price and Amount columns.
-  const ratesInline = isLump(copy);
+  // A breakdown with nothing to put in its price columns (a stairs-only breakdown, 2026-11-07: "can we not have the unit
+  // price and amount column shown in this scenario?") is drawn the same way: no Unit price or Amount column.
+  const priceCols = !isLump(copy) && copy.options.some((o) => o.sections.some((s) => s.lines.some((l) => l.kind === "item" && (l.unitPrice !== null || l.amount !== null))));
+  const ratesInline = !priceCols;
   const qtyX = ratesInline ? COL.unit : COL.qty;
   const doc = new PdfDoc(bill ? `Titan Flooring ${bill.title.toLowerCase()} ${bill.number}` : `Titan Flooring quote ${copy.quoteNumber}`);
   let y = TOP;
@@ -232,7 +235,7 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
     doc.text(qtyX, y, "Quantity", { font: "B", size: 8, color: DIM, align: "right" });
     // A lump-sum quote has no price columns: the totals block is the price (2026-10-22). A material's rate
     // still shows (2026-11-04), so the column is headed Rate when a line carries one.
-    if (!isLump(copy)) {
+    if (priceCols) {
       doc.text(COL.unit, y, "Unit price", { font: "B", size: 8, color: DIM, align: "right" });
       doc.text(COL.amount - 4, y, "Amount", { font: "B", size: 8, color: DIM, align: "right" });
     } else if (lumpRates && !ratesInline) {

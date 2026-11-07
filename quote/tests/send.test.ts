@@ -1246,3 +1246,16 @@ describe("flooring rates by basis (Albert, 2026-11-07)", () => {
     expect(c.options[0].sections[0].lines[0]).toMatchObject({ unitPrice: 2, amount: 200 });
   });
 });
+
+describe("a breakdown PDF with nothing to price (2026-11-07)", () => {
+  it("draws no Unit price or Amount column for a stairs-only breakdown, and keeps both when a line is priced", () => {
+    const st = line({ section: "Stairs", lineType: "Stairs", sourceKind: "stair", description: "Step", qty: 12, uom: "steps", unitPriceSnap: 160 });
+    const stairsOnly = Buffer.from(quotePdf(customerCopy(quote({ discountRate: 0, itemised: true, options: [option("Main stairs", [st], 0, true, { scope: "Stairs" })] }), AT))).toString("latin1");
+    expect(stairsOnly).not.toContain("(Unit price)");
+    expect(stairsOnly).not.toContain("(Amount)");
+    expect(stairsOnly).toContain("(12 steps)");
+    const floor = Buffer.from(quotePdf(customerCopy(quote({ discountRate: 0, itemised: true, options: [option("A", [line({})], 0, true)] }), AT))).toString("latin1");
+    expect(floor).toContain("(Unit price)");
+    expect(floor).toContain("(Amount)");
+  });
+});
