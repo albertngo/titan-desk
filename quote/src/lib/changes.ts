@@ -23,6 +23,24 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-07",
     kind: "new",
+    title: "Follow up: a brief on every quote, the conversation beside it, and a red count in the top bar",
+    details: [
+      "Each quote gets a short brief: where it stands, what the customer asked and whether we answered, the next step and a message to copy into GHL. It's rewritten when something new happens, and Rewrite asks for a fresh one.",
+      "When the customer named a time (\"next week\"), that becomes the next follow-up date.",
+      "Click a row to see the customer's conversation on the right. It starts on the first quote.",
+      "Filter by Last sent by (Pourya, Joey, Albert or Everyone), and each row says who the customer is talking to.",
+      "Follow up in the top bar shows a red count of quotes due now.",
+    ],
+  },
+  {
+    date: "2026-11-07",
+    kind: "fixed",
+    title: "Follow up no longer counts the quote's own send as a follow-up",
+    details: ["The email and text a quote goes out with were counted as the first follow-up, so new quotes looked a step further along than they were."],
+  },
+  {
+    date: "2026-11-07",
+    kind: "new",
     title: "Follow up: every sent quote waiting on a customer, due first",
     details: [
       "Follow up in the top bar lists each sent quote with what's due and why: the 1st, 2nd and 3rd follow-up (3, 10 and 21 days after sending), a reply nobody has answered, a passed good-until date, and at day 45 a nudge to close it out or postpone it.",

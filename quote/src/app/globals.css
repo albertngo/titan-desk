@@ -2468,12 +2468,50 @@ table.items tr.subsect td { box-shadow: none !important; border-left: 0 !importa
 .fu-result.bad { background: var(--bad-soft); }
 .fu-result span { color: var(--fg-dim); }
 .fu-result .linkbtn { margin-left: auto; }
-.fu-sec + .fu-sec { border-top: 1px solid var(--line); }
-.fu-h { display: flex; align-items: center; gap: 8px; margin: 0; padding: 12px 16px 8px; font-size: 13px; font-weight: 600; color: var(--fg-dim); }
+/* Due now stands apart (Albert, 2026-11-07: "separate the upcoming and due now little bit more"): a tinted block with a
+   RiderBlue edge, then a clear gap before the quieter sections. */
+.fu-sec + .fu-sec { border-top: 10px solid var(--bg); }
+.fu-sec.due { background: color-mix(in srgb, var(--accent-soft) 55%, var(--card)); box-shadow: inset 3px 0 0 var(--accent); }
+.fu-sec.due .fu-row { border-top-color: color-mix(in srgb, var(--accent) 14%, var(--line)); }
+.fu-sec:not(.due) .fu-name { font-weight: 500; }
+.fu-h { display: flex; align-items: center; gap: 8px; margin: 0; padding: 14px 16px 8px; font-size: 13px; font-weight: 600; color: var(--fg-dim); }
+.fu-sec.due .fu-h { font-size: 15px; padding-top: 16px; }
+.fu-sec.due .fu-h .n { background: var(--accent); color: var(--accent-ink); }
 .fu-h .n { font-size: 11px; font-variant-numeric: tabular-nums; padding: 1px 7px; border-radius: 999px; background: var(--head); color: var(--fg-dim); }
 .fu-sec.due .fu-h { color: var(--fg); }
 .fu-empty { margin: 0; padding: 4px 16px 14px; font-size: 13.5px; color: var(--fg-dim); }
-.fu-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1.1fr); gap: 6px 16px; padding: 12px 16px; border-top: 1px solid var(--line); }
+.fu-row, .fu-cols { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.1fr); gap: 6px 16px; }
+.fu-name-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+/* Who the customer is talking to (2026-11-07): clear, beside the name, in the filter's words. */
+.fu-with { font-size: 12.5px; font-weight: 600; padding: 2px 9px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); white-space: nowrap; }
+.fu-row { padding: 12px 16px; border-top: 1px solid var(--line); }
+/* Column headings (Albert, 2026-11-07: "a column name so its more clear"). */
+.fu-cols { padding: 8px 16px; background: var(--head); border-bottom: 1px solid var(--line); font-size: 12.5px; font-weight: 600; color: var(--fg-dim); }
+.fu-who-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.fu-who-pick > .k { font-size: 13px; font-weight: 600; color: var(--fg-dim); }
+.fu-who-pick .ql-filters { margin: 0; padding: 0; }
+.fu-acts .btn.on { border-color: var(--accent); color: var(--accent); }
+.fu-row.can-pick { cursor: pointer; }
+.fu-row.can-pick:hover { background: color-mix(in srgb, var(--accent-soft) 35%, transparent); }
+.fu-row.picked { box-shadow: inset 3px 0 0 var(--accent); background: color-mix(in srgb, var(--accent-soft) 45%, transparent); }
+/* The brief (step 2). */
+.fu-brief { grid-column: 1 / -1; display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); font-size: 13.5px; }
+.fu-brief.wait { color: var(--fg-dim); background: var(--card-2); }
+.fu-brief.bad { color: var(--bad); background: var(--bad-soft); border-color: transparent; }
+.fu-brief-h { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; align-items: baseline; }
+.fu-brief-h .k { font-weight: 600; color: var(--fg); }
+.fu-brief-meta { display: inline-flex; gap: 10px; font-size: 12.5px; color: var(--fg-dim); }
+.fu-standing, .fu-step { margin: 0; color: var(--fg); }
+.fu-named { color: var(--accent); }
+.fu-asked { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; color: var(--fg); }
+.fu-asked li { display: flex; gap: 6px; }
+.fu-asked .tick { width: 16px; flex: none; font-weight: 600; color: var(--warn); }
+.fu-asked li.done .tick { color: var(--good); }
+.fu-asked li.done { color: var(--fg-dim); }
+.fu-asked .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.fu-draft { display: grid; gap: 6px; padding: 8px 10px; border-left: 3px solid var(--accent); background: var(--card-2); border-radius: 0 var(--radius) var(--radius) 0; }
+.fu-draft p { margin: 0; white-space: pre-wrap; color: var(--fg); }
+.fu-draft-acts { display: flex; gap: 6px; }
 .fu-sec .fu-row:first-of-type { border-top: 0; }
 .fu-who { display: grid; gap: 2px; min-width: 0; }
 .fu-name { font-weight: 600; color: var(--fg); text-decoration: none; overflow-wrap: anywhere; }
@@ -2497,5 +2535,11 @@ table.items tr.subsect td { box-shadow: none !important; border-left: 0 !importa
 .fu-modal-acts { display: flex; justify-content: flex-end; }
 @media (max-width: 760px) {
   .fu-row { grid-template-columns: 1fr; }
+  .fu-cols { display: none; }
   .fu-acts .btn { min-height: 40px; }
 }
+
+/* The top bar's red count of quotes due now (2026-11-07). */
+.tb-btn { position: relative; }
+.tb-badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--bad); color: #fff; font-size: 11px; font-weight: 600; line-height: 18px; text-align: center; font-variant-numeric: tabular-nums; }
+@media (max-width: 560px) { .tb-badge { position: absolute; top: 0; right: -2px; } }

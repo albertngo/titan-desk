@@ -127,7 +127,7 @@ export function Conversation({ contactId, defaultOpen = false }: { contactId: st
  * screen the page makes room for it (html[data-conv-open]); on a narrow one it slides over.
  * Remembered open or closed per device.
  */
-export function ConversationDrawer({ contactId }: { contactId: string }) {
+export function ConversationDrawer({ contactId, title, openSignal }: { contactId: string; /** Whose thread it is, when the page holds several customers (Follow up, 2026-11-07). */ title?: string | null; /** Each new value opens the panel (a row's Conversation button). */ openSignal?: number }) {
   const result = useConversation(contactId);
   const savedOpen = useSyncExternalStore(DRAWER.subscribe, DRAWER.read, serverOpen);
   const [clickedOpen, setClickedOpen] = useState<boolean | null>(null);
@@ -135,6 +135,13 @@ export function ConversationDrawer({ contactId }: { contactId: string }) {
   const summary = summarize(result?.ok ? result.messages : []);
   const ghlUrl = (result?.ok && result.ghlUrl) || ghlContactUrl(contactId);
   const slot = useSyncExternalStore(noSubscribe, findSlot, noSlot);
+
+  // A new openSignal opens the panel, set while rendering (React's "adjusting state when a prop changes").
+  const [seenSignal, setSeenSignal] = useState(openSignal);
+  if (openSignal !== seenSignal) {
+    setSeenSignal(openSignal);
+    if (openSignal) setClickedOpen(true);
+  }
 
   function toggle() {
     const next = !open;
@@ -187,7 +194,7 @@ export function ConversationDrawer({ contactId }: { contactId: string }) {
         <aside id="conv-panel" className="conv-panel" aria-label="Conversation with the customer">
           <div className="card-h conv-h">
             <span className="conv-title">
-              Conversation
+              {title ? `Conversation · ${title}` : "Conversation"}
               <span className="conv-sum">{headlineOf(result, summary)}</span>
             </span>
             <a className="conv-ghl" href={ghlUrl} target="_blank" rel="noreferrer">

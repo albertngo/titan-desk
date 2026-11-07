@@ -157,7 +157,7 @@ describe("Claude boundary (2026-10-28: reading the stair site sheet)", () => {
   });
 
   it("is reached only from the site sheet writer, which writes the Quotes table only", () => {
-    expect(all.filter((f) => /from ["']@\/lib\/anthropic\/client["']/.test(f.text)).map((f) => f.rel)).toEqual(["lib/quotes/sitesheet.ts"]);
+    expect(all.filter((f) => /from ["']@\/lib\/anthropic\/client["']/.test(f.text)).map((f) => f.rel).sort()).toEqual(["lib/quotes/followup.ts", "lib/quotes/sitesheet.ts"]);
     const text = code(all.find((f) => f.rel === "lib/quotes/sitesheet.ts")!.text);
     for (const m of text.matchAll(/\b(?:updateRecord|uploadAttachment)\((T\.\w+)/g)) expect(m[1]).toBe("T.quotes");
     expect(text).not.toMatch(/\bcreateRecords?\(|updateRecords\(/);
@@ -257,7 +257,7 @@ describe("GHL boundary", () => {
     }
     expect(all.find((f) => f.rel === "app/new/page.tsx")!.text).toMatch(/conversation=\{!customer\}/);
     const importers = all.filter((f) => /from ["'](@\/app\/actions\/conversation|@\/lib\/quotes\/conversation|@\/components\/Conversation|\.\/Conversation)["']/.test(f.text)).map((f) => f.rel).sort();
-    expect(importers).toEqual(["app/actions/conversation.ts", "app/q/[id]/edit/page.tsx", "app/q/[id]/page.tsx", "components/Conversation.tsx", "components/NewQuote.tsx"]);
+    expect(importers).toEqual(["app/actions/conversation.ts", "app/q/[id]/edit/page.tsx", "app/q/[id]/page.tsx", "components/Conversation.tsx", "components/FollowUpList.tsx", "components/NewQuote.tsx"]);
   });
 });
 
@@ -488,7 +488,7 @@ describe("Follow up (2026-11-07)", () => {
   const text = () => code(all.find((f) => f.rel === "lib/quotes/followup.ts")!.text);
   it("writes only the quote's Follow Up, and the sent version's History line and Lost status", () => {
     const writes = [...text().matchAll(/updateRecord\((T\.\w+), [^,]+, \{ \[(\w+\.\w+)\]/g)].map((m) => `${m[1]} ${m[2]}`);
-    expect(writes.sort()).toEqual(["T.quotes QUOTE.followUp", "T.versions VERSION.editLog"]);
+    expect([...new Set(writes)].sort()).toEqual(["T.quotes QUOTE.followUp", "T.versions VERSION.editLog"]);
     expect(text()).not.toMatch(/createRecords?\(|updateRecords\(/);
   });
   it("reaches GHL only through Make's link, status, untag and message routes, and comments tag nobody", () => {

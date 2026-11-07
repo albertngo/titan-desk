@@ -6,6 +6,7 @@ import { customerView } from "@/lib/view";
 import { AccountMenu } from "./AccountMenu";
 import { BuildLine } from "./BuildLine";
 import { CompanyFiles } from "./CompanyFiles";
+import { FollowUpBadge } from "./FollowUpBadge";
 import { ReportBug } from "./ReportBug";
 import { ViewSwitch } from "./ViewSwitch";
 
@@ -38,6 +39,7 @@ export async function TopBar({ email }: { email: string }) {
                   <path d="m9 16 2 2 4-4" />
                 </svg>
                 <span className="lbl">Follow up</span>
+                <FollowUpBadge />
               </Link>
               <Link className="tb-btn" href="/changes" aria-label="What's new" title={`Last change ${CHANGES[0]?.date ?? ""}: ${CHANGES[0]?.title ?? ""}`}>
                 {/* A newspaper, not the AI sparkle (2026-11-07). */}

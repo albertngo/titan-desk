@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ageWords, byUrgency, dueOf, emptyState, parseState, postponeBack, postponeProblem, serializeState, threadSince, withLost, withSnooze, withTouch, type FollowUpState, type Thread } from "../src/lib/followup/plan";
 import { buildPostpone, lostStatusBody, postponedStageId } from "../src/lib/link/ghlRequest";
+import { briefPrompt, briefSignature, cleanBrief, parseBrief } from "../src/lib/followup/brief";
 
 // Invented dates and ids only: this repo is public.
 const day = (s: string | Date) => (typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : new Date(s).toISOString().slice(0, 10));
@@ -29,6 +30,15 @@ describe("the fallback schedule: 3, 10, 21, then close out at 45", () => {
   });
   it("never lists a lost quote", () => {
     expect(due({ sent: "2026-11-01", today: "2026-11-20", state: withLost(emptyState(), { at: at("2026-11-10"), by: "a", reasonId: null, reason: null }) })).toBeNull();
+  });
+});
+
+describe("the send itself is not a follow-up (Sent At is a day)", () => {
+  it("ignores our messages on the day it was sent, but not a reply that day", () => {
+    const d = dueOf({ sentAt: "2026-11-03", validUntil: null, state: emptyState(), thread: { staffTouches: [at("2026-11-03")], lastCustomer: null }, now: new Date(at("2026-11-04")), torontoDay: day });
+    expect(d).toMatchObject({ touches: 0, day: "2026-11-06", reason: { kind: "scheduled", touch: 1 } });
+    const r = dueOf({ sentAt: "2026-11-03", validUntil: null, state: emptyState(), thread: { staffTouches: [at("2026-11-03")], lastCustomer: at("2026-11-03") }, now: new Date(at("2026-11-04")), torontoDay: day });
+    expect(r).toMatchObject({ bucket: "due", reason: { kind: "replied" } });
   });
 });
 
@@ -118,5 +128,47 @@ describe("what goes to GHL", () => {
   it("sends lost with GHL's own reason, or none", () => {
     expect(lostStatusBody("r9")).toBe('{"status":"lost","lostReasonId":"r9"}');
     expect(lostStatusBody(null)).toBe('{"status":"lost"}');
+  });
+});
+
+describe("the brief (step 2)", () => {
+  const meta = { basedOn: "sig1", at: at("2026-11-07"), model: "m", today: "2026-11-07" };
+  it("keeps what is usable and drops what isn't", () => {
+    const b = cleanBrief(
+      { standing: "Warm, asked about stairs.", asked: [{ text: "Stairs price?", answered: false }, { text: "" }], step: { kind: "call", why: "Big job" }, draft: "Hi Sam", nextDay: "2026-11-14", nextQuote: "next week" },
+      meta,
+    );
+    expect(b).toMatchObject({ asked: [{ text: "Stairs price?", answered: false }], step: { kind: "call" }, draft: "Hi Sam", nextDay: "2026-11-14", nextQuote: "next week", basedOn: "sig1" });
+    expect(cleanBrief({ standing: "x", step: { kind: "nonsense" } }, meta)?.step.kind).toBe("text");
+    expect(cleanBrief({ standing: "x", step: { kind: "wait" }, draft: "should go" }, meta)?.draft).toBe("");
+    expect(cleanBrief({ standing: "x", nextDay: "2026-11-01" }, meta)?.nextDay).toBeNull();
+    expect(cleanBrief({ asked: [] }, meta)).toBeNull();
+  });
+  it("is kept and read back", () => {
+    const b = cleanBrief({ standing: "x", step: { kind: "text", why: "y" }, draft: "d", nextDay: "2026-12-01", nextQuote: "December" }, meta)!;
+    expect(parseBrief(JSON.parse(JSON.stringify(b)))).toEqual(b);
+    expect(parseState(serializeState({ ...emptyState(), brief: b })).brief).toEqual(b);
+  });
+  it("is rewritten when anything moves", () => {
+    const base = { lastMessage: { id: "m1", at: at("2026-11-05") }, opens: 2, touches: 0, postponeUntil: null, sentAt: "2026-11-03" };
+    const s = briefSignature(base);
+    expect(briefSignature({ ...base })).toBe(s);
+    expect(briefSignature({ ...base, lastMessage: { id: "m2", at: at("2026-11-06") } })).not.toBe(s);
+    expect(briefSignature({ ...base, opens: 3 })).not.toBe(s);
+    expect(briefSignature({ ...base, touches: 1 })).not.toBe(s);
+  });
+  it("a day they named replaces the schedule", () => {
+    const d = dueOf({ sentAt: "2026-11-03", validUntil: null, state: emptyState(), thread: { staffTouches: [], lastCustomer: null }, now: new Date(at("2026-11-07")), torontoDay: day, named: { day: "2026-11-20", quote: "after the 15th" } });
+    expect(d).toMatchObject({ bucket: "upcoming", day: "2026-11-20", reason: { kind: "named", quote: "after the 15th" } });
+  });
+  it("tells Claude no cost, and asks for the JSON", () => {
+    const p = briefPrompt(
+      { today: "2026-11-07", customer: "Sam", quoteNumber: "Q-1", basis: "Preliminary", sentDay: "2026-11-03", age: 4, validUntil: null, opens: 2, lastOpened: null, options: [{ name: "Vinyl", total: 5000 }], sender: "Joey", typicalCloseDay: 12, scheduleDays: [3, 10, 21], postponedTo: null, loggedHere: [] },
+      [{ id: "1", at: at("2026-11-04"), who: "customer", channel: "sms", body: "Can you do stairs too?" }],
+    );
+    expect(p).toMatch(/CUSTOMER via sms: Can you do stairs too\?/);
+    expect(p).toMatch(/"nextDay"/);
+    expect(p).toMatch(/Never mention internal notes, costs or margins/);
+    expect(p).not.toMatch(/margin %|cost:/i);
   });
 });
