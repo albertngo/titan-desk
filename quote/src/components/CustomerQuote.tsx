@@ -186,7 +186,8 @@ function Sections({ sections }: { sections: CopyOption["sections"] }) {
         <div className="cq-sec" key={`${s.name}-${k}`}>
           <h3>
             <span>{s.name}</span>
-            {s.total !== null && s.lines.some((l) => l.kind === "item" && !l.optional) && <span className="st">{money(s.total)}</span>}
+            {/* No section totals for the customer (Albert, 2026-11-07: "too many numbers if too many sections"): each line
+                keeps its own amount on a breakdown, and the price block has the total. */}
           </h3>
           <ul>
             {s.lines.map((l, j) => (

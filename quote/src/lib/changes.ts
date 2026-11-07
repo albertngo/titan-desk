@@ -22,6 +22,12 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-07",
+    kind: "changed",
+    title: "No section totals for the customer",
+    details: ["A breakdown sent to a customer no longer shows a subtotal on each section (Install, Materials and so on): each line keeps its amount and the price block has the total. On the link, the PDF and Customer view. Staff screens keep the section totals."],
+  },
+  {
+    date: "2026-11-07",
     kind: "fixed",
     title: "Easier-to-read text on staff screens",
     details: ["Staff screens are back on the computer's own font (Segoe UI on the store's Windows PCs), with bolder names and headings and no text smaller than 13. The customer's quote keeps its brand fonts."],

@@ -227,7 +227,8 @@ export function OptionSheet({
                         {s === PRIVATE_SECTION ? <span className="priv-tag">Private</span> : s}
                         {s === PRIVATE_SECTION && <span className="sub">{stairsOpt ? " · never shown to the customer: inside the stairs price" : <> · not itemised for the customer: one row, “{option.privateLabel ?? DEFAULT_PRIVATE_LABEL}”</>}</span>}
                       </td>
-                      <td className="r">{lump || (customer && (s === "Stairs" || stairsOpt)) ? "" : money(sum)}</td>
+                      {/* Customer view shows no section totals, as the customer's page and PDF (2026-11-07); staff keep them. */}
+                      <td className="r">{lump || customer ? "" : money(sum)}</td>
                     </tr>,
                     // Stairs grouped by the Stair Item's Category (2026-10-28), a small heading over each group.
                     ...(s === "Stairs"
