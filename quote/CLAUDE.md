@@ -1254,10 +1254,13 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   option's Private Line Name) and "The lines below are never listed"; stairs, a red one, "Never shown to the customer.
   Its $X is inside the stairs price." (`.priv-ban` in `globals.css`.)
   **2026-11-07 (Albert: "in Flooring: it will show at breakdown, but never lumpsum. How can we signify this clearly?"):**
-  the flooring banner shows both ways side by side, a **Breakdown** tag with the line preview and a **Lump sum** tag
-  with "not shown, inside the one price" (Breakdown greyed on a preliminary, always a lump sum), and "never listed
-  line by line, no quantities or line prices, either way". The Send card says the same under Pricing shown for the
-  picked choice and the chosen options (`priv` on each `sendCardData` option: flooring only, `privateRollup()`).
+  **look D**: the flooring note is one line with a **Breakdown / Lump sum** switch, starting on the way the last version
+  went (`lastWay`, from `sendCardData`); Breakdown shows the line preview, Lump sum "not shown, inside the one price";
+  on a preliminary Breakdown is disabled. Then "never listed line by line, no quantities or line prices, either way".
+  The stairs note leads with a red **Never shown to the customer** tag: "not on a breakdown, not on a lump sum, not on
+  the PDF or the email". The Send card says it under Pricing shown as **Flooring Private** for the picked choice and
+  the chosen options, plus "Stairs Private never shows." when a chosen stairs option has any (`priv` on each
+  `sendCardData` option, `privateRollup()`).
 - **Two fees every option starts with (Albert, 2026-11-06), `src/lib/quotes/fees.ts`.** **Delivery**: Rate Card
   `Delivery | Standard Delivery | TITAN` (`recqMUZswPhpbrHuX`, $200 flat, cost 0: "we deliver. all margin"), a
   Delivery line the customer sees, on every flooring option of a **measured** version, never a preliminary.

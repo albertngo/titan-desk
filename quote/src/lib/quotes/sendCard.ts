@@ -35,8 +35,9 @@ export async function sendCardData(quote: Quote, customer: boolean) {
     const r = priceRange(lead.amount);
     const range = preliminary && lead.amount > 0 ? `${rangeText(r.low, r.high)} ${lead.tag}` : null;
     // A flooring option's Private section (2026-11-07): the one line a breakdown shows; a stairs option's never shows.
-    const privAmount = optionScope(o) === "Flooring" ? privateRollup(o.lines) : 0;
-    const priv = privAmount > 0 ? { label: o.privateLabel?.trim() || DEFAULT_PRIVATE_LABEL, amount: money(privAmount) } : null;
+    const stairs = optionScope(o) === "Stairs";
+    const privAmount = privateRollup(o.lines);
+    const priv = privAmount > 0 ? { label: o.privateLabel?.trim() || DEFAULT_PRIVATE_LABEL, amount: money(privAmount), stairs } : null;
     return { id: o.id, name: o.name, price: `${money(lead.amount)} ${lead.tag}`, range, recommended: o.recommended, notOffered: o.notOffered === true, problem: optionProblem(quote, o), priv };
   });
   // Send again (2026-10-30) says whether their page already offers the PDF: read from the frozen copy, only for a version out with the customer.

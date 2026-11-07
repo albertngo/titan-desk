@@ -281,7 +281,7 @@ export function SendQuote({
   /** Albert only (2026-11-04): who he may send as, each with the address and number it would go from; null for everyone else. */
   sendAs?: SendAsList | null;
   /** The version's options, for choosing which go to the customer (2026-10-24); `range` is what a preliminary shows instead of `price` (2026-10-27). */
-  options: { id: string; name: string; price: string; range: string | null; recommended: boolean; notOffered?: boolean; problem: string | null; priv?: { label: string; amount: string } | null }[];
+  options: { id: string; name: string; price: string; range: string | null; recommended: boolean; notOffered?: boolean; problem: string | null; priv?: { label: string; amount: string; stairs: boolean } | null }[];
   /** How the newest sent version went (Albert, 2026-11-06): the card says so and starts on the same way. */
   lastSent?: LastSentWay | null;
 }) {
@@ -317,13 +317,16 @@ export function SendQuote({
   const everyOption = chosen.length === offerable.length;
   const optionIds = everyOption ? null : chosen;
   /** The chosen options' Private lines (2026-11-07): flooring only, the line a breakdown shows; never on a lump sum. */
-  const privs = options.filter((o) => chosen.includes(o.id) && o.priv);
+  // Named for flooring (2026-11-07: "Should I be explicit in saying the flooring options. Since stairs never show anything").
+  const privs = options.filter((o) => chosen.includes(o.id) && o.priv && !o.priv.stairs);
+  const stairsPriv = options.some((o) => chosen.includes(o.id) && o.priv?.stairs);
+  const stairsWords = stairsPriv ? " Stairs Private never shows." : "";
   const privNote = (shown: boolean) =>
     privs.length === 0 ? null : (
       <span className={`sub priv-send ${shown ? "show" : "never"}`} role="note">
         {shown ? (
           <>
-            Private: shown as one line, its total only, no quantities or line prices:{" "}
+            Flooring Private: shown as one line, its total only, no quantities or line prices:{" "}
             {privs.map((o, i) => (
               <span key={o.id}>
                 {i > 0 && "; "}
@@ -331,10 +334,10 @@ export function SendQuote({
                 <b>{o.priv!.label} {o.priv!.amount}</b>
               </span>
             ))}
-            .
+            .{stairsWords}
           </>
         ) : (
-          <>Private: not shown. {privs.length === 1 ? `Its ${privs[0].priv!.amount} is` : "Each option's Private total is"} inside the one price.</>
+          <>Flooring Private: not shown. {privs.length === 1 ? `Its ${privs[0].priv!.amount} is` : "Each option's Private total is"} inside the one price.{stairsWords}</>
         )}
       </span>
     );

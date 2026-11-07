@@ -50,7 +50,7 @@ export default async function EditQuotePage({ params, searchParams }: { params: 
       <TopBar email={email} />
       {/* The customer's GHL conversation beside the lines being priced: staff only, never in Customer view. */}
       {!customer && quote.link?.ghlContactId && <ConversationDrawer contactId={quote.link.ghlContactId} />}
-      <EditorClient initial={initial} card={card} backHref={`/q/${quote.id}`} version={version} customer={customer} swap={swap} swapTo={typeof swapTo === "string" && /^rec[A-Za-z0-9]{14}$/.test(swapTo) ? swapTo : null} sendCard={sendCard} />
+      <EditorClient initial={initial} card={card} backHref={`/q/${quote.id}`} version={version} customer={customer} swap={swap} swapTo={typeof swapTo === "string" && /^rec[A-Za-z0-9]{14}$/.test(swapTo) ? swapTo : null} sendCard={sendCard} lastWay={sending?.props?.lastSent?.way ?? null} />
     </>
   );
 }

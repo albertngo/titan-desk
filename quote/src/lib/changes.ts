@@ -25,8 +25,9 @@ export const CHANGES: Change[] = [
     kind: "changed",
     title: "Private says what each way of sending shows",
     details: [
-      "In the editor, a flooring option's Private section now shows both ways side by side: Breakdown, one line with its total (Additional work $350); Lump sum, not shown, its amount inside the one price. On a preliminary, Breakdown is greyed out. Its lines are never listed and never show quantities.",
-      "The Send card says the same under Pricing shown, for the choice you have picked and the options you are sending.",
+      "In the editor, a flooring option's Private section has a Breakdown / Lump sum switch, starting on the way the last version went: Breakdown shows the one line the customer sees (Additional work $350); Lump sum says it is not shown, its amount inside the one price. On a preliminary, Breakdown can't be picked. Its lines are never listed and never show quantities.",
+      "A stairs option's Private section says outright it is never shown to the customer: not on a breakdown, a lump sum, the PDF or the email.",
+      "The Send card says the same under Pricing shown, as Flooring Private, for the choice you have picked and the options you are sending, and adds that stairs Private never shows when a stairs option is going.",
     ],
   },
   {

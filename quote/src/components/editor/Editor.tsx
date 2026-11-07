@@ -179,6 +179,7 @@ export default function Editor({
   swap = null,
   swapTo = null,
   sendCard = null,
+  lastWay = null,
 }: {
   initial: EditorQuote;
   card: RateCard;
@@ -192,6 +193,8 @@ export default function Editor({
   swapTo?: string | null;
   /** The Send card (2026-11-06), drawn on the server as on the quote page; null in Customer view. */
   sendCard?: ReactNode;
+  /** How the last version was sent (2026-11-07): the Private note's switch starts on it. */
+  lastWay?: "lump" | "itemised" | "range" | "exact" | null;
 }) {
   const router = useRouter();
   const key = draftKey(initial);
@@ -234,6 +237,9 @@ export default function Editor({
   const pricing = catalogue;
   /** This version is measured (2026-11-06): its new flooring options start with the delivery fee. */
   const measured = version.basis !== "Preliminary";
+  /** The flooring Private note's switch (look D, 2026-11-07): which way it shows; a preliminary is always a lump sum. */
+  const [privWay, setPrivWay] = useState<"breakdown" | "lump">(lastWay === "lump" ? "lump" : "breakdown");
+  const privShown = measured && privWay === "breakdown";
   const [levelNote, setLevelNote] = useState<string | null>(null);
   const [holdNote, setHoldNote] = useState<string | null>(null);
   const [crewNote, setCrewNote] = useState<string | null>(null);
@@ -1086,29 +1092,34 @@ export default function Editor({
                                 <tr className="priv-ban-row" key="priv-ban">
                                   <td colSpan={7}>
                                     {stairsOption ? (
-                                      <div className="priv-ban never" role="note">Never shown to the customer. Its {money(sum)} is inside the stairs price.</div>
+                                      // Stairs (2026-11-07: "Ensure it is explicit always never shows"): every way it can be sent, said outright.
+                                      <div className="priv-ban never" role="note">
+                                        <span className="priv-never-k">Never shown to the customer</span>
+                                        Not on a breakdown, not on a lump sum, not on the PDF or the email. Its {money(sum)} is inside the stairs price.
+                                      </div>
                                     ) : (
-                                      // Each way it can be sent, side by side (2026-11-07: "it will show at breakdown, but never lumpsum.
-                                      // How can we signify this clearly?"). A preliminary is always a lump sum, so only that way applies.
-                                      <div className="priv-ban show" role="note">
-                                        <span className="priv-way">
-                                          <span className={`priv-way-k${measured ? "" : " off"}`}>Breakdown</span>
-                                          {measured ? (
-                                            <>
-                                              one line, total only:{" "}
-                                              <span className="priv-prev">
-                                                {option.privateLabel ?? DEFAULT_PRIVATE_LABEL} <b>{money(sum)}</b>
-                                              </span>
-                                            </>
-                                          ) : (
-                                            "never: a preliminary is always a lump sum"
-                                          )}
+                                      // Look D (Albert, 2026-11-07): one line and a Breakdown / Lump sum switch that starts on the way the
+                                      // last version went; tap to see the other. A preliminary is always a lump sum: Breakdown is off.
+                                      <div className={`priv-ban ${privShown ? "show" : "lumpway"}`} role="note">
+                                        <span className="priv-seg" role="group" aria-label="What the customer sees, sent as">
+                                          <button type="button" className={privShown ? "on" : ""} aria-pressed={privShown} disabled={!measured} title={measured ? "Sent as a breakdown" : "A preliminary always goes as a lump sum"} onClick={() => setPrivWay("breakdown")}>
+                                            Breakdown
+                                          </button>
+                                          <button type="button" className={privShown ? "" : "on"} aria-pressed={!privShown} onClick={() => setPrivWay("lump")}>
+                                            Lump sum
+                                          </button>
                                         </span>
-                                        <span className="priv-way">
-                                          <span className="priv-way-k">Lump sum</span>
-                                          not shown, its {money(sum)} is inside the one price
-                                        </span>
-                                        <span className="priv-way-foot">Never listed line by line, with no quantities or line prices, either way.</span>
+                                        {privShown ? (
+                                          <>
+                                            The customer sees one line:{" "}
+                                            <span className="priv-prev">
+                                              {option.privateLabel ?? DEFAULT_PRIVATE_LABEL} <b>{money(sum)}</b>
+                                            </span>
+                                          </>
+                                        ) : (
+                                          <>Not shown. Its {money(sum)} is inside the one price.{measured ? "" : " A preliminary is always a lump sum."}</>
+                                        )}
+                                        <span className="priv-foot">Never listed line by line, no quantities or line prices, either way.</span>
                                       </div>
                                     )}
                                   </td>
