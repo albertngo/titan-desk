@@ -9,14 +9,14 @@ import { optionScope } from "@/lib/quotes/scope";
  *   measured; then add the line in automatically." $200 flat per job, cost 0 ("we deliver. all margin"). The Rate Card
  *   row Delivery | Standard Delivery. Shown to the customer as a Delivery line. Never on a preliminary.
  * - Stair base fee: "For any stair option, a fee of $200 should be 'baked in' somewhere without customer seeing it. It
- *   should just start at $200, even with NO line items present." The Rate Card row Other | Stair Base Fee, in the
- *   stairs option's Private section, which the customer never sees.
+ *   should just start at $200, even with NO line items present." Since 2026-11-07 (Albert: "Stair Base Fee can just be
+ *   named 'Delivery' and use the same line item") it is the same Delivery row, in the stairs option's Private section,
+ *   which the customer never sees. Measured or preliminary alike.
  *
  * Both are added when an option is made (or a preliminary is saved as the measured next draft), never on every load,
  * so a fee someone removed stays removed.
  */
 export const DELIVERY_KEY = "Delivery|Standard Delivery";
-export const STAIR_BASE_KEY = "Other|Stair Base Fee";
 
 const entry = (entries: CardEntry[], key: string) => entries.find((e) => e.kind === "rate" && e.key === key);
 const has = (o: EditorOption, key: string) => o.lines.some((l) => l.sourceKind === "rate" && `${l.labourType}|${l.spec}` === key);
@@ -25,8 +25,8 @@ const hasDelivery = (o: EditorOption) => has(o, DELIVERY_KEY) || o.lines.some((l
 /** The fee line this option should start with, or null: none due, it has one already, or the Rate Card row is gone. */
 export function feeFor(o: EditorOption, entries: CardEntry[], measured: boolean): EditorLine | null {
   if (optionScope(o) === "Stairs") {
-    const e = entry(entries, STAIR_BASE_KEY);
-    return e && !has(o, STAIR_BASE_KEY) ? lineFromEntry(e, PRIVATE_SECTION) : null;
+    const e = entry(entries, DELIVERY_KEY);
+    return e && !hasDelivery(o) ? lineFromEntry(e, PRIVATE_SECTION) : null;
   }
   const e = entry(entries, DELIVERY_KEY);
   return measured && e && !hasDelivery(o) ? lineFromEntry(e, "Delivery") : null;
@@ -48,8 +48,8 @@ export function withFees(q: EditorQuote, entries: CardEntry[], measured: boolean
 /** The options `next` has that `before` did not: the ones just made. */
 export const newOptionIds = (before: EditorQuote, next: EditorQuote) => next.options.filter((o) => !before.options.some((b) => b.id === o.id)).map((o) => o.id);
 
-/** The stair base fee line on its own, for a stairs option built on the server (a new preliminary); null without its Rate Card row. */
+/** A stairs option's Delivery line, in Private, for one built on the server (a new preliminary); null without the Rate Card row. */
 export function stairBaseLine(entries: CardEntry[]): EditorLine | null {
-  const e = entry(entries, STAIR_BASE_KEY);
+  const e = entry(entries, DELIVERY_KEY);
   return e ? lineFromEntry(e, PRIVATE_SECTION) : null;
 }

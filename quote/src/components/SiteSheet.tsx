@@ -127,7 +127,7 @@ export function SiteSheetTab({
       // Stairs options (2026-10-28): quoted beside the flooring, one of each taken. Recommended only if no stairs option already is.
       q = { ...q, options: [...q.options, { id, name: o.name, description: o.description, recommended: false /* never picked for you (Albert, 2026-11-06) */, serviceLevel: "Standard", crew: null, scope: "Stairs", lines: o.lines }] };
     }
-    // Each new option starts with its fee (2026-11-06): the stair base fee, in Private.
+    // Each new option starts with its fee (2026-11-06): Delivery, in Private (never shown).
     q = withFees(q, catalogue, measured, newOptionIds(start.quote, q));
     try {
       window.localStorage.setItem(key, JSON.stringify({ savedAt: new Date().toISOString(), quote: q, base: start.base ?? base }));

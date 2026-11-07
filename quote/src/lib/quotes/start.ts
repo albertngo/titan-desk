@@ -194,7 +194,7 @@ async function fillFromQuickForm(quoteId: string, versionId: string, works: Quic
     for (const [i, b] of built.entries()) if (b.needsGlue.length) problems.push(`${built.length > 1 ? `option ${i + 1}: ` : ""}pick the glue in the editor (${b.needsGlue.join(", ")})`);
     const options = built.filter((b) => b.lines.length > 0);
     let filled = false;
-    // A stairs option starts at the stair base fee (2026-11-06), in its Private section; a preliminary has no delivery fee.
+    // A stairs option starts with Delivery in its Private section (2026-11-06/07, never shown); a preliminary flooring option has none.
     const card = options.some((o) => o.scope === "Stairs") ? await getRateCard().catch(() => null) : null;
     const base = card ? stairBaseLine(buildCatalogue(card.rates, card.stairs, card.materials)) : null;
     if (options.length > 0) {

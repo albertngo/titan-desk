@@ -1264,9 +1264,10 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
 - **Two fees every option starts with (Albert, 2026-11-06), `src/lib/quotes/fees.ts`.** **Delivery**: Rate Card
   `Delivery | Standard Delivery | TITAN` (`recqMUZswPhpbrHuX`, $200 flat, cost 0: "we deliver. all margin"), a
   Delivery line the customer sees, on every flooring option of a **measured** version, never a preliminary.
-  **Stair base fee**: Rate Card `Other | Stair Base Fee | TITAN` (`recRVDLbju11MTF0c`, $200 flat, cost 0), in the
-  Private section of every stairs option, even an empty one ("It should just start at $200, even with NO line items
-  present"), preliminary or measured. `withFees()` adds them only when an option is made (+ Add option, + From quick
+  **Stair base fee**: the same Delivery row (Albert, 2026-11-07: "Stair Base Fee can just be named 'Delivery' and use
+  the same line item"), in the Private section of every stairs option, even an empty one ("It should just start at
+  $200, even with NO line items present"), preliminary or measured, so it is never shown. The separate `Other | Stair
+  Base Fee | TITAN` row (`recRVDLbju11MTF0c`) made the day before is switched off, not deleted. `withFees()` adds them only when an option is made (+ Add option, + From quick
   form, the site and floor sheets' Build, a new preliminary's quick-form options in `start.ts`, a scope changed to
   Stairs) and when a preliminary is saved as the measured next draft (each flooring option gains delivery), never on
   load, so a fee someone removed stays removed. Nothing is added twice, and nothing at all if the Rate Card row is

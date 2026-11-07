@@ -919,7 +919,7 @@ export default function Editor({
                         value={option.scope ?? ""}
                         onChange={(e) => {
                           const next = updateOption(quote, option.id, { scope: e.target.value === "Flooring" || e.target.value === "Stairs" ? e.target.value : null });
-                          // Made a stairs option (2026-11-06): it gains the stair base fee if it has none.
+                          // Made a stairs option (2026-11-06): it gains Delivery, in Private, if it has none.
                           apply(optionScope(next.options.find((o) => o.id === option.id)!) === "Stairs" ? withFees(next, catalogue, measured, [option.id]) : next);
                         }}
                       >

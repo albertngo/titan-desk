@@ -22,6 +22,12 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-07",
+    kind: "changed",
+    title: "The stairs fee is the Delivery line",
+    details: ["A new stairs option now starts with the same $200 Delivery line as flooring, in its Private section, so the customer never sees it. The separate Stair base fee item is switched off."],
+  },
+  {
+    date: "2026-11-07",
     kind: "new",
     title: "Stair Site Sheet v7",
     details: [
