@@ -1,8 +1,13 @@
+import { IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 import { shownStage } from "@/lib/pricing/schedule";
 import { changeWords, itemDifference, paidLeft, signedMoney, type CopyChange } from "@/lib/change/diff";
 import { money, rate } from "@/lib/format";
 import { OptionSwitcher } from "@/components/OptionSwitcher";
 import { discountRows, hstRow, isLump, isSplit, scopeHeading, scopeOf, scopesOf, itemHstNote, leadPrice, longDate, partGroups, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyState, type CopyText, type CustomerCopy } from "@/lib/send/copy";
+
+/** The customer page's type (2026-11-07): IBM Plex Sans, Plex Mono for quote and option numbers. Scoped to .cq. */
+const plexSans = IBM_Plex_Sans({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-plex-sans", display: "swap" });
+const plexMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-plex-mono", display: "swap" });
 
 /**
  * The quote as the customer sees it, drawn from the frozen customer copy only. Used by the
@@ -66,6 +71,8 @@ function Totals({ o, copy }: { o: CopyOption; copy: CustomerCopy }) {
   if (r) {
     return (
       <div className="cq-totals">
+        {/* The tape-measure rule over the price (2026-11-07). */}
+        <div className="cq-tape" aria-hidden />
         <dl>
           {disc}
           <div className="total range"><dt>Estimated range <span className="tag">before HST</span></dt><dd>{rangeText(r.low, r.high)}</dd></div>
@@ -78,6 +85,8 @@ function Totals({ o, copy }: { o: CopyOption; copy: CustomerCopy }) {
   }
   return (
     <div className="cq-totals">
+      {/* The tape-measure rule over the price (2026-11-07). */}
+      <div className="cq-tape" aria-hidden />
       <dl>
         {disc}
         {/* Leads before HST, like the email and the text (Albert, 2026-10-24); the tax and the total with it follow. */}
@@ -272,7 +281,7 @@ export function CustomerQuote({
   const site = [copy.customer.siteAddress, copy.customer.siteCity].filter(Boolean).join(", ");
 
   return (
-    <div className="cq">
+    <div className={`cq ${plexSans.variable} ${plexMono.variable}`}>
       {banner}
       <header className="cq-head">
         <div className="cq-co">
