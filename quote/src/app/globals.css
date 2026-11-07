@@ -2475,7 +2475,11 @@ table.items tr.subsect td { box-shadow: none !important; border-left: 0 !importa
 .fu-sec.due .fu-row { border-top-color: color-mix(in srgb, var(--accent) 14%, var(--line)); }
 .fu-sec:not(.due) .fu-name { font-weight: 500; }
 .fu-h { display: flex; align-items: center; gap: 8px; margin: 0; padding: 14px 16px 8px; font-size: 13px; font-weight: 600; color: var(--fg-dim); }
-.fu-sec.due .fu-h { font-size: 15px; padding-top: 16px; }
+.fu-sec.due .fu-h, .fu-sec.visits .fu-h { font-size: 15px; padding-top: 16px; }
+/* Visited, no quote yet (2026-11-07): above Due now, amber-edged, since a visit with no quote is where jobs slip. */
+.fu-sec.visits { background: color-mix(in srgb, var(--warn-soft) 60%, var(--card)); box-shadow: inset 3px 0 0 var(--warn); }
+.fu-sec.visits .fu-h .n { background: var(--warn); color: #fff; }
+.fu-pad { padding: 8px 16px; }
 .fu-sec.due .fu-h .n { background: var(--accent); color: var(--accent-ink); }
 .fu-h .n { font-size: 11px; font-variant-numeric: tabular-nums; padding: 1px 7px; border-radius: 999px; background: var(--head); color: var(--fg-dim); }
 .fu-sec.due .fu-h { color: var(--fg); }

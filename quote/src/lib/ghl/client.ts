@@ -296,3 +296,15 @@ export async function contactAppointments(contactId: string): Promise<{ id: stri
     .filter((e) => typeof e.id === "string" && e.deleted !== true)
     .map((e) => ({ id: String(e.id), calendarId: s(e.calendarId), start: s(e.startTime), status: (s(e.appointmentStatus) ?? s(e.status))?.toLowerCase() ?? null, title: s(e.title) }));
 }
+
+/**
+ * One calendar's appointments in a window (GET /calendars/events, read only), for "Visited, no quote yet" (2026-11-07).
+ * Needs calendars/events.readonly on the read token; a refusal throws and the page says it couldn't read the calendars.
+ */
+export async function calendarEvents(calendarId: string, from: Date, to: Date): Promise<{ id: string; contactId: string | null; calendarId: string | null; start: string | null; status: string | null; title: string | null; assignedUserId: string | null }[]> {
+  if (!/^[A-Za-z0-9]+$/.test(calendarId)) return [];
+  const data = (await get("/calendars/events", { locationId: GHL_LOCATION_ID, calendarId, startTime: String(from.getTime()), endTime: String(to.getTime()) })) as { events?: Record<string, unknown>[] };
+  return (data.events ?? [])
+    .filter((e) => typeof e.id === "string" && e.deleted !== true)
+    .map((e) => ({ id: String(e.id), contactId: s(e.contactId), calendarId: s(e.calendarId) ?? calendarId, start: s(e.startTime), status: (s(e.appointmentStatus) ?? s(e.status))?.toLowerCase() ?? null, title: s(e.title), assignedUserId: s(e.assignedUserId) }));
+}

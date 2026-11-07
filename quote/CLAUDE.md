@@ -1342,6 +1342,14 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   (`lostDetailsText()`, `buildLostDetails()` on the `link` route), best effort. On a close step **the brief suggests the
   reason** (`lostReason`, one of GHL's names word for word or nothing), and Lost's dropdown starts on it for staff to
   confirm or change.
+  **Visited, no quote yet (same day: "does this also give a notification if there has been a visit; and no post visit
+  quotes have been made?"; "no note", "build and merge").** A section above Due now, counted in the top bar's red number:
+  every GHL contact whose latest in-home or in-store visit in the last 14 days (`VISIT_LOOKBACK_DAYS`; the two booking
+  calendars, `calendarEvents()`, `GET /calendars/events`, read only) went ahead and has no measured quote sent on or after
+  that day, and no quote accepted, won or lost (`visitsWithoutQuote()` in `src/lib/followup/visits.ts`). It shows who was
+  booked on the visit (GHL's assigned user, by first name, and the Last sent by filter follows it), and **Write the
+  measured quote** opens the newest quote's editor, or **Start a quote** when the app has none. Nothing is posted to GHL.
+  Calendars that can't be read show a line saying so.
 - **No section totals for the customer (Albert, 2026-11-07: "can we keep the totals of each Section not shown? it has
   too many numbers if too many sections").** On a breakdown the customer's page (`CustomerQuote.tsx`), the PDF
   (`pdf.ts`, so invoices and receipts too) and the quote page's Customer view (`OptionSheet.tsx`) show no subtotal on

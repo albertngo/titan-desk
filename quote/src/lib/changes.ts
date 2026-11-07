@@ -22,6 +22,15 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-07",
+    kind: "new",
+    title: "Follow up: Visited, no quote yet",
+    details: [
+      "A section at the top of Follow up lists every customer whose in-home or store visit in the last two weeks went ahead with no measured quote sent since. Each one counts in the red number.",
+      "It shows who did the visit, and Write the measured quote opens the quote (or Start a quote when there isn't one yet).",
+    ],
+  },
+  {
+    date: "2026-11-07",
     kind: "fixed",
     title: "Lost always records one of GHL's reasons, and writes Lost Details",
     details: [
