@@ -70,6 +70,13 @@ export type BillStamp = {
 
 export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null, bill: BillStamp | null = null): Uint8Array<ArrayBuffer> {
   const lumpRates = copy.options.some((o) => o.sections.some((s) => s.lines.some((l) => l.kind === "item" && l.unitPrice !== null)));
+  // Only materials carry a rate (a preliminary, 2026-11-07: "Im not a fan of having the rate column present if only
+  // material shows the rate. So combine it into the qty"): no Rate column, the rate written with the quantity,
+  // "550 sqft × $2.99", as the customer's link shows it. The quantity moves into the Rate column's place for room.
+  // Then for every lump sum (same day: "PDF and Quote link should always mirror eachother"): the link writes every rate
+  // beside its quantity, so the PDF does too. Only a breakdown keeps the Unit price and Amount columns.
+  const ratesInline = isLump(copy);
+  const qtyX = ratesInline ? COL.unit : COL.qty;
   const doc = new PdfDoc(bill ? `Titan Flooring ${bill.title.toLowerCase()} ${bill.number}` : `Titan Flooring quote ${copy.quoteNumber}`);
   let y = TOP;
 
@@ -222,13 +229,13 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
     doc.rect(M, y - 6, RIGHT - M, 18, HEAD);
     doc.text(COL.n, y, "#", { font: "B", size: 8, color: DIM });
     doc.text(COL.item, y, cont ? "Item (continued)" : "Item", { font: "B", size: 8, color: DIM });
-    doc.text(COL.qty, y, "Quantity", { font: "B", size: 8, color: DIM, align: "right" });
+    doc.text(qtyX, y, "Quantity", { font: "B", size: 8, color: DIM, align: "right" });
     // A lump-sum quote has no price columns: the totals block is the price (2026-10-22). A material's rate
     // still shows (2026-11-04), so the column is headed Rate when a line carries one.
     if (!isLump(copy)) {
       doc.text(COL.unit, y, "Unit price", { font: "B", size: 8, color: DIM, align: "right" });
       doc.text(COL.amount - 4, y, "Amount", { font: "B", size: 8, color: DIM, align: "right" });
-    } else if (lumpRates) {
+    } else if (lumpRates && !ratesInline) {
       doc.text(COL.unit, y, "Rate", { font: "B", size: 8, color: DIM, align: "right" });
     }
     y -= 22;
@@ -357,8 +364,14 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
     const color = l.optional ? DIM : INK;
     if (l.n !== null) doc.text(COL.n, y, String(l.n), { size: 9, color: FAINT });
     lines.forEach((t, k) => doc.text(COL.item, y - k * 12, t, { size: 9, color }));
-    if (l.qty !== null) doc.text(COL.qty, y, `${plain.format(l.qty)}${l.uom ? ` ${l.uom}` : ""}`, { size: 9, color, align: "right" });
-    if (l.unitPrice !== null) doc.text(COL.unit, y, money(l.unitPrice), { size: 9, color, align: "right" });
+    const qtyText = l.qty !== null ? `${plain.format(l.qty)}${l.uom ? ` ${l.uom}` : ""}` : null;
+    if (ratesInline) {
+      const both = [qtyText, l.unitPrice !== null ? `× ${money(l.unitPrice)}` : null].filter(Boolean).join(" ");
+      if (both) doc.text(qtyX, y, both, { size: 9, color, align: "right" });
+    } else {
+      if (qtyText) doc.text(COL.qty, y, qtyText, { size: 9, color, align: "right" });
+      if (l.unitPrice !== null) doc.text(COL.unit, y, money(l.unitPrice), { size: 9, color, align: "right" });
+    }
     if (l.amount !== null) doc.text(COL.amount - 4, y, l.optional ? `Optional · ${money(l.amount)}` : l.added ? `Added · ${money(l.amount)}` : money(l.amount), { size: 9, font: l.optional ? "R" : "B", color, align: "right" });
     // A preliminary's add-on goes with no price (2026-11-07): it still says it is optional.
     else if (l.optional || l.added) doc.text(COL.amount - 4, y, l.optional ? "Optional" : "Added", { size: 9, color, align: "right" });

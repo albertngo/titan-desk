@@ -1304,6 +1304,10 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   an add-on keeping its price. A line under its minimum charge shows no rate. Stairs lines and stairs options are
   unchanged (quantity only). The quote page's Customer view follows the same rule (`OptionSheet`: `prelimView`,
   `rateCol`). This replaces the 2026-10-22 lump-sum rule of no rate on labour. Tested in `tests/send.test.ts`.
+  **No Rate column on a lump sum (same day: "Im not a fan of having the rate column present if only material shows the
+  rate. So combine it into the qty"; "PDF and Quote link should always mirror eachother").** A lump-sum PDF, every
+  preliminary included, writes a line's rate with its quantity, "550 sqft × $2.99", as the customer's link always has,
+  and heads the column Quantity alone (`ratesInline` in `pdf.ts`); a breakdown keeps its Unit price and Amount columns.
   **Unticked lines are dropped (same day: "unticked means dropped from what they see. Nothing to do with optional logic
   right now").** A line whose Include box is unticked never reaches the customer copy (`copyOption()`), so the link, the
   PDF and the email never show it, and Customer view leaves it out too. It used to go as an Optional add-on the customer

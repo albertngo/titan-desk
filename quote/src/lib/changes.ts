@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-07",
     kind: "changed",
+    title: "No Rate column on a lump-sum PDF",
+    details: ["A lump-sum PDF, every preliminary included, writes each rate beside its quantity (550 sqft × $2.99), the same as the customer's link. A breakdown keeps its Unit price and Amount columns."],
+  },
+  {
+    date: "2026-11-07",
+    kind: "changed",
     title: "Unticked lines are left off what the customer sees",
     details: ["A line with Include unticked no longer goes to the customer as an Optional add-on: it is left off the link, the PDF, the email and Customer view. Quotes already sent keep what they went out with."],
   },

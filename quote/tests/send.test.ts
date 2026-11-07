@@ -1220,8 +1220,13 @@ describe("a flooring material's rate always reaches the customer (2026-11-04, ch
     expect(pInst.kind === "item" && [pInst.unitPrice, pInst.amount]).toEqual([null, null]);
     // The PDF heads the column Rate and prints it.
     const pdf = Buffer.from(quotePdf(customerCopy(quote({ discountRate: 0, basis: "Preliminary", options: [opt] }), AT))).toString("latin1");
-    expect(pdf).toContain("(Rate)");
-    expect(pdf).toContain("$4.50");
+    // Only the material has a rate on a preliminary, so it sits with the quantity and there is no Rate column (2026-11-07).
+    expect(pdf).not.toContain("(Rate)");
+    expect(pdf).toContain("(550 sqft \\327 $4.50)");
+    // A measured lump sum writes every rate beside its quantity too, as the link does: no Rate column.
+    const lumpPdf = Buffer.from(quotePdf(customerCopy(quote({ discountRate: 0, itemised: false, options: [opt] }), AT))).toString("latin1");
+    expect(lumpPdf).not.toContain("(Rate)");
+    expect(lumpPdf).toContain("(500 sqft \\327 $2.00)");
   });
 });
 
