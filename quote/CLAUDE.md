@@ -1247,6 +1247,15 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   a section's header; each line keeps its amount and the price block keeps the totals. A lump sum already showed none.
   Display only: `CopySection.total` is still frozen on the copy, so nothing about sending changed. A receipt's
   "Materials with HST" band keeps its own total. Staff screens keep every section total.
+- **A preliminary's stairs option goes as its words only (Albert, 2026-11-07: "For preliminary stairs; can we NOT put
+  ANY line items in the customer sent copy. The only thing that goes out is the original wordings. That are preset from
+  the old mobile quote").** On a Preliminary version, a Stairs option with a description goes to the customer with no
+  lines at all: no Stair Item, quantity, add-on or What's included card, only its description, which the preliminary
+  writes with `stairDescription()` (the old GHL stairs prompt, `src/lib/quick/stairs.ts`), and its price (range or
+  exact). `wordsOnly()` in `src/lib/send/copy.ts` decides it for the frozen copy, so the page, PDF and email follow;
+  the quote page's Customer view does the same (`OptionSheet`'s `preliminary`). Exclusions still show. A stairs option
+  with no description keeps its lines, so it never goes out saying nothing. Measured quotes and flooring options are
+  unchanged; staff screens keep every line. Tested in `tests/send.test.ts`.
 - **Company files (Albert, 2026-11-07: "an option to download the Site Sheets (Flooring, Stairs) and show the latest
   version… inside the What's new section as 'Company Files'… Keep the two files separate downloads").** A **Company
   files** menu beside What's new in the top bar (`src/components/CompanyFiles.tsx`, staff only, never in Customer view)

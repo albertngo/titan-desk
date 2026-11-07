@@ -257,7 +257,8 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
       }
     }
     y -= 8;
-    tableHead(false);
+    // A preliminary's stairs option has no lines (2026-11-07): its words above are all it says, so no table head.
+    if (o.sections.length) tableHead(false);
 
     // A receipt with HST on the materials only (Albert, 2026-10-30: "put the HST right inside the Material section",
     // then "more singled out"): the Materials section carries a blue bar down its left and says HST APPLIES, its HST
