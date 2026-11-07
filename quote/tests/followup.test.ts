@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ageWords, byUrgency, dueOf, emptyState, parseState, postponeBack, postponeProblem, serializeState, threadSince, withLost, withSnooze, withTouch, type FollowUpState, type Thread } from "../src/lib/followup/plan";
-import { buildPostpone, lostStatusBody, postponedStageId } from "../src/lib/link/ghlRequest";
+import { buildLostDetails, buildPostpone, lostDetailsText, lostStatusBody, postponedStageId } from "../src/lib/link/ghlRequest";
+import { LOST_REASONS } from "../src/lib/ghl/ids";
 import { visitOf, visitWords } from "../src/lib/followup/visit";
 import { briefPrompt, briefSignature, cleanBrief, parseBrief } from "../src/lib/followup/brief";
 
@@ -195,5 +196,23 @@ describe("the visit chip (2026-11-07)", () => {
     expect(d).toMatchObject({ bucket: "due", day: "2026-11-04", reason: { kind: "measure" } });
     const m = dueOf({ sentAt: "2026-11-01", validUntil: null, state: emptyState(), thread: { staffTouches: [], lastCustomer: null }, now: new Date(at("2026-11-07")), torontoDay: day, visit: { kind: "visited", day: "2026-11-05", where: "in-home" }, preliminary: false });
     expect(m?.reason.kind).toBe("scheduled");
+  });
+});
+
+describe("lost reasons and Lost Details (2026-11-07)", () => {
+  const meta = { basedOn: "s", at: "2026-11-07T15:00:00.000Z", model: "m", today: "2026-11-07", lostReasons: LOST_REASONS.map((r) => r.name) };
+  it("the brief suggests one of GHL's reasons only, and only to close it out", () => {
+    expect(cleanBrief({ standing: "x", step: { kind: "close", why: "y" }, lostReason: "Price - Too High" }, meta)?.lostReason).toBe("Price - Too High");
+    expect(cleanBrief({ standing: "x", step: { kind: "close", why: "y" }, lostReason: "Too pricey" }, meta)?.lostReason).toBeUndefined();
+    expect(cleanBrief({ standing: "x", step: { kind: "call", why: "y" }, lostReason: "Price - Too High" }, meta)?.lostReason).toBeUndefined();
+  });
+  it("knows GHL's five reasons, so Lost never goes without one", () => {
+    expect(LOST_REASONS.map((r) => r.name)).toContain("Price - Too High");
+    expect(LOST_REASONS.every((r) => /^[0-9a-f]{24}$/.test(r.id))).toBe(true);
+  });
+  it("writes the reason, the note, the day and who on the opportunity", () => {
+    expect(lostDetailsText({ reason: "Price - Too High", note: "Went with someone cheaper", day: "2026-11-07", by: "Joey" })).toBe("Price - Too High · Went with someone cheaper · 2026-11-07 · Joey");
+    expect(lostDetailsText({ reason: "We Were Too Slow", day: "2026-11-07", by: "Joey" })).toBe("We Were Too Slow · 2026-11-07 · Joey");
+    expect(JSON.parse(buildLostDetails({ contactId: "c", opportunityId: "o", fieldId: "f", text: "t" }).oppBody)).toEqual({ customFields: [{ id: "f", field_value: "t" }] });
   });
 });

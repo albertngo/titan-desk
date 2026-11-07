@@ -97,3 +97,16 @@ export const ACCEPT_FIELDS: { acceptedQuote: string | null; notionProjectUrl: st
  * Make 4975508's `tags` route refuses any other tag.
  */
 export const FOLLOW_UP_TAGS = { preliminary: "quote sent: preliminary", measured: "quote sent: measured" } as const;
+
+/**
+ * GHL's lost reasons (Settings, read from Albert's screen 2026-11-07). The Follow up page reads the list live from GHL
+ * first; this copy is what it falls back on, so Lost never goes out without a reason (Sharon's did: GHL put "Not price"
+ * on it). A reason added in GHL shows up live; add it here too so the fallback knows it.
+ */
+export const LOST_REASONS: readonly { id: string; name: string }[] = [
+  { id: "64e81a2299f1506cddd3e9d2", name: "Price - Too High" },
+  { id: "65b08948d2797fdc25b18546", name: "Lost to Competitor (Not Price)" },
+  { id: "665488476d37e1f96056cc15", name: "Went With More Convenient Option" },
+  { id: "66548c491538b12314de8802", name: "Scope Changed / No Longer Needed" },
+  { id: "6a340b0a6973053580ffc52b", name: "We Were Too Slow" },
+];

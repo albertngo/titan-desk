@@ -22,6 +22,8 @@ export type Brief = {
   /** The day the customer named ("next week"), as a date, and the words it came from; null when they named none. */
   nextDay: string | null;
   nextQuote: string | null;
+  /** On a "close" step, the GHL lost reason the conversation points to, by its exact name, for the Lost dropdown to start on. */
+  lostReason?: string | null;
   /** The signature it was written for; a different one means something happened since. */
   basedOn: string;
   at: string;
@@ -42,7 +44,7 @@ const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const clip = (v: unknown, n: number) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, n) : "");
 
 /** Claude's answer, cleaned: anything missing or the wrong shape is dropped or blanked, never guessed. Null when nothing usable came back. */
-export function cleanBrief(raw: unknown, meta: { basedOn: string; at: string; model: string; today: string }): Brief | null {
+export function cleanBrief(raw: unknown, meta: { basedOn: string; at: string; model: string; today: string; lostReasons?: readonly string[] }): Brief | null {
   if (!raw || typeof raw !== "object") return null;
   const d = raw as Record<string, unknown>;
   const standing = clip(d.standing, 400);
@@ -67,6 +69,8 @@ export function cleanBrief(raw: unknown, meta: { basedOn: string; at: string; mo
     draft,
     nextDay,
     nextQuote: nextDay ? clip(d.nextQuote, 160) || null : null,
+    // Only one of GHL's own reasons, word for word, and only when the step is to close it out.
+    ...(kind === "close" && typeof d.lostReason === "string" && (!meta.lostReasons || meta.lostReasons.includes(d.lostReason)) ? { lostReason: clip(d.lostReason, 120) } : {}),
     basedOn: meta.basedOn,
     at: meta.at,
     model: meta.model,
@@ -103,6 +107,8 @@ export type BriefFacts = {
   loggedHere: { at: string; note?: string }[];
   /** Where the lead is: "No visit yet", "Visit booked Nov 12 · in-home", "Visited Nov 4 · in store"… */
   visit: string;
+  /** GHL's lost reasons by name, for "lostReason" on a close step. */
+  lostReasons?: readonly string[];
 };
 
 const money = (n: number) => `$${Math.round(n).toLocaleString("en-CA")}`;
@@ -142,7 +148,8 @@ Write the brief as ONE JSON object and nothing else:
   "step": {"kind": "call" | "text" | "email" | "visit" | "wait" | "close", "why": "one sentence"},
   "draft": "the message for that step, ready to send",
   "nextDay": "YYYY-MM-DD or null",
-  "nextQuote": "the customer's exact words that gave nextDay, or null"
+  "nextQuote": "the customer's exact words that gave nextDay, or null",
+  "lostReason": "only when step is close: exactly one of ${(f.lostReasons ?? []).map((r) => JSON.stringify(r)).join(", ") || "(none)"}, else null"
 }
 
 Rules:

@@ -1335,6 +1335,13 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   yet". **A preliminary whose visit has happened is due the next day** ("Visited: the measured quote is owed", reason
   `measure` in `dueOf()`), since a preliminary is a quote before a visit (2026-10-27). The brief is told the visit and
   is rewritten when it changes (it joins `briefSignature()`).
+  **Lost always carries a GHL reason (same day, after Sharon's Q-1044 went out with none and GHL put "Not price" on it).**
+  Lost refuses without one. The list is read live from GHL, else from `LOST_REASONS` in `src/lib/ghl/ids.ts` (the five
+  reasons and ids Albert read from GHL Settings that day; add a new one there too). **Lost Details** (an opportunity text
+  field Albert made that day, found by name, `lostDetailsFieldId()`) gets "reason · note · day · who"
+  (`lostDetailsText()`, `buildLostDetails()` on the `link` route), best effort. On a close step **the brief suggests the
+  reason** (`lostReason`, one of GHL's names word for word or nothing), and Lost's dropdown starts on it for staff to
+  confirm or change.
 - **No section totals for the customer (Albert, 2026-11-07: "can we keep the totals of each Section not shown? it has
   too many numbers if too many sections").** On a breakdown the customer's page (`CustomerQuote.tsx`), the PDF
   (`pdf.ts`, so invoices and receipts too) and the quote page's Customer view (`OptionSheet.tsx`) show no subtotal on

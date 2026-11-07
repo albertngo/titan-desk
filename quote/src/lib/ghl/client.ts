@@ -1,6 +1,6 @@
 import "server-only";
 import { hasMore, htmlToText, parseMessages, type Message } from "@/lib/conversation/thread";
-import { ACCEPT_FIELDS, CONTACT_ORIGIN_FIELD, GHL_LOCATION_ID, OPP_FIELDS } from "./ids";
+import { ACCEPT_FIELDS, CONTACT_ORIGIN_FIELD, GHL_LOCATION_ID, LOST_REASONS, OPP_FIELDS } from "./ids";
 import type { GhlContact, GhlConversation, GhlOpportunity, GhlPipeline, GhlSite } from "./types";
 
 export type { GhlContact, GhlConversation, GhlOpportunity, GhlPipeline, GhlSite };
@@ -226,8 +226,21 @@ export async function pipelines(): Promise<GhlPipeline[]> {
 
 let lostCache: { at: number; value: { id: string; name: string }[] } | null = null;
 
-/** The location's own lost reasons (GET /opportunities/lost-reason, opportunities.readonly), by name. Cached ten minutes. */
+/**
+ * The location's own lost reasons (GET /opportunities/lost-reason, opportunities.readonly), by name, cached ten minutes;
+ * GHL's list as Albert read it from Settings (LOST_REASONS) when the live read fails or comes back empty.
+ */
 export async function lostReasons(): Promise<{ id: string; name: string }[]> {
+  try {
+    const live = await liveLostReasons();
+    if (live.length) return live;
+  } catch (e) {
+    console.error("lostReasons live read", e);
+  }
+  return [...LOST_REASONS];
+}
+
+async function liveLostReasons(): Promise<{ id: string; name: string }[]> {
   if (lostCache && Date.now() - lostCache.at < 600_000) return lostCache.value;
   const data = (await get("/opportunities/lost-reason", { locationId: GHL_LOCATION_ID, limit: "100" })) as Record<string, unknown>;
   // GHL's docs name the array lostReasons with id and name; read the other spellings too, so a shape change shows as
@@ -242,25 +255,35 @@ export async function lostReasons(): Promise<{ id: string; name: string }[]> {
   return value;
 }
 
-let fieldCache: { at: number; value: string | null } | null = null;
+let fieldsCache: { at: number; value: { id: string; name: string }[] } | null = null;
+
+/** The location's opportunity custom fields, cached ten minutes; [] when they can't be read. */
+async function opportunityFields(): Promise<{ id: string; name: string }[]> {
+  if (fieldsCache && Date.now() - fieldsCache.at < 600_000) return fieldsCache.value;
+  let value: { id: string; name: string }[] = [];
+  try {
+    const data = (await get(`/locations/${GHL_LOCATION_ID}/customFields`, { model: "opportunity" })) as { customFields?: Record<string, unknown>[] };
+    value = (data.customFields ?? []).filter((f) => typeof f.id === "string").map((f) => ({ id: String(f.id), name: s(f.name) ?? "" }));
+  } catch (e) {
+    console.error("opportunityFields", e);
+  }
+  fieldsCache = { at: Date.now(), value };
+  return value;
+}
+
+const fieldNamed = async (name: RegExp) => {
+  const found = (await opportunityFields()).filter((f) => name.test(f.name));
+  return found.length === 1 ? found[0].id : null;
+};
 
 /**
  * The id of the opportunity date field "Postponed Until" (made by Albert, 2026-11-07), found by name in the location's
  * opportunity custom fields. Null when it isn't there once, or the token can't read custom fields: the stage still moves.
  */
-export async function postponedUntilFieldId(): Promise<string | null> {
-  if (fieldCache && Date.now() - fieldCache.at < 600_000) return fieldCache.value;
-  let value: string | null = null;
-  try {
-    const data = (await get(`/locations/${GHL_LOCATION_ID}/customFields`, { model: "opportunity" })) as { customFields?: Record<string, unknown>[] };
-    const found = (data.customFields ?? []).filter((f) => typeof f.id === "string" && /^postponed until$/i.test(s(f.name) ?? ""));
-    value = found.length === 1 ? String(found[0].id) : null;
-  } catch (e) {
-    console.error("postponedUntilFieldId", e);
-  }
-  fieldCache = { at: Date.now(), value };
-  return value;
-}
+export const postponedUntilFieldId = () => fieldNamed(/^postponed until$/i);
+
+/** The opportunity text field "Lost Details" (made by Albert, 2026-11-07), where Lost writes its note; null when not found once. */
+export const lostDetailsFieldId = () => fieldNamed(/^lost details$/i);
 
 /**
  * The contact's appointments (Albert, 2026-11-07: "showcase whether there has been; or hasnt been an appt yet"), for
