@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-07",
     kind: "changed",
+    title: "Unticked lines are left off what the customer sees",
+    details: ["A line with Include unticked no longer goes to the customer as an Optional add-on: it is left off the link, the PDF, the email and Customer view. Quotes already sent keep what they went out with."],
+  },
+  {
+    date: "2026-11-07",
+    kind: "changed",
     title: "Flooring rates: preliminary shows material rates only, measured shows every rate",
     details: [
       "On a preliminary, the customer sees each material's quantity and rate, and only the quantity for everything else, with no line prices.",

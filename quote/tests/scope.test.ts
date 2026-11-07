@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { withLegacyAddOns } from "./legacyAddOns";
 import { acceptedCopy, acceptProblems, addOnsOf, buildAcceptance, picksOf, readAcceptInput, type AcceptInput } from "../src/lib/accept/plan";
 import type { Terms } from "../src/lib/accept/terms";
 import { optionTotals, round2 } from "../src/lib/calc";
@@ -91,7 +92,8 @@ const quote = (p: Partial<Quote> = {}): Quote => ({
   ...p,
 });
 const COMPANY: Letterhead = { name: "Titan Flooring", address: null, phone: null, email: "hello@example.com", website: null };
-const copyOf = (q = quote()) => customerCopy(q, { sentOn: "2026-10-27", validUntil: "2026-11-30", company: COMPANY });
+// Add-ons are built as copies sent before 2026-11-07 carry them: a fresh copy drops unticked lines.
+const copyOf = (q = quote()) => withLegacyAddOns(customerCopy(q, { sentOn: "2026-10-27", validUntil: "2026-11-30", company: COMPANY }), q);
 const stair = (p: Partial<QuoteLine> = {}) => line({ lineType: "Stairs", section: "Stairs", sourceKind: "stair", sourceId: "recSTAIR000000001", description: "Step (Right Side Open)", qty: 13, uom: "each", unitPriceSnap: 100, ...p });
 const split = (p: Partial<Quote> = {}) =>
   quote({ options: [option("Red oak caps", [stair()]), option("Oak", [line({}), addOn]), option("Vinyl", [line({ unitPriceSnap: 8 })])], ...p });

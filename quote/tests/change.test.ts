@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { withLegacyAddOns } from "./legacyAddOns";
 import { notAcceptable } from "../src/lib/accept/plan";
 import { optionTotals, round2, stageAmounts } from "../src/lib/calc";
 import { joinChange } from "../src/lib/contract/model";
@@ -109,7 +110,9 @@ describe("what changed", () => {
   it("an add-on the customer ticked, now an ordinary line, is not a change because a lump sum hides its quantity", () => {
     const lump = (ls: QuoteLine[]) => customerCopy(quote(ls, { itemised: false }), at).options[0];
     const extra = line({ section: "Other", description: "Quarter-round", qty: 210, uom: "linear ft", unitPriceSnap: 2.5 });
-    const shownAsAddOn = lump([install, { ...extra, include: false }]);
+    // An add-on as a copy sent before 2026-11-07 carries it (a fresh copy drops unticked lines).
+    const withAddOn = quote([install, { ...extra, include: false }], { itemised: false });
+    const shownAsAddOn = withLegacyAddOns(customerCopy(withAddOn, at), withAddOn).options[0];
     // As accepted: the add-on's line carries its quantity and price; in the change it is counted, so a lump sum shows neither.
     const accepted = { ...shownAsAddOn, sections: shownAsAddOn.sections.map((s) => ({ ...s, lines: s.lines.map((l) => (l.kind === "item" && l.optional ? { ...l, optional: false, added: true } : l)) })) };
     expect(diffOptions(accepted, lump([install, extra]))).toEqual([]);

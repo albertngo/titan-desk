@@ -351,7 +351,10 @@ function copyOption(given: QuoteOption, discountRate: number, showHst: boolean, 
       }
       // An add-on is shown at the price it would add; it is not counted.
       const amount = lineTotal({ ...l, include: true }) ?? 0;
-      if (amount === 0 && !l.include) continue;
+      // An unticked line is dropped from everything the customer gets (Albert, 2026-11-07: "unticked means dropped from
+      // what they see. Nothing to do with optional logic right now"). Copies frozen before keep their Optional lines,
+      // and the add-on code that reads them stays.
+      if (!l.include) continue;
       const extent = (l.qty ?? 0) * (1 + (l.waste ?? 0));
       const price = priceUsed(l);
       // calc.ts charges the minimum when the line comes in under it; say so rather than show a price that doesn't multiply out.

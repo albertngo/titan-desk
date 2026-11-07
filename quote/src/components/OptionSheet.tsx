@@ -182,7 +182,9 @@ export function OptionSheet({
   // A stairs option (Albert, 2026-11-06): lines saved in Other show under its Other heading, as stair lines; its Private
   // section (back the same day) is staff only, never shown to the customer, not even as a roll-up row.
   const stairsOpt = optionScope(given) === "Stairs";
-  const option = stairsOpt ? { ...given, lines: stairsOptionLines(given.lines) } : given;
+  const folded = stairsOpt ? { ...given, lines: stairsOptionLines(given.lines) } : given;
+  // Customer view drops unticked lines, as the customer's copy does (2026-11-07).
+  const option = customer ? { ...folded, lines: folded.lines.filter((l) => l.include || !isPriced(l)) } : folded;
   // Customer view of a preliminary (2026-11-07): always a lump sum, and only a material shows its rate. A measured quote
   // shows every rate, lump sum or breakdown, so its Unit price column is always drawn.
   const prelimView = customer && preliminary === true;

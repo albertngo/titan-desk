@@ -122,9 +122,8 @@ describe("customer copy", () => {
     for (const leak of ["Crew Alpha", "Crew Beta", "price sensitive", "cost", "Cost", "margin", "profit", "contractor", "Snap", "recLINE", "recRATE", "Standard"]) {
       expect(text).not.toContain(leak);
     }
-    // The card rate (25) of the overridden add-on never appears; its charged rate (30) does.
-    const addOn = o.sections.flatMap((s) => s.lines).find((l) => l.kind === "item" && l.description === "Stair nosing");
-    expect(addOn).toMatchObject({ unitPrice: 30, amount: 120, optional: true, n: null });
+    // An unticked line is dropped from what the customer sees (2026-11-07): the old add-on never reaches the copy.
+    expect(text).not.toContain("Stair nosing");
   });
 
   it("shows quantity with waste included, so quantity × price is the amount", () => {
@@ -139,11 +138,12 @@ describe("customer copy", () => {
 
   it("numbers included lines only, keeps text rows, and lists exclusions apart", () => {
     const items = o.sections.flatMap((s) => s.lines).filter((l) => l.kind === "item");
-    expect(items.map((l) => (l.kind === "item" ? l.n : null))).toEqual([1, 2, 3, null]);
+    expect(items.map((l) => (l.kind === "item" ? l.n : null))).toEqual([1, 2, 3]);
     expect(o.sections.flatMap((s) => s.lines).some((l) => l.kind === "text" && l.text === "Furniture moved by the homeowner")).toBe(true);
     expect(o.exclusions).toEqual(["Painting"]);
-    expect(o.sections.map((s) => s.name)).toEqual(["Install", "Removal", "Delivery", "Other"]);
-    expect(o.sections.find((s) => s.name === "Other")!.total).toBe(0);
+    expect(o.sections.map((s) => s.name)).toEqual(["Install", "Removal", "Delivery"]);
+    // Other held only the unticked add-on, so it is gone (2026-11-07).
+    expect(o.sections.some((s) => s.name === "Other")).toBe(false);
   });
 
   it("says where a material's HST differs from the quote's (2026-10-16)", () => {
@@ -483,7 +483,7 @@ describe("the PDF", () => {
   it("prints the customer's figures and none of the internal ones", () => {
     const text = Buffer.from(quotePdf(customerCopy(quote(), AT))).toString("latin1");
     // Leads before HST (2026-10-24): the bar is the subtotal "+ HST"; the tax and the total with it follow.
-    for (const s of ["(Subtotal before HST)", "($684.00)", "(HST \\(13%\\))", "($88.92)", "(Total with HST)", "($772.92)", "(PAYMENT SCHEDULE, WITH HST)", "(PREPARED FOR)", "(Pat Example)", "(Optional \\267 $120.00)", "(Living room \\267 includes 10% waste allowance)", "(minimum charge)"]) expect(text).toContain(s);
+    for (const s of ["(Subtotal before HST)", "($684.00)", "(HST \\(13%\\))", "($88.92)", "(Total with HST)", "($772.92)", "(PAYMENT SCHEDULE, WITH HST)", "(PREPARED FOR)", "(Pat Example)", "(Living room \\267 includes 10% waste allowance)", "(minimum charge)"]) expect(text).toContain(s);
     expect(text).not.toContain("HST #");
     // A copy frozen before 2026-10-27 still carries the number; it is never drawn.
     const old = { ...customerCopy(quote(), AT), company: { ...COMPANY, hstNumber: "123456789 RT0001" } } as CustomerCopy;
@@ -693,14 +693,13 @@ describe("lump sum (2026-10-22)", () => {
     // shown"), never its amount.
     // A line under its minimum charge shows no rate, since quantity × rate would not be what it costs.
     for (const l of items.filter((x) => !x.optional)) expect([l.unitPrice !== null, l.amount, l.minimum]).toEqual([l.description !== "Delivery", null, false]);
-    expect(items.find((x) => x.optional)).toMatchObject({ unitPrice: 30, amount: 120 });
+    expect(items.some((x) => x.optional)).toBe(false);
     // Quantities always show, every section (Albert, 2026-11-04), replacing the scope-sections-only rule of 2026-10-22.
     const qtyBySection = o.sections.map((s) => [s.name, s.lines.filter((l) => l.kind === "item" && !l.optional).map((l) => (l.kind === "item" ? [l.qty, l.uom] : null))]);
     expect(qtyBySection).toEqual([
       ["Install", [[220, "sqft"]]],
       ["Removal", [[200, "sqft"]]],
       ["Delivery", [[1, "flat"]]],
-      ["Other", []],
     ]);
     expect(o.sections.every((s) => s.total === null)).toBe(true);
     expect(o.totals).toEqual(customerCopy(quote(), AT).options[0].totals);
@@ -774,7 +773,6 @@ describe("lump sum (2026-10-22)", () => {
       ["Solid red oak tread caps", "Main stairs", 1, 13, null, false],
       ["Riser", "Main stairs", 2, 13, null, false],
       ["Solid red oak tread caps", "Basement", 3, 5, null, false],
-      ["Solid red oak tread caps", "Main stairs", null, 2, 455, true],
     ]);
     // A shared wording in another unit stays its own line: steps and feet are never added together.
     const nosing = st({ id: "h", description: "Nosing", customerWording: "Solid red oak tread caps", uom: "ft", qty: 6, unitPriceSnap: 30 });
@@ -783,8 +781,7 @@ describe("lump sum (2026-10-22)", () => {
       [11, "piece"],
       [6, "ft"],
     ]);
-    const addOn = stairs.lines[3];
-    expect(addOn.kind === "item" && addOn.unitPrice).toBeNull();
+    expect(stairs.lines).toHaveLength(3);
     // Flooring is never merged, wording or not.
     const floor = customerCopy(quote({ options: [option("A", [line({ id: "x", customerWording: "Same" }), line({ id: "y", customerWording: "Same" })], 0, true)] }), AT);
     expect(floor.options[0].sections[0].lines).toHaveLength(2);
@@ -1229,14 +1226,14 @@ describe("a flooring material's rate always reaches the customer (2026-11-04, ch
 });
 
 describe("flooring rates by basis (Albert, 2026-11-07)", () => {
-  it("a preliminary's add-on shows no price at all; a measured lump sum's add-on keeps its rate and price", () => {
-    const addOn = line({ description: "Stair nosing upgrade", section: "Install", include: false, qty: 4, uom: "ft", unitPriceSnap: 30 });
-    const opt = option("A", [line({}), addOn], 0, true);
-    const find = (c: CustomerCopy) => c.options[0].sections.flatMap((x) => x.lines).find((l) => l.kind === "item" && l.optional);
-    expect(find(customerCopy(quote({ discountRate: 0, basis: "Preliminary", options: [opt] }), AT))).toMatchObject({ unitPrice: null, amount: null, optional: true });
-    expect(find(customerCopy(quote({ discountRate: 0, itemised: false, options: [opt] }), AT))).toMatchObject({ unitPrice: 30, amount: 120, optional: true });
-    const pdf = Buffer.from(quotePdf(customerCopy(quote({ discountRate: 0, basis: "Preliminary", options: [opt] }), AT))).toString("latin1");
-    expect(pdf).toContain("(Optional)");
+  it("drops an unticked line from what the customer sees, preliminary or measured (2026-11-07)", () => {
+    const unticked = line({ description: "Stair nosing upgrade", section: "Install", include: false, qty: 4, uom: "ft", unitPriceSnap: 30 });
+    const opt = option("A", [line({}), unticked], 0, true);
+    for (const q of [quote({ discountRate: 0, basis: "Preliminary", options: [opt] }), quote({ discountRate: 0, itemised: false, options: [opt] }), quote({ discountRate: 0, itemised: true, options: [opt] })]) {
+      const c = customerCopy(q, AT);
+      expect(serializeCopy(c)).not.toContain("Stair nosing upgrade");
+      expect(Buffer.from(quotePdf(c)).toString("latin1")).not.toContain("Stair nosing upgrade");
+    }
   });
 
   it("a measured breakdown shows every rate and amount, as before", () => {

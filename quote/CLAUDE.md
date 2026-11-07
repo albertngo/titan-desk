@@ -1304,6 +1304,11 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   an add-on keeping its price. A line under its minimum charge shows no rate. Stairs lines and stairs options are
   unchanged (quantity only). The quote page's Customer view follows the same rule (`OptionSheet`: `prelimView`,
   `rateCol`). This replaces the 2026-10-22 lump-sum rule of no rate on labour. Tested in `tests/send.test.ts`.
+  **Unticked lines are dropped (same day: "unticked means dropped from what they see. Nothing to do with optional logic
+  right now").** A line whose Include box is unticked never reaches the customer copy (`copyOption()`), so the link, the
+  PDF and the email never show it, and Customer view leaves it out too. It used to go as an Optional add-on the customer
+  could tick on the Accept panel; a fresh copy now has none. Copies frozen before keep theirs, and the add-on code that
+  reads them (acceptance, contract, What changed) is unchanged; tests build such copies with `tests/legacyAddOns.ts`.
 - **Company files (Albert, 2026-11-07: "an option to download the Site Sheets (Flooring, Stairs) and show the latest
   version… inside the What's new section as 'Company Files'… Keep the two files separate downloads").** A **Company
   files** menu beside What's new in the top bar (`src/components/CompanyFiles.tsx`, staff only, never in Customer view)
