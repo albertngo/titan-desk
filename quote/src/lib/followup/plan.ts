@@ -6,6 +6,8 @@
  * Dates are Toronto calendar days, "YYYY-MM-DD".
  */
 
+import { parseBrief, type Brief } from "./brief";
+
 /** Days after the quote is sent when, with nothing else to go on, a follow-up is due (Albert: "the looser"). */
 export const SCHEDULE_DAYS = [3, 10, 21] as const;
 /** The day the page asks to close it out or postpone it. Never lost on its own. */
@@ -28,7 +30,8 @@ export type Postpone = { until: string; back: string; at: string; by: string; no
 export type Lost = { at: string; by: string; reasonId: string | null; reason: string | null; note?: string };
 
 /** Quotes → Follow Up. Only what the app itself knows: anything GHL already shows (messages, calls) is read live. */
-export type FollowUpState = { touches: Touch[]; snooze: Snooze | null; postpone: Postpone | null; lost: Lost | null };
+/** Quotes → Follow Up also keeps the last brief (step 2), rewritten only when its signature moves. */
+export type FollowUpState = { touches: Touch[]; snooze: Snooze | null; postpone: Postpone | null; lost: Lost | null; brief?: Brief | null };
 
 export const emptyState = (): FollowUpState => ({ touches: [], snooze: null, postpone: null, lost: null });
 
@@ -61,7 +64,8 @@ export function parseState(raw: string | null | undefined): FollowUpState {
     l && isTime(l.at)
       ? { at: String(l.at), by: who(l.by), reasonId: text(l.reasonId, 60) ?? null, reason: text(l.reason, 120) ?? null, ...(text(l.note, NOTE_MAX) ? { note: text(l.note, NOTE_MAX) } : {}) }
       : null;
-  return { touches, snooze, postpone, lost };
+  const brief = parseBrief(d.brief);
+  return { touches, snooze, postpone, lost, ...(brief ? { brief } : {}) };
 }
 
 export const serializeState = (s: FollowUpState): string => JSON.stringify(s);
@@ -131,7 +135,8 @@ export type DueReason =
   | { kind: "replied" } // the customer wrote after our last touch
   | { kind: "close-out" } // day 45: close it out or postpone it
   | { kind: "postponed"; until: string } // back from a postpone
-  | { kind: "expired" }; // past its good-until date
+  | { kind: "expired" } // past its good-until date
+  | { kind: "named"; day: string; quote: string | null }; // the customer named a time ("next week"), read by the brief
 
 export type Bucket = "due" | "upcoming" | "snoozed" | "postponed";
 
@@ -157,6 +162,8 @@ export type DueInput = {
   thread: Thread | null;
   now: Date;
   torontoDay: (s: string | Date) => string;
+  /** The day the customer named, from a brief written for the thread as it stands; it replaces the fallback schedule. */
+  named?: { day: string; quote: string | null } | null;
 };
 
 /**
@@ -174,7 +181,9 @@ export function dueOf(i: DueInput): Due | null {
   const day = i.torontoDay;
   const today = day(i.now);
   const sent = day(i.sentAt);
-  const touchDays = [...(i.thread?.staffTouches ?? []), ...i.state.touches.map((t) => t.at)].map(day).filter((d) => d >= sent);
+  // Sent At is a day, not a time, and the quote's own email and text go out that day: GHL's messages count from the
+  // next day on (a reply the same day still counts). "I followed up" is a person's word, so it counts any day.
+  const touchDays = [...(i.thread?.staffTouches ?? []).map(day).filter((d) => d > sent), ...i.state.touches.map((t) => day(t.at)).filter((d) => d >= sent)];
   // One touch a day: a text and a call the same afternoon are one follow-up.
   const days = [...new Set(touchDays)].sort();
   const k = days.length;
@@ -203,6 +212,12 @@ export function dueOf(i: DueInput): Due | null {
   } else {
     due = later(addDays(sent, CLOSE_OUT_DAY), addDays(lastTouch as string, LATE_GAP_DAYS));
     reason = { kind: "close-out" };
+  }
+
+  // "It should be dynamic but a looser standard to fall back on" (Albert): a time the customer named wins over the schedule.
+  if (i.named && (reason.kind === "scheduled" || reason.kind === "close-out")) {
+    due = i.named.day;
+    reason = { kind: "named", day: i.named.day, quote: i.named.quote };
   }
 
   const replied = i.thread?.lastCustomer ? day(i.thread.lastCustomer) : null;
@@ -236,6 +251,8 @@ export function dueWords(d: Due): string {
       return `Postponed to ${r.until}, follow up`;
     case "expired":
       return "Past its good-until date: send it again or close it out";
+    case "named":
+      return r.quote ? `They said: "${r.quote}"` : "Around the time they asked for";
   }
 }
 
@@ -259,3 +276,5 @@ export const withTouch = (s: FollowUpState, t: Touch): FollowUpState => ({ ...s,
 export const withSnooze = (s: FollowUpState, today: string, days: number, at: string, by: string): FollowUpState => ({ ...s, snooze: { until: addDays(today, days), at, by } });
 export const withPostpone = (s: FollowUpState, p: Postpone): FollowUpState => ({ ...s, postpone: p, snooze: null, lost: null });
 export const withLost = (s: FollowUpState, l: Lost): FollowUpState => ({ ...s, lost: l, snooze: null });
+
+export const withBrief = (s: FollowUpState, b: Brief): FollowUpState => ({ ...s, brief: b });

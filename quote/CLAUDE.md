@@ -1306,6 +1306,26 @@ CLAUDE.md; where they differ, this file governs `quote/` and nothing outside it.
   version. **Book the visit** (preliminary) copies the in-home calendar link. GHL changes go first; a refusal changes
   nothing. Quotes → **Follow Up** (JSON, app-written, compare-and-swap, `src/lib/quotes/followup.ts`) keeps only what GHL
   doesn't: I followed up, the snooze, the postpone, the loss. Pinned by `tests/boundary.test.ts`.
+  **Step 2, the same day (Albert: "Create the brief. Also; have an expandable chat to the right side of the screen for the
+  customer convo"; then "Last Sent By: Pourya | Joey | Albert | Everyone as the filters", "a column name", "a red notif on
+  the top bar", "clicking on the row… the conversation drawer… default to the first row", and "very clear: whos in
+  conversation with the lead… next to the name").** **The brief** on each row (`writeBrief()` in `followup.ts`, words and
+  cleaning in `src/lib/followup/brief.ts`): where it stands, what they asked or pushed back on and whether we answered, the
+  next step (call / text / email / visit / wait / close) and a draft to **Copy** or **Copy and open GHL** (sending from the
+  app is a later decision). Written by `claude-sonnet-5-5` (`writeJson()`, `BRIEF_MODEL` in `src/lib/anthropic/client.ts`)
+  from the quote's customer facts (options and customer totals, sent day, good-until, opens; never a cost, margin or
+  contractor) and the GHL thread from a month before the send, internal comments included, which is where Make 4951497's
+  call summaries live. Kept on Quotes → Follow Up (`brief`) with the signature it was written for (`briefSignature()`: the
+  newest message, the opens, the logged follow-ups, the postpone); the page asks for a new one only when that moved, two at
+  a time after it draws; **Rewrite** forces one. **A day the customer named** ("next week") replaces the 3 / 10 / 21 / 45
+  fallback while the brief is current (`named` in `dueOf()`, reason "They said: …"). **Sent At is a day, not a time**, and
+  the quote's own email and text go out that day, so GHL messages count as follow-ups only from the next day (a reply the
+  same day still counts). **Last sent by** filters by each sender's first name (`firstNameOf()`, so info@ is Joey), starting
+  on the signed-in person when they have any; each row says **with Joey** beside the customer's name; column headings sit
+  over the list. **The conversation** is the quote page's drawer (`ConversationDrawer`, now with `title` and `openSignal`):
+  clicking a row, or its Conversation button, shows that customer's thread; it starts on the first row. **The top bar's red
+  count** is everyone's quotes due now (`FollowUpBadge`, `dueCountNow()`), asked for after the page draws and kept three
+  minutes on the server. Tested in `tests/followup.test.ts` and `tests/boundary.test.ts`.
 - **No section totals for the customer (Albert, 2026-11-07: "can we keep the totals of each Section not shown? it has
   too many numbers if too many sections").** On a breakdown the customer's page (`CustomerQuote.tsx`), the PDF
   (`pdf.ts`, so invoices and receipts too) and the quote page's Customer view (`OptionSheet.tsx`) show no subtotal on

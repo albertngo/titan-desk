@@ -1,6 +1,6 @@
 "use server";
 
-import { logTouch, markLost, postponeFollowUp, snoozeFollowUp, type FollowUpResult } from "@/lib/quotes/followup";
+import { dueCountNow, logTouch, markLost, postponeFollowUp, snoozeFollowUp, writeBrief, type BriefResult, type FollowUpResult } from "@/lib/quotes/followup";
 
 /** The Follow up page's buttons (2026-11-07). Each checks the quoter allowlist inside and re-reads the quote first. */
 
@@ -18,4 +18,14 @@ export async function postponeAction(quoteRecordId: string, seen: string, until:
 
 export async function lostAction(quoteRecordId: string, seen: string, reasonId: string, note: string): Promise<FollowUpResult> {
   return markLost(String(quoteRecordId ?? ""), String(seen ?? ""), reasonId, note);
+}
+
+/** The row's brief: the kept one when nothing has happened since, else a new one (step 2, 2026-11-07). */
+export async function briefAction(quoteRecordId: string, force: boolean): Promise<BriefResult> {
+  return writeBrief(String(quoteRecordId ?? ""), force === true);
+}
+
+/** The top bar's red count of quotes due now (2026-11-07). */
+export async function dueCountAction(): Promise<number> {
+  return dueCountNow();
 }
