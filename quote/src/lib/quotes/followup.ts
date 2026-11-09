@@ -209,7 +209,8 @@ async function readFollowUps(now: Date): Promise<Omit<FollowUpPage, "me">> {
     const thread: Thread | null = t ? threadSince(t.messages, sentAt) : null;
     const visit = visitNow(t, now);
     const sig = signatureOf(t?.messages ?? null, num(c.sent.fields[VERSION.openedCount]) ?? 0, c.state, sentAt, visit);
-    const brief = c.state.brief && sig && c.state.brief.basedOn === sig ? c.state.brief : null;
+    // Current = written for the thread as it stands, and today (Albert, 2026-11-09: "updated every so often").
+    const brief = c.state.brief && sig && c.state.brief.basedOn === sig && writtenToday(c.state.brief, now) ? c.state.brief : null;
     const named = brief?.nextDay ? { day: brief.nextDay, quote: brief.nextQuote } : null;
     const preliminary = str(c.sent.fields[VERSION.basis]) === "Preliminary";
     const due = dueOf({ sentAt, validUntil: str(c.sent.fields[VERSION.validUntil]), state: c.state, thread, now, torontoDay, named, visit, preliminary, firstOpened: str(c.sent.fields[VERSION.firstOpenedAt]) });
@@ -479,6 +480,17 @@ function linesOf(messages: Message[], sentAt: string): ThreadLine[] {
  */
 export async function writeBrief(quoteRecordId: string, force: boolean): Promise<BriefResult> {
   await requireQuoterPerson();
+  return briefFor(quoteRecordId, force);
+}
+
+/** A brief written before today (Toronto) is rewritten even when nothing happened: the age, slots and next step move on. */
+const writtenToday = (b: Brief, now: Date) => torontoDay(b.at) === torontoDay(now);
+
+/** Briefs rewritten in one background run, at most (2026-11-09). */
+const BRIEFS_PER_RUN = 10;
+
+/** writeBrief's work, without the sign-in check: reached from writeBrief (signed in) and the key-gated hourly run only. */
+async function briefFor(quoteRecordId: string, force: boolean): Promise<BriefResult> {
   if (!readerOn()) return { ok: false, message: "Briefs aren't set up on this deployment (the Claude key isn't set)." };
   if (!REC_ID.test(quoteRecordId)) return { ok: false, message: GONE };
   let q;
@@ -500,7 +512,7 @@ export async function writeBrief(quoteRecordId: string, force: boolean): Promise
   const opens = num(sent.fields[VERSION.openedCount]) ?? 0;
   const visit = visitNow(t, new Date());
   const sig = signatureOf(t?.messages ?? [], opens, state, sentAt, visit) as string;
-  if (!force && state.brief && state.brief.basedOn === sig) return { ok: true, brief: state.brief, fresh: false };
+  if (!force && state.brief && state.brief.basedOn === sig && writtenToday(state.brief, new Date())) return { ok: true, brief: state.brief, fresh: false };
 
   const opts = await listByIds(T.options, ids(sent.fields[VERSION.options]), [OPTION.name, OPTION.total, OPTION.notOffered]).catch(() => []);
   const now = new Date();
@@ -784,7 +796,19 @@ export type AutoRunResult = { ok: true; sent: number; skipped: number; notes: st
 
 export async function runAutoFollowUps(key: string | null): Promise<AutoRunResult> {
   if (!followUpKeyOk(key)) return { ok: false, status: 401, message: "Wrong or missing key." };
-  if (!autoSwitchOn()) return { ok: true, sent: 0, skipped: 0, notes: ["Auto follow-ups are off for the app (Albert's switch)."] };
+  // Briefs first, whatever the switch (Albert, 2026-11-09: "updated every so often"): stale ones for what is due or
+  // coming up are rewritten here, so the page opens ready.
+  const before = await readFollowUps(new Date());
+  const stale = before.rows.filter((r) => r.briefStale && (r.due.bucket === "due" || r.due.bucket === "upcoming")).slice(0, BRIEFS_PER_RUN);
+  let briefs = 0;
+  if (readerOn()) {
+    for (const r of stale) {
+      const b = await briefFor(r.quoteRecordId, false).catch((e) => ({ ok: false as const, message: e instanceof Error ? e.message : "error" }));
+      if (b.ok) briefs++;
+    }
+  }
+  const briefNote = `${briefs} brief${briefs === 1 ? "" : "s"} rewritten.`;
+  if (!autoSwitchOn()) return { ok: true, sent: 0, skipped: 0, notes: [briefNote, "Auto follow-ups are off for the app (Albert's switch)."] };
   const page = await readFollowUps(new Date());
   const ready = page.rows.filter((r) => r.autoWhy === null && r.channel && r.brief && r.owner).slice(0, AUTO_PER_RUN);
   const notes: string[] = [];
@@ -812,7 +836,7 @@ export async function runAutoFollowUps(key: string | null): Promise<AutoRunResul
     notes.push(...(await recordSend(row.quoteRecordId, r.c, { at: new Date().toISOString(), kind: (b.draftKind ?? "other") as DraftKind, how: "auto", channel: row.channel as Channel, by: "app", edited: 0 }, "app")));
     sent++;
   }
-  return { ok: true, sent, skipped: page.rows.length - sent, notes };
+  return { ok: true, sent, skipped: page.rows.length - sent, notes: [briefNote, ...notes] };
 }
 
 /** "Still deciding, check again in N days": the app only, nothing in GHL. */

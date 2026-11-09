@@ -181,7 +181,9 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
    customer (`deliver()`), only rows `autoBlock()` in `src/lib/followup/autosend.ts` clears (measured, due, a current
    brief, a check-in or nudge, nothing unanswered, no flag, under $25k, 9am to 7pm Mon to Sat, 2 days apart, 4 at
    most), and only drafts `checkDraft()` passes (no dollar amount the quote doesn't carry). Stage 1 is the signed-in
-   Send button (`sendFollowUp()`), from the person signed in. `tests/boundary.test.ts` pins all of this.
+   Send button (`sendFollowUp()`), from the person signed in. Since 2026-11-09 the same run first rewrites up to 10
+   stale briefs (written before today or before something new happened) for due and upcoming quotes, whatever the
+   switch; that writes only Quotes → Follow Up. `tests/boundary.test.ts` pins all of this.
 2d. **Customer links live on the customer deployment only.** There the proxy serves `/c/<token>`
    and 404s everything else, and `write()` refuses; on the staff app `/c/` is 404.
    `src/lib/quotes/customer.ts` answers only there and only for a well-formed token, returns the
