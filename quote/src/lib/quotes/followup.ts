@@ -106,6 +106,8 @@ export type FollowUpRow = {
   channel: Channel | null;
   /** Why the app wouldn't send this one on its own right now (null = it would, once the app's switch is on). */
   autoWhy: string | null;
+  /** Who a Send goes to, for the confirm box (2026-11-09): the phone's last 4 digits, or the email. */
+  toWords: string | null;
 };
 
 export type FollowUpPage = {
@@ -284,7 +286,10 @@ async function readFollowUps(now: Date): Promise<Omit<FollowUpPage, "me">> {
                   sent: c.state.sent ?? [],
                   now,
                 });
-          return { channel, autoWhy };
+          const phone = str(c.q.fields[QUOTE.phone])?.replace(/\D/g, "") ?? "";
+          const email = str(c.q.fields[QUOTE.email]);
+          const toWords = channel === "sms" && phone ? `the number ending ${phone.slice(-4)}` : channel === "email" && email ? email : null;
+          return { channel, autoWhy, toWords };
         })(),
       },
     ];

@@ -2512,6 +2512,7 @@ table.items tr.subsect td { box-shadow: none !important; border-left: 0 !importa
 .fu-group.needs .fu-gh { color: var(--bad); }
 .fu-sec.auto .fu-h .linkbtn { font: inherit; color: inherit; }
 .fu-row.auto-row { padding: 8px 16px; }
+.fu-preview { margin: 8px 0 12px; padding: 10px 12px; border-left: 3px solid var(--line); background: var(--head); white-space: pre-wrap; font-size: 14px; }
 .fu-sending { margin: 0; font-size: 12.5px; color: var(--fg-dim); }
 .fu-draft.send textarea, .fu-draft.send input { width: 100%; margin-bottom: 6px; font: inherit; }
 .fu-auto { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--fg-dim); }

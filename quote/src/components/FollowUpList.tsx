@@ -503,7 +503,7 @@ function BriefBox({ state, row, open, busy, copied, onCopy, onRewrite, onSend }:
           </span>
         )}
       </p>
-      {b.draft && sendable && <SendBox key={`${b.at}|${b.draft}`} draft={b.draft} subject={b.subject ?? ""} email={row.channel === "email"} busy={busy} copied={copied} onCopy={onCopy} onSend={onSend} />}
+      {b.draft && sendable && <SendBox key={`${b.at}|${b.draft}`} draft={b.draft} subject={b.subject ?? ""} email={row.channel === "email"} to={`${row.customer ?? "the customer"}${row.toWords ? `, ${row.toWords}` : ""}`} busy={busy} copied={copied} onCopy={onCopy} onSend={onSend} />}
       {b.draft && !sendable && (
         <div className="fu-draft">
           <p>{b.draft}</p>
@@ -524,15 +524,17 @@ function BriefBox({ state, row, open, busy, copied, onCopy, onRewrite, onSend }:
 }
 
 /** The measured draft, editable, then Send (2026-11-09). Keyed on the brief, so a new brief starts it afresh. */
-function SendBox({ draft, subject: firstSubject, email, busy, copied, onCopy, onSend }: { draft: string; subject: string; email: boolean; busy: boolean; copied: boolean; onCopy: (t: string) => void; onSend: (text: string, subject: string | null) => void }) {
+function SendBox({ draft, subject: firstSubject, email, to, busy, copied, onCopy, onSend }: { draft: string; subject: string; email: boolean; to: string; busy: boolean; copied: boolean; onCopy: (t: string) => void; onSend: (text: string, subject: string | null) => void }) {
   const [text, setText] = useState(draft);
   const [subject, setSubject] = useState(firstSubject);
+  // A real customer gets it (Albert, 2026-11-09: "is there a 'you sure you want to send'"): a preview to confirm first.
+  const [confirming, setConfirming] = useState(false);
   return (
     <div className="fu-draft send">
       {email && <input className="in" value={subject} maxLength={120} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" aria-label="Email subject" />}
       <textarea className="in" rows={email ? 6 : 3} value={text} onChange={(e) => setText(e.target.value)} aria-label="The follow-up to send" />
       <div className="fu-draft-acts">
-        <button type="button" className="btn small primary" disabled={busy || !text.trim()} onClick={() => onSend(text, email ? subject : null)}>
+        <button type="button" className="btn small primary" disabled={busy || !text.trim()} onClick={() => setConfirming(true)}>
           {email ? "Send email" : "Send text"}
         </button>
         <span className="fu-brief-meta">From you, in their GHL conversation</span>
@@ -540,6 +542,41 @@ function SendBox({ draft, subject: firstSubject, email, busy, copied, onCopy, on
           {copied ? "Copied" : "Copy"}
         </button>
       </div>
+      {confirming && (
+        <div className="modal" role="dialog" aria-modal="true" aria-label="Send this to the customer?" onClick={() => setConfirming(false)} onKeyDown={(e) => e.key === "Escape" && setConfirming(false)}>
+          <div className="modal-card fu-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="card-h">Send this {email ? "email" : "text"} to the customer?</div>
+            <div className="card-b">
+              <p className="sub">
+                To <strong>{to}</strong>, from your own GHL {email ? "address" : "number"}. It goes into their GHL conversation right away and can&apos;t be taken back.
+              </p>
+              {email && subject.trim() && (
+                <p className="sub">
+                  <strong>Subject:</strong> {subject}
+                </p>
+              )}
+              <blockquote className="fu-preview">{text}</blockquote>
+              <div className="fu-modal-acts">
+                <button type="button" className="btn" onClick={() => setConfirming(false)}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn primary"
+                  autoFocus
+                  disabled={busy}
+                  onClick={() => {
+                    setConfirming(false);
+                    onSend(text, email ? subject : null);
+                  }}
+                >
+                  Send now
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
