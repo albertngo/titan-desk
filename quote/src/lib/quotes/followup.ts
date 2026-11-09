@@ -21,6 +21,7 @@ import {
   SCHEDULE_DAYS,
   TYPICAL_CLOSE_DAYS,
   threadSince,
+  withAlerted,
   withBrief,
   withLost,
   withPostpone,
@@ -30,12 +31,15 @@ import {
   type FollowUpState,
   type Thread,
 } from "@/lib/followup/plan";
-import { calendarEvents, contactAppointments, conversationMessages, locationUsers, conversationsForContact, ghlConfigured, lostDetailsFieldId, lostReasons, pipelines, postponedUntilFieldId } from "@/lib/ghl/client";
-import { visitFact, visitOf, visitWords, type Visit } from "@/lib/followup/visit";
+import { calendarEvents, contactAppointments, conversationMessages, freeSlots, locationUsers, conversationsForContact, ghlConfigured, lostDetailsFieldId, lostReasons, pipelines, postponedUntilFieldId } from "@/lib/ghl/client";
+import { visitFact, visitedWhere, visitOf, visitWords, type Visit } from "@/lib/followup/visit";
+import { FLAG_WORDS, overCap, scoreOf, staysAuto, TIER_WORDS, TOP_VALUE, type Score, type Tier } from "@/lib/followup/score";
+import { pickSlots, SLOT_DAYS } from "@/lib/followup/slots";
+import { offerValue, type OptionMoney } from "./group";
 import { VISIT_LOOKBACK_DAYS, visitsWithoutQuote, type ContactQuotes, type VisitNoQuote } from "@/lib/followup/visits";
 import { BOOKING_CALENDAR_IDS, BOOKING_URLS, ghlContactUrl, ghlConversationUrl } from "@/lib/ghl/ids";
 import { buildLostDetails, buildPostpone, lostDetailsText, lostStatusBody, postponedStageId } from "@/lib/link/ghlRequest";
-import { makeConfigured, removeFollowUpTags, sendMessage, sendToGhl, setOpportunityStatus } from "@/lib/make/client";
+import { alertsConfigured, makeConfigured, removeFollowUpTags, sendAlert, sendMessage, sendToGhl, setOpportunityStatus } from "@/lib/make/client";
 import { torontoDay } from "./group";
 import { appendLog, firstNameOf, logLine } from "./history";
 import { ids, num, str } from "./values";
@@ -86,6 +90,12 @@ export type FollowUpRow = {
   /** The kept brief when it was written for the thread as it stands, else null and briefStale. */
   brief: Brief | null;
   briefStale: boolean;
+  /** How much it needs a person (2026-11-09): the 0 to 100 score, its tier and why. */
+  score: Score;
+  /** The quote's likely total with HST (what the customer would most likely take), or null. */
+  value: number | null;
+  /** A Needs you row past the sender's daily cap: shown under Next up, not counted in the badge. */
+  waiting: boolean;
 };
 
 export type FollowUpPage = {
@@ -143,9 +153,10 @@ export async function loadFollowUps(): Promise<FollowUpPage> {
   const person = await requireQuoterPerson();
   const now = new Date();
   const [versions, quotes] = await Promise.all([
-    listRecords(T.versions, { fields: [VERSION.quote, VERSION.version, VERSION.status, VERSION.basis, VERSION.sentAt, VERSION.validUntil, VERSION.sentBy, VERSION.createdBy, VERSION.changeNo, VERSION.openedCount] }),
+    listRecords(T.versions, { fields: [VERSION.quote, VERSION.version, VERSION.status, VERSION.basis, VERSION.sentAt, VERSION.validUntil, VERSION.sentBy, VERSION.createdBy, VERSION.changeNo, VERSION.openedCount, VERSION.lastOpenedAt] }),
     listRecords(T.quotes, { fields: [QUOTE.quoteNumber, QUOTE.customerName, QUOTE.firstName, QUOTE.lastName, QUOTE.projectNumber, QUOTE.description, QUOTE.ghlContactId, QUOTE.ghlOpportunityId, QUOTE.followUp] }),
   ]);
+  const optionsOf = await optionMoney().catch((e) => (console.error("followUp options", e), new Map<string, OptionMoney[]>()));
   const byQuote = new Map<string, typeof versions>();
   for (const v of versions) {
     const q = ids(v.fields[VERSION.quote])[0];
@@ -179,8 +190,28 @@ export async function loadFollowUps(): Promise<FollowUpPage> {
     const sig = signatureOf(t?.messages ?? null, num(c.sent.fields[VERSION.openedCount]) ?? 0, c.state, sentAt, visit);
     const brief = c.state.brief && sig && c.state.brief.basedOn === sig ? c.state.brief : null;
     const named = brief?.nextDay ? { day: brief.nextDay, quote: brief.nextQuote } : null;
-    const due = dueOf({ sentAt, validUntil: str(c.sent.fields[VERSION.validUntil]), state: c.state, thread, now, torontoDay, named, visit, preliminary: str(c.sent.fields[VERSION.basis]) === "Preliminary" });
+    const preliminary = str(c.sent.fields[VERSION.basis]) === "Preliminary";
+    const due = dueOf({ sentAt, validUntil: str(c.sent.fields[VERSION.validUntil]), state: c.state, thread, now, torontoDay, named, visit, preliminary });
     if (!due) return [];
+    // The score (2026-11-09). A brief written before something new still says what the conversation was like, so its signals count until the rewrite.
+    const signals = (brief ?? c.state.brief)?.signals ?? null;
+    const value = offerValue(optionsOf.get(c.sent.id))?.likely ?? null;
+    const score = scoreOf({
+      messages: t?.messages ?? null,
+      sentAt,
+      preliminary,
+      visit,
+      visited: t ? visitedWhere(t.appts, now, BOOKING_CALENDAR_IDS) : [],
+      value,
+      opens: num(c.sent.fields[VERSION.openedCount]) ?? 0,
+      lastOpened: str(c.sent.fields[VERSION.lastOpenedAt]),
+      signals,
+      namedDay: named?.day ?? null,
+      now,
+      torontoDay,
+    });
+    // An Auto preliminary is GHL's texts' to handle (Albert, 2026-11-09); it comes back the moment it needs a person.
+    if ((due.bucket === "due" || due.bucket === "upcoming") && staysAuto({ preliminary, tier: score.tier, reason: due.reason.kind, signals })) due.bucket = "auto";
     const contactId = str(c.q.fields[QUOTE.ghlContactId]);
     return [
       {
@@ -207,19 +238,97 @@ export async function loadFollowUps(): Promise<FollowUpPage> {
         // Shown even when stale (with "new activity since"), until the rewrite lands.
         brief: brief ?? c.state.brief ?? null,
         briefStale: !brief && Boolean(sig),
+        score,
+        value,
+        waiting: false,
       },
     ];
   });
-  rows.sort(byUrgency);
+  // The daily cap counts what is due now, per sender.
+  const wait = overCap(rows.filter((r) => r.due.bucket === "due").map((r) => ({ id: r.quoteRecordId, owner: r.owner, score: r.score })));
+  for (const r of rows) r.waiting = wait.has(r.quoteRecordId);
+  rows.sort(byNeed);
+  await alertHot(rows, now);
 
   let reasons: { id: string; name: string }[] | null = null;
   if (ghlOn) reasons = await lostReasons().catch((e) => (console.error("lostReasons", e), null));
   const visits = await visitsP;
-  dueCache = { at: Date.now(), count: rows.filter((r) => r.due.bucket === "due").length + (visits?.length ?? 0) };
+  dueCache = { at: Date.now(), count: badgeCount(rows) + (visits?.length ?? 0) };
   return { me: person.email.toLowerCase(), rows, lostReasons: reasons, inHomeUrl: BOOKING_URLS.inHome, ghlOn, makeOn: makeConfigured(), briefsOn: readerOn(), today: torontoDay(now), visits };
 }
 
 type Rec = Awaited<ReturnType<typeof listRecords>>[number];
+
+/** Each version's options as money (the Value column's rule, src/lib/quotes/group.ts): customer totals only, never a cost. */
+async function optionMoney(): Promise<Map<string, OptionMoney[]>> {
+  const options = await listRecords(T.options, { fields: [OPTION.total, OPTION.recommended, OPTION.notOffered, OPTION.scope, OPTION.part, OPTION.sortOrder, OPTION.version] });
+  const out = new Map<string, OptionMoney[]>();
+  for (const o of options) {
+    const v = ids(o.fields[OPTION.version])[0];
+    if (!v) continue;
+    out.set(v, [
+      ...(out.get(v) ?? []),
+      { id: o.id, total: num(o.fields[OPTION.total]), recommended: o.fields[OPTION.recommended] === true, notOffered: o.fields[OPTION.notOffered] === true, part: str(o.fields[OPTION.part]), scope: str(o.fields[OPTION.scope]), sortOrder: num(o.fields[OPTION.sortOrder]) },
+    ]);
+  }
+  return out;
+}
+
+const TIER_RANK: Record<Tier, number> = { needs: 0, watch: 1, auto: 2 };
+
+/** Due now: Needs you (highest score first), then Watch, then what waits past the cap; the other sections by urgency. */
+function byNeed(a: FollowUpRow, b: FollowUpRow): number {
+  if (a.due.bucket === "due" && b.due.bucket === "due") {
+    const ra = a.waiting ? 3 : TIER_RANK[a.score.tier];
+    const rb = b.waiting ? 3 : TIER_RANK[b.score.tier];
+    return ra - rb || b.score.score - a.score.score || byUrgency(a, b);
+  }
+  return byUrgency(a, b) || b.score.score - a.score.score;
+}
+
+/** The red count (2026-11-09): only what needs a person now, inside the cap. */
+const badgeCount = (rows: FollowUpRow[]) => rows.filter((r) => r.due.bucket === "due" && r.score.tier === "needs" && !r.waiting).length;
+
+/** Alerts sent in one page read, at most, so a first run on a full list can't flood the phone. */
+const ALERTS_AT_ONCE = 5;
+/** A quote alerts again only after this long, and only when the customer has written since. */
+const ALERT_AGAIN_DAYS = 7;
+
+/**
+ * The hot-tier WhatsApp (Albert, 2026-11-09). Once per rise: a quote that alerted alerts again only when the customer
+ * has written since and a week has passed. Kept on Quotes → Follow Up with a compare-and-swap, so two readers can't
+ * both send. Best effort: a failure is logged and tried on the next read.
+ */
+async function alertHot(rows: FollowUpRow[], now: Date) {
+  if (!alertsConfigured()) return;
+  const due = rows.filter((r) => {
+    if (!r.score.hot || r.due.bucket === "snoozed" || r.due.bucket === "postponed") return false;
+    const a = r.state.alerted;
+    if (!a) return true;
+    const last = r.ghlRead ? r.due.lastTouch : null;
+    return now.getTime() - Date.parse(a.at) >= ALERT_AGAIN_DAYS * 86_400_000 && Boolean(last && last > a.at.slice(0, 10));
+  });
+  for (const r of due.slice(0, ALERTS_AT_ONCE)) {
+    try {
+      const fresh = await getRecord(T.quotes, r.quoteRecordId);
+      const raw = str(fresh.fields[QUOTE.followUp]) ?? "";
+      if (raw !== r.seen) continue; // someone acted on it since the page read it
+      const big = (r.value ?? 0) >= TOP_VALUE || r.basis === "Measured";
+      const text = [
+        `${TIER_WORDS.needs} · ${r.score.score}: ${r.customer ?? "a customer"} (${r.quoteNumber ?? "quote"}, ${r.basis ?? "quote"})`,
+        r.score.flags.length ? r.score.flags.map((f) => FLAG_WORDS[f]).join("; ") : r.score.reasons.join(" · "),
+        `With ${r.ownerName ?? "nobody yet"}${big ? " · Albert cc" : ""}. Open Follow up in the quote app.`,
+      ].join("\n");
+      await sendAlert({ forEmail: r.owner, text });
+      const next = serializeState(withAlerted(r.state, { at: now.toISOString(), score: r.score.score }));
+      await updateRecord(T.quotes, r.quoteRecordId, { [QUOTE.followUp]: next });
+      r.seen = next;
+      r.state = parseState(next);
+    } catch (e) {
+      console.error("followUp alert", e);
+    }
+  }
+}
 
 /**
  * "Visited, no quote yet" (Albert, 2026-11-07): the last VISIT_LOOKBACK_DAYS of the two booking calendars, against every
@@ -272,7 +381,8 @@ export async function dueCountNow(): Promise<number> {
   await requireQuoterPerson();
   if (dueCache && Date.now() - dueCache.at < DUE_CACHE_MS) return dueCache.count;
   try {
-    return (await loadFollowUps()).rows.filter((r) => r.due.bucket === "due").length;
+    const page = await loadFollowUps();
+    return badgeCount(page.rows) + (page.visits?.length ?? 0);
   } catch (e) {
     console.error("dueCountNow", e);
     return 0;
@@ -352,6 +462,9 @@ export async function writeBrief(quoteRecordId: string, force: boolean): Promise
       loggedHere: state.touches.map((x) => ({ at: x.at, ...(x.note ? { note: x.note } : {}) })),
       visit: visitFact(visit),
       lostReasons: (await lostReasons()).map((r) => r.name),
+      visitedWhere: t ? visitedWhere(t.appts, now, BOOKING_CALENDAR_IDS) : [],
+      // A firm date to offer (2026-11-09): only where a visit is the next step, from the calendar as it is now.
+      openSlots: !visit || visit.kind === "none" || visit.kind === "missed" ? (await openSlots(now)).map((x) => ({ label: x.label, near: x.near })) : [],
     },
     linesOf(t?.messages ?? [], sentAt),
   );
@@ -371,6 +484,24 @@ export async function writeBrief(quoteRecordId: string, force: boolean): Promise
     console.error("brief keep", e);
   }
   return { ok: true, brief, fresh: true };
+}
+
+let slotCache: { at: number; slots: ReturnType<typeof pickSlots> } | null = null;
+const SLOT_CACHE_MS = 300_000;
+
+/** The in-home calendar's real open slots over the next week, the ones next to a booked visit first; [] when it can't be read. */
+async function openSlots(now: Date): Promise<ReturnType<typeof pickSlots>> {
+  if (slotCache && Date.now() - slotCache.at < SLOT_CACHE_MS) return slotCache.slots;
+  const to = new Date(now.getTime() + SLOT_DAYS * 86_400_000);
+  try {
+    const [free, booked] = await Promise.all([freeSlots(BOOKING_CALENDAR_IDS.inHome, now, to), calendarEvents(BOOKING_CALENDAR_IDS.inHome, now, to)]);
+    const slots = pickSlots(free, booked.filter((e) => !/cancel|no.?show|invalid/.test(e.status ?? "")).map((e) => e.start), now, torontoDay);
+    slotCache = { at: Date.now(), slots };
+    return slots;
+  } catch (e) {
+    console.error("openSlots", e);
+    return [];
+  }
 }
 
 /* ---------- the buttons ---------- */

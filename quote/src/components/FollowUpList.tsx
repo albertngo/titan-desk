@@ -7,6 +7,7 @@ import { briefAction, followedUpAction, lostAction, postponeAction, snoozeAction
 import { ConversationDrawer } from "@/components/Conversation";
 import type { Brief, StepKind } from "@/lib/followup/brief";
 import { SNOOZE_CHOICES, type Bucket } from "@/lib/followup/plan";
+import { TIER_WORDS } from "@/lib/followup/score";
 import type { FollowUpPage, FollowUpResult, FollowUpRow } from "@/lib/quotes/followup";
 
 const SECTIONS: { bucket: Bucket; title: string; empty: string }[] = [
@@ -15,6 +16,14 @@ const SECTIONS: { bucket: Bucket; title: string; empty: string }[] = [
   { bucket: "snoozed", title: "Snoozed", empty: "Nothing snoozed." },
   { bucket: "postponed", title: "Postponed", empty: "Nothing postponed." },
 ];
+
+/** Due now, split by need (Albert, 2026-11-09): what needs a person, what to keep an eye on, and what waits past the day's cap. */
+const DUE_GROUPS: { key: "needs" | "watch" | "next"; title: string; hint: string }[] = [
+  { key: "needs", title: "Needs you", hint: "Score 20 or more, or they asked, pushed back, went cold, or it's a big job" },
+  { key: "watch", title: "Watch", hint: "Some interest, not hot yet" },
+  { key: "next", title: "Next up", hint: "Needs you, past today's 8 for this person" },
+];
+const groupOf = (r: FollowUpRow) => (r.waiting ? "next" : r.score.tier === "needs" ? "needs" : "watch");
 
 const STEP_WORDS: Record<StepKind, string> = { call: "Call them", text: "Send a text", email: "Send an email", visit: "Book the visit", wait: "Wait", close: "Close it out" };
 const EVERYONE = "Everyone";
@@ -64,7 +73,10 @@ export function FollowUpList({ data }: { data: FollowUpPage }) {
   const shown = useMemo(() => (who === EVERYONE ? data.rows : data.rows.filter((r) => r.ownerName === who)), [who, data.rows]);
   const visitsShown = (data.visits ?? []).filter((v) => who === EVERYONE || v.visitorName === who);
   const dueOf = (name: string) =>
-    data.rows.filter((r) => r.due.bucket === "due" && (name === EVERYONE || r.ownerName === name)).length + (data.visits ?? []).filter((v) => name === EVERYONE || v.visitorName === name).length;
+    data.rows.filter((r) => r.due.bucket === "due" && r.score.tier === "needs" && !r.waiting && (name === EVERYONE || r.ownerName === name)).length +
+    (data.visits ?? []).filter((v) => name === EVERYONE || v.visitorName === name).length;
+  const [autoOpen, setAutoOpen] = useState(false);
+  const autoRows = shown.filter((r) => r.due.bucket === "auto");
 
   const askBrief = async (row: FollowUpRow, force: boolean) => {
     setBriefs((b) => ({ ...b, [row.quoteRecordId]: { ...b[row.quoteRecordId], busy: true, error: null } }));
@@ -127,7 +139,7 @@ export function FollowUpList({ data }: { data: FollowUpPage }) {
             <span className="k" id="fu-who-k">Last sent by</span>
             <div className="ql-filters" role="group" aria-labelledby="fu-who-k">
               {[...senders, EVERYONE].map((name) => (
-                <button key={name} type="button" className="ql-f" aria-pressed={who === name} onClick={() => setWho(name)} title={`${dueOf(name)} due now`}>
+                <button key={name} type="button" className="ql-f" aria-pressed={who === name} onClick={() => setWho(name)} title={`${dueOf(name)} need you now`}>
                   {name} <span className="n">{dueOf(name)}</span>
                 </button>
               ))}
@@ -208,7 +220,15 @@ export function FollowUpList({ data }: { data: FollowUpPage }) {
                 {s.title} <span className="n">{rows.length}</span>
               </h2>
               {rows.length === 0 && <p className="fu-empty">{s.empty}</p>}
-              {rows.map((r) => (
+              {(s.bucket === "due" ? DUE_GROUPS.map((g) => ({ g, rows: rows.filter((r) => groupOf(r) === g.key) })) : [{ g: null, rows }]).map(({ g, rows: rs }) =>
+                rs.length === 0 ? null : (
+                  <div key={g?.key ?? "all"} className={g ? `fu-group ${g.key}` : undefined}>
+                    {g && (
+                      <h3 className="fu-gh" title={g.hint}>
+                        {g.title} <span className="n">{rs.length}</span>
+                      </h3>
+                    )}
+                    {rs.map((r) => (
                 <Row
                   key={r.quoteRecordId}
                   row={r}
@@ -225,10 +245,47 @@ export function FollowUpList({ data }: { data: FollowUpPage }) {
                   onRewrite={() => askBrief(r, true)}
                   onConv={() => openConv(r)}
                 />
-              ))}
+                    ))}
+                  </div>
+                ),
+              )}
             </div>
           );
         })}
+        {/* Preliminaries GHL's texts are handling (2026-11-09): folded; each comes back up the moment it needs a person. */}
+        {autoRows.length > 0 && (
+          <div className="fu-sec auto">
+            <h2 className="fu-h">
+              <button type="button" className="linkbtn" aria-expanded={autoOpen} onClick={() => setAutoOpen((o) => !o)}>
+                {autoOpen ? "▾" : "▸"} On auto: GHL&apos;s texts are handling these
+              </button>{" "}
+              <span className="n">{autoRows.length}</span>
+            </h2>
+            {!autoOpen && <p className="fu-empty">Preliminaries with little back-and-forth yet. Each moves up to Needs you or Watch as soon as the customer engages.</p>}
+            {autoOpen &&
+              autoRows.map((r) => (
+                <div key={r.quoteRecordId} className={`fu-row auto-row${conv?.contactId === r.contactId ? " picked" : ""}${r.contactId ? " can-pick" : ""}`} onClick={(e) => !(e.target as Element).closest("a, button") && openConv(r)}>
+                  <div className="fu-who">
+                    <span className="fu-name-line">
+                      <Link href={`/q/${r.versionId}`} className="fu-name">
+                        {r.customer ?? "No customer"}
+                      </Link>
+                      <span className="fu-with">with {r.ownerName ?? "nobody yet"}</span>
+                    </span>
+                    <span className="fu-meta">
+                      {r.quoteNumber ?? ""} · {r.basis ?? "Quote"}
+                    </span>
+                  </div>
+                  <div className="fu-why">
+                    <ScoreChip row={r} />
+                  </div>
+                  <div className="fu-facts">
+                    <span>{r.age}</span>
+                  </div>
+                </div>
+              ))}
+          </div>
+        )}
         {shown.length === 0 && who !== EVERYONE && data.rows.length > 0 && (
           <p className="fu-empty">
             None sent by {who}.{" "}
@@ -289,6 +346,7 @@ function Row(p: {
         {row.visit && <span className={`fu-visit ${row.visit.kind}`}>{row.visitText}</span>}
       </div>
       <div className="fu-why">
+        <ScoreChip row={row} />
         <span className={`chip${tone ? ` ${tone}` : ""}`}>{row.why}</span>
         <span className="fu-when">
           {row.due.bucket === "postponed" ? "Back on the list" : "Due"} {dayWords(row.due.day, today)}
@@ -339,6 +397,18 @@ function Row(p: {
         </button>
       </div>
     </div>
+  );
+}
+
+/** The score (2026-11-09): roughly the chance it closes, its tier, and the top reasons. */
+function ScoreChip({ row }: { row: FollowUpRow }) {
+  const s = row.score;
+  return (
+    <span className={`fu-score ${s.tier}`} title={`Score ${s.score} of 100, roughly the chance this closes. ${s.reasons.join(" · ")}`}>
+      <span className="fu-score-n">{s.score}</span>
+      <span className="fu-score-t">{TIER_WORDS[s.tier]}</span>
+      <span className="fu-score-why">{s.reasons.join(" · ")}</span>
+    </span>
   );
 }
 

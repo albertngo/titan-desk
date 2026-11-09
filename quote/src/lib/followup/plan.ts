@@ -32,7 +32,9 @@ export type Lost = { at: string; by: string; reasonId: string | null; reason: st
 
 /** Quotes → Follow Up. Only what the app itself knows: anything GHL already shows (messages, calls) is read live. */
 /** Quotes → Follow Up also keeps the last brief (step 2), rewritten only when its signature moves. */
-export type FollowUpState = { touches: Touch[]; snooze: Snooze | null; postpone: Postpone | null; lost: Lost | null; brief?: Brief | null };
+/** The last hot-tier WhatsApp (2026-11-09): one per rise, so a reload never sends it twice. */
+export type Alerted = { at: string; score: number };
+export type FollowUpState = { touches: Touch[]; snooze: Snooze | null; postpone: Postpone | null; lost: Lost | null; brief?: Brief | null; alerted?: Alerted | null };
 
 export const emptyState = (): FollowUpState => ({ touches: [], snooze: null, postpone: null, lost: null });
 
@@ -66,7 +68,9 @@ export function parseState(raw: string | null | undefined): FollowUpState {
       ? { at: String(l.at), by: who(l.by), reasonId: text(l.reasonId, 60) ?? null, reason: text(l.reason, 120) ?? null, ...(text(l.note, NOTE_MAX) ? { note: text(l.note, NOTE_MAX) } : {}) }
       : null;
   const brief = parseBrief(d.brief);
-  return { touches, snooze, postpone, lost, ...(brief ? { brief } : {}) };
+  const a = d.alerted as Record<string, unknown> | null;
+  const alerted = a && isTime(a.at) && typeof a.score === "number" ? { at: String(a.at), score: a.score } : null;
+  return { touches, snooze, postpone, lost, ...(brief ? { brief } : {}), ...(alerted ? { alerted } : {}) };
 }
 
 export const serializeState = (s: FollowUpState): string => JSON.stringify(s);
@@ -140,7 +144,8 @@ export type DueReason =
   | { kind: "named"; day: string; quote: string | null } // the customer named a time ("next week"), read by the brief
   | { kind: "measure"; day: string }; // a preliminary whose visit happened: the measured quote is owed
 
-export type Bucket = "due" | "upcoming" | "snoozed" | "postponed";
+/** "auto": a preliminary GHL's texts are handling on their own (2026-11-09); shown folded, never counted as due. */
+export type Bucket = "due" | "upcoming" | "snoozed" | "postponed" | "auto";
 
 export type Due = {
   bucket: Bucket;
@@ -274,7 +279,7 @@ export const ageWords = (age: number) => (age <= TYPICAL_CLOSE_DAYS ? `day ${age
 
 /** Most urgent first: due before upcoming before snoozed before postponed; within each, the earliest day, then the oldest quote. */
 export function byUrgency<T extends { due: Due }>(a: T, b: T): number {
-  const order: Record<Bucket, number> = { due: 0, upcoming: 1, snoozed: 2, postponed: 3 };
+  const order: Record<Bucket, number> = { due: 0, upcoming: 1, auto: 2, snoozed: 3, postponed: 4 };
   return order[a.due.bucket] - order[b.due.bucket] || a.due.day.localeCompare(b.due.day) || b.due.age - a.due.age;
 }
 
@@ -291,3 +296,4 @@ export const withPostpone = (s: FollowUpState, p: Postpone): FollowUpState => ({
 export const withLost = (s: FollowUpState, l: Lost): FollowUpState => ({ ...s, lost: l, snooze: null });
 
 export const withBrief = (s: FollowUpState, b: Brief): FollowUpState => ({ ...s, brief: b });
+export const withAlerted = (s: FollowUpState, a: Alerted): FollowUpState => ({ ...s, alerted: a });

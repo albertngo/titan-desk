@@ -86,3 +86,10 @@ export function visitWords(v: Visit): string {
 
 /** For the brief's facts and signature: one line. */
 export const visitFact = (v: Visit | null) => (v ? visitWords(v) : "unknown (GHL appointments couldn't be read)");
+
+/** Where visits went ahead (in the past, not cancelled or a no-show), for "home plus store" in the score (2026-11-09). */
+export function visitedWhere(appts: Appointment[] | null, now: Date, calendars: { inHome: string; inStore: string }): Where[] {
+  if (!appts) return [];
+  const went = appts.filter((a) => a.start && !Number.isNaN(Date.parse(a.start)) && Date.parse(a.start) < now.getTime() && !MISSED.has((a.status ?? "").toLowerCase()));
+  return [...new Set(went.map((a) => whereOf(a, calendars)))];
+}

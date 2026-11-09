@@ -50,6 +50,7 @@ repo with Root Directory `quote`. Rules for changing it: `CLAUDE.md` in this fol
 | `QUOTE_AIRTABLE_TOKEN` | its own Airtable token: Bert base only; `data.records:read` and `data.records:write` |
 | `QUOTE_MAKE_GHL_HOOK` | the "Quote app → GHL" Make webhook address. Set only once that scenario is on |
 | `QUOTE_MAKE_GHL_KEY` | the shared key that scenario's filters check. Kept in Make and Vercel only |
+| `QUOTE_ALERT_TO` | the WhatsApp number hot follow-up alerts go to (2026-11-09), through the scenario's `alert` route. A test number until Albert switches it. Unset = alerts off |
 | `QUOTE_BOOKING_KEY` | the key the booking scenario (Make 3453735) sends to `/api/booking` in the `x-quote-key` header. Unset = the booking step is off. Kept in Make and Vercel only |
 | `QUOTE_GHL_TOKEN` | its own GHL private integration token, used read-only: `contacts.readonly`, `opportunities.readonly`, `conversations.readonly`, `conversations/message.readonly` (the token may hold write scopes; the app's GHL client is GET-only and the boundary test keeps it so). Without it, New quote can only add new customers and no conversation shows |
 | `QUOTE_ALLOWED_EMAILS` | comma-separated Microsoft emails allowed to quote |

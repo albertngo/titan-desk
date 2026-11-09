@@ -117,3 +117,18 @@ export async function setOpportunityStatus(opportunityId: string, statusBody: st
   const { res, text, d } = await post({ mode: "status", opportunityId, statusBody });
   if (!res.ok || d.ok !== true) throw new MakeError(`Make didn't confirm the opportunity was marked lost (${res.status}: ${text.slice(0, 120)})`);
 }
+
+/**
+ * The hot-tier follow-up alert (Albert, 2026-11-09: "WhatsApp to staff"), through the same scenario's `alert` route,
+ * which sends one WhatsApp. Off until QUOTE_ALERT_TO is set, and that holds the one number every alert goes to
+ * (a test number first, as the Tacoma alerts did, until Albert switches each one to its real person). The text names
+ * the customer, the score and why; never a message from the conversation. Throws MakeError unless Make confirms it.
+ */
+export const alertsConfigured = () => makeConfigured() && Boolean(process.env.QUOTE_ALERT_TO);
+
+export async function sendAlert(alert: { forEmail: string | null; text: string }): Promise<void> {
+  const to = process.env.QUOTE_ALERT_TO;
+  if (!to) throw new MakeError("Follow-up alerts aren't switched on for this deployment.");
+  const { res, text, d } = await post({ mode: "alert", to, forEmail: alert.forEmail ?? "", alertBody: JSON.stringify({ text: alert.text }) });
+  if (!res.ok || d.ok !== true) throw new MakeError(`Make didn't confirm the alert (${res.status}: ${text.slice(0, 120)})`);
+}

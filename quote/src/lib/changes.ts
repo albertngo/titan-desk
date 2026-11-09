@@ -21,6 +21,17 @@ export type Change = {
 
 export const CHANGES: Change[] = [
   {
+    date: "2026-11-09",
+    kind: "new",
+    title: "Follow up: a score, and preliminaries on auto",
+    details: [
+      "Every quote on Follow up has a score from 0 to 100, roughly its chance of closing, with the reasons beside it: how much back-and-forth, visits, value, and how long it has been quiet.",
+      "Due now is split into Needs you, Watch and Next up. Needs you is a score of 20 or more, or a customer who asked about price or dates, pushed back, went quiet after a long chat, or a big job. Up to 8 a day each; the rest wait under Next up.",
+      "Preliminaries with little conversation stay with GHL's automated texts, folded under On auto, and move up on their own as soon as the customer engages. Measured quotes always stay on your list.",
+      "The red count in the top bar now counts only Needs you. The brief can offer a real open measure slot from the calendar, and invites a customer measured at home to the showroom.",
+    ],
+  },
+  {
     date: "2026-11-07",
     kind: "changed",
     title: "No going back to preliminary after two measured quotes",

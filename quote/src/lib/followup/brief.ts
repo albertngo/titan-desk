@@ -24,6 +24,20 @@ export type Brief = {
   nextQuote: string | null;
   /** On a "close" step, the GHL lost reason the conversation points to, by its exact name, for the Lost dropdown to start on. */
   lostReason?: string | null;
+  /**
+   * What the conversation shows about intent (2026-11-09), for the score in src/lib/followup/score.ts. Missing on a
+   * brief written before then, which the score reads as "not known", never as "no".
+   */
+  signals?: {
+    buyingQuestion: boolean;
+    namedDate: boolean;
+    competitor: boolean;
+    objection: boolean;
+    commercial: boolean;
+    complaint: boolean;
+    /** The customer's latest message: intent (a question, a plan, a date), a closer ("thanks, will look"), or FYI. */
+    replyClass: "intent" | "closer" | "fyi" | "none";
+  } | null;
   /** The signature it was written for; a different one means something happened since. */
   basedOn: string;
   at: string;
@@ -70,10 +84,30 @@ export function cleanBrief(raw: unknown, meta: { basedOn: string; at: string; mo
     nextDay,
     nextQuote: nextDay ? clip(d.nextQuote, 160) || null : null,
     // Only one of GHL's own reasons, word for word, and only when the step is to close it out.
+    signals: cleanSignals(d.signals),
     ...(kind === "close" && typeof d.lostReason === "string" && (!meta.lostReasons || meta.lostReasons.includes(d.lostReason)) ? { lostReason: clip(d.lostReason, 120) } : {}),
     basedOn: meta.basedOn,
     at: meta.at,
     model: meta.model,
+  };
+}
+
+const REPLY_CLASSES = ["intent", "closer", "fyi", "none"] as const;
+
+/** The signals block, cleaned: only booleans that came back true count; a missing block is null (not known). */
+function cleanSignals(v: unknown): Brief["signals"] {
+  if (!v || typeof v !== "object") return null;
+  const d = v as Record<string, unknown>;
+  const yes = (k: string) => d[k] === true;
+  const rc = String(d.replyClass);
+  return {
+    buyingQuestion: yes("buyingQuestion"),
+    namedDate: yes("namedDate"),
+    competitor: yes("competitor"),
+    objection: yes("objection"),
+    commercial: yes("commercial"),
+    complaint: yes("complaint"),
+    replyClass: (REPLY_CLASSES as readonly string[]).includes(rc) ? (rc as (typeof REPLY_CLASSES)[number]) : "none",
   };
 }
 
@@ -109,6 +143,13 @@ export type BriefFacts = {
   visit: string;
   /** GHL's lost reasons by name, for "lostReason" on a close step. */
   lostReasons?: readonly string[];
+  /** Where visits went ahead, so the brief can steer a home-only lead to the store and the other way round. */
+  visitedWhere?: readonly string[];
+  /**
+   * Real open in-home slots in the next days (2026-11-09: "a firm date offered… we have an opening and I happen to be
+   * in the area"), from GHL's calendar. `near` = right next to another visit booked that day. Never invented.
+   */
+  openSlots?: { label: string; near: boolean }[];
 };
 
 const money = (n: number) => `$${Math.round(n).toLocaleString("en-CA")}`;
@@ -137,7 +178,7 @@ QUOTE
 - The customer has opened the quote link ${f.opens} time${f.opens === 1 ? "" : "s"}${f.lastOpened ? `, last on ${f.lastOpened.slice(0, 10)}` : ""}.
 - Options:
 ${opts}
-${f.postponedTo ? `- Postponed: the customer asked to be followed up around ${f.postponedTo}.\n` : ""}${f.loggedHere.length ? `- Follow-ups staff logged outside GHL: ${f.loggedHere.map((t) => `${t.at.slice(0, 10)}${t.note ? ` (${t.note})` : ""}`).join("; ")}\n` : ""}
+${f.visitedWhere?.length ? `- Visits that went ahead: ${f.visitedWhere.join(", ")}. A customer seen both at home and in the store closes about 4 in 5; home only or store only, about 1 in 4.\n` : ""}${f.openSlots?.length ? `- Real open in-home measure slots (GHL calendar): ${f.openSlots.map((x) => `${x.label}${x.near ? " (next to another visit we have that day)" : ""}`).join("; ")}\n` : ""}${f.postponedTo ? `- Postponed: the customer asked to be followed up around ${f.postponedTo}.\n` : ""}${f.loggedHere.length ? `- Follow-ups staff logged outside GHL: ${f.loggedHere.map((t) => `${t.at.slice(0, 10)}${t.note ? ` (${t.note})` : ""}`).join("; ")}\n` : ""}
 CONVERSATION (oldest first; internal notes are never seen by the customer)
 ${thread || "(no messages)"}
 
@@ -149,7 +190,8 @@ Write the brief as ONE JSON object and nothing else:
   "draft": "the message for that step, ready to send",
   "nextDay": "YYYY-MM-DD or null",
   "nextQuote": "the customer's exact words that gave nextDay, or null",
-  "lostReason": "only when step is close: exactly one of ${(f.lostReasons ?? []).map((r) => JSON.stringify(r)).join(", ") || "(none)"}, else null"
+  "lostReason": "only when step is close: exactly one of ${(f.lostReasons ?? []).map((r) => JSON.stringify(r)).join(", ") || "(none)"}, else null",
+  "signals": {"buyingQuestion": bool, "namedDate": bool, "competitor": bool, "objection": bool, "commercial": bool, "complaint": bool, "replyClass": "intent" | "closer" | "fyi" | "none"}
 }
 
 Rules:
@@ -157,5 +199,7 @@ Rules:
 - "asked": at most 5, newest first; [] when there are none. "answered" is true only if a Titan reply in the thread answers it.
 - "step": "call" for a warm customer with open questions or a large job; "text" for a quick nudge; "email" when they wrote by email; "visit" to book a measure or store visit (preliminaries); "wait" when the customer said when to come back and that day hasn't come; "close" when they clearly said no or went elsewhere.
 - "draft": written as ${f.sender ? `the person who sent the quote (${f.sender}), signed with their first name` : "Titan staff, signed with a first name placeholder [Name]"}. Warm, short and specific to what they said. A text is under 300 characters, plain ASCII (straight quotes, no emoji, no dashes other than -). An email may be a few short lines. For a call, the 2-3 points to raise. Empty string for "wait" or "close". Never mention internal notes, costs or margins.
+- "visit" steps: a preliminary with no visit should be offered one. When real open slots are listed above, offer ONE of them by its day and time ("we have an opening Thursday at 2pm, want me to hold it?"). Say you will be in the area only for a slot marked as next to another visit. Never offer a time that isn't listed. A measured quote whose customer was measured at home but has not been in the store: invite them to the showroom to see and touch the floor before deciding. Seen in the store but never measured: offer the measure.
+- "signals", about the CUSTOMER's own messages only (false when unsure): buyingQuestion = asked about price, timing, install dates or availability; namedDate = named a day or window for the work or a visit; competitor = mentioned another company or another quote; objection = pushed back (price too high, thinking about it, waiting on a partner); commercial = a contractor, business, landlord or multi-unit job; complaint = unhappy with Titan. replyClass is about their LATEST message: "intent" when it asks something or makes a plan, "closer" for thanks / ok / sounds good / will look, "fyi" for information with nothing to answer, "none" when they haven't written since the quote.
 - "nextDay": only when the customer named a time to come back ("next week", "after the holidays", "in March"): the date that means, after today. Otherwise null.`;
 }

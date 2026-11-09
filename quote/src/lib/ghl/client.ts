@@ -309,3 +309,19 @@ export async function calendarEvents(calendarId: string, from: Date, to: Date): 
     .filter((e) => typeof e.id === "string" && e.deleted !== true)
     .map((e) => ({ id: String(e.id), contactId: s(e.contactId), calendarId: s(e.calendarId) ?? calendarId, start: torontoTime(s(e.startTime)), status: (s(e.appointmentStatus) ?? s(e.status))?.toLowerCase() ?? null, title: s(e.title), assignedUserId: s(e.assignedUserId) }));
 }
+
+/**
+ * A calendar's open slots (2026-11-09, the follow-up brief's firm-date offer), GET /calendars/{id}/free-slots.
+ * Read only: it books nothing. Each slot is an ISO time with its offset, as GHL gives it.
+ */
+export async function freeSlots(calendarId: string, from: Date, to: Date): Promise<string[]> {
+  if (!/^[A-Za-z0-9]+$/.test(calendarId)) return [];
+  const data = (await get(`/calendars/${calendarId}/free-slots`, { startDate: String(from.getTime()), endDate: String(to.getTime()), timezone: "America/Toronto" })) as Record<string, unknown>;
+  const out: string[] = [];
+  for (const [k, v] of Object.entries(data ?? {})) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(k) || !v || typeof v !== "object") continue;
+    const slots = (v as { slots?: unknown }).slots;
+    if (Array.isArray(slots)) for (const x of slots) if (typeof x === "string" && !Number.isNaN(Date.parse(x))) out.push(x);
+  }
+  return out.sort();
+}
