@@ -7,7 +7,7 @@ import { autoFollowUpsAction, briefAction, followedUpAction, lostAction, postpon
 import { ConversationDrawer } from "@/components/Conversation";
 import type { Brief, StepKind } from "@/lib/followup/brief";
 import { SNOOZE_CHOICES, type Bucket } from "@/lib/followup/plan";
-import { TIER_WORDS } from "@/lib/followup/score";
+import { NEEDS_YOU_AT, TIER_WORDS, WATCH_AT } from "@/lib/followup/score";
 import type { FollowUpPage, FollowUpResult, FollowUpRow } from "@/lib/quotes/followup";
 
 const SECTIONS: { bucket: Bucket; title: string; empty: string }[] = [
@@ -423,6 +423,12 @@ function ScoreChip({ row }: { row: FollowUpRow }) {
     <span className={`fu-score ${s.tier}`} title={`Score ${s.score} of 100, roughly the chance this closes. ${s.reasons.join(" · ")}`}>
       <span className="fu-score-n">{s.score}</span>
       <span className="fu-score-t">{TIER_WORDS[s.tier]}</span>
+      {/* The score as a bar (Albert, 2026-11-09), with marks where Watch and Needs you start. Width is the one inline style. */}
+      <span className="fu-bar" role="progressbar" aria-valuenow={s.score} aria-valuemin={0} aria-valuemax={100} aria-label={`Intent score ${s.score} of 100, ${TIER_WORDS[s.tier]}`}>
+        <span className="fu-bar-fill" style={{ width: `${s.score}%` }} />
+        <span className="fu-bar-tick" style={{ left: `${WATCH_AT}%` }} title={`Watch from ${WATCH_AT}`} />
+        <span className="fu-bar-tick" style={{ left: `${NEEDS_YOU_AT}%` }} title={`Needs you from ${NEEDS_YOU_AT}`} />
+      </span>
       <span className="fu-score-why">{s.reasons.join(" · ")}</span>
     </span>
   );

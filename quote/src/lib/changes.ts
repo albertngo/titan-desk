@@ -22,6 +22,12 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-09",
+    kind: "changed",
+    title: "Follow up: the score as a bar",
+    details: ["Each quote's score now shows as a bar under the number, with marks where Watch (8) and Needs you (20) start, so you can see how close it is to moving up."],
+  },
+  {
+    date: "2026-11-09",
     kind: "new",
     title: "Follow up: send measured follow-ups from the app",
     details: [
