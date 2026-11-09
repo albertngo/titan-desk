@@ -407,6 +407,7 @@ function linesOf(messages: Message[], sentAt: string): ThreadLine[] {
       body: m.body,
       subject: m.subject,
       callSeconds: m.callSeconds,
+      status: m.status,
     }));
 }
 

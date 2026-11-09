@@ -22,6 +22,16 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-09",
+    kind: "changed",
+    title: "Follow up: quotes that didn't arrive or weren't opened",
+    details: [
+      "A quote whose email or text GHL marks as not delivered goes straight to Needs you, so you can check the email or number and resend.",
+      "A measured quote nobody has opened 4 days after sending goes to Needs you, and the brief suggests a call with a backup text that states the total. An unopened preliminary stays with GHL's texts.",
+      "When the brief offers an open measure slot, it no longer says we're in the area. It names the customer's place only if they mentioned it in the conversation.",
+    ],
+  },
+  {
+    date: "2026-11-09",
     kind: "new",
     title: "Follow up: a score, and preliminaries on auto",
     details: [

@@ -1,8 +1,9 @@
 /**
  * The firm-date offer (Albert, 2026-11-09: "a firm date offered saying something like 'we have an opening and I happen
  * to be in the area'"). Pure: from the in-home calendar's real open slots and the visits already booked, the few the
- * brief may offer. A slot is `near` when it starts within NEAR_HOURS of another booked visit's start that day, so
- * "in the area" is only said when we already have a visit going. Tested in tests/followup.score.test.ts.
+ * brief may offer. A slot is `near` when it starts within NEAR_HOURS of another booked visit's start that day. It only
+ * orders the slots (fewer drives): the brief never claims we are "in the area", because the address on file is often
+ * wrong (Albert, 2026-11-09); it names the customer's place only when the conversation does. Tested in tests/followup.score.test.ts.
  */
 
 export const SLOT_DAYS = 7;

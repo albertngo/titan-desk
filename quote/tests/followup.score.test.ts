@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { curve, DAILY_CAP, HOT_AT, NEEDS_YOU_AT, overCap, scoreOf, staysAuto, twoWay, type ScoreInput, type ScoreMessage, type Signals } from "../src/lib/followup/score";
 import { pickSlots } from "../src/lib/followup/slots";
-import { cleanBrief } from "../src/lib/followup/brief";
+import { briefPrompt, cleanBrief } from "../src/lib/followup/brief";
 import { emptyState, parseState, serializeState, withAlerted } from "../src/lib/followup/plan";
 import { visitedWhere } from "../src/lib/followup/visit";
 
@@ -201,5 +201,42 @@ describe("firm-date slots", () => {
   });
   it("offers nothing when the calendar has nothing", () => {
     expect(pickSlots([], [], now, day)).toEqual([]);
+  });
+});
+
+describe("round 2 (2026-11-09): undelivered, unopened, honest wording", () => {
+  it("flags a quote GHL says never arrived, and clears it once one gets through or they write", () => {
+    const failed = msg("2026-11-01", "out", { channel: "email", status: "failed", at: at("2026-11-01", 16) });
+    expect(scoreOf(input({ messages: [failed] })).flags).toContain("undelivered");
+    expect(scoreOf(input({ messages: [failed] })).hot).toBe(true);
+    expect(scoreOf(input({ messages: [failed, msg("2026-11-02", "out", { channel: "email", status: "delivered" })] })).flags).not.toContain("undelivered");
+    expect(scoreOf(input({ messages: [failed, msg("2026-11-02", "in")] })).flags).not.toContain("undelivered");
+    // A text that got through doesn't clear a failed email.
+    expect(scoreOf(input({ messages: [failed, msg("2026-11-02", "out", { status: "delivered" })] })).flags).toContain("undelivered");
+  });
+
+  it("a measured quote unopened at day 4 needs a person, not an alarm; day 3, opened, or a reply doesn't", () => {
+    const m = (today: string, o: Partial<ScoreInput> = {}) => scoreOf(input({ preliminary: false, now: new Date(at(today)), ...o }));
+    expect(m("2026-11-05").flags).toContain("unopened");
+    expect(m("2026-11-05").tier).toBe("needs");
+    expect(m("2026-11-05").hot).toBe(false);
+    expect(m("2026-11-04").flags).not.toContain("unopened");
+    expect(m("2026-11-05", { opens: 1, lastOpened: at("2026-11-02") }).flags).not.toContain("unopened");
+    expect(m("2026-11-05", { messages: [msg("2026-11-03", "in")] }).flags).not.toContain("unopened");
+  });
+
+  it("an unopened preliminary stays with GHL's drip: a reason, never a flag", () => {
+    const s = scoreOf(input({ now: new Date(at("2026-11-09")) }));
+    expect(s.flags).toEqual([]);
+    expect(s.tier).toBe("auto");
+    expect(s.reasons).toContain("not opened yet");
+  });
+
+  it("the brief may not claim we're in the area, and marks a message that didn't arrive", () => {
+    const facts = { today: "2026-11-09", customer: "Test", quoteNumber: "Q-1", basis: "Preliminary", sentDay: "2026-11-01", age: 8, validUntil: null, opens: 0, lastOpened: null, options: [], sender: "Sam", typicalCloseDay: 12, scheduleDays: [3, 10, 21], postponedTo: null, loggedHere: [], visit: "No visit yet", openSlots: [{ label: "Thursday, Nov. 12, 2:00 p.m.", near: true }] };
+    const p = briefPrompt(facts, [{ id: "m1", at: at("2026-11-01"), who: "staff", channel: "email", body: "Your quote", status: "failed" }]);
+    expect(p).toMatch(/Never say "in the area"/);
+    expect(p).not.toMatch(/next to another visit/);
+    expect(p).toMatch(/\[NOT DELIVERED\]/);
   });
 });

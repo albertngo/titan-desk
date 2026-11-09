@@ -63,19 +63,42 @@ export const OPENED_RECENTLY_DAYS = 3;
 export type Tier = "needs" | "watch" | "auto";
 export const TIER_WORDS: Record<Tier, string> = { needs: "Needs you", watch: "Watch", auto: "Auto" };
 
-export type HardFlag = "buying" | "objection" | "big" | "cold" | "complaint";
+export type HardFlag = "buying" | "objection" | "big" | "cold" | "complaint" | "undelivered" | "unopened";
 export const FLAG_WORDS: Record<HardFlag, string> = {
   buying: "asked about price, dates or availability",
   objection: "named a competitor or pushed back",
   big: "large or commercial job",
   cold: "went quiet after a long conversation",
   complaint: "unhappy with us",
+  undelivered: "the quote didn't arrive: check the email or number",
+  unopened: "measured quote not opened after 4 days",
 };
+/** GHL message statuses that mean it never reached them (2026-11-09: "Yes, flag it"). */
+export const UNDELIVERED = /^(failed|undelivered|bounced?|error|rejected)$/;
+/** A measured quote unopened this many days after sending needs a person (GHL's measured text goes at day 2). */
+export const UNOPENED_MEASURED_DAYS = 4;
 
 /** What the brief reads in the conversation (src/lib/followup/brief.ts). Null when no current brief has them. */
 export type Signals = NonNullable<Brief["signals"]>;
 
-export type ScoreMessage = { direction: "in" | "out"; channel: string; automated: boolean; at: string | null; callSeconds: number | null };
+export type ScoreMessage = { direction: "in" | "out"; channel: string; automated: boolean; at: string | null; callSeconds: number | null; status?: string | null };
+
+/**
+ * A message of ours since the quote went that GHL says never arrived, with nothing since to show it got through: no
+ * later delivered message on that channel, and no word from the customer.
+ */
+export function undelivered(messages: ScoreMessage[], sentAt: string, day: (s: string | Date) => string): boolean {
+  const from = day(sentAt);
+  const ours = messages.filter((m) => m.at && day(m.at) >= from && m.direction === "out" && m.channel !== "note" && m.channel !== "activity" && m.channel !== "call");
+  const failed = ours.filter((m) => UNDELIVERED.test((m.status ?? "").toLowerCase()));
+  if (!failed.length) return false;
+  return failed.some((f) => {
+    const after = (m: ScoreMessage) => (m.at as string) > (f.at as string);
+    const replied = messages.some((m) => m.direction === "in" && m.at && after(m));
+    const gotThrough = ours.some((m) => m.channel === f.channel && after(m) && !UNDELIVERED.test((m.status ?? "").toLowerCase()));
+    return !replied && !gotThrough;
+  });
+}
 
 export type ScoreInput = {
   /** The contact's thread (GHL), from a month before the quote was sent on; null when GHL couldn't be read. */
@@ -200,11 +223,18 @@ export function scoreOf(i: ScoreInput): Score {
   if ((i.value != null && i.value >= TOP_VALUE) || sig?.commercial) flags.push("big");
   if (touches >= COLD_AFTER_TOUCHES && tw.lastTheirs && days(i.torontoDay(tw.lastTheirs), today) >= COLD_AFTER_DAYS && !waiting) flags.push("cold");
   if (sig?.complaint) flags.push("complaint");
+  if (i.messages && undelivered(i.messages, i.sentAt, i.torontoDay)) flags.push("undelivered");
+  const age = days(i.torontoDay(i.sentAt), today);
+  const wroteSince = Boolean(tw.lastTheirs && tw.lastTheirs > i.sentAt);
+  if (!i.preliminary && i.opens === 0 && age >= UNOPENED_MEASURED_DAYS && !wroteSince) flags.push("unopened");
+  // An unopened preliminary is GHL's drip's (Albert, 2026-11-09: "GHL only, app never"): a reason, never a flag.
+  if (i.preliminary && i.opens === 0 && age >= 3) reasons.push({ w: 4, text: "not opened yet" });
 
   let tier: Tier = flags.length || score >= NEEDS_YOU_AT ? "needs" : score >= WATCH_AT ? "watch" : "auto";
   // A measured quote always has a person on it (Albert, 2026-11-09): the score orders it, it never runs on its own.
   if (!i.preliminary && tier === "auto") tier = "watch";
-  const hot = tier === "needs" && (score >= HOT_AT || flags.length > 0);
+  // Hot = a WhatsApp. An unopened measured quote is a person's job today, not an alarm.
+  const hot = tier === "needs" && (score >= HOT_AT || flags.some((f) => f !== "unopened"));
   const top = [...flags.map((f) => ({ w: 100, text: FLAG_WORDS[f] })), ...reasons].sort((a, b) => b.w - a.w).map((r) => r.text);
   return { score, tier, reasons: [...new Set(top)].slice(0, 3), flags, hot, touches };
 }

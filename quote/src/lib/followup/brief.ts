@@ -44,7 +44,7 @@ export type Brief = {
   model: string;
 };
 
-export type ThreadLine = { at: string | null; who: "customer" | "staff" | "automated" | "note"; channel: string; body: string | null; subject?: string | null; callSeconds?: number | null; id: string };
+export type ThreadLine = { at: string | null; who: "customer" | "staff" | "automated" | "note"; channel: string; body: string | null; subject?: string | null; callSeconds?: number | null; id: string; status?: string | null };
 
 /**
  * What a kept brief was written from: the newest thing in the thread, the opens, the follow-ups logged here, and the
@@ -161,7 +161,8 @@ export function briefPrompt(f: BriefFacts, lines: ThreadLine[]): string {
       const when = l.at ? l.at.slice(0, 16).replace("T", " ") : "?";
       const call = l.channel === "call" ? ` (call, ${l.callSeconds ? `${Math.round(l.callSeconds / 60)} min` : "not connected"})` : "";
       const body = [l.subject ? `Subject: ${l.subject}` : "", l.body ?? ""].filter(Boolean).join(" | ").replace(/\s+/g, " ").slice(0, 900);
-      return `[${when}] ${whoWords[l.who]} via ${l.channel}${call}: ${body || "(no text)"}`;
+      const failed = l.who !== "customer" && /^(failed|undelivered|bounced?|error|rejected)$/.test((l.status ?? "").toLowerCase()) ? " [NOT DELIVERED]" : "";
+      return `[${when}] ${whoWords[l.who]} via ${l.channel}${call}${failed}: ${body || "(no text)"}`;
     })
     .join("\n");
   const opts = f.options.length ? f.options.map((o) => `- ${o.name}${o.total != null ? `: ${money(o.total)} with HST` : ""}`).join("\n") : "- (no priced option)";
@@ -178,7 +179,7 @@ QUOTE
 - The customer has opened the quote link ${f.opens} time${f.opens === 1 ? "" : "s"}${f.lastOpened ? `, last on ${f.lastOpened.slice(0, 10)}` : ""}.
 - Options:
 ${opts}
-${f.visitedWhere?.length ? `- Visits that went ahead: ${f.visitedWhere.join(", ")}. A customer seen both at home and in the store closes about 4 in 5; home only or store only, about 1 in 4.\n` : ""}${f.openSlots?.length ? `- Real open in-home measure slots (GHL calendar): ${f.openSlots.map((x) => `${x.label}${x.near ? " (next to another visit we have that day)" : ""}`).join("; ")}\n` : ""}${f.postponedTo ? `- Postponed: the customer asked to be followed up around ${f.postponedTo}.\n` : ""}${f.loggedHere.length ? `- Follow-ups staff logged outside GHL: ${f.loggedHere.map((t) => `${t.at.slice(0, 10)}${t.note ? ` (${t.note})` : ""}`).join("; ")}\n` : ""}
+${f.visitedWhere?.length ? `- Visits that went ahead: ${f.visitedWhere.join(", ")}. A customer seen both at home and in the store closes about 4 in 5; home only or store only, about 1 in 4.\n` : ""}${f.openSlots?.length ? `- Real open in-home measure slots (GHL calendar): ${f.openSlots.map((x) => `${x.label}${x.near ? " (we already have a visit that day)" : ""}`).join("; ")}\n` : ""}${f.postponedTo ? `- Postponed: the customer asked to be followed up around ${f.postponedTo}.\n` : ""}${f.loggedHere.length ? `- Follow-ups staff logged outside GHL: ${f.loggedHere.map((t) => `${t.at.slice(0, 10)}${t.note ? ` (${t.note})` : ""}`).join("; ")}\n` : ""}
 CONVERSATION (oldest first; internal notes are never seen by the customer)
 ${thread || "(no messages)"}
 
@@ -199,7 +200,9 @@ Rules:
 - "asked": at most 5, newest first; [] when there are none. "answered" is true only if a Titan reply in the thread answers it.
 - "step": "call" for a warm customer with open questions or a large job; "text" for a quick nudge; "email" when they wrote by email; "visit" to book a measure or store visit (preliminaries); "wait" when the customer said when to come back and that day hasn't come; "close" when they clearly said no or went elsewhere.
 - "draft": written as ${f.sender ? `the person who sent the quote (${f.sender}), signed with their first name` : "Titan staff, signed with a first name placeholder [Name]"}. Warm, short and specific to what they said. A text is under 300 characters, plain ASCII (straight quotes, no emoji, no dashes other than -). An email may be a few short lines. For a call, the 2-3 points to raise. Empty string for "wait" or "close". Never mention internal notes, costs or margins.
-- "visit" steps: a preliminary with no visit should be offered one. When real open slots are listed above, offer ONE of them by its day and time ("we have an opening Thursday at 2pm, want me to hold it?"). Say you will be in the area only for a slot marked as next to another visit. Never offer a time that isn't listed. A measured quote whose customer was measured at home but has not been in the store: invite them to the showroom to see and touch the floor before deciding. Seen in the store but never measured: offer the measure.
+- "visit" steps: a preliminary with no visit should be offered one. When real open slots are listed above, offer ONE of them by its day and time, preferring one where we already have a visit that day: "We have an opening Thursday, Nov 12 at 2pm. Want me to hold it for you?". Never say "in the area", "nearby", "close by" or name a city or neighbourhood, unless the CONVERSATION itself (a message or a call summary) says where the customer is; then only their place as they said it ("for your place in Markham"), never a claim about where we are or our route. The address on file is often wrong. Never offer a time that isn't listed. A measured quote whose customer was measured at home but has not been in the store: invite them to the showroom to see and touch the floor before deciding. Seen in the store but never measured: offer the measure.
+- A MEASURED quote the customer has never opened (0 opens) and hasn't written about since it went: the step is "call", with 2-3 points (did it arrive, the total, what's included, the next step); the draft is a backup text that states the total in the message, so they don't need the link.
+- If a Titan message carrying the quote shows as failed or undelivered, the step is "call": confirm their email and number, then resend.
 - "signals", about the CUSTOMER's own messages only (false when unsure): buyingQuestion = asked about price, timing, install dates or availability; namedDate = named a day or window for the work or a visit; competitor = mentioned another company or another quote; objection = pushed back (price too high, thinking about it, waiting on a partner); commercial = a contractor, business, landlord or multi-unit job; complaint = unhappy with Titan. replyClass is about their LATEST message: "intent" when it asks something or makes a plan, "closer" for thanks / ok / sounds good / will look, "fyi" for information with nothing to answer, "none" when they haven't written since the quote.
 - "nextDay": only when the customer named a time to come back ("next week", "after the holidays", "in March"): the date that means, after today. Otherwise null.`;
 }
