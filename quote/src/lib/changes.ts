@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-09",
     kind: "changed",
+    title: "Follow up: briefs stay fresh on their own",
+    details: ["A brief is now rewritten every day, even when nothing new happened, so the age, open slots and next step stay current. Every hour during the day the app also rewrites stale briefs for quotes that are due or coming up, so they're ready when you open the page."],
+  },
+  {
+    date: "2026-11-09",
+    kind: "changed",
     title: "Follow up: Snoozed has its own tab",
     details: ["Snoozed quotes moved out of the main list into a Snoozed tab at the top of Follow up, with its count. They still come back on their own when the snooze ends or the customer writes."],
   },
