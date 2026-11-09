@@ -21,6 +21,12 @@ export type Change = {
 
 export const CHANGES: Change[] = [
   {
+    date: "2026-11-09",
+    kind: "new",
+    title: "Payment schedule: 100% paid in full",
+    details: ["The payment schedule in the editor has a new choice, 100% (paid in full): one payment of the whole total on acceptance, by e-transfer. You can still change its words and how it is paid."],
+  },
+  {
     date: "2026-11-07",
     kind: "changed",
     title: "No going back to preliminary after two measured quotes",
