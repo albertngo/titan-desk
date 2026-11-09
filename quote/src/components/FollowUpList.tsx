@@ -70,6 +70,8 @@ export function FollowUpList({ data }: { data: FollowUpPage }) {
     Object.fromEntries(data.rows.map((r) => [r.quoteRecordId, { brief: r.brief, busy: false, error: null, stale: r.briefStale }])),
   );
 
+  // Snoozed lives in its own tab, out of the way (Albert, 2026-11-09).
+  const [tab, setTab] = useState<"list" | "snoozed">("list");
   const shown = useMemo(() => (who === EVERYONE ? data.rows : data.rows.filter((r) => r.ownerName === who)), [who, data.rows]);
   const visitsShown = (data.visits ?? []).filter((v) => who === EVERYONE || v.visitorName === who);
   const dueOf = (name: string) =>
@@ -167,6 +169,14 @@ export function FollowUpList({ data }: { data: FollowUpPage }) {
             </button>
           </div>
         )}
+        <div className="fu-tabs" role="tablist" aria-label="Follow up views">
+          <button type="button" role="tab" className="ql-f" aria-selected={tab === "list"} aria-pressed={tab === "list"} onClick={() => setTab("list")}>
+            To follow up
+          </button>
+          <button type="button" role="tab" className="ql-f" aria-selected={tab === "snoozed"} aria-pressed={tab === "snoozed"} onClick={() => setTab("snoozed")}>
+            Snoozed <span className="n">{shown.filter((r) => r.due.bucket === "snoozed").length}</span>
+          </button>
+        </div>
         <div className="fu-cols" aria-hidden>
           <span>Customer · in conversation with</span>
           <span>Why it&apos;s due</span>
@@ -174,7 +184,7 @@ export function FollowUpList({ data }: { data: FollowUpPage }) {
         </div>
         {/* Visited, no quote yet (2026-11-07): the visits still owed a measured quote, above everything else. */}
         {data.visits === null && data.ghlOn && <p className="fu-warn fu-pad">GHL&apos;s calendars couldn&apos;t be read, so visits without a quote aren&apos;t shown.</p>}
-        {visitsShown.length > 0 && (
+        {tab === "list" && visitsShown.length > 0 && (
           <div className="fu-sec visits">
             <h2 className="fu-h">
               Visited, no quote yet <span className="n">{visitsShown.length}</span>
@@ -218,9 +228,9 @@ export function FollowUpList({ data }: { data: FollowUpPage }) {
             ))}
           </div>
         )}
-        {SECTIONS.map((s) => {
+        {SECTIONS.filter((s) => (tab === "snoozed" ? s.bucket === "snoozed" : s.bucket !== "snoozed")).map((s) => {
           const rows = shown.filter((r) => r.due.bucket === s.bucket);
-          if (s.bucket !== "due" && rows.length === 0) return null;
+          if (s.bucket !== "due" && s.bucket !== "snoozed" && rows.length === 0) return null;
           return (
             <div key={s.bucket} className={`fu-sec ${s.bucket}`}>
               <h2 className="fu-h">
@@ -262,7 +272,7 @@ export function FollowUpList({ data }: { data: FollowUpPage }) {
           );
         })}
         {/* Preliminaries GHL's texts are handling (2026-11-09): folded; each comes back up the moment it needs a person. */}
-        {autoRows.length > 0 && (
+        {tab === "list" && autoRows.length > 0 && (
           <div className="fu-sec auto">
             <h2 className="fu-h">
               <button type="button" className="linkbtn" aria-expanded={autoOpen} onClick={() => setAutoOpen((o) => !o)}>
