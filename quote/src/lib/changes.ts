@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-09",
     kind: "changed",
+    title: "Follow up: confirm before a follow-up goes out",
+    details: ["Send text and Send email now open a preview first: who it goes to, that it comes from your own number or address, and the exact message. Nothing is sent until you press Send now."],
+  },
+  {
+    date: "2026-11-09",
+    kind: "changed",
     title: "Follow up: the score as a bar",
     details: ["Each quote's score now shows as a bar under the number, with marks where Watch (8) and Needs you (20) start, so you can see how close it is to moving up."],
   },
