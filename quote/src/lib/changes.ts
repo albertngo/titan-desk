@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-09",
     kind: "changed",
+    title: "Follow up: Snoozed has its own tab",
+    details: ["Snoozed quotes moved out of the main list into a Snoozed tab at the top of Follow up, with its count. They still come back on their own when the snooze ends or the customer writes."],
+  },
+  {
+    date: "2026-11-09",
+    kind: "changed",
     title: "Follow up: confirm before a follow-up goes out",
     details: ["Send text and Send email now open a preview first: who it goes to, that it comes from your own number or address, and the exact message. Nothing is sent until you press Send now."],
   },
