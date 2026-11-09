@@ -22,6 +22,17 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-09",
+    kind: "new",
+    title: "Follow up: send measured follow-ups from the app",
+    details: [
+      "On a measured quote, the brief's draft is now a box you can edit, with Send text or Send email. It goes from you into the customer's GHL conversation, on the channel they last used, and counts as a follow-up.",
+      "A draft can't go out with a price that isn't on the quote.",
+      "A measured quote the customer opened without replying comes up the next day, and one they keep reopening without replying goes to Needs you.",
+      "Each measured quote has an Auto follow-ups box. The app sends nothing on its own yet: the line at the top counts what's been sent and says when it's ready for Albert to turn automatic sending on.",
+    ],
+  },
+  {
+    date: "2026-11-09",
     kind: "changed",
     title: "Follow up: quotes that didn't arrive or weren't opened",
     details: [

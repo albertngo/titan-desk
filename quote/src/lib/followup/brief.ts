@@ -8,6 +8,8 @@
  * contractor: front-desk staff read the brief (decision: "no margin, since staff read it").
  */
 
+import { DRAFT_KINDS, type DraftKind } from "./autosend";
+
 export const STEP_KINDS = ["call", "text", "email", "visit", "wait", "close"] as const;
 export type StepKind = (typeof STEP_KINDS)[number];
 
@@ -19,6 +21,10 @@ export type Brief = {
   step: { kind: StepKind; why: string };
   /** The message for that step, in our voice, for staff to copy into GHL. Empty for wait / close. */
   draft: string;
+  /** What the draft is for (2026-11-09, round 3); only check-ins and nudges may ever go out on their own. */
+  draftKind?: DraftKind | null;
+  /** For an email draft, its subject. */
+  subject?: string | null;
   /** The day the customer named ("next week"), as a date, and the words it came from; null when they named none. */
   nextDay: string | null;
   nextQuote: string | null;
@@ -85,6 +91,8 @@ export function cleanBrief(raw: unknown, meta: { basedOn: string; at: string; mo
     nextQuote: nextDay ? clip(d.nextQuote, 160) || null : null,
     // Only one of GHL's own reasons, word for word, and only when the step is to close it out.
     signals: cleanSignals(d.signals),
+    draftKind: draft && (DRAFT_KINDS as readonly string[]).includes(String(d.draftKind)) ? (d.draftKind as DraftKind) : null,
+    subject: kind === "email" && draft ? clip(d.subject, 120) || null : null,
     ...(kind === "close" && typeof d.lostReason === "string" && (!meta.lostReasons || meta.lostReasons.includes(d.lostReason)) ? { lostReason: clip(d.lostReason, 120) } : {}),
     basedOn: meta.basedOn,
     at: meta.at,
@@ -150,6 +158,10 @@ export type BriefFacts = {
    * in the area"), from GHL's calendar. `near` = right next to another visit booked that day. Never invented.
    */
   openSlots?: { label: string; near: boolean }[];
+  /** The channel the app would send on (2026-11-09: their last one, else a text); the draft is written for it. */
+  channel?: "sms" | "email" | null;
+  /** How many follow-ups the app already sent on this quote. */
+  appSent?: number;
 };
 
 const money = (n: number) => `$${Math.round(n).toLocaleString("en-CA")}`;
@@ -189,6 +201,8 @@ Write the brief as ONE JSON object and nothing else:
   "asked": [{"text": "what the customer asked or pushed back on", "answered": true or false}],
   "step": {"kind": "call" | "text" | "email" | "visit" | "wait" | "close", "why": "one sentence"},
   "draft": "the message for that step, ready to send",
+  "draftKind": "checkin" | "opened" | "nudge" | "slot" | "call" | "other",
+  "subject": "only when step is email: a short subject, else null",
   "nextDay": "YYYY-MM-DD or null",
   "nextQuote": "the customer's exact words that gave nextDay, or null",
   "lostReason": "only when step is close: exactly one of ${(f.lostReasons ?? []).map((r) => JSON.stringify(r)).join(", ") || "(none)"}, else null",
@@ -203,6 +217,7 @@ Rules:
 - "visit" steps: a preliminary with no visit should be offered one. When real open slots are listed above, offer ONE of them by its day and time, preferring one where we already have a visit that day: "We have an opening Thursday, Nov 12 at 2pm. Want me to hold it for you?". Never say "in the area", "nearby", "close by" or name a city or neighbourhood, unless the CONVERSATION itself (a message or a call summary) says where the customer is; then only their place as they said it ("for your place in Markham"), never a claim about where we are or our route. The address on file is often wrong. Never offer a time that isn't listed. A measured quote whose customer was measured at home but has not been in the store: invite them to the showroom to see and touch the floor before deciding. Seen in the store but never measured: offer the measure.
 - A MEASURED quote the customer has never opened (0 opens) and hasn't written about since it went: the step is "call", with 2-3 points (did it arrive, the total, what's included, the next step); the draft is a backup text that states the total in the message, so they don't need the link.
 - If a Titan message carrying the quote shows as failed or undelivered, the step is "call": confirm their email and number, then resend.
+- MEASURED quotes are followed up by the app itself${f.channel ? `, by ${f.channel === "email" ? "email" : "text"}` : ""}${f.appSent ? ` (it has sent ${f.appSent} so far)` : ""}. Use step "${f.channel === "email" ? "email" : "text"}" for a routine message and write the draft for that channel. "draftKind": "checkin" for the first follow-up a couple of days after it went ("any questions on the quote so far?" when it has been opened; "just checking the quote came through OK" when it has 0 opens); "opened" for the day after they opened it with no reply (offer to go through the options or answer questions; NEVER say or hint that we saw them open it); "nudge" for a later gentle follow-up; "slot" when offering a visit time; "call" for call points; "other" for anything else. Any dollar amount in a draft must be one of the option totals listed above, exactly; never a new price, discount, deposit, date or promise.
 - "signals", about the CUSTOMER's own messages only (false when unsure): buyingQuestion = asked about price, timing, install dates or availability; namedDate = named a day or window for the work or a visit; competitor = mentioned another company or another quote; objection = pushed back (price too high, thinking about it, waiting on a partner); commercial = a contractor, business, landlord or multi-unit job; complaint = unhappy with Titan. replyClass is about their LATEST message: "intent" when it asks something or makes a plan, "closer" for thanks / ok / sounds good / will look, "fyi" for information with nothing to answer, "none" when they haven't written since the quote.
 - "nextDay": only when the customer named a time to come back ("next week", "after the holidays", "in March"): the date that means, after today. Otherwise null.`;
 }

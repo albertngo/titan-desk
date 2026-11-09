@@ -63,7 +63,7 @@ export const OPENED_RECENTLY_DAYS = 3;
 export type Tier = "needs" | "watch" | "auto";
 export const TIER_WORDS: Record<Tier, string> = { needs: "Needs you", watch: "Watch", auto: "Auto" };
 
-export type HardFlag = "buying" | "objection" | "big" | "cold" | "complaint" | "undelivered" | "unopened";
+export type HardFlag = "buying" | "objection" | "big" | "cold" | "complaint" | "undelivered" | "unopened" | "rereading";
 export const FLAG_WORDS: Record<HardFlag, string> = {
   buying: "asked about price, dates or availability",
   objection: "named a competitor or pushed back",
@@ -72,7 +72,13 @@ export const FLAG_WORDS: Record<HardFlag, string> = {
   complaint: "unhappy with us",
   undelivered: "the quote didn't arrive: check the email or number",
   unopened: "measured quote not opened after 4 days",
+  rereading: "reading it again, no reply yet",
 };
+/** Opens on this many different days, at least this many in all, and no word since the first: they're deciding (2026-11-09). */
+export const REREAD_DAYS = 2;
+export const REREAD_OPENS = 3;
+/** Each open day past the first adds this. */
+export const OPEN_DAY_POINTS = 3;
 /** GHL message statuses that mean it never reached them (2026-11-09: "Yes, flag it"). */
 export const UNDELIVERED = /^(failed|undelivered|bounced?|error|rejected)$/;
 /** A measured quote unopened this many days after sending needs a person (GHL's measured text goes at day 2). */
@@ -112,6 +118,8 @@ export type ScoreInput = {
   value: number | null;
   opens: number;
   lastOpened: string | null;
+  /** The Toronto days it was opened on (from the version's Activity Log), oldest first. */
+  openDays?: readonly string[];
   signals: Signals | null;
   /** The day the customer named ("next week"), from a current brief. */
   namedDay: string | null;
@@ -191,6 +199,11 @@ export function scoreOf(i: ScoreInput): Score {
     s += POINTS.openedRecently;
     reasons.push({ w: POINTS.openedRecently, text: "opened the quote this week" });
   }
+  const openDays = [...new Set(i.openDays ?? [])].sort();
+  if (openDays.length > 1) {
+    s += OPEN_DAY_POINTS * (openDays.length - 1);
+    reasons.push({ w: 6, text: `opened on ${openDays.length} days` });
+  }
   const unanswered = Boolean(tw.lastTheirs && (!tw.lastOurs || tw.lastTheirs > tw.lastOurs));
   if (i.signals?.replyClass === "intent" && unanswered) {
     s += POINTS.intentReply;
@@ -227,6 +240,8 @@ export function scoreOf(i: ScoreInput): Score {
   const age = days(i.torontoDay(i.sentAt), today);
   const wroteSince = Boolean(tw.lastTheirs && tw.lastTheirs > i.sentAt);
   if (!i.preliminary && i.opens === 0 && age >= UNOPENED_MEASURED_DAYS && !wroteSince) flags.push("unopened");
+  const wroteSinceOpen = Boolean(openDays[0] && tw.lastTheirs && i.torontoDay(tw.lastTheirs) >= openDays[0]);
+  if (openDays.length >= REREAD_DAYS && i.opens >= REREAD_OPENS && !wroteSinceOpen) flags.push("rereading");
   // An unopened preliminary is GHL's drip's (Albert, 2026-11-09: "GHL only, app never"): a reason, never a flag.
   if (i.preliminary && i.opens === 0 && age >= 3) reasons.push({ w: 4, text: "not opened yet" });
 

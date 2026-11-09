@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { briefAction, followedUpAction, lostAction, postponeAction, snoozeAction } from "@/app/follow-up/actions";
+import { autoFollowUpsAction, briefAction, followedUpAction, lostAction, postponeAction, sendFollowUpAction, snoozeAction } from "@/app/follow-up/actions";
 import { ConversationDrawer } from "@/components/Conversation";
 import type { Brief, StepKind } from "@/lib/followup/brief";
 import { SNOOZE_CHOICES, type Bucket } from "@/lib/followup/plan";
@@ -148,6 +148,13 @@ export function FollowUpList({ data }: { data: FollowUpPage }) {
           {!data.ghlOn && <p className="fu-warn">GHL isn&apos;t connected here, so only &quot;I followed up&quot; counts and the GHL buttons are off.</p>}
           {data.ghlOn && !data.lostReasons?.length && <p className="fu-warn">GHL&apos;s lost reasons couldn&apos;t be read, so Lost is off for now. Mark a lost quote in GHL, or reload in a moment.</p>}
           {!data.briefsOn && <p className="fu-warn">Briefs aren&apos;t set up on this deployment (the Claude key isn&apos;t set).</p>}
+          {/* The Stage 2 report (2026-11-09): Albert switches automatic sending on when this says ready. */}
+          <p className="fu-sending" title="Measured follow-ups sent from the app with Send. Automatic sending is Albert's switch.">
+            Sent from the app: {data.sending.taps}
+            {data.sending.taps ? `, ${Math.round(data.sending.share * 100)}% as written` : ""}
+            {" · "}
+            {data.sending.autoOn ? "automatic sending is on" : data.sending.ready ? "ready for automatic sending: ask Albert" : `automatic sending after 30 sent with 80% as written`}
+          </p>
         </div>
         {result && (
           <div className={`fu-result${result.ok ? "" : " bad"}`} role="status">
@@ -244,6 +251,8 @@ export function FollowUpList({ data }: { data: FollowUpPage }) {
                   onCopyDraft={(text) => copy(`draft:${r.quoteRecordId}`, text, "Copy the draft:")}
                   onRewrite={() => askBrief(r, true)}
                   onConv={() => openConv(r)}
+                  onSend={(text, subject) => run(r, () => sendFollowUpAction(r.quoteRecordId, r.seen, text, subject))}
+                  onAuto={(on) => run(r, () => autoFollowUpsAction(r.quoteRecordId, r.seen, on))}
                 />
                     ))}
                   </div>
@@ -315,6 +324,8 @@ function Row(p: {
   onCopyDraft: (text: string) => void;
   onRewrite: () => void;
   onConv: () => void;
+  onSend: (text: string, subject: string | null) => void;
+  onAuto: (on: boolean) => void;
 }) {
   const { row, today, busy } = p;
   const r = row.due.reason.kind;
@@ -361,7 +372,7 @@ function Row(p: {
         {row.state.postpone?.note && <span className="fu-note">Postponed: {row.state.postpone.note}</span>}
         {lastNote && <span className="fu-note">Last note: {lastNote}</span>}
       </div>
-      {p.briefsOn && <BriefBox state={p.brief} row={row} open={p.convOn} copied={p.copied === `draft:${row.quoteRecordId}`} onCopy={p.onCopyDraft} onRewrite={p.onRewrite} />}
+      {p.briefsOn && <BriefBox state={p.brief} row={row} open={p.convOn} busy={busy} copied={p.copied === `draft:${row.quoteRecordId}`} onCopy={p.onCopyDraft} onRewrite={p.onRewrite} onSend={p.onSend} />}
       <div className="fu-acts">
         {row.contactId && (
           <button type="button" className={`btn${p.convOn ? " on" : ""}`} onClick={p.onConv}>
@@ -392,6 +403,11 @@ function Row(p: {
         <button type="button" className="btn" disabled={busy} onClick={() => p.onModal("postpone")}>
           Postpone…
         </button>
+        {!prelim && (
+          <label className="fu-auto" title={row.state.autoOff ? "The app won't send this quote's follow-ups on its own." : row.autoWhy ? `Not on its own right now: ${row.autoWhy}` : "The app may send the next routine follow-up on its own."}>
+            <input type="checkbox" checked={!row.state.autoOff} disabled={busy} onChange={(e) => p.onAuto(e.target.checked)} /> Auto follow-ups
+          </label>
+        )}
         <button type="button" className="btn danger" disabled={busy} onClick={() => p.onModal("lost")}>
           Lost…
         </button>
@@ -413,8 +429,10 @@ function ScoreChip({ row }: { row: FollowUpRow }) {
 }
 
 /** The brief (step 2): where it stands, what they asked, the next step and a draft to copy into GHL. */
-function BriefBox({ state, row, open, copied, onCopy, onRewrite }: { state: BriefState | undefined; row: FollowUpRow; open: boolean; copied: boolean; onCopy: (t: string) => void; onRewrite: () => void }) {
+function BriefBox({ state, row, open, busy, copied, onCopy, onRewrite, onSend }: { state: BriefState | undefined; row: FollowUpRow; open: boolean; busy: boolean; copied: boolean; onCopy: (t: string) => void; onRewrite: () => void; onSend: (text: string, subject: string | null) => void }) {
   const b = state?.brief ?? null;
+  // A measured quote's draft is sent from the app (2026-11-09, round 3): editable, then Send. Preliminaries keep Copy.
+  const sendable = row.basis !== "Preliminary" && Boolean(row.channel) && Boolean(b?.draft);
   // Folded to one line unless this row is the selected one (Albert, 2026-11-07: "make the brief expand only when selected").
   if (b && !open)
     return (
@@ -479,7 +497,8 @@ function BriefBox({ state, row, open, copied, onCopy, onRewrite }: { state: Brie
           </span>
         )}
       </p>
-      {b.draft && (
+      {b.draft && sendable && <SendBox key={`${b.at}|${b.draft}`} draft={b.draft} subject={b.subject ?? ""} email={row.channel === "email"} busy={busy} copied={copied} onCopy={onCopy} onSend={onSend} />}
+      {b.draft && !sendable && (
         <div className="fu-draft">
           <p>{b.draft}</p>
           <div className="fu-draft-acts">
@@ -494,6 +513,27 @@ function BriefBox({ state, row, open, copied, onCopy, onRewrite }: { state: Brie
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** The measured draft, editable, then Send (2026-11-09). Keyed on the brief, so a new brief starts it afresh. */
+function SendBox({ draft, subject: firstSubject, email, busy, copied, onCopy, onSend }: { draft: string; subject: string; email: boolean; busy: boolean; copied: boolean; onCopy: (t: string) => void; onSend: (text: string, subject: string | null) => void }) {
+  const [text, setText] = useState(draft);
+  const [subject, setSubject] = useState(firstSubject);
+  return (
+    <div className="fu-draft send">
+      {email && <input className="in" value={subject} maxLength={120} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" aria-label="Email subject" />}
+      <textarea className="in" rows={email ? 6 : 3} value={text} onChange={(e) => setText(e.target.value)} aria-label="The follow-up to send" />
+      <div className="fu-draft-acts">
+        <button type="button" className="btn small primary" disabled={busy || !text.trim()} onClick={() => onSend(text, email ? subject : null)}>
+          {email ? "Send email" : "Send text"}
+        </button>
+        <span className="fu-brief-meta">From you, in their GHL conversation</span>
+        <button type="button" className="btn small" onClick={() => onCopy(text)}>
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
     </div>
   );
 }

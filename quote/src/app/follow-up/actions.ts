@@ -1,6 +1,6 @@
 "use server";
 
-import { dueCountNow, logTouch, markLost, postponeFollowUp, snoozeFollowUp, writeBrief, type BriefResult, type FollowUpResult } from "@/lib/quotes/followup";
+import { dueCountNow, logTouch, markLost, postponeFollowUp, sendFollowUp, setAutoFollowUps, snoozeFollowUp, writeBrief, type BriefResult, type FollowUpResult } from "@/lib/quotes/followup";
 
 /** The Follow up page's buttons (2026-11-07). Each checks the quoter allowlist inside and re-reads the quote first. */
 
@@ -28,4 +28,14 @@ export async function briefAction(quoteRecordId: string, force: boolean): Promis
 /** The top bar's red count of quotes due now (2026-11-07). */
 export async function dueCountAction(): Promise<number> {
   return dueCountNow();
+}
+
+/** Stage 1 (2026-11-09): send a measured quote's follow-up from the app, as written or edited. */
+export async function sendFollowUpAction(quoteRecordId: string, seen: string, text: string, subject: string | null): Promise<FollowUpResult> {
+  return sendFollowUp(String(quoteRecordId ?? ""), String(seen ?? ""), text, subject);
+}
+
+/** This quote's own Auto follow-ups switch. */
+export async function autoFollowUpsAction(quoteRecordId: string, seen: string, on: boolean): Promise<FollowUpResult> {
+  return setAutoFollowUps(String(quoteRecordId ?? ""), String(seen ?? ""), on === true);
 }
