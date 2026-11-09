@@ -45,7 +45,7 @@ export type StagePart =
 export type PayHow = "etransfer" | "onsite" | "instore" | "cash" | "cashOnsite" | null;
 export const PAY_HOWS: readonly Exclude<PayHow, null>[] = ["etransfer", "onsite", "instore", "cash", "cashOnsite"];
 export type ScheduleStage = { label: string; when: string; part: StagePart; pay: PayHow };
-export type PresetKey = "35-35-30" | "25-25-25-25" | "50-50" | "materials" | "cash" | "custom";
+export type PresetKey = "35-35-30" | "25-25-25-25" | "50-50" | "full" | "materials" | "cash" | "custom";
 export type PaymentSchedule = { preset: PresetKey; stages: ScheduleStage[] };
 
 export const MAX_STAGES = 5;
@@ -89,6 +89,17 @@ export const PRESETS: Record<Exclude<PresetKey, "custom">, { name: string; sched
     schedule: () => ({
       preset: "50-50",
       stages: [stage("Deposit", WHEN.acceptance, { kind: "share", pct: 50 }, "etransfer"), stage("Final payment", WHEN.completion, { kind: "balance" })],
+    }),
+  },
+  /**
+   * Paid in full (Albert, 2026-11-09: "allow for a full payment of 100% to be sent out as an option as well"): one
+   * payment of the whole total on acceptance, by e-transfer. It is the balance stage, so it always comes to 100%.
+   */
+  full: {
+    name: "100% (paid in full)",
+    schedule: () => ({
+      preset: "full",
+      stages: [stage("Full payment", "On acceptance, to secure your materials and your dates", { kind: "balance" }, "etransfer")],
     }),
   },
   /**
@@ -299,7 +310,7 @@ export function scheduleProblems(s: PaymentSchedule): string[] {
 
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
 const text = (v: unknown, max: number) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, max) : "");
-const PRESET_KEYS: readonly PresetKey[] = ["35-35-30", "25-25-25-25", "50-50", "materials", "cash", "custom"];
+const PRESET_KEYS: readonly PresetKey[] = ["35-35-30", "25-25-25-25", "50-50", "full", "materials", "cash", "custom"];
 
 function readPart(raw: unknown): StagePart | null {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
