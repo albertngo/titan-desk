@@ -97,6 +97,7 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
 - Quote Description (Albert, 2026-11-03: "When we are quoting lets say; AMICA Stephen. It is ALWAYS at 200 Kenneth… But a different unit; o…
 - Value, Follow up and the strip on All quotes (Albert, 2026-11-07: "Build value, follow up filter and summary strip").
 - Follow up (Albert, 2026-11-07; vault `05_decisions/2026-11-07-quote-follow-up-worklist`: "a place where we can 'followup'… a brief or a s…
+- The follow-up score (Albert, 2026-11-09; vault `05_decisions/2026-11-07-quote-follow-up-worklist`, addendum 2026-11-09: "handle the preliminaries automatically; notify IF human intervention is best").
 - No section totals for the customer (Albert, 2026-11-07: "can we keep the totals of each Section not shown? it has too many numbers if too…
 - A preliminary's stairs option goes as its words only (Albert, 2026-11-07: "For preliminary stairs; can we NOT put ANY line items in the c…
 - Flooring rates by basis (Albert, 2026-11-07: "On a preliminary; Material section: Rate + qty shown; Other sections: qty only shown. On a …
@@ -137,7 +138,8 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
    `QUOTE_MAKE_GHL_HOOK` / `QUOTE_MAKE_GHL_KEY`, called only from `src/lib/quotes/start.ts`, `src/lib/quotes/booking.ts`, `src/lib/quotes/link.ts`, `src/lib/quotes/send.ts`,
    `src/lib/quotes/address.ts` (Address arrived: the contact's street only, never a site on the opportunity),
    `src/lib/quotes/activity.ts` (internal comments, and the one-off send notes as contact notes), `src/lib/accept/record.ts` (acceptance: Won,
-   cancel, and the acceptance messages) and `src/lib/quotes/billing.ts` (the invoice or receipt email).
+   cancel, and the acceptance messages), `src/lib/quotes/billing.ts` (the invoice or receipt email) and `src/lib/quotes/followup.ts`
+   (Follow up's Lost, Postpone and comments; since 2026-11-09 a measured quote's follow-up text or email, see 2c''').
    Set those two variables only after the scenario is switched on: a request to a scenario
    that is off waits in Make's queue and would run later.
 2c. **A path without a sign-in on the staff app:** `/api/booking`, called by Make 3453735 when an appointment
@@ -171,6 +173,15 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
    `accept.ts` and from `src/lib/accept/staff.ts` (a signed-in quoter: on their behalf, retry, cancel).
    On the customer deployment `src/lib/quotes/acceptClient.ts` is the only reader of the key; it reads no
    Airtable and is reached only from `src/app/c/`.
+2c'''. **A fourth path without a sign-in: `/api/followups` (Albert, 2026-11-09: "I like the app sending out the
+   messages… make this a norm for the measured quote").** Stage 2 of the app's measured follow-ups, called hourly by
+   `.github/workflows/quote-followups.yml`. The route and `runAutoFollowUps()` in `src/lib/quotes/followup.ts` check
+   `QUOTE_FOLLOWUP_KEY` first (constant-time; unset = off), and it sends nothing unless `QUOTE_AUTO_FOLLOWUPS` is exactly
+   `on`, which is Albert's switch, flipped only as a dated vault decision. It sends only a text or an email to the
+   customer (`deliver()`), only rows `autoBlock()` in `src/lib/followup/autosend.ts` clears (measured, due, a current
+   brief, a check-in or nudge, nothing unanswered, no flag, under $25k, 9am to 7pm Mon to Sat, 2 days apart, 4 at
+   most), and only drafts `checkDraft()` passes (no dollar amount the quote doesn't carry). Stage 1 is the signed-in
+   Send button (`sendFollowUp()`), from the person signed in. `tests/boundary.test.ts` pins all of this.
 2d. **Customer links live on the customer deployment only.** There the proxy serves `/c/<token>`
    and 404s everything else, and `write()` refuses; on the staff app `/c/` is 404.
    `src/lib/quotes/customer.ts` answers only there and only for a well-formed token, returns the

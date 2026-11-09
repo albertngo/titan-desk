@@ -7,6 +7,7 @@
  */
 
 import { parseBrief, type Brief } from "./brief";
+import { DRAFT_KINDS, type SentLog } from "./autosend";
 import type { Visit } from "./visit";
 
 /** Days after the quote is sent when, with nothing else to go on, a follow-up is due (Albert: "the looser"). */
@@ -32,7 +33,13 @@ export type Lost = { at: string; by: string; reasonId: string | null; reason: st
 
 /** Quotes → Follow Up. Only what the app itself knows: anything GHL already shows (messages, calls) is read live. */
 /** Quotes → Follow Up also keeps the last brief (step 2), rewritten only when its signature moves. */
-export type FollowUpState = { touches: Touch[]; snooze: Snooze | null; postpone: Postpone | null; lost: Lost | null; brief?: Brief | null };
+/** The last hot-tier WhatsApp (2026-11-09): one per rise, so a reload never sends it twice. */
+export type Alerted = { at: string; score: number };
+/**
+ * `sent`: what the app itself sent (2026-11-09, round 3), for pacing and the Stage 2 report. `autoOff`: staff turned
+ * this quote's Auto follow-ups off.
+ */
+export type FollowUpState = { touches: Touch[]; snooze: Snooze | null; postpone: Postpone | null; lost: Lost | null; brief?: Brief | null; alerted?: Alerted | null; sent?: SentLog[]; autoOff?: boolean };
 
 export const emptyState = (): FollowUpState => ({ touches: [], snooze: null, postpone: null, lost: null });
 
@@ -66,7 +73,15 @@ export function parseState(raw: string | null | undefined): FollowUpState {
       ? { at: String(l.at), by: who(l.by), reasonId: text(l.reasonId, 60) ?? null, reason: text(l.reason, 120) ?? null, ...(text(l.note, NOTE_MAX) ? { note: text(l.note, NOTE_MAX) } : {}) }
       : null;
   const brief = parseBrief(d.brief);
-  return { touches, snooze, postpone, lost, ...(brief ? { brief } : {}) };
+  const a = d.alerted as Record<string, unknown> | null;
+  const alerted = a && isTime(a.at) && typeof a.score === "number" ? { at: String(a.at), score: a.score } : null;
+  const sent = Array.isArray(d.sent)
+    ? (d.sent as Record<string, unknown>[])
+        .filter((x) => x && isTime(x.at) && (DRAFT_KINDS as readonly string[]).includes(String(x.kind)))
+        .map((x) => ({ at: String(x.at), kind: x.kind as SentLog["kind"], how: x.how === "auto" ? ("auto" as const) : ("tap" as const), channel: x.channel === "email" ? ("email" as const) : ("sms" as const), by: who(x.by), edited: typeof x.edited === "number" ? Math.max(0, Math.min(1, x.edited)) : 0 }))
+        .slice(-50)
+    : [];
+  return { touches, snooze, postpone, lost, ...(brief ? { brief } : {}), ...(alerted ? { alerted } : {}), ...(sent.length ? { sent } : {}), ...(d.autoOff === true ? { autoOff: true } : {}) };
 }
 
 export const serializeState = (s: FollowUpState): string => JSON.stringify(s);
@@ -138,9 +153,11 @@ export type DueReason =
   | { kind: "postponed"; until: string } // back from a postpone
   | { kind: "expired" } // past its good-until date
   | { kind: "named"; day: string; quote: string | null } // the customer named a time ("next week"), read by the brief
-  | { kind: "measure"; day: string }; // a preliminary whose visit happened: the measured quote is owed
+  | { kind: "measure"; day: string } // a preliminary whose visit happened: the measured quote is owed
+  | { kind: "opened"; day: string }; // a measured quote opened with no reply: call the next day (2026-11-09)
 
-export type Bucket = "due" | "upcoming" | "snoozed" | "postponed";
+/** "auto": a preliminary GHL's texts are handling on their own (2026-11-09); shown folded, never counted as due. */
+export type Bucket = "due" | "upcoming" | "snoozed" | "postponed" | "auto";
 
 export type Due = {
   bucket: Bucket;
@@ -169,6 +186,8 @@ export type DueInput = {
   /** The visit, from GHL's appointments (null when they couldn't be read), and whether the quote out is a preliminary. */
   visit?: Visit | null;
   preliminary?: boolean;
+  /** When the customer first opened it (Quote Versions → First Opened At), for "Opened, no reply yet". */
+  firstOpened?: string | null;
 };
 
 /**
@@ -231,6 +250,17 @@ export function dueOf(i: DueInput): Due | null {
     reason = { kind: "measure", day: i.visit.day };
   }
 
+  // A measured quote they opened, with no word from them and nothing from us since: the next day, while it's warm
+  // (Albert, 2026-11-09: "Call the day after it's opened").
+  const opened = i.firstOpened ? day(i.firstOpened) : null;
+  if (!i.preliminary && opened && opened >= sent && reason.kind !== "postponed" && !(lastTouch && lastTouch >= opened) && !(i.thread?.lastCustomer && day(i.thread.lastCustomer) >= opened)) {
+    const next = addDays(opened, 1);
+    if (next <= due) {
+      due = next;
+      reason = { kind: "opened", day: opened };
+    }
+  }
+
   const replied = i.thread?.lastCustomer ? day(i.thread.lastCustomer) : null;
   const unanswered = replied && replied >= sent && (!lastTouch || replied > lastTouch) ? replied : null;
   if (unanswered) {
@@ -266,6 +296,8 @@ export function dueWords(d: Due): string {
       return r.quote ? `They said: "${r.quote}"` : "Around the time they asked for";
     case "measure":
       return "Visited: the measured quote is owed";
+    case "opened":
+      return "Opened, no reply yet";
   }
 }
 
@@ -274,7 +306,7 @@ export const ageWords = (age: number) => (age <= TYPICAL_CLOSE_DAYS ? `day ${age
 
 /** Most urgent first: due before upcoming before snoozed before postponed; within each, the earliest day, then the oldest quote. */
 export function byUrgency<T extends { due: Due }>(a: T, b: T): number {
-  const order: Record<Bucket, number> = { due: 0, upcoming: 1, snoozed: 2, postponed: 3 };
+  const order: Record<Bucket, number> = { due: 0, upcoming: 1, auto: 2, snoozed: 3, postponed: 4 };
   return order[a.due.bucket] - order[b.due.bucket] || a.due.day.localeCompare(b.due.day) || b.due.age - a.due.age;
 }
 
@@ -291,3 +323,7 @@ export const withPostpone = (s: FollowUpState, p: Postpone): FollowUpState => ({
 export const withLost = (s: FollowUpState, l: Lost): FollowUpState => ({ ...s, lost: l, snooze: null });
 
 export const withBrief = (s: FollowUpState, b: Brief): FollowUpState => ({ ...s, brief: b });
+export const withAlerted = (s: FollowUpState, a: Alerted): FollowUpState => ({ ...s, alerted: a });
+/** A message the app sent: logged, and it counts as a follow-up (it is one), so the schedule moves on. */
+export const withSent = (s: FollowUpState, l: SentLog): FollowUpState => ({ ...s, sent: [...(s.sent ?? []), l].slice(-50), touches: [...s.touches, { at: l.at, by: l.by, note: `App ${l.how === "auto" ? "sent on its own" : "sent"} (${l.channel === "email" ? "email" : "text"})` }].slice(-50), snooze: null });
+export const withAutoOff = (s: FollowUpState, off: boolean): FollowUpState => { const { autoOff: _gone, ...rest } = s; void _gone; return off ? { ...rest, autoOff: true } : rest; };

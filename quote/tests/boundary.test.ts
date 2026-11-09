@@ -110,8 +110,10 @@ describe("Airtable boundary", () => {
       const text = all.find((f) => f.rel === rel)!.text;
       const exported = text.match(/export async function \w+/g) ?? [];
       const guarded = text.match(/export async function \w+[^{]*\{\s*(const \w+ = )?await requireQuoter(Person)?\(\);/g) ?? [];
+      // The one exception (2026-11-09): the Stage 2 follow-up run, key-gated instead (its own block below).
+      const keyed = rel === "lib/quotes/followup.ts" ? (text.match(/export async function runAutoFollowUps\(key: string \| null\)[^{]*\{\s*if \(!followUpKeyOk\(key\)\) return/g) ?? []) : [];
       expect(exported.length).toBeGreaterThan(0);
-      expect(guarded.length).toBe(exported.length);
+      expect(guarded.length + keyed.length).toBe(exported.length);
     }
   });
 });
@@ -135,10 +137,10 @@ describe("booking step (Make, no sign-in)", () => {
   it("is one of the three paths the staff app lets through without a sign-in, besides signing in", () => {
     const proxy = all.find((f) => f.rel === "proxy.ts")!.text;
     expect(proxy).toContain('matcher: ["/((?!_next/|brand/|favicon\\\\.ico|robots\\\\.txt).*)"]');
-    expect(proxy).toContain("const OPEN_ON_STAFF = /^\\/(login|auth\\/|denied|api\\/booking|api\\/activity|api\\/accept)/;");
+    expect(proxy).toContain("const OPEN_ON_STAFF = /^\\/(login|auth\\/|denied|api\\/booking|api\\/activity|api\\/accept|api\\/followups)/;");
     // Open tracking and acceptance (2026-10-27) are the other two key-gated routes; see their own blocks below.
     // Report a bug and Upload site sheet (2026-10-28) and Push a payout card (2026-11-04) are the API routes that are NOT open: the proxy signs people in first.
-    expect(all.filter((f) => f.rel.startsWith("app/api/")).map((f) => f.rel).sort()).toEqual(["app/api/accept/route.ts", "app/api/activity/route.ts", ROUTE, "app/api/bug/route.ts", "app/api/payout/route.ts", "app/api/sitesheet/route.ts"]);
+    expect(all.filter((f) => f.rel.startsWith("app/api/")).map((f) => f.rel).sort()).toEqual(["app/api/accept/route.ts", "app/api/activity/route.ts", ROUTE, "app/api/bug/route.ts", "app/api/followups/route.ts", "app/api/payout/route.ts", "app/api/sitesheet/route.ts"]);
   });
 
   it("keeps the shared quote helpers away from pages and actions", () => {
@@ -384,6 +386,36 @@ describe("acceptance (2026-10-27): the one write path from a customer link", () 
     const loader = text("lib/quotes/customer.ts");
     expect(loader).not.toMatch(/\b(createRecords?|updateRecords?)\(/);
     expect(loader).toMatch(/parseAcceptance\(/);
+  });
+});
+
+describe("automatic follow-ups (2026-11-09: no sign-in, key-gated, off unless Albert's switch is on)", () => {
+  const ROUTE = "app/api/followups/route.ts";
+  const FU = "lib/quotes/followup.ts";
+
+  it("checks the key first in the route and in the run, and a missing key turns it off", () => {
+    const route = code(all.find((f) => f.rel === ROUTE)!.text);
+    expect(route).toMatch(/export async function POST\(req: Request\) \{\s*const key = req\.headers\.get\("x-quote-key"\);\s*if \(!followUpKeyOk\(key\)\) return/);
+    expect(route).not.toMatch(/sendMessage|sendFollowUp\(/);
+    const text = code(all.find((f) => f.rel === FU)!.text);
+    expect(text).toMatch(/export async function runAutoFollowUps\(key: string \| null\)[^{]*\{\s*if \(!followUpKeyOk\(key\)\) return/);
+    expect(text).toMatch(/const want = process\.env\.QUOTE_FOLLOWUP_KEY;\s*if \(!want \|\| !given\) return false;/);
+    // Albert's switch: exactly "on", read in one place.
+    expect(text).toMatch(/const autoSwitchOn = \(\) => process\.env\.QUOTE_AUTO_FOLLOWUPS === "on";/);
+    expect(text.match(/QUOTE_AUTO_FOLLOWUPS/g)?.length).toBe(1);
+    // The run sends only what passed every guardrail, and checks the draft again before it goes.
+    expect(text).toMatch(/r\.autoWhy === null/);
+    expect(text).toMatch(/checkDraft\(\{ text: b\.draft/);
+    expect(all.filter((f) => /from ["']@\/lib\/quotes\/followup["']/.test(f.text) && /runAutoFollowUps/.test(f.text)).map((f) => f.rel)).toEqual([ROUTE]);
+  });
+
+  it("sends only texts and emails to the customer, never a GHL write of any other kind", () => {
+    const text = code(all.find((f) => f.rel === FU)!.text);
+    const deliver = text.slice(text.indexOf("async function deliver("), text.indexOf("async function recordSend("));
+    expect(deliver.match(/sendMessage\(/g)?.length).toBe(2);
+    expect(deliver).toMatch(/type: "SMS"/);
+    expect(deliver).toMatch(/type: "Email"/);
+    expect(deliver).not.toMatch(/sendToGhl|setFollowUpTags|setOpportunityStatus/);
   });
 });
 

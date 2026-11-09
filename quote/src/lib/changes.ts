@@ -22,6 +22,44 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-09",
+    kind: "changed",
+    title: "Follow up: the score as a bar",
+    details: ["Each quote's score now shows as a bar under the number, with marks where Watch (8) and Needs you (20) start, so you can see how close it is to moving up."],
+  },
+  {
+    date: "2026-11-09",
+    kind: "new",
+    title: "Follow up: send measured follow-ups from the app",
+    details: [
+      "On a measured quote, the brief's draft is now a box you can edit, with Send text or Send email. It goes from you into the customer's GHL conversation, on the channel they last used, and counts as a follow-up.",
+      "A draft can't go out with a price that isn't on the quote.",
+      "A measured quote the customer opened without replying comes up the next day, and one they keep reopening without replying goes to Needs you.",
+      "Each measured quote has an Auto follow-ups box. The app sends nothing on its own yet: the line at the top counts what's been sent and says when it's ready for Albert to turn automatic sending on.",
+    ],
+  },
+  {
+    date: "2026-11-09",
+    kind: "changed",
+    title: "Follow up: quotes that didn't arrive or weren't opened",
+    details: [
+      "A quote whose email or text GHL marks as not delivered goes straight to Needs you, so you can check the email or number and resend.",
+      "A measured quote nobody has opened 4 days after sending goes to Needs you, and the brief suggests a call with a backup text that states the total. An unopened preliminary stays with GHL's texts.",
+      "When the brief offers an open measure slot, it no longer says we're in the area. It names the customer's place only if they mentioned it in the conversation.",
+    ],
+  },
+  {
+    date: "2026-11-09",
+    kind: "new",
+    title: "Follow up: a score, and preliminaries on auto",
+    details: [
+      "Every quote on Follow up has a score from 0 to 100, roughly its chance of closing, with the reasons beside it: how much back-and-forth, visits, value, and how long it has been quiet.",
+      "Due now is split into Needs you, Watch and Next up. Needs you is a score of 20 or more, or a customer who asked about price or dates, pushed back, went quiet after a long chat, or a big job. Up to 8 a day each; the rest wait under Next up.",
+      "Preliminaries with little conversation stay with GHL's automated texts, folded under On auto, and move up on their own as soon as the customer engages. Measured quotes always stay on your list.",
+      "The red count in the top bar now counts only Needs you. The brief can offer a real open measure slot from the calendar, and invites a customer measured at home to the showroom.",
+    ],
+  },
+  {
+    date: "2026-11-09",
     kind: "new",
     title: "Payment schedule: 100% paid in full",
     details: ["The payment schedule in the editor has a new choice, 100% (paid in full): one payment of the whole total on acceptance, by e-transfer. You can still change its words and how it is paid."],

@@ -1,0 +1,35 @@
+name: Quote follow-ups
+
+# The app sends measured follow-ups (Albert, 2026-11-09; vault 05_decisions/2026-11-07-quote-follow-up-worklist,
+# round 3). Stage 2: every hour, 9am to 7pm Toronto, Monday to Saturday, the staff quote app sends the routine
+# follow-ups that pass every guardrail, at /api/followups. This only calls it. It sends nothing until Albert sets
+# QUOTE_AUTO_FOLLOWUPS=on on the staff deployment, and the run itself is off until both secrets are set. The app
+# checks the Toronto hour and day again, so the UTC schedule below may run a little wide.
+
+on:
+  schedule:
+    - cron: "15 13-23 * * 1-6"
+  workflow_dispatch:
+
+concurrency:
+  group: quote-followups
+  cancel-in-progress: false
+
+jobs:
+  followups:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Send due follow-ups
+        env:
+          QUOTE_STAFF_URL: ${{ secrets.QUOTE_STAFF_URL }}
+          QUOTE_FOLLOWUP_KEY: ${{ secrets.QUOTE_FOLLOWUP_KEY }}
+        run: |
+          if [ -z "$QUOTE_STAFF_URL" ] || [ -z "$QUOTE_FOLLOWUP_KEY" ]; then
+            echo "QUOTE_STAFF_URL or QUOTE_FOLLOWUP_KEY is not set; automatic follow-ups are off."
+            exit 0
+          fi
+          curl -fsS --max-time 240 -X POST "${QUOTE_STAFF_URL%/}/api/followups" \
+            -H "Content-Type: application/json" \
+            -H "x-quote-key: $QUOTE_FOLLOWUP_KEY" \
+            -d '{}'

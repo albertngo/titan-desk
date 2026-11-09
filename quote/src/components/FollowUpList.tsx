@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { briefAction, followedUpAction, lostAction, postponeAction, snoozeAction } from "@/app/follow-up/actions";
+import { autoFollowUpsAction, briefAction, followedUpAction, lostAction, postponeAction, sendFollowUpAction, snoozeAction } from "@/app/follow-up/actions";
 import { ConversationDrawer } from "@/components/Conversation";
 import type { Brief, StepKind } from "@/lib/followup/brief";
 import { SNOOZE_CHOICES, type Bucket } from "@/lib/followup/plan";
+import { NEEDS_YOU_AT, TIER_WORDS, WATCH_AT } from "@/lib/followup/score";
 import type { FollowUpPage, FollowUpResult, FollowUpRow } from "@/lib/quotes/followup";
 
 const SECTIONS: { bucket: Bucket; title: string; empty: string }[] = [
@@ -15,6 +16,14 @@ const SECTIONS: { bucket: Bucket; title: string; empty: string }[] = [
   { bucket: "snoozed", title: "Snoozed", empty: "Nothing snoozed." },
   { bucket: "postponed", title: "Postponed", empty: "Nothing postponed." },
 ];
+
+/** Due now, split by need (Albert, 2026-11-09): what needs a person, what to keep an eye on, and what waits past the day's cap. */
+const DUE_GROUPS: { key: "needs" | "watch" | "next"; title: string; hint: string }[] = [
+  { key: "needs", title: "Needs you", hint: "Score 20 or more, or they asked, pushed back, went cold, or it's a big job" },
+  { key: "watch", title: "Watch", hint: "Some interest, not hot yet" },
+  { key: "next", title: "Next up", hint: "Needs you, past today's 8 for this person" },
+];
+const groupOf = (r: FollowUpRow) => (r.waiting ? "next" : r.score.tier === "needs" ? "needs" : "watch");
 
 const STEP_WORDS: Record<StepKind, string> = { call: "Call them", text: "Send a text", email: "Send an email", visit: "Book the visit", wait: "Wait", close: "Close it out" };
 const EVERYONE = "Everyone";
@@ -64,7 +73,10 @@ export function FollowUpList({ data }: { data: FollowUpPage }) {
   const shown = useMemo(() => (who === EVERYONE ? data.rows : data.rows.filter((r) => r.ownerName === who)), [who, data.rows]);
   const visitsShown = (data.visits ?? []).filter((v) => who === EVERYONE || v.visitorName === who);
   const dueOf = (name: string) =>
-    data.rows.filter((r) => r.due.bucket === "due" && (name === EVERYONE || r.ownerName === name)).length + (data.visits ?? []).filter((v) => name === EVERYONE || v.visitorName === name).length;
+    data.rows.filter((r) => r.due.bucket === "due" && r.score.tier === "needs" && !r.waiting && (name === EVERYONE || r.ownerName === name)).length +
+    (data.visits ?? []).filter((v) => name === EVERYONE || v.visitorName === name).length;
+  const [autoOpen, setAutoOpen] = useState(false);
+  const autoRows = shown.filter((r) => r.due.bucket === "auto");
 
   const askBrief = async (row: FollowUpRow, force: boolean) => {
     setBriefs((b) => ({ ...b, [row.quoteRecordId]: { ...b[row.quoteRecordId], busy: true, error: null } }));
@@ -127,7 +139,7 @@ export function FollowUpList({ data }: { data: FollowUpPage }) {
             <span className="k" id="fu-who-k">Last sent by</span>
             <div className="ql-filters" role="group" aria-labelledby="fu-who-k">
               {[...senders, EVERYONE].map((name) => (
-                <button key={name} type="button" className="ql-f" aria-pressed={who === name} onClick={() => setWho(name)} title={`${dueOf(name)} due now`}>
+                <button key={name} type="button" className="ql-f" aria-pressed={who === name} onClick={() => setWho(name)} title={`${dueOf(name)} need you now`}>
                   {name} <span className="n">{dueOf(name)}</span>
                 </button>
               ))}
@@ -136,6 +148,13 @@ export function FollowUpList({ data }: { data: FollowUpPage }) {
           {!data.ghlOn && <p className="fu-warn">GHL isn&apos;t connected here, so only &quot;I followed up&quot; counts and the GHL buttons are off.</p>}
           {data.ghlOn && !data.lostReasons?.length && <p className="fu-warn">GHL&apos;s lost reasons couldn&apos;t be read, so Lost is off for now. Mark a lost quote in GHL, or reload in a moment.</p>}
           {!data.briefsOn && <p className="fu-warn">Briefs aren&apos;t set up on this deployment (the Claude key isn&apos;t set).</p>}
+          {/* The Stage 2 report (2026-11-09): Albert switches automatic sending on when this says ready. */}
+          <p className="fu-sending" title="Measured follow-ups sent from the app with Send. Automatic sending is Albert's switch.">
+            Sent from the app: {data.sending.taps}
+            {data.sending.taps ? `, ${Math.round(data.sending.share * 100)}% as written` : ""}
+            {" · "}
+            {data.sending.autoOn ? "automatic sending is on" : data.sending.ready ? "ready for automatic sending: ask Albert" : `automatic sending after 30 sent with 80% as written`}
+          </p>
         </div>
         {result && (
           <div className={`fu-result${result.ok ? "" : " bad"}`} role="status">
@@ -208,7 +227,15 @@ export function FollowUpList({ data }: { data: FollowUpPage }) {
                 {s.title} <span className="n">{rows.length}</span>
               </h2>
               {rows.length === 0 && <p className="fu-empty">{s.empty}</p>}
-              {rows.map((r) => (
+              {(s.bucket === "due" ? DUE_GROUPS.map((g) => ({ g, rows: rows.filter((r) => groupOf(r) === g.key) })) : [{ g: null, rows }]).map(({ g, rows: rs }) =>
+                rs.length === 0 ? null : (
+                  <div key={g?.key ?? "all"} className={g ? `fu-group ${g.key}` : undefined}>
+                    {g && (
+                      <h3 className="fu-gh" title={g.hint}>
+                        {g.title} <span className="n">{rs.length}</span>
+                      </h3>
+                    )}
+                    {rs.map((r) => (
                 <Row
                   key={r.quoteRecordId}
                   row={r}
@@ -224,11 +251,50 @@ export function FollowUpList({ data }: { data: FollowUpPage }) {
                   onCopyDraft={(text) => copy(`draft:${r.quoteRecordId}`, text, "Copy the draft:")}
                   onRewrite={() => askBrief(r, true)}
                   onConv={() => openConv(r)}
+                  onSend={(text, subject) => run(r, () => sendFollowUpAction(r.quoteRecordId, r.seen, text, subject))}
+                  onAuto={(on) => run(r, () => autoFollowUpsAction(r.quoteRecordId, r.seen, on))}
                 />
-              ))}
+                    ))}
+                  </div>
+                ),
+              )}
             </div>
           );
         })}
+        {/* Preliminaries GHL's texts are handling (2026-11-09): folded; each comes back up the moment it needs a person. */}
+        {autoRows.length > 0 && (
+          <div className="fu-sec auto">
+            <h2 className="fu-h">
+              <button type="button" className="linkbtn" aria-expanded={autoOpen} onClick={() => setAutoOpen((o) => !o)}>
+                {autoOpen ? "▾" : "▸"} On auto: GHL&apos;s texts are handling these
+              </button>{" "}
+              <span className="n">{autoRows.length}</span>
+            </h2>
+            {!autoOpen && <p className="fu-empty">Preliminaries with little back-and-forth yet. Each moves up to Needs you or Watch as soon as the customer engages.</p>}
+            {autoOpen &&
+              autoRows.map((r) => (
+                <div key={r.quoteRecordId} className={`fu-row auto-row${conv?.contactId === r.contactId ? " picked" : ""}${r.contactId ? " can-pick" : ""}`} onClick={(e) => !(e.target as Element).closest("a, button") && openConv(r)}>
+                  <div className="fu-who">
+                    <span className="fu-name-line">
+                      <Link href={`/q/${r.versionId}`} className="fu-name">
+                        {r.customer ?? "No customer"}
+                      </Link>
+                      <span className="fu-with">with {r.ownerName ?? "nobody yet"}</span>
+                    </span>
+                    <span className="fu-meta">
+                      {r.quoteNumber ?? ""} · {r.basis ?? "Quote"}
+                    </span>
+                  </div>
+                  <div className="fu-why">
+                    <ScoreChip row={r} />
+                  </div>
+                  <div className="fu-facts">
+                    <span>{r.age}</span>
+                  </div>
+                </div>
+              ))}
+          </div>
+        )}
         {shown.length === 0 && who !== EVERYONE && data.rows.length > 0 && (
           <p className="fu-empty">
             None sent by {who}.{" "}
@@ -258,6 +324,8 @@ function Row(p: {
   onCopyDraft: (text: string) => void;
   onRewrite: () => void;
   onConv: () => void;
+  onSend: (text: string, subject: string | null) => void;
+  onAuto: (on: boolean) => void;
 }) {
   const { row, today, busy } = p;
   const r = row.due.reason.kind;
@@ -289,6 +357,7 @@ function Row(p: {
         {row.visit && <span className={`fu-visit ${row.visit.kind}`}>{row.visitText}</span>}
       </div>
       <div className="fu-why">
+        <ScoreChip row={row} />
         <span className={`chip${tone ? ` ${tone}` : ""}`}>{row.why}</span>
         <span className="fu-when">
           {row.due.bucket === "postponed" ? "Back on the list" : "Due"} {dayWords(row.due.day, today)}
@@ -303,7 +372,7 @@ function Row(p: {
         {row.state.postpone?.note && <span className="fu-note">Postponed: {row.state.postpone.note}</span>}
         {lastNote && <span className="fu-note">Last note: {lastNote}</span>}
       </div>
-      {p.briefsOn && <BriefBox state={p.brief} row={row} open={p.convOn} copied={p.copied === `draft:${row.quoteRecordId}`} onCopy={p.onCopyDraft} onRewrite={p.onRewrite} />}
+      {p.briefsOn && <BriefBox state={p.brief} row={row} open={p.convOn} busy={busy} copied={p.copied === `draft:${row.quoteRecordId}`} onCopy={p.onCopyDraft} onRewrite={p.onRewrite} onSend={p.onSend} />}
       <div className="fu-acts">
         {row.contactId && (
           <button type="button" className={`btn${p.convOn ? " on" : ""}`} onClick={p.onConv}>
@@ -334,6 +403,11 @@ function Row(p: {
         <button type="button" className="btn" disabled={busy} onClick={() => p.onModal("postpone")}>
           Postpone…
         </button>
+        {!prelim && (
+          <label className="fu-auto" title={row.state.autoOff ? "The app won't send this quote's follow-ups on its own." : row.autoWhy ? `Not on its own right now: ${row.autoWhy}` : "The app may send the next routine follow-up on its own."}>
+            <input type="checkbox" checked={!row.state.autoOff} disabled={busy} onChange={(e) => p.onAuto(e.target.checked)} /> Auto follow-ups
+          </label>
+        )}
         <button type="button" className="btn danger" disabled={busy} onClick={() => p.onModal("lost")}>
           Lost…
         </button>
@@ -342,9 +416,29 @@ function Row(p: {
   );
 }
 
+/** The score (2026-11-09): roughly the chance it closes, its tier, and the top reasons. */
+function ScoreChip({ row }: { row: FollowUpRow }) {
+  const s = row.score;
+  return (
+    <span className={`fu-score ${s.tier}`} title={`Score ${s.score} of 100, roughly the chance this closes. ${s.reasons.join(" · ")}`}>
+      <span className="fu-score-n">{s.score}</span>
+      <span className="fu-score-t">{TIER_WORDS[s.tier]}</span>
+      {/* The score as a bar (Albert, 2026-11-09), with marks where Watch and Needs you start. Width is the one inline style. */}
+      <span className="fu-bar" role="progressbar" aria-valuenow={s.score} aria-valuemin={0} aria-valuemax={100} aria-label={`Intent score ${s.score} of 100, ${TIER_WORDS[s.tier]}`}>
+        <span className="fu-bar-fill" style={{ width: `${s.score}%` }} />
+        <span className="fu-bar-tick" style={{ left: `${WATCH_AT}%` }} title={`Watch from ${WATCH_AT}`} />
+        <span className="fu-bar-tick" style={{ left: `${NEEDS_YOU_AT}%` }} title={`Needs you from ${NEEDS_YOU_AT}`} />
+      </span>
+      <span className="fu-score-why">{s.reasons.join(" · ")}</span>
+    </span>
+  );
+}
+
 /** The brief (step 2): where it stands, what they asked, the next step and a draft to copy into GHL. */
-function BriefBox({ state, row, open, copied, onCopy, onRewrite }: { state: BriefState | undefined; row: FollowUpRow; open: boolean; copied: boolean; onCopy: (t: string) => void; onRewrite: () => void }) {
+function BriefBox({ state, row, open, busy, copied, onCopy, onRewrite, onSend }: { state: BriefState | undefined; row: FollowUpRow; open: boolean; busy: boolean; copied: boolean; onCopy: (t: string) => void; onRewrite: () => void; onSend: (text: string, subject: string | null) => void }) {
   const b = state?.brief ?? null;
+  // A measured quote's draft is sent from the app (2026-11-09, round 3): editable, then Send. Preliminaries keep Copy.
+  const sendable = row.basis !== "Preliminary" && Boolean(row.channel) && Boolean(b?.draft);
   // Folded to one line unless this row is the selected one (Albert, 2026-11-07: "make the brief expand only when selected").
   if (b && !open)
     return (
@@ -409,7 +503,8 @@ function BriefBox({ state, row, open, copied, onCopy, onRewrite }: { state: Brie
           </span>
         )}
       </p>
-      {b.draft && (
+      {b.draft && sendable && <SendBox key={`${b.at}|${b.draft}`} draft={b.draft} subject={b.subject ?? ""} email={row.channel === "email"} busy={busy} copied={copied} onCopy={onCopy} onSend={onSend} />}
+      {b.draft && !sendable && (
         <div className="fu-draft">
           <p>{b.draft}</p>
           <div className="fu-draft-acts">
@@ -424,6 +519,27 @@ function BriefBox({ state, row, open, copied, onCopy, onRewrite }: { state: Brie
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** The measured draft, editable, then Send (2026-11-09). Keyed on the brief, so a new brief starts it afresh. */
+function SendBox({ draft, subject: firstSubject, email, busy, copied, onCopy, onSend }: { draft: string; subject: string; email: boolean; busy: boolean; copied: boolean; onCopy: (t: string) => void; onSend: (text: string, subject: string | null) => void }) {
+  const [text, setText] = useState(draft);
+  const [subject, setSubject] = useState(firstSubject);
+  return (
+    <div className="fu-draft send">
+      {email && <input className="in" value={subject} maxLength={120} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" aria-label="Email subject" />}
+      <textarea className="in" rows={email ? 6 : 3} value={text} onChange={(e) => setText(e.target.value)} aria-label="The follow-up to send" />
+      <div className="fu-draft-acts">
+        <button type="button" className="btn small primary" disabled={busy || !text.trim()} onClick={() => onSend(text, email ? subject : null)}>
+          {email ? "Send email" : "Send text"}
+        </button>
+        <span className="fu-brief-meta">From you, in their GHL conversation</span>
+        <button type="button" className="btn small" onClick={() => onCopy(text)}>
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
     </div>
   );
 }
