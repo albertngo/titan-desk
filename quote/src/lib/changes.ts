@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-10",
     kind: "new",
+    title: "Performance: graphs",
+    details: ["Performance now opens with graphs: median reply time and quotes sent versus accepted, week by week, and per person bars for reply time, follow-ups on time, time to act on Needs you, win rate and value won, plus why we lost. Hover a bar for its number; the tables below stay for the exact figures."],
+  },
+  {
+    date: "2026-11-10",
+    kind: "new",
     title: "Settings page (admins only)",
     details: ["A Settings page, linked from Follow up for admins: automatic follow-ups on or off and their limits, the Needs you and Watch thresholds and daily limit, WhatsApp alerts on or off and their number, how many briefs refresh each hour, and who counts as an admin. Changes apply within a minute and are logged."],
   },

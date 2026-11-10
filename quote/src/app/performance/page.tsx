@@ -3,6 +3,7 @@ import { TopBar } from "@/components/TopBar";
 import { requireQuoter } from "@/lib/auth";
 import { loadPerformance, WINDOW_DAYS } from "@/lib/quotes/performance";
 import type { PersonPerf } from "@/lib/followup/perf";
+import { LostBars, OutcomeTrend, PersonBars, ReplyTrend } from "@/components/PerfCharts";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,17 @@ export default async function PerformancePage() {
           </div>
         </div>
         <div className="tape" aria-hidden />
+        {/* The graphs (Albert, 2026-11-10: "i need graphs"); the tables below are the exact numbers. */}
+        <section className="card pc-grid-wrap">
+          <ReplyTrend weeks={data.weeks} />
+          <OutcomeTrend weeks={data.weeks} />
+          <PersonBars title="Median reply time" note="Hours to our first human reply. Lower is better." people={data.people} value={(p) => p.replies.medianHours} fmt={(n) => `${n} h`} />
+          <PersonBars title="Follow-ups on time" note="Share of due follow-ups done on the day." people={data.people} value={(p) => (p.onTime.onDay + p.onTime.late ? Math.round((p.onTime.onDay / (p.onTime.onDay + p.onTime.late)) * 100) : null)} fmt={(n) => `${n}%`} max={100} />
+          <PersonBars title="Time to act on Needs you" note="Median hours from Needs you to a follow-up. Lower is better." people={data.people} value={(p) => p.needsYou.medianHours} fmt={(n) => `${n} h`} />
+          <PersonBars title="Win rate" note="Accepted out of accepted plus lost, quotes first sent in the window." people={data.people} value={(p) => p.outcomes.winRate} fmt={(n) => `${n}%`} max={100} />
+          <PersonBars title="Value won" note="Likely total of accepted quotes, with HST." people={data.people} value={(p) => (p.outcomes.accepted ? p.outcomes.wonValue : null)} fmt={(n) => `$${Math.round(n / 100) / 10}k`} />
+          <LostBars reasons={data.everyone.outcomes.lostReasons} />
+        </section>
         <section className="card pf">
           <Table
             title="Reply speed"
