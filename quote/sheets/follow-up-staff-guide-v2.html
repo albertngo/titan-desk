@@ -1,0 +1,145 @@
+<style>
+@page { size: Letter; margin: 0.6in 0.65in; }
+.page { font-family: Inter, -apple-system, "Segoe UI", Arial, sans-serif; color: #1f2733; font-size: 10.5pt; line-height: 1.45; max-width: 7.2in; margin: 0 auto; }
+h1 { font-size: 22pt; margin: 0 0 2pt; }
+.sub { color: #5a6573; margin: 0 0 10pt; }
+h2 { font-size: 13pt; margin: 14pt 0 6pt; padding-bottom: 3pt; border-bottom: 2px solid #1e6fff; break-after: avoid; }
+table { width: 100%; border-collapse: collapse; margin: 4pt 0 6pt; break-inside: auto; }
+th { text-align: left; font-weight: 600; color: #5a6573; background: #f1f4f8; padding: 4pt 6pt; font-size: 9.5pt; }
+td { padding: 4pt 6pt; border-bottom: 1px solid #dfe4ea; vertical-align: top; }
+tr { break-inside: avoid; }
+td:first-child { font-weight: 600; width: 30%; }
+.pill { display: inline-block; padding: 0 6pt; border-radius: 999px; font-size: 9pt; font-weight: 600; }
+.red { background: #fdebe9; color: #c2382b; } .amber { background: #fff5dc; color: #9a6a00; } .grey { background: #eef1f4; color: #5a6573; } .blue { background: #e8f0ff; color: #1e6fff; }
+.note { border-left: 3px solid #1e6fff; background: #f6f8fb; padding: 6pt 9pt; margin: 6pt 0; break-inside: avoid; }
+ul, ol { margin: 4pt 0; padding-left: 16pt; } li { margin: 2pt 0; }
+.bar { display: inline-block; width: 120pt; height: 6pt; background: #eef1f4; border-radius: 999px; position: relative; vertical-align: middle; }
+.bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 24%; background: #c2382b; border-radius: 999px; }
+.bar b { position: absolute; top: 0; bottom: 0; width: 1px; background: #1f2733; opacity: .4; }
+.foot { margin-top: 14pt; padding-top: 6pt; border-top: 1px solid #ccd3db; color: #5a6573; font-size: 9pt; }
+</style>
+<div class="page">
+<h1>Follow up: staff guide</h1>
+<p class="sub">Titan Quotes · How to work the Follow up page · v2, November 2026</p>
+
+<h2>What changed since v1</h2>
+<ul>
+<li><b>Every quote has a score</b> from 0 to 100 and a tier: <span class="pill red">Needs you</span> <span class="pill amber">Watch</span> <span class="pill grey">Auto</span>.</li>
+<li><b>Preliminaries mostly run on their own.</b> GHL's texts handle them until the customer shows real interest.</li>
+<li><b>Measured quotes are sent from the app.</b> Edit the draft, press Send, check the preview, Send now.</li>
+<li><b>The red number</b> on the top bar counts only what needs you today.</li>
+<li><b>Snoozed</b> has its own tab. <b>Briefs</b> refresh every day on their own.</li>
+</ul>
+
+<h2>What the page is for</h2>
+<p><b>Follow up</b> (top bar) lists every quote we've sent that is still waiting on the customer, sorted by who needs a person most. A quote leaves the list when the customer accepts it, or when you mark it <b>Lost</b> or <b>Postpone</b> it.</p>
+
+<h2>The score</h2>
+<p>Each row shows a number from 0 to 100 and a bar <span class="bar"><i></i><b style="left:8%"></b><b style="left:20%"></b></span>. Read it as roughly the chance this quote closes. The two marks on the bar show where Watch (8) and Needs you (20) start, so you can see how close a quote is to moving up. The reasons are written beside it, for example "14 two-way messages, 6 from them · visited · $18k".</p>
+<table>
+<tr><th>What moves it</th><th>Why</th></tr>
+<tr><td>Back-and-forth</td><td>The more real conversation, the higher. Our numbers: quotes with 5 or fewer two-way messages close about 3% of the time; 11 to 20 messages, about 20%; 21 to 40, about 33%. Automated texts don't count. Messages from the customer count more than ours.</td></tr>
+<tr><td>Visits</td><td>A booked visit lifts it. A visit that happened lifts it to at least 28. <b>Home and store both</b> lifts it to at least 60: those close 4 in 5.</td></tr>
+<tr><td>Opens</td><td>Opening the quote recently, or on several days, lifts it.</td></tr>
+<tr><td>Quiet</td><td>A week with no word from them lowers it; two weeks lowers it more. Not if they told us when to come back.</td></tr>
+<tr><td>Value</td><td>Bigger jobs are worth more of our time: under $3k counts a little less, over $10k and $25k a little more.</td></tr>
+</table>
+
+<h2>The tiers</h2>
+<table>
+<tr><th>Tier</th><th>What it means</th></tr>
+<tr><td><span class="pill red">Needs you</span></td><td>A score of 20 or more, or one of the flags below. Work these first. Up to 8 a day each; any more wait under <b>Next up</b>.</td></tr>
+<tr><td><span class="pill amber">Watch</span></td><td>Some interest, not hot yet. Follow up when they're due.</td></tr>
+<tr><td><span class="pill grey">On auto</span></td><td>Preliminaries with little conversation. GHL's texts are handling them (day 3 "any questions?", day 7 "book a visit"). Folded at the bottom. They move up on their own the moment the customer engages. You don't need to touch them.</td></tr>
+</table>
+<p><b>Flags: these always go to Needs you</b>, whatever the score:</p>
+<ul>
+<li>They asked about price, dates or availability, or named a day, and we haven't answered.</li>
+<li>They mentioned another company or quote, or pushed back ("too high", "need to think").</li>
+<li>A $25k+ or commercial job.</li>
+<li>They went quiet after a long conversation.</li>
+<li>They're unhappy with us.</li>
+<li>The quote didn't arrive: GHL says the text or email failed. Check the number or email and resend.</li>
+<li>A measured quote nobody has opened 4 days after sending. Call them.</li>
+<li>They keep reopening the quote without replying. They're deciding: reach out today.</li>
+</ul>
+<p>Measured quotes never go on auto: a person always has them. The score only sets their order.</p>
+
+<h2>Reading the page</h2>
+<table>
+<tr><th>Part</th><th>What it means</th></tr>
+<tr><td>Tabs</td><td><b>To follow up</b> is the work. <b>Snoozed</b> holds what you snoozed, with its count; snoozed quotes come back on their own.</td></tr>
+<tr><td>Last sent by</td><td>Filter at the top: Pourya | Joey | Albert | Everyone. The count beside each name is how many need that person now.</td></tr>
+<tr><td>"with Joey" pill</td><td>Who the customer is talking to: whoever last sent the quote.</td></tr>
+<tr><td>Visited, no quote yet</td><td>Customers whose visit went ahead with no measured quote sent since. <b>Write the measured quote.</b></td></tr>
+<tr><td>Due now</td><td>Split into <b>Needs you</b>, <b>Watch</b> and <b>Next up</b>, highest score first.</td></tr>
+<tr><td>Visit chip</td><td>Where the lead is: No visit yet, Visit booked, Visited, No-show. From GHL appointments.</td></tr>
+<tr><td>Sent from the app</td><td>The line at the top counts follow-ups sent with Send and how many went out as written. When it says "ready for automatic sending", tell Albert.</td></tr>
+</table>
+
+<h2>Why a quote is due</h2>
+<table>
+<tr><th>You'll see</th><th>What to do</th></tr>
+<tr><td><span class="pill red">They replied, no answer yet</span></td><td>Answer today. This beats everything else.</td></tr>
+<tr><td><span class="pill amber">Opened, no reply yet</span></td><td>A measured quote they opened yesterday. Call while it's fresh, or send the draft offering to go through the options. Never say we saw them open it.</td></tr>
+<tr><td><span class="pill amber">Visited: the measured quote is owed</span></td><td>Get the measured quote out within a day or two.</td></tr>
+<tr><td><span class="pill red">Past its good-until date</span></td><td>Send it again or close it out.</td></tr>
+<tr><td><span class="pill amber">First / Second / Third follow-up</span></td><td>The normal schedule: 3, 10 and 21 days after sending.</td></tr>
+<tr><td><span class="pill amber">They said: "next week"</span></td><td>The date follows what the customer said.</td></tr>
+<tr><td><span class="pill amber">Close it out or postpone it</span></td><td>Day 45. Call, then Lost, Postpone or Snooze.</td></tr>
+<tr><td><span class="pill amber">Postponed to Mar 1</span></td><td>Back from a postpone: reach out before the date.</td></tr>
+</table>
+
+<h2>The brief</h2>
+<p>Each quote has a short brief written from the quote and the GHL conversation: where it stands, what they asked (✓ answered, ? not yet), the next step and a draft message. It is rewritten every day and whenever something new happens; <b>Rewrite</b> asks for a fresh one now.</p>
+<ul>
+<li><b>Open slots:</b> when a visit is the next step, the draft can offer a real open time from the measure calendar ("We have an opening Thursday at 2pm. Want me to hold it?"). It never says we're in the area or names their city unless they told us where they are.</li>
+<li><b>Home and store:</b> a customer measured at home but not yet in the store gets a showroom invite. Seen in the store but not measured gets offered the measure.</li>
+</ul>
+<div class="note"><b>The brief is a suggestion, not a script.</b> Read the conversation first. Never send a promise of a price, date or discount nobody agreed to.</div>
+
+<h2>Sending a follow-up (measured quotes)</h2>
+<ol>
+<li>Click the row. Read the conversation and the brief.</li>
+<li>Edit the draft in the box if anything is off.</li>
+<li>Press <b>Send text</b> or <b>Send email</b>. The app picks the channel the customer last used, otherwise a text.</li>
+<li>Check the preview: who it goes to, that it's from your own number or address, and the exact words. Press <b>Send now</b>, or Cancel.</li>
+</ol>
+<p>It goes into their GHL conversation right away, counts as a follow-up, and is noted in the quote's History. The app refuses a message with a price that isn't on the quote. Preliminaries still use <b>Copy and open GHL</b>.</p>
+<p><b>Auto follow-ups</b> box: on each measured quote. The app sends nothing on its own yet. When Albert switches automatic sending on, routine check-ins go out by themselves, never when the customer is waiting on us, never with a flag up, never on $25k+ jobs, only 9am to 7pm Monday to Saturday. Untick the box to keep a quote fully manual.</p>
+
+<h2>The buttons</h2>
+<table>
+<tr><th>Button</th><th>What it does</th></tr>
+<tr><td>Conversation</td><td>Opens the customer's thread on the right. Always, before you reach out.</td></tr>
+<tr><td>Open in GHL</td><td>Opens the conversation in GHL.</td></tr>
+<tr><td>I followed up</td><td>Logs a follow-up GHL can't see (store, site, personal phone), with a note.</td></tr>
+<tr><td>Snooze 3d / 7d / 14d</td><td>Moves it to the Snoozed tab until then. A new message brings it back early.</td></tr>
+<tr><td>Book the visit</td><td>Copies the in-home booking link (preliminaries).</td></tr>
+<tr><td>Postpone…</td><td>Pick the date they gave. Moves the GHL opportunity to Postponed and stops the automated texts.</td></tr>
+<tr><td>Lost…</td><td>Pick one of GHL's lost reasons. Marks it Lost and stops the automated texts.</td></tr>
+</table>
+
+<h2>Rules</h2>
+<ol>
+<li><b>Replies first, then Needs you, then visits.</b></li>
+<li><b>Work your own quotes.</b> If you cover someone else's, say so in your note.</li>
+<li><b>Read the conversation before every follow-up.</b></li>
+<li><b>Check the preview before Send now.</b> It goes to a real customer and can't be taken back.</li>
+<li><b>Log what GHL can't see</b> with I followed up.</li>
+<li><b>Lost only on the customer's word.</b> Pick the honest reason.</li>
+<li><b>Postpone only to a date they gave.</b> Otherwise Snooze.</li>
+<li><b>Big jobs get a call</b>, not just a text.</li>
+<li><b>Leave "On auto" alone.</b> GHL is handling them; they come to you when they're ready.</li>
+<li><b>Never share internal notes or costs</b> with a customer.</li>
+</ol>
+
+<h2>A good five minutes</h2>
+<ol>
+<li>Open Follow up, filter on your name.</li>
+<li>Work <b>Needs you</b> top to bottom: click, read, then call or Send.</li>
+<li>Then <b>Watch</b>, if you have time.</li>
+<li>Record the outcome: nothing if it was in GHL or sent from the app, otherwise I followed up, Snooze, Postpone or Lost.</li>
+</ol>
+<p class="foot">Titan Flooring · Follow up page guide v2 · 2026-11-10. Replaces v1 (2026-11-07). The score and its thresholds come from our own Nov 2025 to Oct 2026 numbers and will be tuned as we learn. Questions: Albert.</p>
+</div>
