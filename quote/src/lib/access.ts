@@ -18,10 +18,3 @@ export function isQuoter(email: unknown, allow: Set<string>): boolean {
 }
 
 export const quoterAllowlist = () => parseAllowlist(process.env.QUOTE_ALLOWED_EMAILS);
-
-/**
- * Who may open the Performance page (Albert, 2026-11-10: "for me first"): QUOTE_ADMIN_EMAILS, comma-separated, and
- * on the quoter list too. Fails closed: unset or empty lets nobody see it.
- */
-export const adminAllowlist = () => parseAllowlist(process.env.QUOTE_ADMIN_EMAILS);
-export const isAdmin = (email: unknown) => isQuoter(email, adminAllowlist()) && isQuoter(email, quoterAllowlist());

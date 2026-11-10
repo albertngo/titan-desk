@@ -18,13 +18,24 @@ export const T = {
   /** Invoices and Receipts (Albert, 2026-10-30): one numbered document per won project. */
   invoices: "tbl49nHIuyKfaCjEp",
   receipts: "tblUEcr7cypJwZOd7",
+  /** App Settings (Albert, 2026-11-10): the switches and dials the Settings page changes. */
+  settings: "tblDCRTr3lUDwInOt",
+} as const;
+
+/** App Settings fields (2026-11-10). */
+export const SETTING = {
+  key: "fld5RKFS9OkI7nJ4A",
+  value: "fldHOU5FPgp63VqrR",
+  updatedBy: "fldp3f2B6Z6d4SE8w",
+  updatedAt: "fldP3MwQurho6f1HM",
+  log: "fldqplfi4XNZEao1A",
 } as const;
 
 /**
  * The tables this app may ever write to: the four quote tables (milestone 3) and, since 2026-10-30, Invoices
  * and Receipts. Nothing else, ever.
  */
-export const WRITABLE_TABLES: readonly string[] = [T.quotes, T.versions, T.options, T.lines, T.invoices, T.receipts];
+export const WRITABLE_TABLES: readonly string[] = [T.quotes, T.versions, T.options, T.lines, T.invoices, T.receipts, T.settings];
 
 /**
  * The one exception for the Rate Card and Stair Items (Albert, 2026-11-01: typed items on a sent quote are "created

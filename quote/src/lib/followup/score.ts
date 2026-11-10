@@ -125,6 +125,8 @@ export type ScoreInput = {
   namedDay: string | null;
   now: Date;
   torontoDay: (s: string | Date) => string;
+  /** The Settings page's thresholds (2026-11-10); the constants above when not given. */
+  dials?: { needsYouAt: number; watchAt: number; hotAt: number };
 };
 
 export type Score = { score: number; tier: Tier; reasons: string[]; flags: HardFlag[]; hot: boolean; touches: number };
@@ -245,11 +247,12 @@ export function scoreOf(i: ScoreInput): Score {
   // An unopened preliminary is GHL's drip's (Albert, 2026-11-09: "GHL only, app never"): a reason, never a flag.
   if (i.preliminary && i.opens === 0 && age >= 3) reasons.push({ w: 4, text: "not opened yet" });
 
-  let tier: Tier = flags.length || score >= NEEDS_YOU_AT ? "needs" : score >= WATCH_AT ? "watch" : "auto";
+  const dial = i.dials ?? { needsYouAt: NEEDS_YOU_AT, watchAt: WATCH_AT, hotAt: HOT_AT };
+  let tier: Tier = flags.length || score >= dial.needsYouAt ? "needs" : score >= dial.watchAt ? "watch" : "auto";
   // A measured quote always has a person on it (Albert, 2026-11-09): the score orders it, it never runs on its own.
   if (!i.preliminary && tier === "auto") tier = "watch";
   // Hot = a WhatsApp. An unopened measured quote is a person's job today, not an alarm.
-  const hot = tier === "needs" && (score >= HOT_AT || flags.some((f) => f !== "unopened"));
+  const hot = tier === "needs" && (score >= dial.hotAt || flags.some((f) => f !== "unopened"));
   const top = [...flags.map((f) => ({ w: 100, text: FLAG_WORDS[f] })), ...reasons].sort((a, b) => b.w - a.w).map((r) => r.text);
   return { score, tier, reasons: [...new Set(top)].slice(0, 3), flags, hot, touches };
 }

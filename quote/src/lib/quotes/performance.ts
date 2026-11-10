@@ -2,7 +2,7 @@ import "server-only";
 import { notFound } from "next/navigation";
 import { listRecords } from "@/lib/airtable/client";
 import { OPTION, QUOTE, T, VERSION } from "@/lib/airtable/fields";
-import { isAdmin } from "@/lib/access";
+import { isAdminEmail } from "@/lib/settings/settings";
 import { requireQuoterPerson } from "@/lib/auth";
 import { ownerOf, parseState } from "@/lib/followup/plan";
 import { emptyPerson, hoursInTiers, lateness, median, needsYouResponse, type PersonPerf } from "@/lib/followup/perf";
@@ -25,7 +25,7 @@ const nameOf = (email: string | null) => (email ? (firstNameOf({ email, name: nu
 
 export async function loadPerformance(): Promise<PerfPage> {
   const person = await requireQuoterPerson();
-  if (!isAdmin(person.email)) notFound();
+  if (!(await isAdminEmail(person.email))) notFound();
   const now = new Date();
   const today = torontoDay(now);
   const since = new Date(now.getTime() - WINDOW_DAYS * 86_400_000).toISOString();
