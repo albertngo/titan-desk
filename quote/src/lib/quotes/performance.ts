@@ -18,7 +18,16 @@ import { ids, num, str } from "./values";
 
 export const WINDOW_DAYS = 30;
 
-export type PerfPage = { since: string; today: string; people: PersonPerf[]; everyone: PersonPerf; stateLogSince: string | null };
+/** One week of the trend charts (2026-11-10: "for performance; i need graphs"), Monday start, Toronto days. */
+export type PerfWeek = { start: string; medianReply: number | null; replies: number; sent: number; accepted: number };
+export type PerfPage = { since: string; today: string; people: PersonPerf[]; everyone: PersonPerf; stateLogSince: string | null; weeks: PerfWeek[] };
+
+/** The Monday on or before a Toronto day. */
+const mondayOf = (day: string) => {
+  const d = new Date(`${day}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+  return d.toISOString().slice(0, 10);
+};
 
 const nameOf = (email: string | null) => (email ? (firstNameOf({ email, name: null }) ?? email.split("@")[0]) : "Nobody");
 
@@ -44,11 +53,23 @@ export async function loadPerformance(): Promise<PerfPage> {
     return raw.get(who) as Raw;
   };
   let firstLog: string | null = null;
+  const weekly = new Map<string, { replies: number[]; count: number; sent: number; accepted: number }>();
+  const wk = (day: string) => {
+    const k = mondayOf(day);
+    if (!weekly.has(k)) weekly.set(k, { replies: [], count: 0, sent: 0, accepted: 0 });
+    return weekly.get(k) as { replies: number[]; count: number; sent: number; accepted: number };
+  };
 
   // Open quotes: replies, lateness, Needs you, hours in each tier.
   for (const r of page.rows) {
     const p = of(r.ownerName ?? "Nobody");
-    for (const g of r.replies) if (g.at >= since) p.replies.push(g.hours);
+    for (const g of r.replies)
+      if (g.at >= since) {
+        p.replies.push(g.hours);
+        const w = wk(torontoDay(g.at));
+        w.count++;
+        if (g.hours !== null) w.replies.push(g.hours);
+      }
     const log = (r.state.events ?? []).filter((e) => e.at >= since);
     if (log[0] && (!firstLog || log[0].at < firstLog)) firstLog = log[0].at;
     const touchTimes = [...r.state.touches.map((t) => t.at), ...(r.due.lastTouch ? [`${r.due.lastTouch}T23:59:59Z`] : [])];
@@ -79,10 +100,13 @@ export async function loadPerformance(): Promise<PerfPage> {
     const latest = [...vs].sort((a, b) => (str(b.fields[VERSION.sentAt]) as string).localeCompare(str(a.fields[VERSION.sentAt]) as string))[0];
     const p = of(nameOf(ownerOf(str(latest.fields[VERSION.sentBy]), str(latest.fields[VERSION.createdBy]))));
     p.sent++;
+    const w = wk(torontoDay(str(first.fields[VERSION.sentAt]) as string));
+    w.sent++;
     const qs = quoteState.get(qid);
     const accepted = qs?.won || vs.some((v) => ["Accepted", "Won"].includes(str(v.fields[VERSION.status]) ?? ""));
     if (accepted) {
       p.accepted++;
+      w.accepted++;
       const acc = vs.find((v) => ["Accepted", "Won"].includes(str(v.fields[VERSION.status]) ?? "")) ?? latest;
       p.wonValue += offerValue(optionsOf.get(acc.id))?.likely ?? 0;
     } else if (qs?.state.lost || str(latest.fields[VERSION.status]) === "Lost") {
@@ -127,5 +151,9 @@ export async function loadPerformance(): Promise<PerfPage> {
     people: [...raw.entries()].filter(([k]) => k !== "Nobody").map(([k, r]) => summarise(k, r)).sort((a, b) => a.person.localeCompare(b.person)),
     everyone: summarise("Everyone", all),
     stateLogSince: firstLog ? firstLog.slice(0, 10) : null,
+    weeks: [...weekly.entries()]
+      .filter(([k]) => k >= mondayOf(since.slice(0, 10)))
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([start, w]) => ({ start, medianReply: median(w.replies), replies: w.count, sent: w.sent, accepted: w.accepted })),
   };
 }
