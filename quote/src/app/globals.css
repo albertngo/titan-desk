@@ -2489,7 +2489,21 @@ table.items tr.subsect td { box-shadow: none !important; border-left: 0 !importa
 .fu-h .n { font-size: 11px; font-variant-numeric: tabular-nums; padding: 1px 7px; border-radius: 999px; background: var(--head); color: var(--fg-dim); }
 .fu-sec.due .fu-h { color: var(--fg); }
 .fu-empty { margin: 0; padding: 4px 16px 14px; font-size: 13.5px; color: var(--fg-dim); }
-.fu-row, .fu-cols { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.1fr); gap: 6px 16px; }
+.fu-row, .fu-cols { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); gap: 6px 0; }
+/* Columns kept apart (Albert, 2026-11-10, "A and C"). Wide: thin dividers between cells under a grey header band. */
+.fu-row > .fu-who, .fu-row > .fu-scorecol, .fu-row > .fu-why, .fu-row > .fu-facts, .fu-cols > span { padding: 0 14px; min-width: 0; }
+.fu-row > .fu-who, .fu-cols > span:first-child { padding-left: 0; }
+.fu-row > .fu-scorecol, .fu-row > .fu-why, .fu-row > .fu-facts, .fu-cols > span + span { border-left: 1px solid var(--line); }
+.fu-scorecol, .fu-why, .fu-facts { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.fu-score-none { font-size: 12.5px; color: var(--fg-dim); }
+/* Narrow: each cell is its own small card, labelled inside (the header band hides). */
+@media (max-width: 760px) {
+  .fu-cols { display: none; }
+  .fu-row { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .fu-row > .fu-who { padding: 0; }
+  .fu-row > .fu-scorecol, .fu-row > .fu-why, .fu-row > .fu-facts { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--card-2); }
+  .fu-row > [data-k]::before { content: attr(data-k); font-size: 11.5px; font-weight: 600; color: var(--fg-dim); }
+}
 .fu-name-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
 /* Who the customer is talking to (2026-11-07): clear, beside the name, in the filter's words. */
 .fu-visit { justify-self: start; font-size: 12.5px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--head); color: var(--fg-dim); }

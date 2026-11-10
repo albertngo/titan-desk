@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-10",
     kind: "changed",
+    title: "Follow up: clearer columns",
+    details: ["The score has its own column, and thin lines now separate Customer, Score, Why it's due and Age. On a phone each part sits in its own small labelled box."],
+  },
+  {
+    date: "2026-11-10",
+    kind: "changed",
     title: "Follow up staff guide v2",
     details: ["Company files, Staff guides now has v2 of the Follow up staff guide: the score and its bar, Needs you, Watch and On auto, the flags, sending measured follow-ups from the app with the preview, and the Snoozed tab."],
   },

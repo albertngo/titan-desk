@@ -179,6 +179,7 @@ export function FollowUpList({ data }: { data: FollowUpPage }) {
         </div>
         <div className="fu-cols" aria-hidden>
           <span>Customer · in conversation with</span>
+          <span>Score</span>
           <span>Why it&apos;s due</span>
           <span>Age and follow-ups</span>
         </div>
@@ -204,13 +205,14 @@ export function FollowUpList({ data }: { data: FollowUpPage }) {
                   </span>
                   <span className="fu-meta">{v.quote?.quoteNumber ? `${v.quote.quoteNumber} · no measured quote sent since the visit` : "No quote in the app yet"}</span>
                 </div>
-                <div className="fu-why">
+                <div className="fu-scorecol" data-k="Score"><span className="fu-score-none">No quote yet</span></div>
+                <div className="fu-why" data-k="Why it's due">
                   <span className="chip warn">Visited: the measured quote is owed</span>
                   <span className="fu-when">
                     Visited {dayWords(v.day, data.today)} · {v.where}
                   </span>
                 </div>
-                <div className="fu-facts">
+                <div className="fu-facts" data-k="Age and follow-ups">
                   <span>{v.days === 0 ? "Today" : `${v.days} day${v.days === 1 ? "" : "s"} since the visit`}</span>
                 </div>
                 <div className="fu-acts">
@@ -295,10 +297,13 @@ export function FollowUpList({ data }: { data: FollowUpPage }) {
                       {r.quoteNumber ?? ""} · {r.basis ?? "Quote"}
                     </span>
                   </div>
-                  <div className="fu-why">
+                  <div className="fu-scorecol" data-k="Score">
                     <ScoreChip row={r} />
                   </div>
-                  <div className="fu-facts">
+                  <div className="fu-why" data-k="Why it's due">
+                    <span className="chip">On auto</span>
+                  </div>
+                  <div className="fu-facts" data-k="Age and follow-ups">
                     <span>{r.age}</span>
                   </div>
                 </div>
@@ -366,14 +371,16 @@ function Row(p: {
         {/* Where the lead is in the journey (2026-11-07): from the contact's GHL appointments. */}
         {row.visit && <span className={`fu-visit ${row.visit.kind}`}>{row.visitText}</span>}
       </div>
-      <div className="fu-why">
+      <div className="fu-scorecol" data-k="Score">
         <ScoreChip row={row} />
+      </div>
+      <div className="fu-why" data-k="Why it's due">
         <span className={`chip${tone ? ` ${tone}` : ""}`}>{row.why}</span>
         <span className="fu-when">
           {row.due.bucket === "postponed" ? "Back on the list" : "Due"} {dayWords(row.due.day, today)}
         </span>
       </div>
-      <div className="fu-facts">
+      <div className="fu-facts" data-k="Age and follow-ups">
         <span>{row.age}</span>
         <span>
           {row.due.touches === 0 ? "No follow-up yet" : `${row.due.touches} follow-up${row.due.touches === 1 ? "" : "s"}, last ${dayWords(row.due.lastTouch as string, today)}`}
