@@ -37,6 +37,7 @@ import { calendarEvents, contactAppointments, conversationMessages, freeSlots, l
 import { visitFact, visitedWhere, visitOf, visitWords, type Visit } from "@/lib/followup/visit";
 import { FLAG_WORDS, overCap, scoreOf, staysAuto, TIER_WORDS, TOP_VALUE, type Score, type Tier } from "@/lib/followup/score";
 import { pickSlots, SLOT_DAYS } from "@/lib/followup/slots";
+import { EVENTS_KEPT, newEvents, replyGaps } from "@/lib/followup/perf";
 import { autoBlock, channelFor, checkDraft, editShare, readiness, type Channel, type DraftKind } from "@/lib/followup/autosend";
 import { activityEntries } from "@/lib/activity/track";
 import { fromAttempts, fromTheirNumber, noNumberWords, textFromFor } from "@/lib/send/plan";
@@ -106,6 +107,8 @@ export type FollowUpRow = {
   channel: Channel | null;
   /** Why the app wouldn't send this one on its own right now (null = it would, once the app's switch is on). */
   autoWhy: string | null;
+  /** Customer messages since a month before the send, with hours to our first human reply (2026-11-10, Performance). */
+  replies: { at: string; hours: number | null }[];
   /** Who a Send goes to, for the confirm box (2026-11-09): the phone's last 4 digits, or the email. */
   toWords: string | null;
 };
@@ -290,7 +293,8 @@ async function readFollowUps(now: Date): Promise<Omit<FollowUpPage, "me">> {
           const phone = str(c.q.fields[QUOTE.phone])?.replace(/\D/g, "") ?? "";
           const email = str(c.q.fields[QUOTE.email]);
           const toWords = channel === "sms" && phone ? `the number ending ${phone.slice(-4)}` : channel === "email" && email ? email : null;
-          return { channel, autoWhy, toWords };
+          const replies = t?.messages ? replyGaps(t.messages, new Date(Date.parse(sentAt) - 30 * 86_400_000).toISOString()) : [];
+          return { channel, autoWhy, toWords, replies };
         })(),
       },
     ];
@@ -299,6 +303,7 @@ async function readFollowUps(now: Date): Promise<Omit<FollowUpPage, "me">> {
   const wait = overCap(rows.filter((r) => r.due.bucket === "due").map((r) => ({ id: r.quoteRecordId, owner: r.owner, score: r.score })));
   for (const r of rows) r.waiting = wait.has(r.quoteRecordId);
   rows.sort(byNeed);
+  await logStates(rows, now);
   await alertHot(rows, now);
 
   let reasons: { id: string; name: string }[] | null = null;
@@ -362,6 +367,35 @@ const ALERT_AGAIN_DAYS = 7;
  * has written since and a week has passed. Kept on Quotes → Follow Up with a compare-and-swap, so two readers can't
  * both send. Best effort: a failure is logged and tried on the next read.
  */
+/** State log writes in one page read, at most, so a first read of a full list stays quick. */
+const STATE_WRITES_AT_ONCE = 25;
+
+/**
+ * The state log (Albert, 2026-11-10: "log how long a lead is in a certain state"): each read appends a tier event when
+ * a quote's tier changed and a due event the first day it falls due, on Quotes → Follow Up, compare-and-swap. What
+ * isn't written this read is written on the next (the hourly run reads too).
+ */
+async function logStates(rows: FollowUpRow[], now: Date) {
+  const today = torontoDay(now);
+  let writes = 0;
+  for (const r of rows) {
+    if (writes >= STATE_WRITES_AT_ONCE) break;
+    const add = newEvents(r.state.events ?? [], { at: now.toISOString(), tier: r.score.tier, score: r.score.score, dueToday: r.due.bucket === "due" ? r.due.day <= today ? r.due.day : null : null, lastTouch: r.due.lastTouch });
+    if (!add.length) continue;
+    try {
+      const fresh = await getRecord(T.quotes, r.quoteRecordId);
+      if ((str(fresh.fields[QUOTE.followUp]) ?? "") !== r.seen) continue;
+      const next = serializeState({ ...r.state, events: [...(r.state.events ?? []), ...add].slice(-EVENTS_KEPT) });
+      await updateRecord(T.quotes, r.quoteRecordId, { [QUOTE.followUp]: next });
+      r.seen = next;
+      r.state = parseState(next);
+      writes++;
+    } catch (e) {
+      console.error("followUp state log", e);
+    }
+  }
+}
+
 async function alertHot(rows: FollowUpRow[], now: Date) {
   if (!alertsConfigured()) return;
   const due = rows.filter((r) => {

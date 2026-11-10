@@ -22,6 +22,12 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-10",
+    kind: "new",
+    title: "Follow-up performance (Albert only)",
+    details: ["A Performance page, linked from Follow up for Albert only: per person over the last 30 days, reply speed, on-time follow-ups, how fast Needs you quotes were acted on and time spent in each tier, and outcomes with lost reasons. From today the app also keeps a log of each quote's tier and due days."],
+  },
+  {
+    date: "2026-11-10",
     kind: "changed",
     title: "Follow up: clearer columns",
     details: ["The score has its own column, and thin lines now separate Customer, Score, Why it's due and Age. On a phone each part sits in its own small labelled box."],
