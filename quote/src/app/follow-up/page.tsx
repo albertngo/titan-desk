@@ -1,5 +1,7 @@
 import { FollowUpList } from "@/components/FollowUpList";
 import { TopBar } from "@/components/TopBar";
+import Link from "next/link";
+import { isAdmin } from "@/lib/access";
 import { requireQuoter } from "@/lib/auth";
 import { loadFollowUps } from "@/lib/quotes/followup";
 
@@ -16,7 +18,15 @@ export default async function FollowUpPage() {
         <div className="pagehead">
           <div className="titles">
             <h1>Follow up</h1>
-            <p>Sent quotes still waiting on the customer, due first. A text, email or call in GHL counts as a follow-up on its own.</p>
+            <p>
+              Sent quotes still waiting on the customer, due first. A text, email or call in GHL counts as a follow-up on its own.
+              {isAdmin(email) && (
+                <>
+                  {" "}
+                  <Link href="/performance">Performance</Link>
+                </>
+              )}
+            </p>
           </div>
         </div>
         <div className="tape" aria-hidden />

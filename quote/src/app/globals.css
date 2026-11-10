@@ -2528,6 +2528,19 @@ table.items tr.subsect td { box-shadow: none !important; border-left: 0 !importa
 .fu-row.auto-row { padding: 8px 16px; }
 .fu-preview { margin: 8px 0 12px; padding: 10px 12px; border-left: 3px solid var(--line); background: var(--head); white-space: pre-wrap; font-size: 14px; }
 .fu-tabs { display: flex; gap: 6px; padding: 10px 16px 0; }
+.pf-sec { padding: 14px 16px; border-top: 1px solid var(--line); }
+.pf-sec:first-child { border-top: 0; }
+.pf-h { margin: 0 0 2px; font-size: 15px; }
+.pf-note { margin: 0 0 8px; font-size: 13px; color: var(--fg-dim); }
+.pf-foot { padding: 12px 16px 16px; margin: 0; border-top: 1px solid var(--line); }
+.pf-scroll { overflow-x: auto; }
+.pf-t { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+.pf-t th, .pf-t td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.pf-t th:first-child { text-align: left; }
+.pf-t thead th { background: var(--head); font-size: 12.5px; color: var(--fg-dim); font-weight: 600; }
+.pf-t td + td, .pf-t th + th, .pf-t th + td { border-left: 1px solid var(--line); }
+.pf-t tr.all th, .pf-t tr.all td { font-weight: 700; background: var(--card-2); }
+.pf-reasons { margin: 0; padding-left: 18px; font-size: 14px; }
 .fu-sending { margin: 0; font-size: 12.5px; color: var(--fg-dim); }
 .fu-draft.send textarea, .fu-draft.send input { width: 100%; margin-bottom: 6px; font: inherit; }
 .fu-auto { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--fg-dim); }
