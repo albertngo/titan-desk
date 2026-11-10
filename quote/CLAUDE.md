@@ -127,7 +127,9 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
    `createReviewRecord()` in the client may CREATE a row there (`REVIEW_TABLES`), and only one switched off and
    marked Needs Review (`REVIEW_MARKS`: Active unticked, Import Status / Review Status = Needs Review), without
    typecast; never an update, never a delete. Only `src/lib/quotes/customItems.ts` calls it. The boundary test pins
-   all of this.
+   all of this. **App Settings (Albert, 2026-11-10):** the Settings page's one table, in `WRITABLE_TABLES`, written only by
+   `src/lib/settings/settings.ts` (`saveSetting()`, admins only, every change appended to the row's Log). It holds switches and
+   dials only; keys, tokens and webhook addresses stay in Vercel.
 2a. **One file talks to GHL, and only reads:** `src/lib/ghl/client.ts`, `server-only`, GET
    only, the only reader of `QUOTE_GHL_TOKEN` (used for contacts.readonly, opportunities.readonly,
    conversations.readonly and conversations/message.readonly; since 2026-10-27 users.readonly, to tag

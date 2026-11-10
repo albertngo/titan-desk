@@ -60,9 +60,9 @@ describe("autoBlock: every guardrail (Albert, 2026-11-09)", () => {
     ["a flag", { flags: ["buying"] }, /flag/],
     ["a $25k+ job", { value: 30_000 }, /\$25k/],
     ["Sunday", { now: new Date(at("2026-11-15", 15)) }, /Monday to Saturday/],
-    ["8am", { now: new Date(at("2026-11-10", 13)) }, /9am to 7pm/],
-    ["7pm", { now: new Date(at("2026-11-11", 0)) }, /9am to 7pm/],
-    ["one in the last 2 days", { sent: [log(at("2026-11-09", 15))] }, /last 2 days/],
+    ["8am", { now: new Date(at("2026-11-10", 13)) }, /9:00 to 19:00/],
+    ["7pm", { now: new Date(at("2026-11-11", 0)) }, /9:00 to 19:00/],
+    ["one in the last 2 days", { sent: [log(at("2026-11-09", 15))] }, /last 48 hours/],
     ["4 already sent", { sent: [1, 2, 3, 4].map((n) => log(at(`2026-10-0${n}`))) }, /4 already/],
   ] as const)("blocks when %s", (_w, o, re) => {
     expect(autoBlock(base(o as Partial<AutoInput>))).toMatch(re);

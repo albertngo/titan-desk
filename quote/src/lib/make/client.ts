@@ -124,11 +124,10 @@ export async function setOpportunityStatus(opportunityId: string, statusBody: st
  * (a test number first, as the Tacoma alerts did, until Albert switches each one to its real person). The text names
  * the customer, the score and why; never a message from the conversation. Throws MakeError unless Make confirms it.
  */
-export const alertsConfigured = () => makeConfigured() && Boolean(process.env.QUOTE_ALERT_TO);
-
-export async function sendAlert(alert: { forEmail: string | null; text: string }): Promise<void> {
-  const to = process.env.QUOTE_ALERT_TO;
-  if (!to) throw new MakeError("Follow-up alerts aren't switched on for this deployment.");
+export async function sendAlert(alert: { to: string; forEmail: string | null; text: string }): Promise<void> {
+  // Since 2026-11-10 the number and the on/off are on the Settings page; the caller passes them.
+  const to = alert.to;
+  if (!/^\+\d{10,15}$/.test(to)) throw new MakeError("No valid alert number is set (Settings, Alerts).");
   const { res, text, d } = await post({ mode: "alert", to, forEmail: alert.forEmail ?? "", alertBody: JSON.stringify({ text: alert.text }) });
   if (!res.ok || d.ok !== true) throw new MakeError(`Make didn't confirm the alert (${res.status}: ${text.slice(0, 120)})`);
 }

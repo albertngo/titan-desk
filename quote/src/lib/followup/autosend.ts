@@ -114,6 +114,8 @@ export type AutoInput = {
   value: number | null;
   sent: SentLog[];
   now: Date;
+  /** The Settings page's limits (2026-11-10); the constants above when not given. */
+  limits?: { valueLimit: number; maxMessages: number; gapHours: number; sendFrom: number; sendTo: number };
 };
 
 /** Why the app may not send this one on its own; null = it may. Every rule is Albert's (2026-11-09). */
@@ -128,12 +130,13 @@ export function autoBlock(i: AutoInput): string | null {
   if (!i.kind || !AUTO_KINDS.includes(i.kind)) return "Only check-ins and nudges go on their own.";
   if (i.unanswered) return "The customer is waiting on a person's reply.";
   if (i.flags.length) return "It needs a person (a flag is up).";
-  if ((i.value ?? 0) >= AUTO_VALUE_LIMIT) return "A $25k+ job always gets a person's tap.";
+  const L = i.limits ?? { valueLimit: AUTO_VALUE_LIMIT, maxMessages: MAX_APP_MESSAGES, gapHours: MIN_GAP_HOURS, sendFrom: SEND_HOURS.from, sendTo: SEND_HOURS.to };
+  if ((i.value ?? 0) >= L.valueLimit) return `A job of $${Math.round(L.valueLimit / 1000)}k or more always gets a person's tap.`;
   const c = torontoClock(i.now);
-  if (!(SEND_DAYS as readonly number[]).includes(c.weekday) || c.hour < SEND_HOURS.from || c.hour >= SEND_HOURS.to) return "Outside 9am to 7pm, Monday to Saturday.";
-  if (i.sent.length >= MAX_APP_MESSAGES) return `The app has sent ${MAX_APP_MESSAGES} already: a person takes it from here.`;
+  if (!(SEND_DAYS as readonly number[]).includes(c.weekday) || c.hour < L.sendFrom || c.hour >= L.sendTo) return `Outside ${L.sendFrom}:00 to ${L.sendTo}:00, Monday to Saturday.`;
+  if (i.sent.length >= L.maxMessages) return `The app has sent ${L.maxMessages} already: a person takes it from here.`;
   const last = i.sent.map((s) => Date.parse(s.at)).filter(Number.isFinite).sort((a, b) => b - a)[0];
-  if (last && i.now.getTime() - last < MIN_GAP_HOURS * 3_600_000) return "The app sent one in the last 2 days.";
+  if (last && i.now.getTime() - last < L.gapHours * 3_600_000) return `The app sent one in the last ${L.gapHours} hours.`;
   return null;
 }
 

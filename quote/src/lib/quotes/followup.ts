@@ -38,6 +38,8 @@ import { visitFact, visitedWhere, visitOf, visitWords, type Visit } from "@/lib/
 import { FLAG_WORDS, overCap, scoreOf, staysAuto, TIER_WORDS, TOP_VALUE, type Score, type Tier } from "@/lib/followup/score";
 import { pickSlots, SLOT_DAYS } from "@/lib/followup/slots";
 import { EVENTS_KEPT, newEvents, replyGaps } from "@/lib/followup/perf";
+import { settings } from "@/lib/settings/settings";
+import type { Settings } from "@/lib/settings/registry";
 import { autoBlock, channelFor, checkDraft, editShare, readiness, type Channel, type DraftKind } from "@/lib/followup/autosend";
 import { activityEntries } from "@/lib/activity/track";
 import { fromAttempts, fromTheirNumber, noNumberWords, textFromFor } from "@/lib/send/plan";
@@ -46,7 +48,7 @@ import { offerValue, type OptionMoney } from "./group";
 import { VISIT_LOOKBACK_DAYS, visitsWithoutQuote, type ContactQuotes, type VisitNoQuote } from "@/lib/followup/visits";
 import { BOOKING_CALENDAR_IDS, BOOKING_URLS, ghlContactUrl, ghlConversationUrl } from "@/lib/ghl/ids";
 import { buildLostDetails, buildPostpone, lostDetailsText, lostStatusBody, postponedStageId } from "@/lib/link/ghlRequest";
-import { alertsConfigured, makeConfigured, removeFollowUpTags, sendAlert, sendMessage, sendToGhl, setOpportunityStatus } from "@/lib/make/client";
+import { makeConfigured, removeFollowUpTags, sendAlert, sendMessage, sendToGhl, setOpportunityStatus } from "@/lib/make/client";
 import { torontoDay } from "./group";
 import { appendLog, firstNameOf, logLine } from "./history";
 import { ids, num, str } from "./values";
@@ -127,6 +129,8 @@ export type FollowUpPage = {
   today: string;
   /** The Stage 2 report: taps so far and how many went out as written (Albert flips the switch on it). */
   sending: { taps: number; light: number; share: number; ready: boolean; autoOn: boolean };
+  /** The Settings page's thresholds, for the score bar's marks and the group hints. */
+  dials: { needsYouAt: number; watchAt: number; dailyCap: number };
 };
 
 function customerOf(f: Record<string, unknown>): string | null {
@@ -172,10 +176,11 @@ export async function loadFollowUps(): Promise<FollowUpPage> {
 }
 
 /** Auto follow-ups switched on for the app (Albert's switch, 2026-11-09). Off unless exactly "on". */
-const autoSwitchOn = () => process.env.QUOTE_AUTO_FOLLOWUPS === "on";
+const autoSwitchOn = (st: Settings) => st.autoFollowUps;
 
 /** The page's rows, with no sign-in check: called by loadFollowUps (signed in) and the key-gated Stage 2 run only. */
 async function readFollowUps(now: Date): Promise<Omit<FollowUpPage, "me">> {
+  const st = await settings();
   const [versions, quotes] = await Promise.all([
     listRecords(T.versions, { fields: [VERSION.quote, VERSION.version, VERSION.status, VERSION.basis, VERSION.sentAt, VERSION.validUntil, VERSION.sentBy, VERSION.createdBy, VERSION.changeNo, VERSION.openedCount, VERSION.lastOpenedAt, VERSION.firstOpenedAt, VERSION.activityLog] }),
     listRecords(T.quotes, { fields: [QUOTE.quoteNumber, QUOTE.customerName, QUOTE.firstName, QUOTE.lastName, QUOTE.projectNumber, QUOTE.description, QUOTE.ghlContactId, QUOTE.ghlOpportunityId, QUOTE.followUp, QUOTE.phone, QUOTE.email] }),
@@ -222,6 +227,7 @@ async function readFollowUps(now: Date): Promise<Omit<FollowUpPage, "me">> {
     const signals = (brief ?? c.state.brief)?.signals ?? null;
     const value = offerValue(optionsOf.get(c.sent.id))?.likely ?? null;
     const score = scoreOf({
+      dials: { needsYouAt: st.needsYouAt, watchAt: st.watchAt, hotAt: st.hotAt },
       messages: t?.messages ?? null,
       sentAt,
       preliminary,
@@ -276,7 +282,8 @@ async function readFollowUps(now: Date): Promise<Omit<FollowUpPage, "me">> {
             : !channel
               ? "No phone or email on the quote."
               : autoBlock({
-                  switchOn: autoSwitchOn(),
+                  switchOn: autoSwitchOn(st),
+                  limits: { valueLimit: st.autoValueLimit, maxMessages: st.autoMaxMessages, gapHours: st.autoGapHours, sendFrom: st.sendFrom, sendTo: st.sendTo },
                   quoteOn: !c.state.autoOff,
                   measured: true,
                   dueNow: due.bucket === "due",
@@ -300,18 +307,18 @@ async function readFollowUps(now: Date): Promise<Omit<FollowUpPage, "me">> {
     ];
   });
   // The daily cap counts what is due now, per sender.
-  const wait = overCap(rows.filter((r) => r.due.bucket === "due").map((r) => ({ id: r.quoteRecordId, owner: r.owner, score: r.score })));
+  const wait = overCap(rows.filter((r) => r.due.bucket === "due").map((r) => ({ id: r.quoteRecordId, owner: r.owner, score: r.score })), st.dailyCap);
   for (const r of rows) r.waiting = wait.has(r.quoteRecordId);
   rows.sort(byNeed);
   await logStates(rows, now);
-  await alertHot(rows, now);
+  await alertHot(rows, now, st);
 
   let reasons: { id: string; name: string }[] | null = null;
   if (ghlOn) reasons = await lostReasons().catch((e) => (console.error("lostReasons", e), null));
   const visits = await visitsP;
   dueCache = { at: Date.now(), count: badgeCount(rows) + (visits?.length ?? 0) };
-  const sending = { ...readiness(candidates.flatMap((c) => c.state.sent ?? [])), autoOn: autoSwitchOn() };
-  return { rows, lostReasons: reasons, inHomeUrl: BOOKING_URLS.inHome, ghlOn, makeOn: makeConfigured(), briefsOn: readerOn(), today: torontoDay(now), visits, sending };
+  const sending = { ...readiness(candidates.flatMap((c) => c.state.sent ?? [])), autoOn: autoSwitchOn(st) };
+  return { rows, lostReasons: reasons, inHomeUrl: BOOKING_URLS.inHome, ghlOn, makeOn: makeConfigured(), briefsOn: readerOn(), today: torontoDay(now), visits, sending, dials: { needsYouAt: st.needsYouAt, watchAt: st.watchAt, dailyCap: st.dailyCap } };
 }
 
 /** The Toronto days a version was opened on, from its Activity Log ("2026-11-09 14:05 · opened · iPhone"). */
@@ -357,8 +364,6 @@ function byNeed(a: FollowUpRow, b: FollowUpRow): number {
 /** The red count (2026-11-09): only what needs a person now, inside the cap. */
 const badgeCount = (rows: FollowUpRow[]) => rows.filter((r) => r.due.bucket === "due" && r.score.tier === "needs" && !r.waiting).length;
 
-/** Alerts sent in one page read, at most, so a first run on a full list can't flood the phone. */
-const ALERTS_AT_ONCE = 5;
 /** A quote alerts again only after this long, and only when the customer has written since. */
 const ALERT_AGAIN_DAYS = 7;
 
@@ -396,8 +401,8 @@ async function logStates(rows: FollowUpRow[], now: Date) {
   }
 }
 
-async function alertHot(rows: FollowUpRow[], now: Date) {
-  if (!alertsConfigured()) return;
+async function alertHot(rows: FollowUpRow[], now: Date, st: Settings) {
+  if (!st.alertsOn || !st.alertTo || !makeConfigured()) return;
   const due = rows.filter((r) => {
     if (!r.score.hot || r.due.bucket === "snoozed" || r.due.bucket === "postponed") return false;
     const a = r.state.alerted;
@@ -405,7 +410,7 @@ async function alertHot(rows: FollowUpRow[], now: Date) {
     const last = r.ghlRead ? r.due.lastTouch : null;
     return now.getTime() - Date.parse(a.at) >= ALERT_AGAIN_DAYS * 86_400_000 && Boolean(last && last > a.at.slice(0, 10));
   });
-  for (const r of due.slice(0, ALERTS_AT_ONCE)) {
+  for (const r of due.slice(0, st.alertsPerRead)) {
     try {
       const fresh = await getRecord(T.quotes, r.quoteRecordId);
       const raw = str(fresh.fields[QUOTE.followUp]) ?? "";
@@ -416,7 +421,7 @@ async function alertHot(rows: FollowUpRow[], now: Date) {
         r.score.flags.length ? r.score.flags.map((f) => FLAG_WORDS[f]).join("; ") : r.score.reasons.join(" · "),
         `With ${r.ownerName ?? "nobody yet"}${big ? " · Albert cc" : ""}. Open Follow up in the quote app.`,
       ].join("\n");
-      await sendAlert({ forEmail: r.owner, text });
+      await sendAlert({ to: st.alertTo, forEmail: r.owner, text });
       const next = serializeState(withAlerted(r.state, { at: now.toISOString(), score: r.score.score }));
       await updateRecord(T.quotes, r.quoteRecordId, { [QUOTE.followUp]: next });
       r.seen = next;
@@ -520,8 +525,6 @@ export async function writeBrief(quoteRecordId: string, force: boolean): Promise
 /** A brief written before today (Toronto) is rewritten even when nothing happened: the age, slots and next step move on. */
 const writtenToday = (b: Brief, now: Date) => torontoDay(b.at) === torontoDay(now);
 
-/** Briefs rewritten in one background run, at most (2026-11-09). */
-const BRIEFS_PER_RUN = 10;
 
 /** writeBrief's work, without the sign-in check: reached from writeBrief (signed in) and the key-gated hourly run only. */
 async function briefFor(quoteRecordId: string, force: boolean): Promise<BriefResult> {
@@ -833,7 +836,8 @@ export async function runAutoFollowUps(key: string | null): Promise<AutoRunResul
   // Briefs first, whatever the switch (Albert, 2026-11-09: "updated every so often"): stale ones for what is due or
   // coming up are rewritten here, so the page opens ready.
   const before = await readFollowUps(new Date());
-  const stale = before.rows.filter((r) => r.briefStale && (r.due.bucket === "due" || r.due.bucket === "upcoming")).slice(0, BRIEFS_PER_RUN);
+  const st = await settings();
+  const stale = before.rows.filter((r) => r.briefStale && (r.due.bucket === "due" || r.due.bucket === "upcoming")).slice(0, st.briefsPerRun);
   let briefs = 0;
   if (readerOn()) {
     for (const r of stale) {
@@ -842,7 +846,7 @@ export async function runAutoFollowUps(key: string | null): Promise<AutoRunResul
     }
   }
   const briefNote = `${briefs} brief${briefs === 1 ? "" : "s"} rewritten.`;
-  if (!autoSwitchOn()) return { ok: true, sent: 0, skipped: 0, notes: [briefNote, "Auto follow-ups are off for the app (Albert's switch)."] };
+  if (!autoSwitchOn(st)) return { ok: true, sent: 0, skipped: 0, notes: [briefNote, "Auto follow-ups are off for the app (Albert's switch)."] };
   const page = await readFollowUps(new Date());
   const ready = page.rows.filter((r) => r.autoWhy === null && r.channel && r.brief && r.owner).slice(0, AUTO_PER_RUN);
   const notes: string[] = [];

@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-10",
     kind: "new",
+    title: "Settings page (admins only)",
+    details: ["A Settings page, linked from Follow up for admins: automatic follow-ups on or off and their limits, the Needs you and Watch thresholds and daily limit, WhatsApp alerts on or off and their number, how many briefs refresh each hour, and who counts as an admin. Changes apply within a minute and are logged."],
+  },
+  {
+    date: "2026-11-10",
+    kind: "new",
     title: "Follow-up performance (Albert only)",
     details: ["A Performance page, linked from Follow up for Albert only: per person over the last 30 days, reply speed, on-time follow-ups, how fast Needs you quotes were acted on and time spent in each tier, and outcomes with lost reasons. From today the app also keeps a log of each quote's tier and due days."],
   },

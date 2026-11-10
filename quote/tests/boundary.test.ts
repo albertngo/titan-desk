@@ -12,7 +12,7 @@ const SRC = path.resolve(__dirname, "../src");
 const CLIENT = "lib/airtable/client.ts";
 const GHL = "lib/ghl/client.ts";
 /** The only files allowed to create or update Airtable records. Adding one is a reviewed decision. */
-const WRITERS = ["lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/describe.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/accept/record.ts", "lib/quotes/sitesheet.ts", "lib/quotes/billing.ts", "lib/quotes/customItems.ts", "lib/quotes/payouts.ts", "lib/quotes/followup.ts"];
+const WRITERS = ["lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/describe.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/accept/record.ts", "lib/quotes/sitesheet.ts", "lib/quotes/billing.ts", "lib/quotes/customItems.ts", "lib/quotes/payouts.ts", "lib/quotes/followup.ts", "lib/settings/settings.ts"];
 const CATALOGUE = "tblfLXD3zkSdNQGbS";
 
 function files(dir: string): string[] {
@@ -53,7 +53,8 @@ describe("Airtable boundary", () => {
   });
 
   it("writes to the four quote tables and Invoices / Receipts (2026-10-30) only, never the catalogue, Rate Card or Stair Items", () => {
-    expect([...WRITABLE_TABLES].sort()).toEqual([T.quotes, T.versions, T.options, T.lines, T.invoices, T.receipts].sort());
+    // App Settings (2026-11-10): the Settings page's one table, written only by lib/settings/settings.ts.
+    expect([...WRITABLE_TABLES].sort()).toEqual([T.quotes, T.versions, T.options, T.lines, T.invoices, T.receipts, T.settings].sort());
     for (const t of [RATE_TABLE, STAIR_TABLE, CATALOGUE]) expect(WRITABLE_TABLES).not.toContain(t);
   });
 
@@ -401,8 +402,9 @@ describe("automatic follow-ups (2026-11-09: no sign-in, key-gated, off unless Al
     expect(text).toMatch(/export async function runAutoFollowUps\(key: string \| null\)[^{]*\{\s*if \(!followUpKeyOk\(key\)\) return/);
     expect(text).toMatch(/const want = process\.env\.QUOTE_FOLLOWUP_KEY;\s*if \(!want \|\| !given\) return false;/);
     // Albert's switch: exactly "on", read in one place.
-    expect(text).toMatch(/const autoSwitchOn = \(\) => process\.env\.QUOTE_AUTO_FOLLOWUPS === "on";/);
-    expect(text.match(/QUOTE_AUTO_FOLLOWUPS/g)?.length).toBe(1);
+    // Albert's switch: since 2026-11-10 on the Settings page (admins only), the Vercel variable only its default.
+    expect(text).toMatch(/const autoSwitchOn = \(st: Settings\) => st\.autoFollowUps;/);
+    expect(text).not.toMatch(/QUOTE_AUTO_FOLLOWUPS/);
     // The run sends only what passed every guardrail, and checks the draft again before it goes.
     expect(text).toMatch(/r\.autoWhy === null/);
     expect(text).toMatch(/checkDraft\(\{ text: b\.draft/);

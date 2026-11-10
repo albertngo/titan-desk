@@ -7,7 +7,7 @@ import { autoFollowUpsAction, briefAction, followedUpAction, lostAction, postpon
 import { ConversationDrawer } from "@/components/Conversation";
 import type { Brief, StepKind } from "@/lib/followup/brief";
 import { SNOOZE_CHOICES, type Bucket } from "@/lib/followup/plan";
-import { NEEDS_YOU_AT, TIER_WORDS, WATCH_AT } from "@/lib/followup/score";
+import { TIER_WORDS } from "@/lib/followup/score";
 import type { FollowUpPage, FollowUpResult, FollowUpRow } from "@/lib/quotes/followup";
 
 const SECTIONS: { bucket: Bucket; title: string; empty: string }[] = [
@@ -19,9 +19,9 @@ const SECTIONS: { bucket: Bucket; title: string; empty: string }[] = [
 
 /** Due now, split by need (Albert, 2026-11-09): what needs a person, what to keep an eye on, and what waits past the day's cap. */
 const DUE_GROUPS: { key: "needs" | "watch" | "next"; title: string; hint: string }[] = [
-  { key: "needs", title: "Needs you", hint: "Score 20 or more, or they asked, pushed back, went cold, or it's a big job" },
+  { key: "needs", title: "Needs you", hint: "A high score, or they asked, pushed back, went cold, or it's a big job" },
   { key: "watch", title: "Watch", hint: "Some interest, not hot yet" },
-  { key: "next", title: "Next up", hint: "Needs you, past today's 8 for this person" },
+  { key: "next", title: "Next up", hint: "Needs you, past today's limit for this person" },
 ];
 const groupOf = (r: FollowUpRow) => (r.waiting ? "next" : r.score.tier === "needs" ? "needs" : "watch");
 
@@ -249,6 +249,7 @@ export function FollowUpList({ data }: { data: FollowUpPage }) {
                     )}
                     {rs.map((r) => (
                 <Row
+                  dials={data.dials}
                   key={r.quoteRecordId}
                   row={r}
                   today={data.today}
@@ -298,7 +299,7 @@ export function FollowUpList({ data }: { data: FollowUpPage }) {
                     </span>
                   </div>
                   <div className="fu-scorecol" data-k="Score">
-                    <ScoreChip row={r} />
+                    <ScoreChip row={r} dials={data.dials} />
                   </div>
                   <div className="fu-why" data-k="Why it's due">
                     <span className="chip">On auto</span>
@@ -341,6 +342,7 @@ function Row(p: {
   onConv: () => void;
   onSend: (text: string, subject: string | null) => void;
   onAuto: (on: boolean) => void;
+  dials: FollowUpPage["dials"];
 }) {
   const { row, today, busy } = p;
   const r = row.due.reason.kind;
@@ -372,7 +374,7 @@ function Row(p: {
         {row.visit && <span className={`fu-visit ${row.visit.kind}`}>{row.visitText}</span>}
       </div>
       <div className="fu-scorecol" data-k="Score">
-        <ScoreChip row={row} />
+        <ScoreChip row={row} dials={p.dials} />
       </div>
       <div className="fu-why" data-k="Why it's due">
         <span className={`chip${tone ? ` ${tone}` : ""}`}>{row.why}</span>
@@ -434,7 +436,7 @@ function Row(p: {
 }
 
 /** The score (2026-11-09): roughly the chance it closes, its tier, and the top reasons. */
-function ScoreChip({ row }: { row: FollowUpRow }) {
+function ScoreChip({ row, dials }: { row: FollowUpRow; dials: FollowUpPage["dials"] }) {
   const s = row.score;
   return (
     <span className={`fu-score ${s.tier}`} title={`Score ${s.score} of 100, roughly the chance this closes. ${s.reasons.join(" · ")}`}>
@@ -443,8 +445,8 @@ function ScoreChip({ row }: { row: FollowUpRow }) {
       {/* The score as a bar (Albert, 2026-11-09), with marks where Watch and Needs you start. Width is the one inline style. */}
       <span className="fu-bar" role="progressbar" aria-valuenow={s.score} aria-valuemin={0} aria-valuemax={100} aria-label={`Intent score ${s.score} of 100, ${TIER_WORDS[s.tier]}`}>
         <span className="fu-bar-fill" style={{ width: `${s.score}%` }} />
-        <span className="fu-bar-tick" style={{ left: `${WATCH_AT}%` }} title={`Watch from ${WATCH_AT}`} />
-        <span className="fu-bar-tick" style={{ left: `${NEEDS_YOU_AT}%` }} title={`Needs you from ${NEEDS_YOU_AT}`} />
+        <span className="fu-bar-tick" style={{ left: `${dials.watchAt}%` }} title={`Watch from ${dials.watchAt}`} />
+        <span className="fu-bar-tick" style={{ left: `${dials.needsYouAt}%` }} title={`Needs you from ${dials.needsYouAt}`} />
       </span>
       <span className="fu-score-why">{s.reasons.join(" · ")}</span>
     </span>
