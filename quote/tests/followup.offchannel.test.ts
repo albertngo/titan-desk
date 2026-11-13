@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Message } from "@/lib/conversation/thread";
 import { calledOffByText } from "@/lib/followup/visits";
-import { cleanOffChannel, offChannelNote, offChannelPlan, priceCandidates, sentOutside, parseOffChannel, hasMoney } from "@/lib/followup/offchannel";
+import { isUnitRateFind, cleanOffChannel, offChannelNote, offChannelPlan, priceCandidates, sentOutside, parseOffChannel, hasMoney } from "@/lib/followup/offchannel";
 
 const msg = (id: string, over: Partial<Message>): Message => ({ id, channel: "sms", label: "Text", direction: "out", body: null, subject: null, attachments: [], at: "2026-11-10T15:00:00Z", status: null, automated: false, callSeconds: null, emailId: null, ...over });
 const day = (iso: string) => iso.slice(0, 10);
@@ -63,5 +63,12 @@ describe("prices given outside the app", () => {
     expect(calledOffByText(ms, start)).toContain("reschedule");
     expect(calledOffByText([{ ...ms[0], direction: "out" }], start)).toBeNull();
     expect(calledOffByText([{ ...ms[0], at: "2026-11-01T10:00:00Z" }], start)).toBeNull();
+  });
+
+  it("never takes a rate per unit as a price for the job", () => {
+    const t = [msg("r", { channel: "note", body: "Call summary: casing quoted at $4 per linear foot ($160 per door)" })];
+    expect(cleanOffChannel({ found: true, messageId: "r", kind: "firm", amount: 160, what: "door casing", quote: "$160 per door" }, t, ["r"])).toBeNull();
+    expect(isUnitRateFind({ quote: "$160 per door", what: "casing" })).toBe(true);
+    expect(isUnitRateFind({ quote: "quoted $2780 cash for the installation", what: "install" })).toBe(false);
   });
 });

@@ -40,7 +40,7 @@ import { FLAG_WORDS, overCap, scoreOf, staysAuto, TIER_WORDS, TOP_VALUE, type Sc
 import { pickSlots, SLOT_DAYS } from "@/lib/followup/slots";
 import { EVENTS_KEPT, newEvents, replyGaps } from "@/lib/followup/perf";
 import { settings } from "@/lib/settings/settings";
-import { cleanOffChannel, HOW_WORDS, offChannelNote, offChannelPlan, offChannelPrompt, priceCandidates, SENT_WORDS, sentOutside, type OffChannel } from "@/lib/followup/offchannel";
+import { addedOptionName, isUnitRateFind, cleanOffChannel, HOW_WORDS, offChannelNote, offChannelPlan, offChannelPrompt, priceCandidates, SENT_WORDS, sentOutside, type OffChannel } from "@/lib/followup/offchannel";
 import type { Settings } from "@/lib/settings/registry";
 import { autoBlock, channelFor, checkDraft, editShare, readiness, type Channel, type DraftKind } from "@/lib/followup/autosend";
 import { activityEntries } from "@/lib/activity/track";
@@ -1075,6 +1075,23 @@ export async function runRecheck(key: string | null): Promise<RecheckResult> {
       // Follow up's quotes and the visits owed a quote first (2026-11-13: Q-1008, an old quote, was past the cut), then the newest.
       .sort((a, b) => priority(b) - priority(a) || (b.q.createdTime ?? "").localeCompare(a.q.createdTime ?? ""))
       .slice(0, RECHECK_THREADS);
+    // A kept find the unit-rate rule now refuses is taken off (2026-11-13): no more "Given on a call" for it. An option it
+    // added stays on the draft for staff to remove in the editor; the History line says so.
+    for (const x of open) {
+      const o = x.state.offChannel;
+      if (!o || !isUnitRateFind(o)) continue;
+      try {
+        const fresh = await getRecord(T.quotes, x.q.id);
+        const st = parseState(str(fresh.fields[QUOTE.followUp]));
+        await updateRecord(T.quotes, x.q.id, { [QUOTE.followUp]: serializeState({ ...st, offChannel: null }) });
+        x.state = { ...st, offChannel: null };
+        const v = x.vs[0];
+        await updateRecord(T.versions, v.id, { [VERSION.editLog]: appendLog(str(v.fields[VERSION.editLog]), logLine(now, "app", `price check: taken back, "${o.quote}" is a rate per unit, not a price for the job. No longer marked given outside the app.${o.did === "added" ? ` Remove the option "${addedOptionName(o, torontoDay)}" in the editor.` : ""}`)) });
+        found.push({ quote: str(x.q.fields[QUOTE.quoteNumber]), did: "noted", words: `Taken back: ${o.quote} is a unit rate.` });
+      } catch (e) {
+        notes.push(`${str(x.q.fields[QUOTE.quoteNumber]) ?? x.q.id}: couldn't take back a unit-rate find (${e instanceof Error ? e.message.slice(0, 80) : "error"}).`);
+      }
+    }
     const threads = await inBatches(open, GHL_PARALLEL, (x) => threadOf(str(x.q.fields[QUOTE.ghlContactId]) as string));
     for (let i = 0; i < open.length && scanned < RECHECK_SCANS; i++) {
       const t = threads[i];
