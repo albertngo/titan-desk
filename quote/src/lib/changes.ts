@@ -21,6 +21,12 @@ export type Change = {
 
 export const CHANGES: Change[] = [
   {
+    date: "2026-11-13",
+    kind: "fixed",
+    title: "Send card sees a new quote's options",
+    details: ["On a quote you just made, the Send card in the editor said there were no options until you refreshed the page. It now picks up the options as soon as they are there."],
+  },
+  {
     date: "2026-11-10",
     kind: "new",
     title: "Performance: graphs",
