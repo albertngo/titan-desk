@@ -1,4 +1,5 @@
 import "server-only";
+import { outsideFor } from "./followup";
 import type { ComponentProps } from "react";
 import type { SendQuote } from "@/components/SendQuote";
 import { DEFAULT_PRIVATE_LABEL, optionHst, optionTotals, privateRollup } from "@/lib/calc";
@@ -23,7 +24,7 @@ export async function sendCardData(quote: Quote, customer: boolean) {
   const defaultUntil = quote.validUntil && quote.validUntil >= today ? quote.validUntil : addDays(today, VALID_DAYS);
   const draft = quote.status === "Draft";
   // The way the last version went (Albert, 2026-11-06): the card says it and starts on it, for a draft only.
-  const [ready, link, from, textFromNumber, sendAs, lastSent] = await Promise.all([sendingReady(), sentLink(quote.customerToken), sendsFrom(), textsFrom(), sendAsForCard(quote), draft ? lastSentWayFor(quote.link?.quoteRecordId ?? null) : Promise.resolve(null)]);
+  const [ready, link, from, textFromNumber, sendAs, lastSent, outside] = await Promise.all([sendingReady(), sentLink(quote.customerToken), sendsFrom(), textsFrom(), sendAsForCard(quote), draft ? lastSentWayFor(quote.link?.quoteRecordId ?? null) : Promise.resolve(null), draft && !customer ? outsideFor(quote.link?.quoteRecordId ?? null) : Promise.resolve(null)]);
   const problems = draft
     ? sendProblems(quote, { base, validUntil: defaultUntil, channels: { email: !!quote.link?.email, sms: !!quote.link?.phone } }, { today, fingerprint: base, skipOptions: true })
     : [];
@@ -67,6 +68,7 @@ export async function sendCardData(quote: Quote, customer: boolean) {
         sendAs,
         options: sendOptions,
         lastSent,
+        outside,
       };
   return { props, link, sendAs, base };
 }

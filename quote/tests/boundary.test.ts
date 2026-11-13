@@ -12,7 +12,7 @@ const SRC = path.resolve(__dirname, "../src");
 const CLIENT = "lib/airtable/client.ts";
 const GHL = "lib/ghl/client.ts";
 /** The only files allowed to create or update Airtable records. Adding one is a reviewed decision. */
-const WRITERS = ["lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/describe.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/accept/record.ts", "lib/quotes/sitesheet.ts", "lib/quotes/billing.ts", "lib/quotes/customItems.ts", "lib/quotes/payouts.ts", "lib/quotes/followup.ts", "lib/settings/settings.ts"];
+const WRITERS = ["lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/describe.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/accept/record.ts", "lib/quotes/sitesheet.ts", "lib/quotes/billing.ts", "lib/quotes/customItems.ts", "lib/quotes/payouts.ts", "lib/quotes/followup.ts", "lib/quotes/outside.ts", "lib/settings/settings.ts"];
 const CATALOGUE = "tblfLXD3zkSdNQGbS";
 
 function files(dir: string): string[] {
@@ -112,7 +112,8 @@ describe("Airtable boundary", () => {
       const exported = text.match(/export async function \w+/g) ?? [];
       const guarded = text.match(/export async function \w+[^{]*\{\s*(const \w+ = )?await requireQuoter(Person)?\(\);/g) ?? [];
       // The one exception (2026-11-09): the Stage 2 follow-up run, key-gated instead (its own block below).
-      const keyed = rel === "lib/quotes/followup.ts" ? (text.match(/export async function runAutoFollowUps\(key: string \| null\)[^{]*\{\s*if \(!followUpKeyOk\(key\)\) return/g) ?? []) : [];
+      // And the twice-a-day recheck (2026-11-13), key-gated the same way.
+      const keyed = rel === "lib/quotes/followup.ts" ? (text.match(/export async function (runAutoFollowUps|runRecheck)\(key: string \| null\)[^{]*\{\s*if \(!followUpKeyOk\(key\)\) return/g) ?? []) : [];
       expect(exported.length).toBeGreaterThan(0);
       expect(guarded.length + keyed.length).toBe(exported.length);
     }
@@ -141,7 +142,7 @@ describe("booking step (Make, no sign-in)", () => {
     expect(proxy).toContain("const OPEN_ON_STAFF = /^\\/(login|auth\\/|denied|api\\/booking|api\\/activity|api\\/accept|api\\/followups)/;");
     // Open tracking and acceptance (2026-10-27) are the other two key-gated routes; see their own blocks below.
     // Report a bug and Upload site sheet (2026-10-28) and Push a payout card (2026-11-04) are the API routes that are NOT open: the proxy signs people in first.
-    expect(all.filter((f) => f.rel.startsWith("app/api/")).map((f) => f.rel).sort()).toEqual(["app/api/accept/route.ts", "app/api/activity/route.ts", ROUTE, "app/api/bug/route.ts", "app/api/followups/route.ts", "app/api/payout/route.ts", "app/api/sitesheet/route.ts"]);
+    expect(all.filter((f) => f.rel.startsWith("app/api/")).map((f) => f.rel).sort()).toEqual(["app/api/accept/route.ts", "app/api/activity/route.ts", ROUTE, "app/api/bug/route.ts", "app/api/followups/recheck/route.ts", "app/api/followups/route.ts", "app/api/payout/route.ts", "app/api/sitesheet/route.ts"]);
   });
 
   it("keeps the shared quote helpers away from pages and actions", () => {
@@ -524,6 +525,14 @@ describe("Follow up (2026-11-07)", () => {
     const writes = [...text().matchAll(/updateRecord\((T\.\w+), [^,]+, \{ \[(\w+\.\w+)\]/g)].map((m) => `${m[1]} ${m[2]}`);
     expect([...new Set(writes)].sort()).toEqual(["T.quotes QUOTE.followUp", "T.versions VERSION.editLog"]);
     expect(text()).not.toMatch(/createRecords?\(|updateRecords\(/);
+  });
+  it("adds a price given outside the app in one file: one option and one line, on a Draft, from the recheck only (2026-11-13)", () => {
+    const out = code(all.find((f) => f.rel === "lib/quotes/outside.ts")!.text);
+    expect([...out.matchAll(/createRecord\((T\.\w+)/g)].map((m) => m[1])).toEqual(["T.options", "T.lines"]);
+    expect(out).not.toMatch(/updateRecords?\(|createRecords\(/);
+    expect(out).toMatch(/!== "Draft"\) return null/);
+    expect(all.filter((f) => /addOutsideOption\(/.test(code(f.text))).map((f) => f.rel).sort()).toEqual(["lib/quotes/followup.ts", "lib/quotes/outside.ts"]);
+    expect(code(text())).not.toMatch(/deliver\([^)]*\)[\s\S]{0,40}runRecheck/);
   });
   it("reaches GHL only through Make's link, status, untag and message routes, and comments tag nobody", () => {
     expect(text()).toMatch(/mentions: \[\]/);

@@ -22,6 +22,16 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-13",
+    kind: "new",
+    title: "Prices given by text or on a call",
+    details: [
+      "Twice a day (about 8am and 2pm) the app re-reads each open quote's conversation, internal comments, call summaries and visits included, and rewrites its Follow up brief, so an \"I'll let you know\" or a booked visit is counted before the quote is sorted.",
+      "When someone gives a firm price by text or on a call, the quote is marked Sent by text or Given on a call, with a note of what was said. If an option already has that price it is used; if not, a custom option with one Install line at that price is added to the draft. A ballpark is only noted.",
+      "Nothing is sent to the customer. The quote's Send card then reads Send formal copy, for when you want them to have it in writing.",
+    ],
+  },
+  {
+    date: "2026-11-13",
     kind: "fixed",
     title: "Send card sees a new quote's options",
     details: ["On a quote you just made, the Send card in the editor said there were no options until you refreshed the page. It now picks up the options as soon as they are there."],
