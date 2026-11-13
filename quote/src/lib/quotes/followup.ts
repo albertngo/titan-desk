@@ -1060,7 +1060,8 @@ export async function runRecheck(key: string | null): Promise<RecheckResult> {
       if (!t) continue;
       const x = open[i];
       const from = [since, x.q.createdTime ?? since, x.state.offChannel?.at ?? since].sort().at(-1) as string;
-      const cands = priceCandidates(t.messages, from).filter((m) => m.id !== x.state.offChannel?.messageId);
+      const appSends = [...x.vs.map((v) => str(v.fields[VERSION.sentAt])).filter((y): y is string => Boolean(y)), ...(x.state.sent ?? []).map((y) => y.at)];
+      const cands = priceCandidates(t.messages, from, appSends).filter((m) => m.id !== x.state.offChannel?.messageId);
       if (!cands.length) continue;
       scanned++;
       try {

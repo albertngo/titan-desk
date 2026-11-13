@@ -22,6 +22,12 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-13",
+    kind: "fixed",
+    title: "The price check skips the app's own quote texts",
+    details: ["The twice-a-day check no longer reads the app's own quote messages (or anything sent with a quote) as a price given by text."],
+  },
+  {
+    date: "2026-11-13",
     kind: "new",
     title: "Prices given by text or on a call",
     details: [

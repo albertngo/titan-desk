@@ -53,11 +53,20 @@ const APP_NOTE = /^(quote (opened|summary)|opened |follow-up:|first open|the quo
  * summaries come in as those, Make 4951497), since `since`, with a dollar figure in them. Customer messages are left
  * out of this test (they quote other people's prices) but go to Claude as context.
  */
-export function priceCandidates(messages: Message[], since: string | null): Message[] {
+/** The app's own quote messages (src/lib/send/plan.ts) and any message carrying a customer quote link. */
+const APP_SEND = /\/c\/[A-Za-z0-9_-]{8,}|thanks for telling us about your project|your (rough |measured )?([a-z]+ )?(estimate|quote) is (ready|\$)/i;
+/** How close to a send the app made a message counts as that send (GHL's time can lag Airtable's a little). */
+const APP_SEND_MINUTES = 15;
+
+export function priceCandidates(messages: Message[], since: string | null, appSends: readonly string[] = []): Message[] {
+  const sends = appSends.map((x) => Date.parse(x)).filter((t) => !Number.isNaN(t));
+  const nearSend = (at: string | null) => Boolean(at) && sends.some((t) => Math.abs(Date.parse(at as string) - t) <= APP_SEND_MINUTES * 60_000);
   return messages.filter((m) => {
     if (since && m.at && m.at < since) return false;
     if (!m.body || !hasMoney(m.body)) return false;
     if (m.channel === "note") return !APP_NOTE.test(m.body.trim());
+    // The app's own quote sends and follow-ups (2026-11-13: Q-1054's preliminary text read as a ballpark) are never a price given outside it.
+    if (APP_SEND.test(m.body) || nearSend(m.at)) return false;
     return m.direction === "out" && !m.automated && (m.channel === "sms" || m.channel === "email" || m.channel === "chat");
   });
 }

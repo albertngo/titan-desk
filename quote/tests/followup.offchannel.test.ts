@@ -21,6 +21,16 @@ describe("prices given outside the app", () => {
     expect(hasMoney("call me at 4")).toBe(false);
   });
 
+  it("skips the app's own quote texts and anything sent with a quote's send", () => {
+    const own = [
+      msg("p", { body: "Thanks for telling us about your project. Your estimate is $3,300 to $3,800 + HST." }),
+      msg("l", { body: "Here it is: https://example.test/c/abcdefgh12 total $5,000" }),
+      msg("n", { body: "It comes to $2,000", at: "2026-11-10T15:05:00Z" }),
+      msg("k", { body: "It comes to $2,000", at: "2026-11-11T15:05:00Z" }),
+    ];
+    expect(priceCandidates(own, null, ["2026-11-10T15:00:00Z"]).map((m) => m.id)).toEqual(["k"]);
+  });
+
   it("refuses an answer that points at a message without a figure", () => {
     expect(cleanOffChannel({ found: true, messageId: "f", kind: "firm", amount: 100 }, thread, ["b", "d"])).toBeNull();
     expect(cleanOffChannel({ found: false }, thread, ["b"])).toBeNull();
