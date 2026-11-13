@@ -296,6 +296,7 @@ export function FollowUpList({ data }: { data: FollowUpPage }) {
                     </span>
                     <span className="fu-meta">
                       {r.quoteNumber ?? ""} · {r.basis ?? "Quote"}
+                      {r.outside ? ` · ${r.outside.words}` : ""}
                     </span>
                   </div>
                   <div className="fu-scorecol" data-k="Score">
@@ -372,6 +373,8 @@ function Row(p: {
         </span>
         {/* Where the lead is in the journey (2026-11-07): from the contact's GHL appointments. */}
         {row.visit && <span className={`fu-visit ${row.visit.kind}`}>{row.visitText}</span>}
+        {/* Given by text or on a call (2026-11-13): marked sent, with what was said. */}
+        {row.outside && <span className="chip warn fu-outside" title={row.outside.note}>{row.outside.words}</span>}
       </div>
       <div className="fu-scorecol" data-k="Score">
         <ScoreChip row={row} dials={p.dials} />

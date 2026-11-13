@@ -57,6 +57,8 @@ export type QuoteHead = {
   projectNumber: string | null;
   linkStatus: string | null;
   addressStatus: string | null;
+  /** "Sent by text" / "Given on a call" (2026-11-13): a firm price given outside the app, nothing sent from it since. */
+  outside?: string | null;
   /** Quotes → Quote Description (2026-11-03): staff's short label for this quote, e.g. "Unit 1204 · kitchen + hall". */
   description?: string | null;
   /** Quotes → Contract's total with HST, when the quote has a contract (2026-11-07, the Value column). */

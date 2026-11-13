@@ -385,6 +385,7 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
                         </span>
                       );
                     })}
+                    {g.outside && <span className="chip warn">{g.outside}</span>}
                     {g.linkStatus === "Needs linking" && <span className="chip bad">Needs linking</span>}
                     {g.addressStatus === "Unconfirmed" && <span className="chip warn">Address unconfirmed</span>}
                     {g.addressStatus === "No address" && <span className="chip warn">No address yet</span>}

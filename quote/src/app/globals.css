@@ -663,6 +663,8 @@ a.chip.accent:hover { text-decoration: underline; }
 .sq-msg { margin: 0; padding: 8px 12px; border-radius: 8px; font-size: 12.5px; line-height: 1.45; }
 .sq-msg ul { margin: 4px 0 0; padding-left: 18px; }
 .sq-msg.warn { background: var(--warn-soft); color: var(--warn); }
+.sq-msg.sq-outside { background: var(--warn-soft); margin-bottom: 10px; }
+.sq-msg.sq-outside p { margin: 4px 0 0; }
 .sq-msg.bad { background: var(--bad-soft); color: var(--bad); }
 .sq-msg.ok { background: var(--good-soft); color: var(--good); }
 .sq-unsaved p { margin: 4px 0 0; }

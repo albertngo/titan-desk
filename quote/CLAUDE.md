@@ -112,6 +112,7 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
 - Private is back on stairs options, staff only (Albert, 2026-11-06, later the same day: "Should we bring back the private section? Where f…
 - Two fees every option starts with (Albert, 2026-11-06), `src/lib/quotes/fees.ts`.
 - Stair Site Sheet v7 (Albert, 2026-11-06/07).
+- Prices given outside the app, and the twice-a-day recheck (Albert, 2026-11-13; vault `05_decisions/2026-11-13-quote-price-given-outside-app`): marks a quote Sent by text / Given on a call, sends nothing.
 - The Send card starts the way the last version went (Albert, 2026-11-06: "send card should also show and default to the 'breakdown' or 'lu…
 
 ## Hard rules
@@ -185,7 +186,9 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
    most), and only drafts `checkDraft()` passes (no dollar amount the quote doesn't carry). Stage 1 is the signed-in
    Send button (`sendFollowUp()`), from the person signed in. Since 2026-11-09 the same run first rewrites up to 10
    stale briefs (written before today or before something new happened) for due and upcoming quotes, whatever the
-   switch; that writes only Quotes → Follow Up. `tests/boundary.test.ts` pins all of this.
+   switch; that writes only Quotes → Follow Up. **The twice-a-day recheck (2026-11-13)** is `/api/followups/recheck`,
+   `runRecheck()`, same key: it sends nothing, writes Quotes → Follow Up and a History line, and adds a price given
+   outside the app only through `src/lib/quotes/outside.ts` (one option, one line, a Draft only). `tests/boundary.test.ts` pins all of this.
 2d. **Customer links live on the customer deployment only.** There the proxy serves `/c/<token>`
    and 404s everything else, and `write()` refuses; on the staff app `/c/` is 404.
    `src/lib/quotes/customer.ts` answers only there and only for a well-formed token, returns the

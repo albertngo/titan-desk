@@ -1,4 +1,6 @@
 import "server-only";
+import { parseState } from "@/lib/followup/plan";
+import { SENT_WORDS, sentOutside } from "@/lib/followup/offchannel";
 import { stairCost } from "@/lib/pricing/stairCost";
 import { requireQuoter } from "@/lib/auth";
 import { AirtableError, getRecord, listByIds, listRecords, type AirtableRecord } from "@/lib/airtable/client";
@@ -31,7 +33,7 @@ export async function listQuoteGroups(): Promise<QuoteGroup[]> {
       fields: [VERSION.label, VERSION.version, VERSION.status, VERSION.basis, VERSION.quote, VERSION.options, VERSION.openedCount, VERSION.lastOpenedAt, VERSION.trackActivity, VERSION.supersedes, VERSION.changeNo, VERSION.sentAt, VERSION.validUntil, VERSION.acceptedOption, VERSION.acceptedAt],
     }),
     listRecords(T.quotes, {
-      fields: [QUOTE.customerName, QUOTE.lastName, QUOTE.firstName, QUOTE.siteCity, QUOTE.quoteNumber, QUOTE.linkStatus, QUOTE.addressStatus, QUOTE.phone, QUOTE.email, QUOTE.projectNumber, QUOTE.description, QUOTE.contract],
+      fields: [QUOTE.customerName, QUOTE.lastName, QUOTE.firstName, QUOTE.siteCity, QUOTE.quoteNumber, QUOTE.linkStatus, QUOTE.addressStatus, QUOTE.phone, QUOTE.email, QUOTE.projectNumber, QUOTE.description, QUOTE.contract, QUOTE.followUp],
     }),
     // The Value column and the strip (2026-11-07): each option's customer total, never its cost or margin.
     listRecords(T.options, {
@@ -70,6 +72,12 @@ export async function listQuoteGroups(): Promise<QuoteGroup[]> {
         addressStatus: str(q.fields[QUOTE.addressStatus]),
         description: str(q.fields[QUOTE.description]),
         contractTotal: parseContract(str(q.fields[QUOTE.contract]))?.totals.total ?? null,
+        // Given by text or on a call (2026-11-13), after the app's last send: the row's "Sent by text" chip.
+        outside: (() => {
+          const off = parseState(str(q.fields[QUOTE.followUp])).offChannel;
+          const last = versions.filter((v) => ids(v.fields[VERSION.quote])[0] === q.id).map((v) => str(v.fields[VERSION.sentAt])).filter((x): x is string => Boolean(x)).sort().at(-1) ?? null;
+          return sentOutside(off, last) ? SENT_WORDS[off.how] : null;
+        })(),
       },
     ]),
   );

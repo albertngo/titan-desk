@@ -1,5 +1,6 @@
 import "server-only";
 import { AirtableError, getRecord, listByIds, listRecords, updateRecord } from "@/lib/airtable/client";
+import { addOutsideOption } from "./outside";
 import { OPTION, QUOTE, T, VERSION } from "@/lib/airtable/fields";
 import { requireQuoterPerson } from "@/lib/auth";
 import { followUpTagBodies } from "@/lib/activity/track";
@@ -39,6 +40,7 @@ import { FLAG_WORDS, overCap, scoreOf, staysAuto, TIER_WORDS, TOP_VALUE, type Sc
 import { pickSlots, SLOT_DAYS } from "@/lib/followup/slots";
 import { EVENTS_KEPT, newEvents, replyGaps } from "@/lib/followup/perf";
 import { settings } from "@/lib/settings/settings";
+import { cleanOffChannel, HOW_WORDS, offChannelNote, offChannelPlan, offChannelPrompt, priceCandidates, SENT_WORDS, sentOutside, type OffChannel } from "@/lib/followup/offchannel";
 import type { Settings } from "@/lib/settings/registry";
 import { autoBlock, channelFor, checkDraft, editShare, readiness, type Channel, type DraftKind } from "@/lib/followup/autosend";
 import { activityEntries } from "@/lib/activity/track";
@@ -63,6 +65,27 @@ import { ids, num, str } from "./values";
 
 /** Statuses a quote's newest sent version can have and still be waiting on the customer. */
 const WAITING = new Set(["Sent", "Expired"]);
+
+type VersionRec = Awaited<ReturnType<typeof listRecords>>[number];
+
+/**
+ * The version a follow-up reads: the newest one the app sent that is still waiting, or, when a firm price was given by
+ * text or on a call after that (2026-11-13, `sentOutside()`), the newest version (the draft), read as sent at the time
+ * the price was given. Nothing is written to the version: Sent At and Status stay the app's own.
+ */
+function waitingOrOutside(vs: VersionRec[], state: FollowUpState): { version: VersionRec; outside: OffChannel | null } | null {
+  const sorted = [...vs].sort((a, b) => (num(b.fields[VERSION.version]) ?? 0) - (num(a.fields[VERSION.version]) ?? 0));
+  const sent = sorted.find((v) => WAITING.has(str(v.fields[VERSION.status]) ?? "") && !((num(v.fields[VERSION.changeNo]) ?? 0) > 0) && str(v.fields[VERSION.sentAt]));
+  const lastAppSend = sorted.map((v) => str(v.fields[VERSION.sentAt])).filter((x): x is string => Boolean(x)).sort().at(-1) ?? null;
+  const off = state.offChannel;
+  if (sentOutside(off, lastAppSend)) {
+    const draft = sorted[0];
+    if (draft && !["Accepted", "Won", "Lost"].includes(str(draft.fields[VERSION.status]) ?? "")) {
+      return { version: { ...draft, fields: { ...draft.fields, [VERSION.sentAt]: off.at, [VERSION.status]: "Sent", [VERSION.basis]: str(draft.fields[VERSION.basis]) ?? "Measured" } }, outside: off };
+    }
+  }
+  return sent ? { version: sent, outside: null } : null;
+}
 /** GHL reads at once, and how long each quote's thread may take before it counts as unread. */
 const GHL_PARALLEL = 6;
 const GHL_WAIT_MS = 8_000;
@@ -113,6 +136,8 @@ export type FollowUpRow = {
   replies: { at: string; hours: number | null }[];
   /** Who a Send goes to, for the confirm box (2026-11-09): the phone's last 4 digits, or the email. */
   toWords: string | null;
+  /** A firm price given by text or on a call and nothing sent from the app since (2026-11-13): the row reads "Sent by text". */
+  outside: { how: OffChannel["how"]; words: string; note: string } | null;
 };
 
 export type FollowUpPage = {
@@ -196,12 +221,12 @@ async function readFollowUps(now: Date): Promise<Omit<FollowUpPage, "me">> {
     const vs = (byQuote.get(q.id) ?? []).sort((a, b) => (num(b.fields[VERSION.version]) ?? 0) - (num(a.fields[VERSION.version]) ?? 0));
     const statuses = vs.map((v) => str(v.fields[VERSION.status]));
     if (statuses.some((s) => s === "Accepted" || s === "Won") || statuses[0] === "Lost") return [];
-    const sent = vs.find((v) => WAITING.has(str(v.fields[VERSION.status]) ?? "") && !((num(v.fields[VERSION.changeNo]) ?? 0) > 0) && str(v.fields[VERSION.sentAt]));
-    if (!sent) return [];
     const seen = str(q.fields[QUOTE.followUp]) ?? "";
     const state = parseState(seen);
     if (state.lost) return [];
-    return [{ q, sent, seen, state }];
+    const sent = waitingOrOutside(vs, state);
+    if (!sent) return [];
+    return [{ q, sent: sent.version, outside: sent.outside, seen, state }];
   });
 
   const ghlOn = ghlConfigured();
@@ -277,8 +302,10 @@ async function readFollowUps(now: Date): Promise<Omit<FollowUpPage, "me">> {
           const channel = channelFor(lastCustomerChannel(t?.messages ?? null, sentAt), Boolean(str(c.q.fields[QUOTE.phone])), Boolean(str(c.q.fields[QUOTE.email])));
           const b = brief;
           const lastIn = t?.messages ? [...t.messages].reverse().find((m) => !m.automated && m.channel !== "note" && m.channel !== "activity") : null;
-          const autoWhy = preliminary
-            ? "Preliminaries stay with GHL's texts."
+          const autoWhy = c.outside
+            ? `The price was given ${HOW_WORDS[c.outside.how]}, not from the app: send the formal copy first.`
+            : preliminary
+              ? "Preliminaries stay with GHL's texts."
             : !channel
               ? "No phone or email on the quote."
               : autoBlock({
@@ -303,6 +330,7 @@ async function readFollowUps(now: Date): Promise<Omit<FollowUpPage, "me">> {
           const replies = t?.messages ? replyGaps(t.messages, new Date(Date.parse(sentAt) - 30 * 86_400_000).toISOString()) : [];
           return { channel, autoWhy, toWords, replies };
         })(),
+        outside: c.outside ? { how: c.outside.how, words: SENT_WORDS[c.outside.how], note: offChannelNote(c.outside, torontoDay) } : null,
       },
     ];
   });
@@ -536,12 +564,10 @@ async function briefFor(quoteRecordId: string, force: boolean): Promise<BriefRes
   } catch {
     return { ok: false, message: GONE };
   }
-  const versions = await listByIds(T.versions, ids(q.fields[QUOTE.versions]), [VERSION.version, VERSION.status, VERSION.basis, VERSION.sentAt, VERSION.validUntil, VERSION.sentBy, VERSION.changeNo, VERSION.openedCount, VERSION.lastOpenedAt, VERSION.options]).catch(() => []);
-  const sent = versions
-    .filter((v) => WAITING.has(str(v.fields[VERSION.status]) ?? "") && !((num(v.fields[VERSION.changeNo]) ?? 0) > 0) && str(v.fields[VERSION.sentAt]))
-    .sort((a, b) => (num(b.fields[VERSION.version]) ?? 0) - (num(a.fields[VERSION.version]) ?? 0))[0];
-  if (!sent) return { ok: false, message: "This quote has no sent version waiting on the customer." };
+  const versions = await listByIds(T.versions, ids(q.fields[QUOTE.versions]), [VERSION.version, VERSION.status, VERSION.basis, VERSION.sentAt, VERSION.validUntil, VERSION.sentBy, VERSION.createdBy, VERSION.changeNo, VERSION.openedCount, VERSION.lastOpenedAt, VERSION.options]).catch(() => []);
   const state = parseState(str(q.fields[QUOTE.followUp]));
+  const sent = waitingOrOutside(versions, state)?.version;
+  if (!sent) return { ok: false, message: "This quote has no sent version waiting on the customer." };
   const contactId = str(q.fields[QUOTE.ghlContactId]);
   const t = contactId && /^[A-Za-z0-9]+$/.test(contactId) && ghlConfigured() ? await threadOf(contactId) : null;
   if (contactId && !t) return { ok: false, message: "GHL didn't answer, so there's nothing new to read. Try again in a moment." };
@@ -974,4 +1000,144 @@ export async function markLost(quoteRecordId: string, seen: string, reasonId: un
   const logBad = await logOnVersion(c, person.email, `marked lost${reason ? `: ${reason.name}` : ""}${n ? `. ${n}` : ""}`, { [VERSION.status]: "Lost" });
   if (logBad) notes.push(logBad);
   return { ok: true, notes };
+}
+
+/* ---------- the twice-a-day recheck (Albert, 2026-11-13) ---------- */
+
+/**
+ * Albert, 2026-11-13: "read the context and update 2x a day to ensure the context of each conversation has been
+ * accounted for (internal comments, appts, 'ill let you knows' etc) before categorizing". Vault
+ * 05_decisions/2026-11-13-quote-price-given-outside-app. Called at about 8am and 2pm Toronto by
+ * .github/workflows/quote-recheck.yml, key-gated like the hourly run (QUOTE_FOLLOWUP_KEY).
+ *
+ * 1. Every quote on Follow up, whatever its section (snoozed and on-auto included), gets its brief rewritten from the
+ *    whole thread when the last one is more than RECHECK_FRESH_HOURS old, so a staff comment, a call summary, a
+ *    booked visit or an "I'll let you know" is read before the row is sorted.
+ * 2. Quotes still open get their thread read for a price staff gave by text or on a call. A firm one on a quote whose
+ *    newest version is a Draft uses the option that already carries it, or adds one custom option with one Install
+ *    line at that price; either way the quote reads "Sent by text" / "Given on a call" with a note. A ballpark is a
+ *    note only. On a version the app already sent, nothing is added (a sent version is never edited here).
+ *
+ * It sends nothing to anyone: no quote, no text, no email (Albert: "As of right now; no quote should auto sent").
+ */
+const RECHECK_FRESH_HOURS = 4;
+const RECHECK_BRIEFS = 40;
+const RECHECK_SCANS = 25;
+const RECHECK_THREADS = 80;
+const SCAN_BACK_DAYS = 60;
+
+export type RecheckResult = { ok: true; briefs: number; scanned: number; found: { quote: string | null; did: OffChannel["did"]; words: string }[]; notes: string[] } | { ok: false; status: number; message: string };
+
+export async function runRecheck(key: string | null): Promise<RecheckResult> {
+  if (!followUpKeyOk(key)) return { ok: false, status: 401, message: "Wrong or missing key." };
+  const now = new Date();
+  const notes: string[] = [];
+  const found: { quote: string | null; did: OffChannel["did"]; words: string }[] = [];
+
+  // 2 first, so a quote a text just marked sent is on the list when its brief is written.
+  let scanned = 0;
+  if (ghlConfigured() && readerOn()) {
+    const [quotes, versions] = await Promise.all([
+      listRecords(T.quotes, { fields: [QUOTE.quoteNumber, QUOTE.customerName, QUOTE.firstName, QUOTE.lastName, QUOTE.projectNumber, QUOTE.ghlContactId, QUOTE.followUp, QUOTE.versions] }),
+      listRecords(T.versions, { fields: [VERSION.quote, VERSION.version, VERSION.status, VERSION.sentAt, VERSION.options, VERSION.editLog, VERSION.basis] }),
+    ]);
+    const byQuote = new Map<string, VersionRec[]>();
+    for (const v of versions) {
+      const q = ids(v.fields[VERSION.quote])[0];
+      if (q) byQuote.set(q, [...(byQuote.get(q) ?? []), v]);
+    }
+    const since = new Date(now.getTime() - SCAN_BACK_DAYS * 86_400_000).toISOString();
+    const open = quotes
+      .filter((q) => !str(q.fields[QUOTE.projectNumber]) && /^[A-Za-z0-9]+$/.test(str(q.fields[QUOTE.ghlContactId]) ?? ""))
+      .map((q) => ({ q, vs: (byQuote.get(q.id) ?? []).sort((a, b) => (num(b.fields[VERSION.version]) ?? 0) - (num(a.fields[VERSION.version]) ?? 0)), state: parseState(str(q.fields[QUOTE.followUp])) }))
+      .filter((x) => x.vs.length && !x.state.lost && !x.vs.some((v) => ["Accepted", "Won"].includes(str(v.fields[VERSION.status]) ?? "")) && str(x.vs[0].fields[VERSION.status]) !== "Lost")
+      // Newest first by record, so the run reaches the live ones before old drafts.
+      .sort((a, b) => (b.q.createdTime ?? "").localeCompare(a.q.createdTime ?? ""))
+      .slice(0, RECHECK_THREADS);
+    const threads = await inBatches(open, GHL_PARALLEL, (x) => threadOf(str(x.q.fields[QUOTE.ghlContactId]) as string));
+    for (let i = 0; i < open.length && scanned < RECHECK_SCANS; i++) {
+      const t = threads[i];
+      if (!t) continue;
+      const x = open[i];
+      const from = [since, x.q.createdTime ?? since, x.state.offChannel?.at ?? since].sort().at(-1) as string;
+      const cands = priceCandidates(t.messages, from).filter((m) => m.id !== x.state.offChannel?.messageId);
+      if (!cands.length) continue;
+      scanned++;
+      try {
+        const r = await offChannelFor(x, t.messages, cands.map((m) => m.id), now);
+        if (r) found.push(r);
+      } catch (e) {
+        notes.push(`${str(x.q.fields[QUOTE.quoteNumber]) ?? x.q.id}: price check failed (${e instanceof Error ? e.message.slice(0, 80) : "error"}).`);
+      }
+    }
+  } else notes.push("GHL or Claude isn't set up here, so no prices were looked for.");
+
+  // 1. Briefs, every section.
+  let briefs = 0;
+  if (readerOn()) {
+    const page = await readFollowUps(now);
+    const old = page.rows.filter((r) => !r.state.brief || now.getTime() - Date.parse(r.state.brief.at) > RECHECK_FRESH_HOURS * 3_600_000 || r.briefStale).slice(0, RECHECK_BRIEFS);
+    for (const r of old) {
+      const b = await briefFor(r.quoteRecordId, true).catch((e) => ({ ok: false as const, message: e instanceof Error ? e.message : "error" }));
+      if (b.ok) briefs++;
+      else notes.push(`${r.quoteNumber ?? r.quoteRecordId}: brief not rewritten (${b.message.slice(0, 80)}).`);
+    }
+  }
+  return { ok: true, briefs, scanned, found, notes };
+}
+
+/** One quote's price check and what follows from it. Returns what it did, or null when Claude found no price. */
+async function offChannelFor(x: { q: VersionRec; vs: VersionRec[]; state: FollowUpState }, messages: Message[], candidateIds: string[], now: Date) {
+  const newest = x.vs[0];
+  const opts = await listByIds(T.options, ids(newest.fields[VERSION.options]), [OPTION.name, OPTION.total, OPTION.subtotal, OPTION.notOffered]).catch(() => []);
+  const prompt = offChannelPrompt(
+    { today: torontoDay(now), customer: customerOf(x.q.fields), quoteNumber: str(x.q.fields[QUOTE.quoteNumber]), options: opts.filter((o) => o.fields[OPTION.notOffered] !== true).map((o) => ({ name: str(o.fields[OPTION.name]) ?? "Option", total: num(o.fields[OPTION.total]) })) },
+    messages,
+    candidateIds,
+  );
+  const f = cleanOffChannel(await writeJson(prompt), messages, candidateIds);
+  if (!f) return null;
+  const isDraft = (str(newest.fields[VERSION.status]) ?? "Draft") === "Draft";
+  let plan = offChannelPlan(f, opts.map((o) => ({ id: o.id, total: num(o.fields[OPTION.total]), preHst: num(o.fields[OPTION.subtotal]), notOffered: o.fields[OPTION.notOffered] === true })));
+  // A version the app sent is never edited here: an unmatched price on one is a note, for staff to add by hand.
+  if (plan.did === "added" && !isDraft) plan = { did: "noted", optionId: null };
+  let optionId = plan.optionId;
+  if (plan.did === "added") {
+    optionId = await addOutsideOption(newest.id, f);
+    if (!optionId) plan = { did: "noted", optionId: null };
+  }
+  const off: OffChannel = { ...f, did: plan.did, optionId, found: now.toISOString() };
+  // Compare-and-swap on top of what the field holds now, so a button pressed meanwhile is never undone.
+  const fresh = await getRecord(T.quotes, x.q.id);
+  const state = parseState(str(fresh.fields[QUOTE.followUp]));
+  await updateRecord(T.quotes, x.q.id, { [QUOTE.followUp]: serializeState({ ...state, offChannel: off, recheckedAt: now.toISOString() }) });
+  const what = plan.did === "added" ? "added as a custom option and marked sent outside the app" : plan.did === "matched" ? "matched an option and marked sent outside the app" : f.kind === "firm" ? "noted (the newest version was already sent from the app, so nothing was added)" : "noted (a ballpark is never marked sent)";
+  const words = `${offChannelNote(f, torontoDay)} ${what[0].toUpperCase()}${what.slice(1)}.`;
+  try {
+    await updateRecord(T.versions, newest.id, { [VERSION.editLog]: appendLog(str(newest.fields[VERSION.editLog]), logLine(now, "app", `price check: ${words}`)) });
+  } catch (e) {
+    console.error("offChannel history", e);
+  }
+  return { quote: str(x.q.fields[QUOTE.quoteNumber]), did: plan.did, words };
+}
+
+/**
+ * For the Send card (2026-11-13): the price given outside the app on this quote, when a firm one was given after the
+ * app's last send, else null. Signed in.
+ */
+export type OutsideCard = { words: string; note: string };
+export async function outsideFor(quoteRecordId: string | null): Promise<OutsideCard | null> {
+  await requireQuoterPerson();
+  if (!quoteRecordId || !REC_ID.test(quoteRecordId)) return null;
+  try {
+    const q = await getRecord(T.quotes, quoteRecordId);
+    const state = parseState(str(q.fields[QUOTE.followUp]));
+    if (!state.offChannel) return null;
+    const vs = await listByIds(T.versions, ids(q.fields[QUOTE.versions]), [VERSION.version, VERSION.status, VERSION.sentAt, VERSION.changeNo, VERSION.basis]);
+    const w = waitingOrOutside(vs, state);
+    return w?.outside ? { words: SENT_WORDS[w.outside.how], note: offChannelNote(w.outside, torontoDay) } : null;
+  } catch (e) {
+    console.error("outsideFor", e);
+    return null;
+  }
 }

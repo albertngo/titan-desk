@@ -240,6 +240,7 @@ export function SendQuote({
   label,
   status,
   base,
+  outside = null,
   today,
   defaultUntil,
   maxUntil,
@@ -261,6 +262,8 @@ export function SendQuote({
   label: string;
   status: string | null;
   base: string;
+  /** A firm price given by text or on a call, nothing sent from the app since (2026-11-13): the card offers the formal copy. */
+  outside?: { words: string; note: string } | null;
   today: string;
   defaultUntil: string;
   maxUntil: string;
@@ -413,8 +416,18 @@ export function SendQuote({
 
   return (
     <section className="card sq" id="send" aria-labelledby="sq-h">
-      <div className="card-h" id="sq-h">Send quote to customer</div>
+      <div className="card-h" id="sq-h">
+        {outside ? "Send formal copy" : "Send quote to customer"}
+        {outside && <span className="right">{outside.words}</span>}
+      </div>
       <div className="card-b">
+        {outside && (
+          <div className="sq-msg sq-outside" role="note">
+            <b>{outside.words}, not from the app</b>
+            <p>{outside.note}</p>
+            <p className="faint">No link and no open tracking yet. Sending here gives them the written copy; nothing goes unless you press Send.</p>
+          </div>
+        )}
         {allProblems.length > 0 && (
           <div className="sq-msg warn">
             <b>Not ready to send</b>
@@ -565,7 +578,7 @@ export function SendQuote({
           </div>
         ) : (
           <button type="button" className="btn primary sq-go" disabled={blocked || channels.length === 0 || (!undated && !until)} onClick={() => setAsking(true)}>
-            Send quote
+            {outside ? "Send formal copy" : "Send quote"}
           </button>
         )}
       </div>
