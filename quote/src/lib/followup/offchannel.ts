@@ -84,6 +84,7 @@ export function offChannelPrompt(f: OffChannelFacts, messages: Message[], candid
   return [
     "You read a flooring company's conversation with one customer. Decide whether our staff gave the customer a price outside the quoting app: in a text, an email, or on a call (call summaries appear as internal notes).",
     "Only a price WE gave counts. A customer repeating another company's price, a supplier cost, a deposit or payment amount, an invoice, or a price that is part of a quote link the app sent does not count.",
+    "A rate per unit (\"$4 per linear foot\", \"$160 per door\", \"$3.50 a square foot\", per step, per hour) or the price of one small add-on discussed alongside the job is NOT a price for the job: return found false for it.",
     "firm = one price for named work (\"$4,850 installed\", \"it'll be 3200 plus HST for the stairs\"). ballpark = a range or a rough figure (\"around 4 to 5k\", \"roughly 3k\", \"ballpark\").",
     "If several prices were given, return the most recent one we gave.",
     `Today is ${f.today}. Customer: ${f.customer ?? "unknown"}. Quote ${f.quoteNumber ?? "(no number)"} in the app has these options: ${f.options.length ? f.options.map((o) => `${o.name} ${o.total === null ? "(no total)" : `$${o.total}`}`).join("; ") : "none"}.`,
@@ -113,6 +114,8 @@ export function cleanOffChannel(raw: unknown, messages: Message[], candidateIds:
   const low = num(d.low);
   const high = num(d.high);
   if (kind === "firm" && amount === null) return null;
+  // A unit rate is never a price for the job (2026-11-13: Q-1019's "$160 per door" became an option).
+  if (UNIT_RATE.test(`${typeof d.quote === "string" ? d.quote : ""} ${typeof d.what === "string" ? d.what : ""}`)) return null;
   if (kind === "ballpark" && amount === null && low === null && high === null) return null;
   const how: OffChannelHow = m.channel === "note" ? "call" : m.channel === "email" ? "email" : "sms";
   const quote = short(typeof d.quote === "string" ? d.quote : "", 160) || short(m.body, 160);
@@ -128,6 +131,12 @@ export function cleanOffChannel(raw: unknown, messages: Message[], candidateIds:
     messageId: m.id,
   };
 }
+
+/** "$4 per linear foot", "$160 per door", "3.50 a square foot", "/sf", "each". */
+export const UNIT_RATE = /\b(per|a|an|each|\/)\s?(door|linear|lin\.?|foot|feet|ft|lf|sq\.?\s?ft|square|sf|step|stair|riser|hour|hr|room|piece|pc|box|unit)\b|\/(sf|ft|lf|step)\b|\beach\b/i;
+
+/** A kept find that the unit-rate rule would now refuse: the recheck takes it off the quote. */
+export const isUnitRateFind = (o: Pick<OffChannel, "quote" | "what"> | null | undefined) => Boolean(o && UNIT_RATE.test(`${o.quote} ${o.what}`));
 
 /** An option's total matches a firm price within a dollar, either side of HST. */
 export function matchingOption(options: { id: string; total: number | null; preHst?: number | null; notOffered?: boolean }[], amount: number): string | null {

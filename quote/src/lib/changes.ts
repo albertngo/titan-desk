@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-13",
     kind: "fixed",
+    title: "A rate per unit is not a price given on a call",
+    details: ["The price check no longer reads a rate like \"$160 per door\" or \"$4 a foot\" as a price for the job. One it had already marked is taken back on the next check, with a History line saying which option to remove."],
+  },
+  {
+    date: "2026-11-13",
+    kind: "fixed",
     title: "The price check skips the app's own quote texts",
     details: [
       "The twice-a-day check no longer reads the app's own quote messages (or anything sent with a quote) as a price given by text.",
