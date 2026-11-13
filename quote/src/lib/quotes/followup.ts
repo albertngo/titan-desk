@@ -47,7 +47,7 @@ import { activityEntries } from "@/lib/activity/track";
 import { fromAttempts, fromTheirNumber, noNumberWords, textFromFor } from "@/lib/send/plan";
 import { timingSafeEqual } from "node:crypto";
 import { offerValue, type OptionMoney } from "./group";
-import { VISIT_LOOKBACK_DAYS, visitsWithoutQuote, type ContactQuotes, type VisitNoQuote } from "@/lib/followup/visits";
+import { calledOffByText, VISIT_LOOKBACK_DAYS, visitsWithoutQuote, type ContactQuotes, type VisitNoQuote } from "@/lib/followup/visits";
 import { BOOKING_CALENDAR_IDS, BOOKING_URLS, ghlContactUrl, ghlConversationUrl } from "@/lib/ghl/ids";
 import { buildLostDetails, buildPostpone, lostDetailsText, lostStatusBody, postponedStageId } from "@/lib/link/ghlRequest";
 import { makeConfigured, removeFollowUpTags, sendAlert, sendMessage, sendToGhl, setOpportunityStatus } from "@/lib/make/client";
@@ -483,7 +483,25 @@ async function visitsNoQuote(quotes: Rec[], byQuote: Map<string, Rec[]>, now: Da
     const measuredSent = vs.filter((v) => str(v.fields[VERSION.basis]) === "Measured" && str(v.fields[VERSION.sentAt])).map((v) => torontoDay(str(v.fields[VERSION.sentAt]) as string));
     quotesOf.set(contact, [...(quotesOf.get(contact) ?? []), { quoteRecordId: q.id, quoteNumber: str(q.fields[QUOTE.quoteNumber]), customer: customerOf(q.fields), versionId: vs[0]?.id ?? null, measuredSent, closed }]);
   }
-  const found = visitsWithoutQuote(events, quotesOf, now, torontoDay, BOOKING_CALENDAR_IDS);
+  // A visit the customer called off by text (2026-11-13) never went ahead, whatever GHL's status says.
+  const recent = events.filter((e) => e.contactId && e.start && Date.parse(e.start) < now.getTime() && !/cancel|no.?show|invalid/i.test(e.status ?? ""));
+  const people = [...new Set(recent.map((e) => e.contactId as string))].filter((x) => /^[A-Za-z0-9]+$/.test(x));
+  const threads = new Map(people.map((p, i) => [p, i]));
+  const read = ghlConfigured() ? await inBatches(people, GHL_PARALLEL, (p) => threadOf(p)) : [];
+  const calledOff = new Map<string, { day: string; quote: string }>();
+  for (const e of recent) {
+    const t = read[threads.get(e.contactId as string) ?? -1];
+    const words = t ? calledOffByText(t.messages, e.start as string) : null;
+    if (!words) continue;
+    e.status = "cancelled (by text)";
+    const day = torontoDay(e.start as string);
+    const had = calledOff.get(e.contactId as string);
+    if (!had || had.day < day) calledOff.set(e.contactId as string, { day, quote: words });
+  }
+  const found = visitsWithoutQuote(events, quotesOf, now, torontoDay, BOOKING_CALENDAR_IDS).map((v) => {
+    const off = calledOff.get(v.contactId);
+    return off && off.day > v.day ? { ...v, rescheduling: off } : v;
+  });
   const users = found.some((v) => v.visitorId) ? await locationUsers().catch(() => []) : [];
   const first = (id: string | null) => {
     const u = id ? users.find((x) => x.id === id) : null;
@@ -1047,12 +1065,15 @@ export async function runRecheck(key: string | null): Promise<RecheckResult> {
       if (q) byQuote.set(q, [...(byQuote.get(q) ?? []), v]);
     }
     const since = new Date(now.getTime() - SCAN_BACK_DAYS * 86_400_000).toISOString();
+    const visits = (await visitsNoQuote(quotes as Rec[], byQuote, now)) ?? [];
+    const owed = new Set(visits.flatMap((v) => (v.quote?.quoteRecordId ? [v.quote.quoteRecordId] : [])));
+    const priority = (x: { q: VersionRec; vs: VersionRec[] }) => (owed.has(x.q.id) ? 2 : x.vs.some((v) => WAITING.has(str(v.fields[VERSION.status]) ?? "")) ? 1 : 0);
     const open = quotes
       .filter((q) => !str(q.fields[QUOTE.projectNumber]) && /^[A-Za-z0-9]+$/.test(str(q.fields[QUOTE.ghlContactId]) ?? ""))
       .map((q) => ({ q, vs: (byQuote.get(q.id) ?? []).sort((a, b) => (num(b.fields[VERSION.version]) ?? 0) - (num(a.fields[VERSION.version]) ?? 0)), state: parseState(str(q.fields[QUOTE.followUp])) }))
       .filter((x) => x.vs.length && !x.state.lost && !x.vs.some((v) => ["Accepted", "Won"].includes(str(v.fields[VERSION.status]) ?? "")) && str(x.vs[0].fields[VERSION.status]) !== "Lost")
-      // Newest first by record, so the run reaches the live ones before old drafts.
-      .sort((a, b) => (b.q.createdTime ?? "").localeCompare(a.q.createdTime ?? ""))
+      // Follow up's quotes and the visits owed a quote first (2026-11-13: Q-1008, an old quote, was past the cut), then the newest.
+      .sort((a, b) => priority(b) - priority(a) || (b.q.createdTime ?? "").localeCompare(a.q.createdTime ?? ""))
       .slice(0, RECHECK_THREADS);
     const threads = await inBatches(open, GHL_PARALLEL, (x) => threadOf(str(x.q.fields[QUOTE.ghlContactId]) as string));
     for (let i = 0; i < open.length && scanned < RECHECK_SCANS; i++) {

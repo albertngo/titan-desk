@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Message } from "@/lib/conversation/thread";
+import { calledOffByText } from "@/lib/followup/visits";
 import { cleanOffChannel, offChannelNote, offChannelPlan, priceCandidates, sentOutside, parseOffChannel, hasMoney } from "@/lib/followup/offchannel";
 
 const msg = (id: string, over: Partial<Message>): Message => ({ id, channel: "sms", label: "Text", direction: "out", body: null, subject: null, attachments: [], at: "2026-11-10T15:00:00Z", status: null, automated: false, callSeconds: null, emailId: null, ...over });
@@ -54,5 +55,13 @@ describe("prices given outside the app", () => {
     expect(sentOutside(off, null)).toBe(true);
     expect(sentOutside(off, "2026-11-11T00:00:00Z")).toBe(false);
     expect(sentOutside({ ...off!, kind: "ballpark" }, null)).toBe(false);
+  });
+
+  it("reads a visit called off by text, from the customer only, around the visit", () => {
+    const start = "2026-11-09T18:00:00Z";
+    const ms = [msg("x", { direction: "in", body: "So sorry, we'll have to reschedule today", at: "2026-11-09T17:25:00Z" })];
+    expect(calledOffByText(ms, start)).toContain("reschedule");
+    expect(calledOffByText([{ ...ms[0], direction: "out" }], start)).toBeNull();
+    expect(calledOffByText([{ ...ms[0], at: "2026-11-01T10:00:00Z" }], start)).toBeNull();
   });
 });

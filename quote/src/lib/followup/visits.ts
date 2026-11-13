@@ -33,7 +33,23 @@ export type VisitNoQuote = {
   quote: Omit<ContactQuotes, "measuredSent" | "closed"> | null;
   /** Days since the visit. */
   days: number;
+  /** A later visit the customer called off by text (2026-11-13): the day, and their words. They are to rebook. */
+  rescheduling?: { day: string; quote: string } | null;
 };
+
+/** A customer's own words calling a visit off (2026-11-13: GHL kept such a visit "confirmed", so it read as having gone ahead). */
+const CALL_OFF = /\b(re-?schedule|cancel|can'?t make it|cannot make it|won'?t make it|not going to make it|have to (move|postpone)|postpone|another day)\b/i;
+
+/**
+ * A customer message that calls the visit off: theirs (not ours, not automated), a text, email or chat, from 2 days
+ * before the start to 3 hours after it. Returns their words, short, or null.
+ */
+export function calledOffByText(messages: { direction: string; automated: boolean; channel: string; body: string | null; at: string | null }[], start: string): string | null {
+  const t = Date.parse(start);
+  if (Number.isNaN(t)) return null;
+  const m = messages.find((x) => x.direction === "in" && !x.automated && (x.channel === "sms" || x.channel === "email" || x.channel === "chat") && x.at && x.body && Date.parse(x.at) >= t - 2 * 86_400_000 && Date.parse(x.at) <= t + 3 * 3_600_000 && CALL_OFF.test(x.body));
+  return m ? (m.body as string).replace(/\s+/g, " ").trim().slice(0, 140) : null;
+}
 
 const MISSED = /cancel|no.?show|invalid/i;
 

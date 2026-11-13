@@ -207,7 +207,13 @@ export function FollowUpList({ data }: { data: FollowUpPage }) {
                 </div>
                 <div className="fu-scorecol" data-k="Score"><span className="fu-score-none">No quote yet</span></div>
                 <div className="fu-why" data-k="Why it's due">
-                  <span className="chip warn">Visited: the measured quote is owed</span>
+                  {v.rescheduling ? (
+                    <span className="chip" title={`"${v.rescheduling.quote}"`}>
+                      Called off {dayWords(v.rescheduling.day, data.today)} by text: waiting on them to rebook
+                    </span>
+                  ) : (
+                    <span className="chip warn">Visited: the measured quote is owed</span>
+                  )}
                   <span className="fu-when">
                     Visited {dayWords(v.day, data.today)} · {v.where}
                   </span>
