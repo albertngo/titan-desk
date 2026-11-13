@@ -310,8 +310,11 @@ export function SendQuote({
   const [pdf, setPdf] = useState(false);
   /** Which options go to the customer (2026-10-24): all of them unless the sender unticks some; a Not offered one starts unticked (2026-10-30). */
   // Since 2026-10-31 a Not offered one can't be ticked at all (Albert: "as a safeguard, not even an option").
-  const [chosen, setChosen] = useState<string[]>(() => options.filter((o) => !o.notOffered).map((o) => o.id));
+  // Kept as the ones unticked (2026-11-13): options that arrive after the card first renders (a new quote) start ticked
+  // instead of being missed until a refresh.
+  const [unticked, setUnticked] = useState<string[]>([]);
   const offerable = options.filter((o) => !o.notOffered);
+  const chosen = offerable.map((o) => o.id).filter((id) => !unticked.includes(id));
   const notOffered = options.length - offerable.length;
   // Every offered option ticked = no list sent: the server sends every option still offered, as the previews do.
   const everyOption = chosen.length === offerable.length;
@@ -467,7 +470,7 @@ export function SendQuote({
                 <input
                   type="checkbox"
                   checked={chosen.includes(o.id)}
-                  onChange={(e) => setChosen((c) => (e.target.checked ? options.map((x) => x.id).filter((id) => id === o.id || c.includes(id)) : c.filter((id) => id !== o.id)))}
+                  onChange={(e) => setUnticked((u) => (e.target.checked ? u.filter((id) => id !== o.id) : [...u, o.id]))}
                 />
                 <span>
                   <span className="nm">{i + 1}. {o.name}{o.recommended ? <span className="rec"> · Recommended</span> : null}</span>
