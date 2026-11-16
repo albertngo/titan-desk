@@ -1,6 +1,6 @@
 -- 013: the Titan Ledger (migration 011). Grants, append-only, current_state, idempotency.
 begin;
-select plan(24);
+select plan(27);
 
 -- Grants: ledger_writer gets exactly INSERT+SELECT on events and SELECT on current_state.
 select ok(has_table_privilege('ledger_writer', 'ledger.events', 'insert'), 'writer can insert events');
@@ -22,7 +22,7 @@ select is(
 select is(
   (select array_agg(routine_name::text order by routine_name) from information_schema.routine_privileges
     where routine_schema = 'ledger_api' and grantee = 'ledger_writer'),
-  array['append_event', 'recent', 'state'], 'writer executes exactly the three API functions');
+  array['append_event', 'append_events', 'recent', 'state'], 'writer executes exactly the four API functions');
 select ok(not (select rolcanlogin from pg_roles where rolname = 'ledger_writer'),
   'ledger_writer created NOLOGIN (password set by hand)');
 
@@ -43,6 +43,22 @@ select is((select count(*)::int from ledger.events where idempotency_key = 'test
 select throws_ok($$insert into ledger.events (occurred_at, actor, actor_kind, entity_type, entity_source, entity_id,
     event_type, result, idempotency_key) values (now(), 'x', 'agent', 'sku', 'airtable', 'r1', 'a.b', 'executed', 'test-key-0001')$$,
   '23505', null, 'a raw duplicate insert conflicts');
+
+select is(
+  ledger_api.append_events(('[{"occurred_at":"2026-11-01T10:00:00Z","actor":"backfill","actor_kind":"agent",
+    "entity_type":"sku","entity_source":"airtable","entity_id":"FLR-TEST-1","event_type":"catalog.upsert_product",
+    "result":"executed","idempotency_key":"test-key-0101"},
+   {"occurred_at":"2026-11-01T10:00:00Z","actor":"backfill","actor_kind":"agent",
+    "entity_type":"sku","entity_source":"airtable","entity_id":"FLR-TEST-1","event_type":"catalog.upsert_product",
+    "result":"executed","idempotency_key":"test-key-0101"},
+   {"occurred_at":"2026-11-01T10:00:00Z","actor":"ghl-triage","actor_kind":"agent",
+    "entity_type":"conversation","entity_source":"ghl","entity_id":"conv_1","event_type":"triage.mark_read",
+    "result":"executed","idempotency_key":"test-key-0001"}]')::jsonb),
+  '{"inserted": 1, "duplicate": 2}'::jsonb, 'append_events dedups within the batch and against the table');
+select throws_ok($$select ledger_api.append_events('{}'::jsonb)$$, '22023', null, 'append_events refuses a non-array');
+select throws_ok($$select ledger_api.append_event('{"occurred_at":"2026-11-01T10:00:00Z","actor":"x","actor_kind":"robot",
+    "entity_type":"sku","entity_source":"airtable","entity_id":"A","event_type":"a.b","result":"executed",
+    "idempotency_key":"test-key-0102"}'::jsonb)$$, '23514', null, 'check constraints refuse an unknown actor_kind');
 
 -- Append-only.
 select throws_ok($$update ledger.events set reason = 'x' where idempotency_key = 'test-key-0001'$$,

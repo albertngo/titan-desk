@@ -6,7 +6,7 @@
 --
 -- Two schemas:
 --   ledger      the table and the current_state view. NOT exposed to the Data API.
---   ledger_api  three functions only (append_event, recent, state), SECURITY INVOKER.
+--   ledger_api  four functions only (append_event, append_events, recent, state), SECURITY INVOKER.
 --               Exposed to PostgREST so cloud sessions, which can reach Supabase over HTTPS
 --               only (raw Postgres 5432/6543 is refused there), can write with a JWT whose
 --               role is ledger_writer. No anon or authenticated grant anywhere.
@@ -120,6 +120,36 @@ begin
     (select id from ledger.events where idempotency_key = e->>'idempotency_key'));
 end $$;
 
+-- append_events: a JSON array of events, at most 500, one statement. For the backfill and for
+-- a run's batch. Returns {"inserted": n, "duplicate": m}.
+create function ledger_api.append_events(es jsonb) returns jsonb
+language plpgsql security invoker as $$
+declare
+  n_in int;
+  n_all int;
+begin
+  if jsonb_typeof(es) <> 'array' then
+    raise exception 'append_events takes a JSON array' using errcode = 'invalid_parameter_value';
+  end if;
+  n_all := jsonb_array_length(es);
+  if n_all > 500 then
+    raise exception 'append_events takes at most 500 events (got %)', n_all using errcode = 'invalid_parameter_value';
+  end if;
+  insert into ledger.events (
+    occurred_at, actor, actor_kind, entity_type, entity_source, entity_id, event_type,
+    result, reason, rule_ref, state_key, state_value, valid_until, approved_by, run_ref,
+    sensitivity, payload, idempotency_key)
+  select (e->>'occurred_at')::timestamptz, e->>'actor', e->>'actor_kind', e->>'entity_type',
+         e->>'entity_source', e->>'entity_id', e->>'event_type', e->>'result', e->>'reason',
+         e->>'rule_ref', e->>'state_key', e->>'state_value', (e->>'valid_until')::timestamptz,
+         e->>'approved_by', e->>'run_ref', coalesce(e->>'sensitivity', 'private'),
+         coalesce(e->'payload', '{}'::jsonb), e->>'idempotency_key'
+    from jsonb_array_elements(es) e
+  on conflict (idempotency_key) do nothing;
+  get diagnostics n_in = row_count;
+  return jsonb_build_object('inserted', n_in, 'duplicate', n_all - n_in);
+end $$;
+
 create function ledger_api.recent(
   p_source text, p_id text, p_type text default null,
   p_limit int default 10, p_since timestamptz default null)
@@ -144,12 +174,13 @@ $$;
 
 -- Postgres grants EXECUTE to PUBLIC on every new function: revoke it explicitly (README §Schemas).
 revoke execute on function ledger_api.append_event(jsonb) from public, anon, authenticated;
+revoke execute on function ledger_api.append_events(jsonb) from public, anon, authenticated;
 revoke execute on function ledger_api.recent(text, text, text, int, timestamptz) from public, anon, authenticated;
 revoke execute on function ledger_api.state(text, text, text) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------------------
 -- 4. ledger_writer: INSERT + SELECT on events, SELECT on current_state, EXECUTE on the
---    three functions. Nothing else. NOLOGIN; Albert sets a password by hand for direct
+--    four functions. Nothing else. NOLOGIN; Albert sets a password by hand for direct
 --    (Mac) use, and PostgREST reaches it through authenticator with a role=ledger_writer JWT.
 -- ---------------------------------------------------------------------------------------
 do $$
@@ -165,6 +196,7 @@ grant usage on schema ledger, ledger_api to ledger_writer;
 grant select, insert on ledger.events to ledger_writer;
 grant select on ledger.current_state to ledger_writer;
 grant execute on function ledger_api.append_event(jsonb) to ledger_writer;
+grant execute on function ledger_api.append_events(jsonb) to ledger_writer;
 grant execute on function ledger_api.recent(text, text, text, int, timestamptz) to ledger_writer;
 grant execute on function ledger_api.state(text, text, text) to ledger_writer;
 
