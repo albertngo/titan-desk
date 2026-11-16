@@ -28,6 +28,7 @@ export function PastQuotes({
   onCopy,
   onPick,
   busy = false,
+  autoCopy = false,
 }: {
   /** The version being edited, left out of the results. */
   exceptVersionId?: string | null;
@@ -36,6 +37,8 @@ export function PastQuotes({
   onCopy?: (options: PastOption[]) => void;
   onPick?: (picked: PickedVersion) => void;
   busy?: boolean;
+  /** Duplicate quote (2026-11-16): copy every option of `startVersionId` straight away, no ticking. */
+  autoCopy?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PastQuote[] | null>(null);
@@ -61,6 +64,7 @@ export function PastQuotes({
       setNote(null);
       const r = await pastOptionsAction(versionId).catch(() => null);
       if (!r || !r.ok) return setNote(r?.message ?? "That quote couldn't be opened. Try again in a moment.");
+      if (autoCopy && versionId === startVersionId && onCopy) return onCopy(r.options.filter((o) => !o.notOffered));
       setLoaded({ versionId: r.versionId, title: title ?? [r.customerName, r.version != null ? `v${r.version}` : r.label].filter(Boolean).join(" · "), options: r.options });
       // Not offered options start unticked: they were never sent.
       setTicked(new Set(r.options.filter((o) => !o.notOffered).map((o) => o.id)));

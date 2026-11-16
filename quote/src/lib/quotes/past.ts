@@ -15,7 +15,7 @@ import { getQuote, listQuoteGroups } from "./load";
 export type PastVersion = { id: string; version: number | null; label: string | null; status: string | null; basis: string | null; optionCount: number; sentAt: string | null; changeNo: number | null };
 export type PastQuote = { quoteRecordId: string | null; customerName: string | null; quoteNumber: string | null; siteCity: string | null; description: string | null; versions: PastVersion[] };
 export type PastOption = EditorOption & { listPrice: number };
-export type PastOptions = { ok: true; versionId: string; label: string | null; version: number | null; customerName: string | null; options: PastOption[] } | { ok: false; message: string };
+export type PastOptions = { ok: true; versionId: string; label: string | null; version: number | null; basis: string | null; customerName: string | null; options: PastOption[] } | { ok: false; message: string };
 
 const MAX_RESULTS = 12;
 const RECORD_ID = /^rec[A-Za-z0-9]{14}$/;
@@ -51,5 +51,16 @@ export async function pastOptions(versionId: string): Promise<PastOptions> {
     listPrice: optionTotals(o.lines.filter((l) => !isDiscountLine(l) && !isAdjustmentLine(l)), 0, false).subtotal,
   }));
   if (!options.length) return { ok: false, message: "That version has no options to copy." };
-  return { ok: true, versionId: quote.id, label: quote.quoteId, version: quote.version, customerName: quote.customerName, options };
+  return { ok: true, versionId: quote.id, label: quote.quoteId, version: quote.version, basis: quote.basis, customerName: quote.customerName, options };
+}
+
+export type DuplicateOf = { versionId: string; words: string; basis: "Preliminary" | "Measured"; optionCount: number };
+
+/** Duplicate quote (Albert, 2026-11-16): what New quote says it is duplicating, or null for an id that isn't a version with options. */
+export async function duplicateOf(versionId: string): Promise<DuplicateOf | null> {
+  await requireQuoter();
+  const r = await pastOptions(versionId);
+  if (!r.ok) return null;
+  const words = [r.customerName ?? "No name", r.label ?? (r.version != null ? `v${r.version}` : null)].filter(Boolean).join(" · ");
+  return { versionId: r.versionId, words, basis: r.basis === "Measured" ? "Measured" : "Preliminary", optionCount: r.options.length };
 }

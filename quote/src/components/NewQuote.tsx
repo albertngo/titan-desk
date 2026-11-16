@@ -14,6 +14,7 @@ import { Conversation } from "./Conversation";
 import { copyWork, estimateWork, glueWait, initialWork, QuickWork, workInput, type WorkState } from "./QuickWork";
 import { DESCRIPTION_MAX } from "@/lib/quotes/group";
 import { PastQuotes, type PickedVersion } from "./PastQuotes";
+import type { DuplicateOf } from "@/lib/quotes/past";
 
 type Choice = { contactId: string; opportunityId: string | null } | { newCustomer: true } | null;
 
@@ -26,7 +27,7 @@ const blankCustomer = { firstName: "", lastName: "", phone: "", email: "", addre
  * full quote stops at the timing question and opens v1 Measured, empty, in the editor.
  * `conversation`: show the picked customer's GHL conversation under the customer (off in Customer view).
  */
-export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = false }: { ghlWrites: boolean; choices: QuickChoice[]; profiles: QuickProfile[]; kind: NewQuoteKind; conversation?: boolean }) {
+export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = false, duplicate = null }: { ghlWrites: boolean; choices: QuickChoice[]; profiles: QuickProfile[]; kind: NewQuoteKind; conversation?: boolean; duplicate?: DuplicateOf | null }) {
   const prelim = kind === "preliminary";
   /** One quick form per option (Albert, 2026-10-31): tabs over the Job card; each becomes an option of v1. */
   const [works, setWorks] = useState<WorkState[]>(() => [initialWork(choices)]);
@@ -39,7 +40,8 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
   const [nc, setNc] = useState(blankCustomer);
   const [timing, setTiming] = useState<Timing | null>(null);
   /** What version 1 goes out as (Albert, 2026-11-07): picked on both screens, Preliminary for a completely new quote. */
-  const [basis, setBasis] = useState<"Preliminary" | "Measured">("Preliminary");
+  // A duplicate starts the way the quote it copies went (2026-11-16).
+  const [basis, setBasis] = useState<"Preliminary" | "Measured">(duplicate?.basis ?? "Preliminary");
   const [confirmed, setConfirmed] = useState(false);
   /** Where they found us (2026-10-27): preliminaries only; fills Quote Origin and Source in GHL where blank. */
   const [origin, setOrigin] = useState("");
@@ -50,7 +52,9 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
   const [dupeNote, setDupeNote] = useState<string | null>(null);
   const [creating, startCreate] = useTransition();
   /** Start from a past quote (2026-11-16): the editor opens on this version's options, ready to copy. Staff only. */
-  const [copyFrom, setCopyFrom] = useState<PickedVersion | null>(null);
+  const [copyFrom, setCopyFrom] = useState<PickedVersion | null>(duplicate ? { versionId: duplicate.versionId, words: duplicate.words } : null);
+  /** Duplicate quote (2026-11-16): every option comes over by itself; a version picked here is ticked through instead. */
+  const copyAll = duplicate !== null && copyFrom?.versionId === duplicate.versionId;
   const [pastOpen, setPastOpen] = useState(false);
 
   function choose(next: Choice) {
@@ -83,7 +87,7 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
       ? { ...shared, contactId: picked.contact.id, opportunityId: (choice as { opportunityId: string | null }).opportunityId, addressConfirmed: confirmed }
       : { ...shared, newCustomer: nc, forceNew };
     startCreate(async () => {
-      const r = await startQuoteAction(input, copyFrom?.versionId ?? null);
+      const r = await startQuoteAction(input, copyFrom?.versionId ?? null, copyAll);
       if (!r || r.ok) return;
       if (r.duplicates?.length) {
         // Show who GHL already has; picking one turns this into an existing-customer quote.
@@ -131,9 +135,11 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
       <div className="pagehead">
         <div className="titles">
           <Link className="crumb" href="/">← Quotes</Link>
-          <h1>{prelim ? "From quick form" : "New quote"}</h1>
+          <h1>{duplicate ? "Duplicate quote" : prelim ? "From quick form" : "New quote"}</h1>
           <p>
-            {prelim
+            {duplicate
+              ? `A new quote with every option from ${duplicate.words}. Find the customer in GHL (any customer, any opportunity) and say when they plan to do the project. The old quote is not changed.`
+              : prelim
               ? "Pick the work, find the customer in GHL and their opportunity, then say when they plan to do the project. Choose below whether it goes out as a preliminary or a measured quote."
               : "Find the customer in GHL, pick their opportunity and say when they plan to do the project. The quote opens empty in the editor; choose below whether it goes out as a preliminary or a measured quote."}
           </p>
@@ -356,11 +362,15 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
       {/* Start from a past quote (Albert, 2026-11-16): reuse another quote's options. Hidden in Customer view, like the conversation. */}
       {conversation && (
         <section className="card">
-          <div className="card-h">Start from a past quote <span className="right faint">Optional</span></div>
+          <div className="card-h">{duplicate ? "Duplicating" : "Start from a past quote"} <span className="right faint">{duplicate ? `${duplicate.optionCount} option${duplicate.optionCount === 1 ? "" : "s"}` : "Optional"}</span></div>
           <div className="card-b">
             {copyFrom ? (
               <p className="note">
-                The editor opens with <b>{copyFrom.words}</b> ready to copy: you pick which options come over.{" "}
+                {copyAll ? (
+                  <>Every option from <b>{copyFrom.words}</b> comes over as the editor opens: card lines at today&apos;s Rate Card, typed prices as typed, discounts left behind.</>
+                ) : (
+                  <>The editor opens with <b>{copyFrom.words}</b> ready to copy: you pick which options come over.</>
+                )}{" "}
                 <button type="button" className="linkbtn" onClick={() => setCopyFrom(null)} disabled={creating}>Don&apos;t copy</button>
               </p>
             ) : pastOpen ? (
@@ -419,7 +429,7 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
         ) : (
           <div className="est">
             <span className="k">{basis} quote</span>
-            <span className="faint">{copyFrom ? "Opens in the editor, ready to copy" : "Opens empty in the editor"}</span>
+            <span className="faint">{copyAll ? "Opens in the editor with the options copied" : copyFrom ? "Opens in the editor, ready to copy" : "Opens empty in the editor"}</span>
           </div>
         )}
         {glueNote && <span className="sand-flag" role="status">{glueNote}</span>}

@@ -23,10 +23,11 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-16",
     kind: "new",
-    title: "Copy options from a past quote",
+    title: "Copy options from old quotes, and Duplicate quote",
     details: [
-      "In the editor, + From a past quote (beside + From quick form) finds any past quote by customer, quote number, city or description. Pick a version, tick the options you want, and they are added to this quote as new options, saved like any other edit.",
+      "In the editor, + From old quotes (beside + Add option and + From quick form) finds any past quote by customer, quote number, city or description. Pick a version, tick the options you want, and they are added to this quote as new options, saved like any other edit.",
       "On New quote, Start from a past quote picks one before you create it: the editor then opens with that quote's options ready to copy.",
+      "On a quote's page, Duplicate quote (beside Edit quote) starts a new quote with every option of that version: pick any customer and opportunity, answer the timing, and the editor opens with the options already copied.",
       "Card lines take today's Rate Card; prices typed on the old quote stay as typed. Discounts, Recommended and Not offered are left behind, and the old quote is never changed.",
     ],
   },

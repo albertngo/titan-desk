@@ -16,11 +16,12 @@ export async function searchCustomersAction(query: string): Promise<CustomerSear
  * `copyFrom` (2026-11-16): a past version picked under "Start from a past quote". The quote starts as usual; its
  * editor then opens on that version's options, ready to copy (an unsaved change, nothing written here).
  */
-export async function startQuoteAction(input: unknown, copyFrom: string | null = null): Promise<{ ok: false; message: string; duplicates?: FoundCustomer[] }> {
+export async function startQuoteAction(input: unknown, copyFrom: string | null = null, copyAll = false): Promise<{ ok: false; message: string; duplicates?: FoundCustomer[] }> {
   const r = await startQuote(input);
   if (!r.ok) return r;
   const copy = typeof copyFrom === "string" && /^rec[A-Za-z0-9]{14}$/.test(copyFrom) ? copyFrom : null;
-  if (copy) redirect(`/q/${r.versionId}/edit?copy=${copy}`);
+  // Duplicate quote (2026-11-16): every option comes over as the editor opens, no ticking.
+  if (copy) redirect(`/q/${r.versionId}/edit?copy=${copy}${copyAll === true ? "&all=1" : ""}`);
   redirect(r.filled ? `/q/${r.versionId}` : `/q/${r.versionId}/edit`);
 }
 
