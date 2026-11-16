@@ -64,10 +64,10 @@ export function PastQuotes({
       setNote(null);
       const r = await pastOptionsAction(versionId).catch(() => null);
       if (!r || !r.ok) return setNote(r?.message ?? "That quote couldn't be opened. Try again in a moment.");
-      if (autoCopy && versionId === startVersionId && onCopy) return onCopy(r.options.filter((o) => !o.notOffered));
+      if (autoCopy && versionId === startVersionId && onCopy) return onCopy(r.options);
       setLoaded({ versionId: r.versionId, title: title ?? [r.customerName, r.version != null ? `v${r.version}` : r.label].filter(Boolean).join(" · "), options: r.options });
-      // Not offered options start unticked: they were never sent.
-      setTicked(new Set(r.options.filter((o) => !o.notOffered).map((o) => o.id)));
+      // An exact copy (2026-11-16): every option starts ticked, Not offered ones too (they stay Not offered).
+      setTicked(new Set(r.options.map((o) => o.id)));
     });
   }
 
@@ -106,13 +106,13 @@ export function PastQuotes({
                 <span className="past-name">{o.name || "Unnamed option"}</span>
                 {o.notOffered && <span className="chip">Not offered</span>}
                 {o.part && <span className="chip">{o.part}</span>}
-                <span className="past-amt">{money(o.listPrice)}</span>
+                <span className="past-amt">{money(o.price)}</span>
               </label>
               {o.description && <p className="past-desc">{o.description}</p>}
             </li>
           ))}
         </ul>
-        <p className="note">Copied as new options of this quote. Lines priced from the card take today&apos;s Rate Card; prices typed on the old quote stay as typed. Discounts, Recommended and Not offered are left behind. Amounts above are the old quote&apos;s, before discounts and HST.</p>
+        <p className="note">Copied exactly as new options of this quote: the same lines and prices, every discount and accepted price, Recommended and Not offered. Nothing is re-priced from today&apos;s card. Amounts above are each option&apos;s price after its discounts, before HST.</p>
         {note && <div className="banner warn" role="status">{note}</div>}
         <div className="past-foot">
           <button type="button" className="btn primary" disabled={busy || picked.length === 0} onClick={() => onCopy(picked)}>

@@ -367,7 +367,7 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
             {copyFrom ? (
               <p className="note">
                 {copyAll ? (
-                  <>Every option from <b>{copyFrom.words}</b> comes over as the editor opens: card lines at today&apos;s Rate Card, typed prices as typed, discounts left behind.</>
+                  <>Every option from <b>{copyFrom.words}</b> comes over as the editor opens: an exact copy, prices and discounts included.</>
                 ) : (
                   <>The editor opens with <b>{copyFrom.words}</b> ready to copy: you pick which options come over.</>
                 )}{" "}

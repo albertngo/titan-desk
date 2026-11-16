@@ -1,8 +1,7 @@
 import "server-only";
 import { requireQuoter } from "@/lib/auth";
 import { optionTotals } from "@/lib/calc";
-import { fromQuote, type EditorOption } from "@/lib/editor/model";
-import { isAdjustmentLine, isDiscountLine } from "@/lib/pricing/discounts";
+import { detachVersionDiscount, fromQuote, type EditorOption } from "@/lib/editor/model";
 import { matchesSearch } from "./group";
 import { getQuote, listQuoteGroups } from "./load";
 
@@ -14,7 +13,7 @@ import { getQuote, listQuoteGroups } from "./load";
 
 export type PastVersion = { id: string; version: number | null; label: string | null; status: string | null; basis: string | null; optionCount: number; sentAt: string | null; changeNo: number | null };
 export type PastQuote = { quoteRecordId: string | null; customerName: string | null; quoteNumber: string | null; siteCity: string | null; description: string | null; versions: PastVersion[] };
-export type PastOption = EditorOption & { listPrice: number };
+export type PastOption = EditorOption & { price: number };
 export type PastOptions = { ok: true; versionId: string; label: string | null; version: number | null; basis: string | null; customerName: string | null; options: PastOption[] } | { ok: false; message: string };
 
 const MAX_RESULTS = 12;
@@ -40,16 +39,13 @@ export async function findPastQuotes(query: string, exceptVersionId: string | nu
   return out;
 }
 
-/** One version's options, as the editor holds them, each with its list price (before discounts and HST). */
+/** One version's options, as the editor holds them, each with its price after its discounts, before HST. A version-wide discount rate is handed to each option first, so a copy keeps it. */
 export async function pastOptions(versionId: string): Promise<PastOptions> {
   await requireQuoter();
   if (!RECORD_ID.test(versionId)) return { ok: false, message: "That quote couldn't be found." };
   const quote = await getQuote(versionId);
   if (!quote) return { ok: false, message: "That quote couldn't be found." };
-  const options = fromQuote(quote).options.map((o) => ({
-    ...o,
-    listPrice: optionTotals(o.lines.filter((l) => !isDiscountLine(l) && !isAdjustmentLine(l)), 0, false).subtotal,
-  }));
+  const options = detachVersionDiscount(fromQuote(quote)).options.map((o) => ({ ...o, price: optionTotals(o.lines, 0, false).subtotal }));
   if (!options.length) return { ok: false, message: "That version has no options to copy." };
   return { ok: true, versionId: quote.id, label: quote.quoteId, version: quote.version, basis: quote.basis, customerName: quote.customerName, options };
 }

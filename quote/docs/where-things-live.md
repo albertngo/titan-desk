@@ -166,6 +166,15 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   `/q/<id>/edit?copy=<version>&all=1`, and the editor copies every offered option as it opens (`autoCopy`), by the
   same rules; Not offered options are not duplicated. The copied quote's customer, site, opportunity, description,
   discounts and payment schedule are never carried over. Tested in `tests/past.test.ts`.
+  **An exact copy (Albert, same day: "Can we copy over the quotes exactly, including the discounts per option"),
+  replacing the copy rules above.** Every line comes over at the price it had (no re-pricing), with every
+  Discounts-section line, the accepted price discount and its adjustment, the contractor 10%, Recommended (unless an
+  option of the same Part here is already recommended), Not offered and the square-feet OK; no Delivery is added.
+  Every option starts ticked, Not offered ones too, and Duplicate quote copies them all. An old version-wide discount
+  rate is handed to each option as its own accepted price first (`detachVersionDiscount()`, in `pastOptions()` for
+  the source and in `copyPastOptions()` for the quote copied into), so the copy's totals match. The panel shows each
+  option's price after its discounts, before HST; the note after a copy counts card lines whose price today differs
+  (`cardPriceNow()`), kept as copied.
 - **Where they found us (Albert, 2026-10-27).** A preliminary's customer step asks **Where did they
   find us?** from a fixed list (`ORIGINS` in `src/lib/link/origin.ts`). The pick is the most
   trusted answer: it goes into the GHL contact's **Quote Origin** custom field (`CONTACT_ORIGIN_FIELD`),
