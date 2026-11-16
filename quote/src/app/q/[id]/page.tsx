@@ -1,3 +1,4 @@
+import { JobFilesButton } from "@/components/JobFilesButton";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AcceptedCard, AcceptForCustomer, ChangeCard, PutOnContract } from "@/components/AcceptStaff";
@@ -234,6 +235,8 @@ export default async function QuotePage({
               {!customer && quote.options.length > 0 && (
                 <Link className="btn" href={`/new?from=${quote.id}`} title="Start a new quote, for any customer, with this version's options">Duplicate quote</Link>
               )}
+              {/* Create CompanyCam + folder (2026-11-16): the booked steps for a job never booked. Staff only, until the links exist. */}
+              {!customer && quote.link?.ghlContactId && !quote.link.folderUrl && !quote.link.companyCamUrl && <JobFilesButton versionId={quote.id} />}
               {!locked && <Link className="btn primary" href={`/q/${quote.id}/edit`}>Edit quote</Link>}
             </div>
           )}

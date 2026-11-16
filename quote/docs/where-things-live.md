@@ -175,6 +175,21 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   the source and in `copyPastOptions()` for the quote copied into), so the copy's totals match. The panel shows each
   option's price after its discounts, before HST; the note after a copy counts card lines whose price today differs
   (`cardPriceNow()`), kept as copied.
+- **Create CompanyCam + folder (Albert, 2026-11-16: "a button there to officially 'create' the Ccam folder and run the
+  whole 'booked' process to give the folder and Ccam process? But the address doesn't have to be set as confirmed").**
+  On the quote page, staff only, while the quote has a GHL contact and neither a folder nor a CompanyCam link. It asks
+  first, then `requestJobFiles()` in `src/lib/quotes/jobFiles.ts` posts GHL's own webhook fields for this quote to Make
+  3453735 (`bookedRunPayload()` in `src/lib/link/booking.ts`: the contact, the opportunity, the site as it stands,
+  confirmed or not), plus `quote_record_id` and `manual`, an HMAC of the quote and contact keyed with
+  `QUOTE_BOOKING_KEY` (`jobToken()`). The scenario's first request passes both to `/api/booking`, where `fromApp()`
+  answers for exactly that quote: no match against other quotes, no site confirmed, no opportunity made, and no
+  opportunity body, so Make skips its opportunity update. The rest of the run is a booking's: the CompanyCam project at
+  the quote's site, the OneDrive folder with Project Expectations, the INQ/QE sheets, and the links on the quote, the
+  contact and the opportunity. It needs a site address (CompanyCam is made at it) and refuses a second ask within 15
+  minutes (`lastAsk()` reads the Notes line each ask leaves), because a second run before the links land would make a
+  second folder. **Make change:** module 200's body gains `"quoteRecordId"` and `"manual"` from
+  `52.customData.quote_record_id` / `.manual`; GHL never sends them, so a real booking is unchanged. Set
+  `QUOTE_MAKE_BOOKING_HOOK` only after that change. Tested in `tests/jobFiles.test.ts` and `tests/boundary.test.ts`.
 - **Where they found us (Albert, 2026-10-27).** A preliminary's customer step asks **Where did they
   find us?** from a fixed list (`ORIGINS` in `src/lib/link/origin.ts`). The pick is the most
   trusted answer: it goes into the GHL contact's **Quote Origin** custom field (`CONTACT_ORIGIN_FIELD`),

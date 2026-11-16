@@ -31,6 +31,7 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
 - Address arrived (Albert, 2026-10-27: "filled auto").
 - Two ways to start a quote (Albert, 2026-10-18).
 - Copy options from a past quote (Albert, 2026-11-16).
+- Create CompanyCam + folder (Albert, 2026-11-16).
 - Where they found us (Albert, 2026-10-27).
 - The preliminary's option is named for what it installs (Albert, 2026-10-31).
 - Several options from the quick form (Albert, 2026-10-31).
@@ -145,7 +146,10 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
    cancel, and the acceptance messages), `src/lib/quotes/billing.ts` (the invoice or receipt email) and `src/lib/quotes/followup.ts`
    (Follow up's Lost, Postpone and comments; since 2026-11-09 a measured quote's follow-up text or email, see 2c''').
    Set those two variables only after the scenario is switched on: a request to a scenario
-   that is off waits in Make's queue and would run later.
+   that is off waits in Make's queue and would run later. **Create CompanyCam + folder (Albert, 2026-11-16):**
+   `startBookedRun()` posts to Make 3453735's own webhook (`QUOTE_MAKE_BOOKING_HOOK`, read only here), called only from
+   `src/lib/quotes/jobFiles.ts` (quoter-guarded; writes only Quotes → Notes), with the quote and an HMAC of it and its
+   contact keyed by `QUOTE_BOOKING_KEY` (`src/lib/quotes/jobToken.ts`).
 2c. **A path without a sign-in on the staff app:** `/api/booking`, called by Make 3453735 when an appointment
    is confirmed. The proxy lets only it and `/api/activity` (2c') through (besides signing in); the route and every function in
    `src/lib/quotes/booking.ts` check `QUOTE_BOOKING_KEY` first (constant-time; unset = off). Make
@@ -162,6 +166,9 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
    addresses, and no opportunity is made. Make still makes its folder and CompanyCam project. Staff then
    create the new opportunity and link it, or, if it was the same job at a new address, fix the address
    and delete the new quote. A booking never moves a confirmed site.
+   **A run started from the app (2026-11-16)** carries `quoteRecordId` and `manual` (the signature): `fromApp()` checks
+   the signature and that the quote is the contact's, then answers for exactly that quote and writes nothing but a
+   CompanyCam URL already on its opportunity: no match, no site confirmed, no opportunity made or updated.
    It answers `made: true` when the job's folder and CompanyCam project already exist (links on the
    quote, or a CompanyCam URL on the opportunity), and Make then skips making them.
 2c'. **A second path without a sign-in: `/api/activity` (2026-10-27)**, open tracking, called by the
