@@ -13,6 +13,7 @@ import { money } from "@/lib/format";
 import { Conversation } from "./Conversation";
 import { copyWork, estimateWork, glueWait, initialWork, QuickWork, workInput, type WorkState } from "./QuickWork";
 import { DESCRIPTION_MAX } from "@/lib/quotes/group";
+import { PastQuotes, type PickedVersion } from "./PastQuotes";
 
 type Choice = { contactId: string; opportunityId: string | null } | { newCustomer: true } | null;
 
@@ -48,6 +49,9 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
   /** Set when a "new" customer turned out to be in GHL already; the matches are in `result`. */
   const [dupeNote, setDupeNote] = useState<string | null>(null);
   const [creating, startCreate] = useTransition();
+  /** Start from a past quote (2026-11-16): the editor opens on this version's options, ready to copy. Staff only. */
+  const [copyFrom, setCopyFrom] = useState<PickedVersion | null>(null);
+  const [pastOpen, setPastOpen] = useState(false);
 
   function choose(next: Choice) {
     setChoice(next);
@@ -79,7 +83,7 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
       ? { ...shared, contactId: picked.contact.id, opportunityId: (choice as { opportunityId: string | null }).opportunityId, addressConfirmed: confirmed }
       : { ...shared, newCustomer: nc, forceNew };
     startCreate(async () => {
-      const r = await startQuoteAction(input);
+      const r = await startQuoteAction(input, copyFrom?.versionId ?? null);
       if (!r || r.ok) return;
       if (r.duplicates?.length) {
         // Show who GHL already has; picking one turns this into an existing-customer quote.
@@ -349,6 +353,28 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
         </div>
       </section>
 
+      {/* Start from a past quote (Albert, 2026-11-16): reuse another quote's options. Hidden in Customer view, like the conversation. */}
+      {conversation && (
+        <section className="card">
+          <div className="card-h">Start from a past quote <span className="right faint">Optional</span></div>
+          <div className="card-b">
+            {copyFrom ? (
+              <p className="note">
+                The editor opens with <b>{copyFrom.words}</b> ready to copy: you pick which options come over.{" "}
+                <button type="button" className="linkbtn" onClick={() => setCopyFrom(null)} disabled={creating}>Don&apos;t copy</button>
+              </p>
+            ) : pastOpen ? (
+              <PastQuotes busy={creating} onPick={(p) => { setCopyFrom(p); setPastOpen(false); }} />
+            ) : (
+              <p className="note">
+                Same kind of job as one you&apos;ve quoted before?{" "}
+                <button type="button" className="linkbtn" onClick={() => setPastOpen(true)}>Find the past quote</button>
+              </p>
+            )}
+          </div>
+        </section>
+      )}
+
       {/* Preliminary or measured (2026-11-07): what version 1 goes out as, whichever screen this is. */}
       <section className="card">
         <div className="card-h">This quote goes out as <span className="right">You can pick again for every new version</span></div>
@@ -393,7 +419,7 @@ export function NewQuote({ ghlWrites, choices, profiles, kind, conversation = fa
         ) : (
           <div className="est">
             <span className="k">{basis} quote</span>
-            <span className="faint">Opens empty in the editor</span>
+            <span className="faint">{copyFrom ? "Opens in the editor, ready to copy" : "Opens empty in the editor"}</span>
           </div>
         )}
         {glueNote && <span className="sand-flag" role="status">{glueNote}</span>}

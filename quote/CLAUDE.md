@@ -30,6 +30,7 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
 - Fix address (Albert, 2026-10-21).
 - Address arrived (Albert, 2026-10-27: "filled auto").
 - Two ways to start a quote (Albert, 2026-10-18).
+- Copy options from a past quote (Albert, 2026-11-16).
 - Where they found us (Albert, 2026-10-27).
 - The preliminary's option is named for what it installs (Albert, 2026-10-31).
 - Several options from the quick form (Albert, 2026-10-31).
