@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { addOption, blankQuote, buildCatalogue, discountLine, lineFromEntry, manualLine, type CardEntry, type EditorOption } from "../src/lib/editor/model";
-import { copyPastOptions, pastNote, refreshLine } from "../src/lib/editor/past";
+import { addLine, addOption, blankQuote, buildCatalogue, discountLine, lineFromEntry, manualLine, type CardEntry, type EditorLine, type EditorOption } from "../src/lib/editor/model";
+import { cardPriceNow, copyPastOptions, pastNote } from "../src/lib/editor/past";
 import { ACCEPTED_LINE, CONTRACTOR_LINE, PRICE_ADJUSTMENT } from "../src/lib/pricing/discounts";
-import { PRIVATE_SECTION } from "../src/lib/calc";
+import { optionTotals, PRIVATE_SECTION } from "../src/lib/calc";
 import type { RateRow, StairRow } from "../src/lib/quotes/types";
 
 // INVENTED rates and contractors only: this repo is public.
@@ -36,60 +36,58 @@ const past = (): EditorOption => ({
   ],
 });
 
-describe("copy options from a past quote (2026-11-16)", () => {
+describe("copy options from old quotes, exactly (2026-11-16)", () => {
   const q = blankQuote();
   const r = copyPastOptions(q, [past()], now);
   const copy = r.quote.options.at(-1)!;
+  const src = past();
 
   it("adds a new option with fresh ids and leaves the quote's own options alone", () => {
     expect(r.quote.options).toHaveLength(2);
     expect(r.quote.options[0]).toBe(q.options[0]);
     expect(r.added).toEqual([copy.id]);
-    expect(copy.id).not.toBe("recOptOld00000001");
+    expect(copy.id).not.toBe(src.id);
     expect(copy.lines.every((l) => !l.id.startsWith("rec"))).toBe(true);
   });
 
-  it("keeps the option's work and drops what was about that customer", () => {
-    expect([copy.name, copy.description, copy.crew, copy.scope, copy.part]).toEqual(["Click plank", "Main floor, about 600 sf.", "Crew A", "Flooring", "Main floor"]);
-    expect(copy.recommended).toBe(false);
-    expect(copy.notOffered).toBeUndefined();
-    expect(copy.sqftOk).toBeUndefined();
+  it("keeps everything on the option, flags included", () => {
+    expect([copy.name, copy.description, copy.crew, copy.scope, copy.part, copy.recommended, copy.notOffered, copy.sqftOk]).toEqual([
+      "Click plank", "Main floor, about 600 sf.", "Crew A", "Flooring", "Main floor", true, true, "600/660",
+    ]);
   });
 
-  it("leaves off every discount and the accepted price adjustment", () => {
-    expect(copy.lines.map((l) => l.description)).not.toContain(ACCEPTED_LINE);
-    expect(copy.lines.map((l) => l.description)).not.toContain(CONTRACTOR_LINE);
-    expect(copy.lines.map((l) => l.description)).not.toContain(PRICE_ADJUSTMENT);
-    expect(copy.lines).toHaveLength(5);
-    expect(r.dropped).toBe(3);
+  it("keeps every line at the price it had, discounts and the accepted price included", () => {
+    const strip = (ls: EditorLine[]) => ls.map((l) => ({ ...l, id: "" }));
+    expect(strip(copy.lines)).toEqual(strip(src.lines));
+    expect(copy.lines.map((l) => l.description)).toEqual(expect.arrayContaining([ACCEPTED_LINE, CONTRACTOR_LINE, PRICE_ADJUSTMENT]));
+    expect(optionTotals(copy.lines, 0, false).subtotal).toBe(optionTotals(src.lines, 0, false).subtotal);
   });
 
-  it("prices card lines at today's card and keeps typed prices as typed", () => {
-    const [plank, typed, stair, gone, manual] = copy.lines;
-    expect([plank.unitPriceSnap, plank.unitCostSnap, plank.sourceId, plank.qty]).toEqual([2.5, 1.4, "recRateA000000002", 600]);
-    expect([typed.unitPrice, typed.unitPriceSnap]).toEqual([3, 2.5]);
-    expect([stair.unitPriceSnap, stair.unitCostSnap, stair.qty]).toEqual([95, 42, 13]);
-    // A row no longer on the card keeps what it had, and is counted.
-    expect(gone.unitPriceSnap).toBe(2);
-    expect(r.stale).toBe(1);
-    expect([manual.description, manual.unitPrice]).toEqual(["Move the piano", 150]);
+  it("counts the card lines whose price has moved since, without changing them", () => {
+    // Click plank (2 -> 2.5) twice, the tread (90 -> 95), and the row that's gone.
+    expect(r.cardMoved).toBe(4);
+    expect(cardPriceNow(src.lines[4], now, "Standard")).toBeUndefined();
+    // Against the card it was priced from, only the row that never existed there counts.
+    expect(copyPastOptions(q, [past()], then).cardMoved).toBe(1);
   });
 
-  it("never gives two options the same name", () => {
+  it("never gives two options the same name, and keeps one recommended per Part", () => {
     const twice = copyPastOptions(r.quote, [past(), past()], now);
     expect(twice.quote.options.map((o) => o.name)).toEqual(["Option 1", "Click plank", "Click plank (2)", "Click plank (3)"]);
+    expect(twice.quote.options.filter((o) => o.recommended)).toHaveLength(1);
     expect(copyPastOptions(addOption(q, "click plank"), [past()], now).quote.options.at(-1)!.name).toBe("Click plank (2)");
   });
 
-  it("re-prices a stair line at the option's service level", () => {
-    const l = { ...lineFromEntry(tread, "Stairs"), id: "x" };
-    expect(refreshLine(l, now, "Premium")!.unitPriceSnap).toBeGreaterThan(95);
+  it("hands a version-wide discount rate to the quote's own options first, so copies don't take it", () => {
+    const old = { ...addLine(q, q.options[0].id, { ...lineFromEntry(click, "Install"), qty: 100 }), discountRate: 0.1 };
+    const before = optionTotals(old.options[0].lines, 0.1, true).subtotal;
+    const out = copyPastOptions(old, [past()], now).quote;
+    expect(out.discountRate).toBe(0);
+    expect(optionTotals(out.options[0].lines, 0, true).subtotal).toBe(before);
   });
 
   it("says what happened in plain words", () => {
-    expect(pastNote(r)).toContain("Copied 1 option.");
-    expect(pastNote(r)).toContain("1 line is no longer on the card");
-    expect(pastNote(r)).toContain("Discounts from the old quote were left off.");
-    expect(pastNote({ added: ["a", "b"], stale: 0, dropped: 0 })).toBe("Copied 2 options. Card lines are at today's Rate Card; typed prices stayed as typed.");
+    expect(pastNote(r)).toBe("Copied 1 option exactly, discounts included. 4 card lines are priced differently on today's Rate Card; the copy keeps the old prices.");
+    expect(pastNote({ added: ["a", "b"], cardMoved: 0 })).toBe("Copied 2 options exactly, discounts included.");
   });
 });

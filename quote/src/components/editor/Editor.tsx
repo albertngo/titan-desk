@@ -922,10 +922,9 @@ export default function Editor({
                   startVersionId={copyFrom}
                   autoCopy={copyAll}
                   onCopy={(picked) => {
+                    // An exact copy (2026-11-16): no fee added, nothing re-priced.
                     const r = copyPastOptions(quote, picked, catalogue);
-                    // A measured version's new flooring options start with Delivery (2026-11-06), when the copy has none.
-                    const next = withFees(r.quote, catalogue, measured, r.added);
-                    if (!apply(next)) return;
+                    if (!apply(r.quote)) return;
                     setActiveId(r.added[0] ?? activeId);
                     setPast(false);
                     setPastMsg(pastNote(r));

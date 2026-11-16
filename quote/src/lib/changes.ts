@@ -22,6 +22,15 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-16",
+    kind: "changed",
+    title: "Old quotes copy over exactly, discounts included",
+    details: [
+      "+ From old quotes and Duplicate quote now copy each option exactly as it was: the same prices, every discount item and accepted price, Recommended and Not offered. Nothing is re-priced from today's Rate Card.",
+      "After a copy, a note says how many card lines are priced differently on today's card, so you can update them if you want to.",
+    ],
+  },
+  {
+    date: "2026-11-16",
     kind: "new",
     title: "Copy options from old quotes, and Duplicate quote",
     details: [
