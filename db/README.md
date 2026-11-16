@@ -10,7 +10,10 @@ roles/schemas and `scripts/pgtap_shim.sql` for the pgTAP subset the tests use).
 | Schema | Exposed by the Data API | Holds |
 |---|---|---|
 | `mirror` | **no** | `catalogue` (every Airtable field), `catalogue_images`, `catalogue_image_skips`, `catalogue_stage`, `sync_runs`, `sync_issues`, `sync_state`, `settings`, helper functions |
-| `api` | **yes, the only one** | `catalogue_public`, `catalogue_staff`, `catalogue_facets`, `catalogue_browse`, `sync_status`, `design_dictionary`, `design_rules`, `search_public()`, `search_staff()`, `parse_query()`, `today()`, `search_log` |
+| `api` | **yes** | `catalogue_public`, `catalogue_staff`, `catalogue_facets`, `catalogue_browse`, `sync_status`, `design_dictionary`, `design_rules`, `search_public()`, `search_staff()`, `parse_query()`, `today()`, `search_log` |
+
+| `ledger` | **no** | the Titan Ledger: `events` (append-only), `current_state` view (migration 011) |
+| `ledger_api` | **yes**, to `ledger_writer` only | `append_event()`, `recent()`, `state()` — SECURITY INVOKER over `ledger` |
 
 `public` is removed from the exposed schemas (dashboard → API settings; `config.toml` locally).
 Why a separate `api` schema: grants are explicit and enumerable (test 001 lists every EXECUTE),
@@ -26,6 +29,7 @@ that built-in default, so migration 001 revokes it per function (§12) and **any
 | `anon` (public, website agent) | SELECT `api.catalogue_public`; EXECUTE `api.search_public`, `api.parse_query`, `api.today`; USAGE on `mirror` + EXECUTE on its pure helpers (`price_unit`, `variant_label`, `image_url`, `is_public`) because the views call them as the caller; no privilege on any `mirror` table; `statement_timeout = 3s` |
 | `authenticated` (staff, M365) | the above (incl. the `mirror` helper access) + SELECT `catalogue_staff`, `catalogue_facets`, `catalogue_browse`, `sync_status`, `design_dictionary`, `design_rules`; EXECUTE `search_staff`, `search_staff_grouped`, `askbert_search`, `askbert_relax`; INSERT `search_log` (own uid only; no SELECT) |
 | `sync_worker` (Python worker) | USAGE on `mirror`; SELECT/INSERT/UPDATE/DELETE on its tables; TRUNCATE on the stage. Created NOLOGIN; Albert runs `alter role sync_worker login password '…'` once in the SQL editor |
+| `ledger_writer` (agents/apps writing the ledger) | USAGE on `ledger` + `ledger_api`; INSERT/SELECT `ledger.events`; SELECT `ledger.current_state`; EXECUTE the three `ledger_api` functions; nothing else. NOLOGIN, granted to `authenticator`. Cloud sessions reach it through PostgREST with a JWT whose `role` claim is `ledger_writer`; Albert may also `alter role ledger_writer login password '…'` for direct use from the Mac |
 | `supabase_auth_admin` | EXECUTE `mirror.hook_restrict_signup` (Before User Created hook) |
 
 ## Tier table — the source of truth for the views and tests 006/007
@@ -201,3 +205,35 @@ Check it: `select status, return_message, start_time from cron.job_run_details o
 and `select status_code, content from net._http_response order by created desc limit 5;` (202 = queued).
 Rotate the secret: `select vault.update_secret((select id from vault.secrets where name = 'sync_trigger_secret'), '<new>');`
 and update the Vercel variable to match.
+
+## Titan Ledger (migration 011, phase 1)
+
+One shared, append-only record of what every agent and app decided or did, per entity
+(vault `05_decisions/2026-11-13-titan-ledger.md`). The vault holds the rules; the ledger
+holds what already happened to this customer, SKU or price list. **Phase 1: nothing may
+make a decision from it.** The writer and CLI live in titan-agents (`scripts/ledger.py`,
+`contracts/ledger-schema.md`).
+
+- `ledger.events` refuses UPDATE, DELETE and TRUNCATE by trigger, for every role. A
+  correction is a new row. `idempotency_key` is unique; `append_event` returns
+  `duplicate` instead of failing on a repeat.
+- `ledger.current_state`: latest **executed** row per (source, type, id, `state_key`);
+  a later row with a null `state_value` clears it; an expired `valid_until` drops it.
+- Database-side guards: `reason` ≤ 280 chars, `payload` an object ≤ 2 KB, enumerated
+  `actor_kind` / `entity_type` / `entity_source` / `result` / `sensitivity`. The phone,
+  email and free-text guard is in `ledger.py`, before anything is sent.
+- Why PostgREST and not a connection string: CCR cloud sessions reach Supabase over HTTPS
+  only (raw 5432/6543 is refused, checked 2026-11-16), and `/ghl-triage` and `/catalog-sync`
+  run there. `ledger_api` is the only thing exposed; the table schema is not.
+
+One-time setup (Albert): add `ledger_api` to Dashboard → API → Exposed schemas; mint a
+long-lived JWT `{"role": "ledger_writer"}` signed with the project JWT secret (it is the
+`LEDGER_API_KEY` in titan-agents' `.env.example`).
+
+```sql
+-- the last 20 events on one entity
+select occurred_at, actor, event_type, result, reason from ledger.events
+ where entity_source = 'ghl' and entity_id = '<id>' order by occurred_at desc limit 20;
+-- what is held / snoozed right now
+select * from ledger.current_state order by occurred_at desc;
+```

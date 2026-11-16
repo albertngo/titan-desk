@@ -5,9 +5,10 @@ project_id = "titan-desk"
 [api]
 enabled = true
 port = 54321
-# Only the `api` schema is exposed. `public` is intentionally NOT exposed:
+# `api` (catalogue, staff/anon) and `ledger_api` (the Titan Ledger's three functions,
+# ledger_writer JWT only, migration 011) are exposed. `public` is intentionally NOT exposed:
 # the mirror lives in `mirror` (private) and consumers read `api.*` views/functions.
-schemas = ["api"]
+schemas = ["api", "ledger_api"]
 extra_search_path = ["public", "extensions"]
 max_rows = 200
 
