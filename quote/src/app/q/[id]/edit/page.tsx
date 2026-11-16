@@ -17,10 +17,10 @@ import { customerView } from "@/lib/view";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Edit quote" };
 
-export default async function EditQuotePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ swap?: string }> }) {
+export default async function EditQuotePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ swap?: string; copy?: string; all?: string }> }) {
   const email = await requireQuoter();
   const { id } = await params;
-  const { swap: swapTo } = await searchParams;
+  const { swap: swapTo, copy, all } = await searchParams;
   const [loaded, card, customer] = await Promise.all([getQuote(id), getRateCard(), customerView()]);
   if (!loaded) notFound();
   // One working quote (2026-10-30): editing a sent version opens the draft already being worked on, if there is one.
@@ -52,7 +52,7 @@ export default async function EditQuotePage({ params, searchParams }: { params: 
       <TopBar email={email} />
       {/* The customer's GHL conversation beside the lines being priced: staff only, never in Customer view. */}
       {!customer && quote.link?.ghlContactId && <ConversationDrawer contactId={quote.link.ghlContactId} />}
-      <EditorClient initial={initial} card={card} backHref={`/q/${quote.id}`} version={version} customer={customer} swap={swap} swapTo={typeof swapTo === "string" && /^rec[A-Za-z0-9]{14}$/.test(swapTo) ? swapTo : null} sendCard={sendCard} lastWay={sending?.props?.lastSent?.way ?? null} />
+      <EditorClient initial={initial} card={card} backHref={`/q/${quote.id}`} version={version} customer={customer} swap={swap} swapTo={typeof swapTo === "string" && /^rec[A-Za-z0-9]{14}$/.test(swapTo) ? swapTo : null} sendCard={sendCard} copyFrom={!customer && typeof copy === "string" && /^rec[A-Za-z0-9]{14}$/.test(copy) ? copy : null} copyAll={all === "1"} lastWay={sending?.props?.lastSent?.way ?? null} />
     </>
   );
 }

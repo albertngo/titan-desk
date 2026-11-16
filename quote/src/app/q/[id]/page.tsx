@@ -228,9 +228,13 @@ export default async function QuotePage({
             {!customer && quote.link && <QuoteDescription key={quote.link.quoteRecordId} quoteRecordId={quote.link.quoteRecordId} initial={quote.link.description ?? null} />}
           </div>
           {quote.status && <span className={`status ${quote.status}`}>{quote.status}</span>}
-          {!locked && (
+          {(!locked || !customer) && (
             <div className="actions">
-              <Link className="btn primary" href={`/q/${quote.id}/edit`}>Edit quote</Link>
+              {/* Duplicate quote (Albert, 2026-11-16): a new quote for another customer and opportunity, with these options. */}
+              {!customer && quote.options.length > 0 && (
+                <Link className="btn" href={`/new?from=${quote.id}`} title="Start a new quote, for any customer, with this version's options">Duplicate quote</Link>
+              )}
+              {!locked && <Link className="btn primary" href={`/q/${quote.id}/edit`}>Edit quote</Link>}
             </div>
           )}
         </div>

@@ -144,6 +144,28 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   Basis Measured have gone out (Sent At set, no longer a Draft; changes not counted, `measuredOut()` in `savePlan.ts`), the
   editor offers Measured only, on Goes out as and on The next draft is, and the server refuses Preliminary on both
   (`prelimRefusal()`, `measuredOutFor()` in `load.ts`). One measured quote out still allows a preliminary. Tested in `tests/save.test.ts`.
+- **Copy options from a past quote (Albert, 2026-11-16: "REUSE a quote from the past, for another quote… while
+  'creating another quote' or when I'm 'in a quote edit'").** The editor's **+ From old quotes** (beside + Add option and
+  + From quick form, staff only, never in Customer view) searches past quotes with All quotes' own `matchesSearch()` (the quote
+  being edited left out, versions without options left out, 12 at most), opens one version's options with their
+  list price before discounts and HST, and copies the ticked ones in as new options: an unsaved editor change, saved
+  like any other (`copyPastOptions()` in `src/lib/editor/past.ts`; reads in `src/lib/quotes/past.ts`, which writes
+  nothing). Kept: name (made distinct, "Name (2)"), description, lines, service level, crew, scope, Part, Private
+  label, the option's own HST. Left behind: Recommended, Not offered, a square-feet OK, every Discounts-section line
+  (typed discounts, the accepted price discount, the contractor 10%, which `settleContractor()` works out again) and
+  the accepted price adjustment. Card lines are re-priced from today's Rate Card / Stair Items at the option's level
+  (`refreshLine()`); a typed price or cost stays as typed; a line whose row or material is gone keeps its old figure
+  and the note after the copy counts it. A measured version's copied flooring option gets Delivery when it has none
+  (`withFees()`). Not offered options start unticked. **New quote's Start from a past quote** (both screens) only
+  picks a version: `startQuoteAction()` starts the quote as usual and opens `/q/<id>/edit?copy=<version>`, where the
+  panel opens on that version with its options ticked; nothing is copied until Copy is pressed. **Duplicate quote**
+  (same day: "In the quote main screen. You can 'duplicate a quote' but have to fill in for new customer details") on
+  the quote page beside Edit quote (staff only, any status, a version with options) opens `/new?from=<version>`: the
+  full New quote screen titled Duplicate quote, basis starting as that version's (`duplicateOf()` in
+  `src/lib/quotes/past.ts`), any customer and any opportunity picked as usual. Create opens
+  `/q/<id>/edit?copy=<version>&all=1`, and the editor copies every offered option as it opens (`autoCopy`), by the
+  same rules; Not offered options are not duplicated. The copied quote's customer, site, opportunity, description,
+  discounts and payment schedule are never carried over. Tested in `tests/past.test.ts`.
 - **Where they found us (Albert, 2026-10-27).** A preliminary's customer step asks **Where did they
   find us?** from a fixed list (`ORIGINS` in `src/lib/link/origin.ts`). The pick is the most
   trusted answer: it goes into the GHL contact's **Quote Origin** custom field (`CONTACT_ORIGIN_FIELD`),

@@ -6,6 +6,8 @@ import { addChoices, sectionLinesInOrder, stairGroupLabel, stairGroups, stairSec
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { AutosaveResult } from "@/lib/quotes/save";
+import { PastQuotes } from "@/components/PastQuotes";
+import { copyPastOptions, pastNote } from "@/lib/editor/past";
 import { autosaveVersionAction, quickFormAction, quickOptionAction, saveAsNewVersionAction, saveVersionAction, setDraftBasisAction } from "@/app/q/[id]/edit/actions";
 import { estimateWork, glueWait, initialWork, QuickWork, workInput, type WorkState } from "@/components/QuickWork";
 import type { QuickChoice, QuickProfile } from "@/lib/quick/plan";
@@ -185,6 +187,8 @@ export default function Editor({
   swapTo = null,
   sendCard = null,
   lastWay = null,
+  copyFrom = null,
+  copyAll = false,
 }: {
   initial: EditorQuote;
   card: RateCard;
@@ -200,6 +204,10 @@ export default function Editor({
   sendCard?: ReactNode;
   /** How the last version was sent (2026-11-07): the Private note's switch starts on it. */
   lastWay?: "lump" | "itemised" | "range" | "exact" | null;
+  /** + From old quotes (2026-11-16): a version picked on New quote, opened in the panel ready to copy. */
+  copyFrom?: string | null;
+  /** Duplicate quote (2026-11-16): copy every option of `copyFrom` as the editor opens. */
+  copyAll?: boolean;
 }) {
   const router = useRouter();
   const key = draftKey(initial);
@@ -222,6 +230,9 @@ export default function Editor({
   /** + From quick form (2026-10-31): the preliminary's screen, opened beside the tabs to build one more option. */
   const [quick, setQuick] = useState<{ choices: QuickChoice[]; profiles: QuickProfile[]; work: WorkState } | "loading" | null>(null);
   const [quickNote, setQuickNote] = useState<string | null>(null);
+  /** + From old quotes (2026-11-16): copy options from another quote's version into this one. Staff only. */
+  const [past, setPast] = useState<boolean>(Boolean(copyFrom) && !customer);
+  const [pastMsg, setPastMsg] = useState<string | null>(null);
   /** The waterfall families (2026-11-06), for the Add search and each line's Method; fetched once, after the editor draws. */
   const [families, setFamilies] = useState<QuickChoice[] | null>(null);
   const wantsFamilies = families === null;
@@ -881,10 +892,50 @@ export default function Editor({
             >
               {quick === "loading" ? "Opening…" : "+ From quick form"}
             </button>
+            {!customer && (
+              <button
+                className="tab ed-add-past"
+                aria-expanded={past}
+                title="Copy options from another quote"
+                onClick={() => {
+                  setPastMsg(null);
+                  setPast(!past);
+                }}
+              >
+                + From old quotes
+              </button>
+            )}
             </div>
           </nav>
 
           {quickNote && <div className="banner warn" role="status">{quickNote}</div>}
+          {pastMsg && <div className="banner" role="status">{pastMsg}</div>}
+          {past && !customer && (
+            <section className="card ed-past" aria-label="Copy options from a past quote">
+              <div className="card-h">
+                <span>Copy options from a past quote</span>
+                <button type="button" className="linkbtn right" onClick={() => setPast(false)}>Close</button>
+              </div>
+              <div className="card-b">
+                <PastQuotes
+                  exceptVersionId={version.id}
+                  startVersionId={copyFrom}
+                  autoCopy={copyAll}
+                  onCopy={(picked) => {
+                    const r = copyPastOptions(quote, picked, catalogue);
+                    // A measured version's new flooring options start with Delivery (2026-11-06), when the copy has none.
+                    const next = withFees(r.quote, catalogue, measured, r.added);
+                    if (!apply(next)) return;
+                    setActiveId(r.added[0] ?? activeId);
+                    setPast(false);
+                    setPastMsg(pastNote(r));
+                    // Opened from New quote: drop ?copy= so a reload doesn't offer the same copy again.
+                    if (copyFrom) router.replace(window.location.pathname);
+                  }}
+                />
+              </div>
+            </section>
+          )}
           {quick !== null && quick !== "loading" && (() => {
             const est = estimateWork(quick.choices, quick.profiles, quick.work);
             return (
