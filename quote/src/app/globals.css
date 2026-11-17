@@ -461,6 +461,8 @@ table.items.edit .desc { font-weight: 500; }
 .wastein { margin-top: 4px; display: flex; justify-content: flex-end; align-items: center; gap: 4px; font-size: 11.5px; }
 .wastemath { margin-top: 3px; font-size: 11.5px; color: var(--fg-dim); text-align: right; white-space: nowrap; }
 .wastemath b { color: inherit; font-weight: 600; }
+.wastemath .boxmath { margin-top: 2px; display: flex; gap: 8px; justify-content: flex-end; align-items: baseline; flex-wrap: wrap; white-space: normal; }
+.wastemath .boxmath .linkbtn { font-size: inherit; }
 .wastemath.qw-math { text-align: left; margin: 2px 0 0; font-size: 13px; }
 .wastein .cell-in { width: 68px; font-size: 11.5px; padding: 3px 6px; }
 .matin { margin-top: 6px; display: flex; flex-direction: column; align-items: flex-end; }

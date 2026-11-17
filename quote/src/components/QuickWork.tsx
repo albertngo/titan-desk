@@ -7,9 +7,9 @@ import { money } from "@/lib/format";
 import { amountUnit, BASIS_GROUPS, basisChoices, BUILDINGS, buildPreliminary, choiceRate, GROUP_ROWS, materialDeltas, materialQuestion, parseWork, QUICK_GROUPS, remapBases, resolveBasis, rowTotal, followBases, materialWaste, topChoices, topOf, TOTAL_BASIS, waterfall, type QuickChoice, type QuickGroup, type QuickProduct, type QuickProfile, type TopChoice } from "@/lib/quick/plan";
 import { METHOD_PHRASE, modifierFor, STAIR_ROWS } from "@/lib/quick/stairs";
 import { SAND_DISCLAIMER, sandFlag, sandRole } from "@/lib/editor/sandRule";
-import { wasteMath } from "@/lib/editor/model";
+import { boxText, wasteMath } from "@/lib/editor/model";
 
-export type PickedProduct = Pick<QuickProduct, "recordId" | "sku" | "name" | "rate">;
+export type PickedProduct = Pick<QuickProduct, "recordId" | "sku" | "name" | "rate" | "boxSf">;
 /**
  * `basis` (Baseboards rows 2026-11-04, Material rows 2026-11-05): what the amount follows live,
  * TOTAL_BASIS or an Install row's key; null once staff type their own amount, and on a row added
@@ -497,7 +497,7 @@ function ProductPick({ product, standard, fallback, onPick }: { product: PickedP
   return (
     <div className="qw-prod">
       <span className="mt">
-        {product ? "Chosen" : "Standard"}: {shown ? `${shown.name}${shown.sku ? ` (${shown.sku})` : ""} · ${money(shown.rate)}/sq ft` : fallback}
+        {product ? "Chosen" : "Standard"}: {shown ? `${shown.name}${shown.sku ? ` (${shown.sku})` : ""} · ${money(shown.rate)}/sq ft${boxText(shown.boxSf) ? ` · ${boxText(shown.boxSf)}` : ""}` : fallback}
       </span>
       <button type="button" className="linkbtn" onClick={() => setOpen(!open)} aria-expanded={open}>
         {open ? "Close" : "Choose a specific product"}
@@ -537,7 +537,7 @@ function ProductPick({ product, standard, fallback, onPick }: { product: PickedP
                   >
                     <span className="nm">{p.name}</span>
                     <span className="mt">
-                      {p.sku} · {money(p.rate)}/sq ft
+                      {p.sku} · {money(p.rate)}/sq ft{boxText(p.boxSf) ? ` · ${boxText(p.boxSf)}` : ""}
                     </span>
                   </button>
                 </li>

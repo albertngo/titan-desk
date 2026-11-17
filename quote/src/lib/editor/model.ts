@@ -269,6 +269,24 @@ export function wasteMath(l: Pick<EditorLine, "qty" | "waste">): { typed: number
   return { typed: l.qty, pct: Math.round(waste * 1000) / 10, actual: Math.round(l.qty * (1 + waste) * 100) / 100 };
 }
 
+/**
+ * Whole boxes (Albert, 2026-11-17: "a button calculator to help 'adjust' the quantity to match the desired types sf so
+ * that it becomes equal number of boxes"). What the line orders, Qty x (1 + Waste), in boxes of `boxSf`; and the
+ * quantity that orders the next whole box up with the same waste, rounded up to the cent so it is never short.
+ * `whole` = already a whole number of boxes. Null without a quantity or a box size.
+ */
+export function fullBoxes(l: Pick<EditorLine, "qty" | "waste">, boxSf: number | null | undefined): { boxes: number; up: number; qty: number; whole: boolean } | null {
+  const m = wasteMath(l);
+  if (!m || !boxSf || boxSf <= 0 || m.actual <= 0) return null;
+  const exact = m.actual / boxSf;
+  const near = Math.round(exact);
+  if (near > 0 && Math.abs(m.actual - near * boxSf) < 0.02) return { boxes: near, up: near, qty: m.typed, whole: true };
+  const up = Math.ceil(exact);
+  const factor = 1 + (l.waste ?? 0);
+  const qty = Math.ceil(Math.round(((up * boxSf) / factor) * 1e6) / 1e4) / 100;
+  return { boxes: Math.round(exact * 100) / 100, up, qty, whole: false };
+}
+
 // ---------- building lines ----------
 
 function baseLine(section: string): Omit<EditorLine, "description" | "sourceKind"> {
@@ -524,7 +542,10 @@ export function lineFromEntry(entry: CardEntry, section: string, contractorName?
 }
 
 /** A catalogue product as the editor's Materials search finds it (2026-11-17): SKU, name, retail price and cost. */
-export type CatalogueProduct = { recordId: string; sku: string; name: string; rate: number; cost: number | null };
+export type CatalogueProduct = { recordId: string; sku: string; name: string; rate: number; cost: number | null; boxSf?: number | null };
+
+/** A product's box size for the pickers (2026-11-17): "22.5 sf/box", or "" when the catalogue has none. */
+export const boxText = (boxSf: number | null | undefined) => (boxSf && boxSf > 0 ? `${Math.round(boxSf * 100) / 100} sf/box` : "");
 
 /**
  * A Materials line from a catalogue product (Albert, 2026-11-17: "search for a SKU for flooring materials in the edit

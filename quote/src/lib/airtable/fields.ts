@@ -429,6 +429,8 @@ export const CAT = {
   collection: "fldL8miCdB55TWmfJ",
   cost: "flduJqOhE4YuX3Bmq",
   retail: "fldpH6d7GlytLLh7Q",
+  /** Box Size (sf): square feet in one box (2026-11-17, shown beside a product in the pickers). */
+  boxSf: "fldFXyeHxIVYjWM4R",
   active: "fldPsKISM495IjaWU",
 } as const;
 

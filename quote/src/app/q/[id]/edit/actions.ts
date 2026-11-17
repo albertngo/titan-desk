@@ -2,7 +2,7 @@
 
 import { quickFormForBrowser, quickOption, type QuickOptionResult } from "@/lib/quotes/quickOption";
 import type { CatalogueProduct } from "@/lib/editor/model";
-import { searchProducts } from "@/lib/quotes/load";
+import { productBoxes, searchProducts } from "@/lib/quotes/load";
 import { autosaveVersion, saveAsNewVersion, saveVersion, setDraftBasis, type AutosaveResult, type SaveResult } from "@/lib/quotes/save";
 
 /** Server actions for the editor. Each checks the quoter allowlist inside. Quote pages are dynamic, so nothing needs revalidating. */
@@ -41,5 +41,10 @@ export async function quickOptionAction(work: unknown, taken: unknown): Promise<
  * editor already shows; the Customer view hides it.
  */
 export async function searchCatalogueAction(query: string): Promise<CatalogueProduct[]> {
-  return (await searchProducts(String(query ?? "").slice(0, 80))).map(({ recordId, sku, name, rate, cost }) => ({ recordId, sku, name, rate, cost }));
+  return (await searchProducts(String(query ?? "").slice(0, 80))).map(({ recordId, sku, name, rate, cost, boxSf }) => ({ recordId, sku, name, rate, cost, boxSf: boxSf ?? null }));
+}
+
+/** Box sizes of the catalogue products on the editor's lines (2026-11-17), for the whole-boxes button. Quoters only. */
+export async function productBoxesAction(recordIds: unknown): Promise<Record<string, number>> {
+  return productBoxes(Array.isArray(recordIds) ? recordIds.filter((x): x is string => typeof x === "string") : []);
 }

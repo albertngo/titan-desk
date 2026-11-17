@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { searchCatalogueAction } from "@/app/q/[id]/edit/actions";
 import { optionTotals } from "@/lib/calc";
-import { bestContractor, entryLabel, entryWords, lineFromEntry, manualLine, materialWords, productLine, rateSnap, searchCatalogue, SECTION_LABOUR, type CardEntry, type CatalogueProduct, type EditorLine } from "@/lib/editor/model";
+import { bestContractor, entryLabel, entryWords, boxText, lineFromEntry, manualLine, materialWords, productLine, rateSnap, searchCatalogue, SECTION_LABOUR, type CardEntry, type CatalogueProduct, type EditorLine } from "@/lib/editor/model";
 import { defaultInput, expandProfile, stepSplit, type BuilderInput } from "@/lib/editor/stairBuilder";
 import { stairGroupLabel, stairGroupOf } from "@/lib/editor/stairGroups";
 import { money } from "@/lib/format";
@@ -300,7 +300,7 @@ export function Picker({
                 <button className="pick" onClick={() => onPick(productLine(p, section))}>
                   <span className="nm">{p.name}</span>
                   <span className="mt">
-                    {p.sku ? `${p.sku} · ` : ""}catalogue · {money(p.rate)} / sqft{customer ? "" : p.cost === null ? " · no cost on file" : ` · cost ${money(p.cost)}`}
+                    {p.sku ? `${p.sku} · ` : ""}catalogue · {money(p.rate)} / sqft{boxText(p.boxSf) ? ` · ${boxText(p.boxSf)}` : ""}{customer ? "" : p.cost === null ? " · no cost on file" : ` · cost ${money(p.cost)}`}
                   </span>
                 </button>
               </li>
