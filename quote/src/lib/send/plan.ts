@@ -101,8 +101,9 @@ export function optionProblem(quote: Pick<Quote, "discountRate" | "showHst" | "s
  * Everything that stops a send. Empty means it may go. Each line is said to staff as is.
  * `skipOptions`: leave out the per-option checks, for the Send card, which applies optionProblem() to
  * whatever is ticked as the sender changes it. The send itself always runs every check.
+ * `markOnly` (2026-11-17): Mark as sent, which sends nothing, so the email and text checks don't apply.
  */
-export function sendProblems(quote: Quote, input: SendInput, ctx: { today: string; fingerprint: string; skipOptions?: boolean }): string[] {
+export function sendProblems(quote: Quote, input: SendInput, ctx: { today: string; fingerprint: string; skipOptions?: boolean; markOnly?: boolean }): string[] {
   const out: string[] = [];
   if (quote.status !== "Draft") out.push(`This version is ${quote.status ?? "not a draft"}. Only a draft is sent; save a new version to send changes.`);
   if (ctx.fingerprint !== input.base) out.push("This version changed since the page opened. Reload it and check it before sending.");
@@ -138,6 +139,7 @@ export function sendProblems(quote: Quote, input: SendInput, ctx: { today: strin
     else if (input.validUntil < ctx.today) out.push("The valid-until date is in the past.");
     else if (input.validUntil > addDays(ctx.today, 365)) out.push("The valid-until date is more than a year away.");
   }
+  if (ctx.markOnly) return out;
   if (!input.channels.email && !input.channels.sms) out.push("Choose email, text, or both.");
   if (input.channels.email && !quote.link?.email) out.push("GHL has no email for this customer.");
   if (input.channels.sms && !quote.link?.phone) out.push("GHL has no phone number for this customer.");

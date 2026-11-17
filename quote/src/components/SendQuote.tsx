@@ -3,11 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useContext, useState, useSyncExternalStore, useTransition } from "react";
 import { EditorSend } from "@/components/editor/EditorSend";
-import { resendQuoteAction, sendQuoteAction } from "@/app/q/[id]/actions";
+import { markSentAction, resendQuoteAction, sendQuoteAction } from "@/app/q/[id]/actions";
 import { activityEntries, devicesSeen, whenWords } from "@/lib/activity/track";
 import { draftKey, unsavedDraftAt } from "@/lib/editor/model";
 import type { QuoteActivity } from "@/lib/quotes/types";
-import { lastSentWords, type LastSentWay } from "@/lib/send/sendAs";
+import { lastSentWords, MARKED_SENT, type LastSentWay } from "@/lib/send/sendAs";
 
 /**
  * Unsaved changes for this version on this device (Albert, 2026-11-05): the editor keeps them under
@@ -257,6 +257,7 @@ export function SendQuote({
   sendAs = null,
   options,
   lastSent = null,
+  markSent = null,
 }: {
   versionId: string;
   label: string;
@@ -287,6 +288,11 @@ export function SendQuote({
   options: { id: string; name: string; price: string; range: string | null; recommended: boolean; notOffered?: boolean; problem: string | null; priv?: { label: string; amount: string; stairs: boolean } | null; words?: string | null }[];
   /** How the newest sent version went (Albert, 2026-11-06): the card says so and starts on the same way. */
   lastSent?: LastSentWay | null;
+  /**
+   * Mark as sent, sending nothing (Albert, 2026-11-17: "for admin ALBERT only"): present only for the sign-ins on the
+   * Settings list, with what stops it (the send's checks less email and text).
+   */
+  markSent?: { problems: string[] } | null;
 }) {
   const router = useRouter();
   /** Unsaved changes for this version on this device (2026-11-05): nothing sends while there are. */
@@ -354,6 +360,7 @@ export function SendQuote({
     ...optionProblems,
   ];
   const [asking, setAsking] = useState(false);
+  const [askingMark, setAskingMark] = useState(false);
   const [error, setError] = useState<{ message: string; problems?: string[] } | null>(null);
   const [done, setDone] = useState<{ link: string; sentTo: string[]; warning: string | null } | null>(null);
   const [sending, startSend] = useTransition();
@@ -373,7 +380,13 @@ export function SendQuote({
           {status && !done && <span className="right">{status}</span>}
         </div>
         <div className="card-b">
-          {s?.sentAt ? (
+          {s?.sentAt && s.sentTo === MARKED_SENT ? (
+            <p className="sq-what">
+              Marked sent {day(s.sentAt)}
+              <span className="faint sq-by">Nothing went to the customer from the app{s.sentBy ? `. As ${s.sentBy}` : ""}</span>
+              {s.validUntil && <span className="sq-until">Good until {day(s.validUntil)}</span>}
+            </p>
+          ) : s?.sentAt ? (
             <p className="sq-what">
               Sent {day(s.sentAt)}
               {s.sentTo ? ` by ${s.sentTo.toLowerCase().replace(", ", " and ")}` : ""}
@@ -401,6 +414,21 @@ export function SendQuote({
 
   const channels = [byEmail && email && from ? `email (${email})` : null, bySms && phone && textFrom ? `text (${phone})` : null].filter(Boolean);
   const blocked = allProblems.length > 0 || !ready.ready || Boolean(unsaved);
+
+  const markProblems = markSent ? [...markSent.problems, ...allProblems.filter((p) => !problems.includes(p))] : [];
+  const markBlocked = !markSent || markProblems.length > 0 || Boolean(unsaved) || (!undated && !until);
+
+  function mark() {
+    setError(null);
+    startSend(async () => {
+      const r = await markSentAction(versionId, { base, validUntil: undated ? null : until, channels: { email: false, sms: false }, itemised, pdf, optionIds, range: !exact, ...(asOther ? { as: asEmail } : {}) });
+      setAskingMark(false);
+      if (r.ok) {
+        setDone(r);
+        router.refresh();
+      } else setError({ message: r.message, problems: r.problems });
+    });
+  }
 
   function send() {
     setError(null);
@@ -563,7 +591,20 @@ export function SendQuote({
           </div>
         )}
 
-        {asking ? (
+        {askingMark ? (
+          <div className="ca sq-ask" role="group" aria-label="Confirm marking sent">
+            <p>
+              Mark <b>{label}</b> as sent{asOther && asChoice ? <> as {asChoice.label}</> : null}, sending nothing to {firstName ?? "the customer"}?
+              <span className="faint"> The version is locked and counted as sent, with its link ready to copy. No email, no text, no follow-up sequence.</span>
+            </p>
+            <div className="ca-btns">
+              <button type="button" className="btn small" onClick={() => setAskingMark(false)} disabled={sending}>Cancel</button>
+              <button type="button" className="btn small primary" onClick={mark} disabled={sending || markBlocked}>
+                {sending ? "Marking…" : "Yes, mark it sent"}
+              </button>
+            </div>
+          </div>
+        ) : asking ? (
           <div className="ca sq-ask" role="group" aria-label="Confirm sending">
             <p>
               Send <b>{label}</b> to {firstName ?? "the customer"} by {channels.join(" and ")}?
@@ -579,6 +620,11 @@ export function SendQuote({
         ) : (
           <button type="button" className="btn primary sq-go" disabled={blocked || channels.length === 0 || (!undated && !until)} onClick={() => setAsking(true)}>
             {outside ? "Send formal copy" : "Send quote"}
+          </button>
+        )}
+        {markSent && !asking && !askingMark && (
+          <button type="button" className="btn small sq-mark" disabled={markBlocked || sending} onClick={() => setAskingMark(true)} title="For a price the customer already has another way: counts as sent, sends nothing.">
+            Mark as sent, send nothing
           </button>
         )}
       </div>

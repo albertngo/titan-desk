@@ -13,7 +13,11 @@
  * person who pressed Send is still the one in the Edit Log.
  */
 
-/** The sign-ins nobody else may send as: each is a choice only for itself. */
+/**
+ * The sign-ins nobody else may send as: each is a choice only for itself. Since 2026-11-17 (Albert: "mark certain
+ * permissions in a settings tab that I can edit") the list is the Settings page's "Nobody else can send as"; this is
+ * its default, and what the pure functions use when they're given none.
+ */
 export const ONLY_THEMSELVES: readonly string[] = ["albert@titanfloors.ca"];
 
 export type SendAsChoice = { email: string; name: string | null };
@@ -26,10 +30,11 @@ const domainOf = (e: string) => norm(e).split("@")[1] ?? "";
  * address is set), minus Albert unless it is Albert signed in, named from their GHL user, the person signed in first and
  * the rest by address.
  */
-export function sendAsChoices(me: string, allow: Iterable<string>, companyEmail: string | null, users: { email: string | null; name: string | null }[]): SendAsChoice[] {
+export function sendAsChoices(me: string, allow: Iterable<string>, companyEmail: string | null, users: { email: string | null; name: string | null }[], onlyThemselves: readonly string[] = ONLY_THEMSELVES): SendAsChoice[] {
+  const only = onlyThemselves.map(norm);
   const domain = companyEmail ? domainOf(companyEmail) : "";
   const self = norm(me);
-  const emails = [...new Set([...allow].map(norm))].filter((e) => e.includes("@") && (!domain || domainOf(e) === domain) && (e === self || !ONLY_THEMSELVES.includes(e)));
+  const emails = [...new Set([...allow].map(norm))].filter((e) => e.includes("@") && (!domain || domainOf(e) === domain) && (e === self || !only.includes(e)));
   if (self && !emails.includes(self)) emails.push(self);
   return emails
     .sort((a, b) => (a === self ? -1 : b === self ? 1 : a.localeCompare(b)))
@@ -40,14 +45,20 @@ export function sendAsChoices(me: string, allow: Iterable<string>, companyEmail:
  * Who a send goes out as. No choice, or the person themselves: them. Anyone else only when the address is one of the
  * signed-in person's choices; otherwise the send is refused, never quietly sent as them.
  */
-export function resolveSender<P extends { email: string; name: string | null }>(person: P, asEmail: unknown, choices: SendAsChoice[]): { ok: true; sender: { email: string; name: string | null }; as: boolean } | { ok: false; message: string } {
+export function resolveSender<P extends { email: string; name: string | null }>(person: P, asEmail: unknown, choices: SendAsChoice[], onlyThemselves: readonly string[] = ONLY_THEMSELVES): { ok: true; sender: { email: string; name: string | null }; as: boolean } | { ok: false; message: string } {
   const want = typeof asEmail === "string" ? norm(asEmail) : "";
   if (!want || want === norm(person.email)) return { ok: true, sender: person, as: false };
-  if (ONLY_THEMSELVES.includes(want)) return { ok: false, message: "Only Albert can send a quote as Albert." };
+  if (onlyThemselves.map(norm).includes(want)) return { ok: false, message: `Nobody else can send a quote as ${want}.` };
   const choice = choices.find((c) => c.email === want);
   if (!choice) return { ok: false, message: "That person can't send quotes from the app. Pick someone on the list." };
   return { ok: true, sender: { email: choice.email, name: choice.name }, as: true };
 }
+
+/** Whether this sign-in may mark a quote sent without sending it (Albert, 2026-11-17), from the Settings list. */
+export const canMarkSent = (email: string | null | undefined, markSentEmails: readonly string[]) => Boolean(norm(email)) && markSentEmails.map(norm).includes(norm(email));
+
+/** What Sent To says on a version marked sent with nothing sent (2026-11-17). */
+export const MARKED_SENT = "Marked sent";
 
 /** "Last sent by Joey · v1 · 2026-11-05" for the Send card: the newest version of this quote that went out. Null when none has. */
 export type LastSent = { email: string; name: string | null; version: number | null; on: string | null };

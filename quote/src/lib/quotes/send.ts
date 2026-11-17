@@ -18,7 +18,8 @@ import { addContactNote, makeConfigured, sendMessage, sendToGhl, setFollowUpTags
 import { acceptedPdfName, COPY_MAX_CHARS, customerCopy, offersPdf, parseCopy, pdfName, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "@/lib/send/copy";
 import { ghlConfigured, locationUsers } from "@/lib/ghl/client";
 import { quoterAllowlist } from "@/lib/access";
-import { lastSentOf, lastSentWay, resolveSender, sendAsChoices, type LastSentWay, type SendAsChoice } from "@/lib/send/sendAs";
+import { canMarkSent, lastSentOf, lastSentWay, MARKED_SENT, resolveSender, sendAsChoices, type LastSentWay, type SendAsChoice } from "@/lib/send/sendAs";
+import { settings } from "@/lib/settings/settings";
 import { changeEmailMessage, changeSmsMessage, fromTheirNumber, textFromFor, chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, fromAttempts, noNumberWords, noSenderWords, isToken, newToken, parseOptionIds, parseResend, resendEmailMessage, resendKind, resendProblems, resendSmsMessage, sendProblems, smsMessage, type Channels, type Sender } from "@/lib/send/plan";
 import { authorFields, firstNameOf, type Person } from "./history";
 import { loadContract } from "./contract";
@@ -138,10 +139,19 @@ export async function textsFrom(): Promise<string | null> {
   return textFrom(person.email);
 }
 
-/** The people the signed-in person may send as (2026-11-05: everyone may pick; Albert is a choice only for Albert). */
+/**
+ * The people the signed-in person may send as (2026-11-05: everyone may pick; Albert is a choice only for Albert). Who
+ * nobody else may send as is the Settings page's list since 2026-11-17.
+ */
 async function senderChoices(me: string): Promise<SendAsChoice[]> {
   const users = ghlConfigured() ? await locationUsers().catch(() => []) : [];
-  return sendAsChoices(me, quoterAllowlist(), letterhead().email, users);
+  return sendAsChoices(me, quoterAllowlist(), letterhead().email, users, (await settings()).onlyThemselves);
+}
+
+/** Whether the person signed in may mark a quote sent without sending it (Albert, 2026-11-17), for the Send card. */
+export async function markSentAllowed(): Promise<boolean> {
+  const person = await requireQuoterPerson();
+  return canMarkSent(person.email, (await settings()).markSentEmails);
 }
 
 /** Who an invoice or receipt email goes out as (2026-11-05), for billing.ts: the person signed in unless they picked someone. */
@@ -153,7 +163,7 @@ export async function pickSender(asEmail: unknown) {
 /** Who this send goes out as: the person signed in unless they picked someone on their list (2026-11-05). */
 async function senderFor(person: Person, asEmail: unknown) {
   if (!asEmail || (typeof asEmail === "string" && asEmail.trim().toLowerCase() === person.email.trim().toLowerCase())) return resolveSender(person, null, []);
-  return resolveSender(person, asEmail, await senderChoices(person.email));
+  return resolveSender(person, asEmail, await senderChoices(person.email), (await settings()).onlyThemselves);
 }
 
 /**
@@ -174,7 +184,7 @@ export async function sendAsForCard(quote: Pick<Quote, "link"> | null = null): P
     const first = firstNameOf({ email, name });
     return first ? `${first} (${email})` : email;
   };
-  const choices = sendAsChoices(person.email, quoterAllowlist(), letterhead().email, users).map((c) => {
+  const choices = sendAsChoices(person.email, quoterAllowlist(), letterhead().email, users, (await settings()).onlyThemselves).map((c) => {
     const as = c.email === person.email.trim().toLowerCase() ? person : { email: c.email, name: c.name };
     return { email: c.email, label: labelOf(c.email, as.name), emailFrom: emailFromFor(senderOf(as), letterhead().email, false), textFrom: textFromFor(c.email, users) };
   });
@@ -281,6 +291,32 @@ function readInput(raw: unknown): { base: string; validUntil: string | null; cha
   return { base: r.base, validUntil: typeof r.validUntil === "string" ? r.validUntil : null, channels: { email: ch.email === true, sms: ch.sms === true }, itemised: r.itemised === true, pdf: r.pdf === true, optionIds: r.optionIds === undefined || r.optionIds === null ? null : (parseOptionIds(r.optionIds) ?? []), range: r.range !== false };
 }
 
+type SendFields = NonNullable<ReturnType<typeof readInput>>;
+
+/**
+ * The customer copy a send freezes, and its link: shared by Send and Mark as sent (2026-11-17), so a version marked
+ * sent carries exactly what a real send would have.
+ */
+async function buildCopy(quote: Quote, input: SendFields, today: string, base: string) {
+  // A preliminary has no good-until date whatever was sent (Albert, 2026-10-22); its link never expires. Nor does a change (2026-10-27).
+  const validUntil = quote.basis === "Preliminary" || quote.changeNo ? null : input.validUntil;
+  // A preliminary is always a lump sum and goes as a range unless the sender chose the exact price (2026-10-27).
+  const prelim = quote.basis === "Preliminary";
+  const itemised = !prelim && input.itemised;
+  // Only the options ticked on the Send card go to the customer, everywhere (2026-10-24).
+  const plain = customerCopy({ ...chooseOptions(quote, input.optionIds), itemised }, { sentOn: today, validUntil, company: letterhead(), range: input.range, pdf: input.pdf });
+  // A change carries what changed since the contract it updates (2026-10-27).
+  const changed = await withChange(quote, plain);
+  if (!changed) return { ok: false as const, message: "This change can't be sent: the accepted quote it changes couldn't be read. Open the accepted version and try Make a change again." };
+  // A change says what has been paid so far and what is left (2026-10-31), from Notion's Master Payments Log.
+  const copy = changed.change ? { ...changed, change: { ...changed.change, paid: await paidSoFar(quote.link?.notionProjectUrl ?? null) } } : changed;
+  const text = serializeCopy(copy);
+  if (text.length > COPY_MAX_CHARS) return { ok: false as const, message: "This quote is too long to send as one copy. Split it into fewer options." };
+  const token = isToken(quote.customerToken) ? quote.customerToken : newToken();
+  const { link } = customerLinks(base, token, pdfName(copy));
+  return { ok: true as const, validUntil, prelim, itemised, copy, text, token, link };
+}
+
 export async function sendQuote(versionId: string, raw: unknown): Promise<SendResult> {
   const actor = await requireQuoterPerson();
   // `actor` pressed Send; `person` is who it goes out as: the same, unless they picked someone (2026-11-05).
@@ -302,23 +338,10 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   const problems = sendProblems(quote, input, { today, fingerprint: fingerprint(fromQuote(quote)) });
   if (problems.length) return { ok: false, message: "Not sent.", problems };
 
-  // A preliminary has no good-until date whatever was sent (Albert, 2026-10-22); its link never expires. Nor does a change (2026-10-27).
-  const validUntil = quote.basis === "Preliminary" || quote.changeNo ? null : input.validUntil;
-  // A preliminary is always a lump sum and goes as a range unless the sender chose the exact price (2026-10-27).
-  const prelim = quote.basis === "Preliminary";
-  const itemised = !prelim && input.itemised;
-  // Only the options ticked on the Send card go to the customer, everywhere (2026-10-24).
-  const plain = customerCopy({ ...chooseOptions(quote, input.optionIds), itemised }, { sentOn: today, validUntil, company: letterhead(), range: input.range, pdf: input.pdf });
-  // A change carries what changed since the contract it updates (2026-10-27).
-  const changed = await withChange(quote, plain);
-  if (!changed) return { ok: false, message: "This change can't be sent: the accepted quote it changes couldn't be read. Open the accepted version and try Make a change again." };
-  // A change says what has been paid so far and what is left (2026-10-31), from Notion's Master Payments Log.
-  const copy = changed.change ? { ...changed, change: { ...changed.change, paid: await paidSoFar(quote.link?.notionProjectUrl ?? null) } } : changed;
-  const text = serializeCopy(copy);
-  if (text.length > COPY_MAX_CHARS) return { ok: false, message: "This quote is too long to send as one copy. Split it into fewer options." };
-  const token = isToken(quote.customerToken) ? quote.customerToken : newToken();
+  const built = await buildCopy(quote, input, today, base);
+  if (!built.ok) return { ok: false, message: built.message };
+  const { validUntil, prelim, itemised, copy, text, token, link } = built;
   const contactId = quote.link!.ghlContactId!;
-  const { link } = customerLinks(base, token, pdfName(copy));
 
   // Locked and live before anything leaves: the link works the moment a message lands.
   await updateRecord(T.versions, quote.id, {
@@ -432,6 +455,70 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   }
   const warning = [...failed.map((f) => `Not sent by ${f}`), ...notes].join(" ") || null;
   return { ok: true, link, sentTo, warning };
+}
+
+/**
+ * Mark as sent (Albert, 2026-11-17: "for admin ALBERT only. I should be able to mark a quote as sent. without having to
+ * actually send it"), for a price the customer already has another way. Only the sign-ins on the Settings page's "Who
+ * can mark a quote sent without sending" list. Everything a send does to the app, and nothing it does to the customer:
+ *
+ *   - the same checks as Send except email and text, and the same frozen copy and link (buildCopy), so the version is
+ *     locked, its link works if someone shares it, and Follow up, All quotes and accept treat it as sent;
+ *   - Sent By is whoever it was marked as (the Send card's picker, the same rules), Sent To is "Marked sent", and the
+ *     Edit Log says who pressed it and that nothing went;
+ *   - older sent versions become Superseded, a change becomes the contract, typed lines are saved for review.
+ *
+ * Nothing goes to the customer: no email, no text, and no follow-up tag (GHL's sequence would message them about a
+ * quote the app never sent). Make is used only for a change's contract value, as a send does.
+ */
+export async function markQuoteSent(versionId: string, raw: unknown): Promise<SendResult> {
+  const actor = await requireQuoterPerson();
+  if (!canMarkSent(actor.email, (await settings()).markSentEmails)) return { ok: false, message: "You can't mark a quote sent without sending it. An admin can add you in Settings." };
+  const input = readInput(raw);
+  if (!REC_ID.test(versionId) || !input) return { ok: false, message: "That request didn't make sense. Reload the page." };
+  const picked = await senderFor(actor, (raw as Record<string, unknown>).as);
+  if (!picked.ok) return { ok: false, message: picked.message };
+  const person = picked.sender;
+  const base = customerBase();
+  if (!base) return { ok: false, message: "The customer link address (QUOTE_CUSTOMER_URL) isn't set for this deployment." };
+
+  const quote = await getQuote(versionId);
+  if (!quote) return { ok: false, message: "This version no longer exists." };
+  const today = torontoToday(new Date());
+  const problems = sendProblems(quote, input, { today, fingerprint: fingerprint(fromQuote(quote)), markOnly: true });
+  if (problems.length) return { ok: false, message: "Not marked sent.", problems };
+  const built = await buildCopy(quote, input, today, base);
+  if (!built.ok) return { ok: false, message: built.message };
+  const { validUntil, prelim, itemised, copy, text, token, link } = built;
+
+  const how = `marked sent, nothing sent to the customer${input.pdf ? ", PDF on the quote page" : ""}${chosenWords(quote, input.optionIds) ? `, ${chosenWords(quote, input.optionIds)}` : ""}${prelim && !input.range ? ", exact price, no range" : ""}`;
+  await updateRecord(T.versions, quote.id, {
+    [VERSION.customerToken]: token,
+    [VERSION.customerCopy]: text,
+    [VERSION.itemised]: itemised,
+    [VERSION.validUntil]: validUntil,
+    [VERSION.status]: "Sent",
+    [VERSION.sentAt]: today,
+    [VERSION.sentBy]: person.email,
+    [VERSION.sentTo]: MARKED_SENT,
+    // Opens are tracked as on any sent version, in case the link is shared by hand.
+    [VERSION.trackActivity]: true,
+    ...authorFields(actor, new Date(), picked.as ? `${how}, as ${person.email}` : how, quote.editLog),
+  });
+
+  const notes: string[] = [];
+  try {
+    await supersedeOlder(quote.link!.quoteRecordId, quote.id);
+  } catch {
+    notes.push("Older sent versions could not be marked Superseded; do that in Airtable.");
+  }
+  if (copy.change) notes.push(...(await recordContract(quote, copy, link)));
+  try {
+    await saveTypedItems(chooseOptions(quote, input.optionIds).options, { quoteLabel: quote.quoteId ?? "a quote", by: actor.email, on: today });
+  } catch {
+    notes.push("Typed lines couldn't be saved to the Rate Card for review; the quote is marked sent.");
+  }
+  return { ok: true, link, sentTo: [MARKED_SENT], warning: notes.join(" ") || null };
 }
 
 /**

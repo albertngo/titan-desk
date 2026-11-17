@@ -22,6 +22,16 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-17",
+    kind: "new",
+    title: "Mark a quote as sent, without sending it",
+    details: [
+      "On the Send card, Mark as sent, send nothing locks the version and counts it as sent, with its link ready to copy. No email, no text and no follow-up sequence go to the customer. For a price they already have another way.",
+      "Only the people on Settings, Who can mark a quote sent without sending, see the button. Albert to start with.",
+      "Who nobody else can send as is now a Settings list too (Nobody else can send as, Albert to start with). Everyone else can still send as each other.",
+    ],
+  },
+  {
+    date: "2026-11-17",
     kind: "changed",
     title: "Payouts: pay anyone you type",
     details: [
