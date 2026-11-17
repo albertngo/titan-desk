@@ -115,6 +115,7 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
 - Stair Site Sheet v7 (Albert, 2026-11-06/07).
 - Prices given outside the app, and the twice-a-day recheck (Albert, 2026-11-13; vault `05_decisions/2026-11-13-quote-price-given-outside-app`): marks a quote Sent by text / Given on a call, sends nothing.
 - The Send card starts the way the last version went (Albert, 2026-11-06: "send card should also show and default to the 'breakdown' or 'lu…
+- Catalogue SKUs in the editor's Materials picker (Albert, 2026-11-17).
 
 ## Hard rules
 

@@ -6,7 +6,7 @@ import { requireQuoter } from "@/lib/auth";
 import { AirtableError, getRecord, listByIds, listRecords, type AirtableRecord } from "@/lib/airtable/client";
 import { CAT, CATALOGUE_TABLE, LINE, MATERIAL, MATERIAL_TABLE, OPTION, PROFILE, PROFILE_TABLE, QUICK, QUICK_TABLE, QUOTE, RATE, RATE_TABLE, STAIR, STAIR_TABLE, T, VERSION } from "@/lib/airtable/fields";
 import { QUICK_GROUPS, quickProfiles, splitPath, type QuickChoice, type QuickGroup, type QuickPart, type QuickPartMaterial, type QuickProduct, type QuickProfile } from "@/lib/quick/plan";
-import { buildCatalogue, materialWords } from "@/lib/editor/model";
+import { buildCatalogue, materialWords, rankProducts } from "@/lib/editor/model";
 import { stairLineUom } from "@/lib/editor/stairGroups";
 import { parseAcceptance } from "@/lib/accept/plan";
 import { cleanSchedule } from "@/lib/pricing/schedule";
@@ -595,5 +595,6 @@ export async function searchProducts(query: string): Promise<QuickProduct[]> {
   const hay = `LOWER({${CAT.sku}}&' '&{${CAT.name}}&' '&{${CAT.collection}}&' '&{${CAT.brand}})`;
   const formula = `AND({${CAT.active}},${words.map((w) => `SEARCH('${w}',${hay})`).join(",")})`;
   const recs = await listRecords(CATALOGUE_TABLE, { fields: Object.values(CAT), filterByFormula: formula });
-  return recs.flatMap((r) => { const p = toProduct(r); return p ? [p] : []; }).slice(0, 12);
+  // An exact SKU first (2026-11-17), so typing a SKU in the editor's Materials search finds that product at the top.
+  return rankProducts(recs.flatMap((r) => { const p = toProduct(r); return p ? [p] : []; }), query).slice(0, 12);
 }

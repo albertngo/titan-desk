@@ -523,6 +523,42 @@ export function lineFromEntry(entry: CardEntry, section: string, contractorName?
   };
 }
 
+/** A catalogue product as the editor's Materials search finds it (2026-11-17): SKU, name, retail price and cost. */
+export type CatalogueProduct = { recordId: string; sku: string; name: string; rate: number; cost: number | null };
+
+/**
+ * A Materials line from a catalogue product (Albert, 2026-11-17: "search for a SKU for flooring materials in the edit
+ * quote app from the catalogue"). Priced like the quick form's material line: the product's retail price and cost as
+ * the card snapshot, per sqft, named "Name (SKU)", starting at 1 with 10% waste (15% for herringbone or tile).
+ */
+export function productLine(p: CatalogueProduct, section = "Materials"): EditorLine {
+  return {
+    ...baseLine(section),
+    sourceKind: "product",
+    sourceId: p.recordId,
+    description: `${p.name}${p.sku ? ` (${p.sku})` : ""}`,
+    uom: "sqft",
+    qty: NEW_QTY,
+    waste: section === "Materials" ? productWaste(p.name) : null,
+    unitPriceSnap: p.rate,
+    unitCostSnap: p.cost,
+    hasSource: true,
+  };
+}
+
+/** Same rule as the quick form's `materialWaste()`: 15% for herringbone or tile, else 10%. */
+const productWaste = (name: string) => (/\bherringbone|\btiles?\b/i.test(name) ? 0.15 : 0.1);
+
+/**
+ * Order catalogue hits for a query: an exact SKU first, then a SKU that starts with it, then the rest by name.
+ * Pure, so the server and tests agree on it.
+ */
+export function rankProducts<T extends Pick<CatalogueProduct, "sku" | "name">>(products: T[], query: string): T[] {
+  const q = query.trim().toUpperCase();
+  const tier = (p: T) => { const s = p.sku.toUpperCase(); return q && s === q ? 0 : q && s.startsWith(q) ? 1 : 2; };
+  return [...products].sort((a, b) => tier(a) - tier(b) || a.name.localeCompare(b.name));
+}
+
 export function manualLine(section: string, description = ""): EditorLine {
   return { ...baseLine(section), sourceKind: "manual", description, uom: section === "Delivery" ? "flat" : null, qty: section === "Exclusions" ? null : NEW_QTY };
 }
