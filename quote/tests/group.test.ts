@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ago, cleanDescription, DEFAULT_SORT, DESCRIPTION_MAX, isQuoteSort, nextSort, sortGroups, type QuoteSort, fromLabel, fromWords, groupVersions, inFilter, lastSentVersion, matchesSearch, openedOn, opensWords, versionTree, type QuoteHead, type VersionRow } from "../src/lib/quotes/group";
+import { ago, cleanDescription, DEFAULT_SORT, DESCRIPTION_MAX, isQuoteSort, nextSort, sortGroups, type QuoteSort, fromLabel, fromWords, groupVersions, inFilter, lastSentVersion, matchesSearch, openedOn, opensWords, versionTree, type QuoteHead, type VersionRow, sentValue } from "../src/lib/quotes/group";
 
 // INVENTED people and numbers only: this repo is public.
 const V = (o: Partial<VersionRow> & { id: string; quoteRecordId: string | null }): VersionRow & { quoteRecordId: string | null } => ({ label: null, version: 1, status: "Draft", basis: "Preliminary", optionCount: 1, createdTime: "2026-10-01T00:00:00Z", ...o });
@@ -233,5 +233,20 @@ describe("Sortable columns (2026-11-05)", () => {
     const before = list.map((g) => g.versions[0].id);
     sortGroups(list, { key: "customer", dir: "asc" });
     expect(list.map((g) => g.versions[0].id)).toEqual(before);
+  });
+});
+
+describe("the value GHL gets on a send (2026-11-17)", () => {
+  const o = (total: number, extra: { recommended?: boolean; scope?: string; part?: string } = {}) => ({ recommended: false, totals: { total }, ...extra });
+  it("is the recommended option per part, else the cheapest, with stairs on top", () => {
+    expect(sentValue([o(9000), o(7000)])).toBe(7000);
+    expect(sentValue([o(9000, { recommended: true }), o(7000)])).toBe(9000);
+    expect(sentValue([o(9000), o(7000), o(2000, { scope: "Stairs" }), o(3000, { scope: "Stairs" })])).toBe(9000);
+    // One of each even when a stairs option and a flooring option name the same part of the home.
+    expect(sentValue([o(9000, { part: "Main floor" }), o(2500, { scope: "Stairs", part: "Main floor", recommended: true })])).toBe(11500);
+  });
+  it("is nothing when nothing has a price", () => {
+    expect(sentValue([])).toBeNull();
+    expect(sentValue([o(0)])).toBeNull();
   });
 });

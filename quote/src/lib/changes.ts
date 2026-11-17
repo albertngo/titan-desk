@@ -32,6 +32,15 @@ export const CHANGES: Change[] = [
   },
   {
     date: "2026-11-17",
+    kind: "new",
+    title: "GHL's value follows every send",
+    details: [
+      "Sending a quote, or marking it sent, sets the GHL opportunity's value to what went out, with HST: one flooring option and one stairs option when there are both, each the recommended one, else the cheapest.",
+      "Once a quote is accepted its value is the contract's, as before, and only a change moves it.",
+    ],
+  },
+  {
+    date: "2026-11-17",
     kind: "changed",
     title: "Payouts: pay anyone you type",
     details: [

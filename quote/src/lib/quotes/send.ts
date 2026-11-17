@@ -13,7 +13,8 @@ import { changeSummary } from "@/lib/change/diff";
 import { contractOn, contractVersions, fromChange, joinChange, serializeContract } from "@/lib/contract/model";
 import { cleanPayments } from "@/lib/billing/doc";
 import { paymentsReaderOn, projectPayments } from "@/lib/notion/payments";
-import { buildContract } from "@/lib/link/ghlRequest";
+import { buildContract, buildValue } from "@/lib/link/ghlRequest";
+import { sentValue } from "./group";
 import { addContactNote, makeConfigured, sendMessage, sendToGhl, setFollowUpTags } from "@/lib/make/client";
 import { acceptedPdfName, COPY_MAX_CHARS, customerCopy, offersPdf, parseCopy, pdfName, serializeCopy, torontoToday, type CustomerCopy, type Letterhead } from "@/lib/send/copy";
 import { ghlConfigured, locationUsers } from "@/lib/ghl/client";
@@ -445,7 +446,8 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
     notes.push("Older sent versions could not be marked Superseded; do that in Airtable.");
   }
   // A change is the contract now (2026-10-27): the quote points at it, and GHL's value (and, through Make, Notion's) follows it.
-  if (copy.change) notes.push(...(await recordContract(quote, copy, link)));
+  // Anything else sets GHL's value to what went out (2026-11-17).
+  notes.push(...(copy.change ? await recordContract(quote, copy, link) : await recordValue(quote, copy)));
   // Typed lines on what went out are saved for next time and logged (Albert, 2026-11-01): new ones as Rate Card / Stair
   // Items rows, switched off and Needs Review, and every one linked to its row. Never stops a send.
   try {
@@ -469,7 +471,8 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
  *   - older sent versions become Superseded, a change becomes the contract, typed lines are saved for review.
  *
  * Nothing goes to the customer: no email, no text, and no follow-up tag (GHL's sequence would message them about a
- * quote the app never sent). Make is used only for a change's contract value, as a send does.
+ * quote the app never sent). Make is used only for GHL's opportunity value, as a send does (the change's contract, or
+ * since 2026-11-17 what went out).
  */
 export async function markQuoteSent(versionId: string, raw: unknown): Promise<SendResult> {
   const actor = await requireQuoterPerson();
@@ -512,7 +515,7 @@ export async function markQuoteSent(versionId: string, raw: unknown): Promise<Se
   } catch {
     notes.push("Older sent versions could not be marked Superseded; do that in Airtable.");
   }
-  if (copy.change) notes.push(...(await recordContract(quote, copy, link)));
+  notes.push(...(copy.change ? await recordContract(quote, copy, link) : await recordValue(quote, copy)));
   try {
     await saveTypedItems(chooseOptions(quote, input.optionIds).options, { quoteLabel: quote.quoteId ?? "a quote", by: actor.email, on: today });
   } catch {
@@ -609,6 +612,27 @@ async function supersedeOlder(quoteRecordId: string, keep: string): Promise<void
   const versions = await listByIds(T.versions, versionIds, [VERSION.status]);
   const older = versions.filter((v) => str(v.fields[VERSION.status]) === "Sent");
   if (older.length) await updateRecords(T.versions, older.map((v) => ({ id: v.id, fields: { [VERSION.status]: "Superseded" } })));
+}
+
+/**
+ * After a quote is sent or marked sent, before any acceptance (Albert, 2026-11-17: "always live data from the quote
+ * app"): GHL's opportunity value is what went out (sentValue()). Never on a quote already accepted, whose value is the
+ * contract's. Returns what didn't happen, for the warning; never stops a send.
+ */
+async function recordValue(quote: Quote, copy: CustomerCopy): Promise<string[]> {
+  const contactId = quote.link?.ghlContactId;
+  const opportunityId = quote.link?.ghlOpportunityId;
+  const total = sentValue(copy.options);
+  if (total === null) return [];
+  if (!contactId || !opportunityId) return ["GHL's value wasn't updated: the quote isn't linked to an opportunity."];
+  try {
+    // An accepted quote's value is its contract's; it stays.
+    if (quote.link?.quoteRecordId && (await loadContract(quote.link.quoteRecordId))) return [];
+    await sendToGhl(buildValue({ contactId, opportunityId, total }));
+    return [];
+  } catch (e) {
+    return [`GHL's value wasn't updated (${e instanceof Error ? e.message : String(e)}). Set it to ${total.toFixed(2)} on the opportunity.`];
+  }
 }
 
 /** After a change is sent: it is the contract; the opportunity's value is its total with HST. Returns what didn't happen, for the warning. */

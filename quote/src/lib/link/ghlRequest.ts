@@ -287,6 +287,15 @@ export function buildContract(i: { contactId: string; opportunityId: string; tot
   };
 }
 
+/**
+ * A quote sent, or marked sent, before any acceptance (Albert, 2026-11-17: "push the value to GHL on first send too.
+ * essentially it is always live data from the quote app"): the opportunity's value is what went out, with HST. Value
+ * only: stage, status and the accepted-quote link are left alone.
+ */
+export function buildValue(i: { contactId: string; opportunityId: string; total: number }): GhlRequest {
+  return { mode: "link", contactId: i.contactId, opportunityId: i.opportunityId, contactBody: JSON.stringify({}), oppBody: JSON.stringify({ monetaryValue: i.total }) };
+}
+
 /** Cancelling an acceptance (staff, with a reason): the opportunity is lost. The Notion project is left to a person. */
 export function buildLost(i: { contactId: string; opportunityId: string }): GhlRequest {
   return { mode: "link", contactId: i.contactId, opportunityId: i.opportunityId, contactBody: JSON.stringify({}), oppBody: JSON.stringify({ status: "lost" }) };
