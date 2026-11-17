@@ -22,6 +22,15 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-17",
+    kind: "changed",
+    title: "Payouts: one contractor per staircase, flooring and stairs apart",
+    details: [
+      "On the Payouts tab, each stairs option has a Stairs contractor pick. Choose the contractor once and every line of that staircase moves onto their card.",
+      "A card with both flooring and stairs work shows Flooring and Stairs as their own sections, each with its subtotal, and one total for both, on screen and on the picture pushed to CompanyCam.",
+    ],
+  },
+  {
+    date: "2026-11-17",
     kind: "new",
     title: "Round a flooring product up to whole boxes",
     details: [

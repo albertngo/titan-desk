@@ -1272,6 +1272,16 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   again** adds a new photo, never replaces one. **One click (2026-11-05):** with unsaved changes the button reads
   **Save and push** and saves the cards first (the same compare-and-swap save), then pushes the card as saved. Preview shows the picture with Download. Not done (Albert, same day: "not
   now"): Notion's Project Costs lines stay by hand. Tested in `tests/payout.test.ts`; screen `src/components/PayoutCards.tsx`.
+  **Stairs contractor, and flooring and stairs apart (Albert, 2026-11-17: "stairs option should be able to CHANGE the
+  payout easily through a whole select; since it is always one contractor that does it. But the printout or the export
+  should separate sections for flooring; or stairs. But provide a total altogether").** Each card line keeps the scope of
+  its option (`scope`, from `optionScope()`; absent on older cards and typed lines, read as Stairs for a Stairs-section
+  line, else Flooring, `lineScope()`). The tab lists each stairs option on the cards under **Stairs contractor** with one
+  select (`stairsOptions()`); a pick moves every line of that option onto that contractor's card (`assignOption()`: their
+  card by name, else an unnamed card holding only that option is named, else a new card; a card left empty with no push
+  or note is dropped). A card with ticked lines of both scopes reads "Flooring $… · Stairs $… · Total $…" and its
+  picture (`cardSheet()`) groups Flooring then Stairs, each ending on its subtotal, with "Total payout, flooring and
+  stairs"; a one-scope card prints as before. The card's push signature is unchanged by this.
 - **Typed lines saved for next time, and logged (Albert, 2026-11-01: "When we add custom items and the quote ends
   up being SENT… make it so that those items are created for next time use and make them 'require review'… There
   should be a log of where it was used so I can ensure it wasn't wrongly charged").** After a quote is sent (never

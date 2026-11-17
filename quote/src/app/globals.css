@@ -1982,6 +1982,10 @@ table.items tr.sect.priv ~ tr:not(.sect) td { background: #f4f5f7; color: var(--
 .po-opts ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 .po-opts .tick { display: flex; align-items: center; gap: 8px; font-size: 13.5px; cursor: pointer; }
 .po-opts .btn { justify-self: start; }
+.po-stairs .po-stair { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13.5px; flex-wrap: wrap; }
+.po-stairs .po-stair select { max-width: 260px; flex: 1 1 180px; }
+.po-stairs p { margin: 0; font-size: 12px; }
+.po-scopes { margin: -4px 0 0; font-size: 12.5px; }
 .po-tag { margin-left: 6px; font-size: 11px; padding: 1px 6px; border-radius: 99px; background: var(--head); color: var(--fg-dim); }
 .po-tag.acc { background: var(--good-soft); color: var(--good); }
 .po-cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
