@@ -23,6 +23,15 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-17",
     kind: "changed",
+    title: "Payouts: pay anyone you type",
+    details: [
+      "On the Payouts tab, + New contractor asks for a name and starts a card for them, whether or not they're on the Rate Card.",
+      "A line's Move… and each staircase's Stairs contractor pick both end with + New contractor…, so you can send work to a name you type and its card is made for you.",
+    ],
+  },
+  {
+    date: "2026-11-17",
+    kind: "changed",
     title: "Payouts: one contractor per staircase, flooring and stairs apart",
     details: [
       "On the Payouts tab, each stairs option has a Stairs contractor pick. Choose the contractor once and every line of that staircase moves onto their card.",

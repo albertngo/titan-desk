@@ -227,7 +227,7 @@ const mapCard = (set: PayoutSet, cardId: string, f: (c: PayoutCard) => PayoutCar
 
 export function addCard(set: PayoutSet, contractor = ""): PayoutSet {
   if (set.cards.length >= MAX_CARDS) return set;
-  return { ...set, cards: [...set.cards, { id: nextId(set, "c"), contractor, note: "", lines: [], pushes: [] }] };
+  return { ...set, cards: [...set.cards, { id: nextId(set, "c"), contractor: contractor.trim().slice(0, 80), note: "", lines: [], pushes: [] }] };
 }
 
 export function removeCard(set: PayoutSet, cardId: string): PayoutSet {
@@ -302,6 +302,21 @@ export function stairsOptions(set: PayoutSet): { option: string; contractor: str
     const holders = set.cards.filter((c) => c.lines.some((l) => l.option === option));
     return { option, contractor: holders.length === 1 ? holders[0].contractor.trim() : "" };
   });
+}
+
+/**
+ * Give a line to a payout receiver by name (Albert, 2026-11-17: "new contractor sections can be created and named
+ * manually… having the option to type our own payout receiver is a good backup"): their card (same name, any case),
+ * else a new card with that name. Blank name or a full set = nothing changes.
+ */
+export function moveLineTo(set: PayoutSet, lineId: string, contractor: string): PayoutSet {
+  const name = contractor.trim().slice(0, 80);
+  if (!name || !set.cards.some((c) => c.lines.some((l) => l.id === lineId))) return set;
+  const found = set.cards.find((c) => key(c.contractor) === key(name));
+  if (found) return moveLine(set, lineId, found.id);
+  if (set.cards.length >= MAX_CARDS) return set;
+  const made = addCard(set, name);
+  return moveLine(made, lineId, made.cards[made.cards.length - 1].id);
 }
 
 /** Back to the rate the line started at. */
