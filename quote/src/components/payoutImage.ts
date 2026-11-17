@@ -109,6 +109,14 @@ export function drawCard(sheet: CardSheet): HTMLCanvasElement {
       rule();
       y += 20;
     }
+    // Flooring and Stairs each end on their subtotal (2026-11-17).
+    if (g.subtotal) {
+      text(`${g.option ?? ""} subtotal`, PAD, 26, DIM, 600);
+      text(g.subtotal, W - PAD, 28, INK, 700, "right");
+      y += 44;
+      rule(INK, 2);
+      y += 26;
+    }
   }
 
   // Total
@@ -119,7 +127,7 @@ export function drawCard(sheet: CardSheet): HTMLCanvasElement {
     ctx.fillRect(PAD, top + totalTop - 18, W - PAD * 2, 92);
   });
   y += 6;
-  text("Total payout", PAD + 24, 32, INK, 700);
+  text(sheet.totalLabel, PAD + 24, 32, INK, 700);
   text(sheet.total, W - PAD - 24, 40, BLUE, 800, "right");
   y = totalTop + 100;
 

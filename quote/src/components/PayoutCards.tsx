@@ -7,6 +7,7 @@ import { money } from "@/lib/format";
 import {
   addCard,
   addLine,
+  assignOption,
   cardSheet,
   cardTotal,
   emptySet,
@@ -21,8 +22,10 @@ import {
   removeLine,
   resetRate,
   samePayouts,
+  scopeTotals,
   setCard,
   setLine,
+  stairsOptions,
   type Candidate,
   type CardHeader,
   type PayoutCard,
@@ -237,6 +240,32 @@ export function PayoutCards({ quoteRecordId, versionId, raw, options, defaultIds
           </button>
         </fieldset>
 
+        {stairsOptions(set).length > 0 && (
+          // One contractor does a whole staircase (Albert, 2026-11-17): pick them once and every line of the option goes to their card.
+          <fieldset className="po-opts po-stairs" disabled={busy}>
+            <legend>Stairs contractor</legend>
+            <ul>
+              {stairsOptions(set).map((s) => (
+                <li key={s.option}>
+                  <label className="po-stair">
+                    <span>{s.option}</span>
+                    <select className="in" aria-label={`Contractor for ${s.option}`} value={s.contractor} onChange={(e) => e.target.value && setSet((x) => assignOption(x, s.option, e.target.value))}>
+                      <option value="">{s.contractor ? s.contractor : "Pick a contractor…"}</option>
+                      {[...new Set([...contractors, ...set.cards.map((c) => c.contractor.trim()).filter(Boolean)])]
+                        .filter((c) => c.toLowerCase() !== s.contractor.toLowerCase())
+                        .sort()
+                        .map((c) => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                    </select>
+                  </label>
+                </li>
+              ))}
+            </ul>
+            <p className="faint">Moves every line of that stairs option onto the contractor&apos;s card, making the card if there isn&apos;t one.</p>
+          </fieldset>
+        )}
+
         {set.cards.length === 0 ? (
           <p className="empty">No payout cards yet. Tick the final options and press Build cards, or add a card by hand.</p>
         ) : (
@@ -246,6 +275,7 @@ export function PayoutCards({ quoteRecordId, versionId, raw, options, defaultIds
               const problem = pushProblem(card);
               const total = cardTotal(card);
               const split = new Set(card.lines.map((l) => l.option).filter(Boolean)).size > 1;
+              const scopes = scopeTotals(card);
               return (
                 <li key={card.id} className="po-card">
                   <div className="po-top">
@@ -263,6 +293,11 @@ export function PayoutCards({ quoteRecordId, versionId, raw, options, defaultIds
                       ✕
                     </button>
                   </div>
+                  {scopes.split && (
+                    <p className="po-scopes faint num">
+                      Flooring {money(scopes.flooring)} · Stairs {money(scopes.stairs)} · Total {money(total)}
+                    </p>
+                  )}
                   <p className={`po-state ${state.kind}`}>
                     {state.kind === "never" ? "Not in CompanyCam yet" : state.kind === "current" ? `In CompanyCam since ${when(state.last.at)}, ${money(state.last.total)}` : `Changed since it went to CompanyCam on ${when(state.last.at)} (${money(state.last.total)})`}
                   </p>
