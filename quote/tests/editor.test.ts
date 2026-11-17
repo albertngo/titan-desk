@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { lineFlags, lineTotal, optionHst, optionTotals } from "../src/lib/calc";
 import { OPTION } from "../src/lib/airtable/fields";
 import {
+  productLine,
+  rankProducts,
   unsavedDraftAt,
   renameIds,
   invertIds,
@@ -786,5 +788,28 @@ describe("Moulding is its own section (Albert, 2026-11-06)", () => {
   it("puts a moulding line in Moulding as Install work", () => {
     const l = lineFromEntry(c2.find((e) => e.kind === "rate" && e.spec.startsWith("BASEBOARD"))!, "Moulding");
     expect([l.section, l.lineType]).toEqual(["Moulding", "Install"]);
+  });
+});
+
+describe("catalogue products in the Materials picker (2026-11-17)", () => {
+  const p = { recordId: "recTEST000000001", sku: "TST-OAK-01", name: "Test Oak Plank", rate: 5.5, cost: 3.25 };
+  it("makes a product line priced from the catalogue, per sqft, from 1 with waste", () => {
+    const l = productLine(p);
+    expect([l.sourceKind, l.sourceId, l.section, l.lineType, l.uom, l.qty, l.waste]).toEqual(["product", "recTEST000000001", "Materials", "Material", "sqft", 1, 0.1]);
+    expect([l.unitPriceSnap, l.unitCostSnap, l.unitPrice, l.hasSource]).toEqual([5.5, 3.25, null, true]);
+    expect(l.description).toBe("Test Oak Plank (TST-OAK-01)");
+    expect(lineTotal(l)).toBeCloseTo(6.05);
+  });
+  it("takes 15% waste for herringbone or tile", () => {
+    expect(productLine({ ...p, name: "Test Herringbone Oak" }).waste).toBe(0.15);
+    expect(productLine({ ...p, name: "Test Porcelain Tile" }).waste).toBe(0.15);
+  });
+  it("puts an exact SKU first, then a SKU that starts with the query", () => {
+    const list = [
+      { sku: "B-100", name: "Alpha" },
+      { sku: "A-100X", name: "Beta" },
+      { sku: "a-100", name: "Gamma" },
+    ];
+    expect(rankProducts(list, "A-100").map((x) => x.name)).toEqual(["Gamma", "Beta", "Alpha"]);
   });
 });

@@ -21,6 +21,15 @@ export type Change = {
 
 export const CHANGES: Change[] = [
   {
+    date: "2026-11-17",
+    kind: "new",
+    title: "Find a flooring product by SKU in the editor",
+    details: [
+      "In the editor, + Add in Materials now searches the flooring catalogue too: type a SKU, or part of a product's name, collection or brand, and pick it.",
+      "The product goes in at its catalogue price per sqft, starting at 1 sqft with 10% waste (15% for herringbone or tile), named with its SKU.",
+    ],
+  },
+  {
     date: "2026-11-16",
     kind: "changed",
     title: "Old quotes copy over exactly, discounts included",
