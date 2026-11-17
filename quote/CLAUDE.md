@@ -116,6 +116,7 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
 - Prices given outside the app, and the twice-a-day recheck (Albert, 2026-11-13; vault `05_decisions/2026-11-13-quote-price-given-outside-app`): marks a quote Sent by text / Given on a call, sends nothing.
 - The Send card starts the way the last version went (Albert, 2026-11-06: "send card should also show and default to the 'breakdown' or 'lu…
 - Catalogue SKUs in the editor's Materials picker (Albert, 2026-11-17).
+- Send-as permissions and Mark as sent in Settings (Albert, 2026-11-17): who nobody else can send as, and who can mark a quote sent without sending.
 
 ## Hard rules
 

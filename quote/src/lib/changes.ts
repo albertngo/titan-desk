@@ -22,6 +22,34 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-17",
+    kind: "new",
+    title: "Mark a quote as sent, without sending it",
+    details: [
+      "On the Send card, Mark as sent, send nothing locks the version and counts it as sent, with its link ready to copy. No email, no text and no follow-up sequence go to the customer. For a price they already have another way.",
+      "Only the people on Settings, Who can mark a quote sent without sending, see the button. Albert to start with.",
+      "Who nobody else can send as is now a Settings list too (Nobody else can send as, Albert to start with). Everyone else can still send as each other.",
+    ],
+  },
+  {
+    date: "2026-11-17",
+    kind: "new",
+    title: "GHL's value follows every send",
+    details: [
+      "Sending a quote, or marking it sent, sets the GHL opportunity's value to what went out, with HST: one flooring option and one stairs option when there are both, each the recommended one, else the cheapest.",
+      "Once a quote is accepted its value is the contract's, as before, and only a change moves it.",
+    ],
+  },
+  {
+    date: "2026-11-17",
+    kind: "changed",
+    title: "Payouts: pay anyone you type",
+    details: [
+      "On the Payouts tab, + New contractor asks for a name and starts a card for them, whether or not they're on the Rate Card.",
+      "A line's Move… and each staircase's Stairs contractor pick both end with + New contractor…, so you can send work to a name you type and its card is made for you.",
+    ],
+  },
+  {
+    date: "2026-11-17",
     kind: "changed",
     title: "Payouts: pay anyone you type",
     details: [

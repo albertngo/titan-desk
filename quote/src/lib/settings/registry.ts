@@ -7,7 +7,8 @@
  */
 
 export type Kind = "switch" | "number" | "emails" | "phone";
-export type Def = { key: string; group: string; label: string; help: string; kind: Kind; min?: number; max?: number; unit?: string };
+/** `empty`: an emails setting that may be cleared to nobody (the admin list may not, so someone can still open Settings). */
+export type Def = { key: string; group: string; label: string; help: string; kind: Kind; min?: number; max?: number; unit?: string; empty?: boolean };
 
 export const DEFS = [
   { key: "autoFollowUps", group: "Follow up: sending", label: "Automatic follow-ups", help: "Routine measured check-ins and nudges go out on their own, under every guardrail below. Each quote's own Auto follow-ups box still applies.", kind: "switch" },
@@ -24,6 +25,8 @@ export const DEFS = [
   { key: "alertsOn", group: "Alerts", label: "WhatsApp alerts", help: "Hot quotes send one WhatsApp to the number below. Needs the Make alert route.", kind: "switch" },
   { key: "alertTo", group: "Alerts", label: "Alerts go to", help: "One WhatsApp number, with the country code (+1…). A test number first.", kind: "phone" },
   { key: "alertsPerRead", group: "Alerts", label: "Most alerts at once", help: "Per page read, so a full list can't flood the phone.", kind: "number", min: 1, max: 20 },
+  { key: "onlyThemselves", group: "Sending: who as whom", label: "Nobody else can send as", help: "Comma-separated sign-in emails. Each can send as anyone on the team, and is a choice only for themselves: nobody else can pick them on the Send card. Everyone else can send as each other.", kind: "emails", empty: true },
+  { key: "markSentEmails", group: "Sending: who as whom", label: "Who can mark a quote sent without sending", help: "Comma-separated sign-in emails. They get Mark as sent on the Send card: the version is locked and counted as sent, with its link ready to copy, and nothing goes to the customer. Empty: nobody.", kind: "emails", empty: true },
   { key: "adminEmails", group: "Access", label: "Who sees Performance and Settings", help: "Comma-separated sign-in emails. They must also be allowed into the app.", kind: "emails" },
 ] as const satisfies readonly Def[];
 
@@ -43,8 +46,13 @@ export type Settings = {
   alertsOn: boolean;
   alertTo: string;
   alertsPerRead: number;
+  onlyThemselves: string[];
+  markSentEmails: string[];
   adminEmails: string[];
 };
+
+/** The settings that are lists of sign-in emails. */
+type EmailsKey = "onlyThemselves" | "markSentEmails" | "adminEmails";
 
 /** What applies when the table has no row: the old Vercel variable where there was one, else the built-in number. */
 export function defaults(env: Record<string, string | undefined>): Settings {
@@ -63,6 +71,9 @@ export function defaults(env: Record<string, string | undefined>): Settings {
     alertsOn: Boolean(env.QUOTE_ALERT_TO),
     alertTo: env.QUOTE_ALERT_TO ?? "",
     alertsPerRead: 5,
+    // Albert, 2026-11-05: "Only Albert logged in has himself as the option"; 2026-11-17: mark as sent "for admin ALBERT only".
+    onlyThemselves: ["albert@titanfloors.ca"],
+    markSentEmails: ["albert@titanfloors.ca"],
     adminEmails: emails(env.QUOTE_ADMIN_EMAILS ?? ""),
   };
 }
@@ -90,13 +101,14 @@ export function checkValue(key: string, raw: string): { ok: true; value: string 
     return { ok: true, value: `+${digits.length === 10 ? `1${digits}` : digits}` };
   }
   const list = emails(v);
-  if (!list.length) return { ok: false, message: "At least one email, so someone can still open Settings." };
+  if (!list.length && d.empty && !v) return { ok: true, value: "" };
+  if (!list.length) return { ok: false, message: d.empty ? "Type sign-in emails, or clear the box for nobody." : "At least one email, so someone can still open Settings." };
   return { ok: true, value: list.join(", ") };
 }
 
 /** The stored rows over the defaults. A row that no longer checks out is ignored (the default holds), never guessed. */
 export function merge(base: Settings, rows: { key: string; value: string }[]): Settings {
-  const out: Settings = { ...base, adminEmails: [...base.adminEmails] };
+  const out: Settings = { ...base, onlyThemselves: [...base.onlyThemselves], markSentEmails: [...base.markSentEmails], adminEmails: [...base.adminEmails] };
   for (const r of rows) {
     const c = checkValue(r.key, r.value ?? "");
     if (!c.ok) continue;
@@ -104,7 +116,7 @@ export function merge(base: Settings, rows: { key: string; value: string }[]): S
     const k = r.key as Key;
     if (d.kind === "switch") (out as Record<string, unknown>)[k] = c.value === "on";
     else if (d.kind === "number") (out as Record<string, unknown>)[k] = Number(c.value);
-    else if (d.kind === "emails") out.adminEmails = emails(c.value);
+    else if (d.kind === "emails") out[k as EmailsKey] = emails(c.value);
     else (out as Record<string, unknown>)[k] = c.value;
   }
   // The thresholds must stay in order, or the tiers stop making sense.

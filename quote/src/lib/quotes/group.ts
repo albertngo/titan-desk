@@ -257,6 +257,18 @@ export function offerValue(options: OptionMoney[] | undefined): Extract<QuoteVal
   return { kind: "quote", low: round2(low), high: round2(high), likely: round2(likely), recommended, options: offered.length };
 }
 
+/**
+ * The value of what went out (2026-11-17), for GHL's opportunity on a send: the frozen copy's options read the way the
+ * Value column reads an offer, and its `likely` figure (the recommended option per part, else the cheapest), with HST.
+ * Flooring and stairs always count one of each (Albert, 2026-11-17: "if there are stairs and flooring; add one of
+ * each. otherwise your logic"), so the group is scope then part. A copy's missing scope is Flooring. Null when no
+ * option has a total.
+ */
+export function sentValue(options: { recommended: boolean; totals: { total: number }; scope?: string; part?: string }[]): number | null {
+  const v = offerValue(options.map((o, i) => ({ id: String(i), total: o.totals.total, recommended: o.recommended, notOffered: false, part: `${o.scope ?? "Flooring"}|${o.part ?? ""}`, scope: o.scope ?? "Flooring", sortOrder: i })));
+  return v && v.likely > 0 ? v.likely : null;
+}
+
 const isAccepted = (g: Pick<QuoteGroup, "projectNumber"> & { versions: VersionMoney[] }) =>
   Boolean(g.projectNumber) || g.versions.some((v) => v.status === "Accepted" || v.status === "Won");
 

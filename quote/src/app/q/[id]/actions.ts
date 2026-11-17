@@ -8,7 +8,7 @@ import { savePayouts, type SavePayoutsResult } from "@/lib/quotes/payouts";
 import { saveDescription } from "@/lib/quotes/describe";
 import { clearSheet, saveFloorSheet, saveSiteSheet, sheetCamPhotos } from "@/lib/quotes/sitesheet";
 import { floorOptions, type FloorOptionsResult } from "@/lib/quotes/quickOption";
-import { resendQuote, sendQuote } from "@/lib/quotes/send";
+import { markQuoteSent, resendQuote, sendQuote } from "@/lib/quotes/send";
 import { emailBilling, issueBilling, type BillingChoice, type BillingResult } from "@/lib/quotes/billing";
 import type { CamSheetPhotosResult, ConfirmAddressResult, LinkJobResult, ResendResult, SaveDescriptionResult, SaveRoomsResult, SendResult, SiteSheetResult } from "@/lib/quotes/types";
 
@@ -28,6 +28,11 @@ export async function confirmAddressAction(quoteRecordId: string, shown: string)
 
 export async function sendQuoteAction(versionId: string, input: unknown): Promise<SendResult> {
   return sendQuote(String(versionId ?? ""), input);
+}
+
+/** Mark as sent, sending nothing (Albert, 2026-11-17); only the Settings list may. */
+export async function markSentAction(versionId: string, input: unknown): Promise<SendResult> {
+  return markQuoteSent(String(versionId ?? ""), input);
 }
 
 export async function resendQuoteAction(versionId: string, input: unknown): Promise<ResendResult> {

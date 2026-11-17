@@ -29,6 +29,19 @@ describe("settings (2026-11-10)", () => {
     expect(s.watchAt).toBeLessThan(s.needsYouAt);
     expect(shown(s, "autoFollowUps")).toBe("on");
   });
+  it("the sending permissions (2026-11-17): Albert by default, editable, and may be cleared to nobody", () => {
+    const d = defaults({});
+    expect(d.onlyThemselves).toEqual(["albert@titanfloors.ca"]);
+    expect(d.markSentEmails).toEqual(["albert@titanfloors.ca"]);
+    expect(checkValue("markSentEmails", "")).toEqual({ ok: true, value: "" });
+    expect(checkValue("onlyThemselves", "nonsense").ok).toBe(false);
+    expect(checkValue("adminEmails", "").ok).toBe(false);
+    const s = merge(d, [{ key: "markSentEmails", value: "" }, { key: "onlyThemselves", value: "a@x.ca, B@x.ca" }]);
+    expect(s.markSentEmails).toEqual([]);
+    expect(s.onlyThemselves).toEqual(["a@x.ca", "b@x.ca"]);
+    expect(s.adminEmails).toEqual(d.adminEmails);
+    expect(shown(s, "onlyThemselves")).toBe("a@x.ca, b@x.ca");
+  });
   it("never holds a key, token or webhook address", () => {
     expect(DEFS.map((d) => d.key).join(" ")).not.toMatch(/key\b|token|hook|secret|password/i);
   });
