@@ -22,6 +22,12 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-17",
+    kind: "changed",
+    title: "Settings in your account menu",
+    details: ["Admins open Settings from the menu under their initials, top right, on any page. The link on Follow up stays too."],
+  },
+  {
+    date: "2026-11-17",
     kind: "new",
     title: "Mark a quote as sent, without sending it",
     details: [

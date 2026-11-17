@@ -1,12 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
-/** The signed-in person in the top bar (2026-10-28): initials that open the email and Sign out, so the bar stays short. */
-export function AccountMenu({ email }: { email: string }) {
+/**
+ * The signed-in person in the top bar (2026-10-28): initials that open the email and Sign out, so the bar stays short.
+ * An admin also gets Settings here (Albert, 2026-11-17: "on the top main bar? under the user dropdown as an option").
+ */
+export function AccountMenu({ email, admin = false }: { email: string; admin?: boolean }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
-  const first = useRef<HTMLButtonElement>(null);
+  const first = useRef<HTMLAnchorElement & HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -34,8 +38,13 @@ export function AccountMenu({ email }: { email: string }) {
       {open && (
         <div className="acct-pop" role="menu">
           <div className="em">Signed in as<b>{email}</b></div>
+          {admin && (
+            <Link ref={first} href="/settings" className="acct-item" role="menuitem" onClick={() => setOpen(false)}>
+              Settings
+            </Link>
+          )}
           <form action="/auth/signout" method="post">
-            <button ref={first} className="acct-item" role="menuitem">Sign out</button>
+            <button ref={admin ? undefined : first} className="acct-item" role="menuitem">Sign out</button>
           </form>
         </div>
       )}
