@@ -23,6 +23,23 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-17",
     kind: "new",
+    title: "Round a flooring product up to whole boxes",
+    details: [
+      "On a catalogue product's line in the editor, under the sqft + waste math, you now see how many boxes that orders (for example 5.5 boxes of 20 sf).",
+      "When it isn't a whole number, press Round up to 6 boxes: the sqft is set so that, with the same waste %, it orders exactly that many full boxes. Products with no box size in the catalogue don't show it.",
+    ],
+  },
+  {
+    date: "2026-11-17",
+    kind: "changed",
+    title: "Box size beside each catalogue product",
+    details: [
+      "When you pick a flooring product, in the editor's Materials search or the quick form's Choose a specific product, each one now shows its square feet per box (sf/box) when the catalogue has it.",
+    ],
+  },
+  {
+    date: "2026-11-17",
+    kind: "new",
     title: "Find a flooring product by SKU in the editor",
     details: [
       "In the editor, + Add in Materials now searches the flooring catalogue too: type a SKU, or part of a product's name, collection or brand, and pick it.",

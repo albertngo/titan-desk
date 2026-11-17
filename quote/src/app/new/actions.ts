@@ -26,6 +26,6 @@ export async function startQuoteAction(input: unknown, copyFrom: string | null =
 }
 
 /** The quick form's "choose a specific product" search. Prices shown are retail; costs never reach the browser. */
-export async function searchProductsAction(query: string): Promise<Pick<QuickProduct, "recordId" | "sku" | "name" | "rate">[]> {
-  return (await searchProducts(String(query ?? "").slice(0, 80))).map(({ recordId, sku, name, rate }) => ({ recordId, sku, name, rate }));
+export async function searchProductsAction(query: string): Promise<Pick<QuickProduct, "recordId" | "sku" | "name" | "rate" | "boxSf">[]> {
+  return (await searchProducts(String(query ?? "").slice(0, 80))).map(({ recordId, sku, name, rate, boxSf }) => ({ recordId, sku, name, rate, boxSf: boxSf ?? null }));
 }

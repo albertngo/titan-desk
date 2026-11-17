@@ -55,7 +55,7 @@ export type QuickPart = {
   material?: QuickPartMaterial | null;
 };
 
-export type QuickProduct = { recordId: string; sku: string; name: string; rate: number; cost: number | null };
+export type QuickProduct = { recordId: string; sku: string; name: string; rate: number; cost: number | null; /** Box Size (sf); null or absent = not on file. */ boxSf?: number | null };
 
 export type QuickChoice = {
   id: string;

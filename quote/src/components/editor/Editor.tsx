@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import type { AutosaveResult } from "@/lib/quotes/save";
 import { PastQuotes } from "@/components/PastQuotes";
 import { copyPastOptions, pastNote } from "@/lib/editor/past";
-import { autosaveVersionAction, quickFormAction, quickOptionAction, saveAsNewVersionAction, saveVersionAction, setDraftBasisAction } from "@/app/q/[id]/edit/actions";
+import { autosaveVersionAction, quickFormAction, productBoxesAction, quickOptionAction, saveAsNewVersionAction, saveVersionAction, setDraftBasisAction } from "@/app/q/[id]/edit/actions";
 import { estimateWork, glueWait, initialWork, QuickWork, workInput, type WorkState } from "@/components/QuickWork";
 import type { QuickChoice, QuickProfile } from "@/lib/quick/plan";
 import { methodChoices, switchMethod } from "@/lib/editor/waterfall";
@@ -47,6 +47,7 @@ import { manualLine,
   setAllHst,
   setOptionHst,
   showsWaste,
+  fullBoxes,
   wasteMath,
   withCustomerFrom,
   updateLine,
@@ -250,6 +251,21 @@ export default function Editor({
 
   // The rate card and the stair items, for the picker and for re-pricing (service level, contractor, material).
   const catalogue = useMemo(() => buildCatalogue(card.rates, card.stairs, card.materials), [card]);
+  // Box sizes of the catalogue products on the lines (2026-11-17), kept off the quote so its fingerprint never moves.
+  const [boxSf, setBoxSf] = useState<Record<string, number | null>>({});
+  const productIds = useMemo(
+    () => [...new Set(quote.options.flatMap((o) => o.lines.filter((l) => l.sourceKind === "product" && l.sourceId).map((l) => l.sourceId as string)))].sort().join(","),
+    [quote.options],
+  );
+  useEffect(() => {
+    const missing = productIds.split(",").filter((id) => id && !(id in boxSf));
+    if (missing.length === 0) return;
+    let live = true;
+    productBoxesAction(missing)
+      .then((found) => { if (live) setBoxSf((b) => ({ ...b, ...Object.fromEntries(missing.map((id) => [id, found[id] ?? null])) })); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [productIds, boxSf]);
   const pricing = catalogue;
   /** What this version goes out as. A Draft can switch it in place before it is sent (Albert, 2026-11-07). */
   const [basisNow, setBasisNow] = useState<string | null>(version.basis);
@@ -658,6 +674,22 @@ export default function Editor({
               return m ? (
                 <div className="wastemath" aria-label="Quantity with waste">
                   {fmtQty(m.typed)} {u} + {fmtQty(m.pct)}% = <b>{fmtQty(m.actual)} {u}</b>
+                  {(() => {
+                    // Whole boxes (2026-11-17): what is ordered in boxes, and a button to round the quantity up to the next whole box.
+                    const fb = l.sourceKind === "product" && l.sourceId ? fullBoxes(l, boxSf[l.sourceId]) : null;
+                    if (!fb) return null;
+                    const box = boxSf[l.sourceId!]!;
+                    return (
+                      <div className="boxmath">
+                        {fmtQty(fb.boxes)} box{fb.boxes === 1 ? "" : "es"} of {fmtQty(box)} sf
+                        {!fb.whole && (
+                          <button type="button" className="linkbtn" title={`Sets the quantity to ${fmtQty(fb.qty)} ${u}, so with ${fmtQty(m.pct)}% waste it orders ${fb.up} full boxes`} onClick={() => upd({ qty: fb.qty })}>
+                            Round up to {fb.up} box{fb.up === 1 ? "" : "es"}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               ) : null;
             })()}

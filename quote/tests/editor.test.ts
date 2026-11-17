@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { lineFlags, lineTotal, optionHst, optionTotals } from "../src/lib/calc";
 import { OPTION } from "../src/lib/airtable/fields";
 import {
+  boxText,
+  fullBoxes,
   productLine,
   rankProducts,
   unsavedDraftAt,
@@ -811,5 +813,35 @@ describe("catalogue products in the Materials picker (2026-11-17)", () => {
       { sku: "a-100", name: "Gamma" },
     ];
     expect(rankProducts(list, "A-100").map((x) => x.name)).toEqual(["Gamma", "Beta", "Alpha"]);
+  });
+});
+
+describe("box size beside a catalogue product (2026-11-17)", () => {
+  it("reads as sf/box, and as nothing when the catalogue has none", () => {
+    expect(boxText(22.456)).toBe("22.46 sf/box");
+    expect(boxText(20)).toBe("20 sf/box");
+    expect([boxText(null), boxText(undefined), boxText(0)]).toEqual(["", "", ""]);
+  });
+});
+
+describe("whole boxes on a product line (2026-11-17)", () => {
+  it("rounds the quantity up so qty x (1 + waste) orders the next whole box", () => {
+    const fb = fullBoxes({ qty: 100, waste: 0.1 }, 20);
+    expect(fb).toMatchObject({ boxes: 5.5, up: 6, whole: false });
+    // 6 boxes x 20 sf = 120 sf ordered; 120 / 1.1 = 109.0909.. rounded up to the cent.
+    expect(fb!.qty).toBe(109.1);
+    expect(lineTotal({ ...productLine({ recordId: "recTEST000000001", sku: "T", name: "Test", rate: 1, cost: 1 }), qty: fb!.qty, waste: 0.1 })).toBeGreaterThanOrEqual(120);
+  });
+  it("says whole when it already is, and nothing without a box size or a quantity", () => {
+    expect(fullBoxes({ qty: 100, waste: 0.2 }, 20)).toMatchObject({ boxes: 6, whole: true, qty: 100 });
+    expect(fullBoxes({ qty: 100, waste: 0.1 }, null)).toBeNull();
+    expect(fullBoxes({ qty: null, waste: 0.1 }, 20)).toBeNull();
+  });
+  it("never orders short after rounding", () => {
+    for (const [qty, waste, box] of [[87.3, 0.1, 23.46], [412, 0.15, 19.92], [55.5, 0, 31.2], [1000, 0.1, 22.17]] as const) {
+      const fb = fullBoxes({ qty, waste }, box)!;
+      expect(Math.round(fb.qty * (1 + waste) * 100) / 100).toBeGreaterThanOrEqual(Math.round(fb.up * box * 100) / 100);
+      expect(fullBoxes({ qty: fb.qty, waste }, box)!.up).toBe(fb.up);
+    }
   });
 });

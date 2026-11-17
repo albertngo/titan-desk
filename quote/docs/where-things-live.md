@@ -1550,4 +1550,13 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   `productLine()` in `src/lib/editor/model.ts`: "Name (SKU)", retail as the card price and catalogue cost as the cost
   snapshot, per sqft, qty 1, 10% waste (15% herringbone or tile, as `materialWaste()`). Premium does not mark it up
   (materials never are). The Customer view hides its cost. Read-only: the catalogue is never written. Tested in
-  `tests/editor.test.ts`.
+  `tests/editor.test.ts`. **Box size (same day, Albert: "Can the material catalogue selection also show sf/b"):** both
+  product pickers (this one and the quick form's Choose a specific product, its standard product too) show the
+  catalogue's Box Size (sf) as "22.5 sf/box" (`boxText()`, `CAT.boxSf`); none on file shows nothing. Display only: it
+  changes no quantity or price. **Whole boxes (same day, Albert: "a button calculator to help 'adjust' the quantity to
+  match the desired types sf so that it becomes equal number of boxes"):** under a product line's material math the
+  editor shows what it orders in boxes and, when that isn't whole, a **Round up to N boxes** button. `fullBoxes()` in
+  `model.ts`: the next whole box up of Qty x (1 + Waste), and the quantity that orders it with the same waste, rounded up
+  to the cent so it is never short (within 0.02 sf counts as whole). It changes the Qty only, never the waste. Box sizes
+  come from `productBoxesAction()` → `productBoxes()` in `load.ts` (read-only, by record id) and live in the editor's
+  state, never on the line, so the quote's fingerprint is untouched. Tested in `tests/editor.test.ts`.

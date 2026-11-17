@@ -516,7 +516,8 @@ function toProduct(r: AirtableRecord): QuickProduct | null {
   const rate = num(f[CAT.retail]);
   const name = str(f[CAT.name]);
   if (rate === null || !name) return null;
-  return { recordId: r.id, sku: str(f[CAT.sku]) ?? "", name, rate, cost: num(f[CAT.cost]) };
+  const box = num(f[CAT.boxSf]);
+  return { recordId: r.id, sku: str(f[CAT.sku]) ?? "", name, rate, cost: num(f[CAT.cost]), boxSf: box !== null && box > 0 ? box : null };
 }
 
 const skuFormula = (skus: string[]) => `OR(${skus.map((s) => `{${CAT.sku}}='${s.replace(/[\\']/g, "")}'`).join(",")})`;
@@ -597,4 +598,18 @@ export async function searchProducts(query: string): Promise<QuickProduct[]> {
   const recs = await listRecords(CATALOGUE_TABLE, { fields: Object.values(CAT), filterByFormula: formula });
   // An exact SKU first (2026-11-17), so typing a SKU in the editor's Materials search finds that product at the top.
   return rankProducts(recs.flatMap((r) => { const p = toProduct(r); return p ? [p] : []; }), query).slice(0, 12);
+}
+
+/**
+ * Box Size (sf) of catalogue products by record id (2026-11-17), for the editor's whole-boxes button on product lines.
+ * Read-only; any product, active or not, since a saved line may point at one switched off since. Absent = none on file.
+ */
+export async function productBoxes(recordIds: string[]): Promise<Record<string, number>> {
+  await requireQuoter();
+  const wanted = [...new Set(recordIds.filter((id) => /^rec[A-Za-z0-9]{14}$/.test(id)))].slice(0, 100);
+  if (wanted.length === 0) return {};
+  const recs = await listByIds(CATALOGUE_TABLE, wanted, [CAT.boxSf]);
+  const out: Record<string, number> = {};
+  for (const r of recs) { const b = num(r.fields[CAT.boxSf]); if (b !== null && b > 0) out[r.id] = b; }
+  return out;
 }
