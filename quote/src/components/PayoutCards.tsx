@@ -14,6 +14,7 @@ import {
   groupCards,
   MAX_CARDS,
   moveLine,
+  moveLineTo,
   parsePayouts,
   pushProblem,
   pushState,
@@ -89,6 +90,13 @@ function NumBox({ value, onChange, label, placeholder, className }: { value: num
 }
 
 const NO_CAM = "This quote has no CompanyCam project linked yet.";
+/** The select value that asks for a typed name (2026-11-17: any payout receiver, not only the Rate Card's). */
+const NEW = "__new__";
+/** Ask for a payout receiver's name; null when cancelled or blank. */
+function askName(): string | null {
+  const name = window.prompt("Who is this payout for? Type any name: a contractor, a crew or a person.");
+  return name && name.trim() ? name.trim().slice(0, 80) : null;
+}
 
 export function PayoutCards({ quoteRecordId, versionId, raw, options, defaultIds, candidates, header, contractors, camUrl }: Props) {
   const [seen, setSeen] = useState(raw);
@@ -249,7 +257,10 @@ export function PayoutCards({ quoteRecordId, versionId, raw, options, defaultIds
                 <li key={s.option}>
                   <label className="po-stair">
                     <span>{s.option}</span>
-                    <select className="in" aria-label={`Contractor for ${s.option}`} value={s.contractor} onChange={(e) => e.target.value && setSet((x) => assignOption(x, s.option, e.target.value))}>
+                    <select className="in" aria-label={`Contractor for ${s.option}`} value={s.contractor} onChange={(e) => {
+                        const v = e.target.value === NEW ? askName() : e.target.value;
+                        if (v) setSet((x) => assignOption(x, s.option, v));
+                      }}>
                       <option value="">{s.contractor ? s.contractor : "Pick a contractor…"}</option>
                       {[...new Set([...contractors, ...set.cards.map((c) => c.contractor.trim()).filter(Boolean)])]
                         .filter((c) => c.toLowerCase() !== s.contractor.toLowerCase())
@@ -257,17 +268,18 @@ export function PayoutCards({ quoteRecordId, versionId, raw, options, defaultIds
                         .map((c) => (
                           <option key={c} value={c}>{c}</option>
                         ))}
+                      <option value={NEW}>+ New contractor…</option>
                     </select>
                   </label>
                 </li>
               ))}
             </ul>
-            <p className="faint">Moves every line of that stairs option onto the contractor&apos;s card, making the card if there isn&apos;t one.</p>
+            <p className="faint">Moves every line of that stairs option onto the contractor&apos;s card, making the card if there isn&apos;t one. + New contractor… takes any name you type.</p>
           </fieldset>
         )}
 
         {set.cards.length === 0 ? (
-          <p className="empty">No payout cards yet. Tick the final options and press Build cards, or add a card by hand.</p>
+          <p className="empty">No payout cards yet. Tick the final options and press Build cards, or press + New contractor to start a card for anyone you type.</p>
         ) : (
           <ol className="po-cards">
             {set.cards.map((card) => {
@@ -347,14 +359,24 @@ export function PayoutCards({ quoteRecordId, versionId, raw, options, defaultIds
                             </td>
                             <td className="num po-amt">{money(payoutAmount(l))}</td>
                             <td className="po-c-act">
-                              {others(card).length > 0 && (
-                                <select className="in po-move" aria-label="Move to another card" value="" onChange={(e) => e.target.value && setSet((s) => moveLine(s, l.id, e.target.value))}>
-                                  <option value="">Move…</option>
-                                  {others(card).map((c) => (
-                                    <option key={c.id} value={c.id}>{c.contractor.trim() || "Unnamed card"}</option>
-                                  ))}
-                                </select>
-                              )}
+                              <select
+                                className="in po-move"
+                                aria-label="Move to another card"
+                                value=""
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  if (v === NEW) {
+                                    const name = askName();
+                                    if (name) setSet((s) => moveLineTo(s, l.id, name));
+                                  } else if (v) setSet((s) => moveLine(s, l.id, v));
+                                }}
+                              >
+                                <option value="">Move…</option>
+                                {others(card).map((c) => (
+                                  <option key={c.id} value={c.id}>{c.contractor.trim() || "Unnamed card"}</option>
+                                ))}
+                                <option value={NEW}>+ New contractor…</option>
+                              </select>
                               <button type="button" className="iconbtn" title="Remove line" aria-label={`Remove ${l.description || "line"}`} onClick={() => setSet((s) => removeLine(s, card.id, l.id))}>
                                 ✕
                               </button>
@@ -410,8 +432,17 @@ export function PayoutCards({ quoteRecordId, versionId, raw, options, defaultIds
         {notice && !error && <p className="po-ok" role="status">{notice}</p>}
 
         <div className="rm-foot">
-          <button type="button" className="chip-btn" onClick={() => setSet((s) => addCard(s))} disabled={busy || set.cards.length >= MAX_CARDS}>
-            + Add card
+          <button
+            type="button"
+            className="chip-btn"
+            title="A card for anyone you type: a contractor, a crew or a person, on the Rate Card or not"
+            onClick={() => {
+              const name = askName();
+              if (name) setSet((s) => addCard(s, name));
+            }}
+            disabled={busy || set.cards.length >= MAX_CARDS}
+          >
+            + New contractor
           </button>
           {camUrl && (
             <a className="linkbtn" href={camUrl} target="_blank" rel="noreferrer">Open CompanyCam</a>

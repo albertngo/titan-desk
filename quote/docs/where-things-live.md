@@ -1281,7 +1281,14 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   card by name, else an unnamed card holding only that option is named, else a new card; a card left empty with no push
   or note is dropped). A card with ticked lines of both scopes reads "Flooring $… · Stairs $… · Total $…" and its
   picture (`cardSheet()`) groups Flooring then Stairs, each ending on its subtotal, with "Total payout, flooring and
-  stairs"; a one-scope card prints as before. The card's push signature is unchanged by this.
+  stairs"; a one-scope card prints as before. The card's push signature is unchanged by this. **Typed payout receivers
+  (same day, Albert: "Payouts should be fluid; and new contractor sections can be created and named manually. This is
+  until the rate card items with included contractors are more finalized… having the option to type our own payout
+  receiver is a good backup"):** **+ New contractor** (was + Add card) asks for a name and adds that card (`addCard()`,
+  trimmed, 80 characters); a line's **Move…** and the Stairs contractor select end with **+ New contractor…**, which
+  asks for a name and moves the line, or the whole staircase, to that name's card, made if missing (`moveLineTo()`,
+  `assignOption()`; names match without case). A card's name stays a free text box with the Rate Card's contractors only
+  suggested.
 - **Typed lines saved for next time, and logged (Albert, 2026-11-01: "When we add custom items and the quote ends
   up being SENT… make it so that those items are created for next time use and make them 'require review'… There
   should be a log of where it was used so I can ensure it wasn't wrongly charged").** After a quote is sent (never

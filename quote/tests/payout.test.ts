@@ -5,6 +5,7 @@ import {
   scopeTotals,
   stairsOptions,
   addCard,
+  emptySet,
   addLine,
   buildCards,
   camDescription,
@@ -16,6 +17,7 @@ import {
   defaultOptionIds,
   labourRate,
   moveLine,
+  moveLineTo,
   parsePayouts,
   payoutCandidates,
   pushProblem,
@@ -356,5 +358,22 @@ describe("flooring and stairs on one card (2026-11-17)", () => {
     const set = buildCards(quote([f, s]), [f.id, s.id], card, null);
     const back = parsePayouts(serializePayouts(set, "Sam", "2026-11-17T12:00:00.000Z"))!;
     expect(back.cards.flatMap((c) => c.lines.map((l) => l.scope))).toEqual(["Flooring", "Stairs", "Stairs"]);
+  });
+});
+
+describe("typed payout receivers (2026-11-17)", () => {
+  it("moves a line to a typed name: their card, else a new card named for them", () => {
+    const o = option({ lines: [line({ description: "Install" }), line({ description: "Baseboard", section: "Moulding" })] });
+    const set = buildCards(quote([o]), [o.id], card, null);
+    const id = set.cards[0].lines[1].id;
+    const made = moveLineTo(set, id, "  Jo Helper ");
+    expect(made.cards.map((c) => [c.contractor, c.lines.map((l) => l.description)])).toEqual([["Crew A", ["Install"]], ["Jo Helper", ["Baseboard"]]]);
+    const back = moveLineTo(made, id, "crew a");
+    expect(back.cards.map((c) => [c.contractor, c.lines.length])).toEqual([["Crew A", 2], ["Jo Helper", 0]]);
+    expect(moveLineTo(set, id, " ")).toBe(set);
+    expect(moveLineTo(set, "l999", "Jo")).toBe(set);
+  });
+  it("adds a card with a typed name, trimmed", () => {
+    expect(addCard(emptySet(), "  Sam Crew  ").cards[0].contractor).toBe("Sam Crew");
   });
 });
