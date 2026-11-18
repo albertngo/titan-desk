@@ -56,3 +56,16 @@ on the Mac, `npm install -D playwright && npx playwright install chromium` in th
 Image generation for hero visuals is optional and asks before every paid call.
 
 To update: clone upstream, replace `unslop/` with its `skills/unslop/`, update the commit above.
+
+## From [mattpocock/skills](https://github.com/mattpocock/skills)
+
+Copied verbatim from `main` on 2026-11-18 (`skills/productivity/grilling/` and
+`skills/productivity/grill-me/`). MIT, Matt Pocock; licence in `LICENSE-mattpocock-skills`.
+Albert asked for it on 2026-11-18 so that plans get stress-tested before a build.
+
+| Skill | Use it when |
+|---|---|
+| `grilling` | Stress-testing a plan, decision or idea. It asks questions in rounds over a design tree, gives a recommended answer for each, looks up facts itself, and doesn't act until you both agree. It runs when you say "grill me". |
+| `grill-me` | `/grill-me`, which just calls `grilling`. |
+
+To update: copy upstream's `skills/productivity/grilling/SKILL.md` and `grill-me/SKILL.md` over these.
