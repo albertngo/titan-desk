@@ -11,6 +11,7 @@ from `titan-agents`.
 | `web/` | the desk: catalogue search, staff askBert | staff (Microsoft sign-in) | never |
 | `quote/` | quoting | named quoters only (`QUOTE_ALLOWED_EMAILS`) | quote tables only, from one file — see `quote/CLAUDE.md` |
 | `quote/` (`QUOTE_MODE=customer`) | a customer's sent quote, `/c/<token>` | anyone holding the link | never: read-only token, and the client refuses (2026-10-15) |
+| `showroom/` (planned) | stair visualizer on the showroom iPad | staff (Microsoft sign-in) | stain swatches and Showroom Stair Options only, from one file (2026-11-18) |
 | (later) | public askBert on the website | anyone | never; its own deployment holding no write secret |
 
 Each app is its own Vercel project with its own secrets. A public app never shares a
@@ -18,12 +19,17 @@ deployment with a write token.
 
 ## Hard rules
 
-1. **Never write to Airtable — outside `quote/`.** The sync worker's PAT is created
+1. **Never write to Airtable — outside `quote/` and `showroom/`.** The sync worker's PAT is created
    read-only (`data.records:read` + `schema.bases:read`). Do not add write scopes, and do
    not add code paths that call Airtable create/update/delete endpoints in `web/`, `sync/`
    or `db/`. The single exception (Albert, 2026-10-11) is `quote/src/lib/airtable/client.ts`,
    which may write to the four quote tables only, with its own token, under `quote/CLAUDE.md`
    and its boundary test. Its first writes (creating a quote and its version 1, and saving the editor) shipped 2026-10-14.
+   The second exception (Albert, 2026-11-18: "change the rule. Now the showroom app can also
+   write to airtable"; vault `05_decisions/2026-11-18-showroom-visualizer-plan`) is
+   `showroom/src/lib/airtable/client.ts`, with its own token. It may upload the approved stair stain
+   swatch to the catalogue's swatch attachment field and write the Showroom Stair Options table,
+   nothing else, under a boundary test like quote's. The sync token stays read-only.
 2. **The web app reads views only.** `web/src/lib/db/queries.ts` is the only place that
    talks to the database, and it knows exactly these objects in schema `api`:
    `catalogue_staff`, `search_staff`, `search_staff_grouped`, `catalogue_facets`, `catalogue_browse`, `sync_status`, `design_dictionary`,
