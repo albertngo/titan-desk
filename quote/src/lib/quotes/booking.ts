@@ -8,6 +8,7 @@ import { buildBookingOpportunity } from "@/lib/link/ghlRequest";
 import { displayPhone, normalizeEmail, quoteNumber } from "@/lib/link/identity";
 import { addressStatus } from "@/lib/link/lead";
 import { makeConfigured, sendToGhl } from "@/lib/make/client";
+import { jobTokenOk } from "./jobToken";
 import { bookingQuotes, firstVersion } from "./records";
 import { ids, num, str } from "./values";
 
@@ -70,6 +71,8 @@ export async function bookQuote(key: string | null, raw: unknown): Promise<Booki
   if (parsed.value.opportunityId && !allOpps.some((o) => o.id === parsed.value.opportunityId)) {
     return { ok: false, status: 409, message: "That opportunity doesn't belong to this contact." };
   }
+  // Create CompanyCam + folder (2026-11-16): started from the quote's page. This quote, as it is: no match, no site confirmed.
+  if (parsed.value.fromApp) return fromApp(parsed.value.fromApp, contactId, allOpps, quotes);
   // A STORE order is never the job, even when GHL's Find Opportunity picks one.
   const opps = projectJobs(allOpps);
   const job = pickOpportunity(parsed.value.opportunityId, opps.filter((o) => o.status === "open"), recentlyClosed(opps, new Date()));
@@ -175,6 +178,43 @@ export async function bookQuote(key: string | null, raw: unknown): Promise<Booki
     needsLinking: !finalOpp,
     warning,
     note: notes.join(" ") || null,
+  };
+}
+
+/**
+ * The booked steps for one quote, started by staff (2026-11-16): the folder and CompanyCam project take its shared name,
+ * and nothing about the quote, its site or its opportunity changes. Make's opportunity update is skipped (no body).
+ */
+async function fromApp(
+  req: { quoteRecordId: string; token: string },
+  contactId: string,
+  allOpps: Awaited<ReturnType<typeof opportunitiesForContact>>,
+  quotes: Awaited<ReturnType<typeof bookingQuotes>>,
+): Promise<BookingResult> {
+  if (!jobTokenOk(req.token, req.quoteRecordId, contactId)) return { ok: false, status: 401, message: "That run wasn't started by the quote app." };
+  const mine = quotes.find((q) => q.id === req.quoteRecordId);
+  if (!mine || mine.contactId !== contactId) return { ok: false, status: 409, message: "That quote isn't this contact's." };
+  const record = await getRecord(T.quotes, mine.id);
+  const quoteNo = str(record.fields[QUOTE.quoteNumber]) ?? quoteNumber(num(record.fields[QUOTE.seq]) ?? 0);
+  const jobOpp = allOpps.find((o) => o.id === mine.opportunityId);
+  if (jobOpp?.companyCamUrl && !mine.companyCamUrl) {
+    await updateRecord(T.quotes, mine.id, { [QUOTE.companyCamUrl]: jobOpp.companyCamUrl }).catch(() => undefined);
+  }
+  return {
+    ok: true,
+    created: false,
+    quoteRecordId: mine.id,
+    quoteNumber: quoteNo,
+    name: str(record.fields[QUOTE.displayName]) ?? quoteNo,
+    versionId: ids(record.fields[QUOTE.versions]).at(-1) ?? null,
+    opportunityId: mine.opportunityId,
+    opportunityBody: null,
+    folderUrl: mine.folderUrl,
+    companyCamUrl: mine.companyCamUrl ?? jobOpp?.companyCamUrl ?? null,
+    made: alreadyMade(mine, jobOpp),
+    needsLinking: !mine.opportunityId,
+    warning: null,
+    note: null,
   };
 }
 

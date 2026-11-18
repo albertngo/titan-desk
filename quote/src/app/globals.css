@@ -2669,3 +2669,6 @@ table.items tr.subsect td { box-shadow: none !important; border-left: 0 !importa
 .past-name { font-weight: 600; }
 .past-amt { margin-left: auto; font-variant-numeric: tabular-nums; }
 .past-foot { display: flex; justify-content: flex-end; }
+/* Create CompanyCam + folder (2026-11-16): its answer under the header buttons. */
+.jf-note { flex-basis: 100%; text-align: right; margin: 4px 0 0; }
+.jf-note.bad { color: var(--bad); }

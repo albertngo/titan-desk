@@ -100,6 +100,15 @@ export const CHANGES: Change[] = [
   },
   {
     date: "2026-11-16",
+    kind: "new",
+    title: "Create CompanyCam + folder from a quote",
+    details: [
+      "A quote that has no CompanyCam project or job folder yet, such as a duplicate or a repeat job that was never booked, now has Create CompanyCam + folder at the top of its page. It runs the same steps a booking does: the CompanyCam project, the OneDrive job folder and its sheets, and the links on the quote and in GHL.",
+      "The site address is not confirmed by it, and nothing else on the quote or the opportunity changes. The links show on the quote in about a minute.",
+    ],
+  },
+  {
+    date: "2026-11-16",
     kind: "changed",
     title: "Old quotes copy over exactly, discounts included",
     details: [

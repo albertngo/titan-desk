@@ -54,6 +54,7 @@ repo with Root Directory `quote`. Rules for changing it: `CLAUDE.md` in this fol
 | `QUOTE_FOLLOWUP_KEY` | the key `.github/workflows/quote-followups.yml` sends to `/api/followups` (2026-11-09), also a GitHub secret. Unset = the run is off |
 | `QUOTE_AUTO_FOLLOWUPS` | Albert's switch for automatic measured follow-ups: exactly `on`, else off. Flip only as a dated vault decision |
 | `QUOTE_ADMIN_EMAILS` | who may open `/performance` (2026-11-10), comma-separated; they must also be on `QUOTE_ALLOWED_EMAILS`. Empty = nobody |
+| `QUOTE_MAKE_BOOKING_HOOK` | the address of Make 3453735's webhook (the one GHL's Estimate Scheduled workflow calls), for **Create CompanyCam + folder** (2026-11-16). Set it only after that scenario's first request passes `quoteRecordId` and `manual` on to `/api/booking`: without that, the run would be read as a booking and confirm the site. Unset = the button says it's off |
 | `QUOTE_BOOKING_KEY` | the key the booking scenario (Make 3453735) sends to `/api/booking` in the `x-quote-key` header. Unset = the booking step is off. Kept in Make and Vercel only |
 | `QUOTE_GHL_TOKEN` | its own GHL private integration token, used read-only: `contacts.readonly`, `opportunities.readonly`, `conversations.readonly`, `conversations/message.readonly` (the token may hold write scopes; the app's GHL client is GET-only and the boundary test keeps it so). Without it, New quote can only add new customers and no conversation shows |
 | `QUOTE_ALLOWED_EMAILS` | comma-separated Microsoft emails allowed to quote |

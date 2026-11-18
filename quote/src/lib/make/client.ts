@@ -18,6 +18,21 @@ import type { GhlMessage } from "@/lib/send/plan";
 
 export const makeConfigured = () => Boolean(process.env.QUOTE_MAKE_GHL_HOOK && process.env.QUOTE_MAKE_GHL_KEY);
 
+/**
+ * Create CompanyCam + folder (Albert, 2026-11-16): Make 3453735's own webhook, the one GHL's "Estimate Scheduled"
+ * workflow calls, so the app can start the booked steps for a quote. The only reader of QUOTE_MAKE_BOOKING_HOOK.
+ * Unset = the button is off.
+ */
+export const bookedRunConfigured = () => Boolean(process.env.QUOTE_MAKE_BOOKING_HOOK && process.env.QUOTE_BOOKING_KEY);
+
+/** Start the booked run. Make answers "Accepted" and carries on by itself; the links arrive on the quote when it is done. */
+export async function startBookedRun(payload: Record<string, unknown>): Promise<void> {
+  const url = process.env.QUOTE_MAKE_BOOKING_HOOK;
+  if (!url) throw new MakeError("Create CompanyCam + folder isn't switched on for this deployment.");
+  const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload), cache: "no-store", signal: AbortSignal.timeout(30_000) });
+  if (!res.ok) throw new MakeError(`Make didn't take the request (${res.status}).`);
+}
+
 export class MakeError extends Error {
   constructor(message: string) {
     super(message);

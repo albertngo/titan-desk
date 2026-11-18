@@ -6,6 +6,7 @@ import { makeChange, type SaveResult } from "@/lib/quotes/save";
 import { saveRooms } from "@/lib/quotes/rooms";
 import { savePayouts, type SavePayoutsResult } from "@/lib/quotes/payouts";
 import { saveDescription } from "@/lib/quotes/describe";
+import { requestJobFiles, type JobFilesResult } from "@/lib/quotes/jobFiles";
 import { clearSheet, saveFloorSheet, saveSiteSheet, sheetCamPhotos } from "@/lib/quotes/sitesheet";
 import { floorOptions, type FloorOptionsResult } from "@/lib/quotes/quickOption";
 import { markQuoteSent, resendQuote, sendQuote } from "@/lib/quotes/send";
@@ -104,4 +105,9 @@ export async function emailBillingAction(versionId: string, choice: BillingChoic
 /** Payout cards (2026-11-04): Quotes → Payouts, refused if it changed since the page opened. */
 export async function savePayoutsAction(quoteRecordId: string, seen: string, cards: unknown): Promise<SavePayoutsResult> {
   return savePayouts(String(quoteRecordId ?? ""), String(seen ?? ""), cards);
+}
+
+/** Create CompanyCam + folder (2026-11-16): starts Make's booked steps for this quote; the site is not confirmed. */
+export async function requestJobFilesAction(versionId: string): Promise<JobFilesResult> {
+  return requestJobFiles(String(versionId ?? ""));
 }

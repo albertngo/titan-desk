@@ -12,7 +12,7 @@ const SRC = path.resolve(__dirname, "../src");
 const CLIENT = "lib/airtable/client.ts";
 const GHL = "lib/ghl/client.ts";
 /** The only files allowed to create or update Airtable records. Adding one is a reviewed decision. */
-const WRITERS = ["lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/describe.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/accept/record.ts", "lib/quotes/sitesheet.ts", "lib/quotes/billing.ts", "lib/quotes/customItems.ts", "lib/quotes/payouts.ts", "lib/quotes/followup.ts", "lib/quotes/outside.ts", "lib/settings/settings.ts"];
+const WRITERS = ["lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/describe.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/accept/record.ts", "lib/quotes/sitesheet.ts", "lib/quotes/billing.ts", "lib/quotes/customItems.ts", "lib/quotes/payouts.ts", "lib/quotes/followup.ts", "lib/quotes/outside.ts", "lib/quotes/jobFiles.ts", "lib/settings/settings.ts"];
 const CATALOGUE = "tblfLXD3zkSdNQGbS";
 
 function files(dir: string): string[] {
@@ -88,7 +88,7 @@ describe("Airtable boundary", () => {
   });
 
   it("keeps the client, the loaders and the auth check server-only", () => {
-    for (const rel of [CLIENT, GHL, "lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/describe.ts", "lib/quotes/customer.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/activity/relay.ts", "lib/quotes/acceptClient.ts", "lib/accept/record.ts", "lib/accept/accept.ts", "lib/accept/staff.ts", "lib/accept/live.ts", "lib/quotes/sitesheet.ts", "lib/anthropic/client.ts", "lib/quotes/billing.ts", "lib/notion/payments.ts", "lib/companycam/client.ts", "lib/quotes/companycam.ts", "lib/quotes/payouts.ts", "lib/quotes/followup.ts", "lib/quotes/past.ts", "lib/auth.ts"]) {
+    for (const rel of [CLIENT, GHL, "lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/describe.ts", "lib/quotes/customer.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/activity/relay.ts", "lib/quotes/acceptClient.ts", "lib/accept/record.ts", "lib/accept/accept.ts", "lib/accept/staff.ts", "lib/accept/live.ts", "lib/quotes/sitesheet.ts", "lib/anthropic/client.ts", "lib/quotes/billing.ts", "lib/notion/payments.ts", "lib/companycam/client.ts", "lib/quotes/companycam.ts", "lib/quotes/payouts.ts", "lib/quotes/followup.ts", "lib/quotes/past.ts", "lib/quotes/jobFiles.ts", "lib/quotes/jobToken.ts", "lib/auth.ts"]) {
       expect(all.find((f) => f.rel === rel)!.text).toMatch(/^import "server-only";/m);
     }
   });
@@ -96,7 +96,7 @@ describe("Airtable boundary", () => {
   it("never imports Airtable code into a browser component", () => {
     const leaks = all
       .filter((f) => /^["']use client["'];?/m.test(f.text))
-      .filter((f) => /^import (?!type )[^;]*from ["']@\/lib\/(airtable|quotes\/load|quotes\/start|quotes\/save|quotes\/refresh|quotes\/records|quotes\/booking|quotes\/link|quotes\/send|quotes\/rooms|quotes\/customer|quotes\/conversation|quotes\/address|quotes\/activity|activity\/relay|quotes\/acceptClient|accept\/record|accept\/accept|accept\/staff|accept\/live|quotes\/sitesheet|quotes\/payouts|quotes\/billing|quotes\/companycam|quotes\/past|companycam\/client|notion\/payments|anthropic\/client|ghl\/client|make\/client|auth)/m.test(f.text))
+      .filter((f) => /^import (?!type )[^;]*from ["']@\/lib\/(airtable|quotes\/load|quotes\/start|quotes\/save|quotes\/refresh|quotes\/records|quotes\/booking|quotes\/link|quotes\/send|quotes\/rooms|quotes\/customer|quotes\/conversation|quotes\/address|quotes\/activity|activity\/relay|quotes\/acceptClient|accept\/record|accept\/accept|accept\/staff|accept\/live|quotes\/sitesheet|quotes\/payouts|quotes\/billing|quotes\/companycam|quotes\/past|quotes\/jobFiles|quotes\/jobToken|companycam\/client|notion\/payments|anthropic\/client|ghl\/client|make\/client|auth)/m.test(f.text))
       .map((f) => f.rel);
     expect(leaks).toEqual([]);
   });
@@ -107,7 +107,7 @@ describe("Airtable boundary", () => {
 
   it("checks the quoter allowlist in both the proxy and every loader", () => {
     expect(all.find((f) => f.rel === "proxy.ts")!.text).toContain("isQuoter(");
-    for (const rel of ["lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/sitesheet.ts", "lib/quotes/billing.ts", "lib/quotes/companycam.ts", "lib/quotes/payouts.ts", "lib/quotes/followup.ts", "lib/quotes/past.ts"]) {
+    for (const rel of ["lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/sitesheet.ts", "lib/quotes/billing.ts", "lib/quotes/companycam.ts", "lib/quotes/payouts.ts", "lib/quotes/followup.ts", "lib/quotes/past.ts", "lib/quotes/jobFiles.ts"]) {
       const text = all.find((f) => f.rel === rel)!.text;
       const exported = text.match(/export async function \w+/g) ?? [];
       const guarded = text.match(/export async function \w+[^{]*\{\s*(const \w+ = )?await requireQuoter(Person)?\(\);/g) ?? [];
@@ -121,6 +121,18 @@ describe("Airtable boundary", () => {
 });
 
 describe("booking step (Make, no sign-in)", () => {
+  it("starts the booked run from one quoter-guarded file, through the Make client, signed with the booking key (2026-11-16)", () => {
+    expect(all.filter((f) => /QUOTE_MAKE_BOOKING_HOOK/.test(code(f.text))).map((f) => f.rel)).toEqual(["lib/make/client.ts"]);
+    expect(all.filter((f) => f.rel !== "lib/make/client.ts" && /\bstartBookedRun\(/.test(code(f.text))).map((f) => f.rel)).toEqual(["lib/quotes/jobFiles.ts"]);
+    // The signature is made and checked in one file, keyed with the booking key; booking.ts only checks it.
+    expect(all.filter((f) => /from ["']\.\/jobToken["']|from ["']@\/lib\/quotes\/jobToken["']/.test(f.text)).map((f) => f.rel).sort()).toEqual(["lib/quotes/booking.ts", "lib/quotes/jobFiles.ts"]);
+    expect(code(all.find((f) => f.rel === "lib/quotes/booking.ts")!.text)).not.toMatch(/\bjobToken\(/);
+    // It writes only the quote's Notes.
+    const writes = code(all.find((f) => f.rel === "lib/quotes/jobFiles.ts")!.text).match(/\bupdateRecord\([^\n]*/g) ?? [];
+    expect(writes).toHaveLength(1);
+    expect(writes[0]).toMatch(/^updateRecord\(T\.quotes, link\.quoteRecordId, \{ \[QUOTE\.notes\]:/);
+  });
+
   const BOOKING = "lib/quotes/booking.ts";
   const ROUTE = "app/api/booking/route.ts";
 
@@ -274,7 +286,7 @@ describe("Make boundary", () => {
   it("is server-only and only reached from starting, booking, linking, sending and tracking a quote, Address arrived, and acceptance", () => {
     expect(all.find((f) => f.rel === "lib/make/client.ts")!.text).toMatch(/^import "server-only";/m);
     const callers = all.filter((f) => f.rel !== "lib/make/client.ts" && /from ["']@\/lib\/make\/client["']/.test(f.text)).map((f) => f.rel);
-    expect(callers.sort()).toEqual(["lib/accept/record.ts", "lib/quotes/activity.ts", "lib/quotes/address.ts", "lib/quotes/billing.ts", "lib/quotes/booking.ts", "lib/quotes/followup.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/start.ts"]);
+    expect(callers.sort()).toEqual(["lib/accept/record.ts", "lib/quotes/activity.ts", "lib/quotes/address.ts", "lib/quotes/billing.ts", "lib/quotes/booking.ts", "lib/quotes/followup.ts", "lib/quotes/jobFiles.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/start.ts"]);
   });
 
   it("Address arrived fills only the contact in GHL and only the Quotes table in Airtable", () => {
