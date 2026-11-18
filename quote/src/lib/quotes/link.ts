@@ -95,9 +95,11 @@ export async function linkToJob(quoteRecordId: string, opportunityId: string): P
   const ourCam = str(quote.fields[QUOTE.companyCamUrl]);
   // A job that already has its own CompanyCam project keeps it; the quote's is noted, not written over it.
   const camClash = Boolean(ourCam && job.companyCamUrl && ourCam !== job.companyCamUrl);
+  // The job folder the same way (2026-11-18): a job that has its own keeps it.
+  const ourFolder = str(quote.fields[QUOTE.folderUrl]);
 
   try {
-    await sendToGhl(buildLinkJob({ contactId, opportunityId: job.id, reopen: job.reopen, quoteNumber: quoteNo, site, companyCamUrl: job.companyCamUrl ? null : ourCam }));
+    await sendToGhl(buildLinkJob({ contactId, opportunityId: job.id, reopen: job.reopen, quoteNumber: quoteNo, site, companyCamUrl: job.companyCamUrl ? null : ourCam, folderUrl: job.folderUrl ? null : ourFolder }));
   } catch (e) {
     return { ok: false, message: `GHL wasn't updated (${e instanceof Error ? e.message.slice(0, 120) : "error"}), so nothing was linked. Try again.` };
   }
@@ -155,7 +157,7 @@ export async function createJobForQuote(quoteRecordId: string, pick: unknown): P
   let opportunityId: string;
   try {
     ({ opportunityId } = await sendToGhl(
-      buildNewJob({ contactId, quoteNumber: quoteNo, name, pipelineId: place.pipelineId, stageId: place.stageId, site, companyCamUrl: str(quote.fields[QUOTE.companyCamUrl]) }),
+      buildNewJob({ contactId, quoteNumber: quoteNo, name, pipelineId: place.pipelineId, stageId: place.stageId, site, companyCamUrl: str(quote.fields[QUOTE.companyCamUrl]), folderUrl: str(quote.fields[QUOTE.folderUrl]) }),
     ));
   } catch (e) {
     return { ok: false, message: `GHL didn't confirm a new opportunity (${e instanceof Error ? e.message.slice(0, 120) : "error"}). Check GHL before trying again, in case it was made.` };

@@ -71,6 +71,8 @@ export function bookedRunPayload(i: {
   quoteRecordId: string;
   token: string;
   name: string | null;
+  firstName: string | null;
+  lastName: string | null;
   phone: string | null;
   email: string | null;
   address: string | null;
@@ -79,6 +81,9 @@ export function bookedRunPayload(i: {
   return {
     contact_id: i.contactId,
     full_name: i.name ?? "",
+    // The INQ / QE sheets' name cell reads these two (Make 3453735, modules 24 and 31).
+    first_name: i.firstName ?? "",
+    last_name: i.lastName ?? "",
     phone: i.phone ?? "",
     email: i.email ?? "",
     city: i.city ?? "",

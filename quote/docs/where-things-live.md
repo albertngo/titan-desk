@@ -190,6 +190,12 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   second folder. **Make change:** module 200's body gains `"quoteRecordId"` and `"manual"` from
   `52.customData.quote_record_id` / `.manual`; GHL never sends them, so a real booking is unchanged. Set
   `QUOTE_MAKE_BOOKING_HOOK` only after that change. Tested in `tests/jobFiles.test.ts` and `tests/boundary.test.ts`.
+  **The job folder on the opportunity (Albert, 2026-11-18: "add folder field").** GHL's opportunity field **Job Folder**
+  (`OPP_FIELDS.jobFolder`, made by Albert) holds the OneDrive folder's link. Make 3453735's opportunity steps (206 and
+  207) write it with the CompanyCam URL, on every run, booked or from the button; their filter is now "the job has an
+  opportunity and either link was made". Linking a quote (`buildLinkJob()`) and making its opportunity (`buildNewJob()`)
+  carry the quote's folder link too, and a job that already has its own folder keeps it, as with CompanyCam. The
+  button's run also sends `first_name` / `last_name`, which the INQ and QE sheets' name cells read.
 - **Where they found us (Albert, 2026-10-27).** A preliminary's customer step asks **Where did they
   find us?** from a fixed list (`ORIGINS` in `src/lib/link/origin.ts`). The pick is the most
   trusted answer: it goes into the GHL contact's **Quote Origin** custom field (`CONTACT_ORIGIN_FIELD`),

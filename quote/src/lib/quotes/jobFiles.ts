@@ -45,6 +45,8 @@ export async function requestJobFiles(versionId: string): Promise<JobFilesResult
       quoteRecordId: link.quoteRecordId,
       token,
       name: quote.customerName,
+      firstName: link.firstName,
+      lastName: link.lastName,
       phone: link.phone,
       email: link.email,
       address: quote.siteAddress,

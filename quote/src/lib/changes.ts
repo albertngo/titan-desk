@@ -21,6 +21,15 @@ export type Change = {
 
 export const CHANGES: Change[] = [
   {
+    date: "2026-11-18",
+    kind: "new",
+    title: "The job folder goes on the GHL opportunity",
+    details: [
+      "When a job's OneDrive folder is made, by a booking or by Create CompanyCam + folder, its link now goes on the opportunity's Job Folder field in GHL, next to the CompanyCam URL.",
+      "Linking a quote to an opportunity, or making one from the quote, also puts the quote's folder link there when the opportunity has none.",
+    ],
+  },
+  {
     date: "2026-11-17",
     kind: "changed",
     title: "Settings in your account menu",
