@@ -39,10 +39,12 @@ describe("Create CompanyCam + folder (2026-11-16)", () => {
   });
 
   it("sends Make the fields GHL's workflow sends, the site as it stands, and the quote with its signature", () => {
-    const p = bookedRunPayload({ contactId: C, opportunityId: null, quoteRecordId: Q, token: "t", name: "Jane Doe", phone: "+15550000000", email: null, address: "1 Example St", city: "Testville" });
+    const p = bookedRunPayload({ contactId: C, opportunityId: null, quoteRecordId: Q, token: "t", name: "Jane Doe", firstName: "Jane", lastName: "Doe", phone: "+15550000000", email: null, address: "1 Example St", city: "Testville" });
     expect(p).toEqual({
       contact_id: C,
       full_name: "Jane Doe",
+      first_name: "Jane",
+      last_name: "Doe",
       phone: "+15550000000",
       email: "",
       city: "Testville",

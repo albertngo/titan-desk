@@ -127,7 +127,8 @@ export function buildGhlRequest(i: GhlRequestInput): GhlRequest {
  * Linking a quote that says Needs linking to the job staff picked (2026-10-15). Same "link" route
  * through Make as starting a quote on an existing opportunity, with the contact left as it is (an
  * empty update). The job gets the quote number, the site if the quote's is confirmed, and the
- * CompanyCam link if the job has none; a job that was lost or abandoned is set back to open.
+ * CompanyCam link if the job has none; a job that was lost or abandoned is set back to open. Since 2026-11-18 the
+ * quote's job folder goes on the job's Job Folder field the same way, when the job has none.
  */
 export function buildLinkJob(i: {
   contactId: string;
@@ -136,10 +137,12 @@ export function buildLinkJob(i: {
   quoteNumber: string;
   site: { address: string | null; city: string | null } | null;
   companyCamUrl: string | null;
+  folderUrl?: string | null;
 }): GhlRequest {
   const fields = [
     ...oppFields(i.quoteNumber, i.site ?? { address: null, city: null }),
     ...(i.companyCamUrl ? [{ id: OPP_FIELDS.companyCamUrl, field_value: i.companyCamUrl }] : []),
+    ...(i.folderUrl ? [{ id: OPP_FIELDS.jobFolder, field_value: i.folderUrl }] : []),
   ];
   return {
     mode: "link",
@@ -167,6 +170,7 @@ export function buildNewJob(i: {
   stageId: string;
   site: { address: string | null; city: string | null } | null;
   companyCamUrl: string | null;
+  folderUrl?: string | null;
 }): GhlRequest {
   return {
     mode: "new-opportunity",
@@ -183,6 +187,7 @@ export function buildNewJob(i: {
       customFields: [
         ...oppFields(i.quoteNumber, i.site ?? { address: null, city: null }),
         ...(i.companyCamUrl ? [{ id: OPP_FIELDS.companyCamUrl, field_value: i.companyCamUrl }] : []),
+        ...(i.folderUrl ? [{ id: OPP_FIELDS.jobFolder, field_value: i.folderUrl }] : []),
       ],
     }),
   };

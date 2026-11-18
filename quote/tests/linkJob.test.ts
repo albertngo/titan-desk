@@ -57,6 +57,17 @@ describe("linking a quote: what GHL is sent", () => {
     });
   });
 
+  it("carries the quote's job folder onto the job's Job Folder field (2026-11-18)", () => {
+    const body = JSON.parse(buildLinkJob({ ...base, reopen: false, site: null, companyCamUrl: "https://example.com/p/1", folderUrl: "https://example.sharepoint.com/f/1" }).oppBody);
+    expect(body.customFields).toEqual([
+      { id: OPP_FIELDS.quoteNumber, field_value: "Q-1234" },
+      { id: OPP_FIELDS.companyCamUrl, field_value: "https://example.com/p/1" },
+      { id: OPP_FIELDS.jobFolder, field_value: "https://example.sharepoint.com/f/1" },
+    ]);
+    // None, or a job that already has one (link.ts passes null): nothing written.
+    expect(JSON.parse(buildLinkJob({ ...base, reopen: false, site: null, companyCamUrl: null, folderUrl: null }).oppBody).customFields).toHaveLength(1);
+  });
+
   it("leaves an open job's status, and a site that isn't confirmed, alone", () => {
     const body = JSON.parse(buildLinkJob({ ...base, reopen: false, site: null, companyCamUrl: null }).oppBody);
     expect(body).toEqual({ customFields: [{ id: OPP_FIELDS.quoteNumber, field_value: "Q-1234" }] });

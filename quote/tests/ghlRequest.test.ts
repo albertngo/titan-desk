@@ -182,6 +182,14 @@ describe("a new opportunity from the Link to Opportunity card (2026-11-03): in t
       { id: OPP_FIELDS.companyCamUrl, field_value: "https://app.companycam.com/projects/123" },
     ]);
   });
+
+  it("carries the quote's job folder onto the new job (2026-11-18)", () => {
+    const r = buildNewJob({ ...job, companyCamUrl: null, folderUrl: "https://example.sharepoint.com/f/1" });
+    expect(parse(r.oppBody).customFields).toEqual([
+      { id: OPP_FIELDS.quoteNumber, field_value: "Q-1234" },
+      { id: OPP_FIELDS.jobFolder, field_value: "https://example.sharepoint.com/f/1" },
+    ]);
+  });
 });
 
 describe("the value on a send (2026-11-17)", () => {
