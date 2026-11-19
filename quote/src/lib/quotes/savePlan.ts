@@ -137,7 +137,10 @@ const orNull = (s: string) => (s.trim() === "" ? null : s.trim());
  * What Airtable's Description formula shows for a card line with no typed wording. Saving that
  * same text as an override would pin it, so it is saved blank and the formula keeps it.
  */
-const cardWording = (l: EditorLine) => (l.sourceKind === "rate" && l.labourType && l.spec ? `${l.labourType} | ${l.spec}` : null);
+const cardWording = (l: EditorLine) =>
+  // A Material line always keeps its own words (2026-11-19): Airtable's fallback for a Material line names a catalogue
+  // product, so a Rate Card material saved blank read back as "Material |  |" after the next autosave.
+  l.sourceKind === "rate" && l.labourType && l.spec && l.lineType !== "Material" ? `${l.labourType} | ${l.spec}` : null;
 
 export function lineFields(l: EditorLine, sortOrder: number): Fields {
   const wording = orNull(l.description);
