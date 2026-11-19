@@ -156,6 +156,11 @@ describe("line fields", () => {
     expect(lineFields(L({ id: "y", description: "Haul away old tile" }), 1)[LINE.descriptionOverride]).toBe("Haul away old tile");
   });
 
+  it("keeps a Rate Card material line's own name, so it never reads back as 'Material |  |'", () => {
+    const mat = { id: "m", sourceKind: "rate" as const, sourceId: "recRate000000000B", labourType: "Material", spec: "Engineered", lineType: "Material", section: "Materials" };
+    expect(lineFields(L({ ...mat, description: "Material | Engineered" }), 1)[LINE.descriptionOverride]).toBe("Material | Engineered");
+  });
+
   it("writes every section the editor has, Private included (2026-10-22), and blanks one Airtable doesn't know", () => {
     expect(lineFields(L({ id: "p", section: "Private", lineType: "Other", description: "Referral fee" }), 1)[LINE.section]).toBe("Private");
     expect(cleanEditorQuote({ options: [O({ id: "o", lines: [L({ id: "p", section: "Private" })] })] }).options[0].lines[0].section).toBe("Private");

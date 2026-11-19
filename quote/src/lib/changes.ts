@@ -21,6 +21,15 @@ export type Change = {
 
 export const CHANGES: Change[] = [
   {
+    date: "2026-11-19",
+    kind: "fixed",
+    title: "Material lines keep their names",
+    details: [
+      "A material picked from the rate card no longer turns into \"Material ||\" a few seconds after you add it. The rate was always right; only the name was lost when the editor saved.",
+      "Lines already saved with that name now show the rate card's name again.",
+    ],
+  },
+  {
     date: "2026-11-18",
     kind: "new",
     title: "The job folder goes on the GHL opportunity",
