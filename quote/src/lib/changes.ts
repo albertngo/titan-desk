@@ -21,6 +21,15 @@ export type Change = {
 
 export const CHANGES: Change[] = [
   {
+    date: "2026-11-20",
+    kind: "fixed",
+    title: "Waste on materials added in the editor",
+    details: [
+      "A material added from the rate card in the edit screen (Engineered, Vinyl, Laminate and the rest) now starts with the same waste as the quick form: 10%, or 15% for herringbone and tile.",
+      "A rate card row with its own Default Waste still uses that. You can change the % waste on the line as before.",
+    ],
+  },
+  {
     date: "2026-11-19",
     kind: "fixed",
     title: "Material lines keep their names",
