@@ -725,23 +725,29 @@ the behaviour it describes.** New bullets go here, with a line in the index.
 - **Show history on All quotes, and the staff note (Albert, 2026-11-20: "review what has changed, whose account made
   the last sent version, and a short description on those changes … a per quote show history"; "Jsut the quote app
   front desk"; "its an optional note"; the note goes in GHL "only after the text sms goes out … add it to that
-  internal message").** A quote's expanded row on All quotes has **Show history**: every version that went out (Sent
-  At and a frozen copy), newest first, with Sent By as a first name (`firstNameOf()`, info@ = Joey), how it went (from
+  internal message"; then "put the history right below each individual quote line … right under it instead of a
+  separate history section").** Opening a quote's row on All quotes reads its history once, and each version that went
+  out (Sent At and a frozen copy) carries its own right under its line, with Sent By as a first name (`firstNameOf()`, info@ = Joey), how it went (from
   the send's Edit Log line, else Sent To), the staff note, and what changed since the version sent before it, from the
   two frozen customer copies (`copyChanges()`). **One line per option** (Albert, 2026-11-20: "a simple one liner to
   describe so its easy to see. Sqft and Prices noted"): name, install sqft (`installSqft()`: Install lines in sqft, as
   the material check counts them) and price before HST or the range, an arrow where either moved, "(new)" or "removed
   (was …)"; options pair by name, a lone option renamed. Behind **Details**: lines through `diffOptions()` in
   `src/lib/change/diff.ts`, range/exact, lump/breakdown, discount, good-until. Send
-  again lines show under their version. The working draft, if any, heads it with who last saved it. Not on Follow up.
-  Read only when pressed (`sendHistoryAction()` → `loadSendHistory()` in `src/lib/quotes/sendHistoryLoad.ts`), so
-  the list loads no copies; shaped by `sendHistory()` in `src/lib/quotes/sendHistory.ts`, tested in
+  again lines show under their version. The working draft's line says who last saved it. Not on Follow up.
+  **Also at the top of the quote page and the editor** (Albert, 2026-11-20: "at the top next to the name? A small
+  scrollable section for ease of use but out of the way", then "to the left touching the left column"): `HistoryPanel` in `src/components/QuoteHistory.tsx`, on the left right beside the name, in the
+  header between the name and the status, 116px tall and scrolling (full width under Save on a phone), the version on
+  screen highlighted, Details shortened to one line. Staff only: never in Customer view.
+  Read only when a row is opened (`useSendHistory()` in `src/components/QuoteHistory.tsx`, cached per page view by the
+  quote's versions and statuses → `sendHistoryAction()` → `loadSendHistory()` in `src/lib/quotes/sendHistoryLoad.ts`),
+  so the list loads no copies; shaped by `sendHistory()` in `src/lib/quotes/sendHistory.ts`, tested in
   `tests/sendHistory.test.ts`. **The staff note** is optional, one line, at most 140 characters
   (`src/lib/quotes/staffNote.ts`), on the Send card (Send and Mark as sent) and on Send again. It is kept at the end
   of that send's Edit Log line after ` · note: ` (no new Airtable field: the Edit Log is the version's record of
   what happened, 2026-10-22's decision), and on a Send it is the last line of GHL's internal comment and contact note
   (`sentComment()`), which post after the email and the text. Mark as sent and Send again post no GHL comment, so
-  their note is in the history only. Never in the customer copy, the email, the text, the page or the PDF; the test
+  their note shows only under the version. Never in the customer copy, the email, the text, the page or the PDF; the test
   checks send.ts passes it to none of them.
 - **The customer deployment (2026-10-15).** Customer links `/c/<token>` and their PDFs are served by
   a second Vercel project on this folder with `QUOTE_MODE=customer` and a read-only Airtable token,

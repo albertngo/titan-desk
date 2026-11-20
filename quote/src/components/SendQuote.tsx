@@ -177,7 +177,7 @@ export function SendAsPicker({ list, value, onChange, disabled = false }: { list
 
 /**
  * The optional staff note (Albert, 2026-11-20: "a message to put on this sent quote for staff only … its an optional
- * note"). Kept on the version's Edit Log line and shown in Show history on All quotes; on a send it also goes in GHL's
+ * note"). Kept on the version's Edit Log line and shown under that version on All quotes; on a send it also goes in GHL's
  * internal comment. Never in the email, the text, the page or the PDF.
  */
 function StaffNoteField({ value, onChange, disabled, ghl }: { value: string; onChange: (v: string) => void; disabled?: boolean; ghl: boolean }) {

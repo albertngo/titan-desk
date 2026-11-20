@@ -9,7 +9,7 @@ import { ids, num, str } from "./values";
 const RECORD_ID = /^rec[A-Za-z0-9]{14}$/;
 
 /**
- * Show history on All quotes (Albert, 2026-11-20): one quote's versions, read when the button is pressed so the list
+ * Show history on All quotes (Albert, 2026-11-20): one quote's versions, read when its row is opened so the list
  * itself stays as light as it was. Read only; checks the quoter allowlist first. The shaping is `sendHistory()`.
  */
 export async function loadSendHistory(quoteRecordId: string): Promise<{ ok: true; history: SendHistory } | { ok: false; message: string }> {
