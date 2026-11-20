@@ -399,7 +399,8 @@ export default function Editor({
     return true;
   };
 
-  const option = quote.options.find((o) => o.id === activeId) ?? firstOpenOption(quote.options);
+  // Memoized so the hooks below see one stable option per render (the React Compiler lint, 2026-11-20).
+  const option = useMemo(() => quote.options.find((o) => o.id === activeId) ?? firstOpenOption(quote.options), [quote.options, activeId]);
   // HST is the option's own (Albert, 2026-11-04), the version's only where the option has none set.
   const hstOn = option ? (option.showHst ?? quote.showHst) : quote.showHst;
   const t = option ? optionTotals(option.lines, quote.discountRate, hstOn) : null;
