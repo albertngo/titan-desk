@@ -23,7 +23,7 @@ import { optionHst, optionTotals, parityDiffs } from "@/lib/calc";
 import { money } from "@/lib/format";
 import { jobChoices } from "@/lib/quotes/link";
 import { billingState } from "@/lib/quotes/billing";
-import { partKey, scopeGroups } from "@/lib/quotes/scope";
+import { firstOpenOption, partKey, scopeGroups } from "@/lib/quotes/scope";
 import { loadContract } from "@/lib/quotes/contract";
 import { contractParts } from "@/lib/contract/model";
 import { fromWords } from "@/lib/quotes/group";
@@ -73,7 +73,7 @@ export default async function QuotePage({
   const showPhotos = opt === "photos" && !customer && Boolean(camUrl);
   // The Payouts tab (2026-11-04): contractor payout cards, staff only (it shows what we pay).
   const showPayouts = opt === "payouts" && !customer;
-  const option = showAnalysis || showRooms || showSheet || showPhotos || showPayouts ? null : (quote.options.find((o) => o.id === opt) ?? quote.options[0] ?? null);
+  const option = showAnalysis || showRooms || showSheet || showPhotos || showPayouts ? null : (quote.options.find((o) => o.id === opt) ?? firstOpenOption(quote.options));
   const tabGroups = scopeGroups(quote.options);
   // The option's own HST (2026-11-04), else the version's.
   const hstOn = optionHst(quote, option);

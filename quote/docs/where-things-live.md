@@ -1193,6 +1193,11 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   never sent (Albert, 2026-10-31: "as a safeguard, not even an option"): shown greyed and unselectable on the Send card, dropped by `chooseOptions()` even when a send names it (and refused by `sendProblems()`), a grey struck-through tab labelled Not offered and a note above the option.
   Both join the editor's option only when set (absent, never null or false), so drafts saved before them keep their
   fingerprint. Tested in `tests/scope.test.ts`.
+  **The option a quote opens on (Albert, 2026-11-20: "When something is 'not offered' can we ensure only the next
+  'open' option is selected as default? rather than the first one on the list"):** the quote page, the editor (on
+  load, after Discard and after deleting an option) and Analysis's accepted price open on `firstOpenOption()` in
+  `src/lib/quotes/scope.ts`: the first offered option in tab order (flooring, then stairs), else the first tab.
+  A link with `?opt=` still opens that option, offered or not. Tested in `tests/scope.test.ts`.
 - **One working quote (Albert, 2026-10-30; vault `05_decisions/2026-10-30-quote-one-working-quote`).** Staff work on
   one quote and its options; versions are the send history. **No Save as new version button**: a Draft saves in place;
   a sent version's editor saves **as the next draft** (`saveAsNewVersion()`, every option carried over, the basis picked

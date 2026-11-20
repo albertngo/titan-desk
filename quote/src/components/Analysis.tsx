@@ -22,7 +22,7 @@ export function Analysis({ quote, customer }: { quote: Quote; customer: boolean 
   }));
   // "If they accept a price": staff only, so its lines (cost included) are never sent to a Customer view page.
   const accepted = !customer && opts.length > 0 && (
-    <AcceptedPrice options={quote.options.map((o) => ({ id: o.id, name: o.name, lines: o.lines, showHst: optionHst(quote, o) }))} discountRate={quote.discountRate} showHst={quote.showHst} />
+    <AcceptedPrice options={quote.options.map((o) => ({ id: o.id, name: o.name, lines: o.lines, showHst: optionHst(quote, o), notOffered: Boolean(o.notOffered) }))} discountRate={quote.discountRate} showHst={quote.showHst} />
   );
   if (opts.length < 2)
     return (
