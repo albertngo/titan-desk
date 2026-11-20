@@ -6,6 +6,7 @@ import { whenWords } from "@/lib/activity/track";
 import { displayPhone } from "@/lib/link/identity";
 import { ago, DEFAULT_SORT, followUpReasons, fromWords, inFilter, quoteValue, reasonWords, isQuoteSort, lastSentVersion, matchesSearch, nextSort, openedOn, opensWords, QUOTE_FILTERS, QUOTE_SORTS, sortGroups, type QuoteFilter, type QuoteGroup, type QuoteSort, type QuoteSortKey, type VersionRow } from "@/lib/quotes/group";
 import { money, pulse, valueWords } from "@/lib/quotes/pipeline";
+import { QuoteHistory } from "./QuoteHistory";
 
 const dateOf = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric", year: "numeric" });
 const initials = (name: string | null) =>
@@ -415,6 +416,8 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
                     })}
                   </ul>
                 )}
+                {/* Show history (Albert, 2026-11-20): who sent each version, the staff note, what changed. All quotes only. */}
+                {expanded && g.quoteRecordId && <QuoteHistory quoteRecordId={g.quoteRecordId} />}
               </li>
             );
           })}

@@ -23,6 +23,7 @@ import { canMarkSent, lastSentOf, lastSentWay, MARKED_SENT, resolveSender, sendA
 import { settings } from "@/lib/settings/settings";
 import { changeEmailMessage, changeSmsMessage, fromTheirNumber, textFromFor, chooseOptions, chosenWords, customerLinks, emailFromFor, emailMessage, fromAttempts, noNumberWords, noSenderWords, isToken, newToken, parseOptionIds, parseResend, resendEmailMessage, resendKind, resendProblems, resendSmsMessage, sendProblems, smsMessage, type Channels, type Sender } from "@/lib/send/plan";
 import { authorFields, firstNameOf, type Person } from "./history";
+import { cleanStaffNote, withNote } from "./staffNote";
 import { loadContract } from "./contract";
 import { getQuote } from "./load";
 import { refreshFromGhl } from "./refresh";
@@ -281,7 +282,7 @@ export async function previewEmail(versionId: string, validUntil?: string, itemi
   return m.type === "Email" ? m.html : null;
 }
 
-function readInput(raw: unknown): { base: string; validUntil: string | null; channels: Channels; itemised: boolean; pdf: boolean; optionIds: string[] | null; range: boolean } | null {
+function readInput(raw: unknown): { base: string; validUntil: string | null; channels: Channels; itemised: boolean; pdf: boolean; optionIds: string[] | null; range: boolean; staffNote: string | null } | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
   const ch = (r.channels ?? {}) as Record<string, unknown>;
@@ -289,7 +290,7 @@ function readInput(raw: unknown): { base: string; validUntil: string | null; cha
   // Lump sum unless the sender chose the breakdown (2026-10-22). A null date is a preliminary's; sendProblems refuses it on anything else.
   // `range` (2026-10-27): a preliminary goes as a range unless the sender says false, so a missing value is the range.
   // `pdf` (2026-10-27): the quote page offers the PDF only when the sender ticked it; it is never attached to the email.
-  return { base: r.base, validUntil: typeof r.validUntil === "string" ? r.validUntil : null, channels: { email: ch.email === true, sms: ch.sms === true }, itemised: r.itemised === true, pdf: r.pdf === true, optionIds: r.optionIds === undefined || r.optionIds === null ? null : (parseOptionIds(r.optionIds) ?? []), range: r.range !== false };
+  return { base: r.base, validUntil: typeof r.validUntil === "string" ? r.validUntil : null, channels: { email: ch.email === true, sms: ch.sms === true }, itemised: r.itemised === true, pdf: r.pdf === true, optionIds: r.optionIds === undefined || r.optionIds === null ? null : (parseOptionIds(r.optionIds) ?? []), range: r.range !== false, staffNote: cleanStaffNote(r.staffNote) };
 }
 
 type SendFields = NonNullable<ReturnType<typeof readInput>>;
@@ -412,7 +413,8 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
   // Right after the email or text, the quote and version, the staff link (never counted as an open) and the quote in
   // the app, as an internal comment on the conversation and the same words as a note on the contact (Albert,
   // 2026-11-05). Tags nobody, and neither stops a send.
-  const staffNote = sentComment(quote.link?.quoteNumber ?? null, quote.version, link, staffQuoteLink(quote.id));
+  // The staff note from the Send card (2026-11-20) rides on this comment and contact note only: never on anything the customer gets.
+  const staffNote = sentComment(quote.link?.quoteNumber ?? null, quote.version, link, staffQuoteLink(quote.id), input.staffNote);
   try {
     await sendMessage({ type: "InternalComment", contactId, message: staffNote, mentions: [] });
   } catch {
@@ -426,7 +428,7 @@ export async function sendQuote(versionId: string, raw: unknown): Promise<SendRe
 
   try {
     const how = `sent by ${sentTo.join(" and ").toLowerCase()}${sentFrom ? ` from ${sentFrom}` : ""}${sentTo.includes("Text") ? `, text from ${textedFrom}` : ""}${input.pdf ? ", PDF on the quote page" : ""}${chosenWords(quote, input.optionIds) ? `, ${chosenWords(quote, input.optionIds)}` : ""}${prelim && !input.range ? ", exact price, no range" : ""}`;
-    await updateRecord(T.versions, quote.id, { [VERSION.sentTo]: sentTo.join(", "), ...authorFields(actor, new Date(), picked.as ? `${how}, as ${person.email}` : how, quote.editLog) });
+    await updateRecord(T.versions, quote.id, { [VERSION.sentTo]: sentTo.join(", "), ...authorFields(actor, new Date(), withNote(picked.as ? `${how}, as ${person.email}` : how, input.staffNote), quote.editLog) });
   } catch {
     notes.push("Airtable didn't record how it was sent.");
   }
@@ -506,7 +508,7 @@ export async function markQuoteSent(versionId: string, raw: unknown): Promise<Se
     [VERSION.sentTo]: MARKED_SENT,
     // Opens are tracked as on any sent version, in case the link is shared by hand.
     [VERSION.trackActivity]: true,
-    ...authorFields(actor, new Date(), picked.as ? `${how}, as ${person.email}` : how, quote.editLog),
+    ...authorFields(actor, new Date(), withNote(picked.as ? `${how}, as ${person.email}` : how, input.staffNote), quote.editLog),
   });
 
   const notes: string[] = [];
@@ -597,7 +599,8 @@ export async function resendQuote(versionId: string, raw: unknown): Promise<Rese
   if (sentTo.length === 0) return { ok: false, message: `Nothing was sent. ${failed.join(" ")}${turnedOn ? " The PDF download is now on their page." : ""}` };
   try {
     const how = `sent again by ${sentTo.join(" and ").toLowerCase()}${input.pdf ? ", with the PDF link" : ""}${turnedOn ? ", PDF download turned on" : ""}`;
-    await updateRecord(T.versions, quote.id, authorFields(actor, new Date(), picked.as ? `${how}, as ${person.email}` : how, quote.editLog));
+    const note = cleanStaffNote(raw && typeof raw === "object" ? (raw as Record<string, unknown>).staffNote : null);
+    await updateRecord(T.versions, quote.id, authorFields(actor, new Date(), withNote(picked.as ? `${how}, as ${person.email}` : how, note), quote.editLog));
   } catch {
     notes.push("Airtable didn't record it in the history.");
   }

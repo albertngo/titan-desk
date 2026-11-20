@@ -722,6 +722,24 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   Airtable's own last-modified fields would name the app's token for everyone. The quote page shows a
   **History** card, newest first, staff only. Pure helpers in `src/lib/quotes/history.ts`, tested in
   `tests/history.test.ts`.
+- **Show history on All quotes, and the staff note (Albert, 2026-11-20: "review what has changed, whose account made
+  the last sent version, and a short description on those changes … a per quote show history"; "Jsut the quote app
+  front desk"; "its an optional note"; the note goes in GHL "only after the text sms goes out … add it to that
+  internal message").** A quote's expanded row on All quotes has **Show history**: every version that went out (Sent
+  At and a frozen copy), newest first, with Sent By as a first name (`firstNameOf()`, info@ = Joey), how it went (from
+  the send's Edit Log line, else Sent To), the staff note, and what changed since the version sent before it, from the
+  two frozen customer copies (`copyChanges()`: options by name, a lone option renamed, prices before HST or the range,
+  lines through `diffOptions()` in `src/lib/change/diff.ts`, range/exact, lump/breakdown, discount, good-until). Send
+  again lines show under their version. The working draft, if any, heads it with who last saved it. Not on Follow up.
+  Read only when pressed (`sendHistoryAction()` → `loadSendHistory()` in `src/lib/quotes/sendHistoryLoad.ts`), so
+  the list loads no copies; shaped by `sendHistory()` in `src/lib/quotes/sendHistory.ts`, tested in
+  `tests/sendHistory.test.ts`. **The staff note** is optional, one line, at most 140 characters
+  (`src/lib/quotes/staffNote.ts`), on the Send card (Send and Mark as sent) and on Send again. It is kept at the end
+  of that send's Edit Log line after ` · note: ` (no new Airtable field: the Edit Log is the version's record of
+  what happened, 2026-10-22's decision), and on a Send it is the last line of GHL's internal comment and contact note
+  (`sentComment()`), which post after the email and the text. Mark as sent and Send again post no GHL comment, so
+  their note is in the history only. Never in the customer copy, the email, the text, the page or the PDF; the test
+  checks send.ts passes it to none of them.
 - **The customer deployment (2026-10-15).** Customer links `/c/<token>` and their PDFs are served by
   a second Vercel project on this folder with `QUOTE_MODE=customer` and a read-only Airtable token,
   never by the staff app (root rule: a public page never shares a deployment with a write token).

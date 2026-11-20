@@ -2672,3 +2672,23 @@ table.items tr.subsect td { box-shadow: none !important; border-left: 0 !importa
 /* Create CompanyCam + folder (2026-11-16): its answer under the header buttons. */
 .jf-note { flex-basis: 100%; text-align: right; margin: 4px 0 0; }
 .jf-note.bad { color: var(--bad); }
+
+/* Show history on All quotes (2026-11-20): under a quote's versions, who sent each one, the staff note, what changed. */
+.qh { margin: -4px 16px 12px 56px; }
+.qh-tog { background: none; border: 0; padding: 4px 0; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--accent); cursor: pointer; }
+.qh-tog:hover { text-decoration: underline; }
+.qh-b { margin-top: 6px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card-2); font-size: 13px; }
+.qh-b > p { margin: 0 0 8px; }
+.qh-draft { color: var(--fg-dim); }
+.qh-l { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.qh-l > li + li { padding-top: 12px; border-top: 1px solid var(--line); }
+.qh-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.qh-v { font-family: var(--mono); font-size: 12.5px; font-weight: 600; color: var(--accent); }
+.qh-c { margin: 4px 0 0; padding-left: 18px; color: var(--fg-dim); display: grid; gap: 2px; overflow-wrap: anywhere; }
+.qh-c.first { list-style: none; padding-left: 0; color: var(--fg-faint); }
+.qh-more { background: none; border: 0; padding: 0; font: inherit; color: var(--accent); cursor: pointer; }
+.qh-note { margin: 6px 0 0; padding: 6px 8px; border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 4px 4px 0; color: var(--fg); font-style: italic; overflow-wrap: anywhere; }
+.qh-re { margin: 4px 0 0; font-size: 12px; }
+.qh-note-in { font-style: italic; color: var(--fg-dim); }
+.sq-note .in { width: 100%; }
+@media (max-width: 860px) { .qh { margin-left: 36px; } }
