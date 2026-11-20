@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { sendHistoryAction } from "@/app/actions/history";
 import type { HistoryRow, SendHistory, WorkingDraft } from "@/lib/quotes/sendHistory";
 
@@ -61,8 +62,8 @@ export function useSendHistory(quoteRecordId: string | null, versionsKey: string
 }
 
 /** One sent version's history, right under its line. */
-export function VersionHistory({ row }: { row: HistoryRow }) {
-  const [all, setAll] = useState(false);
+export function VersionHistory({ row, open = false }: { row: HistoryRow; /** Details shown from the start (the modal). */ open?: boolean }) {
+  const [all, setAll] = useState(open);
   return (
     <div className="qh">
       <p className="qh-h">
@@ -121,13 +122,18 @@ function panelHead(r: HistoryRow): string {
  * screen as well as the quote edit screen? at the top next to the name? A small scrollable section for ease of use but
  * out of the way"). Pure, so it can be drawn without a sign-in; `HistoryPanel` reads the data.
  */
-export function HistoryPanelView({ history, currentId, error = null, loading = false }: { history: SendHistory | null; currentId: string; error?: string | null; loading?: boolean }) {
+export function HistoryPanelView({ history, currentId, error = null, loading = false, onPopOut }: { history: SendHistory | null; currentId: string; error?: string | null; loading?: boolean; onPopOut?: () => void }) {
   const rows = history?.rows ?? [];
   const draft = history?.draft ?? null;
   return (
     <section className="qhp" aria-label="Send history">
       <div className="qhp-h">
         History <span className="faint">{loading ? "reading…" : rows.length ? `${rows.length} sent` : "nothing sent yet"}</span>
+        {onPopOut && (rows.length > 0 || draft) && (
+          <button type="button" className="qhp-pop" onClick={onPopOut} aria-haspopup="dialog" title="Open the whole history, with every detail">
+            Pop out <span aria-hidden>⤢</span>
+          </button>
+        )}
       </div>
       <div className="qhp-b" tabIndex={0}>
         {error && <p className="qhp-r bad">{error}</p>}
@@ -157,8 +163,70 @@ export function HistoryPanelView({ history, currentId, error = null, loading = f
   );
 }
 
-/** The compact history for one version's page: reads its quote's history once, as All quotes does. */
+/**
+ * The whole history in a modal (Albert, 2026-11-20: "it is good to have a 'pop out' so it will open as a modal if
+ * pressed"): every version, newest first, with its Details open, the version on screen marked. Pure, like the panel.
+ */
+export function HistoryModalView({ history, currentId, onClose }: { history: SendHistory; currentId: string; onClose: () => void }) {
+  const closeRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    closeRef.current?.focus();
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", esc);
+    return () => window.removeEventListener("keydown", esc);
+  }, [onClose]);
+  return (
+    <div className="modal qhm" role="dialog" aria-modal="true" aria-label="Send history" onClick={onClose}>
+      <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+        <div className="card-h">
+          History <span className="faint">&nbsp;{history.rows.length} sent</span>
+          <button ref={closeRef} type="button" className="linkbtn right" onClick={onClose}>Close</button>
+        </div>
+        <div className="card-b qhm-b">
+          {history.draft && (
+            <div className={`qhm-r${history.draft.id === currentId ? " cur" : ""}`}>
+              <p className="qhm-v">{history.draft.label}{history.draft.id === currentId && <span className="qh-tag">on screen</span>}</p>
+              <DraftHistory draft={history.draft} />
+            </div>
+          )}
+          {history.rows.map((r) => (
+            <div key={r.id} className={`qhm-r${r.id === currentId ? " cur" : ""}`}>
+              <p className="qhm-v">{r.label}{r.id === currentId && <span className="qh-tag">on screen</span>}</p>
+              <VersionHistory row={r} open />
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The compact history for one version's page, with its Pop out: reads its quote's history once, as All quotes does.
+ * It sits under the page's sticky header, not in it, so it scrolls away with the page (Albert, 2026-11-20: "it does
+ * not have to be 'sticky'"). The modal is drawn on the body so nothing on the page clips it.
+ */
 export function HistoryPanel({ quoteRecordId, versionId, status }: { quoteRecordId: string; versionId: string; status: string | null }) {
   const { history, error, loading } = useSendHistory(quoteRecordId, `${versionId}:${status ?? ""}`);
-  return <HistoryPanelView history={history} currentId={versionId} error={error} loading={loading} />;
+  const [open, setOpen] = useState(false);
+  const back = useRef<HTMLElement | null>(null);
+  const close = () => {
+    setOpen(false);
+    back.current?.focus();
+  };
+  return (
+    <>
+      <HistoryPanelView
+        history={history}
+        currentId={versionId}
+        error={error}
+        loading={loading}
+        onPopOut={() => {
+          back.current = document.activeElement as HTMLElement | null;
+          setOpen(true);
+        }}
+      />
+      {open && history && createPortal(<HistoryModalView history={history} currentId={versionId} onClose={close} />, document.body)}
+    </>
+  );
 }

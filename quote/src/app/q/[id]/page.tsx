@@ -229,8 +229,6 @@ export default async function QuotePage({
             {/* Quote Description (2026-11-03): staff's label for this quote on All quotes. Never in Customer view. */}
             {!customer && quote.link && <QuoteDescription key={quote.link.quoteRecordId} quoteRecordId={quote.link.quoteRecordId} initial={quote.link.description ?? null} />}
           </div>
-          {/* The send history beside the name (Albert, 2026-11-20): small, scrollable, staff only. */}
-          {!customer && quote.link?.quoteRecordId && <HistoryPanel quoteRecordId={quote.link.quoteRecordId} versionId={quote.id} status={quote.status} />}
           {quote.status && <span className={`status ${quote.status}`}>{quote.status}</span>}
           {(!locked || !customer) && (
             <div className="actions">
@@ -246,6 +244,9 @@ export default async function QuotePage({
         </div>
         {/* On a phone the Conversation button sits here instead of on the screen's edge (2026-11-03). */}
         <div id="conv-slot" className="conv-slot" />
+        {/* The send history at the top of the left column (Albert, 2026-11-20): small, scrollable, not sticky, a Pop out
+            for the whole of it. Staff only. */}
+        {!customer && quote.link?.quoteRecordId && <HistoryPanel quoteRecordId={quote.link.quoteRecordId} versionId={quote.id} status={quote.status} />}
 
         <div className={`layout ed-layout${option && totals ? "" : " full"}`}>
           <div className="stack">

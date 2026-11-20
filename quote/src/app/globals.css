@@ -2687,12 +2687,14 @@ table.items tr.subsect td { box-shadow: none !important; border-left: 0 !importa
 .qh-wait { padding: 6px 12px; font-size: 12.5px; }
 .qh-wait.bad { color: var(--bad); }
 .sq-note .in { width: 100%; }
-@media (max-width: 860px) { .qh { margin-left: 36px; } }
 
-/* The send history beside the name on the quote page and the editor (2026-11-20): small, scrollable, out of the way. */
-.qhp { flex: 0 1 360px; min-width: 260px; align-self: stretch; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); font-size: 12.5px; overflow: hidden; }
-.qhp-h { padding: 5px 10px; font-size: 11.5px; font-weight: 600; color: var(--fg-dim); background: var(--card-2); border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 8px; }
-.qhp-h .faint { font-weight: 400; }
+/* The send history at the top of the quote page and the editor (2026-11-20): under the sticky header, not in it, so it
+   scrolls away with the page; small, scrolling inside, a Pop out for the whole history in a modal. */
+.qhp { width: min(100%, 560px); margin: 0 0 16px; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); font-size: 12.5px; overflow: hidden; }
+.qhp-h { padding: 5px 10px; font-size: 11.5px; font-weight: 600; color: var(--fg-dim); background: var(--card-2); border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; }
+.qhp-h .faint { font-weight: 400; margin-right: auto; }
+.qhp-pop { background: none; border: 0; padding: 2px 4px; margin: -2px -4px; font: inherit; font-weight: 600; color: var(--accent); cursor: pointer; border-radius: 4px; }
+.qhp-pop:hover { background: var(--accent-soft); }
 .qhp-b { max-height: 116px; overflow-y: auto; overscroll-behavior: contain; padding: 2px 0; }
 .qhp-b:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .qhp-r { padding: 5px 10px; }
@@ -2704,9 +2706,10 @@ table.items tr.subsect td { box-shadow: none !important; border-left: 0 !importa
 .qhp-d { font-size: 11.5px; overflow-wrap: anywhere; }
 .qhp-n { margin-top: 2px !important; font-style: italic; color: var(--fg); overflow-wrap: anywhere; }
 .qhp-r.bad { color: var(--bad); }
-@media (max-width: 860px) { .qhp { flex-basis: 100%; order: 3; } .qhp-b { max-height: 104px; } }
-/* Left, right beside the name (Albert, 2026-11-20: "to the left touching the left column"): the status and buttons keep the right. */
-.ed-head:has(.qhp) .titles { margin-right: 0; }
-.ed-head .qhp { margin-right: auto; }
-/* On a phone the header is a grid (2026-11-03): the history takes the full width, under the status and Save. */
-@media (max-width: 640px) { .ed-head .qhp { grid-column: 1 / -1; grid-row: 4; min-width: 0; width: 100%; } }
+.qhm .modal-card { width: min(640px, 100%); }
+.qhm-b { overflow-y: auto; padding: 0 !important; }
+.qhm-r { padding: 10px 0 2px; }
+.qhm-r + .qhm-r { border-top: 1px solid var(--line); }
+.qhm-r.cur { box-shadow: inset 3px 0 0 var(--accent); }
+.qhm-v { margin: 0; padding: 0 12px 2px; font-weight: 600; font-size: 13px; }
+@media (max-width: 640px) { .qhp-b { max-height: 104px; } .qhm { padding: 16px 8px; } .qhm .modal-card { max-height: calc(100dvh - 32px); } }

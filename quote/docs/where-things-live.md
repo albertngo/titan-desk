@@ -736,9 +736,12 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   `src/lib/change/diff.ts`, range/exact, lump/breakdown, discount, good-until. Send
   again lines show under their version. The working draft's line says who last saved it. Not on Follow up.
   **Also at the top of the quote page and the editor** (Albert, 2026-11-20: "at the top next to the name? A small
-  scrollable section for ease of use but out of the way", then "to the left touching the left column"): `HistoryPanel` in `src/components/QuoteHistory.tsx`, on the left right beside the name, in the
-  header between the name and the status, 116px tall and scrolling (full width under Save on a phone), the version on
-  screen highlighted, Details shortened to one line. Staff only: never in Customer view.
+  scrollable section for ease of use but out of the way", "to the left touching the left column", then "it does not have
+  to be 'sticky'. But it is good to have a 'pop out' so it will open as a modal if pressed"): `HistoryPanel` in
+  `src/components/QuoteHistory.tsx`, at the top of the left column under the sticky header (not in it, so it scrolls
+  away with the page), 116px tall and scrolling, the version on screen highlighted, Details shortened to one line.
+  **Pop out** opens `HistoryModalView` (drawn on the body), the whole history with every Details list open; Close or
+  Esc. Staff only: never in Customer view.
   Read only when a row is opened (`useSendHistory()` in `src/components/QuoteHistory.tsx`, cached per page view by the
   quote's versions and statuses → `sendHistoryAction()` → `loadSendHistory()` in `src/lib/quotes/sendHistoryLoad.ts`),
   so the list loads no copies; shaped by `sendHistory()` in `src/lib/quotes/sendHistory.ts`, tested in

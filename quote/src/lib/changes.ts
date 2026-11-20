@@ -22,6 +22,15 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-20",
+    kind: "changed",
+    title: "History box scrolls away, and pops out",
+    details: [
+      "On the quote page and the edit screen the History box now sits at the top of the page, under the name, and scrolls away with the page instead of staying pinned at the top.",
+      "Pop out, on the box, opens the whole history in a window: every version, everything that changed, the staff notes. Close or Esc goes back.",
+    ],
+  },
+  {
+    date: "2026-11-20",
     kind: "new",
     title: "Each version's history on All quotes, and a note for staff on every send",
     details: [
