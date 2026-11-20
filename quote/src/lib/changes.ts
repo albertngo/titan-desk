@@ -22,6 +22,18 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-20",
+    kind: "new",
+    title: "Show history on All quotes, and a note for staff on every send",
+    details: [
+      "Open a quote on All quotes and press Show history: every version that went out, newest first, with who sent it and how (email, text, or marked sent).",
+      "Each option is one line with its install square feet and its price before HST, with an arrow where either moved since the send before, e.g. \"Oak: 800 → 860 sqft · $9,150 → $8,900\". New and removed options say so. Details opens the rest: lines changed, range or exact, lump sum or breakdown, discount and good-until date.",
+      "A working draft that hasn't gone out yet shows at the top, with who last saved it.",
+      "The Send card has an optional Note for staff (one line). It shows in Show history and goes in GHL's internal comment and contact note after the quote goes out. The customer never sees it: it is not in the email, the text, their page or the PDF.",
+      "Mark as sent and Send again take a note too; it shows in Show history.",
+    ],
+  },
+  {
+    date: "2026-11-20",
     kind: "fixed",
     title: "Waste on materials added in the editor",
     details: [

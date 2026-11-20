@@ -61,6 +61,7 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
 - A preliminary goes as a range (Albert, 2026-10-27).
 - Sent from the person signed in (Albert, 2026-10-22).
 - Who worked on a version (Albert, 2026-10-22).
+- Show history on All quotes, and the staff note (Albert, 2026-11-20).
 - The customer deployment (2026-10-15).
 - Service level (Albert, 2026-10-16).
 - Crew per option (Albert, 2026-10-16).
