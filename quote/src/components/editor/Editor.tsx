@@ -809,8 +809,6 @@ export default function Editor({
             </p>
           )}
         </div>
-        {/* The send history beside the name (Albert, 2026-11-20): small, scrollable, out of the way. */}
-        {quote.quoteRecordId && <HistoryPanel quoteRecordId={quote.quoteRecordId} versionId={version.id} status={version.status} />}
         <span className={`status ${changed ? "Sent" : "Draft"}`} role="status">
           {statusWords({ changed, autoOn, auto, keptAt: savedAt })}
         </span>
@@ -845,6 +843,8 @@ export default function Editor({
       </div>
       {/* On a phone the Conversation button sits here, in the page, instead of on the screen's edge (2026-11-03). */}
       <div id="conv-slot" className="conv-slot" />
+      {/* The send history at the top of the left column (Albert, 2026-11-20): small, scrollable, not sticky, a Pop out. */}
+      {quote.quoteRecordId && <HistoryPanel quoteRecordId={quote.quoteRecordId} versionId={version.id} status={version.status} />}
       {saveError && (
         <p className="card banner bad save-error" role="alert">
           {saveError.message}
