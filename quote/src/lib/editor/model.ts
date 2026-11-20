@@ -532,8 +532,9 @@ export function lineFromEntry(entry: CardEntry, section: string, contractorName?
     uom: entry.uom,
     // Starts at one (2026-11-04 for a flat row, 2026-11-06 for everything); staff type the amount over it.
     qty: NEW_QTY,
-    // A card row's default waste is taken only in Materials (2026-10-27); see showsWaste.
-    waste: section === "Materials" ? entry.defaultWaste : null,
+    // Waste only in Materials (2026-10-27; see showsWaste). The row's own Default Waste when it has one, else the
+    // quick form's rule (2026-11-20): 10%, 15% for herringbone or tile; none on a flat-priced row.
+    waste: section === "Materials" ? entry.defaultWaste ?? (entry.uom === "flat" ? null : productWaste(`${entry.spec} ${rateWording(entry, s.material)}`)) : null,
     unitPriceSnap: s.price,
     unitCostSnap: s.cost,
     minChargeSnap: entry.minCharge,
@@ -568,7 +569,7 @@ export function productLine(p: CatalogueProduct, section = "Materials"): EditorL
 }
 
 /** Same rule as the quick form's `materialWaste()`: 15% for herringbone or tile, else 10%. */
-const productWaste = (name: string) => (/\bherringbone|\btiles?\b/i.test(name) ? 0.15 : 0.1);
+export const productWaste = (name: string) => (/\bherringbone|\btiles?\b/i.test(name) ? 0.15 : 0.1);
 
 /**
  * Order catalogue hits for a query: an exact SKU first, then a SKU that starts with it, then the rest by name.
