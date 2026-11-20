@@ -2705,5 +2705,8 @@ table.items tr.subsect td { box-shadow: none !important; border-left: 0 !importa
 .qhp-n { margin-top: 2px !important; font-style: italic; color: var(--fg); overflow-wrap: anywhere; }
 .qhp-r.bad { color: var(--bad); }
 @media (max-width: 860px) { .qhp { flex-basis: 100%; order: 3; } .qhp-b { max-height: 104px; } }
+/* Left, right beside the name (Albert, 2026-11-20: "to the left touching the left column"): the status and buttons keep the right. */
+.ed-head:has(.qhp) .titles { margin-right: 0; }
+.ed-head .qhp { margin-right: auto; }
 /* On a phone the header is a grid (2026-11-03): the history takes the full width, under the status and Save. */
 @media (max-width: 640px) { .ed-head .qhp { grid-column: 1 / -1; grid-row: 4; min-width: 0; width: 100%; } }

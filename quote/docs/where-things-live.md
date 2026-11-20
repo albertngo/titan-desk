@@ -736,7 +736,7 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   `src/lib/change/diff.ts`, range/exact, lump/breakdown, discount, good-until. Send
   again lines show under their version. The working draft's line says who last saved it. Not on Follow up.
   **Also at the top of the quote page and the editor** (Albert, 2026-11-20: "at the top next to the name? A small
-  scrollable section for ease of use but out of the way"): `HistoryPanel` in `src/components/QuoteHistory.tsx`, in the
+  scrollable section for ease of use but out of the way", then "to the left touching the left column"): `HistoryPanel` in `src/components/QuoteHistory.tsx`, on the left right beside the name, in the
   header between the name and the status, 116px tall and scrolling (full width under Save on a phone), the version on
   screen highlighted, Details shortened to one line. Staff only: never in Customer view.
   Read only when a row is opened (`useSendHistory()` in `src/components/QuoteHistory.tsx`, cached per page view by the
