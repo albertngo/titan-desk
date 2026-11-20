@@ -48,9 +48,13 @@ export type HistoryRow = {
   by: string;
   how: string;
   note: string | null;
-  /** "First sent", or what changed since the version sent before this one. */
-  changes: string[];
+  /** One line per option: name, install sqft and price before HST, arrows where they moved since the send before. */
+  options: string[];
+  /** The rest of what changed (lines, range, pricing shown, discount, good-until), behind Details. */
+  details: string[];
   first: boolean;
+  /** Sent again as a new version with nothing changed. */
+  same: boolean;
   resends: Resend[];
 };
 
@@ -92,25 +96,86 @@ function pairOptions(before: CopyOption[], after: CopyOption[]) {
   return { pairs, added, removed: left };
 }
 
-/** What changed between two sent copies, in a few short phrases, most telling first. Empty = the same quote sent again. */
-export function copyChanges(before: CustomerCopy, after: CustomerCopy): string[] {
-  const out: string[] = [];
-  const { pairs, added, removed } = pairOptions(before.options, after.options);
+/**
+ * An option's install square feet on the copy (Albert, 2026-11-20: "a simple one liner … Sqft and Prices noted"): its
+ * Install lines in sqft, as the material check counts them (src/lib/quotes/sqftCheck.ts), less refinishing, sanding,
+ * painting and glue assist. Null when it has none (a stairs option, or a preliminary sent as words only).
+ */
+export function installSqft(o: CopyOption): number | null {
+  let total = 0;
+  for (const s of o.sections) {
+    if (key(s.name) !== "install") continue;
+    for (const l of s.lines) {
+      if (l.kind !== "item" || l.optional || l.uom !== "sqft" || !l.qty || l.qty <= 0) continue;
+      if (/\b(refinish|sand|paint)|^glue assist/i.test(l.description)) continue;
+      total += l.qty;
+    }
+  }
+  return total > 0 ? Math.round(total) : null;
+}
+
+const sqftWords = (n: number) => `${whole(n)} sqft`;
+/** "800 sqft", "800 → 860 sqft"; null when neither copy has a figure. */
+function sqftMove(b: number | null, a: number | null): string | null {
+  if (a === null && b === null) return null;
+  if (b === null || a === null) return a === null ? `no install sqft (was ${sqftWords(b!)})` : sqftWords(a);
+  return b === a ? sqftWords(a) : `${whole(b)} → ${sqftWords(a)}`;
+}
+
+/** One option on one line: name, install sqft and price before HST, with an arrow wherever a figure moved. */
+export function optionLine(a: CopyOption | null, b: CopyOption | null = null): string {
+  if (!a) return `${b!.name} removed (was ${priceWords(b!)})`;
+  const sq = b ? sqftMove(installSqft(b), installSqft(a)) : sqftMove(null, installSqft(a));
+  const price = b && !samePrice(b, a) ? `${priceWords(b)} → ${priceWords(a)}` : priceWords(a);
+  const same = b && samePrice(b, a) && installSqft(b) === installSqft(a);
+  const name = b && key(b.name) !== key(a.name) ? `${a.name} (was ${b.name})` : a.name;
+  return `${name}: ${[sq, price].filter(Boolean).join(" · ")}${same ? ", no change" : ""}`;
+}
+
+export type CopyChanges = {
+  /** One line per option, always shown: added options say "(new)", removed ones what they were. */
+  options: string[];
+  /** Everything else, behind Details: line changes, range or exact, lump sum or breakdown, discount, good-until. */
+  details: string[];
+};
+
+/** What changed between two sent copies. Both lists empty of moves = the same quote sent again. */
+export function copyChanges(before: CustomerCopy, after: CustomerCopy): CopyChanges & { moved: boolean } {
+  const options: string[] = [];
+  const details: string[] = [];
+  let moved = false;
+  const { pairs, removed } = pairOptions(before.options, after.options);
   const many = after.options.length > 1 || before.options.length > 1;
   const on = (o: CopyOption) => (many ? ` on ${o.name}` : "");
-  for (const o of added) out.push(`${o.name} added (${priceWords(o)})`);
-  for (const o of removed) out.push(`${o.name} removed`);
-  for (const { b, a } of pairs) {
-    if (key(b.name) !== key(a.name)) out.push(`${b.name} renamed ${a.name}`);
-    if (!samePrice(b, a)) out.push(`${many ? `${a.name} ` : ""}${priceWords(b)} → ${priceWords(a)}`);
-    for (const c of diffOptions(b, a)) out.push(`${changeWords(c)}${on(a)}`);
-    if (!!b.range !== !!a.range) out.push(`${many ? `${a.name}: ` : ""}${a.range ? "sent as a range" : "exact price"}`);
+  // In the order the customer sees them, then what was taken away.
+  for (const a of after.options) {
+    const p = pairs.find((x) => x.a === a);
+    if (!p) {
+      options.push(`${optionLine(a)} (new)`);
+      moved = true;
+      continue;
+    }
+    const { b } = p;
+    options.push(optionLine(a, b));
+    if (key(b.name) !== key(a.name) || !samePrice(b, a) || installSqft(b) !== installSqft(a)) moved = true;
+    for (const c of diffOptions(b, a)) {
+      details.push(`${changeWords(c)}${on(a)}`);
+      moved = true;
+    }
+    if (!!b.range !== !!a.range) {
+      details.push(`${many ? `${a.name}: ` : ""}${a.range ? "sent as a range" : "exact price"}`);
+      moved = true;
+    }
+  }
+  for (const b of removed) {
+    options.push(optionLine(null, b));
+    moved = true;
   }
   const way = (c: CustomerCopy) => c.pricing ?? "itemised";
-  if (way(before) !== way(after)) out.push(way(after) === "itemised" ? "breakdown sent" : "lump sum");
-  if ((before.discountRate ?? 0) !== (after.discountRate ?? 0)) out.push(`discount ${Math.round((before.discountRate ?? 0) * 100)}% → ${Math.round((after.discountRate ?? 0) * 100)}%`);
-  if (before.validUntil && after.validUntil && before.validUntil !== after.validUntil) out.push(`good until ${after.validUntil}`);
-  return out;
+  if (way(before) !== way(after)) details.push(way(after) === "itemised" ? "breakdown sent" : "lump sum");
+  if ((before.discountRate ?? 0) !== (after.discountRate ?? 0)) details.push(`discount ${Math.round((before.discountRate ?? 0) * 100)}% → ${Math.round((after.discountRate ?? 0) * 100)}%`);
+  if (before.validUntil && after.validUntil && before.validUntil !== after.validUntil) details.push(`good until ${after.validUntil}`);
+  return { options, details, moved: moved || details.length > 0 };
 }
 
 const SEND_WORDS = /^(sent by |marked sent|sent again by )/;
@@ -140,7 +205,7 @@ export function sendHistory(versions: HistoryVersion[]): SendHistory {
     const sends = entries.filter((e) => SEND_WORDS.test(e.what));
     const firstSend = sends.find((e) => !e.what.startsWith("sent again")) ?? null;
     const own = firstSend ? splitNote(firstSend.what) : null;
-    const changes = prev ? copyChanges(prev, v.copy!) : [];
+    const c = prev ? copyChanges(prev, v.copy!) : null;
     rows.push({
       id: v.id,
       label: labelOf(v),
@@ -149,8 +214,10 @@ export function sendHistory(versions: HistoryVersion[]): SendHistory {
       by: personWords(v.sentBy),
       how: howOf(v, own),
       note: own?.note ?? null,
-      changes: prev ? (changes.length ? changes : ["Same quote, sent again as a new version"]) : ["First sent"],
+      options: c ? c.options : v.copy!.options.map((o) => optionLine(o)),
+      details: c ? c.details : [],
       first: !prev,
+      same: c ? !c.moved : false,
       resends: sends
         .filter((e) => e.what.startsWith("sent again"))
         .map((e) => {

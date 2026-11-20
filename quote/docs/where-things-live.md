@@ -728,8 +728,11 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   internal message").** A quote's expanded row on All quotes has **Show history**: every version that went out (Sent
   At and a frozen copy), newest first, with Sent By as a first name (`firstNameOf()`, info@ = Joey), how it went (from
   the send's Edit Log line, else Sent To), the staff note, and what changed since the version sent before it, from the
-  two frozen customer copies (`copyChanges()`: options by name, a lone option renamed, prices before HST or the range,
-  lines through `diffOptions()` in `src/lib/change/diff.ts`, range/exact, lump/breakdown, discount, good-until). Send
+  two frozen customer copies (`copyChanges()`). **One line per option** (Albert, 2026-11-20: "a simple one liner to
+  describe so its easy to see. Sqft and Prices noted"): name, install sqft (`installSqft()`: Install lines in sqft, as
+  the material check counts them) and price before HST or the range, an arrow where either moved, "(new)" or "removed
+  (was …)"; options pair by name, a lone option renamed. Behind **Details**: lines through `diffOptions()` in
+  `src/lib/change/diff.ts`, range/exact, lump/breakdown, discount, good-until. Send
   again lines show under their version. The working draft, if any, heads it with who last saved it. Not on Follow up.
   Read only when pressed (`sendHistoryAction()` → `loadSendHistory()` in `src/lib/quotes/sendHistoryLoad.ts`), so
   the list loads no copies; shaped by `sendHistory()` in `src/lib/quotes/sendHistory.ts`, tested in

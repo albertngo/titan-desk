@@ -5,9 +5,6 @@ import { useState, useTransition } from "react";
 import { sendHistoryAction } from "@/app/actions/history";
 import type { SendHistory } from "@/lib/quotes/sendHistory";
 
-/** Changes shown before "+N more". */
-const SHOWN = 3;
-
 const day = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric" });
 /** An Edit Log stamp, already Toronto time ("2026-11-19 14:05"), as "Nov 19, 14:05". */
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -67,8 +64,6 @@ export function QuoteHistory({ quoteRecordId }: { quoteRecordId: string }) {
             <ol className="qh-l">
               {data.rows.map((r) => {
                 const all = more.has(r.id);
-                const shown = all ? r.changes : r.changes.slice(0, SHOWN);
-                const hidden = r.changes.length - shown.length;
                 return (
                   <li key={r.id}>
                     <div className="qh-h">
@@ -77,15 +72,21 @@ export function QuoteHistory({ quoteRecordId }: { quoteRecordId: string }) {
                         Sent {day(r.sentAt)} by <b>{r.by}</b>
                         {r.how && <span className="faint"> · {r.how}</span>}
                       </span>
+                      {r.first && <span className="qh-tag">First sent</span>}
+                      {r.same && <span className="qh-tag">Same quote, sent again</span>}
                     </div>
-                    <ul className={`qh-c${r.first ? " first" : ""}`}>
-                      {shown.map((c, i) => <li key={i}>{c}</li>)}
-                      {hidden > 0 && (
-                        <li>
-                          <button type="button" className="qh-more" onClick={() => setMore((s) => new Set(s).add(r.id))}>+{hidden} more</button>
-                        </li>
-                      )}
+                    <ul className="qh-o">
+                      {r.options.map((o, i) => <li key={i}>{o}</li>)}
                     </ul>
+                    {r.details.length > 0 && (
+                      all ? (
+                        <ul className="qh-c">{r.details.map((d, i) => <li key={i}>{d}</li>)}</ul>
+                      ) : (
+                        <button type="button" className="qh-more" onClick={() => setMore((s) => new Set(s).add(r.id))}>
+                          Details ({r.details.length})
+                        </button>
+                      )
+                    )}
                     {r.note && <p className="qh-note"><span aria-hidden>💬 </span><span className="sr-only">Staff note: </span>{r.note}</p>}
                     {r.resends.map((s, i) => (
                       <p key={i} className="qh-re faint">

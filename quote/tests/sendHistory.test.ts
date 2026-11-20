@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { sentComment } from "../src/lib/activity/track";
 import { logLine } from "../src/lib/quotes/history";
-import { cleanStaffNote, copyChanges, sendHistory, splitNote, STAFF_NOTE_MAX, withNote, type HistoryVersion } from "../src/lib/quotes/sendHistory";
+import { cleanStaffNote, copyChanges, installSqft, sendHistory, splitNote, STAFF_NOTE_MAX, withNote, type HistoryVersion } from "../src/lib/quotes/sendHistory";
 import type { CopyOption, CopySection, CustomerCopy } from "../src/lib/send/copy";
 
 /* Invented numbers and people only (quote/CLAUDE.md rule 4). Show history on All quotes, 2026-11-20. */
@@ -60,35 +60,50 @@ describe("the staff note (2026-11-20)", () => {
   });
 });
 
-describe("what changed between two sends", () => {
+describe("what changed between two sends: one line per option", () => {
   const install = (qty: number) => section("Install", [item("Click install", qty)]);
 
-  it("names options added and removed, and price moves before HST", () => {
+  it("puts install sqft and the price before HST on one line, arrows where they moved", () => {
     const a = copy([option("Oak", 9150, [install(800)]), option("Stairs", 2400)]);
-    const b = copy([option("Oak", 8900, [install(800)]), option("Vinyl plank", 8420)]);
+    const b = copy([option("Oak", 8900, [install(860)]), option("Vinyl plank", 8420, [install(820)])]);
     const c = copyChanges(a, b);
-    expect(c).toContain("Vinyl plank added ($8,420)");
-    expect(c).toContain("Stairs removed");
-    expect(c).toContain("Oak $9,150 → $8,900");
+    expect(c.options).toEqual(["Oak: 800 → 860 sqft · $9,150 → $8,900", "Vinyl plank: 820 sqft · $8,420 (new)", "Stairs removed (was $2,400)"]);
+    expect(c.details).toEqual(["Changed: Click install, 800 sqft to 860 sqft on Oak"]);
+    expect(c.moved).toBe(true);
   });
 
-  it("calls one option left on each side a rename, and lists line changes", () => {
+  it("says no change on an option that didn't move, and leaves sqft off a stairs option", () => {
+    const a = copy([option("Oak", 9150, [install(800)]), option("Stairs", 2400)]);
+    const b = copy([option("Oak", 9150, [install(800)]), option("Stairs", 2600)]);
+    expect(copyChanges(a, b).options).toEqual(["Oak: 800 sqft · $9,150, no change", "Stairs: $2,400 → $2,600"]);
+  });
+
+  it("counts install sqft only: not sanding or refinishing, not an add-on, not other sections", () => {
+    const o = option("Oak", 1000, [
+      section("Install", [item("Click install", 500), item("Sand and refinish", 200), { ...item("Glue assist", 500) }, { ...item("Extra closet", 40), optional: true }]),
+      section("Materials", [item("Oak plank", 550)]),
+    ]);
+    expect(installSqft(o)).toBe(500);
+    expect(installSqft(option("Stairs", 2400))).toBeNull();
+  });
+
+  it("names a lone option renamed, and moves the range into the line", () => {
     const c = copyChanges(copy([option("Option A", 5000, [install(500)])]), copy([option("Engineered oak", 5600, [install(560)])]));
-    expect(c[0]).toBe("Option A renamed Engineered oak");
-    expect(c).toContain("$5,000 → $5,600");
-    expect(c).toContain("Changed: Click install, 500 sqft to 560 sqft");
-  });
-
-  it("notices the range, the pricing shown, the discount and the date", () => {
+    expect(c.options).toEqual(["Engineered oak (was Option A): 500 → 560 sqft · $5,000 → $5,600"]);
     const pre = option("Oak", 5000, [], { range: { low: 4850, high: 5500, lowWithHst: 5480, highWithHst: 6215 } });
-    expect(copyChanges(copy([pre]), copy([option("Oak", 5000)]))).toEqual(["$4,850–$5,500 → $5,000", "exact price"]);
-    const c = copyChanges(copy([option("Oak", 5000)]), copy([option("Oak", 5000)], { pricing: "itemised", discountRate: 0.1, validUntil: "2026-12-15" }));
-    expect(c).toEqual(["breakdown sent", "discount 0% → 10%", "good until 2026-12-15"]);
+    const r = copyChanges(copy([pre]), copy([option("Oak", 5000)]));
+    expect(r.options).toEqual(["Oak: $4,850–$5,500 → $5,000"]);
+    expect(r.details).toEqual(["exact price"]);
   });
 
-  it("is empty for the same quote", () => {
+  it("keeps the pricing shown, the discount and the date in the details", () => {
+    const c = copyChanges(copy([option("Oak", 5000)]), copy([option("Oak", 5000)], { pricing: "itemised", discountRate: 0.1, validUntil: "2026-12-15" }));
+    expect(c.details).toEqual(["breakdown sent", "discount 0% → 10%", "good until 2026-12-15"]);
+  });
+
+  it("has nothing moved for the same quote", () => {
     const a = copy([option("Oak", 5000, [install(500)])]);
-    expect(copyChanges(a, structuredClone(a))).toEqual([]);
+    expect(copyChanges(a, structuredClone(a))).toEqual({ options: ["Oak: 500 sqft · $5,000, no change"], details: [], moved: false });
   });
 });
 
@@ -123,16 +138,16 @@ describe("the send history", () => {
     const h = sendHistory([draft, v1, v2]);
     expect(h.rows.map((r) => r.id)).toEqual(["recV2", "recV1"]);
     const [last, first] = h.rows;
-    expect(last).toMatchObject({ label: "v2", by: "Joey", how: "email and text", note: "Matched the other quote", changes: ["$9,150 → $8,900"], first: false });
+    expect(last).toMatchObject({ label: "v2", by: "Joey", how: "email and text", note: "Matched the other quote", options: ["Oak: $9,150 → $8,900"], details: [], first: false, same: false });
     expect(last.resends).toEqual([{ when: "2026-11-19 14:05", who: "Pat", how: "text", note: "Asked for the PDF" }]);
-    expect(first).toMatchObject({ by: "Albert", how: "email", note: null, changes: ["First sent"], first: true, resends: [] });
+    expect(first).toMatchObject({ by: "Albert", how: "email", note: null, options: ["Oak: $9,150"], details: [], first: true, same: false, resends: [] });
     expect(h.draft).toEqual({ id: "recV3", label: "v3", lastEditedBy: "Pat", lastEditedAt: "2026-11-20T14:00:00.000Z" });
   });
 
   it("says when a new version went out unchanged, and reads a marked-sent version", () => {
     const again = version({ ...v2, copy: copy([option("Oak", 9150)]), sentTo: "Marked sent", editLog: logLine(new Date("2026-11-18T15:00:00Z"), "albert@titanfloors.ca", "marked sent, nothing sent to the customer") });
     const [row] = sendHistory([v1, again]).rows;
-    expect(row.changes).toEqual(["Same quote, sent again as a new version"]);
+    expect(row).toMatchObject({ options: ["Oak: $9,150, no change"], same: true });
     expect(row.how).toBe("marked sent, nothing went to the customer");
   });
 
