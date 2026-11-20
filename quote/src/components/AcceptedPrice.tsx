@@ -13,7 +13,7 @@ import { atAcceptedPrice, atDiscountPct, type Accepted } from "@/lib/pricing/acc
  */
 
 /** `showHst`: the option's own HST (2026-11-04); absent = the quote's. */
-type Opt = { id: string; name: string; lines: LineInput[]; showHst?: boolean };
+type Opt = { notOffered?: boolean; id: string; name: string; lines: LineInput[]; showHst?: boolean };
 
 const ROWS: { key: keyof OptionTotals; label: string; money?: false }[] = [
   { key: "preDiscount", label: "List price (before discount)" },
@@ -32,7 +32,8 @@ const toNumber = (s: string) => {
 };
 
 export function AcceptedPrice({ options, discountRate, showHst }: { options: Opt[]; discountRate: number; showHst: boolean }) {
-  const [optionId, setOptionId] = useState(options[0]?.id ?? "");
+  // The first offered option by default, as the quote page opens (2026-11-20).
+  const [optionId, setOptionId] = useState((options.find((o) => !o.notOffered) ?? options[0])?.id ?? "");
   const [price, setPrice] = useState("");
   const [discount, setDiscount] = useState("");
   /** Which box was typed last decides the other. */

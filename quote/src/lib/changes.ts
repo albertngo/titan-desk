@@ -23,6 +23,15 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-20",
     kind: "changed",
+    title: "Quotes open on the first offered option",
+    details: [
+      "The quote page, the edit screen and Analysis's accepted-price box now open on the first option that is offered, in tab order (flooring, then stairs), instead of the first tab. A Not offered option is skipped.",
+      "If every option is Not offered, they open on the first tab as before.",
+    ],
+  },
+  {
+    date: "2026-11-20",
+    kind: "changed",
     title: "History box scrolls away, and pops out",
     details: [
       "On the quote page and the edit screen the History box now sits at the top of the page, under the name, and scrolls away with the page instead of staying pinned at the top.",

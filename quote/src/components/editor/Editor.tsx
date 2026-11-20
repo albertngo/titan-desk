@@ -63,7 +63,7 @@ import { ghlContactUrl } from "@/lib/ghl/ids";
 import { fixAddressLink } from "@/lib/link/linkJob";
 import { money, pct, rate } from "@/lib/format";
 import type { RateCard } from "@/lib/quotes/types";
-import { STAIRS_FOLDED, optionScope, PARTS, partValue, scopeGroups } from "@/lib/quotes/scope";
+import { firstOpenOption, STAIRS_FOLDED, optionScope, PARTS, partValue, scopeGroups } from "@/lib/quotes/scope";
 import { Picker } from "./Picker";
 import { ScheduleEditor } from "./ScheduleEditor";
 import { SwapOption } from "./SwapOption";
@@ -226,7 +226,7 @@ export default function Editor({
   const [quote, setQuote] = useState<EditorQuote>(boot ? withCustomerFrom(boot.quote, initial) : initial);
   const [restoredAt, setRestoredAt] = useState<string | null>(boot?.savedAt ?? null);
   const [savedAt, setSavedAt] = useState<string | null>(boot?.savedAt ?? null);
-  const [activeId, setActiveId] = useState<string | null>(quote.options[0]?.id ?? null);
+  const [activeId, setActiveId] = useState<string | null>(firstOpenOption(quote.options)?.id ?? null);
   const [picking, setPicking] = useState<AddChoice | null>(null);
   const [newExclusion, setNewExclusion] = useState("");
   /** + From quick form (2026-10-31): the preliminary's screen, opened beside the tabs to build one more option. */
@@ -399,7 +399,8 @@ export default function Editor({
     return true;
   };
 
-  const option = quote.options.find((o) => o.id === activeId) ?? quote.options[0] ?? null;
+  // Memoized so the hooks below see one stable option per render (the React Compiler lint, 2026-11-20).
+  const option = useMemo(() => quote.options.find((o) => o.id === activeId) ?? firstOpenOption(quote.options), [quote.options, activeId]);
   // HST is the option's own (Albert, 2026-11-04), the version's only where the option has none set.
   const hstOn = option ? (option.showHst ?? quote.showHst) : quote.showHst;
   const t = option ? optionTotals(option.lines, quote.discountRate, hstOn) : null;
@@ -497,7 +498,7 @@ export default function Editor({
     setSavedAt(null);
     setSaveError(null);
     setAuto({ state: "idle" });
-    setActiveId(saved.options[0]?.id ?? null);
+    setActiveId(firstOpenOption(saved.options)?.id ?? null);
   };
 
   // The short lines the sidebar and the folded terms show (Option C, 2026-11-01).
@@ -1175,7 +1176,7 @@ export default function Editor({
                         if (!window.confirm(`Delete "${option.name || "this option"}" and its ${option.lines.length} lines?`)) return;
                         const next = removeOption(quote, option.id);
                         apply(next);
-                        setActiveId(next.options[0]?.id ?? null);
+                        setActiveId(firstOpenOption(next.options)?.id ?? null);
                       }}
                     >
                       Delete option

@@ -4,7 +4,7 @@ import { acceptedCopy, acceptProblems, addOnsOf, buildAcceptance, picksOf, readA
 import type { Terms } from "../src/lib/accept/terms";
 import { optionTotals, round2 } from "../src/lib/calc";
 import { fromQuote, updateOption } from "../src/lib/editor/model";
-import { optionScope, partKey, partValue, scopeGroups } from "../src/lib/quotes/scope";
+import { firstOpenOption, optionScope, partKey, partValue, scopeGroups } from "../src/lib/quotes/scope";
 import { cleanEditorQuote, fingerprint } from "../src/lib/quotes/savePlan";
 import type { Quote, QuoteLine, QuoteOption } from "../src/lib/quotes/types";
 import { contractOn, contractVersions, contractView, fromAcceptance, fromChange, legacyContract, parseContract, serializeContract, type Contract } from "../src/lib/contract/model";
@@ -365,5 +365,18 @@ describe("a contract joining options with different HST (2026-11-04)", () => {
     const items = view.options[0].sections.flatMap((s) => s.lines).filter((l) => l.kind === "item");
     // The floor's labour carries HST against a whole that doesn't: it now says so; the stairs say nothing.
     expect(items.map((l) => (l.kind === "item" ? l.hst ?? null : null))).toEqual(["plus", null]);
+  });
+});
+
+describe("the option a quote opens on (2026-11-20)", () => {
+  const o = (id: string, scope: "Flooring" | "Stairs", notOffered = false) => ({ id, scope, notOffered, lines: [] as never[] });
+  it("is the first offered one in tab order, flooring then stairs", () => {
+    expect(firstOpenOption([o("a", "Flooring", true), o("b", "Flooring", true), o("c", "Flooring"), o("d", "Stairs")])?.id).toBe("c");
+    expect(firstOpenOption([o("s", "Stairs"), o("f", "Flooring", true), o("g", "Flooring")])?.id).toBe("g");
+    expect(firstOpenOption([o("f", "Flooring", true), o("s", "Stairs")])?.id).toBe("s");
+  });
+  it("falls back to the first tab when none is offered, and is null with none", () => {
+    expect(firstOpenOption([o("s", "Stairs", true), o("f", "Flooring", true)])?.id).toBe("f");
+    expect(firstOpenOption([])).toBeNull();
   });
 });
