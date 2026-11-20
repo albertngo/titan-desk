@@ -2688,3 +2688,22 @@ table.items tr.subsect td { box-shadow: none !important; border-left: 0 !importa
 .qh-wait.bad { color: var(--bad); }
 .sq-note .in { width: 100%; }
 @media (max-width: 860px) { .qh { margin-left: 36px; } }
+
+/* The send history beside the name on the quote page and the editor (2026-11-20): small, scrollable, out of the way. */
+.qhp { flex: 0 1 360px; min-width: 260px; align-self: stretch; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); font-size: 12.5px; overflow: hidden; }
+.qhp-h { padding: 5px 10px; font-size: 11.5px; font-weight: 600; color: var(--fg-dim); background: var(--card-2); border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 8px; }
+.qhp-h .faint { font-weight: 400; }
+.qhp-b { max-height: 116px; overflow-y: auto; overscroll-behavior: contain; padding: 2px 0; }
+.qhp-b:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.qhp-r { padding: 5px 10px; }
+.qhp-r + .qhp-r { border-top: 1px solid var(--line); }
+.qhp-r.cur { box-shadow: inset 3px 0 0 var(--accent); background: var(--accent-soft); }
+.qhp-r p { margin: 0; }
+.qhp-t { color: var(--fg-dim); font-size: 11.5px; }
+.qhp-r .qh-o { margin-top: 1px; font-size: 12.5px; }
+.qhp-d { font-size: 11.5px; overflow-wrap: anywhere; }
+.qhp-n { margin-top: 2px !important; font-style: italic; color: var(--fg); overflow-wrap: anywhere; }
+.qhp-r.bad { color: var(--bad); }
+@media (max-width: 860px) { .qhp { flex-basis: 100%; order: 3; } .qhp-b { max-height: 104px; } }
+/* On a phone the header is a grid (2026-11-03): the history takes the full width, under the status and Save. */
+@media (max-width: 640px) { .ed-head .qhp { grid-column: 1 / -1; grid-row: 4; min-width: 0; width: 100%; } }

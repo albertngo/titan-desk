@@ -41,6 +41,7 @@ import { acceptReadiness } from "@/lib/accept/staff";
 import { termsLabel } from "@/lib/accept/terms";
 import { ghlOpportunityUrl } from "@/lib/ghl/ids";
 import { logEntries } from "@/lib/quotes/history";
+import { HistoryPanel } from "@/components/QuoteHistory";
 import { partOf, quoteSchedule } from "@/lib/send/copy";
 import { parseRooms } from "@/lib/rooms/log";
 import { defaultOptionIds, parsePayouts, payoutCandidates } from "@/lib/payout/cards";
@@ -228,6 +229,8 @@ export default async function QuotePage({
             {/* Quote Description (2026-11-03): staff's label for this quote on All quotes. Never in Customer view. */}
             {!customer && quote.link && <QuoteDescription key={quote.link.quoteRecordId} quoteRecordId={quote.link.quoteRecordId} initial={quote.link.description ?? null} />}
           </div>
+          {/* The send history beside the name (Albert, 2026-11-20): small, scrollable, staff only. */}
+          {!customer && quote.link?.quoteRecordId && <HistoryPanel quoteRecordId={quote.link.quoteRecordId} versionId={quote.id} status={quote.status} />}
           {quote.status && <span className={`status ${quote.status}`}>{quote.status}</span>}
           {(!locked || !customer) && (
             <div className="actions">

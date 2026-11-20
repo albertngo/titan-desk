@@ -76,6 +76,7 @@ import { quoteSchedule } from "@/lib/send/copy";
 import { levelApplies, levelOf, PREMIUM_MARKUP, SERVICE_LEVELS } from "@/lib/pricing/service";
 import { CONTRACTOR_DISCOUNT, DISCOUNTS_SECTION, priceSummary } from "@/lib/pricing/discounts";
 import { PriceCard } from "./PriceCard";
+import { HistoryPanel } from "@/components/QuoteHistory";
 
 // Discount items live in the price card, never in the line tables (2026-11-04).
 const WORK_SECTIONS = SECTIONS.filter((s) => s !== "Exclusions" && s !== DISCOUNTS_SECTION);
@@ -808,6 +809,8 @@ export default function Editor({
             </p>
           )}
         </div>
+        {/* The send history beside the name (Albert, 2026-11-20): small, scrollable, out of the way. */}
+        {quote.quoteRecordId && <HistoryPanel quoteRecordId={quote.quoteRecordId} versionId={version.id} status={version.status} />}
         <span className={`status ${changed ? "Sent" : "Draft"}`} role="status">
           {statusWords({ changed, autoOn, auto, keptAt: savedAt })}
         </span>

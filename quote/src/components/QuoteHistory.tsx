@@ -110,3 +110,55 @@ export function DraftHistory({ draft }: { draft: WorkingDraft }) {
     </div>
   );
 }
+
+/** "v2 · Nov 18 · Joey · email and text": one sent version's head line in the compact panel. */
+function panelHead(r: HistoryRow): string {
+  return [r.label, day(r.sentAt), r.by, r.how].filter(Boolean).join(" · ");
+}
+
+/**
+ * The compact history at the top of the quote page and the editor (Albert, 2026-11-20: "add that in the quote preview
+ * screen as well as the quote edit screen? at the top next to the name? A small scrollable section for ease of use but
+ * out of the way"). Pure, so it can be drawn without a sign-in; `HistoryPanel` reads the data.
+ */
+export function HistoryPanelView({ history, currentId, error = null, loading = false }: { history: SendHistory | null; currentId: string; error?: string | null; loading?: boolean }) {
+  const rows = history?.rows ?? [];
+  const draft = history?.draft ?? null;
+  return (
+    <section className="qhp" aria-label="Send history">
+      <div className="qhp-h">
+        History <span className="faint">{loading ? "reading…" : rows.length ? `${rows.length} sent` : "nothing sent yet"}</span>
+      </div>
+      <div className="qhp-b" tabIndex={0}>
+        {error && <p className="qhp-r bad">{error}</p>}
+        {draft && (
+          <div className={`qhp-r${draft.id === currentId ? " cur" : ""}`}>
+            <p className="qhp-t">{draft.label} · draft{draft.lastEditedBy ? ` · last saved by ${draft.lastEditedBy}` : ""}{draft.lastEditedAt ? `, ${at(draft.lastEditedAt)}` : ""}</p>
+          </div>
+        )}
+        {rows.map((r) => (
+          <div key={r.id} className={`qhp-r${r.id === currentId ? " cur" : ""}`}>
+            <p className="qhp-t">
+              {panelHead(r)}
+              {r.same && <span className="qh-tag">same quote</span>}
+            </p>
+            <ul className="qh-o">
+              {r.options.map((o, i) => <li key={i}>{o}</li>)}
+            </ul>
+            {r.details.length > 0 && <p className="qhp-d faint" title={r.details.join("\n")}>{r.details.slice(0, 2).join(" · ")}{r.details.length > 2 ? ` · +${r.details.length - 2}` : ""}</p>}
+            {r.note && <p className="qhp-n"><span aria-hidden>💬 </span><span className="sr-only">Staff note: </span>{r.note}</p>}
+            {r.resends.map((s, i) => (
+              <p key={i} className="qhp-d faint">Sent again {s.when ? stampWords(s.when) : ""} by {s.who}{s.note ? ` · 💬 ${s.note}` : ""}</p>
+            ))}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** The compact history for one version's page: reads its quote's history once, as All quotes does. */
+export function HistoryPanel({ quoteRecordId, versionId, status }: { quoteRecordId: string; versionId: string; status: string | null }) {
+  const { history, error, loading } = useSendHistory(quoteRecordId, `${versionId}:${status ?? ""}`);
+  return <HistoryPanelView history={history} currentId={versionId} error={error} loading={loading} />;
+}

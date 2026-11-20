@@ -735,6 +735,10 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   (was …)"; options pair by name, a lone option renamed. Behind **Details**: lines through `diffOptions()` in
   `src/lib/change/diff.ts`, range/exact, lump/breakdown, discount, good-until. Send
   again lines show under their version. The working draft's line says who last saved it. Not on Follow up.
+  **Also at the top of the quote page and the editor** (Albert, 2026-11-20: "at the top next to the name? A small
+  scrollable section for ease of use but out of the way"): `HistoryPanel` in `src/components/QuoteHistory.tsx`, in the
+  header between the name and the status, 116px tall and scrolling (full width under Save on a phone), the version on
+  screen highlighted, Details shortened to one line. Staff only: never in Customer view.
   Read only when a row is opened (`useSendHistory()` in `src/components/QuoteHistory.tsx`, cached per page view by the
   quote's versions and statuses → `sendHistoryAction()` → `loadSendHistory()` in `src/lib/quotes/sendHistoryLoad.ts`),
   so the list loads no copies; shaped by `sendHistory()` in `src/lib/quotes/sendHistory.ts`, tested in
