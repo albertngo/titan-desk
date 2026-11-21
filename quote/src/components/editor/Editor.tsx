@@ -389,7 +389,7 @@ export default function Editor({
     const r = holdAccepted(quote, settleContractor(worded));
     if (r.refused) {
       setHoldNote(
-        `Not changed: that would bring ${r.refused.name ? `"${r.refused.name}"` : "this option"} under its accepted price of ${money(r.refused.price)}, and the accepted price never moves on its own. Press Reset in its price card first to change the price.`,
+        `Not changed: that would bring ${r.refused.name ? `"${r.refused.name}"` : "this option"} under its accepted price of ${money(r.refused.total)} (what the customer pays), and the accepted price never moves on its own. Press Reset in its price card first to change the price.`,
       );
       return false;
     }

@@ -3,7 +3,7 @@
  * the screen calls these, and tests/editor.test.ts proves them. Money is still computed
  * only by src/lib/calc.ts, from the same LineInput fields Airtable stores.
  */
-import { lineTotal, optionHst, optionTotals, round2, sectionOf, SECTIONS, type LineInput } from "@/lib/calc";
+import { HST_RATE, lineTotal, optionHst, optionTotals, round2, sectionOf, SECTIONS, type LineInput } from "@/lib/calc";
 import { ACCEPTED_LINE, CONTRACTOR_LINE, contractorAmount, DISCOUNTS_SECTION, grossOf, isAcceptedLine, isAdjustmentLine, isContractorLine, isDiscountLine, PRICE_ADJUSTMENT, priceAtMargin, priceAtTotalDiscount } from "@/lib/pricing/discounts";
 import type { PaymentSchedule } from "@/lib/pricing/schedule";
 import { levelApplies, levelOf, levelPrice, type ServiceLevel } from "@/lib/pricing/service";
@@ -976,6 +976,65 @@ export function setAcceptedPrice(q: EditorQuote, optionId: string, acceptedPreTa
   return putAccepted(adj ? removeLine(q0, optionId, adj.id) : q0, optionId, acc, round2(base - price));
 }
 
+/** What the customer pays on one option: the price before HST plus the HST it charges. */
+const totalOf = (q: EditorQuote, o: EditorOption) => optionTotals(o.lines, q.discountRate, optionHst(q, o)).total;
+
+/**
+ * What the customer would pay on this option at an accepted price of `preTax` before HST. Null when that
+ * price can't be set (nothing priced, or above `priceCeiling()`).
+ */
+export function totalAtPrice(q: EditorQuote, optionId: string, preTax: number): number | null {
+  const ceiling = priceCeiling(q, optionId);
+  if (ceiling === null || !(preTax >= 0) || round2(preTax) > ceiling) return null;
+  const n = setAcceptedPrice(q, optionId, preTax);
+  const o = n.options.find((x) => x.id === optionId);
+  return o ? totalOf(n, o) : null;
+}
+
+/** The most the customer can be asked to pay on this option: the total at `priceCeiling()`. */
+export const totalCeiling = (q: EditorQuote, optionId: string): number | null => {
+  const c = priceCeiling(q, optionId);
+  return c === null ? null : totalAtPrice(q, optionId, c);
+};
+
+/**
+ * **The accepted price is the final amount the customer pays (Albert, 2026-11-21: "It should be the FINAL
+ * value they pay, accounting for all labor and material HST if there is any").** Lands this option's total,
+ * HST included where the option or a material line charges it, on `total`: the price before HST that gets
+ * there is found and set with `setAcceptedPrice()`, so the accepted price discount is still a pre-tax line
+ * and Airtable's maths do not change. HST is rounded to the cent, so now and then a total is a cent off
+ * every reachable one; the nearest is taken (the lower on a tie). Above `totalCeiling()`, or with nothing
+ * priced, nothing changes.
+ */
+export function setAcceptedTotal(q: EditorQuote, optionId: string, total: number | null): EditorQuote {
+  return landTotal(q, optionId, total) ?? q;
+}
+
+/** `setAcceptedTotal()`, null when the total can't be landed (above the ceiling, nothing priced). */
+function landTotal(q: EditorQuote, optionId: string, total: number | null): EditorQuote | null {
+  if (total === null || !(total >= 0)) return null;
+  const q0 = detachVersionDiscount(q);
+  const o = q0.options.find((x) => x.id === optionId);
+  const ceiling = priceCeiling(q0, optionId);
+  const top = ceiling === null ? null : totalAtPrice(q0, optionId, ceiling);
+  const want = round2(total);
+  if (!o || ceiling === null || top === null || want > top) return null;
+  // Each dollar off before HST takes 1.13 off the total when the option charges HST (the accepted price
+  // discount is then taxed like every non-material line), 1 when it doesn't.
+  const k = optionHst(q0, o) ? 1 + HST_RATE : 1;
+  const guess = round2(ceiling - (top - want) / k);
+  let best: { p: number; t: number } | null = null;
+  for (let i = -3; i <= 3; i++) {
+    const p = round2(guess + i / 100);
+    const t = p >= 0 && p <= ceiling ? totalAtPrice(q0, optionId, p) : null;
+    if (t === null) continue;
+    const d = Math.abs(t - want);
+    const bd = best ? Math.abs(best.t - want) : Infinity;
+    if (d < bd - 1e-9 || (Math.abs(d - bd) < 1e-9 && best && t < best.t)) best = { p, t };
+  }
+  return best ? setAcceptedPrice(q0, optionId, best.p) : null;
+}
+
 /** Whether an accepted price is set on this option: its discount line, an older above-list line, or an old version rate. */
 export const acceptedIsSet = (q: EditorQuote, o: EditorOption) => q.discountRate !== 0 || !!adjustmentOf(o) || !!acceptedLineOf(o);
 
@@ -1011,10 +1070,8 @@ export function resetAccepted(q: EditorQuote, optionId: string): EditorQuote {
 function keepAccepted(before: EditorQuote, optionId: string, next: EditorQuote): EditorQuote {
   const o = before.options.find((x) => x.id === optionId);
   if (!o || !acceptedIsSet(before, o)) return next;
-  const target = optionTotals(o.lines, before.discountRate, optionHst(before, o)).subtotal;
-  const ceiling = priceCeiling(next, optionId);
-  if (ceiling === null || target > ceiling) return next;
-  return setAcceptedPrice(next, optionId, target);
+  // The total the customer pays is what is held (2026-11-21), HST included.
+  return landTotal(next, optionId, totalOf(before, o)) ?? next;
 }
 
 /** What the accepted price itself is on an option: its lines and any old version rate. A change here is the accepted price being set. */
@@ -1023,16 +1080,18 @@ function acceptedSig(q: EditorQuote, o: EditorOption): string {
   return JSON.stringify([q.discountRate, one(acceptedLineOf(o)), one(adjustmentOf(o))]);
 }
 
-export type HoldRefusal = { optionId: string; name: string; price: number };
+/** `price` is before HST; `total` is what the customer pays, the accepted price as the card shows it (2026-11-21). */
+export type HoldRefusal = { optionId: string; name: string; price: number; total: number };
 
 /**
  * **The accepted price is held, firmly (Albert, 2026-11-04: "Keep this a firm rule. When the accepted price
  * is edited. no other pricing adjustments like discounts can move that accepted price number. Meaning the
  * margins and discount % can change there. But the value doesnt change").** Run by the editor on every
  * change: for each option whose accepted price is set and was not itself just set, reset or cleared, the
- * price before HST stays exactly where it was; the option's accepted price discount takes up whatever else
- * moved (discount items, the slider, the Contractor level, lines), so the margin and the total discount %
- * change and the price does not. A change that could only be held with a markup (the price before the
+ * total the customer pays stays exactly where it was (HST included since 2026-11-21: "the FINAL value they
+ * pay"); the option's accepted price discount takes up whatever else moved (discount items, the slider, the
+ * Contractor level, lines, HST turned on), so the margin and the total discount % change and the price does
+ * not. A change that could only be held with a markup (the price before the
  * accepted discount would fall under it) is refused: `before` comes back with the option and its price, and
  * nothing changes until Reset.
  */
@@ -1042,12 +1101,13 @@ export function holdAccepted(before: EditorQuote, next: EditorQuote): { quote: E
     if (!acceptedIsSet(before, o)) continue;
     const n = next.options.find((x) => x.id === o.id);
     if (!n || acceptedSig(before, o) !== acceptedSig(next, n)) continue;
-    const target = optionTotals(o.lines, before.discountRate, optionHst(before, o)).subtotal;
+    // What is held is the total the customer pays, HST included (Albert, 2026-11-21).
+    const target = totalOf(before, o);
     const cur = q.options.find((x) => x.id === o.id)!;
-    if (optionTotals(cur.lines, q.discountRate, optionHst(q, cur)).subtotal === target) continue;
-    const ceiling = priceCeiling(q, o.id);
-    if (ceiling === null || target > ceiling) return { quote: before, refused: { optionId: o.id, name: o.name, price: target } };
-    q = setAcceptedPrice(q, o.id, target);
+    if (totalOf(q, cur) === target) continue;
+    const landed = landTotal(q, o.id, target);
+    if (!landed) return { quote: before, refused: { optionId: o.id, name: o.name, price: optionTotals(o.lines, before.discountRate, optionHst(before, o)).subtotal, total: target } };
+    q = landed;
   }
   return { quote: q, refused: null };
 }
