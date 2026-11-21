@@ -1,4 +1,4 @@
-import { isPriced, payoutAmount, payoutTotal, round2, sectionOf, SECTIONS } from "@/lib/calc";
+import { isPriced, isTyped, payoutAmount, payoutTotal, round2, sectionOf, SECTIONS } from "@/lib/calc";
 import { picksOf } from "@/lib/accept/plan";
 import { optionScope } from "@/lib/quotes/scope";
 import type { Quote, QuoteLine, QuoteOption, RateCard, Scope } from "@/lib/quotes/types";
@@ -114,8 +114,9 @@ function takenAddOns(q: Pick<Quote, "acceptance">): Set<string> {
  */
 export function labourRate(l: QuoteLine, card: RateCard): number | null {
   const qty = l.qty ?? 0;
-  if (l.manualCost) return qty > 0 ? round2(l.manualCost / qty) : l.manualCost;
-  const used = l.costOverride ? l.costOverride : l.unitCostSnap;
+  // A typed 0 is a cost of nothing, as in calc.ts (2026-11-21); only a blank box falls back.
+  if (isTyped(l.manualCost)) return qty > 0 ? round2(l.manualCost / qty) : l.manualCost;
+  const used = isTyped(l.costOverride) ? l.costOverride : l.unitCostSnap;
   if (l.sourceKind === "rate" && l.materialId) {
     const row = card.rates.find((r) => r.id === l.sourceId);
     const material = (card.materials ?? []).find((m) => m.id === l.materialId);

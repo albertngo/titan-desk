@@ -190,3 +190,35 @@ describe("parity with Airtable", () => {
     expect(parityDiffs(app, { ...app, hst: undefined }).map((d) => d.key)).toEqual(["hst"]);
   });
 });
+
+describe("a typed 0 is a value, a blank box falls back to the card (Albert, 2026-11-21)", () => {
+  // INVENTED: a flat disposal line, card price 300, card cost 200.
+  const l = (o: Partial<LineInput>): LineInput => ({
+    lineType: "Other",
+    section: "Disposal",
+    include: true,
+    qty: 1,
+    waste: null,
+    unitPrice: null,
+    unitPriceSnap: 300,
+    unitCostSnap: 200,
+    costOverride: null,
+    manualCost: null,
+    minChargeSnap: null,
+    hasSource: true,
+    ...o,
+  });
+  it("takes a cost typed as 0 as no cost, and a blank as the card's", () => {
+    expect(lineCost(l({ costOverride: 0 }))).toBe(0);
+    expect(lineCost(l({}))).toBe(200);
+    expect(optionTotals([l({ costOverride: 0 })], 0, false).profit).toBe(300);
+  });
+  it("takes a price typed as 0 as free, and a Manual Cost of 0 as no cost", () => {
+    expect(lineTotal(l({ unitPrice: 0 }))).toBe(0);
+    expect(lineTotal(l({}))).toBe(300);
+    expect(lineCost(l({ manualCost: 0 }))).toBe(0);
+  });
+  it("flags a 0 typed over a card figure as an override", () => {
+    expect(lineFlags(l({ costOverride: 0 }))).toContain("OVR");
+  });
+});
