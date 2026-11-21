@@ -923,8 +923,8 @@ the behaviour it describes.** New bullets go here, with a line in the index.
     `settleContractor()`): an option whose accepted price is set, and was not itself just set, reset or cleared
     (`acceptedSig()`), keeps its price before HST to the cent, its accepted price discount taking up whatever moved
     (discount items, the slider, the Contractor level, lines), so only the margin and total discount % change. A change
-    that could only be held with a markup is **refused**, never reset: nothing changes and the editor says so, above the
-    lines and above the card, until Reset. A price typed at the price as it stands pins it (a $0 accepted line). The card
+    that could only be held with a markup was **refused** until 2026-11-21; since then it is held with the private
+    adjustment line behind a confirmation (below). A price typed at the price as it stands pins it (a $0 accepted line). The card
     shows **Held** and says what moves instead. This replaces "a slider change that would need a markup resets it".
     Tested in `tests/discounts.test.ts`.
   - **The accepted price is what the customer pays, HST included (Albert, 2026-11-21: "It should be the FINAL value
@@ -934,8 +934,17 @@ the behaviour it describes.** New bullets go here, with a line in the index.
     so the accepted price discount is still a pre-tax line and calc.ts and Airtable are unchanged. HST rounds to the
     cent, so now and then a total is a cent off every reachable one and the nearest is taken. **What is held is the
     total:** `holdAccepted()` and `keepAccepted()` keep what the customer pays, so turning HST on takes the HST out of
-    the price before HST, and turning it off (or a material losing its HST) is refused while holding the total would
-    need a markup, until Reset. The ceiling and the refusal read as totals (`totalCeiling()`, `HoldRefusal.total`);
+    the price before HST. **Locked whatever it takes, behind a confirmation (Albert, same day: "As long as the price
+    stays locked at what was typed. you can adjust the hst and margin as much as needed to account for it. If there
+    needs to be a warning modal popout to confirm the change and what has been affected. id much rather have that"):**
+    a change that could only be held above the list price (HST turned off, a material losing its HST, a line deleted,
+    a bigger discount) is no longer refused. The difference goes in as the private "Accepted price adjustment" line
+    (`holdAtPrice()`; the customer reads it in the Private row), the accepted discount stays at $0 with its reason, and
+    Reset takes both off. Every option whose HST changed or that needed that markup comes back in `holdAccepted().confirm`
+    and the editor applies the change only after **HoldConfirm** (`HoldConfirm.tsx`): per option, what the customer pays
+    (locked) and the price before HST, HST, profit and margin now and after, flagged under the 20% minimum. A change the
+    accepted discount takes up on its own asks nothing. Refused only when nothing priced is left to hold the price on.
+    A price typed in the card still never goes above the list (2026-11-04). The ceiling and the refusal read as totals (`totalCeiling()`, `HoldRefusal.total`);
     the discount % and margin boxes still mean a price before HST. The readout adds HST and Customer pays, and the
     20% minimum's Set button names the total. The Analysis tab's If they accept a price takes the total too
     (`atAcceptedTotal()`). Tested in `tests/discounts.test.ts` and `tests/accepted.test.ts`.

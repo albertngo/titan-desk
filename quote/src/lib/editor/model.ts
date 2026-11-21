@@ -3,7 +3,7 @@
  * the screen calls these, and tests/editor.test.ts proves them. Money is still computed
  * only by src/lib/calc.ts, from the same LineInput fields Airtable stores.
  */
-import { HST_RATE, lineTotal, optionHst, optionTotals, round2, sectionOf, SECTIONS, type LineInput } from "@/lib/calc";
+import { HST_RATE, lineTotal, optionHst, optionTotals, PRIVATE_SECTION, round2, sectionOf, SECTIONS, type LineInput } from "@/lib/calc";
 import { ACCEPTED_LINE, CONTRACTOR_LINE, contractorAmount, DISCOUNTS_SECTION, grossOf, isAcceptedLine, isAdjustmentLine, isContractorLine, isDiscountLine, PRICE_ADJUSTMENT, priceAtMargin, priceAtTotalDiscount } from "@/lib/pricing/discounts";
 import type { PaymentSchedule } from "@/lib/pricing/schedule";
 import { levelApplies, levelOf, levelPrice, type ServiceLevel } from "@/lib/pricing/service";
@@ -1010,29 +1010,60 @@ export function setAcceptedTotal(q: EditorQuote, optionId: string, total: number
   return landTotal(q, optionId, total) ?? q;
 }
 
-/** `setAcceptedTotal()`, null when the total can't be landed (above the ceiling, nothing priced). */
-function landTotal(q: EditorQuote, optionId: string, total: number | null): EditorQuote | null {
+/**
+ * A held price before HST above the list (Albert, 2026-11-21: "As long as the price stays locked at what was typed.
+ * you can adjust the hst and margin as much as needed to account for it"): when holding what the customer pays needs
+ * more than the slider and the discounts make (HST turned off, a line deleted, a bigger discount), the difference goes
+ * in as the private "Accepted price adjustment" line, which the customer reads in the Private section's one row. The
+ * accepted price discount stays, at $0, so its reason is kept. Only `holdAccepted()` reaches this, behind the editor's
+ * confirmation; a price typed in the card still never goes above the list (2026-11-04). Null with nothing priced.
+ */
+function holdAtPrice(q: EditorQuote, optionId: string, preTax: number): EditorQuote | null {
+  const ceiling = priceCeiling(q, optionId);
+  if (ceiling === null || !(preTax >= 0)) return null;
+  if (round2(preTax) <= ceiling) return setAcceptedPrice(q, optionId, preTax);
+  const q0 = detachVersionDiscount(q);
+  const o = q0.options.find((x) => x.id === optionId)!;
+  const { base, adj, acc } = listPriceOf(q0, o);
+  const up = round2(preTax - base);
+  const n = acc ? putAccepted(q0, optionId, acc, 0) : q0;
+  const patch = { uom: "flat", qty: 1, unitPrice: up, include: true, costOverride: null, manualCost: null };
+  return adj ? updateLine(n, optionId, adj.id, patch) : addLine(n, optionId, { ...manualLine(PRIVATE_SECTION, PRICE_ADJUSTMENT), ...patch });
+}
+
+const optTotal = (q: EditorQuote, optionId: string) => {
+  const o = q.options.find((x) => x.id === optionId);
+  return o ? totalOf(q, o) : null;
+};
+
+/**
+ * `setAcceptedTotal()`, null when the total can't be landed (above the ceiling, nothing priced). With `markup`, a
+ * total above the ceiling is landed too, through `holdAtPrice()`.
+ */
+function landTotal(q: EditorQuote, optionId: string, total: number | null, markup = false): EditorQuote | null {
   if (total === null || !(total >= 0)) return null;
   const q0 = detachVersionDiscount(q);
   const o = q0.options.find((x) => x.id === optionId);
   const ceiling = priceCeiling(q0, optionId);
   const top = ceiling === null ? null : totalAtPrice(q0, optionId, ceiling);
   const want = round2(total);
-  if (!o || ceiling === null || top === null || want > top) return null;
+  if (!o || ceiling === null || top === null || (!markup && want > top)) return null;
   // Each dollar off before HST takes 1.13 off the total when the option charges HST (the accepted price
-  // discount is then taxed like every non-material line), 1 when it doesn't.
+  // discount, and the private adjustment above the list, are then taxed like every non-material line), 1 when it doesn't.
   const k = optionHst(q0, o) ? 1 + HST_RATE : 1;
   const guess = round2(ceiling - (top - want) / k);
-  let best: { p: number; t: number } | null = null;
+  let best: { n: EditorQuote; t: number } | null = null;
   for (let i = -3; i <= 3; i++) {
     const p = round2(guess + i / 100);
-    const t = p >= 0 && p <= ceiling ? totalAtPrice(q0, optionId, p) : null;
-    if (t === null) continue;
+    if (p < 0 || (!markup && p > ceiling)) continue;
+    const n = markup ? holdAtPrice(q0, optionId, p) : setAcceptedPrice(q0, optionId, p);
+    const t = n ? optTotal(n, optionId) : null;
+    if (!n || t === null) continue;
     const d = Math.abs(t - want);
     const bd = best ? Math.abs(best.t - want) : Infinity;
-    if (d < bd - 1e-9 || (Math.abs(d - bd) < 1e-9 && best && t < best.t)) best = { p, t };
+    if (d < bd - 1e-9 || (Math.abs(d - bd) < 1e-9 && best && t < best.t)) best = { n, t };
   }
-  return best ? setAcceptedPrice(q0, optionId, best.p) : null;
+  return best ? best.n : null;
 }
 
 /** Whether an accepted price is set on this option: its discount line, an older above-list line, or an old version rate. */
@@ -1083,6 +1114,26 @@ function acceptedSig(q: EditorQuote, o: EditorOption): string {
 /** `price` is before HST; `total` is what the customer pays, the accepted price as the card shows it (2026-11-21). */
 export type HoldRefusal = { optionId: string; name: string; price: number; total: number };
 
+/** One option's money, as the hold's confirmation shows it before and after. */
+export type HoldFigures = { subtotal: number; hst: number; marginPct: number | null; profit: number; adjustment: number };
+
+/**
+ * An option the hold had to move more than a discount (2026-11-21): its HST changed, or keeping the price needed the
+ * private adjustment above the list. The editor asks before it applies the change (Albert: "If there needs to be a
+ * warning modal popout to confirm the change and what has been affected. id much rather have that").
+ */
+export type HoldChange = { optionId: string; name: string; total: number; before: HoldFigures; after: HoldFigures; hstChanged: boolean; markup: boolean };
+
+const adjustmentAmount = (o: EditorOption) => {
+  const a = adjustmentOf(o);
+  return a ? (lineTotal(a) ?? 0) : 0;
+};
+
+function figures(q: EditorQuote, o: EditorOption): HoldFigures {
+  const t = optionTotals(o.lines, q.discountRate, optionHst(q, o));
+  return { subtotal: t.subtotal, hst: t.hst, marginPct: t.marginPct, profit: t.profit, adjustment: round2(adjustmentAmount(o)) };
+}
+
 /**
  * **The accepted price is held, firmly (Albert, 2026-11-04: "Keep this a firm rule. When the accepted price
  * is edited. no other pricing adjustments like discounts can move that accepted price number. Meaning the
@@ -1090,26 +1141,38 @@ export type HoldRefusal = { optionId: string; name: string; price: number; total
  * change: for each option whose accepted price is set and was not itself just set, reset or cleared, the
  * total the customer pays stays exactly where it was (HST included since 2026-11-21: "the FINAL value they
  * pay"); the option's accepted price discount takes up whatever else moved (discount items, the slider, the
- * Contractor level, lines, HST turned on), so the margin and the total discount % change and the price does
- * not. A change that could only be held with a markup (the price before the
- * accepted discount would fall under it) is refused: `before` comes back with the option and its price, and
- * nothing changes until Reset.
+ * Contractor level, lines, HST), so the price before HST, the HST, the margin and the total discount % change and
+ * the price does not.
+ *
+ * **Locked, whatever it takes (Albert, 2026-11-21: "As long as the price stays locked at what was typed. you can
+ * adjust the hst and margin as much as needed to account for it").** A change that could only be held by going
+ * above the list price (HST turned off, a line deleted, a bigger discount) is no longer refused: the price before
+ * HST goes up through the private adjustment line (`holdAtPrice()`). Every option where that happens, or whose HST
+ * changed, comes back in `confirm` with its figures before and after, and the editor applies the change only once
+ * someone confirms. Refused only when the option has nothing priced left to hold the price on.
  */
-export function holdAccepted(before: EditorQuote, next: EditorQuote): { quote: EditorQuote; refused: HoldRefusal | null } {
+export function holdAccepted(before: EditorQuote, next: EditorQuote): { quote: EditorQuote; refused: HoldRefusal | null; confirm: HoldChange[] } {
   let q = next;
+  const confirm: HoldChange[] = [];
   for (const o of before.options) {
     if (!acceptedIsSet(before, o)) continue;
     const n = next.options.find((x) => x.id === o.id);
     if (!n || acceptedSig(before, o) !== acceptedSig(next, n)) continue;
-    // What is held is the total the customer pays, HST included (Albert, 2026-11-21).
     const target = totalOf(before, o);
     const cur = q.options.find((x) => x.id === o.id)!;
-    if (totalOf(q, cur) === target) continue;
-    const landed = landTotal(q, o.id, target);
-    if (!landed) return { quote: before, refused: { optionId: o.id, name: o.name, price: optionTotals(o.lines, before.discountRate, optionHst(before, o)).subtotal, total: target } };
-    q = landed;
+    if (totalOf(q, cur) !== target) {
+      const landed = landTotal(q, o.id, target) ?? landTotal(q, o.id, target, true);
+      if (!landed) return { quote: before, refused: { optionId: o.id, name: o.name, price: optionTotals(o.lines, before.discountRate, optionHst(before, o)).subtotal, total: target }, confirm: [] };
+      q = landed;
+    }
+    const after = q.options.find((x) => x.id === o.id)!;
+    const was = figures(before, o);
+    const now = figures(q, after);
+    const hstChanged = now.hst !== was.hst;
+    const markup = now.adjustment > was.adjustment;
+    if (hstChanged || markup) confirm.push({ optionId: o.id, name: o.name, total: target, before: was, after: now, hstChanged, markup });
   }
-  return { quote: q, refused: null };
+  return { quote: q, refused: null, confirm };
 }
 
 /** The accepted price from a total discount percent: everything off the list price, discount items included. */

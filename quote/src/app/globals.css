@@ -2713,3 +2713,8 @@ table.items tr.subsect td { box-shadow: none !important; border-left: 0 !importa
 .qhm-r.cur { box-shadow: inset 3px 0 0 var(--accent); }
 .qhm-v { margin: 0; padding: 0 12px 2px; font-weight: 600; font-size: 13px; }
 @media (max-width: 640px) { .qhp-b { max-height: 104px; } .qhm { padding: 16px 8px; } .qhm .modal-card { max-height: calc(100dvh - 32px); } }
+
+/* The held accepted price's confirmation (Albert, 2026-11-21): one block per option affected. */
+.hold-opt { display: grid; gap: 8px; }
+.hold-opt + .hold-opt { border-top: 1px solid var(--line); padding-top: 12px; }
+.hst-all-tbl tr.warn td { color: var(--bad); }

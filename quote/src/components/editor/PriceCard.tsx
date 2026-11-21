@@ -91,7 +91,7 @@ export function PriceCard({ quote, option, customer, apply }: { quote: EditorQuo
       setBad("Type the discount in dollars, like 250. Discounts here are dollars only.");
       return;
     }
-    // Refused when holding the accepted price would need a markup (2026-11-04): the typing stays, the editor says why.
+    // Refused only when nothing priced is left to hold the accepted price on; a change the hold had to mark up waits on the editor's confirmation (2026-11-21).
     if (apply(addDiscount(quote, option.id, label, amt)) === false) return;
     setLabel("");
     setAmount("");
