@@ -72,7 +72,7 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
 - Lump sum is the default, always (Albert, 2026-10-22).
 - The Private section (Albert, 2026-10-22).
 - Accepted price (Albert, 2026-10-22; above the list blocked 2026-11-04, see The price card).
-- The price card (Albert, 2026-11-04).
+- The price card (Albert, 2026-11-04; the accepted price is what the customer pays, HST included, 2026-11-21).
 - The customer always sees the discount (Albert, 2026-11-03: "All quote links and PDF should show the client what the discounts are").
 - If they accept a price (Albert, 2026-10-22).
 - Rooms (Albert, 2026-10-27).

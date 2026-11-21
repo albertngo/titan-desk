@@ -927,6 +927,18 @@ the behaviour it describes.** New bullets go here, with a line in the index.
     lines and above the card, until Reset. A price typed at the price as it stands pins it (a $0 accepted line). The card
     shows **Held** and says what moves instead. This replaces "a slider change that would need a markup resets it".
     Tested in `tests/discounts.test.ts`.
+  - **The accepted price is what the customer pays, HST included (Albert, 2026-11-21: "It should be the FINAL value
+    they pay, accounting for all labor and material HST if there is any").** The first box is now **Customer pays**,
+    labelled with HST, with HST on materials, or no HST, as the option charges it; typed, it goes through
+    `setAcceptedTotal()`, which finds the price before HST that lands that total and sets it with `setAcceptedPrice()`,
+    so the accepted price discount is still a pre-tax line and calc.ts and Airtable are unchanged. HST rounds to the
+    cent, so now and then a total is a cent off every reachable one and the nearest is taken. **What is held is the
+    total:** `holdAccepted()` and `keepAccepted()` keep what the customer pays, so turning HST on takes the HST out of
+    the price before HST, and turning it off (or a material losing its HST) is refused while holding the total would
+    need a markup, until Reset. The ceiling and the refusal read as totals (`totalCeiling()`, `HoldRefusal.total`);
+    the discount % and margin boxes still mean a price before HST. The readout adds HST and Customer pays, and the
+    20% minimum's Set button names the total. The Analysis tab's If they accept a price takes the total too
+    (`atAcceptedTotal()`). Tested in `tests/discounts.test.ts` and `tests/accepted.test.ts`.
   - **Margin and profit** under the boxes (list price, items, adjustment, price, cost, profit, margin),
     and an **(i)** with the lowest price that keeps the **20% margin minimum** (`MIN_MARGIN_PCT`,
     `priceForMargin()`, rounded up to the cent); under it the card says so and offers to set it. Customer
@@ -941,7 +953,7 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   for the page and the PDF: `discountRows()` in `copy.ts`; a long reason wraps in the PDF. The email and
   the text are unchanged: they lead with the price only. Tested in `tests/send.test.ts`.
 - **If they accept a price (Albert, 2026-10-22).** The Analysis tab opens with a card where staff type
-  the pre-tax amount the customer agreed to, or a discount %, and see the discount it implies against
+  the amount the customer agreed to (what they pay, HST included where charged, since 2026-11-21), or a discount %, and see the discount it implies against
   the list price and the cost, profit and margin left, beside the quote as it stands. Analysis only:
   nothing is saved and the quote's discount is not changed; applying it is still an edit. Staff only:
   the server never renders it in Customer view, so cost never reaches that page. Pure maths in

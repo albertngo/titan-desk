@@ -16,7 +16,10 @@ import {
   removeDiscount,
   resetAccepted,
   setAcceptedPrice,
+  setAcceptedTotal,
   setMarginTarget,
+  setOptionHst,
+  totalCeiling,
   setServiceLevel,
   setTotalDiscount,
   settleContractor,
@@ -207,7 +210,7 @@ describe("Contractor pricing (Albert, 2026-11-04)", () => {
     const moved = settleContractor(setServiceLevel(accepted, id, "Contractor", card).quote); // 900 before the accepted discount
     expect(moved.options[0].lines.some((l) => l.section === "Private")).toBe(false);
     const r = holdAccepted(accepted, moved);
-    expect(r.refused).toEqual({ optionId: id, name: accepted.options[0].name, price: 950 });
+    expect(r.refused).toEqual({ optionId: id, name: accepted.options[0].name, price: 950, total: optionTotals(accepted.options[0].lines, 0, accepted.showHst).total });
     expect(r.quote).toBe(accepted);
     expect(subtotal(r.quote)).toBe(950);
   });
@@ -288,5 +291,62 @@ describe("the accepted price is held, firmly (Albert, 2026-11-04)", () => {
     const work = both.options[0].lines.find((l) => l.description === "Work")!;
     const r = apply(both, updateLine(both, id, work.id, { qty: 150 }));
     expect(r.quote.options.map((o) => optionTotals(o.lines, r.quote.discountRate, r.quote.showHst).subtotal)).toEqual([900, 700]);
+  });
+});
+
+describe("the accepted price is what the customer pays, HST included (Albert, 2026-11-21)", () => {
+  // INVENTED: $1,000 of work costing $600, every line taxed: $1,130 with HST.
+  const total = (q: EditorQuote) => optionTotals(q.options[0].lines, q.discountRate, q.options[0].showHst ?? q.showHst).total;
+  const taxed = () => {
+    const { q, id } = withWork();
+    return { id, q: setOptionHst(q, id, true) };
+  };
+
+  it("lands the total typed, HST and all, with the pre-tax discount line taking it up", () => {
+    const { q, id } = taxed();
+    expect(totalCeiling(q, id)).toBe(1130);
+    const r = setAcceptedTotal(q, id, 1017);
+    expect(total(r)).toBe(1017);
+    expect(subtotal(r)).toBe(900);
+    expect(acceptedIsSet(r, r.options[0])).toBe(true);
+  });
+
+  it("lands an awkward total to the cent, or the nearest one HST's rounding reaches", () => {
+    const { q, id } = taxed();
+    for (const want of [1000, 999.99, 1050.55, 1129.99, 0.01]) expect(Math.abs(total(setAcceptedTotal(q, id, want)) - want)).toBeLessThanOrEqual(0.01);
+    expect(total(setAcceptedTotal(q, id, 1000))).toBe(1000);
+  });
+
+  it("takes the total as it is when HST is off, and counts HST on a taxed material", () => {
+    const { q, id } = withWork();
+    const off = setOptionHst(q, id, false);
+    expect(total(setAcceptedTotal(off, id, 900))).toBe(900);
+    const mat = addLine(off, id, { ...manualLine("Materials", "Oak"), qty: 1, uom: "flat", unitPrice: 500, costOverride: 300 });
+    expect(totalCeiling(mat, id)).toBe(1565); // 1,500 + 13% of the 500 of material
+    const r = setAcceptedTotal(mat, id, 1465);
+    expect(total(r)).toBe(1465);
+    expect(subtotal(r)).toBe(1400);
+  });
+
+  it("refuses a total above what the slider and discounts make", () => {
+    const { q, id } = taxed();
+    expect(setAcceptedTotal(q, id, 1130.01)).toBe(q);
+  });
+
+  it("holds the total, not the price before HST, when HST is turned on", () => {
+    const { id, q } = withWork();
+    const off = setAcceptedTotal(setOptionHst(q, id, false), id, 950);
+    const r = holdAccepted(off, setOptionHst(off, id, true));
+    expect(r.refused).toBeNull();
+    expect(total(r.quote)).toBe(950);
+    expect(subtotal(r.quote)).toBeLessThan(950);
+  });
+
+  it("refuses turning HST off when holding the total would need a markup", () => {
+    const { q, id } = taxed();
+    const held = setAcceptedTotal(q, id, 1100);
+    const r = holdAccepted(held, setOptionHst(held, id, false));
+    expect(r.refused).toMatchObject({ optionId: id, total: 1100 });
+    expect(r.quote).toBe(held);
   });
 });
