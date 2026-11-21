@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { HoldConfirm } from "./HoldConfirm";
 import { HstAll } from "./HstAll";
 import { addChoices, sectionLinesInOrder, stairGroupLabel, stairGroups, stairSections, type AddChoice } from "@/lib/editor/stairGroups";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
@@ -54,6 +55,7 @@ import { manualLine,
   updateOption,
   type EditorLine,
   type EditorQuote,
+  type HoldChange,
   draftKey,
   distinctIds,
   invertIds,
@@ -279,6 +281,8 @@ export default function Editor({
   const privShown = measured && privWay === "breakdown";
   const [levelNote, setLevelNote] = useState<string | null>(null);
   const [holdNote, setHoldNote] = useState<string | null>(null);
+  /** A change waiting on the hold's confirmation (2026-11-21): applied only when someone presses Apply. */
+  const [holdAsk, setHoldAsk] = useState<{ quote: EditorQuote; changes: HoldChange[] } | null>(null);
   const [crewNote, setCrewNote] = useState<string | null>(null);
   /** What Airtable holds, in its own ids: the version as the editor opened it, then each autosave's read back (2026-11-05). */
   const [saved, setSaved] = useState<EditorQuote>(initial);
@@ -383,17 +387,22 @@ export default function Editor({
   // The Contractor level's 10% follows the list price after every change (2026-11-04).
   const apply = (next: EditorQuote): boolean => {
     // The accepted price is held, firmly (Albert, 2026-11-04): a change that would move it is taken up by
-    // the option's accepted discount, and one that could only be held with a markup is refused.
+    // the option's accepted discount. Since 2026-11-21 what is held is what the customer pays, and a change
+    // that moves the HST or needs the price before HST above the list waits on a confirmation instead of a refusal.
     // On a preliminary, an option's Customer wording follows its Stair Profile lines (2026-11-07): rewritten when they change.
     const worded = measured ? next : syncStairWording(quote, next, card.profiles ?? []);
     const r = holdAccepted(quote, settleContractor(worded));
     if (r.refused) {
       setHoldNote(
-        `Not changed: that would bring ${r.refused.name ? `"${r.refused.name}"` : "this option"} under its accepted price of ${money(r.refused.total)} (what the customer pays), and the accepted price never moves on its own. Press Reset in its price card first to change the price.`,
+        `Not changed: "${r.refused.name || "this option"}" has nothing priced left to hold its accepted price of ${money(r.refused.total)} on. Press Reset in its price card first to change the price.`,
       );
       return false;
     }
     setHoldNote(null);
+    if (r.confirm.length) {
+      setHoldAsk({ quote: r.quote, changes: r.confirm });
+      return true;
+    }
     setQuote(r.quote);
     setSavedAt(new Date().toISOString());
     return true;
@@ -1553,6 +1562,17 @@ export default function Editor({
           onPickMany={(lines, replacing) => {
             apply(addLines(quote, option.id, lines, replacing));
             setPicking(null);
+          }}
+        />
+      )}
+      {holdAsk && (
+        <HoldConfirm
+          changes={holdAsk.changes}
+          onCancel={() => setHoldAsk(null)}
+          onApply={() => {
+            setQuote(holdAsk.quote);
+            setSavedAt(new Date().toISOString());
+            setHoldAsk(null);
           }}
         />
       )}

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { optionTotals } from "../src/lib/calc";
 import {
   acceptedIsSet,
+  acceptedReason,
   addDiscount,
   addLine,
   addOption,
@@ -16,6 +17,7 @@ import {
   removeDiscount,
   resetAccepted,
   setAcceptedPrice,
+  setAcceptedReason,
   setAcceptedTotal,
   setMarginTarget,
   setOptionHst,
@@ -204,15 +206,17 @@ describe("Contractor pricing (Albert, 2026-11-04)", () => {
     expect(subtotal(resetAccepted(p, id))).toBe(1150);
   });
 
-  it("refuses a slider move that could only hold the accepted price with a markup, and never marks it up (2026-11-04)", () => {
+  it("holds the price through a slider move that needs a markup, and asks first (2026-11-21)", () => {
     const { q, id } = withCard();
     const accepted = setAcceptedPrice(q, id, 950);
     const moved = settleContractor(setServiceLevel(accepted, id, "Contractor", card).quote); // 900 before the accepted discount
     expect(moved.options[0].lines.some((l) => l.section === "Private")).toBe(false);
     const r = holdAccepted(accepted, moved);
-    expect(r.refused).toEqual({ optionId: id, name: accepted.options[0].name, price: 950, total: optionTotals(accepted.options[0].lines, 0, accepted.showHst).total });
-    expect(r.quote).toBe(accepted);
+    expect(r.refused).toBeNull();
     expect(subtotal(r.quote)).toBe(950);
+    expect(r.quote.options[0].lines.find((l) => l.description === PRICE_ADJUSTMENT)).toMatchObject({ section: "Private", unitPrice: 50 });
+    expect(r.confirm).toEqual([expect.objectContaining({ optionId: id, markup: true, hstChanged: false })]);
+    expect(r.confirm[0].after.adjustment).toBe(50);
   });
 
   it("saves as Contractor", () => {
@@ -259,22 +263,41 @@ describe("the accepted price is held, firmly (Albert, 2026-11-04)", () => {
     expect(subtotal(extra.quote)).toBe(900);
   });
 
-  it("refuses a change that would take the price under the accepted price, and changes nothing", () => {
+  it("keeps the price locked when a change takes the list under it, with a private markup to confirm (2026-11-21)", () => {
     const { q, id } = held();
     const work = q.options[0].lines.find((l) => l.description === "Work")!;
     const smaller = apply(q, updateLine(q, id, work.id, { qty: 80 })); // 800 before the accepted discount
-    expect(smaller.refused).toMatchObject({ optionId: id, price: 900 });
-    expect(smaller.quote).toBe(q);
+    expect(smaller.refused).toBeNull();
+    expect(subtotal(smaller.quote)).toBe(900);
+    expect(smaller.confirm).toEqual([expect.objectContaining({ optionId: id, markup: true })]);
     const tooMuch = apply(q, addDiscount(q, id, "Senior", 150));
-    expect(tooMuch.refused).toMatchObject({ price: 900 });
+    expect(subtotal(tooMuch.quote)).toBe(900);
+    expect(tooMuch.confirm[0].markup).toBe(true);
+    // Reset takes the markup off with the rest.
+    expect(resetAccepted(tooMuch.quote, id).options[0].lines.some((l) => l.description === PRICE_ADJUSTMENT)).toBe(false);
+  });
+
+  it("asks nothing for a change the accepted discount takes up on its own", () => {
+    const { q, id } = held();
+    expect(apply(q, addDiscount(q, id, "Senior", 50)).confirm).toEqual([]);
+  });
+
+  it("refuses only when nothing priced is left to hold the price on", () => {
+    const { q, id } = held();
+    const work = q.options[0].lines.find((l) => l.description === "Work")!;
+    const r = apply(q, updateLine(q, id, work.id, { include: false }));
+    expect(r.refused).toMatchObject({ optionId: id, price: 900 });
+    expect(r.quote).toBe(q);
   });
 
   it("pins a price typed at the price as it stands, and lets the accepted price itself be set, reset or cleared", () => {
     const { q, id } = withWork();
     const same = setAcceptedPrice(q, id, 1000);
     expect(acceptedIsSet(same, same.options[0])).toBe(true);
-    // Pinned at the full price, a new discount item could only be held with a markup: refused.
-    expect(apply(same, addDiscount(same, id, "Senior", 50)).refused).toMatchObject({ price: 1000 });
+    // Pinned at the full price, a new discount item is held with a markup, behind the confirmation.
+    const pinned = apply(same, addDiscount(same, id, "Senior", 50));
+    expect(subtotal(pinned.quote)).toBe(1000);
+    expect(pinned.confirm[0].markup).toBe(true);
     // A bigger list price is absorbed: still 1,000.
     const work = same.options[0].lines.find((l) => l.description === "Work")!;
     expect(subtotal(apply(same, updateLine(same, id, work.id, { qty: 110 })).quote)).toBe(1000);
@@ -342,11 +365,31 @@ describe("the accepted price is what the customer pays, HST included (Albert, 20
     expect(subtotal(r.quote)).toBeLessThan(950);
   });
 
-  it("refuses turning HST off when holding the total would need a markup", () => {
+  it("asks before HST turned on takes the HST out of the price before HST", () => {
+    const { id, q } = withWork();
+    const off = setAcceptedTotal(setOptionHst(q, id, false), id, 950);
+    const r = holdAccepted(off, setOptionHst(off, id, true));
+    expect(r.confirm).toEqual([expect.objectContaining({ optionId: id, total: 950, hstChanged: true, markup: false })]);
+    expect(r.confirm[0].before).toMatchObject({ subtotal: 950, hst: 0 });
+    expect(r.confirm[0].after.hst).toBeGreaterThan(0);
+  });
+
+  it("keeps the total when HST is turned off, the price before HST going up through the private markup", () => {
     const { q, id } = taxed();
     const held = setAcceptedTotal(q, id, 1100);
     const r = holdAccepted(held, setOptionHst(held, id, false));
-    expect(r.refused).toMatchObject({ optionId: id, total: 1100 });
-    expect(r.quote).toBe(held);
+    expect(r.refused).toBeNull();
+    expect(total(r.quote)).toBe(1100);
+    expect(subtotal(r.quote)).toBe(1100);
+    expect(r.quote.options[0].lines.find((l) => l.description === PRICE_ADJUSTMENT)?.unitPrice).toBe(100);
+    expect(r.confirm).toEqual([expect.objectContaining({ hstChanged: true, markup: true })]);
+    expect(r.confirm[0].after.marginPct).toBeGreaterThan(r.confirm[0].before.marginPct!);
+  });
+
+  it("keeps the reason on the accepted discount while the markup is on", () => {
+    const { q, id } = taxed();
+    const held = setAcceptedReason(setAcceptedTotal(q, id, 1100), id, "Fall promotion");
+    const r = holdAccepted(held, setOptionHst(held, id, false));
+    expect(acceptedReason(r.quote.options[0])).toBe("Fall promotion");
   });
 });
