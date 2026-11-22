@@ -1130,7 +1130,11 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   (`buildWon()` in `src/lib/link/ghlRequest.ts`; the stage is found by name, `wonStageId()`); then the
   **acceptance email** (the stamped accepted PDF and the Project Expectations attached; the one deposit
   request: the amount, "e-transfer to `QUOTE_ETRANSFER_EMAIL` and put Q-1234 in the message"; the PM sets
-  the date) and the text, by the channels the quote went out by. GHL's own on-win deposit text is switched
+  the date) and the text. **One text with everything (Albert, 2026-11-22: "put the instructions into SMS form and send it out
+  for the deposit and payment schedule. This could be one SMS altogether along with the link to the accepted quote
+  details. Email is the same"):** the text gives the deposit and how to pay it, then the schedule one line a stage
+  (`smsSchedule()` in `src/lib/send/plan.ts`, the email's stages and notes, GSM-7), then the link; the email and the text
+  both go whenever the quote has an email address and a phone number, whatever the quote first went out by. GHL's own on-win deposit text is switched
   off when this goes live. The yes is written first and stands whatever happens after: a failed hand-off
   is kept on the record and staff **Retry** it; **Cancel acceptance** (with a reason) sets the version
   Lost and the opportunity lost and leaves the Notion project to a person. The customer's link then shows

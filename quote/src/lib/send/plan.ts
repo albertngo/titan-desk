@@ -748,7 +748,11 @@ export function acceptedEmailMessage(
   return { type: "Email", contactId: to.contactId, subject, html: frame(copy, subject, preheader, body), ...(attachments.length ? { attachments } : {}), ...(from ? { emailFrom: from } : {}) };
 }
 
-/** The text after the yes: thanks, the deposit and how to pay it, the link. GSM-7 only, like every quote text. */
+/**
+ * The text after the yes: thanks, the deposit and how to pay it, the rest of the payment schedule, the link, all in
+ * one text (Albert, 2026-11-22: "put the instructions into SMS form and send it out for the deposit and payment
+ * schedule. This could be one SMS altogether along with the link"). GSM-7 only, like every quote text.
+ */
 export function acceptedSmsMessage(copy: CustomerCopy, a: Acceptance, to: { contactId: string; firstName: string | null; link: string }, ctx: { etransfer: string }, sender: Sender | null = null): GhlMessage {
   const hi = greetingName(to.firstName);
   const whoFrom = sender?.firstName ? `it's ${sender.firstName} from ${copy.company.name}` : `it's ${copy.company.name}`;
@@ -757,8 +761,35 @@ export function acceptedSmsMessage(copy: CustomerCopy, a: Acceptance, to: { cont
   return {
     type: "SMS",
     contactId: to.contactId,
-    message: `${hi ? `Hi ${hi}, ${whoFrom}.` : `Hi, ${whoFrom}.`} Thank you for accepting quote ${copy.quoteNumber}! Your deposit is ${amount}. ${how} Once it's in, your date is locked in.\n\nYour accepted quote:\n${to.link}`,
+    message: `${hi ? `Hi ${hi}, ${whoFrom}.` : `Hi, ${whoFrom}.`} Thank you for accepting quote ${copy.quoteNumber}! Your deposit is ${amount}. ${how} Once it's in, your date is locked in.${smsSchedule(a.stages)}\n\nYour accepted quote:\n${to.link}`,
   };
+}
+
+/** Staff-typed words made safe for a GSM-7 text: curly quotes and dashes to plain ones, anything else outside it dropped. */
+export const gsmPlain = (t: string): string =>
+  t
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201c\u201d]/g, '"')
+    .replace(/[\u2013\u2014]/g, "-")
+    .replace(/\u2026/g, "...")
+    .replace(/[^\x20-\x7e\n]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+/**
+ * The payment schedule in a text (2026-11-22): one line per stage shown, "- Deposit: $1,234.00, on acceptance, by
+ * e-transfer". Empty when the deposit is the only stage. The same stages, amounts and notes as the email's schedule.
+ */
+export function smsSchedule(stages: CopyStage[]): string {
+  const shown = stages.filter(shownStage);
+  if (shown.length < 2) return "";
+  const lines = shown.map((s) => {
+    const typed = gsmPlain(stageNote(s));
+    const note = typed.charAt(0).toLowerCase() + typed.slice(1);
+    const amount = s.amount !== null ? cad.format(s.amount) : s.kind === "balance" ? "the balance" : s.pct !== null ? `${s.pct}%` : "";
+    return `- ${gsmPlain(s.label) || "Payment"}: ${[amount, note].filter(Boolean).join(", ")}`;
+  });
+  return `\n\nYour payment schedule:\n${lines.join("\n")}`;
 }
 
 /** The text's words for paying the deposit (2026-11-05: cash, in store, or in two parts). GSM-7 only. */
