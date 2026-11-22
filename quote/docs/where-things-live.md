@@ -577,8 +577,13 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   in-home measurement calendar on its measure step; both GHL calendar ids in `src/lib/ghl/ids.ts`),
   and a transactional footer from the letterhead: no carousel, no click tracking, no unsubscribe. **No HST number** on the page, the PDF or the email (Albert, 2026-10-27: "This is just an estimate, so it's not like a formal invoice"); `QUOTE_COMPANY_HST` is no longer read. The
   accent is the logo's blue (`#283890`), not the old template's terracotta. Tables and inline styles
-  only, 600px collapsing under 620px, no web fonts. The text names who is writing, gives the one
-  number, puts the link on its own line and stays in GSM-7 (no curly quotes or emoji). **Preview the
+  only, 600px collapsing under 620px, no web fonts. The text names who is writing, gives a
+  preliminary's one number (its range), puts the link on its own line and stays in GSM-7 (no curly quotes or emoji).
+  **A measured quote's text and email preheader name no price (Albert, 2026-11-22: "I would want them to open the
+  link", for tracking):** the text says the quote is ready (with N options side by side, good until the date) and
+  "See your price and the full details here:", so the customer opens the page, the open is recorded and the
+  next-day call follows. The email's cards still show the price (opening an email is not tracked); a preliminary
+  keeps its range in both; resends, changes and the accepted message are unchanged. **Preview the
   email** on the Send card (`/q/<id>/preview/email`) shows it exactly as GHL will send it. The
   customer page `/c/<token>` carries OpenGraph tags so the link's preview card in a text shows the
   logo (`public/brand/og.png`), never the customer or the amount. **A preliminary always opens "Thanks for

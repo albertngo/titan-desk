@@ -180,14 +180,16 @@ describe("each scope's price on its own", () => {
     expect(body(mail)).toMatch(/Flooring \$[\d,]+ – \$[\d,]+ \+ HST · Stairs/);
   });
 
-  it("several options in a scope read from the lowest; a measured text names both", () => {
+  it("several options in a scope read from the lowest; a measured text names neither (2026-11-22)", () => {
     const c = copyOf(split());
     const leads = scopeLeads(c, (n) => `$${n}`);
     expect(leads).toEqual([
       { scope: "Flooring", count: 2, phrase: `from $${Math.min(c.options[0].totals.subtotal, c.options[1].totals.subtotal)} + HST` },
       { scope: "Stairs", count: 1, phrase: `$${c.options[2].totals.subtotal} + HST` },
     ]);
-    expect(body(smsMessage(c, TO))).toMatch(/Your quote is ready: flooring from .*, stairs .*, good until/);
+    // A measured text names no price (2026-11-22): the scopes' prices are behind the link.
+    expect(body(smsMessage(c, TO))).toMatch(/Your flooring and stairs quote is ready, good until/);
+    expect(body(smsMessage(c, TO))).not.toContain("$");
   });
 });
 
