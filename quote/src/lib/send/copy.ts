@@ -1,7 +1,7 @@
 import { acceptedLabel, DISCOUNTS_SECTION, isAcceptedLine, isDiscountLine } from "@/lib/pricing/discounts";
 import { DEFAULT_PRIVATE_LABEL, optionHst, PRIVATE_SECTION, SECTIONS, chargesHst, isPriced, lineTotal, optionTotals, priceUsed, privateRollup, round2, sectionOf, stageAmounts, type LineInput } from "@/lib/calc";
 import type { CopyChange } from "@/lib/change/diff";
-import { defaultSchedule, payWords, sameSchedule, scheduleFor, type PayHow, type PaymentSchedule } from "@/lib/pricing/schedule";
+import { defaultSchedule, MATERIAL_PURPOSE, MATERIAL_WHEN, payWords, sameSchedule, scheduleFor, type PayHow, type PaymentSchedule } from "@/lib/pricing/schedule";
 import { optionScope, stairsOptionLines } from "@/lib/quotes/scope";
 import type { Part, Quote, QuoteLine, QuoteOption, Scope } from "@/lib/quotes/types";
 import { copyKind } from "./summary";
@@ -301,8 +301,15 @@ export function stageFigure(s: CopyStage, money: (n: number) => string): string 
   return s.pct !== null ? `${s.pct}%` : "";
 }
 
-/** The line under a stage's name: when it is due, and how it is paid when that is said. */
-export const stageNote = (s: Pick<CopyStage, "when" | "pay">) => [s.when, payWords(s.pay)].filter(Boolean).join(", ");
+/**
+ * The line under a stage's name: when it is due, and how it is paid when that is said. A Materials stage still on the
+ * preset's words says what it is for instead (2026-11-22, MATERIAL_PURPOSE); words staff typed, and the material-first
+ * words, stay as they are.
+ */
+export const stageNote = (s: Pick<CopyStage, "when" | "pay"> & { kind?: CopyStage["kind"] }) => {
+  const when = s.kind === "materials" && s.when === MATERIAL_WHEN ? `On acceptance, ${MATERIAL_PURPOSE}` : s.when;
+  return [when, payWords(s.pay)].filter(Boolean).join(", ");
+};
 
 /** A copy frozen before schedules existed reads as the old 35 / 35 / balance, from its own totals. */
 export function stagesOf(o: CopyOption): CopyStage[] {

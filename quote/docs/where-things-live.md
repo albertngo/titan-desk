@@ -1134,7 +1134,13 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   for the deposit and payment schedule. This could be one SMS altogether along with the link to the accepted quote
   details. Email is the same"):** the text gives the deposit and how to pay it, then the schedule one line a stage
   (`smsSchedule()` in `src/lib/send/plan.ts`, the email's stages and notes, GSM-7), then the link; the email and the text
-  both go whenever the quote has an email address and a phone number, whatever the quote first went out by. GHL's own on-win deposit text is switched
+  both go whenever the quote has an email address and a phone number, whatever the quote first went out by.
+  **What a material deposit is for (Albert, 2026-11-22: "If it is for material deposit. It should say 'For purchasing
+  of the Flooring material before delivery' or something similar"):** `MATERIAL_PURPOSE` in `src/lib/pricing/schedule.ts`,
+  "for purchasing your flooring material before delivery", on the deposit lines (`depositSteps()`), the text
+  (`smsDepositHow()`, its own sentence after how to pay), the sent email's schedule words (`paymentWords()`) and the
+  note under a Materials stage still on the preset's words (`stageNote()`); typed words and `MATERIAL_FIRST_WHEN` stay.
+  This amends "the customer's words give the amount and how to pay, never why" above for the material only; HST is still never the reason given. GHL's own on-win deposit text is switched
   off when this goes live. The yes is written first and stands whatever happens after: a failed hand-off
   is kept on the record and staff **Retry** it; **Cancel acceptance** (with a reason) sets the version
   Lost and the opportunity lost and leaves the Notion project to a person. The customer's link then shows

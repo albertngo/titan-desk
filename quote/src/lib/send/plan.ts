@@ -1,7 +1,7 @@
 import { optionHst, optionTotals, parityDiffs, round2, stageAmountProblems, stageAmounts } from "@/lib/calc";
 import type { Quote } from "@/lib/quotes/types";
 import { sqftFlag, sqftWords } from "@/lib/quotes/sqftCheck";
-import { payWords, scheduleFlags, scheduleProblems, shownStage } from "@/lib/pricing/schedule";
+import { MATERIAL_PURPOSE, payWords, scheduleFlags, scheduleProblems, shownStage } from "@/lib/pricing/schedule";
 import type { Acceptance } from "@/lib/accept/plan";
 import { changeWords as changeLine, paidLeft } from "@/lib/change/diff";
 import { addDays, dollars, hstOf, hstRow, isIsoDate, isRange, isSplit, scopeLeads, scopeOf, leadPrice, longDate, offersPdf, quoteSchedule, rangeText, rangeWhy, stageNote, stagesOf, type CopyOption, type CopyStage, type CustomerCopy } from "./copy";
@@ -429,7 +429,7 @@ export function paymentWords(o: CopyOption): string {
       s.kind === "balance"
         ? "the balance"
         : s.kind === "materials"
-          ? `${i === 0 ? "a deposit" : lower(s.label)} of ${s.amount !== null ? cad.format(s.amount) : "the material's price"} for your materials`
+          ? `${i === 0 ? "a deposit" : lower(s.label)} of ${s.amount !== null ? cad.format(s.amount) : "the material's price"} ${MATERIAL_PURPOSE}`
           : s.kind === "amount" && s.amount !== null
             ? `${cad.format(s.amount)} ${lower(s.label)}`
             : s.kind === "topUp"
@@ -668,7 +668,7 @@ export const depositAmount = (stages: CopyStage[]): number => round2(depositPart
 export function depositSteps(stages: CopyStage[], ctx: { etransfer: string; quoteNumber: string; showroom?: string | null }): string[] {
   const parts = depositParts(stages);
   if (parts.length < 2) return [depositHow(parts[0] ?? { pay: null }, ctx)];
-  return parts.map((s) => `${cad.format(s.amount ?? 0)} ${s.kind === "materials" ? "for your materials" : s.kind === "topUp" ? "for the rest of your deposit" : `for the ${s.label.toLowerCase()}`}: ${depositHow(s, ctx)}`);
+  return parts.map((s) => `${cad.format(s.amount ?? 0)} ${s.kind === "materials" ? MATERIAL_PURPOSE : s.kind === "topUp" ? "for the rest of your deposit" : `for the ${s.label.toLowerCase()}`}: ${depositHow(s, ctx)}`);
 }
 
 /**
@@ -794,7 +794,7 @@ export function smsSchedule(stages: CopyStage[]): string {
 
 /** The text's words for paying the deposit (2026-11-05: cash, in store, or in two parts). GSM-7 only. */
 export function smsDepositHow(stages: CopyStage[], ctx: { etransfer: string; quoteNumber: string; showroom?: string | null }): string {
-  // `it` is the money: "it" for the whole deposit, "$1,000.00 for your materials" for one part of it.
+  // `it` is the money: "it" for the whole deposit, "$1,000.00" for one part of it.
   const one = (s: Pick<CopyStage, "pay">, it: string) =>
     s.pay === "onsite"
       ? `hand ${it} to your project manager on site`
@@ -806,9 +806,12 @@ export function smsDepositHow(stages: CopyStage[], ctx: { etransfer: string; quo
             ? `pay ${it} in store at our showroom`
             : `e-transfer ${it} to ${ctx.etransfer} and put ${ctx.quoteNumber} in the message`;
   const parts = depositParts(stages);
-  if (parts.length < 2) return `Please ${one(parts[0] ?? { pay: null }, "it")}.`;
+  // What a material deposit is for (2026-11-22) as its own sentence, so it never reads as part of the address.
+  if (parts.length < 2) return `Please ${one(parts[0] ?? { pay: null }, "it")}.${parts[0]?.kind === "materials" ? ` It is ${MATERIAL_PURPOSE}.` : ""}`;
   const [m, ...rest] = parts;
-  return `Please ${one(m, `${cad.format(m.amount ?? 0)} for your materials`)}, and ${rest.map((x) => one(x, `the other ${cad.format(x.amount ?? 0)}`)).join(", and ")}.`;
+  const mAmount = cad.format(m.amount ?? 0);
+  const why = m.kind === "materials" ? ` The ${mAmount} is ${MATERIAL_PURPOSE}.` : "";
+  return `Please ${one(m, mAmount)}, and ${rest.map((x) => one(x, `the other ${cad.format(x.amount ?? 0)}`)).join(", and ")}.${why}`;
 }
 
 /* ---------- a change after acceptance (2026-10-27) ---------- */
