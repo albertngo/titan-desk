@@ -182,6 +182,8 @@ export type RateRow = {
   uom: string | null;
   rate: number;
   cost: number;
+  /** Rate Card → Labor Cost (2026-11-22): what a payout card pays per unit for this work; null when blank. */
+  labourCost?: number | null;
   minCharge: number | null;
   defaultWaste: number | null;
   /** Install Materials group the job's material can be swapped within (2026-10-16); absent = no swap. */
