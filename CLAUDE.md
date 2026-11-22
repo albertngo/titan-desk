@@ -99,7 +99,9 @@ one only points at it (Albert, 2026-10-27).
   recorded decision.
 - **Capture as it happens**, not at the end: a decision Albert makes or changes goes to
   `05_decisions/`, an analysis with findings worth keeping to `09_analyses/`, a platform
-  quirk, trap or ID to `06_platforms/`. Draft it, show it, write it when he says yes.
+  quirk, trap or ID to `06_platforms/`. Decisions are written straight away, hands-free,
+  to `/tmp/vault` (CONVENTIONS v2.3, see `.claude/CLAUDE.md`); draft and show the rest, and
+  write them when he says yes.
 - **A vault note this repo cites must exist.** If a comment, doc or commit here points at a
   vault note, write that note in the same session.
 - **Land it on `main-vault`.** A vault commit left on a session branch never reaches
