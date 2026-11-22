@@ -329,7 +329,7 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   `methodCost` too; both parts on the card = no override). A line typed before the split has no glue figure: its method
   reads as the card's and the glue as the rest, as it did. Swapping the glue keeps a typed method and brings the new
   glue in at its card figure; Back to the card, a method switch and a whole-line revert clear both. Payout cards pay
-  the cost override less the typed glue cost when there is one (`labourRate()`).
+  the Rate Card row's Labor Cost (`labourRate()`, since 2026-11-22).
   **Line words from Customer Wording** (same day: "draft the wordings, use everywhere"): Rate Card → **Customer
   Wording** names the work and Install Materials → **Customer Wording** the glue (both made that day; blank = the row's
   own "Labor Type | Specification" or Name). A line reads `entryWords()` + `materialPart()`, e.g. "Solid Hardwood T&G
@@ -1329,8 +1329,9 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   options' lines (`payoutCandidates()` / `groupCards()` in `src/lib/payout/cards.ts`). Chosen by Albert the same day:
   Install, Stairs, Removal, Prep and Disposal lines start **ticked**; Delivery, Other, Private and unsorted lines are
   listed **unticked**; Materials, Discounts and Exclusions never appear; an add-on counts only when the customer took it.
-  **The rate starts at our labour cost** (`labourRate()`): a Rate Card line with a swapped material pays the row's cost
-  without the material (the card's labour when a cost was typed, as `materialSplit()` reads it); a Stair Item pays its
+  **The rate starts at our labour cost** (`labourRate()`): a Rate Card line pays the row's **Labor Cost**, only
+  (Albert, 2026-11-22: "Simply ONLY use the rate card's labor cost for labor payouts"; typed costs and the glue never
+  change it, a blank Labor Cost leaves the rate to type, a row since switched off falls back to the line's cost); a Stair Item pays its
   Labor Cost without its Material Cost (a line snapped before 2026-10-31 already holds labour only; `getRateCard()` now
   carries `labourCost` on Stair Items); anything else pays the line's cost (override, then snap); a typed whole-line
   cost is spread over the quantity. The quantity is the line's own, **without waste**. Staff tick and untick, retype

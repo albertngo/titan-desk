@@ -73,7 +73,7 @@ function option(over: Partial<QuoteOption> = {}): QuoteOption {
 }
 
 const card: RateCard = {
-  rates: [{ id: "recRATE0000000001", labourType: "Install", spec: "Glue down", contractor: "Crew A", uom: "sqft", rate: 4, cost: 1.5, minCharge: null, defaultWaste: null, materialGroup: "Glue", defaultMaterialId: "recMAT00000000001" }],
+  rates: [{ id: "recRATE0000000001", labourType: "Install", spec: "Glue down", contractor: "Crew A", uom: "sqft", rate: 4, cost: 1.5, labourCost: 1.2, minCharge: null, defaultWaste: null, materialGroup: "Glue", defaultMaterialId: "recMAT00000000001" }],
   stairs: [
     { id: "recSTAIR000000001", name: "Step", category: "step", size: null, rate: 90, cost: 50, labourCost: 35 },
     { id: "recSTAIR000000002", name: "Riser", category: "riser", size: null, rate: 30, cost: 12, labourCost: 12 },
@@ -90,11 +90,17 @@ describe("labourRate: what Titan pays for one unit, labour only", () => {
     expect(labourRate(line({ costOverride: 2.25 }), card)).toBe(2.25);
   });
 
-  it("takes the swapped material out of a Rate Card line", () => {
+  it("pays a Rate Card line the row's Labor Cost, only (2026-11-22)", () => {
     const l = line({ sourceKind: "rate", sourceId: "recRATE0000000001", materialId: "recMAT00000000001", unitCostSnap: 1.9 });
-    expect(labourRate(l, card)).toBe(1.5);
-    // A typed cost on a material line is the card's labour + the typed material: the labour is the card's.
-    expect(labourRate({ ...l, costOverride: 2.5 }, card)).toBe(1.5);
+    expect(labourRate(l, card)).toBe(1.2);
+    // Nothing typed on the line moves it: a cost override, the glue's cost, a whole-line cost.
+    expect(labourRate({ ...l, costOverride: 2.6, materialCost: 0.5 }, card)).toBe(1.2);
+    expect(labourRate({ ...l, manualCost: 900, qty: 300 }, card)).toBe(1.2);
+    expect(labourRate({ ...l, materialId: null, unitCostSnap: 1.5 }, card)).toBe(1.2);
+    // A blank Labor Cost leaves the rate blank to type.
+    expect(labourRate(l, { ...card, rates: [{ ...card.rates[0], labourCost: null }] })).toBeNull();
+    // A row no longer on the card: the line's own cost.
+    expect(labourRate({ ...l, sourceId: "recRATE0000000099" }, card)).toBe(1.9);
   });
 
   it("takes a Stair Item's material cost out, and leaves a labour-only snap from before 2026-10-31 alone", () => {

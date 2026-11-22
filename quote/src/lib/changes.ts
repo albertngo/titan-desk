@@ -21,6 +21,15 @@ export type Change = {
 
 export const CHANGES: Change[] = [
   {
+    date: "2026-11-22",
+    kind: "fixed",
+    title: "Payout cards pay the Rate Card's Labor Cost",
+    details: [
+      "Every line from the Rate Card now starts on a payout card at that row's Labor Cost, whatever cost was typed on the quote. Glue and other materials never change it.",
+      "Before, a glue line took the glue's current cost off the line's cost, so a line saved before the glue's cost went up paid too little. Press Build cards again to pick up the right rate. A row with a blank Labor Cost shows no rate until you type one.",
+    ],
+  },
+  {
     date: "2026-11-20",
     kind: "changed",
     title: "Quotes open on the first offered option",
