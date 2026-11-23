@@ -1,0 +1,101 @@
+<style>
+@page { size: Letter; margin: 0.6in 0.65in; }
+.page { font-family: Inter, -apple-system, "Segoe UI", Arial, sans-serif; color: #1f2733; font-size: 10.5pt; line-height: 1.45; max-width: 7.2in; margin: 0 auto; }
+h1 { font-size: 22pt; margin: 0 0 2pt; }
+.sub { color: #5a6573; margin: 0 0 10pt; }
+h2 { font-size: 13pt; margin: 14pt 0 6pt; padding-bottom: 3pt; border-bottom: 2px solid #1e6fff; break-after: avoid; }
+table { width: 100%; border-collapse: collapse; margin: 4pt 0 6pt; break-inside: auto; }
+th { text-align: left; font-weight: 600; color: #5a6573; background: #f1f4f8; padding: 4pt 6pt; font-size: 9.5pt; }
+td { padding: 4pt 6pt; border-bottom: 1px solid #dfe4ea; vertical-align: top; }
+tr { break-inside: avoid; }
+td:first-child { font-weight: 600; width: 30%; }
+.pill { display: inline-block; padding: 0 6pt; border-radius: 999px; font-size: 9pt; font-weight: 600; }
+.red { background: #fdebe9; color: #c2382b; } .amber { background: #fff5dc; color: #9a6a00; } .grey { background: #eef1f4; color: #5a6573; } .blue { background: #e8f0ff; color: #1e6fff; } .green { background: #e5f5ee; color: #16865a; }
+.note { border-left: 3px solid #1e6fff; background: #f6f8fb; padding: 6pt 9pt; margin: 6pt 0; break-inside: avoid; }
+.row { border: 1px solid #dfe4ea; border-radius: 6pt; padding: 6pt 9pt; margin: 6pt 0; font-size: 10pt; display: flex; gap: 10pt; align-items: center; break-inside: avoid; }
+.row .dot { width: 7pt; height: 7pt; border-radius: 50%; background: #c2382b; display: inline-block; margin-right: 3pt; }
+.row .who { min-width: 1.4in; } .row .who small { display: block; color: #5a6573; }
+.row .step { flex: 1; color: #5a6573; } .row .step b { color: #1f2733; }
+.row .btn { background: #1e6fff; color: #fff; border-radius: 6pt; padding: 3pt 8pt; font-weight: 600; font-size: 9pt; white-space: nowrap; }
+ul, ol { margin: 4pt 0; padding-left: 16pt; } li { margin: 2pt 0; }
+.foot { margin-top: 14pt; padding-top: 6pt; border-top: 1px solid #ccd3db; color: #5a6573; font-size: 9pt; }
+</style>
+<div class="page">
+<h1>Follow up: staff guide</h1>
+<p class="sub">Titan Quotes · Your morning brief · v3, November 2026</p>
+
+<h2>What changed since v2</h2>
+<ul>
+<li><b>Follow up is now a morning brief.</b> One line per person, with one button that does the next step. Everything else is behind the arrow.</li>
+<li><b>Three groups:</b> Reach today, If you have time, and Later (folded).</li>
+<li><b>What you've done stays on the list</b>, ticked and greyed, until tomorrow. The top line counts how many are done.</li>
+<li><b>You can change the next step</b>, and leave a <b>note for the brief</b> on a customer.</li>
+<li><b>When you do something other than the suggestion</b>, the app may ask why in one tap. It's optional, and it's how the suggestions get better.</li>
+<li>The conversation panel opens when you open a person, not before.</li>
+</ul>
+
+<h2>Reading your morning</h2>
+<p>The top line says your day in one sentence, for example "Joey, 6 people today: 2 texts, 1 call, 1 visit to book. 2 done." The name buttons beside it (Pourya | Joey | Albert | Everyone) switch whose day it is.</p>
+<div class="row"><span><span class="dot"></span><b>81</b></span><span class="who"><b>Sarah Mitchell</b><small>with Joey · $14.2k</small></span><span class="step"><span class="pill red">Replied</span> <b>Send a text:</b> asked "does the nosing match the oak", not answered yet</span><span>1 day late</span><span class="btn">Review text</span></div>
+<table>
+<tr><th>On the line</th><th>What it means</th></tr>
+<tr><td>Dot and number</td><td>The score, 0 to 100: roughly the chance it closes. Red is <b>Needs you</b> (20 or more, or a flag), amber is <b>Watch</b>.</td></tr>
+<tr><td>Name, "with Joey", value</td><td>The customer, who they're talking to, and the likely job size.</td></tr>
+<tr><td><span class="pill red">Replied</span> <span class="pill red">Owed</span></td><td>We owe them: they replied and nobody answered, or the visit happened and the measured quote isn't out. These sit at the top.</td></tr>
+<tr><td>The step</td><td>What the brief suggests, and why in a few words.</td></tr>
+<tr><td>The button</td><td>Does the step. See the next table.</td></tr>
+<tr><td>Arrow</td><td>Opens the person: the full brief and draft, the facts, the score's reasons, and every action. One person at a time.</td></tr>
+</table>
+
+<h2>The one button</h2>
+<table>
+<tr><th>Button</th><th>What it does</th></tr>
+<tr><td>Review text / Review email</td><td>Opens the draft. Edit it, press <b>Send text</b>, check the preview, <b>Send now</b>. Nothing goes to a customer from the line itself.</td></tr>
+<tr><td>Copy and open GHL</td><td>Preliminaries: copies the draft and opens GHL. Paste and send it there.</td></tr>
+<tr><td>Open in GHL</td><td>A call: opens the customer in GHL. The call counts on its own once it shows in GHL.</td></tr>
+<tr><td>Copy booking link</td><td>A visit to book: copies the in-home booking link.</td></tr>
+<tr><td>Write quote</td><td>The visit happened: opens the quote to write the measured version.</td></tr>
+<tr><td>Close it out</td><td>Opens Lost. Pick GHL's reason.</td></tr>
+<tr><td>Snooze 7 days</td><td>They said when to come back and it isn't time yet.</td></tr>
+</table>
+
+<h2>Done for today</h2>
+<p>A row ticks off when anything reaches the customer today: a Send, a text, email or call in GHL, I followed up, Snooze, Postpone or Lost. It greys, says what was done (<span class="pill green">✓ Texted 9:14 AM</span>) and moves under the ones still to do. Quotes marked Lost stay, ticked, until tomorrow.</p>
+
+<h2>When you disagree with the brief</h2>
+<ul>
+<li><b>Change the step:</b> open the person and pick another in <b>Next step</b>. The brief is rewritten for it, draft included.</li>
+<li><b>Note for the brief:</b> open the person and add a note, like "wife decides, call evenings". Every brief for this customer follows it, on this quote and their next. It also goes into their GHL conversation as an internal comment.</li>
+<li><b>Why?</b> When you snooze a suggested text, or pick a call instead, the app may ask why: <i>Not ready</i>, <i>Prefer to call</i>, <i>Wrong read</i>, <i>Already handled</i>. Tap one or skip it.</li>
+</ul>
+<div class="note"><b>How the app learns.</b> Every button records what was suggested and what you did. The next brief for that customer is told your note and the last three times you went against it, so it doesn't repeat a step you turned down. Albert reviews the patterns; the rules only change when he approves a change.</div>
+
+<h2>The groups</h2>
+<table>
+<tr><th>Group</th><th>What's in it</th></tr>
+<tr><td>Reach today</td><td>Needs you and due, plus visits owed a measured quote. Owed first, then highest score.</td></tr>
+<tr><td>If you have time</td><td>Watch and due: some interest, not hot yet.</td></tr>
+<tr><td>Later (folded)</td><td><b>Next up</b> (Needs you, past today's limit of 8), <b>Coming up</b>, <b>Postponed</b>, <b>Snoozed</b>, and <b>On auto</b> (preliminaries GHL's texts are handling; they move up on their own when the customer engages).</td></tr>
+</table>
+<p>The score, the flags and the reasons a quote is due are the same as in v2.</p>
+
+<h2>Rules</h2>
+<ol>
+<li><b>Owed first</b>, then the rest of Reach today, then If you have time.</li>
+<li><b>Open the person and read the conversation before you reach out.</b></li>
+<li><b>Check the preview before Send now.</b> It goes to a real customer and can't be taken back.</li>
+<li><b>Log what GHL can't see</b> with I followed up.</li>
+<li><b>Lost only on the customer's word. Postpone only to a date they gave</b>; otherwise Snooze.</li>
+<li><b>Tell the brief what it should know</b> with a note. Tap a reason when you disagree.</li>
+<li><b>Never share internal notes or costs</b> with a customer.</li>
+</ol>
+
+<h2>A good five minutes</h2>
+<ol>
+<li>Open Follow up. Read the top line.</li>
+<li>Work Reach today top to bottom: press the button, or open the person if you need more.</li>
+<li>Then If you have time.</li>
+<li>Done when every line in Reach today has a tick.</li>
+</ol>
+<p class="foot">Titan Flooring · Follow up page guide v3 · 2026-11-22. Replaces v2 (2026-11-10), which is kept. Questions: Albert.</p>
+</div>

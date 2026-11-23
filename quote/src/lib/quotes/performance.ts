@@ -5,6 +5,7 @@ import { OPTION, QUOTE, T, VERSION } from "@/lib/airtable/fields";
 import { isAdminEmail } from "@/lib/settings/settings";
 import { requireQuoterPerson } from "@/lib/auth";
 import { ownerOf, parseState } from "@/lib/followup/plan";
+import { overrideStats, type Outcome, type OverrideStats } from "@/lib/followup/choices";
 import { emptyPerson, hoursInTiers, lateness, median, needsYouResponse, type PersonPerf } from "@/lib/followup/perf";
 import { loadFollowUps } from "./followup";
 import { offerValue, torontoDay, type OptionMoney } from "./group";
@@ -20,7 +21,20 @@ export const WINDOW_DAYS = 30;
 
 /** One week of the trend charts (2026-11-10: "for performance; i need graphs"), Monday start, Toronto days. */
 export type PerfWeek = { start: string; medianReply: number | null; replies: number; sent: number; accepted: number };
-export type PerfPage = { since: string; today: string; people: PersonPerf[]; everyone: PersonPerf; stateLogSince: string | null; weeks: PerfWeek[] };
+export type PerfPage = {
+  since: string;
+  today: string;
+  people: PersonPerf[];
+  everyone: PersonPerf;
+  stateLogSince: string | null;
+  weeks: PerfWeek[];
+  /** The Stage 2 report, moved here from Follow up (2026-11-22): Albert switches automatic sending on when it says ready. */
+  sending: { taps: number; share: number; ready: boolean; autoOn: boolean };
+  /** Where staff went against the suggested step (2026-11-22), from the choice log. */
+  overrides: OverrideStats;
+  /** The first choice logged, so the page can say how far back the report goes. */
+  choicesSince: string | null;
+};
 
 /** The Monday on or before a Toronto day. */
 const mondayOf = (day: string) => {
@@ -145,7 +159,20 @@ export async function loadPerformance(): Promise<PerfPage> {
     all.wonValue += r.wonValue;
     for (const [k, n] of Object.entries(r.reasons)) all.reasons[k] = (all.reasons[k] ?? 0) + n;
   }
+  // The choice log across every quote, with how each has turned out so far (2026-11-22).
+  const outcomeOf = (qid: string): Outcome => {
+    const qs = quoteState.get(qid);
+    const vs = versions.filter((v) => ids(v.fields[VERSION.quote])[0] === qid);
+    if (qs?.won || vs.some((v) => ["Accepted", "Won"].includes(str(v.fields[VERSION.status]) ?? ""))) return "won";
+    if (qs?.state.lost) return "lost";
+    return "open";
+  };
+  const logged = [...quoteState.entries()].map(([qid, qs]) => ({ choices: qs.state.choices ?? [], outcome: outcomeOf(qid) })).filter((x) => x.choices.length);
+  const firstChoice = logged.flatMap((x) => x.choices.map((c) => c.at)).sort()[0] ?? null;
   return {
+    sending: { taps: page.sending.taps, share: page.sending.share, ready: page.sending.ready, autoOn: page.sending.autoOn },
+    overrides: overrideStats(logged, since, (email) => nameOf(email)),
+    choicesSince: firstChoice ? firstChoice.slice(0, 10) : null,
     since: since.slice(0, 10),
     today,
     people: [...raw.entries()].filter(([k]) => k !== "Nobody").map(([k, r]) => summarise(k, r)).sort((a, b) => a.person.localeCompare(b.person)),

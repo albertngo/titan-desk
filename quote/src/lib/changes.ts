@@ -23,6 +23,16 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-23",
     kind: "changed",
+    title: "Follow up is a morning brief",
+    details: [
+      "Follow up now opens with your day in one sentence (\"Joey, 6 people today: 2 texts, 1 call…\") and one line per person: the score, who they're with, the job size, the next step and one button that does it. Open a person with the arrow for the brief, the draft, the facts and every other button. The conversation opens when you open someone.",
+      "Three groups: Reach today, If you have time, and Later (folded). Anyone we owe an answer or a measured quote sits at the top. What you've done today stays on the list, ticked, until tomorrow.",
+      "You can pick a different next step (the brief is rewritten for it) and add a note for the brief on a customer, like \"wife decides, call evenings\". When you do something other than the suggestion, one optional tap says why. The staff guide v3 is under Company files.",
+    ],
+  },
+  {
+    date: "2026-11-23",
+    kind: "changed",
     title: "A change says it is taken as accepted",
     details: [
       "When you send a change to an accepted quote, the email, the text and the customer's page now say: \"These are the changes we talked through together, so we'll go ahead with them. If anything doesn't look right, let your project manager know right away and we'll sort it out.\"",

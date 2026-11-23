@@ -3,6 +3,8 @@ import { TopBar } from "@/components/TopBar";
 import { requireQuoter } from "@/lib/auth";
 import { loadPerformance, WINDOW_DAYS } from "@/lib/quotes/performance";
 import type { PersonPerf } from "@/lib/followup/perf";
+import type { OverrideStat } from "@/lib/followup/choices";
+import { STEP_WORDS } from "@/lib/followup/morning";
 import { LostBars, OutcomeTrend, PersonBars, ReplyTrend } from "@/components/PerfCharts";
 
 export const dynamic = "force-dynamic";
@@ -85,12 +87,103 @@ export default async function PerformancePage() {
               </ul>
             )}
           </div>
+          <OverrideTable title="Suggestions: by step" note="Each time a button was pressed on Follow up, against what the brief suggested. Going against it counts when staff did something else (snoozed a text, picked another step)." rows={data.overrides.bySuggested.map((r) => ({ ...r, label: STEP_WORDS[r.label as keyof typeof STEP_WORDS] ?? r.label }))} />
+          <OverrideTable title="Suggestions: by person" note="Who goes against the suggestions, and why." rows={data.overrides.byPerson} />
+          <OverrideTable title="Suggestions: by score" note="The score when the button was pressed." rows={data.overrides.byBand} />
+          <div className="pf-sec">
+            <h2 className="pf-h">Did going against it work?</h2>
+            <p className="pf-note">Quotes with at least one choice logged in the window, by whether staff ever went against the suggestion, and how they have turned out so far.</p>
+            <div className="pf-scroll">
+              <table className="pf-t">
+                <thead>
+                  <tr>
+                    <th>Quotes</th>
+                    <th>Won</th>
+                    <th>Lost</th>
+                    <th>Still open</th>
+                    <th>Win rate</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(
+                    [
+                      ["Went against it at least once", data.overrides.outcomes.overridden],
+                      ["Followed the suggestions", data.overrides.outcomes.followed],
+                    ] as const
+                  ).map(([label, o]) => (
+                    <tr key={label}>
+                      <th scope="row">{label}</th>
+                      <td>{o.won}</td>
+                      <td>{o.lost}</td>
+                      <td>{o.open}</td>
+                      <td>{pct(o.won, o.won + o.lost)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="pf-note">
+              Drafts sent from the app: {data.overrides.edited.sends}, {pct(data.overrides.edited.asWritten, data.overrides.edited.sends)} as written. A pattern worth acting on becomes a proposed rule change, recorded as a decision only when Albert approves it; the score and the briefs never change on their own.
+            </p>
+          </div>
+          {/* Moved from Follow up (2026-11-22). The Stage 2 report: Albert switches automatic sending on when this says ready. */}
+          <div className="pf-sec">
+            <h2 className="pf-h">Sending from the app</h2>
+            <p className="pf-note">
+              Measured follow-ups sent with Send: {data.sending.taps}
+              {data.sending.taps ? `, ${Math.round(data.sending.share * 100)}% as written` : ""}.{" "}
+              {data.sending.autoOn ? "Automatic sending is on." : data.sending.ready ? "Ready for automatic sending: it's your switch." : "Automatic sending is ready after 30 sent with 80% as written."}
+            </p>
+          </div>
           <p className="pf-note pf-foot">
+            The suggestion tables build up from the choice log, which started {data.choicesSince ?? "today"}.{" "}
             On-time and Needs you build up from the state log, which started {data.stateLogSince ?? "today"}: these numbers fill in over the coming weeks. Reply speed reads GHL directly, so it covers the whole window for quotes still open.
           </p>
         </section>
       </div>
     </>
+  );
+}
+
+function OverrideTable({ title, note, rows }: { title: string; note: string; rows: OverrideStat[] }) {
+  return (
+    <div className="pf-sec">
+      <h2 className="pf-h">{title}</h2>
+      <p className="pf-note">{note}</p>
+      {rows.length === 0 ? (
+        <p className="pf-note">Nothing logged in the window yet.</p>
+      ) : (
+        <div className="pf-scroll">
+          <table className="pf-t">
+            <thead>
+              <tr>
+                <th />
+                <th>Acted on</th>
+                <th>Went against it</th>
+                <th>Why</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.label}>
+                  <th scope="row">{r.label}</th>
+                  <td>{r.acted}</td>
+                  <td>
+                    {r.overrides} ({pct(r.overrides, r.acted)})
+                  </td>
+                  <td>
+                    {Object.entries(r.reasons)
+                      .sort((a, b) => (b[1] ?? 0) - (a[1] ?? 0))
+                      .map(([k, n]) => `${k} ${n}`)
+                      .join(" · ") || "n/a"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
 }
 

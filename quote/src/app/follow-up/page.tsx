@@ -7,7 +7,7 @@ import { loadFollowUps } from "@/lib/quotes/followup";
 
 export const dynamic = "force-dynamic";
 
-/** The Follow up page (Albert, 2026-11-07): every sent quote still waiting on the customer, the due ones first. */
+/** The Follow up page (Albert, 2026-11-07), a morning brief since 2026-11-22: every sent quote still waiting on the customer. */
 export default async function FollowUpPage() {
   const email = await requireQuoter();
   const data = await loadFollowUps();
@@ -20,7 +20,7 @@ export default async function FollowUpPage() {
           <div className="titles">
             <h1>Follow up</h1>
             <p>
-              Sent quotes still waiting on the customer, due first. A text, email or call in GHL counts as a follow-up on its own.
+              Who to reach today, and the one next step for each. Open a person for the brief, the conversation and every action.
               {admin && (
                 <>
                   {" "}
