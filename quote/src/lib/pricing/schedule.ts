@@ -116,7 +116,7 @@ export const PRESETS: Record<Exclude<PresetKey, "custom">, { name: string; sched
     schedule: () => ({
       preset: "materials",
       stages: [
-        stage("Materials", "On acceptance, for your materials, to secure them and your dates", { kind: "materials" }, "etransfer"),
+        stage("Materials", MATERIAL_WHEN, { kind: "materials" }, "etransfer"),
         stage("Rest of the deposit", "On acceptance, to secure your dates", { kind: "topUp", pct: 35 }, "instore"),
         stage("Second payment", WHEN.firstDay, { kind: "ofTotal", pct: 35 }, "onsite"),
         stage("Final payment", WHEN.completion, { kind: "balance" }, "onsite"),
@@ -149,6 +149,16 @@ export const defaultSchedule = (): PaymentSchedule => PRESETS["35-35-30"].schedu
  * the flooring material is required first. And the selected option of clearing material first is selected").
  */
 export const MATERIAL_FIRST_WHEN = "Purchasing of the flooring material is required first";
+
+/**
+ * What a material deposit is for, in the customer's words (Albert, 2026-11-22: "If it is for material deposit. It should
+ * say 'For purchasing of the Flooring material before delivery' or something similar"). The deposit lines, the text and
+ * the schedule's note on a Materials stage say it.
+ */
+export const MATERIAL_PURPOSE = "for purchasing your flooring material before delivery";
+
+/** The preset's own "when" on a Materials stage, which the customer now reads as MATERIAL_PURPOSE (2026-11-22). */
+export const MATERIAL_WHEN = "On acceptance, for your materials, to secure them and your dates";
 
 /**
  * The material deposit with the material-first words (2026-11-06). `cash` (nothing on the quote carries HST) pays every

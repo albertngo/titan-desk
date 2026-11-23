@@ -39,6 +39,24 @@ export const CHANGES: Change[] = [
   },
   {
     date: "2026-11-22",
+    kind: "changed",
+    title: "A material deposit says what it is for",
+    details: [
+      "When the deposit is for the material, the customer now reads that it is for purchasing their flooring material before delivery: on the quote's payment schedule, the PDF, the emails, the acceptance text and the accepted page.",
+      "A Materials stage whose words you typed yourself, or that says purchasing the material is required first, keeps its own words.",
+    ],
+  },
+  {
+    date: "2026-11-22",
+    kind: "changed",
+    title: "The acceptance text carries the payment schedule",
+    details: [
+      "When a quote is accepted, the customer's text now gives the deposit and how to pay it, then every payment in the schedule with its amount and when it is due, then the link to their accepted quote, all in one text.",
+      "The acceptance email and text now both go whenever the customer has an email address and a phone number, not only the way the quote was first sent. The text still goes from the sender's own GHL number.",
+    ],
+  },
+  {
+    date: "2026-11-22",
     kind: "fixed",
     title: "Payout cards pay the Rate Card's Labor Cost",
     details: [

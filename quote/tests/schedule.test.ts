@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { materialsDeposit, optionTotals, stageAmountProblems, stageAmounts, type LineInput } from "../src/lib/calc";
-import { autoReason, autoSchedule, MATERIAL_FIRST_WHEN, materialFirst, materialFirstSchedule, scheduleFlags, cleanSchedule, defaultSchedule, payWords, PRESETS, sameSchedule, scheduleField, scheduleProblems, shownStage, suggestsMaterialDeposit, type PaymentSchedule } from "../src/lib/pricing/schedule";
+import { autoReason, autoSchedule, MATERIAL_FIRST_WHEN, MATERIAL_WHEN, materialFirst, materialFirstSchedule, scheduleFlags, cleanSchedule, defaultSchedule, payWords, PRESETS, sameSchedule, scheduleField, scheduleProblems, shownStage, suggestsMaterialDeposit, type PaymentSchedule } from "../src/lib/pricing/schedule";
 import { cleanEditorQuote, fingerprint, planSave } from "../src/lib/quotes/savePlan";
 import { VERSION } from "../src/lib/airtable/fields";
 import { blankQuote, setSchedule } from "../src/lib/editor/model";
 import { acceptedFromAttempts, depositAmount, depositParts, depositSteps, paymentWords, smsDepositHow } from "../src/lib/send/plan";
-import { stagesOf, type CopyOption, type CopyStage } from "../src/lib/send/copy";
+import { stageNote, stagesOf, type CopyOption, type CopyStage } from "../src/lib/send/copy";
 
 /* Invented numbers only (quote/CLAUDE.md rule 4). */
 
@@ -281,7 +281,7 @@ describe("payment schedule: in words", () => {
       ]),
     );
     expect(words).toBe(
-      "A deposit of $2,260.00 for your materials on acceptance, by e-transfer; 20% second payment on the first day of work, handed to your project manager on site; and the balance within 48 hours of completion, handed to your project manager on site. Nothing is final until the deposit is in; once it is, your materials are ordered and your date is locked in.",
+      "A deposit of $2,260.00 for purchasing your flooring material before delivery on acceptance, by e-transfer; 20% second payment on the first day of work, handed to your project manager on site; and the balance within 48 hours of completion, handed to your project manager on site. Nothing is final until the deposit is in; once it is, your materials are ordered and your date is locked in.",
     );
     expect(words).not.toMatch(/HST|cash/i);
   });
@@ -317,6 +317,17 @@ describe("payment schedule: cash and in-store words", () => {
     expect(payWords("cashOnsite")).toBe("in cash, handed to your project manager on site");
   });
 
+  it("says what a material deposit is for: the note, a one-part deposit and its text (2026-11-22)", () => {
+    expect(stageNote({ when: MATERIAL_WHEN, pay: "etransfer", kind: "materials" })).toBe("On acceptance, for purchasing your flooring material before delivery, by e-transfer");
+    // Words staff typed, the material-first words, and other stages are left as they are.
+    expect(stageNote({ when: "When we order", pay: "etransfer", kind: "materials" })).toBe("When we order, by e-transfer");
+    expect(stageNote({ when: MATERIAL_FIRST_WHEN, pay: null, kind: "materials" })).toBe(MATERIAL_FIRST_WHEN);
+    expect(stageNote({ when: MATERIAL_WHEN, pay: null, kind: "share" })).toBe(MATERIAL_WHEN);
+    const one = [st({ label: "Materials", pay: "etransfer", amount: 2500, kind: "materials" }), st({ label: "Final payment", pay: "onsite", amount: 1000, kind: "balance" })];
+    expect(smsDepositHow(one, ctx)).toBe("Please e-transfer it to pay@example.com and put Q-1 in the message. It is for purchasing your flooring material before delivery.");
+    expect(smsDepositHow([st({ pay: "etransfer", amount: 350 })], ctx)).not.toContain("flooring material");
+  });
+
   it("breaks a material deposit under 35% into the material by e-transfer and the rest in store", () => {
     const stages = [
       st({ label: "Materials", pay: "etransfer", amount: 452, kind: "materials" }),
@@ -327,11 +338,11 @@ describe("payment schedule: cash and in-store words", () => {
     expect(depositParts(stages).map((s) => s.label)).toEqual(["Materials", "Rest of the deposit"]);
     expect(depositAmount(stages)).toBe(1908.2);
     expect(depositSteps(stages, ctx)).toEqual([
-      "$452.00 for your materials: Send it by e-transfer to pay@example.com and put Q-1 in the message.",
+      "$452.00 for purchasing your flooring material before delivery: Send it by e-transfer to pay@example.com and put Q-1 in the message.",
       "$1,456.20 for the rest of your deposit: Pay it in store at our showroom, 1 Example St, Exampletown, and mention Q-1.",
     ]);
     const sms = smsDepositHow(stages, ctx);
-    expect(sms).toBe("Please e-transfer $452.00 for your materials to pay@example.com and put Q-1 in the message, and pay the other $1,456.20 in store at our showroom.");
+    expect(sms).toBe("Please e-transfer $452.00 to pay@example.com and put Q-1 in the message, and pay the other $1,456.20 in store at our showroom. The $452.00 is for purchasing your flooring material before delivery.");
     // The text stays GSM-7 and never says cash for the in-store part.
     expect(sms).not.toMatch(/cash|[\u2018\u2019\u201c\u201d\u2013\u2014]/);
     const words = paymentWords(opt(stages));
