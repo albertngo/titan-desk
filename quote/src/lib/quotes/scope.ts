@@ -50,6 +50,16 @@ export function scopeGroups<O extends Parameters<typeof optionScope>[0]>(options
 }
 
 /**
+ * The option a quote opens on (Albert, 2026-11-20: "When something is 'not offered' can we ensure only the next 'open'
+ * option is selected as default? rather than the first one on the list"): the first offered one in tab order (flooring
+ * first, then stairs), else the first tab when none is offered. Null with no options.
+ */
+export function firstOpenOption<O extends Parameters<typeof optionScope>[0] & { notOffered?: boolean | null }>(options: O[]): O | null {
+  const tabs = scopeGroups(options).groups.flatMap((g) => g.options);
+  return tabs.find((o) => !o.notOffered) ?? tabs[0] ?? null;
+}
+
+/**
  * A stairs option has one section, Stairs (Albert, 2026-11-06: "simply eliminate the PRIVATE logic in stairs altogether.
  * Only the OTHER section is visible. and Other section behaves like it does as any other section. just a header
  * separation"). Its "Other" is the heading inside Stairs for lines with no Stair Item category (typed lines), like

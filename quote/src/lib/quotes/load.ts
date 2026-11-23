@@ -483,6 +483,7 @@ export async function getRateCard(): Promise<RateCard> {
           uom: str(f[RATE.uom]),
           rate,
           cost: num(f[RATE.totalCost]) ?? 0,
+          labourCost: num(f[RATE.laborCost]),
           minCharge: num(f[RATE.minCharge]),
           defaultWaste: num(f[RATE.defaultWaste]),
           materialGroup: str(f[RATE.materialGroup]),

@@ -348,7 +348,7 @@ describe("the messages", () => {
     // A measured text names no price, HST or not (2026-11-22): the price is behind the link.
     expect(ot.type === "SMS" && ot.message).not.toMatch(/\$|HST/);
     // Two options: the text says how many, still no price.
-    const pricier = option("Oak", quote().options[0].lines.map((l) => ({ ...l, unitPrice: (l.unitPrice ?? 0) * 2, unitPriceSnap: l.unitPriceSnap === null ? null : l.unitPriceSnap * 2 })));
+    const pricier = option("Oak", quote().options[0].lines.map((l) => ({ ...l, unitPrice: l.unitPrice === null ? null : l.unitPrice * 2, unitPriceSnap: l.unitPriceSnap === null ? null : l.unitPriceSnap * 2 })));
     pricier.airtable = optionTotals(pricier.lines, 0.1, true);
     const two = smsMessage(customerCopy(quote({ options: [pricier, quote().options[0]] }), AT), to);
     expect(two.type === "SMS" && two.message).toContain("Your flooring quote is ready, with 2 options side by side, good until");
@@ -868,7 +868,7 @@ describe("a preliminary goes as a range (Albert, 2026-10-27)", () => {
 
   it("texts several options as how many and from as low as the lowest range's low end (2026-10-31)", () => {
     const lines = quote().options[0].lines;
-    const pricier = lines.map((l) => ({ ...l, unitPrice: (l.unitPrice ?? 0) * 2, unitPriceSnap: l.unitPriceSnap === null ? null : l.unitPriceSnap * 2 }));
+    const pricier = lines.map((l) => ({ ...l, unitPrice: l.unitPrice === null ? null : l.unitPrice * 2, unitPriceSnap: l.unitPriceSnap === null ? null : l.unitPriceSnap * 2 }));
     const t = smsMessage(customerCopy(quote({ basis: "Preliminary", options: [option("Oak", pricier), option("Vinyl", lines)] }), AT), to);
     if (t.type !== "SMS") throw new Error();
     expect(t.message).toContain("Thanks for telling us about your project. There are 2 options for you to take a look at, from as low as $660 + HST.");

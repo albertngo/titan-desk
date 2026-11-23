@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { HoldConfirm } from "./HoldConfirm";
 import { HstAll } from "./HstAll";
 import { addChoices, sectionLinesInOrder, stairGroupLabel, stairGroups, stairSections, type AddChoice } from "@/lib/editor/stairGroups";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
@@ -54,6 +55,7 @@ import { manualLine,
   updateOption,
   type EditorLine,
   type EditorQuote,
+  type HoldChange,
   draftKey,
   distinctIds,
   invertIds,
@@ -63,7 +65,7 @@ import { ghlContactUrl } from "@/lib/ghl/ids";
 import { fixAddressLink } from "@/lib/link/linkJob";
 import { money, pct, rate } from "@/lib/format";
 import type { RateCard } from "@/lib/quotes/types";
-import { STAIRS_FOLDED, optionScope, PARTS, partValue, scopeGroups } from "@/lib/quotes/scope";
+import { firstOpenOption, STAIRS_FOLDED, optionScope, PARTS, partValue, scopeGroups } from "@/lib/quotes/scope";
 import { Picker } from "./Picker";
 import { ScheduleEditor } from "./ScheduleEditor";
 import { SwapOption } from "./SwapOption";
@@ -76,6 +78,7 @@ import { quoteSchedule } from "@/lib/send/copy";
 import { levelApplies, levelOf, PREMIUM_MARKUP, SERVICE_LEVELS } from "@/lib/pricing/service";
 import { CONTRACTOR_DISCOUNT, DISCOUNTS_SECTION, priceSummary } from "@/lib/pricing/discounts";
 import { PriceCard } from "./PriceCard";
+import { HistoryPanel } from "@/components/QuoteHistory";
 
 // Discount items live in the price card, never in the line tables (2026-11-04).
 const WORK_SECTIONS = SECTIONS.filter((s) => s !== "Exclusions" && s !== DISCOUNTS_SECTION);
@@ -225,7 +228,7 @@ export default function Editor({
   const [quote, setQuote] = useState<EditorQuote>(boot ? withCustomerFrom(boot.quote, initial) : initial);
   const [restoredAt, setRestoredAt] = useState<string | null>(boot?.savedAt ?? null);
   const [savedAt, setSavedAt] = useState<string | null>(boot?.savedAt ?? null);
-  const [activeId, setActiveId] = useState<string | null>(quote.options[0]?.id ?? null);
+  const [activeId, setActiveId] = useState<string | null>(firstOpenOption(quote.options)?.id ?? null);
   const [picking, setPicking] = useState<AddChoice | null>(null);
   const [newExclusion, setNewExclusion] = useState("");
   /** + From quick form (2026-10-31): the preliminary's screen, opened beside the tabs to build one more option. */
@@ -278,6 +281,8 @@ export default function Editor({
   const privShown = measured && privWay === "breakdown";
   const [levelNote, setLevelNote] = useState<string | null>(null);
   const [holdNote, setHoldNote] = useState<string | null>(null);
+  /** A change waiting on the hold's confirmation (2026-11-21): applied only when someone presses Apply. */
+  const [holdAsk, setHoldAsk] = useState<{ quote: EditorQuote; changes: HoldChange[] } | null>(null);
   const [crewNote, setCrewNote] = useState<string | null>(null);
   /** What Airtable holds, in its own ids: the version as the editor opened it, then each autosave's read back (2026-11-05). */
   const [saved, setSaved] = useState<EditorQuote>(initial);
@@ -382,23 +387,29 @@ export default function Editor({
   // The Contractor level's 10% follows the list price after every change (2026-11-04).
   const apply = (next: EditorQuote): boolean => {
     // The accepted price is held, firmly (Albert, 2026-11-04): a change that would move it is taken up by
-    // the option's accepted discount, and one that could only be held with a markup is refused.
+    // the option's accepted discount. Since 2026-11-21 what is held is what the customer pays, and a change
+    // that moves the HST or needs the price before HST above the list waits on a confirmation instead of a refusal.
     // On a preliminary, an option's Customer wording follows its Stair Profile lines (2026-11-07): rewritten when they change.
     const worded = measured ? next : syncStairWording(quote, next, card.profiles ?? []);
     const r = holdAccepted(quote, settleContractor(worded));
     if (r.refused) {
       setHoldNote(
-        `Not changed: that would bring ${r.refused.name ? `"${r.refused.name}"` : "this option"} under its accepted price of ${money(r.refused.price)}, and the accepted price never moves on its own. Press Reset in its price card first to change the price.`,
+        `Not changed: "${r.refused.name || "this option"}" has nothing priced left to hold its accepted price of ${money(r.refused.total)} on. Press Reset in its price card first to change the price.`,
       );
       return false;
     }
     setHoldNote(null);
+    if (r.confirm.length) {
+      setHoldAsk({ quote: r.quote, changes: r.confirm });
+      return true;
+    }
     setQuote(r.quote);
     setSavedAt(new Date().toISOString());
     return true;
   };
 
-  const option = quote.options.find((o) => o.id === activeId) ?? quote.options[0] ?? null;
+  // Memoized so the hooks below see one stable option per render (the React Compiler lint, 2026-11-20).
+  const option = useMemo(() => quote.options.find((o) => o.id === activeId) ?? firstOpenOption(quote.options), [quote.options, activeId]);
   // HST is the option's own (Albert, 2026-11-04), the version's only where the option has none set.
   const hstOn = option ? (option.showHst ?? quote.showHst) : quote.showHst;
   const t = option ? optionTotals(option.lines, quote.discountRate, hstOn) : null;
@@ -496,7 +507,7 @@ export default function Editor({
     setSavedAt(null);
     setSaveError(null);
     setAuto({ state: "idle" });
-    setActiveId(saved.options[0]?.id ?? null);
+    setActiveId(firstOpenOption(saved.options)?.id ?? null);
   };
 
   // The short lines the sidebar and the folded terms show (Option C, 2026-11-01).
@@ -842,6 +853,8 @@ export default function Editor({
       </div>
       {/* On a phone the Conversation button sits here, in the page, instead of on the screen's edge (2026-11-03). */}
       <div id="conv-slot" className="conv-slot" />
+      {/* The send history at the top of the left column (Albert, 2026-11-20): small, scrollable, not sticky, a Pop out. */}
+      {quote.quoteRecordId && <HistoryPanel quoteRecordId={quote.quoteRecordId} versionId={version.id} status={version.status} />}
       {saveError && (
         <p className="card banner bad save-error" role="alert">
           {saveError.message}
@@ -1172,7 +1185,7 @@ export default function Editor({
                         if (!window.confirm(`Delete "${option.name || "this option"}" and its ${option.lines.length} lines?`)) return;
                         const next = removeOption(quote, option.id);
                         apply(next);
-                        setActiveId(next.options[0]?.id ?? null);
+                        setActiveId(firstOpenOption(next.options)?.id ?? null);
                       }}
                     >
                       Delete option
@@ -1549,6 +1562,17 @@ export default function Editor({
           onPickMany={(lines, replacing) => {
             apply(addLines(quote, option.id, lines, replacing));
             setPicking(null);
+          }}
+        />
+      )}
+      {holdAsk && (
+        <HoldConfirm
+          changes={holdAsk.changes}
+          onCancel={() => setHoldAsk(null)}
+          onApply={() => {
+            setQuote(holdAsk.quote);
+            setSavedAt(new Date().toISOString());
+            setHoldAsk(null);
           }}
         />
       )}

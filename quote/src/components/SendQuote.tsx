@@ -8,6 +8,7 @@ import { activityEntries, devicesSeen, whenWords } from "@/lib/activity/track";
 import { draftKey, unsavedDraftAt } from "@/lib/editor/model";
 import type { QuoteActivity } from "@/lib/quotes/types";
 import { lastSentWords, MARKED_SENT, type LastSentWay } from "@/lib/send/sendAs";
+import { STAFF_NOTE_MAX } from "@/lib/quotes/staffNote";
 
 /**
  * Unsaved changes for this version on this device (Albert, 2026-11-05): the editor keeps them under
@@ -175,6 +176,21 @@ export function SendAsPicker({ list, value, onChange, disabled = false }: { list
 }
 
 /**
+ * The optional staff note (Albert, 2026-11-20: "a message to put on this sent quote for staff only … its an optional
+ * note"). Kept on the version's Edit Log line and shown under that version on All quotes; on a send it also goes in GHL's
+ * internal comment. Never in the email, the text, the page or the PDF.
+ */
+function StaffNoteField({ value, onChange, disabled, ghl }: { value: string; onChange: (v: string) => void; disabled?: boolean; ghl: boolean }) {
+  return (
+    <label className="sq-until-in sq-note">
+      Note for staff <span className="faint">(optional)</span>
+      <input className="in" type="text" value={value} maxLength={STAFF_NOTE_MAX} placeholder="e.g. Customer asked to drop the stairs" onChange={(e) => onChange(e.target.value)} disabled={disabled} />
+      <span className="sub">The customer never sees this. It shows in the quote&rsquo;s history on All quotes{ghl ? " and in GHL's internal comment" : ""}.</span>
+    </label>
+  );
+}
+
+/**
  * Send the link again (Albert, 2026-10-30): when the customer asks for the PDF, or lost the message. The same
  * quote and link; "Include the PDF" turns on its Download button if it was off and puts its link in the message.
  */
@@ -192,6 +208,7 @@ function SendAgain({ versionId, sendAs = null, email, phone, pdfOn, kind, dated,
   const [byEmail, setByEmail] = useState(!!email);
   const [bySms, setBySms] = useState(!email && !!phone);
   const [pdf, setPdf] = useState(true);
+  const [note, setNote] = useState("");
   const [busy, start] = useTransition();
   const [result, setResult] = useState<{ text: string; bad: boolean; problems?: string[] } | null>(null);
   if (!open)
@@ -204,7 +221,7 @@ function SendAgain({ versionId, sendAs = null, email, phone, pdfOn, kind, dated,
   function go() {
     setResult(null);
     start(async () => {
-      const r = await resendQuoteAction(versionId, { channels: { email: byEmail && canEmail, sms: bySms && canText }, pdf, ...(asOther ? { as: asEmail } : {}) });
+      const r = await resendQuoteAction(versionId, { channels: { email: byEmail && canEmail, sms: bySms && canText }, pdf, staffNote: note, ...(asOther ? { as: asEmail } : {}) });
       if (r.ok) {
         setOpen(false);
         setResult({ text: `Sent again by ${r.sentTo.join(" and ").toLowerCase()}${r.pdf ? ", with the PDF" : ""}.${r.warning ? ` ${r.warning}` : ""}`, bad: false });
@@ -220,6 +237,7 @@ function SendAgain({ versionId, sendAs = null, email, phone, pdfOn, kind, dated,
       <label className="sq-tick"><input type="checkbox" checked={pdf} onChange={(e) => setPdf(e.target.checked)} /> Include the PDF <span className="faint">{accepted ? "(the signed, accepted PDF)" : pdfOn ? "(already on their page)" : "(turns on Download PDF on their page)"}</span></label>
       <label className="sq-tick"><input type="checkbox" checked={byEmail && canEmail} disabled={!email || !canEmail} onChange={(e) => setByEmail(e.target.checked)} /> Email {email ? <span className="faint">{email}{canEmail ? "" : ", can't go from this sender's address"}</span> : <span className="faint">no email on the contact</span>}</label>
       <label className="sq-tick"><input type="checkbox" checked={bySms && canText} disabled={!phone || !canText} onChange={(e) => setBySms(e.target.checked)} /> Text {phone ? <span className="faint">{phone}{canText ? "" : ", can't go: this sender's GHL user has no number of its own"}</span> : <span className="faint">no phone on the contact</span>}</label>
+      <StaffNoteField value={note} onChange={setNote} disabled={busy} ghl={false} />
       {result && (
         <div className={`sq-msg ${result.bad ? "bad" : "ok"}`} role="status">
           {result.text}
@@ -317,6 +335,7 @@ export function SendQuote({
   const exact = preliminary && !range;
   /** The quote page offers the PDF (Albert, 2026-10-27): off by default. Never attached to the email. */
   const [pdf, setPdf] = useState(false);
+  const [note, setNote] = useState("");
   /** Which options go to the customer (2026-10-24): all of them unless the sender unticks some; a Not offered one starts unticked (2026-10-30). */
   // Since 2026-10-31 a Not offered one can't be ticked at all (Albert: "as a safeguard, not even an option").
   // Kept as the ones unticked (2026-11-13): options that arrive after the card first renders (a new quote) start ticked
@@ -421,7 +440,7 @@ export function SendQuote({
   function mark() {
     setError(null);
     startSend(async () => {
-      const r = await markSentAction(versionId, { base, validUntil: undated ? null : until, channels: { email: false, sms: false }, itemised, pdf, optionIds, range: !exact, ...(asOther ? { as: asEmail } : {}) });
+      const r = await markSentAction(versionId, { base, validUntil: undated ? null : until, channels: { email: false, sms: false }, itemised, pdf, optionIds, range: !exact, staffNote: note, ...(asOther ? { as: asEmail } : {}) });
       setAskingMark(false);
       if (r.ok) {
         setDone(r);
@@ -433,7 +452,7 @@ export function SendQuote({
   function send() {
     setError(null);
     startSend(async () => {
-      const r = await sendQuoteAction(versionId, { base, validUntil: undated ? null : until, channels: { email: byEmail && !!from, sms: bySms && !!textFrom }, itemised, pdf, optionIds, range: !exact, ...(asOther ? { as: asEmail } : {}) });
+      const r = await sendQuoteAction(versionId, { base, validUntil: undated ? null : until, channels: { email: byEmail && !!from, sms: bySms && !!textFrom }, itemised, pdf, optionIds, range: !exact, staffNote: note, ...(asOther ? { as: asEmail } : {}) });
       setAsking(false);
       if (r.ok) {
         setDone(r);
@@ -577,6 +596,8 @@ export function SendQuote({
           <input className="in" type="date" value={until} min={today} max={maxUntil} onChange={(e) => setUntil(e.target.value)} disabled={sending || asking} />
         </label>
         )}
+
+        <StaffNoteField value={note} onChange={setNote} disabled={sending || asking || askingMark} ghl />
 
         <div className="sq-tools">
           <a href={preview} target="_blank" rel="noreferrer">Preview what the customer sees</a>

@@ -48,3 +48,28 @@ export function atDiscountPct(lines: LineInput[], hstOn: boolean, pct: number): 
   const rate = round(pct / 100, 4);
   return { rate, t: optionTotals(lines, rate, hstOn) };
 }
+
+/**
+ * The option at the final amount the customer agreed to pay, HST included where it is charged (Albert,
+ * 2026-11-21: "It should be the FINAL value they pay, accounting for all labor and material HST if there is
+ * any"). A discount rate scales the taxed lines with the rest, so the total is the list total times
+ * (1 - rate); the price before HST that gets there is found to the cent, the nearest when HST's rounding
+ * skips the exact one (the lower on a tie).
+ */
+export function atAcceptedTotal(lines: LineInput[], hstOn: boolean, total: number): Accepted | null {
+  const list = optionTotals(lines, 0, hstOn);
+  if (!(list.preDiscount > 0) || !(list.total > 0) || !(total >= 0)) return null;
+  const want = round(total, 2);
+  const guess = round((want * list.preDiscount) / list.total, 2);
+  let best: Accepted | null = null;
+  for (let i = -3; i <= 3; i++) {
+    const p = round(guess + i / 100, 2);
+    const rate = p >= 0 ? landingRate(list.preDiscount, p) : null;
+    if (rate === null) continue;
+    const t = optionTotals(lines, rate, hstOn);
+    const d = Math.abs(t.total - want);
+    const bd = best ? Math.abs(best.t.total - want) : Infinity;
+    if (d < bd - 1e-9 || (Math.abs(d - bd) < 1e-9 && best && t.total < best.t.total)) best = { rate, t };
+  }
+  return best;
+}

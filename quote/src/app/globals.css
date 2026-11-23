@@ -2672,3 +2672,49 @@ table.items tr.subsect td { box-shadow: none !important; border-left: 0 !importa
 /* Create CompanyCam + folder (2026-11-16): its answer under the header buttons. */
 .jf-note { flex-basis: 100%; text-align: right; margin: 4px 0 0; }
 .jf-note.bad { color: var(--bad); }
+
+/* Each version's history under its line on All quotes (2026-11-20): who sent it, one line per option, the staff note. */
+.qh { padding: 0 12px 10px; font-size: 13px; }
+.qh p { margin: 0; }
+.qh-h { color: var(--fg-dim); }
+.qh-tag { margin-left: 8px; font-size: 11px; font-weight: 600; color: var(--fg-faint); }
+.qh-o { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 2px; font-variant-numeric: tabular-nums; font-weight: 500; color: var(--fg); overflow-wrap: anywhere; }
+.qh-c { margin: 4px 0 0; padding-left: 18px; color: var(--fg-dim); display: grid; gap: 2px; overflow-wrap: anywhere; }
+.qh-more { margin-top: 4px; background: none; border: 0; padding: 0; font: inherit; font-size: 12.5px; color: var(--accent); cursor: pointer; }
+.qh-note { margin-top: 6px !important; padding: 6px 8px; border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 4px 4px 0; color: var(--fg); font-style: italic; overflow-wrap: anywhere; }
+.qh-re { margin-top: 4px !important; font-size: 12px; }
+.qh-note-in { font-style: italic; color: var(--fg-dim); }
+.qh-wait { padding: 6px 12px; font-size: 12.5px; }
+.qh-wait.bad { color: var(--bad); }
+.sq-note .in { width: 100%; }
+
+/* The send history at the top of the quote page and the editor (2026-11-20): under the sticky header, not in it, so it
+   scrolls away with the page; small, scrolling inside, a Pop out for the whole history in a modal. */
+.qhp { width: min(100%, 560px); margin: 0 0 16px; display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); font-size: 12.5px; overflow: hidden; }
+.qhp-h { padding: 5px 10px; font-size: 11.5px; font-weight: 600; color: var(--fg-dim); background: var(--card-2); border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; }
+.qhp-h .faint { font-weight: 400; margin-right: auto; }
+.qhp-pop { background: none; border: 0; padding: 2px 4px; margin: -2px -4px; font: inherit; font-weight: 600; color: var(--accent); cursor: pointer; border-radius: 4px; }
+.qhp-pop:hover { background: var(--accent-soft); }
+.qhp-b { max-height: 116px; overflow-y: auto; overscroll-behavior: contain; padding: 2px 0; }
+.qhp-b:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.qhp-r { padding: 5px 10px; }
+.qhp-r + .qhp-r { border-top: 1px solid var(--line); }
+.qhp-r.cur { box-shadow: inset 3px 0 0 var(--accent); background: var(--accent-soft); }
+.qhp-r p { margin: 0; }
+.qhp-t { color: var(--fg-dim); font-size: 11.5px; }
+.qhp-r .qh-o { margin-top: 1px; font-size: 12.5px; }
+.qhp-d { font-size: 11.5px; overflow-wrap: anywhere; }
+.qhp-n { margin-top: 2px !important; font-style: italic; color: var(--fg); overflow-wrap: anywhere; }
+.qhp-r.bad { color: var(--bad); }
+.qhm .modal-card { width: min(640px, 100%); }
+.qhm-b { overflow-y: auto; padding: 0 !important; }
+.qhm-r { padding: 10px 0 2px; }
+.qhm-r + .qhm-r { border-top: 1px solid var(--line); }
+.qhm-r.cur { box-shadow: inset 3px 0 0 var(--accent); }
+.qhm-v { margin: 0; padding: 0 12px 2px; font-weight: 600; font-size: 13px; }
+@media (max-width: 640px) { .qhp-b { max-height: 104px; } .qhm { padding: 16px 8px; } .qhm .modal-card { max-height: calc(100dvh - 32px); } }
+
+/* The held accepted price's confirmation (Albert, 2026-11-21): one block per option affected. */
+.hold-opt { display: grid; gap: 8px; }
+.hold-opt + .hold-opt { border-top: 1px solid var(--line); padding-top: 12px; }
+.hst-all-tbl tr.warn td { color: var(--bad); }

@@ -120,6 +120,24 @@ describe("catalogue", () => {
     expect(showsWaste({ section: "Install", waste: 0.1 })).toBe(true);
     expect(lineFromEntry(click, "Install").waste).toBeNull();
   });
+
+  it("puts the quick form's waste on a Materials line from the card (2026-11-20)", () => {
+    const mats = buildCatalogue(
+      [
+        R({ id: "recRateM000000001", labourType: "Material", spec: "Engineered" }),
+        R({ id: "recRateM000000002", labourType: "Material", spec: "Porcelain Tile" }),
+        R({ id: "recRateM000000003", labourType: "Material", spec: "Vinyl", defaultWaste: 0.05 }),
+        R({ id: "recRateM000000004", labourType: "Material", spec: "Pallet fee", uom: "flat" }),
+      ],
+      [],
+    ) as Extract<CardEntry, { kind: "rate" }>[];
+    const waste = (spec: string) => lineFromEntry(mats.find((e) => e.spec === spec)!, "Materials").waste;
+    expect(waste("Engineered")).toBe(0.1);
+    expect(waste("Porcelain Tile")).toBe(0.15);
+    // The Rate Card's own Default Waste still wins when it is set.
+    expect(waste("Vinyl")).toBe(0.05);
+    expect(waste("Pallet fee")).toBeNull();
+  });
 });
 
 describe("lines", () => {

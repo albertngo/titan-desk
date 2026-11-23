@@ -1,4 +1,4 @@
-import { isPriced, payoutAmount, payoutTotal, round2, sectionOf, SECTIONS } from "@/lib/calc";
+import { isPriced, isTyped, payoutAmount, payoutTotal, round2, sectionOf, SECTIONS } from "@/lib/calc";
 import { picksOf } from "@/lib/accept/plan";
 import { optionScope } from "@/lib/quotes/scope";
 import type { Quote, QuoteLine, QuoteOption, RateCard, Scope } from "@/lib/quotes/types";
@@ -16,7 +16,7 @@ import type { Quote, QuoteLine, QuoteOption, RateCard, Scope } from "@/lib/quote
  * What a card starts with (Albert, same day, from the choices offered):
  * - the labour sections ticked (`ON_SECTIONS`); Delivery, Other, Private and unsorted lines listed but unticked;
  *   Materials, Discounts and Exclusions never listed, since they are not labour;
- * - the rate is our labour cost on the line: the Rate Card row's cost without the swapped material, a Stair Item's
+ * - the rate is our labour cost on the line: a Rate Card line the row's Labor Cost only (2026-11-22), a Stair Item's
  *   Labor Cost without its Material Cost, else the line's cost (typed override, then the card snap);
  * - the quantity is the line's own, without waste: the contractor is paid for the floor they lay.
  */
@@ -113,19 +113,15 @@ function takenAddOns(q: Pick<Quote, "acceptance">): Set<string> {
  * (Manual Cost) is spread over the quantity.
  */
 export function labourRate(l: QuoteLine, card: RateCard): number | null {
+  // A Rate Card line pays the row's Labor Cost, only (Albert, 2026-11-22: "Simply ONLY use the rate card's labor cost
+  // for labor payouts"): no typed cost, no glue, nothing subtracted. A blank Labor Cost leaves the rate blank to type.
+  // Only a row no longer on the card (switched off since) falls through to the line's own cost below.
+  const rateRow = l.sourceKind === "rate" ? card.rates.find((r) => r.id === l.sourceId) : undefined;
+  if (rateRow) return rateRow.labourCost ?? null;
   const qty = l.qty ?? 0;
-  if (l.manualCost) return qty > 0 ? round2(l.manualCost / qty) : l.manualCost;
-  const used = l.costOverride ? l.costOverride : l.unitCostSnap;
-  if (l.sourceKind === "rate" && l.materialId) {
-    const row = card.rates.find((r) => r.id === l.sourceId);
-    const material = (card.materials ?? []).find((m) => m.id === l.materialId);
-    // The glue's cost as typed (2026-11-06): the method is the rest of the line's cost, typed or not.
-    if (l.costOverride && l.materialCost != null) return Math.max(0, round2(l.costOverride - l.materialCost));
-    // A typed cost on a material line from before is labour from the card + the typed material: the card's labour.
-    if (l.costOverride && row) return row.cost;
-    if (used !== null && material?.cost != null) return Math.max(0, round2(used - material.cost));
-    return row ? row.cost : used;
-  }
+  // A typed 0 is a cost of nothing, as in calc.ts (2026-11-21); only a blank box falls back.
+  if (isTyped(l.manualCost)) return qty > 0 ? round2(l.manualCost / qty) : l.manualCost;
+  const used = isTyped(l.costOverride) ? l.costOverride : l.unitCostSnap;
   if (l.sourceKind === "stair") {
     const row = card.stairs.find((s) => s.id === l.sourceId);
     const labour = row?.labourCost ?? null;

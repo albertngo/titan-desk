@@ -1,5 +1,5 @@
 ---
-description: End-of-session capture into the vault. Finds this session's decisions, analyses and platform quirks that titan-vault doesn't have yet, drafts them, and writes the ones Albert approves to main-vault.
+description: End-of-session capture into the vault. Finds this session's decisions, analyses and platform quirks that titan-vault doesn't have yet, writes missing decisions straight away (CONVENTIONS v2.3), and drafts the rest for Albert to approve.
 ---
 
 Capture this session into Titan's second brain, the `albertngo/titan-vault` Obsidian vault.

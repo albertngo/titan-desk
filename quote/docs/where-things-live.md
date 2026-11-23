@@ -329,7 +329,7 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   `methodCost` too; both parts on the card = no override). A line typed before the split has no glue figure: its method
   reads as the card's and the glue as the rest, as it did. Swapping the glue keeps a typed method and brings the new
   glue in at its card figure; Back to the card, a method switch and a whole-line revert clear both. Payout cards pay
-  the cost override less the typed glue cost when there is one (`labourRate()`).
+  the Rate Card row's Labor Cost (`labourRate()`, since 2026-11-22).
   **Line words from Customer Wording** (same day: "draft the wordings, use everywhere"): Rate Card → **Customer
   Wording** names the work and Install Materials → **Customer Wording** the glue (both made that day; blank = the row's
   own "Labor Type | Specification" or Name). A line reads `entryWords()` + `materialPart()`, e.g. "Solid Hardwood T&G
@@ -727,6 +727,36 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   Airtable's own last-modified fields would name the app's token for everyone. The quote page shows a
   **History** card, newest first, staff only. Pure helpers in `src/lib/quotes/history.ts`, tested in
   `tests/history.test.ts`.
+- **Show history on All quotes, and the staff note (Albert, 2026-11-20: "review what has changed, whose account made
+  the last sent version, and a short description on those changes … a per quote show history"; "Jsut the quote app
+  front desk"; "its an optional note"; the note goes in GHL "only after the text sms goes out … add it to that
+  internal message"; then "put the history right below each individual quote line … right under it instead of a
+  separate history section").** Opening a quote's row on All quotes reads its history once, and each version that went
+  out (Sent At and a frozen copy) carries its own right under its line, with Sent By as a first name (`firstNameOf()`, info@ = Joey), how it went (from
+  the send's Edit Log line, else Sent To), the staff note, and what changed since the version sent before it, from the
+  two frozen customer copies (`copyChanges()`). **One line per option** (Albert, 2026-11-20: "a simple one liner to
+  describe so its easy to see. Sqft and Prices noted"): name, install sqft (`installSqft()`: Install lines in sqft, as
+  the material check counts them) and price before HST or the range, an arrow where either moved, "(new)" or "removed
+  (was …)"; options pair by name, a lone option renamed. Behind **Details**: lines through `diffOptions()` in
+  `src/lib/change/diff.ts`, range/exact, lump/breakdown, discount, good-until. Send
+  again lines show under their version. The working draft's line says who last saved it. Not on Follow up.
+  **Also at the top of the quote page and the editor** (Albert, 2026-11-20: "at the top next to the name? A small
+  scrollable section for ease of use but out of the way", "to the left touching the left column", then "it does not have
+  to be 'sticky'. But it is good to have a 'pop out' so it will open as a modal if pressed"): `HistoryPanel` in
+  `src/components/QuoteHistory.tsx`, at the top of the left column under the sticky header (not in it, so it scrolls
+  away with the page), 116px tall and scrolling, the version on screen highlighted, Details shortened to one line.
+  **Pop out** opens `HistoryModalView` (drawn on the body), the whole history with every Details list open; Close or
+  Esc. Staff only: never in Customer view.
+  Read only when a row is opened (`useSendHistory()` in `src/components/QuoteHistory.tsx`, cached per page view by the
+  quote's versions and statuses → `sendHistoryAction()` → `loadSendHistory()` in `src/lib/quotes/sendHistoryLoad.ts`),
+  so the list loads no copies; shaped by `sendHistory()` in `src/lib/quotes/sendHistory.ts`, tested in
+  `tests/sendHistory.test.ts`. **The staff note** is optional, one line, at most 140 characters
+  (`src/lib/quotes/staffNote.ts`), on the Send card (Send and Mark as sent) and on Send again. It is kept at the end
+  of that send's Edit Log line after ` · note: ` (no new Airtable field: the Edit Log is the version's record of
+  what happened, 2026-10-22's decision), and on a Send it is the last line of GHL's internal comment and contact note
+  (`sentComment()`), which post after the email and the text. Mark as sent and Send again post no GHL comment, so
+  their note shows only under the version. Never in the customer copy, the email, the text, the page or the PDF; the test
+  checks send.ts passes it to none of them.
 - **The customer deployment (2026-10-15).** Customer links `/c/<token>` and their PDFs are served by
   a second Vercel project on this folder with `QUOTE_MODE=customer` and a read-only Airtable token,
   never by the staff app (root rule: a public page never shares a deployment with a write token).
@@ -898,10 +928,31 @@ the behaviour it describes.** New bullets go here, with a line in the index.
     `settleContractor()`): an option whose accepted price is set, and was not itself just set, reset or cleared
     (`acceptedSig()`), keeps its price before HST to the cent, its accepted price discount taking up whatever moved
     (discount items, the slider, the Contractor level, lines), so only the margin and total discount % change. A change
-    that could only be held with a markup is **refused**, never reset: nothing changes and the editor says so, above the
-    lines and above the card, until Reset. A price typed at the price as it stands pins it (a $0 accepted line). The card
+    that could only be held with a markup was **refused** until 2026-11-21; since then it is held with the private
+    adjustment line behind a confirmation (below). A price typed at the price as it stands pins it (a $0 accepted line). The card
     shows **Held** and says what moves instead. This replaces "a slider change that would need a markup resets it".
     Tested in `tests/discounts.test.ts`.
+  - **The accepted price is what the customer pays, HST included (Albert, 2026-11-21: "It should be the FINAL value
+    they pay, accounting for all labor and material HST if there is any").** The first box is now **Customer pays**,
+    labelled with HST, with HST on materials, or no HST, as the option charges it; typed, it goes through
+    `setAcceptedTotal()`, which finds the price before HST that lands that total and sets it with `setAcceptedPrice()`,
+    so the accepted price discount is still a pre-tax line and calc.ts and Airtable are unchanged. HST rounds to the
+    cent, so now and then a total is a cent off every reachable one and the nearest is taken. **What is held is the
+    total:** `holdAccepted()` and `keepAccepted()` keep what the customer pays, so turning HST on takes the HST out of
+    the price before HST. **Locked whatever it takes, behind a confirmation (Albert, same day: "As long as the price
+    stays locked at what was typed. you can adjust the hst and margin as much as needed to account for it. If there
+    needs to be a warning modal popout to confirm the change and what has been affected. id much rather have that"):**
+    a change that could only be held above the list price (HST turned off, a material losing its HST, a line deleted,
+    a bigger discount) is no longer refused. The difference goes in as the private "Accepted price adjustment" line
+    (`holdAtPrice()`; the customer reads it in the Private row), the accepted discount stays at $0 with its reason, and
+    Reset takes both off. Every option whose HST changed or that needed that markup comes back in `holdAccepted().confirm`
+    and the editor applies the change only after **HoldConfirm** (`HoldConfirm.tsx`): per option, what the customer pays
+    (locked) and the price before HST, HST, profit and margin now and after, flagged under the 20% minimum. A change the
+    accepted discount takes up on its own asks nothing. Refused only when nothing priced is left to hold the price on.
+    A price typed in the card still never goes above the list (2026-11-04). The ceiling and the refusal read as totals (`totalCeiling()`, `HoldRefusal.total`);
+    the discount % and margin boxes still mean a price before HST. The readout adds HST and Customer pays, and the
+    20% minimum's Set button names the total. The Analysis tab's If they accept a price takes the total too
+    (`atAcceptedTotal()`). Tested in `tests/discounts.test.ts` and `tests/accepted.test.ts`.
   - **Margin and profit** under the boxes (list price, items, adjustment, price, cost, profit, margin),
     and an **(i)** with the lowest price that keeps the **20% margin minimum** (`MIN_MARGIN_PCT`,
     `priceForMargin()`, rounded up to the cent); under it the card says so and offers to set it. Customer
@@ -916,7 +967,7 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   for the page and the PDF: `discountRows()` in `copy.ts`; a long reason wraps in the PDF. The email and
   the text are unchanged: they lead with the price only. Tested in `tests/send.test.ts`.
 - **If they accept a price (Albert, 2026-10-22).** The Analysis tab opens with a card where staff type
-  the pre-tax amount the customer agreed to, or a discount %, and see the discount it implies against
+  the amount the customer agreed to (what they pay, HST included where charged, since 2026-11-21), or a discount %, and see the discount it implies against
   the list price and the cost, profit and margin left, beside the quote as it stands. Analysis only:
   nothing is saved and the quote's discount is not changed; applying it is still an edit. Staff only:
   the server never renders it in Customer view, so cost never reaches that page. Pure maths in
@@ -1168,6 +1219,11 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   never sent (Albert, 2026-10-31: "as a safeguard, not even an option"): shown greyed and unselectable on the Send card, dropped by `chooseOptions()` even when a send names it (and refused by `sendProblems()`), a grey struck-through tab labelled Not offered and a note above the option.
   Both join the editor's option only when set (absent, never null or false), so drafts saved before them keep their
   fingerprint. Tested in `tests/scope.test.ts`.
+  **The option a quote opens on (Albert, 2026-11-20: "When something is 'not offered' can we ensure only the next
+  'open' option is selected as default? rather than the first one on the list"):** the quote page, the editor (on
+  load, after Discard and after deleting an option) and Analysis's accepted price open on `firstOpenOption()` in
+  `src/lib/quotes/scope.ts`: the first offered option in tab order (flooring, then stairs), else the first tab.
+  A link with `?opt=` still opens that option, offered or not. Tested in `tests/scope.test.ts`.
 - **One working quote (Albert, 2026-10-30; vault `05_decisions/2026-10-30-quote-one-working-quote`).** Staff work on
   one quote and its options; versions are the send history. **No Save as new version button**: a Draft saves in place;
   a sent version's editor saves **as the next draft** (`saveAsNewVersion()`, every option carried over, the basis picked
@@ -1278,8 +1334,9 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   options' lines (`payoutCandidates()` / `groupCards()` in `src/lib/payout/cards.ts`). Chosen by Albert the same day:
   Install, Stairs, Removal, Prep and Disposal lines start **ticked**; Delivery, Other, Private and unsorted lines are
   listed **unticked**; Materials, Discounts and Exclusions never appear; an add-on counts only when the customer took it.
-  **The rate starts at our labour cost** (`labourRate()`): a Rate Card line with a swapped material pays the row's cost
-  without the material (the card's labour when a cost was typed, as `materialSplit()` reads it); a Stair Item pays its
+  **The rate starts at our labour cost** (`labourRate()`): a Rate Card line pays the row's **Labor Cost**, only
+  (Albert, 2026-11-22: "Simply ONLY use the rate card's labor cost for labor payouts"; typed costs and the glue never
+  change it, a blank Labor Cost leaves the rate to type, a row since switched off falls back to the line's cost); a Stair Item pays its
   Labor Cost without its Material Cost (a line snapped before 2026-10-31 already holds labour only; `getRateCard()` now
   carries `labourCost` on Stair Items); anything else pays the line's cost (override, then snap); a typed whole-line
   cost is spread over the quantity. The quantity is the line's own, **without waste**. Staff tick and untick, retype

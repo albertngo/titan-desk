@@ -21,6 +21,54 @@ export type Change = {
 
 export const CHANGES: Change[] = [
   {
+    date: "2026-11-22",
+    kind: "fixed",
+    title: "Payout cards pay the Rate Card's Labor Cost",
+    details: [
+      "Every line from the Rate Card now starts on a payout card at that row's Labor Cost, whatever cost was typed on the quote. Glue and other materials never change it.",
+      "Before, a glue line took the glue's current cost off the line's cost, so a line saved before the glue's cost went up paid too little. Press Build cards again to pick up the right rate. A row with a blank Labor Cost shows no rate until you type one.",
+    ],
+  },
+  {
+    date: "2026-11-20",
+    kind: "changed",
+    title: "Quotes open on the first offered option",
+    details: [
+      "The quote page, the edit screen and Analysis's accepted-price box now open on the first option that is offered, in tab order (flooring, then stairs), instead of the first tab. A Not offered option is skipped.",
+      "If every option is Not offered, they open on the first tab as before.",
+    ],
+  },
+  {
+    date: "2026-11-20",
+    kind: "changed",
+    title: "History box scrolls away, and pops out",
+    details: [
+      "On the quote page and the edit screen the History box now sits at the top of the page, under the name, and scrolls away with the page instead of staying pinned at the top.",
+      "Pop out, on the box, opens the whole history in a window: every version, everything that changed, the staff notes. Close or Esc goes back.",
+    ],
+  },
+  {
+    date: "2026-11-20",
+    kind: "new",
+    title: "Each version's history on All quotes, and a note for staff on every send",
+    details: [
+      "Open a quote on All quotes: under each version that went out is who sent it, when and how (email, text, or marked sent). The draft says who last saved it.",
+      "The same history is in a small scrolling box at the top of the quote page and the edit screen, beside the customer's name, with the version you are on highlighted.",
+      "Each option is one line with its install square feet and its price before HST, with an arrow where either moved since the send before, e.g. \"Oak: 800 → 860 sqft · $9,150 → $8,900\". New and removed options say so. Details opens the rest: lines changed, range or exact, lump sum or breakdown, discount and good-until date.",
+      "The Send card has an optional Note for staff (one line). It shows under that version on All quotes and goes in GHL's internal comment and contact note after the quote goes out. The customer never sees it: it is not in the email, the text, their page or the PDF.",
+      "Mark as sent and Send again take a note too; it shows under the version.",
+    ],
+  },
+  {
+    date: "2026-11-20",
+    kind: "fixed",
+    title: "Waste on materials added in the editor",
+    details: [
+      "A material added from the rate card in the edit screen (Engineered, Vinyl, Laminate and the rest) now starts with the same waste as the quick form: 10%, or 15% for herringbone and tile.",
+      "A rate card row with its own Default Waste still uses that. You can change the % waste on the line as before.",
+    ],
+  },
+  {
     date: "2026-11-19",
     kind: "fixed",
     title: "Material lines keep their names",
