@@ -1556,7 +1556,10 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   kind on that list (never a path from the request), and 404s on the customer deployment. Older versions stay in the
   folder for reference and are never offered. **Staff guides** (same day: "add the followup guide in the downloads
   section"): the same menu offers the newest `follow-up-staff-guide-vN.pdf` from that folder under its own heading, at
-  `/files/followup`, the same way.
+  `/files/followup`, the same way. **Warranty & insurance** (2026-11-23: "upload the folder in Warranty and Insurance,
+  into the Company Files"): the newest `installation-labor-warranty-vN.pdf` at `/files/warranty`; a version may carry a
+  minor number (`v1.1`, compared as numbers). Only the warranty is in the folder: the repo is public, so the insurance
+  policies and the WSIB certificate are not committed.
 - **Report a bug (2026-10-28).** The header's Report a bug (staff only, hidden in Customer view and
   until `NOTION_BUG_TOKEN` is set) posts a summary, an urgency and up to five screenshots (shrunk in
   the browser to stay under Vercel's 4.5 MB body limit) to `/api/bug`. That signed-in route makes

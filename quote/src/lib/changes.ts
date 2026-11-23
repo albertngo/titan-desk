@@ -31,6 +31,18 @@ export const CHANGES: Change[] = [
   },
   {
     date: "2026-11-23",
+    kind: "new",
+    title: "Company files: the Installation Labor Warranty",
+    details: ["Company files has a new Warranty & insurance heading with the Installation Labor Warranty (v1.1) to download and send a customer or builder. v1.1 adds that extra underpad under vinyl voids the warranty for that area."],
+  },
+  {
+    date: "2026-11-23",
+    kind: "changed",
+    title: "Company files is easier to scan",
+    details: ["Each group in Company files (Site sheets, Staff guides) now has a bolder heading and a clear line between groups, and each file's version sits on the same row as its name again."],
+  },
+  {
+    date: "2026-11-23",
     kind: "changed",
     title: "Follow up is a morning brief",
     details: [
