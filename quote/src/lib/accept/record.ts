@@ -13,6 +13,7 @@ import { acceptedWhen, parseAcceptance, picksOf, serializeAcceptance, type Accep
 import { customerUrl, etransferEmail, staffQuoteLink } from "./settings";
 import { acceptTerms, type LiveTerms } from "./live";
 import { TERMS_PDF } from "./terms";
+import { syncPosCustomers } from "@/lib/quotes/pos";
 
 /**
  * Carrying out an acceptance (Albert, 2026-10-27). Reached only from src/lib/accept/accept.ts (the
@@ -191,6 +192,8 @@ export async function handOff(versionId: string): Promise<Handoff> {
         if (!stage) throw new Error("GHL's Sales pipeline has no single Project Won stage.");
         await sendToGhl(buildWon({ contactId: t.quote.contactId, opportunityId: t.quote.opportunityId, wonStageId: stage, total: a.totals.total, acceptedLink: staffQuoteLink(t.versionId) ?? links?.link ?? null }));
         ghl = "done";
+        // Won: the customer goes into Lightspeed and Hike (Albert, 2026-11-23). Never fails the hand-off.
+        if (t.quote.id) await syncPosCustomers(t.quote.id);
       } catch (e) {
         ghl = "failed";
         ghlMessage = why(e);

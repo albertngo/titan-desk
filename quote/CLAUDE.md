@@ -142,6 +142,11 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
    `src/lib/quotes/activity.ts` (internal comments, and the one-off send notes as contact notes), `src/lib/accept/record.ts` (acceptance: Won,
    cancel, and the acceptance messages), `src/lib/quotes/billing.ts` (the invoice or receipt email) and `src/lib/quotes/followup.ts`
    (Follow up's Lost, Postpone and comments; since 2026-11-09 a measured quote's follow-up text or email, see 2c''').
+   **POS customers (Albert, 2026-11-23; vault `05_decisions/2026-11-23-quote-pos-customers`):** the same file alone
+   reads `QUOTE_MAKE_POS_HOOK` / `QUOTE_MAKE_POS_KEY` and posts to a separate "Quote app → POS customers" scenario,
+   called only from `src/lib/quotes/pos.ts` (on acceptance, and on a start for an already-won contact). Make finds a
+   Lightspeed or Hike customer by email then phone, links a hit and creates only on a miss; never an update, merge or
+   delete. Ids land in Quotes → POS Customers. Switches: Settings, POS customers.
    Set those two variables only after the scenario is switched on: a request to a scenario
    that is off waits in Make's queue and would run later.
 2c. **A path without a sign-in on the staff app:** `/api/booking`, called by Make 3453735 when an appointment

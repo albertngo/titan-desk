@@ -119,6 +119,39 @@ export async function setOpportunityStatus(opportunityId: string, statusBody: st
 }
 
 /**
+ * POS customers (Albert, 2026-11-23; vault 05_decisions/2026-11-23-quote-pos-customers): a separate scenario,
+ * "Quote app → POS customers", on its own hook and key (QUOTE_MAKE_POS_HOOK / QUOTE_MAKE_POS_KEY), so the GHL
+ * scenario never holds a POS connection. Its one route, `customer`, searches Lightspeed or Hike by email then phone,
+ * links a hit and creates only on a miss; it never updates, merges or deletes. Returns the POS customer id and whether
+ * it was created or linked; throws MakeError unless Make confirms one.
+ */
+export const posConfigured = () => Boolean(process.env.QUOTE_MAKE_POS_HOOK && process.env.QUOTE_MAKE_POS_KEY);
+
+export async function posCustomer(system: "lightspeed" | "hike", customer: Record<string, string>): Promise<{ id: string; how: "created" | "linked" }> {
+  const url = process.env.QUOTE_MAKE_POS_HOOK;
+  const key = process.env.QUOTE_MAKE_POS_KEY;
+  if (!url || !key) throw new MakeError("The POS customers step isn't switched on for this deployment.");
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key, mode: "customer", system, customerBody: JSON.stringify(customer) }),
+    cache: "no-store",
+    signal: AbortSignal.timeout(30_000),
+  });
+  const text = await res.text().catch(() => "");
+  let d: Record<string, unknown> = {};
+  try {
+    d = (JSON.parse(text) ?? {}) as Record<string, unknown>;
+  } catch {
+    // not a confirmation
+  }
+  const id = typeof d.customerId === "string" || typeof d.customerId === "number" ? String(d.customerId) : "";
+  const how = d.how === "created" || d.how === "linked" ? d.how : null;
+  if (!res.ok || d.ok !== true || !/^[A-Za-z0-9-]{1,64}$/.test(id) || !how) throw new MakeError(`Make didn't confirm the ${system} customer (${res.status}: ${text.slice(0, 120)})`);
+  return { id, how };
+}
+
+/**
  * The hot-tier follow-up alert (Albert, 2026-11-09: "WhatsApp to staff"), through the same scenario's `alert` route,
  * which sends one WhatsApp. Off until QUOTE_ALERT_TO is set, and that holds the one number every alert goes to
  * (a test number first, as the Tacoma alerts did, until Albert switches each one to its real person). The text names

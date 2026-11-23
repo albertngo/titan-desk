@@ -16,6 +16,7 @@ import { buildCatalogue, type CardEntry, type EditorLine } from "@/lib/editor/mo
 import { feeFor, stairBaseLine } from "./fees";
 import { firstVersion, quotesByOpportunity } from "./records";
 import { fillVersion } from "./save";
+import { syncPosCustomers } from "./pos";
 import { num, str } from "./values";
 
 export type { CustomerSearch, StartResult };
@@ -167,6 +168,8 @@ export async function startQuote(raw: unknown): Promise<StartResult> {
     const versionId = await firstVersion(quote.id, quoteNo, req.basis, person);
     await pushToGhl(quote.id, quoteNo, str(quote.fields[QUOTE.displayName]) ?? quoteNo, req, who, linkedOpp, today, existing);
     // The quick form's work goes in whatever the basis (2026-11-07: the basis is picked apart from the screen); a full quote opens empty.
+    // A contact who is already won goes into Lightspeed and Hike (Albert, 2026-11-23). Never fails the start.
+    if (req.contactId) await syncPosCustomers(quote.id, { onlyIfWon: true });
     const filled = works.length > 0 ? await fillFromQuickForm(quote.id, versionId, works, today, req.basis === "Measured") : false;
     return { ok: true, versionId, reused: false, filled };
   } catch (e) {
