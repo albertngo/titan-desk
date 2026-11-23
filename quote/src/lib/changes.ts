@@ -25,7 +25,7 @@ export const CHANGES: Change[] = [
     kind: "changed",
     title: "A change says it is taken as accepted",
     details: [
-      "When you send a change to an accepted quote, the email, the text and the customer's page now say: \"These changes were discussed with you and are taken as accepted. If you dispute any of them, please contact your project manager right away.\"",
+      "When you send a change to an accepted quote, the email, the text and the customer's page now say: \"These are the changes we talked through together, so we'll go ahead with them. If anything doesn't look right, let your project manager know right away and we'll sort it out.\"",
     ],
   },
   {

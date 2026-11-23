@@ -1168,8 +1168,8 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   difference against the contract with HST), an amber rule down the page edge, and **Save change N** as its save
   button. Display only (`.change-band` in `globals.css`).
 - **Changes after acceptance (Albert, 2026-10-27: "verbal, sent for record").** **Taken as accepted (Albert, 2026-11-23):** the change's email, text and page say
-  "These changes were discussed with you and are taken as accepted. If you dispute any of them, please contact
-  your project manager right away." (`CHANGE_ACCEPTED_WORDS` in `src/lib/change/diff.ts`). The accepted version
+  "These are the changes we talked through together, so we'll go ahead with them. If anything doesn't look
+  right, let your project manager know right away and we'll sort it out." (`CHANGE_ACCEPTED_WORDS` in `src/lib/change/diff.ts`). The accepted version
   stays frozen. **Make a change** on the contract version starts a new version of the same quote,
   numbered (Quote Versions → **Change No** 1, 2, …): only the accepted option, its ticked add-ons now part
   of the work, the others gone, and a schedule where every agreed stage keeps its dollars and the final
