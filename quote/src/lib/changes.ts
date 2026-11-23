@@ -22,6 +22,15 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-23",
+    kind: "changed",
+    title: "Company files: warranty, insurance and terms, always the latest",
+    details: [
+      "Company files has a Warranty, insurance & terms heading with the Project Expectations, the Installation Labor Warranty, the commercial and auto insurance policies and the WSIB certificate. Each shows the day it was last saved.",
+      "They come straight from the office OneDrive, so when a file there is updated or renewed, the new one shows here within the hour. Nothing to upload.",
+    ],
+  },
+  {
+    date: "2026-11-23",
     kind: "new",
     title: "Company files: the commercial insurance policy",
     details: ["Warranty & insurance in Company files now has our Co-operators commercial insurance policy for the 2026–27 term, to send a builder or condo board who asks for proof of insurance."],

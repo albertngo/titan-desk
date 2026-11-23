@@ -7,13 +7,11 @@ highest `vN` PDF of each kind in this folder, so a new version needs only the fi
 The same menu offers the **Follow up staff guide** under Staff guides (`follow-up-staff-guide-vN.pdf`, served at
 `/files/followup`, since 2026-11-07): the training sheet for the Follow up page. v2 (2026-11-10, source `follow-up-staff-guide-v2.html`, rebuilt with `render.js`) covers the score, tiers, On auto, sending from the app and the Snoozed tab; v1 is kept. v3 (2026-11-22, source `follow-up-staff-guide-v3.html`) covers the morning brief: the one-line rows and their button, the groups, done for today, changing the step, the note for the brief and the one-tap why; v2 is kept. Drop in a v4 when the page changes.
 
-The same menu offers the **Installation Labor Warranty** under Warranty & insurance (`installation-labor-warranty-vN.pdf`,
-served at `/files/warranty`, since 2026-11-23). It is a PDF of Albert's Word doc (`TITAN FILES/Warranty and Insurance` on
-the info@ OneDrive); the version is the one in its footer, and may have a minor number (`v1.1`). v1.1 adds the Extra
-Underpad on Vinyl exclusion. Beside it, the **Commercial Insurance Policy** (`commercial-insurance-policy-v<YYYY>.pdf`,
-the year its term starts, served at `/files/insurance`, since 2026-11-23): the menu shows its term ("2026–27"). Albert
-okayed committing it knowing this repo is public ("its ok upload it"). Drop in the renewal as the next year. The auto
-policy and the WSIB certificate are not here.
+The warranty, insurance policies, WSIB certificate and Project Expectations are **not kept here** (since 2026-11-23).
+They come live from OneDrive: Make "Warranty and Insurance -> Company Files" (5062776) saves each new save of each file in
+`TITAN FILES/Warranty and Insurance` as a PDF on the Airtable **Company Files** table, and the app offers the newest of
+each under "Warranty, insurance & terms" (`src/lib/files/docs.ts`, `src/lib/files/live.ts`). Earlier copies committed
+here (the warranty v1.1 and the 2026–27 commercial policy) were removed; they remain in git history, and the repo is public.
 
 The paper sheets a PM fills on site. Print them on Letter, one sided. The PM photographs them into CompanyCam
 (tagged **Site Sheet**), and the quote's **Site sheet** tab reads them from there (From CompanyCam: tick the pages,

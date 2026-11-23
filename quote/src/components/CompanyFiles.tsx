@@ -1,21 +1,21 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { GROUP_NOTE, type FileGroup, type LatestSheet } from "@/lib/files/sheets";
+import { GROUP_NOTE, type FileGroup, type MenuFile } from "@/lib/files/sheets";
 
 /**
  * Company files in the top bar (Albert, 2026-11-07), beside What's new: the newest Flooring and Stair Site
- * Sheets, the Follow up staff guide, the Installation Labor Warranty and the insurance policy, each its own download (`/files/<kind>`), with its version. Staff only; TopBar leaves it out in
+ * Sheets, the Follow up staff guide, and (live from OneDrive, 2026-11-23) the warranty, insurance and Project Expectations, each its own download (`/files/<kind>`), with its version. Staff only; TopBar leaves it out in
  * Customer view. Opens like the account menu: Escape or a click away closes it.
  */
 /** The files under their group headings, in the order they come. */
-function groupsOf(sheets: LatestSheet[]): [FileGroup, LatestSheet[]][] {
-  const out = new Map<FileGroup, LatestSheet[]>();
+function groupsOf(sheets: MenuFile[]): [FileGroup, MenuFile[]][] {
+  const out = new Map<FileGroup, MenuFile[]>();
   for (const s of sheets) out.set(s.group, [...(out.get(s.group) ?? []), s]);
   return [...out];
 }
 
-export function CompanyFiles({ sheets }: { sheets: LatestSheet[] }) {
+export function CompanyFiles({ sheets }: { sheets: MenuFile[] }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const first = useRef<HTMLAnchorElement>(null);

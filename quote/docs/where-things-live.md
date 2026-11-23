@@ -1556,12 +1556,18 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   kind on that list (never a path from the request), and 404s on the customer deployment. Older versions stay in the
   folder for reference and are never offered. **Staff guides** (same day: "add the followup guide in the downloads
   section"): the same menu offers the newest `follow-up-staff-guide-vN.pdf` from that folder under its own heading, at
-  `/files/followup`, the same way. **Warranty & insurance** (2026-11-23: "upload the folder in Warranty and Insurance,
-  into the Company Files"): the newest `installation-labor-warranty-vN.pdf` at `/files/warranty`; a version may carry a
-  minor number (`v1.1`, compared as numbers). Beside it the Co-operators **Commercial Insurance Policy**,
-  `commercial-insurance-policy-v<YYYY>.pdf` (the year its term starts) at `/files/insurance`, shown with its term
-  ("2026–27"); Albert okayed committing it to this public repo ("its ok upload it"). The auto policy and the WSIB
-  certificate are not in the folder.
+  `/files/followup`, the same way. **Live from OneDrive (Albert, 2026-11-23: "Yes and the WSIB as well. All from the
+  onedrive"; vault `05_decisions/2026-11-23-company-files-live-from-onedrive`).** A third heading, **Warranty, insurance &
+  terms**, offers documents nobody commits: Make "Warranty and Insurance -> Company Files" (5062776, hourly) lists OneDrive
+  `TITAN FILES/Warranty and Insurance`, and for each save not yet on the Airtable **Company Files** table (`Source File
+  Id` = item id @ save time) adds a row and attaches the PDF (a Word doc converted by Microsoft Graph, a PDF as it is).
+  Rows are never edited, except **Hidden**, which Albert ticks to pull one from the app. `liveDocs()` in
+  `src/lib/files/docs.ts` (pure, tested in `tests/companyDocs.test.ts`) tells documents apart by file name (warranty,
+  commercial, auto, WSIB; anything else under its own name), offers the newest save of each, and shows the day it was
+  saved in place of a version. The newest **Project Expectations** come from Terms Versions (`newestTerms()`).
+  `src/lib/files/live.ts` reads both (staff deployment only, read only, kept a minute, unreadable = none), and
+  `/files/<kind>` serves one by its kind on that list, fetching the PDF fresh from Airtable's file host. The warranty v1.1
+  and the commercial policy committed earlier the same day were removed from `quote/sheets/`.
 - **Report a bug (2026-10-28).** The header's Report a bug (staff only, hidden in Customer view and
   until `NOTION_BUG_TOKEN` is set) posts a summary, an urgency and up to five screenshots (shrunk in
   the browser to stay under Vercel's 4.5 MB body limit) to `/api/bug`. That signed-in route makes
