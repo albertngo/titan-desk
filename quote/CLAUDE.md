@@ -144,8 +144,11 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
    (Follow up's Lost, Postpone and comments; since 2026-11-09 a measured quote's follow-up text or email, see 2c''').
    **POS customers (Albert, 2026-11-23; vault `05_decisions/2026-11-23-quote-pos-customers`):** the same file alone
    reads `QUOTE_MAKE_POS_HOOK` / `QUOTE_MAKE_POS_KEY` and posts to a separate "Quote app → POS customers" scenario,
-   called only from `src/lib/quotes/pos.ts` (on acceptance, and on a start for an already-won contact). Make finds a
-   Lightspeed or Hike customer by email then phone, links a hit and creates only on a miss; never an update, merge or
+   called only from `src/lib/quotes/pos.ts` (on acceptance, and on a start for an already-won contact). Make (scenario
+   5060817) only passes four requests on: `ls_search`, `ls_create`, `hike_page` and `hike_create`, its filters checking the
+   key and refusing a create body carrying an id. The app does the matching (`src/lib/pos/plan.ts`): Lightspeed by search,
+   email then phone; Hike by reading every customer page by page (no search in Hike's API; Albert chose the scan, vault
+   `05_decisions/2026-11-23-hike-customer-scan`). A hit is linked; only a miss is created; never an update, merge or
    delete. Ids land in Quotes → POS Customers. Switches: Settings, POS customers.
    Set those two variables only after the scenario is switched on: a request to a scenario
    that is off waits in Make's queue and would run later.
