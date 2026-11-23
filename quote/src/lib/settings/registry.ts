@@ -25,6 +25,8 @@ export const DEFS = [
   { key: "alertsOn", group: "Alerts", label: "WhatsApp alerts", help: "Hot quotes send one WhatsApp to the number below. Needs the Make alert route.", kind: "switch" },
   { key: "alertTo", group: "Alerts", label: "Alerts go to", help: "One WhatsApp number, with the country code (+1…). A test number first.", kind: "phone" },
   { key: "alertsPerRead", group: "Alerts", label: "Most alerts at once", help: "Per page read, so a full list can't flood the phone.", kind: "number", min: 1, max: 20 },
+  { key: "lightspeedCustomers", group: "POS customers", label: "Lightspeed customers", help: "A won customer is found or created in Lightspeed when a quote is accepted, or started for someone already won. Never edits an existing customer.", kind: "switch" },
+  { key: "hikeCustomers", group: "POS customers", label: "Hike customers", help: "The same, in Hike.", kind: "switch" },
   { key: "onlyThemselves", group: "Sending: who as whom", label: "Nobody else can send as", help: "Comma-separated sign-in emails. Each can send as anyone on the team, and is a choice only for themselves: nobody else can pick them on the Send card. Everyone else can send as each other.", kind: "emails", empty: true },
   { key: "markSentEmails", group: "Sending: who as whom", label: "Who can mark a quote sent without sending", help: "Comma-separated sign-in emails. They get Mark as sent on the Send card: the version is locked and counted as sent, with its link ready to copy, and nothing goes to the customer. Empty: nobody.", kind: "emails", empty: true },
   { key: "adminEmails", group: "Access", label: "Who sees Performance and Settings", help: "Comma-separated sign-in emails. They must also be allowed into the app.", kind: "emails" },
@@ -46,6 +48,8 @@ export type Settings = {
   alertsOn: boolean;
   alertTo: string;
   alertsPerRead: number;
+  lightspeedCustomers: boolean;
+  hikeCustomers: boolean;
   onlyThemselves: string[];
   markSentEmails: string[];
   adminEmails: string[];
@@ -71,6 +75,9 @@ export function defaults(env: Record<string, string | undefined>): Settings {
     alertsOn: Boolean(env.QUOTE_ALERT_TO),
     alertTo: env.QUOTE_ALERT_TO ?? "",
     alertsPerRead: 5,
+    // Live from the start (Albert, 2026-11-23); nothing goes until QUOTE_MAKE_POS_HOOK and _KEY are set.
+    lightspeedCustomers: true,
+    hikeCustomers: true,
     // Albert, 2026-11-05: "Only Albert logged in has himself as the option"; 2026-11-17: mark as sent "for admin ALBERT only".
     onlyThemselves: ["albert@titanfloors.ca"],
     markSentEmails: ["albert@titanfloors.ca"],
