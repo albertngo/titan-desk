@@ -54,17 +54,18 @@ export type ThreadLine = { at: string | null; who: "customer" | "staff" | "autom
 
 /**
  * What a kept brief was written from: the newest thing in the thread, the opens, the follow-ups logged here, and the
- * postpone. Any of them moving means a new brief.
+ * postpone. Any of them moving means a new brief. The customer's note (2026-11-22) joins it only when there is one, so
+ * briefs written before notes existed stay current.
  */
-export function briefSignature(i: { lastMessage: { id: string; at: string | null } | null; opens: number; touches: number; postponeUntil: string | null; sentAt: string; visit?: string | null }): string {
-  return [i.sentAt, i.lastMessage ? `${i.lastMessage.id}@${i.lastMessage.at ?? ""}` : "none", `o${i.opens}`, `t${i.touches}`, `p${i.postponeUntil ?? ""}`, `v${i.visit ?? ""}`].join("|");
+export function briefSignature(i: { lastMessage: { id: string; at: string | null } | null; opens: number; touches: number; postponeUntil: string | null; sentAt: string; visit?: string | null; noteAt?: string | null }): string {
+  return [i.sentAt, i.lastMessage ? `${i.lastMessage.id}@${i.lastMessage.at ?? ""}` : "none", `o${i.opens}`, `t${i.touches}`, `p${i.postponeUntil ?? ""}`, `v${i.visit ?? ""}`, ...(i.noteAt ? [`n${i.noteAt}`] : [])].join("|");
 }
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const clip = (v: unknown, n: number) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, n) : "");
 
 /** Claude's answer, cleaned: anything missing or the wrong shape is dropped or blanked, never guessed. Null when nothing usable came back. */
-export function cleanBrief(raw: unknown, meta: { basedOn: string; at: string; model: string; today: string; lostReasons?: readonly string[] }): Brief | null {
+export function cleanBrief(raw: unknown, meta: { basedOn: string; at: string; model: string; today: string; lostReasons?: readonly string[]; forceStep?: StepKind | null }): Brief | null {
   if (!raw || typeof raw !== "object") return null;
   const d = raw as Record<string, unknown>;
   const standing = clip(d.standing, 400);
@@ -76,7 +77,8 @@ export function cleanBrief(raw: unknown, meta: { basedOn: string; at: string; mo
         .slice(0, 5)
     : [];
   const s = (d.step ?? {}) as Record<string, unknown>;
-  const kind = (STEP_KINDS as readonly string[]).includes(String(s.kind)) ? (s.kind as StepKind) : "text";
+  // A step staff picked (2026-11-22) holds whatever came back.
+  const kind = meta.forceStep ?? ((STEP_KINDS as readonly string[]).includes(String(s.kind)) ? (s.kind as StepKind) : "text");
   const rawDraft = typeof d.draft === "string" ? d.draft.trim().slice(0, 1200) : "";
   const draft = kind === "wait" || kind === "close" ? "" : rawDraft;
   // A named day counts only when it is a real date after today and within a year.
@@ -162,6 +164,12 @@ export type BriefFacts = {
   channel?: "sms" | "email" | null;
   /** How many follow-ups the app already sent on this quote. */
   appSent?: number;
+  /** Staff's standing note on this customer (2026-11-22): every brief follows it. */
+  staffNote?: string | null;
+  /** The step staff picked themselves (2026-11-22): the brief uses it and writes the draft for it. */
+  staffStep?: StepKind | null;
+  /** The last times staff went against a suggestion on this customer, in words (src/lib/followup/choices.ts). */
+  overrides?: string[];
 };
 
 const money = (n: number) => `$${Math.round(n).toLocaleString("en-CA")}`;
@@ -191,7 +199,7 @@ QUOTE
 - The customer has opened the quote link ${f.opens} time${f.opens === 1 ? "" : "s"}${f.lastOpened ? `, last on ${f.lastOpened.slice(0, 10)}` : ""}.
 - Options:
 ${opts}
-${f.visitedWhere?.length ? `- Visits that went ahead: ${f.visitedWhere.join(", ")}. A customer seen both at home and in the store closes about 4 in 5; home only or store only, about 1 in 4.\n` : ""}${f.openSlots?.length ? `- Real open in-home measure slots (GHL calendar): ${f.openSlots.map((x) => `${x.label}${x.near ? " (we already have a visit that day)" : ""}`).join("; ")}\n` : ""}${f.postponedTo ? `- Postponed: the customer asked to be followed up around ${f.postponedTo}.\n` : ""}${f.loggedHere.length ? `- Follow-ups staff logged outside GHL: ${f.loggedHere.map((t) => `${t.at.slice(0, 10)}${t.note ? ` (${t.note})` : ""}`).join("; ")}\n` : ""}
+${f.visitedWhere?.length ? `- Visits that went ahead: ${f.visitedWhere.join(", ")}. A customer seen both at home and in the store closes about 4 in 5; home only or store only, about 1 in 4.\n` : ""}${f.openSlots?.length ? `- Real open in-home measure slots (GHL calendar): ${f.openSlots.map((x) => `${x.label}${x.near ? " (we already have a visit that day)" : ""}`).join("; ")}\n` : ""}${f.postponedTo ? `- Postponed: the customer asked to be followed up around ${f.postponedTo}.\n` : ""}${f.loggedHere.length ? `- Follow-ups staff logged outside GHL: ${f.loggedHere.map((t) => `${t.at.slice(0, 10)}${t.note ? ` (${t.note})` : ""}`).join("; ")}\n` : ""}${f.staffNote ? `- STAFF NOTE on this customer (follow it in the step and the draft): ${f.staffNote}\n` : ""}${f.overrides?.length ? `- Times staff went against the suggested step for this customer, newest last: ${f.overrides.join("; ")}. Learn from them: don't suggest a step they turned down again unless something new has happened since.\n` : ""}${f.staffStep ? `- STAFF CHOSE THE NEXT STEP: "${f.staffStep}". Use it as step.kind and write the draft for it.\n` : ""}
 CONVERSATION (oldest first; internal notes are never seen by the customer)
 ${thread || "(no messages)"}
 

@@ -3,32 +3,33 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { autoFollowUpsAction, briefAction, followedUpAction, lostAction, postponeAction, sendFollowUpAction, snoozeAction } from "@/app/follow-up/actions";
+import {
+  autoFollowUpsAction,
+  briefAction,
+  changeStepAction,
+  followedUpAction,
+  logChoiceAction,
+  lostAction,
+  noteAction,
+  postponeAction,
+  reasonAction,
+  sendFollowUpAction,
+  snoozeAction,
+} from "@/app/follow-up/actions";
 import { ConversationDrawer } from "@/components/Conversation";
-import type { Brief, StepKind } from "@/lib/followup/brief";
-import { SNOOZE_CHOICES, type Bucket } from "@/lib/followup/plan";
+import { STEP_KINDS, type Brief, type StepKind } from "@/lib/followup/brief";
+import { REASONS, type Group } from "@/lib/followup/choices";
+import { byMorning, doneToday, dueShort, LATER, laterOf, pinOf, placeOf, primaryOf, sendableOf, shortMoney, STEP_WORDS, stepLine, summaryLine, type Done, type LaterKind, type Primary } from "@/lib/followup/morning";
+import { SNOOZE_CHOICES } from "@/lib/followup/plan";
 import { TIER_WORDS } from "@/lib/followup/score";
-import type { FollowUpPage, FollowUpResult, FollowUpRow } from "@/lib/quotes/followup";
+import type { ClosedToday, FollowUpPage, FollowUpResult, FollowUpRow } from "@/lib/quotes/followup";
 
-const SECTIONS: { bucket: Bucket; title: string; empty: string }[] = [
-  { bucket: "due", title: "Due now", empty: "Nothing due. Nice." },
-  { bucket: "upcoming", title: "Coming up", empty: "Nothing scheduled." },
-  { bucket: "snoozed", title: "Snoozed", empty: "Nothing snoozed." },
-  { bucket: "postponed", title: "Postponed", empty: "Nothing postponed." },
-];
-
-/** Due now, split by need (Albert, 2026-11-09): what needs a person, what to keep an eye on, and what waits past the day's cap. */
-const DUE_GROUPS: { key: "needs" | "watch" | "next"; title: string; hint: string }[] = [
-  { key: "needs", title: "Needs you", hint: "A high score, or they asked, pushed back, went cold, or it's a big job" },
-  { key: "watch", title: "Watch", hint: "Some interest, not hot yet" },
-  { key: "next", title: "Next up", hint: "Needs you, past today's limit for this person" },
-];
-const groupOf = (r: FollowUpRow) => (r.waiting ? "next" : r.score.tier === "needs" ? "needs" : "watch");
-
-const STEP_WORDS: Record<StepKind, string> = { call: "Call them", text: "Send a text", email: "Send an email", visit: "Book the visit", wait: "Wait", close: "Close it out" };
 const EVERYONE = "Everyone";
 /** Briefs written at once, so a first visit doesn't ask Claude for every quote together. */
 const BRIEFS_AT_ONCE = 2;
+
+/** The Toronto day of a time; a bare day stays as it is. */
+const torontoDay = (s: string) => (/^\d{4}-\d{2}-\d{2}$/.test(s) ? s : new Date(s).toLocaleDateString("en-CA", { timeZone: "America/Toronto" }));
 
 const dayWords = (d: string, today: string) => {
   const n = Math.round((Date.parse(d) - Date.parse(today)) / 86_400_000);
@@ -41,13 +42,18 @@ const dayWords = (d: string, today: string) => {
 
 type Modal = { kind: "lost" | "postpone" | "touch"; row: FollowUpRow } | null;
 type BriefState = { brief: Brief | null; busy: boolean; error: string | null; stale: boolean };
+type Result = { id: string; who: string; ok: boolean; lines: string[]; askWhy?: StepKind } | null;
+type Ctx = { score: number | null; group: Group | null };
+
+type Item = { row: FollowUpRow; done: Done | null; place: Group };
 
 /**
- * The Follow up page's list (Albert, 2026-11-07). "Last sent by: Pourya | Joey | Albert | Everyone" (each name is
- * whoever last sent a quote on the list), starting on the signed-in person when they have any; column headings; four
- * sections by where each quote stands; on each row, what's due and why, the brief, then the buttons. The customer's
- * conversation opens in the drawer on the right. Every button goes to the server, which reads the quote again before
- * writing; the page reloads after.
+ * Follow up as a morning brief (Albert, 2026-11-22; vault 05_decisions/2026-11-22-follow-up-morning-brief). A sentence
+ * for the day, then one line per person with the one button that does the brief's step: Reach today (Needs you, and
+ * visits owed a quote), If you have time (Watch), and everything else folded under Later. Expanding a person (one at a
+ * time) shows the brief, the facts and every action, and points the conversation drawer at them. Rows done today stay,
+ * ticked, at the bottom of their group. Every button records what was suggested against what was done (the choice log,
+ * src/lib/followup/choices.ts); going against the suggestion offers one tap for why.
  */
 export function FollowUpList({ data }: { data: FollowUpPage }) {
   const router = useRouter();
@@ -59,26 +65,46 @@ export function FollowUpList({ data }: { data: FollowUpPage }) {
   const [who, setWho] = useState<string>(myName ?? EVERYONE);
   const [modal, setModal] = useState<Modal>(null);
   const [busy, start] = useTransition();
-  const [result, setResult] = useState<{ who: string; ok: boolean; lines: string[] } | null>(null);
+  const [result, setResult] = useState<Result>(null);
   const [copied, setCopied] = useState<string | null>(null);
-  const [conv, setConv] = useState<{ contactId: string; name: string | null; signal: number } | null>(() => {
-    // The first row's customer to start (Albert, 2026-11-07: "default to the first row"); rows come most urgent first.
-    const first = data.rows.find((r) => r.contactId);
-    return first?.contactId ? { contactId: first.contactId, name: first.customer, signal: 0 } : null;
-  });
+  const [openId, setOpenId] = useState<string | null>(null);
+  // Closed until a person is expanded (Albert, 2026-11-22), then it follows whoever is open.
+  const [conv, setConv] = useState<{ contactId: string; name: string | null; signal: number } | null>(null);
   const [briefs, setBriefs] = useState<Record<string, BriefState>>(() =>
     Object.fromEntries(data.rows.map((r) => [r.quoteRecordId, { brief: r.brief, busy: false, error: null, stale: r.briefStale }])),
   );
 
-  // Snoozed lives in its own tab, out of the way (Albert, 2026-11-09).
-  const [tab, setTab] = useState<"list" | "snoozed">("list");
-  const shown = useMemo(() => (who === EVERYONE ? data.rows : data.rows.filter((r) => r.ownerName === who)), [who, data.rows]);
-  const visitsShown = (data.visits ?? []).filter((v) => who === EVERYONE || v.visitorName === who);
-  const dueOf = (name: string) =>
+  const mine = (name: string | null) => who === EVERYONE || name === who;
+  const items = useMemo(() => {
+    const out: Item[] = [];
+    for (const r of data.rows) {
+      if (!mine(r.ownerName)) continue;
+      const done = doneToday(r, data.today, torontoDay);
+      out.push({ row: r, done, place: placeOf(r, done, data.today, torontoDay) });
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.rows, data.today, who]);
+  const visits = (data.visits ?? []).filter((v) => mine(v.visitorName));
+  const closed = (data.closedToday ?? []).filter((c) => mine(c.ownerName));
+  const rowsIn = (g: Group) => items.filter((i) => i.place === g);
+  const sorted = (g: Group) => [...rowsIn(g)].sort(byMorning);
+  const reach = sorted("reach");
+  const time = sorted("time");
+  const later = rowsIn("later");
+  const closedIn = (g: Group) => closed.filter((c) => (c.group ?? "reach") === g);
+
+  // The sentence at the top counts Reach today: each person by the brief's step, the visits as quotes to write.
+  const summary = summaryLine(who, [
+    ...visits.map(() => ({ kind: "quote" as const, done: false })),
+    ...reach.map((i) => ({ kind: i.row.due.reason.kind === "measure" ? ("quote" as const) : (briefs[i.row.quoteRecordId]?.brief?.step.kind ?? null), done: Boolean(i.done) })),
+    ...closedIn("reach").map(() => ({ kind: "close" as const, done: true })),
+  ]);
+  const total = visits.length + reach.length + closedIn("reach").length;
+  const doneN = reach.filter((i) => i.done).length + closedIn("reach").length;
+  const countFor = (name: string) =>
     data.rows.filter((r) => r.due.bucket === "due" && r.score.tier === "needs" && !r.waiting && (name === EVERYONE || r.ownerName === name)).length +
     (data.visits ?? []).filter((v) => name === EVERYONE || v.visitorName === name).length;
-  const [autoOpen, setAutoOpen] = useState(false);
-  const autoRows = shown.filter((r) => r.due.bucket === "auto");
 
   const askBrief = async (row: FollowUpRow, force: boolean) => {
     setBriefs((b) => ({ ...b, [row.quoteRecordId]: { ...b[row.quoteRecordId], busy: true, error: null } }));
@@ -110,15 +136,22 @@ export function FollowUpList({ data }: { data: FollowUpPage }) {
     start(async () => {
       try {
         const r = await f();
-        setResult({ who: row.customer ?? row.quoteNumber ?? "This quote", ok: r.ok, lines: r.ok ? r.notes : [r.message] });
+        setResult({ id: row.quoteRecordId, who: row.customer ?? row.quoteNumber ?? "This quote", ok: r.ok, lines: r.ok ? r.notes : [r.message], ...(r.ok && r.askWhy ? { askWhy: r.askWhy } : {}) });
         if (r.ok) {
           setModal(null);
           router.refresh();
         }
       } catch {
-        setResult({ who: row.customer ?? "This quote", ok: false, lines: ["Lost the connection, so it may not have gone through. Reload to check."] });
+        setResult({ id: row.quoteRecordId, who: row.customer ?? "This quote", ok: false, lines: ["Lost the connection, so it may not have gone through. Reload to check."] });
       }
     });
+  };
+
+  // Logged without waiting: Open in GHL and Copy booking link change nothing here.
+  const logOnly = (row: FollowUpRow, did: "ghl" | "link", ctx: Ctx) => {
+    void logChoiceAction(row.quoteRecordId, did, ctx)
+      .then((r) => r.ok && r.askWhy && setResult({ id: row.quoteRecordId, who: row.customer ?? "This quote", ok: true, lines: [], askWhy: r.askWhy }))
+      .catch(() => undefined);
   };
 
   const copy = async (key: string, text: string, label: string) => {
@@ -131,195 +164,248 @@ export function FollowUpList({ data }: { data: FollowUpPage }) {
     }
   };
 
-  const openConv = (row: FollowUpRow) => row.contactId && setConv((c) => ({ contactId: row.contactId as string, name: row.customer, signal: (c?.signal ?? 0) + 1 }));
+  const toggle = (id: string, contactId: string | null, name: string | null) => {
+    const opening = openId !== id;
+    setOpenId(opening ? id : null);
+    if (opening && contactId) setConv((c) => ({ contactId, name, signal: (c?.signal ?? 0) + 1 }));
+  };
+
+  const primary = (row: FollowUpRow, p: Primary, ctx: Ctx) => {
+    const b = briefs[row.quoteRecordId]?.brief ?? null;
+    if (p.act === "expand") return openId !== row.quoteRecordId && toggle(row.quoteRecordId, row.contactId, row.customer);
+    if (p.act === "lost") return setModal({ kind: "lost", row });
+    if (p.act === "snooze") return run(row, () => snoozeAction(row.quoteRecordId, row.seen, 7, ctx));
+    if (p.act === "link") {
+      void copy(`visit:${row.quoteRecordId}`, data.inHomeUrl, "Copy the in-home booking link:");
+      return logOnly(row, "link", ctx);
+    }
+    if (p.act === "copyGhl" && b?.draft) void copy(`draft:${row.quoteRecordId}`, b.draft, "Copy the draft:");
+    logOnly(row, "ghl", ctx);
+  };
+
+  const rowView = (i: Item) => {
+    const r = i.row;
+    const ctx: Ctx = { score: r.score.score, group: i.place };
+    return (
+      <PersonRow
+        key={r.quoteRecordId}
+        row={r}
+        done={i.done}
+        ctx={ctx}
+        today={data.today}
+        open={openId === r.quoteRecordId}
+        busy={busy}
+        copied={copied}
+        brief={briefs[r.quoteRecordId]}
+        briefsOn={data.briefsOn}
+        dials={data.dials}
+        onToggle={() => toggle(r.quoteRecordId, r.contactId, r.customer)}
+        onPrimary={(p) => primary(r, p, ctx)}
+        onModal={(kind) => setModal({ kind, row: r })}
+        onSnooze={(d) => run(r, () => snoozeAction(r.quoteRecordId, r.seen, d, ctx))}
+        onCopyDraft={(text) => copy(`draft:${r.quoteRecordId}`, text, "Copy the draft:")}
+        onRewrite={() => askBrief(r, true)}
+        onConv={() => r.contactId && setConv((c) => ({ contactId: r.contactId as string, name: r.customer, signal: (c?.signal ?? 0) + 1 }))}
+        onGhl={() => logOnly(r, "ghl", ctx)}
+        onSend={(text, subject) => run(r, () => sendFollowUpAction(r.quoteRecordId, r.seen, text, subject, ctx))}
+        onAuto={(on) => run(r, () => autoFollowUpsAction(r.quoteRecordId, r.seen, on))}
+        onStep={(kind) => {
+          setResult(null);
+          setBriefs((b) => ({ ...b, [r.quoteRecordId]: { ...b[r.quoteRecordId], busy: true, error: null } }));
+          start(async () => {
+            try {
+              const x = await changeStepAction(r.quoteRecordId, r.seen, kind, ctx);
+              setBriefs((b) => ({ ...b, [r.quoteRecordId]: { ...b[r.quoteRecordId], busy: false, ...(x.ok && x.brief ? { brief: x.brief, stale: false } : {}), error: x.ok ? null : x.message } }));
+              setResult({ id: r.quoteRecordId, who: r.customer ?? "This quote", ok: x.ok, lines: x.ok ? x.notes : [x.message], ...(x.ok && x.askWhy ? { askWhy: x.askWhy } : {}) });
+              if (x.ok) router.refresh();
+            } catch {
+              setBriefs((b) => ({ ...b, [r.quoteRecordId]: { ...b[r.quoteRecordId], busy: false, error: "Lost the connection. Try again." } }));
+            }
+          });
+        }}
+        onNote={(text) => {
+          setResult(null);
+          start(async () => {
+            try {
+              const x = await noteAction(r.quoteRecordId, r.seen, text);
+              setResult({ id: r.quoteRecordId, who: r.customer ?? "This quote", ok: x.ok, lines: x.ok ? [text.trim() ? "Note saved. The brief will follow it." : "Note cleared.", ...x.notes] : [x.message] });
+              if (x.ok) {
+                router.refresh();
+                void askBrief(r, true);
+              }
+            } catch {
+              setResult({ id: r.quoteRecordId, who: r.customer ?? "This quote", ok: false, lines: ["Lost the connection, so it may not have been saved. Reload to check."] });
+            }
+          });
+        }}
+      />
+    );
+  };
+
+  const laterCounts = LATER.map((l) => ({ ...l, rows: later.filter((i) => laterOf(i.row) === l.kind) })).filter((l) => l.rows.length);
+  const laterTotal = later.length;
+  const warnings = [
+    !data.ghlOn && "GHL isn't connected here, so only \"I followed up\" counts and the GHL buttons are off.",
+    data.ghlOn && !data.lostReasons?.length && "GHL's lost reasons couldn't be read, so Lost is off for now.",
+    !data.briefsOn && "Briefs aren't set up on this deployment (the Claude key isn't set).",
+    data.visits === null && data.ghlOn && "GHL's calendars couldn't be read, so visits without a quote aren't shown.",
+  ].filter((w): w is string => Boolean(w));
 
   return (
     <>
-      <section className="card fu-card">
-        <div className="ql-tools fu-tools">
-          <div className="fu-who-pick">
-            <span className="k" id="fu-who-k">Last sent by</span>
-            <div className="ql-filters" role="group" aria-labelledby="fu-who-k">
-              {[...senders, EVERYONE].map((name) => (
-                <button key={name} type="button" className="ql-f" aria-pressed={who === name} onClick={() => setWho(name)} title={`${dueOf(name)} need you now`}>
-                  {name} <span className="n">{dueOf(name)}</span>
-                </button>
-              ))}
-            </div>
+      <section className="mb">
+        <div className="mb-hello">
+          <h2 className="mb-line">
+            {summary.text} {summary.done && <span className="mb-done">{summary.done}</span>}
+          </h2>
+          <div className="mb-pills" role="group" aria-label="Last sent by">
+            {[...senders, EVERYONE].map((name) => (
+              <button key={name} type="button" className="mb-pill" aria-pressed={who === name} onClick={() => setWho(name)} title={`${countFor(name)} need you now`}>
+                {name} <span className="n">{countFor(name)}</span>
+              </button>
+            ))}
           </div>
-          {!data.ghlOn && <p className="fu-warn">GHL isn&apos;t connected here, so only &quot;I followed up&quot; counts and the GHL buttons are off.</p>}
-          {data.ghlOn && !data.lostReasons?.length && <p className="fu-warn">GHL&apos;s lost reasons couldn&apos;t be read, so Lost is off for now. Mark a lost quote in GHL, or reload in a moment.</p>}
-          {!data.briefsOn && <p className="fu-warn">Briefs aren&apos;t set up on this deployment (the Claude key isn&apos;t set).</p>}
-          {/* The Stage 2 report (2026-11-09): Albert switches automatic sending on when this says ready. */}
-          <p className="fu-sending" title="Measured follow-ups sent from the app with Send. Automatic sending is Albert's switch.">
-            Sent from the app: {data.sending.taps}
-            {data.sending.taps ? `, ${Math.round(data.sending.share * 100)}% as written` : ""}
-            {" · "}
-            {data.sending.autoOn ? "automatic sending is on" : data.sending.ready ? "ready for automatic sending: ask Albert" : `automatic sending after 30 sent with 80% as written`}
-          </p>
         </div>
+        {total > 0 && (
+          <div className="mb-progress" role="progressbar" aria-valuenow={doneN} aria-valuemin={0} aria-valuemax={total} aria-label={`${doneN} of ${total} done`}>
+            <span style={{ width: `${Math.round((doneN / total) * 100)}%` }} />
+          </div>
+        )}
+        {warnings.length > 0 && <p className="mb-warn">{warnings.join(" ")}</p>}
         {result && (
           <div className={`fu-result${result.ok ? "" : " bad"}`} role="status">
-            <strong>{result.ok ? `${result.who}: done.` : `${result.who}: not done.`}</strong>
+            {(!result.ok || result.lines.length > 0 || !result.askWhy) && <strong>{result.ok ? `${result.who}: done.` : `${result.who}: not done.`}</strong>}
             {result.lines.map((l) => (
               <span key={l}>{l}</span>
             ))}
+            {result.ok && result.askWhy && (
+              <span className="mb-why" role="group" aria-label="Why not the suggested step?">
+                <span>
+                  {result.who}: not the suggested step ({STEP_WORDS[result.askWhy].toLowerCase()}). Why? <span className="mb-why-opt">Optional.</span>
+                </span>
+                {REASONS.map((reason) => (
+                  <button
+                    key={reason}
+                    type="button"
+                    className="btn small"
+                    onClick={() => {
+                      const id = result.id;
+                      setResult(null);
+                      void reasonAction(id, reason).catch(() => undefined);
+                    }}
+                  >
+                    {reason}
+                  </button>
+                ))}
+              </span>
+            )}
             <button type="button" className="linkbtn" onClick={() => setResult(null)}>
               Dismiss
             </button>
           </div>
         )}
-        <div className="fu-tabs" role="tablist" aria-label="Follow up views">
-          <button type="button" role="tab" className="ql-f" aria-selected={tab === "list"} aria-pressed={tab === "list"} onClick={() => setTab("list")}>
-            To follow up
-          </button>
-          <button type="button" role="tab" className="ql-f" aria-selected={tab === "snoozed"} aria-pressed={tab === "snoozed"} onClick={() => setTab("snoozed")}>
-            Snoozed <span className="n">{shown.filter((r) => r.due.bucket === "snoozed").length}</span>
-          </button>
-        </div>
-        <div className="fu-cols" aria-hidden>
-          <span>Customer · in conversation with</span>
-          <span>Score</span>
-          <span>Why it&apos;s due</span>
-          <span>Age and follow-ups</span>
-        </div>
-        {/* Visited, no quote yet (2026-11-07): the visits still owed a measured quote, above everything else. */}
-        {data.visits === null && data.ghlOn && <p className="fu-warn fu-pad">GHL&apos;s calendars couldn&apos;t be read, so visits without a quote aren&apos;t shown.</p>}
-        {tab === "list" && visitsShown.length > 0 && (
-          <div className="fu-sec visits">
-            <h2 className="fu-h">
-              Visited, no quote yet <span className="n">{visitsShown.length}</span>
-            </h2>
-            {visitsShown.map((v) => (
-              <div key={v.contactId} className={`fu-row can-pick${conv?.contactId === v.contactId ? " picked" : ""}`} onClick={(e) => !(e.target as Element).closest("a, button") && setConv((c) => ({ contactId: v.contactId, name: v.name, signal: (c?.signal ?? 0) + 1 }))}>
-                <div className="fu-who">
-                  <span className="fu-name-line">
-                    {v.quote?.versionId ? (
-                      <Link href={`/q/${v.quote.versionId}`} className="fu-name">
-                        {v.name ?? "Customer"}
-                      </Link>
-                    ) : (
-                      <span className="fu-name">{v.name ?? "Customer"}</span>
-                    )}
-                    {v.visitorName && <span className="fu-with">with {v.visitorName}</span>}
-                  </span>
-                  <span className="fu-meta">{v.quote?.quoteNumber ? `${v.quote.quoteNumber} · no measured quote sent since the visit` : "No quote in the app yet"}</span>
-                </div>
-                <div className="fu-scorecol" data-k="Score"><span className="fu-score-none">No quote yet</span></div>
-                <div className="fu-why" data-k="Why it's due">
-                  {v.rescheduling ? (
-                    <span className="chip" title={`"${v.rescheduling.quote}"`}>
-                      Called off {dayWords(v.rescheduling.day, data.today)} by text: waiting on them to rebook
+
+        <div className="mb-group">
+          <h3 className="mb-gh">
+            Reach today <span className="n">{total}</span>
+          </h3>
+          {total === 0 ? (
+            <p className="mb-empty">Nobody needs a person today.</p>
+          ) : (
+            <div className="mb-list">
+              {visits.map((v) => (
+                <div key={v.contactId} className={`mb-row${openId === `v:${v.contactId}` ? " open" : ""}`}>
+                  <div className="mb-line-row" onClick={(e) => !(e.target as Element).closest("a, button") && toggle(`v:${v.contactId}`, v.contactId, v.name)}>
+                    <span className="mb-score none" title="No quote to score yet">
+                      <span className="sr-only">No score yet</span>
                     </span>
-                  ) : (
-                    <span className="chip warn">Visited: the measured quote is owed</span>
+                    <span className="mb-who">
+                      <span className="mb-name">{v.name ?? "Customer"}</span>
+                      <span className="mb-sub">
+                        {v.visitorName ? `with ${v.visitorName}` : "visit, no quote yet"}
+                      </span>
+                    </span>
+                    <span className="mb-step">
+                      <span className="mb-pin">Owed</span>
+                      {v.rescheduling ? (
+                        <>
+                          <b>Waiting on them to rebook:</b> called off {dayWords(v.rescheduling.day, data.today)} by text
+                        </>
+                      ) : (
+                        <>
+                          <b>Write the measured quote:</b> visited {v.days === 0 ? "today" : `${v.days} day${v.days === 1 ? "" : "s"} ago`}, {v.quote?.quoteNumber ? "nothing sent since" : "no quote in the app yet"}
+                        </>
+                      )}
+                    </span>
+                    <span className="mb-due late">{v.days === 0 ? "today" : `${v.days} day${v.days === 1 ? "" : "s"}`}</span>
+                    <Link className="btn primary mb-go" href={v.quote?.versionId ? `/q/${v.quote.versionId}/edit` : "/new"}>
+                      {v.quote?.versionId ? "Write quote" : "Start a quote"}
+                    </Link>
+                    <span className="mb-chev" aria-hidden>
+                      ⌄
+                    </span>
+                  </div>
+                  {openId === `v:${v.contactId}` && (
+                    <div className="mb-more">
+                      <div className="mb-facts">
+                        <div>{v.quote?.quoteNumber ? `${v.quote.quoteNumber} · no measured quote sent since the visit` : "No quote in the app yet"}</div>
+                        <div>
+                          Visited {dayWords(v.day, data.today)} · {v.where}
+                        </div>
+                      </div>
+                      <div className="mb-acts">
+                        <a className="btn small" href={v.ghlUrl} target="_blank" rel="noreferrer">
+                          Open in GHL
+                        </a>
+                      </div>
+                    </div>
                   )}
-                  <span className="fu-when">
-                    Visited {dayWords(v.day, data.today)} · {v.where}
-                  </span>
-                </div>
-                <div className="fu-facts" data-k="Age and follow-ups">
-                  <span>{v.days === 0 ? "Today" : `${v.days} day${v.days === 1 ? "" : "s"} since the visit`}</span>
-                </div>
-                <div className="fu-acts">
-                  <button type="button" className={`btn${conv?.contactId === v.contactId ? " on" : ""}`} onClick={() => setConv((c) => ({ contactId: v.contactId, name: v.name, signal: (c?.signal ?? 0) + 1 }))}>
-                    Conversation
-                  </button>
-                  <a className="btn" href={v.ghlUrl} target="_blank" rel="noreferrer">
-                    Open in GHL
-                  </a>
-                  <Link className="btn primary" href={v.quote?.versionId ? `/q/${v.quote.versionId}/edit` : "/new"}>
-                    {v.quote?.versionId ? "Write the measured quote" : "Start a quote"}
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-        {SECTIONS.filter((s) => (tab === "snoozed" ? s.bucket === "snoozed" : s.bucket !== "snoozed")).map((s) => {
-          const rows = shown.filter((r) => r.due.bucket === s.bucket);
-          if (s.bucket !== "due" && s.bucket !== "snoozed" && rows.length === 0) return null;
-          return (
-            <div key={s.bucket} className={`fu-sec ${s.bucket}`}>
-              <h2 className="fu-h">
-                {s.title} <span className="n">{rows.length}</span>
-              </h2>
-              {rows.length === 0 && <p className="fu-empty">{s.empty}</p>}
-              {(s.bucket === "due" ? DUE_GROUPS.map((g) => ({ g, rows: rows.filter((r) => groupOf(r) === g.key) })) : [{ g: null, rows }]).map(({ g, rows: rs }) =>
-                rs.length === 0 ? null : (
-                  <div key={g?.key ?? "all"} className={g ? `fu-group ${g.key}` : undefined}>
-                    {g && (
-                      <h3 className="fu-gh" title={g.hint}>
-                        {g.title} <span className="n">{rs.length}</span>
-                      </h3>
-                    )}
-                    {rs.map((r) => (
-                <Row
-                  dials={data.dials}
-                  key={r.quoteRecordId}
-                  row={r}
-                  today={data.today}
-                  busy={busy}
-                  copied={copied}
-                  brief={briefs[r.quoteRecordId]}
-                  briefsOn={data.briefsOn}
-                  convOn={conv?.contactId === r.contactId}
-                  onModal={(kind) => setModal({ kind, row: r })}
-                  onSnooze={(d) => run(r, () => snoozeAction(r.quoteRecordId, r.seen, d))}
-                  onVisit={() => copy(`visit:${r.quoteRecordId}`, data.inHomeUrl, "Copy the in-home booking link:")}
-                  onCopyDraft={(text) => copy(`draft:${r.quoteRecordId}`, text, "Copy the draft:")}
-                  onRewrite={() => askBrief(r, true)}
-                  onConv={() => openConv(r)}
-                  onSend={(text, subject) => run(r, () => sendFollowUpAction(r.quoteRecordId, r.seen, text, subject))}
-                  onAuto={(on) => run(r, () => autoFollowUpsAction(r.quoteRecordId, r.seen, on))}
-                />
-                    ))}
-                  </div>
-                ),
-              )}
-            </div>
-          );
-        })}
-        {/* Preliminaries GHL's texts are handling (2026-11-09): folded; each comes back up the moment it needs a person. */}
-        {tab === "list" && autoRows.length > 0 && (
-          <div className="fu-sec auto">
-            <h2 className="fu-h">
-              <button type="button" className="linkbtn" aria-expanded={autoOpen} onClick={() => setAutoOpen((o) => !o)}>
-                {autoOpen ? "▾" : "▸"} On auto: GHL&apos;s texts are handling these
-              </button>{" "}
-              <span className="n">{autoRows.length}</span>
-            </h2>
-            {!autoOpen && <p className="fu-empty">Preliminaries with little back-and-forth yet. Each moves up to Needs you or Watch as soon as the customer engages.</p>}
-            {autoOpen &&
-              autoRows.map((r) => (
-                <div key={r.quoteRecordId} className={`fu-row auto-row${conv?.contactId === r.contactId ? " picked" : ""}${r.contactId ? " can-pick" : ""}`} onClick={(e) => !(e.target as Element).closest("a, button") && openConv(r)}>
-                  <div className="fu-who">
-                    <span className="fu-name-line">
-                      <Link href={`/q/${r.versionId}`} className="fu-name">
-                        {r.customer ?? "No customer"}
-                      </Link>
-                      <span className="fu-with">with {r.ownerName ?? "nobody yet"}</span>
-                    </span>
-                    <span className="fu-meta">
-                      {r.quoteNumber ?? ""} · {r.basis ?? "Quote"}
-                      {r.outside ? ` · ${r.outside.words}` : ""}
-                    </span>
-                  </div>
-                  <div className="fu-scorecol" data-k="Score">
-                    <ScoreChip row={r} dials={data.dials} />
-                  </div>
-                  <div className="fu-why" data-k="Why it's due">
-                    <span className="chip">On auto</span>
-                  </div>
-                  <div className="fu-facts" data-k="Age and follow-ups">
-                    <span>{r.age}</span>
-                  </div>
                 </div>
               ))}
+              {reach.filter((i) => !i.done).map(rowView)}
+              {reach.filter((i) => i.done).map(rowView)}
+              {closedIn("reach").map((c) => (
+                <ClosedRow key={c.quoteRecordId} c={c} />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {(time.length > 0 || closedIn("time").length > 0) && (
+          <div className="mb-group">
+            <h3 className="mb-gh">
+              If you have time <span className="n">{time.length + closedIn("time").length}</span> <span className="mb-hint">some interest, not hot yet</span>
+            </h3>
+            <div className="mb-list">
+              {time.map(rowView)}
+              {closedIn("time").map((c) => (
+                <ClosedRow key={c.quoteRecordId} c={c} />
+              ))}
+            </div>
           </div>
         )}
-        {shown.length === 0 && who !== EVERYONE && data.rows.length > 0 && (
-          <p className="fu-empty">
+
+        {laterTotal > 0 && (
+          <details className="mb-later">
+            <summary>
+              Later <span className="n">{laterTotal}</span> <span className="mb-hint">· {laterCounts.map((l) => `${l.title.toLowerCase()} ${l.rows.length}`).join(" · ")}</span>
+            </summary>
+            {laterCounts.map((l) => (
+              <div key={l.kind} className={`mb-later-sec ${l.kind satisfies LaterKind}`}>
+                <h4 className="mb-lh">
+                  {l.title} <span className="n">{l.rows.length}</span> <span className="mb-hint">{l.hint}</span>
+                </h4>
+                <div className="mb-list">{[...l.rows].sort(byMorning).map(rowView)}</div>
+              </div>
+            ))}
+            {closedIn("later").map((c) => (
+              <ClosedRow key={c.quoteRecordId} c={c} />
+            ))}
+          </details>
+        )}
+
+        {items.length === 0 && who !== EVERYONE && data.rows.length > 0 && (
+          <p className="mb-empty">
             None sent by {who}.{" "}
             <button type="button" className="linkbtn" onClick={() => setWho(EVERYONE)}>
               See everyone&apos;s ({data.rows.length})
@@ -327,156 +413,260 @@ export function FollowUpList({ data }: { data: FollowUpPage }) {
           </p>
         )}
       </section>
-      {modal && <ActionModal modal={modal} data={data} busy={busy} onClose={() => setModal(null)} onRun={(f) => run(modal.row, f)} />}
+      {modal && <ActionModal modal={modal} data={data} busy={busy} ctx={{ score: modal.row.score.score, group: items.find((i) => i.row.quoteRecordId === modal.row.quoteRecordId)?.place ?? null }} onClose={() => setModal(null)} onRun={(f) => run(modal.row, f)} />}
       {conv && <ConversationDrawer contactId={conv.contactId} title={conv.name} openSignal={conv.signal} />}
     </>
   );
 }
 
-function Row(p: {
-  row: FollowUpRow;
-  today: string;
-  busy: boolean;
-  copied: string | null;
-  brief: BriefState | undefined;
-  briefsOn: boolean;
-  convOn: boolean;
-  onModal: (k: "lost" | "postpone" | "touch") => void;
-  onSnooze: (d: number) => void;
-  onVisit: () => void;
-  onCopyDraft: (text: string) => void;
-  onRewrite: () => void;
-  onConv: () => void;
-  onSend: (text: string, subject: string | null) => void;
-  onAuto: (on: boolean) => void;
-  dials: FollowUpPage["dials"];
-}) {
-  const { row, today, busy } = p;
-  const r = row.due.reason.kind;
-  const tone = r === "replied" || r === "expired" ? "bad" : row.due.bucket === "due" ? "warn" : "";
-  const prelim = row.basis === "Preliminary";
-  const lastNote = [...row.state.touches].reverse().find((t) => t.note)?.note;
-  // Clicking the row (anywhere but a button or link) shows this customer's conversation (Albert, 2026-11-07).
-  const pick = (e: React.MouseEvent) => {
-    if ((e.target as Element).closest("a, button, input, select, textarea, label")) return;
-    p.onConv();
-  };
+/** A quote marked Lost today: ticked, until tomorrow (2026-11-22). */
+function ClosedRow({ c }: { c: ClosedToday }) {
   return (
-    <div className={`fu-row${p.convOn ? " picked" : ""}${row.contactId ? " can-pick" : ""}`} onClick={pick}>
-      <div className="fu-who">
-        <span className="fu-name-line">
-          <Link href={`/q/${row.versionId}`} className="fu-name">
-            {row.customer ?? "No customer"}
-          </Link>
-          {/* Who the customer is talking to: whoever last sent the quote (Albert, 2026-11-07), the filter's own names. */}
-          <span className="fu-with" title="Last sent the quote, so in conversation with the customer">
-            with {row.ownerName ?? "nobody yet"}
+    <div className="mb-row done">
+      <div className="mb-line-row">
+        <span className="mb-score">{c.score ?? ""}</span>
+        <span className="mb-who">
+          {c.versionId ? (
+            <Link href={`/q/${c.versionId}`} className="mb-name">
+              {c.customer ?? "No customer"}
+            </Link>
+          ) : (
+            <span className="mb-name">{c.customer ?? "No customer"}</span>
+          )}
+          <span className="mb-sub">
+            with {c.ownerName ?? "nobody yet"}
+            {shortMoney(c.value) ? ` · ${shortMoney(c.value)}` : ""}
           </span>
         </span>
-        <span className="fu-meta">
-          {row.quoteNumber ?? ""} · {row.basis ?? "Quote"}
-          {row.description ? ` · ${row.description}` : ""}
-        </span>
-        {/* Where the lead is in the journey (2026-11-07): from the contact's GHL appointments. */}
-        {row.visit && <span className={`fu-visit ${row.visit.kind}`}>{row.visitText}</span>}
-        {/* Given by text or on a call (2026-11-13): marked sent, with what was said. */}
-        {row.outside && <span className="chip warn fu-outside" title={row.outside.note}>{row.outside.words}</span>}
-      </div>
-      <div className="fu-scorecol" data-k="Score">
-        <ScoreChip row={row} dials={p.dials} />
-      </div>
-      <div className="fu-why" data-k="Why it's due">
-        <span className={`chip${tone ? ` ${tone}` : ""}`}>{row.why}</span>
-        <span className="fu-when">
-          {row.due.bucket === "postponed" ? "Back on the list" : "Due"} {dayWords(row.due.day, today)}
-        </span>
-      </div>
-      <div className="fu-facts" data-k="Age and follow-ups">
-        <span>{row.age}</span>
-        <span>
-          {row.due.touches === 0 ? "No follow-up yet" : `${row.due.touches} follow-up${row.due.touches === 1 ? "" : "s"}, last ${dayWords(row.due.lastTouch as string, today)}`}
-          {!row.ghlRead && row.contactId ? " · GHL not read" : ""}
-        </span>
-        {row.state.postpone?.note && <span className="fu-note">Postponed: {row.state.postpone.note}</span>}
-        {lastNote && <span className="fu-note">Last note: {lastNote}</span>}
-      </div>
-      {p.briefsOn && <BriefBox state={p.brief} row={row} open={p.convOn} busy={busy} copied={p.copied === `draft:${row.quoteRecordId}`} onCopy={p.onCopyDraft} onRewrite={p.onRewrite} onSend={p.onSend} />}
-      <div className="fu-acts">
-        {row.contactId && (
-          <button type="button" className={`btn${p.convOn ? " on" : ""}`} onClick={p.onConv}>
-            Conversation
-          </button>
-        )}
-        {row.ghlUrl && (
-          <a className="btn" href={row.ghlUrl} target="_blank" rel="noreferrer">
-            Open in GHL
-          </a>
-        )}
-        <button type="button" className="btn" disabled={busy} onClick={() => p.onModal("touch")}>
-          I followed up
-        </button>
-        <span className="fu-snooze" role="group" aria-label="Still deciding, check again in">
-          <span className="k">Snooze</span>
-          {SNOOZE_CHOICES.map((d) => (
-            <button key={d} type="button" className="btn small" disabled={busy} onClick={() => p.onSnooze(d)} title={`Still deciding: check again in ${d} days`}>
-              {d}d
-            </button>
-          ))}
-        </span>
-        {prelim && (
-          <button type="button" className="btn" onClick={p.onVisit} title="Copy the in-home measurement booking link">
-            {p.copied === `visit:${row.quoteRecordId}` ? "Link copied" : "Book the visit"}
-          </button>
-        )}
-        <button type="button" className="btn" disabled={busy} onClick={() => p.onModal("postpone")}>
-          Postpone…
-        </button>
-        {!prelim && (
-          <label className="fu-auto" title={row.state.autoOff ? "The app won't send this quote's follow-ups on its own." : row.autoWhy ? `Not on its own right now: ${row.autoWhy}` : "The app may send the next routine follow-up on its own."}>
-            <input type="checkbox" checked={!row.state.autoOff} disabled={busy} onChange={(e) => p.onAuto(e.target.checked)} /> Auto follow-ups
-          </label>
-        )}
-        <button type="button" className="btn danger" disabled={busy} onClick={() => p.onModal("lost")}>
-          Lost…
-        </button>
+        <span className="mb-step">{c.reason ? `Lost: ${c.reason}` : "Lost"}</span>
+        <span className="mb-due" />
+        <span className="mb-donetag">✓ Marked lost</span>
+        <span className="mb-chev" aria-hidden />
       </div>
     </div>
   );
 }
 
-/** The score (2026-11-09): roughly the chance it closes, its tier, and the top reasons. */
-function ScoreChip({ row, dials }: { row: FollowUpRow; dials: FollowUpPage["dials"] }) {
-  const s = row.score;
+function PersonRow(p: {
+  row: FollowUpRow;
+  done: Done | null;
+  ctx: Ctx;
+  today: string;
+  open: boolean;
+  busy: boolean;
+  copied: string | null;
+  brief: BriefState | undefined;
+  briefsOn: boolean;
+  dials: FollowUpPage["dials"];
+  onToggle: () => void;
+  onPrimary: (p: Primary) => void;
+  onModal: (k: "lost" | "postpone" | "touch") => void;
+  onSnooze: (d: number) => void;
+  onCopyDraft: (text: string) => void;
+  onRewrite: () => void;
+  onConv: () => void;
+  onGhl: () => void;
+  onSend: (text: string, subject: string | null) => void;
+  onAuto: (on: boolean) => void;
+  onStep: (kind: StepKind) => void;
+  onNote: (text: string) => void;
+}) {
+  const { row, today, busy, open, done } = p;
+  const b = p.brief?.brief ?? null;
+  const pin = pinOf(row);
+  const line = stepLine(b, row.why);
+  const prime = primaryOf(row, b);
+  const late = row.due.bucket === "due" && row.due.day < today;
+  const prelim = row.basis === "Preliminary";
+  const lastNote = [...row.state.touches].reverse().find((t) => t.note && !t.note.startsWith("App "))?.note;
+  const money = shortMoney(row.value);
+  const pick = (e: React.MouseEvent) => {
+    if ((e.target as Element).closest("a, button, input, select, textarea, label")) return;
+    p.onToggle();
+  };
+  const primaryEl =
+    prime.act === "ghl" || prime.act === "copyGhl" ? (
+      <a className="btn primary mb-go" href={row.ghlUrl as string} target="_blank" rel="noreferrer" onClick={() => p.onPrimary(prime)}>
+        {prime.act === "copyGhl" && p.copied === `draft:${row.quoteRecordId}` ? "Copied, GHL open" : prime.label}
+      </a>
+    ) : (
+      <button type="button" className="btn primary mb-go" disabled={busy && prime.act === "snooze"} onClick={() => p.onPrimary(prime)}>
+        {prime.act === "link" && p.copied === `visit:${row.quoteRecordId}` ? "Link copied" : prime.label}
+      </button>
+    );
   return (
-    <span className={`fu-score ${s.tier}`} title={`Score ${s.score} of 100, roughly the chance this closes. ${s.reasons.join(" · ")}`}>
-      <span className="fu-score-n">{s.score}</span>
-      <span className="fu-score-t">{TIER_WORDS[s.tier]}</span>
-      {/* The score as a bar (Albert, 2026-11-09), with marks where Watch and Needs you start. Width is the one inline style. */}
-      <span className="fu-bar" role="progressbar" aria-valuenow={s.score} aria-valuemin={0} aria-valuemax={100} aria-label={`Intent score ${s.score} of 100, ${TIER_WORDS[s.tier]}`}>
-        <span className="fu-bar-fill" style={{ width: `${s.score}%` }} />
-        <span className="fu-bar-tick" style={{ left: `${dials.watchAt}%` }} title={`Watch from ${dials.watchAt}`} />
-        <span className="fu-bar-tick" style={{ left: `${dials.needsYouAt}%` }} title={`Needs you from ${dials.needsYouAt}`} />
-      </span>
-      <span className="fu-score-why">{s.reasons.join(" · ")}</span>
-    </span>
+    <div className={`mb-row${open ? " open" : ""}${done ? " done" : ""}`}>
+      <div className="mb-line-row" onClick={pick}>
+        <span className={`mb-score ${row.score.tier}`} title={`Score ${row.score.score} of 100, ${TIER_WORDS[row.score.tier]}. ${row.score.reasons.join(" · ")}`}>
+          {row.score.score}
+        </span>
+        <span className="mb-who">
+          <Link href={`/q/${row.versionId}`} className="mb-name">
+            {row.customer ?? "No customer"}
+          </Link>
+          <span className="mb-sub">
+            with {row.ownerName ?? "nobody yet"}
+            {money ? ` · ${money}` : ""}
+          </span>
+        </span>
+        <span className="mb-step">
+          {pin && <span className="mb-pin">{pin}</span>}
+          {p.brief?.busy && !b ? (
+            <span className="mb-wait">Writing the brief…</span>
+          ) : (
+            <>
+              {line.lead && <b>{line.lead}:</b>} {line.text}
+            </>
+          )}
+        </span>
+        <span className={`mb-due${late ? " late" : ""}`}>{row.due.bucket === "due" || row.due.bucket === "upcoming" ? dueShort(row.due.day, today) : dayWords(row.due.day, today)}</span>
+        {done ? <span className="mb-donetag">✓ {done.words}</span> : primaryEl}
+        <button type="button" className="mb-chev" aria-expanded={open} aria-label={open ? "Less" : "More"} onClick={p.onToggle}>
+          ⌄
+        </button>
+      </div>
+      {open && (
+        <div className="mb-more">
+          <div className="mb-brief">
+            {p.briefsOn ? <BriefBox state={p.brief} row={row} busy={busy} copied={p.copied === `draft:${row.quoteRecordId}`} onCopy={p.onCopyDraft} onRewrite={p.onRewrite} onSend={p.onSend} onStep={p.onStep} /> : <p className="mb-muted">{row.why}</p>}
+          </div>
+          <div className="mb-facts">
+            <div className="mb-scoreblock">
+              <span>
+                <b>Score {row.score.score}</b>, {TIER_WORDS[row.score.tier]}
+              </span>
+              <span className={`fu-bar ${row.score.tier}`} role="progressbar" aria-valuenow={row.score.score} aria-valuemin={0} aria-valuemax={100} aria-label={`Intent score ${row.score.score} of 100`}>
+                <span className={`fu-bar-fill ${row.score.tier}`} style={{ width: `${row.score.score}%` }} />
+                <span className="fu-bar-tick" style={{ left: `${p.dials.watchAt}%` }} title={`Watch from ${p.dials.watchAt}`} />
+                <span className="fu-bar-tick" style={{ left: `${p.dials.needsYouAt}%` }} title={`Needs you from ${p.dials.needsYouAt}`} />
+              </span>
+              <span className="mb-muted">{row.score.reasons.join(" · ")}</span>
+            </div>
+            <div>
+              <b>{row.quoteNumber ?? "Quote"}</b> · {row.basis ?? "Quote"}
+              {row.description ? ` · ${row.description}` : ""}
+            </div>
+            {row.visitText && <div>{row.visitText}</div>}
+            {row.outside && <div title={row.outside.note}>{row.outside.words}</div>}
+            <div>
+              {row.why} · due {dayWords(row.due.day, today)}
+            </div>
+            <div>
+              {row.age} · {row.due.touches === 0 ? "no follow-up yet" : `${row.due.touches} follow-up${row.due.touches === 1 ? "" : "s"}, last ${dayWords(row.due.lastTouch as string, today)}`}
+              {!row.ghlRead && row.contactId ? " · GHL not read" : ""}
+            </div>
+            {row.state.postpone?.note && <div>Postponed: {row.state.postpone.note}</div>}
+            {lastNote && <div>Last note: {lastNote}</div>}
+            <NoteBox note={row.note?.text ?? ""} busy={busy} onSave={p.onNote} />
+          </div>
+          <div className="mb-acts">
+            {row.contactId && (
+              <button type="button" className="btn small" onClick={p.onConv}>
+                Conversation
+              </button>
+            )}
+            {row.ghlUrl && (
+              <a className="btn small" href={row.ghlUrl} target="_blank" rel="noreferrer" onClick={p.onGhl}>
+                Open in GHL
+              </a>
+            )}
+            <button type="button" className="btn small" disabled={busy} onClick={() => p.onModal("touch")}>
+              I followed up
+            </button>
+            <span className="mb-snooze" role="group" aria-label="Still deciding, check again in">
+              <span className="k">Snooze</span>
+              {SNOOZE_CHOICES.map((d) => (
+                <button key={d} type="button" className="btn small" disabled={busy} onClick={() => p.onSnooze(d)} title={`Still deciding: check again in ${d} days`}>
+                  {d}d
+                </button>
+              ))}
+            </span>
+            {prelim && prime.act !== "link" && (
+              <button type="button" className="btn small" onClick={() => p.onPrimary({ label: "Copy booking link", act: "link" })} title="Copy the in-home measurement booking link">
+                {p.copied === `visit:${row.quoteRecordId}` ? "Link copied" : "Copy booking link"}
+              </button>
+            )}
+            <button type="button" className="btn small" disabled={busy} onClick={() => p.onModal("postpone")}>
+              Postpone…
+            </button>
+            {!prelim && (
+              <label className="mb-auto" title={row.state.autoOff ? "The app won't send this quote's follow-ups on its own." : row.autoWhy ? `Not on its own right now: ${row.autoWhy}` : "The app may send the next routine follow-up on its own."}>
+                <input type="checkbox" checked={!row.state.autoOff} disabled={busy} onChange={(e) => p.onAuto(e.target.checked)} /> Auto follow-ups
+              </label>
+            )}
+            <button type="button" className="btn small danger mb-lost" disabled={busy} onClick={() => p.onModal("lost")}>
+              Lost…
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
-/** The brief (step 2): where it stands, what they asked, the next step and a draft to copy into GHL. */
-function BriefBox({ state, row, open, busy, copied, onCopy, onRewrite, onSend }: { state: BriefState | undefined; row: FollowUpRow; open: boolean; busy: boolean; copied: boolean; onCopy: (t: string) => void; onRewrite: () => void; onSend: (text: string, subject: string | null) => void }) {
-  const b = state?.brief ?? null;
-  // A measured quote's draft is sent from the app (2026-11-09, round 3): editable, then Send. Preliminaries keep Copy.
-  const sendable = row.basis !== "Preliminary" && Boolean(row.channel) && Boolean(b?.draft);
-  // Folded to one line unless this row is the selected one (Albert, 2026-11-07: "make the brief expand only when selected").
-  if (b && !open)
+/** The customer's standing note for the brief (2026-11-22): every brief follows it, on this quote and their next. */
+function NoteBox({ note, busy, onSave }: { note: string; busy: boolean; onSave: (text: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(note);
+  if (!editing)
     return (
-      <div className="fu-brief folded" title="Click the row to open the brief">
-        <span className="k">Brief</span>
-        <span className="fu-fold-step">{STEP_WORDS[b.step.kind]}</span>
-        <span className="fu-fold-text">{b.standing}</span>
-        {state?.busy && <span className="fu-brief-meta">Updating…</span>}
+      <div className="mb-note">
+        <span className="k">Note for the brief</span>
+        {note ? <span className="mb-note-text">{note}</span> : <span className="mb-muted">None. Add one the brief should always follow, like &quot;wife decides, call evenings&quot;.</span>}
+        <button
+          type="button"
+          className="linkbtn"
+          onClick={() => {
+            setText(note);
+            setEditing(true);
+          }}
+        >
+          {note ? "Edit" : "Add"}
+        </button>
       </div>
     );
+  return (
+    <div className="mb-note editing">
+      <span className="k">Note for the brief</span>
+      <textarea className="in" rows={2} maxLength={300} value={text} onChange={(e) => setText(e.target.value)} placeholder="Wife decides, call evenings" aria-label="Note for the brief" autoFocus />
+      <div className="mb-note-acts">
+        <button
+          type="button"
+          className="btn small primary"
+          disabled={busy || text.trim() === note.trim()}
+          onClick={() => {
+            onSave(text);
+            setEditing(false);
+          }}
+        >
+          Save
+        </button>
+        {note && (
+          <button
+            type="button"
+            className="btn small"
+            disabled={busy}
+            onClick={() => {
+              onSave("");
+              setEditing(false);
+            }}
+          >
+            Clear
+          </button>
+        )}
+        <button type="button" className="linkbtn" onClick={() => setEditing(false)}>
+          Cancel
+        </button>
+      </div>
+      <span className="mb-muted">Also goes into their GHL conversation as an internal comment.</span>
+    </div>
+  );
+}
+
+/** The brief, open: where it stands, what they asked, the step (staff can pick another) and the draft. */
+function BriefBox({ state, row, busy, copied, onCopy, onRewrite, onSend, onStep }: { state: BriefState | undefined; row: FollowUpRow; busy: boolean; copied: boolean; onCopy: (t: string) => void; onRewrite: () => void; onSend: (text: string, subject: string | null) => void; onStep: (k: StepKind) => void }) {
+  const b = state?.brief ?? null;
+  const sendable = sendableOf(row, b);
   if (!b && state?.busy) return <div className="fu-brief wait">Writing the brief…</div>;
   if (!b && state?.error)
     return (
@@ -496,10 +686,21 @@ function BriefBox({ state, row, open, busy, copied, onCopy, onRewrite, onSend }:
         </button>
       </div>
     );
+  const picked = row.state.stepOverride && row.state.stepOverride.basedOn === b.basedOn ? row.state.stepOverride : null;
   return (
-    <div className="fu-brief">
+    <div className="fu-brief mb-briefbox">
       <div className="fu-brief-h">
-        <span className="k">Brief</span>
+        <label className="mb-steppick">
+          <span className="k">Next step</span>
+          <select className="in" value={b.step.kind} disabled={busy || state?.busy} onChange={(e) => onStep(e.target.value as StepKind)} aria-label="Next step">
+            {STEP_KINDS.map((k) => (
+              <option key={k} value={k}>
+                {STEP_WORDS[k]}
+              </option>
+            ))}
+          </select>
+          {picked && <span className="mb-muted">picked by {picked.by.split("@")[0]}</span>}
+        </label>
         <span className="fu-brief-meta">
           {state?.busy ? "Updating…" : state?.stale ? "New activity since: updating soon" : `Written ${new Date(b.at).toLocaleString("en-CA", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Toronto" })}`}
           {!state?.busy && (
@@ -514,7 +715,9 @@ function BriefBox({ state, row, open, busy, copied, onCopy, onRewrite, onSend }:
         <ul className="fu-asked">
           {b.asked.map((a) => (
             <li key={a.text} className={a.answered ? "done" : ""}>
-              <span className="tick" aria-hidden>{a.answered ? "✓" : "?"}</span>
+              <span className="tick" aria-hidden>
+                {a.answered ? "✓" : "?"}
+              </span>
               {a.text}
               <span className="sr">{a.answered ? " (answered)" : " (not answered yet)"}</span>
             </li>
@@ -609,7 +812,7 @@ function SendBox({ draft, subject: firstSubject, email, to, busy, copied, onCopy
   );
 }
 
-function ActionModal({ modal, data, busy, onClose, onRun }: { modal: NonNullable<Modal>; data: FollowUpPage; busy: boolean; onClose: () => void; onRun: (f: () => Promise<FollowUpResult>) => void }) {
+function ActionModal({ modal, data, busy, ctx, onClose, onRun }: { modal: NonNullable<Modal>; data: FollowUpPage; busy: boolean; ctx: Ctx; onClose: () => void; onRun: (f: () => Promise<FollowUpResult>) => void }) {
   const { row, kind } = modal;
   const [note, setNote] = useState("");
   const [until, setUntil] = useState("");
@@ -626,9 +829,9 @@ function ActionModal({ modal, data, busy, onClose, onRun }: { modal: NonNullable
   const ready = kind === "postpone" ? until > data.today : needReason ? reason !== "" && !noReasons : true;
   const submit = () => {
     if (!ready) return;
-    if (kind === "lost") onRun(() => lostAction(row.quoteRecordId, row.seen, reason, note));
-    else if (kind === "postpone") onRun(() => postponeAction(row.quoteRecordId, row.seen, until, note));
-    else onRun(() => followedUpAction(row.quoteRecordId, row.seen, note));
+    if (kind === "lost") onRun(() => lostAction(row.quoteRecordId, row.seen, reason, note, ctx));
+    else if (kind === "postpone") onRun(() => postponeAction(row.quoteRecordId, row.seen, until, note, ctx));
+    else onRun(() => followedUpAction(row.quoteRecordId, row.seen, note, ctx));
   };
   const reasonName = reasons.find((r) => r.id === reason)?.name;
   return (
@@ -673,7 +876,7 @@ function ActionModal({ modal, data, busy, onClose, onRun }: { modal: NonNullable
                 {kind === "lost" && (
                   <>
                     <li>{linked ? `Mark the GHL opportunity Lost${reasonName ? ` (${reasonName})` : ""}` : "Leave GHL alone (no opportunity linked)"}</li>
-                    <li>Mark the quote Lost and take it off this list</li>
+                    <li>Mark the quote Lost; it stays on today&apos;s list, ticked, until tomorrow</li>
                     {linked && <li>Write the reason{note.trim() ? " and your note" : ""} into the opportunity&apos;s Lost Details</li>}
                   </>
                 )}

@@ -5,7 +5,8 @@ import { OPTION, QUOTE, T, VERSION } from "@/lib/airtable/fields";
 import { requireQuoterPerson } from "@/lib/auth";
 import { followUpTagBodies } from "@/lib/activity/track";
 import { BRIEF_MODEL, ClaudeError, readerOn, writeJson } from "@/lib/anthropic/client";
-import { briefPrompt, briefSignature, cleanBrief, type Brief, type ThreadLine } from "@/lib/followup/brief";
+import { briefPrompt, briefSignature, cleanBrief, STEP_KINDS, type Brief, type StepKind, type ThreadLine } from "@/lib/followup/brief";
+import { cleanContext, cleanCustomerNote, isOverride, liveNote, newestNote, overrideLines, REASONS, withChoice, withReason, type Choice, type CustomerNote, type Did, type Group, type Reason } from "@/lib/followup/choices";
 import { sortThread, type Message } from "@/lib/conversation/thread";
 import {
   ageWords,
@@ -28,7 +29,9 @@ import {
   withBrief,
   withLost,
   withPostpone,
+  withNote,
   withSnooze,
+  withStepOverride,
   withTouch,
   type Due,
   type FollowUpState,
@@ -138,7 +141,12 @@ export type FollowUpRow = {
   toWords: string | null;
   /** A firm price given by text or on a call and nothing sent from the app since (2026-11-13): the row reads "Sent by text". */
   outside: { how: OffChannel["how"]; words: string; note: string } | null;
+  /** The customer's standing note for the brief (2026-11-22), the newest across their quotes. */
+  note: CustomerNote | null;
 };
+
+/** A quote marked Lost today (2026-11-22): it stays on the morning brief, ticked, until tomorrow. */
+export type ClosedToday = { quoteRecordId: string; versionId: string | null; customer: string | null; owner: string | null; ownerName: string | null; at: string; reason: string | null; score: number | null; group: Group | null; value: number | null };
 
 export type FollowUpPage = {
   me: string;
@@ -152,6 +160,8 @@ export type FollowUpPage = {
   /** "Visited, no quote yet" (2026-11-07); null when GHL's calendars couldn't be read. */
   visits: (VisitNoQuote & { visitorName: string | null; ghlUrl: string })[] | null;
   today: string;
+  /** Lost today, kept on the page ticked until tomorrow (2026-11-22). */
+  closedToday: ClosedToday[];
   /** The Stage 2 report: taps so far and how many went out as written (Albert flips the switch on it). */
   sending: { taps: number; light: number; share: number; ready: boolean; autoOn: boolean };
   /** The Settings page's thresholds, for the score bar's marks and the group hints. */
@@ -216,13 +226,20 @@ async function readFollowUps(now: Date): Promise<Omit<FollowUpPage, "me">> {
     const q = ids(v.fields[VERSION.quote])[0];
     if (q) byQuote.set(q, [...(byQuote.get(q) ?? []), v]);
   }
+  // The note for the brief belongs to the customer (2026-11-22): the newest one across all their quotes.
+  const notes = notesByContact(quotes.map((q) => ({ contactId: str(q.fields[QUOTE.ghlContactId]), state: parseState(str(q.fields[QUOTE.followUp])) })));
+  const today = torontoDay(now);
+  const lostToday: { q: (typeof quotes)[number]; vs: typeof versions; state: FollowUpState }[] = [];
   const candidates = quotes.flatMap((q) => {
     if (str(q.fields[QUOTE.projectNumber])) return [];
     const vs = (byQuote.get(q.id) ?? []).sort((a, b) => (num(b.fields[VERSION.version]) ?? 0) - (num(a.fields[VERSION.version]) ?? 0));
     const statuses = vs.map((v) => str(v.fields[VERSION.status]));
-    if (statuses.some((s) => s === "Accepted" || s === "Won") || statuses[0] === "Lost") return [];
+    if (statuses.some((s) => s === "Accepted" || s === "Won")) return [];
     const seen = str(q.fields[QUOTE.followUp]) ?? "";
     const state = parseState(seen);
+    if (statuses[0] === "Lost" && !state.lost) return [];
+    // Lost today stays on the morning brief, ticked, until tomorrow (2026-11-22).
+    if (state.lost && torontoDay(state.lost.at) === today && !statuses.some((x) => x === "Accepted" || x === "Won")) lostToday.push({ q, vs, state });
     if (state.lost) return [];
     const sent = waitingOrOutside(vs, state);
     if (!sent) return [];
@@ -241,7 +258,8 @@ async function readFollowUps(now: Date): Promise<Omit<FollowUpPage, "me">> {
     const t = threads[i];
     const thread: Thread | null = t ? threadSince(t.messages, sentAt) : null;
     const visit = visitNow(t, now);
-    const sig = signatureOf(t?.messages ?? null, num(c.sent.fields[VERSION.openedCount]) ?? 0, c.state, sentAt, visit);
+    const contactNote = notes.get(str(c.q.fields[QUOTE.ghlContactId]) ?? "") ?? null;
+    const sig = signatureOf(t?.messages ?? null, num(c.sent.fields[VERSION.openedCount]) ?? 0, c.state, sentAt, visit, contactNote?.at ?? null);
     // Current = written for the thread as it stands, and today (Albert, 2026-11-09: "updated every so often").
     const brief = c.state.brief && sig && c.state.brief.basedOn === sig && writtenToday(c.state.brief, now) ? c.state.brief : null;
     const named = brief?.nextDay ? { day: brief.nextDay, quote: brief.nextQuote } : null;
@@ -331,8 +349,15 @@ async function readFollowUps(now: Date): Promise<Omit<FollowUpPage, "me">> {
           return { channel, autoWhy, toWords, replies };
         })(),
         outside: c.outside ? { how: c.outside.how, words: SENT_WORDS[c.outside.how], note: offChannelNote(c.outside, torontoDay) } : null,
+        note: liveNote(contactNote),
       },
     ];
+  });
+  const closedToday: ClosedToday[] = lostToday.map(({ q, vs, state }) => {
+    const v = [...vs].sort((a, b) => (num(b.fields[VERSION.version]) ?? 0) - (num(a.fields[VERSION.version]) ?? 0)).find((x) => str(x.fields[VERSION.sentAt])) ?? null;
+    const owner = v ? ownerOf(str(v.fields[VERSION.sentBy]), str(v.fields[VERSION.createdBy])) : null;
+    const last = [...(state.choices ?? [])].reverse().find((x) => x.did === "lost");
+    return { quoteRecordId: q.id, versionId: v?.id ?? null, customer: customerOf(q.fields), owner, ownerName: nameOf(owner), at: (state.lost as NonNullable<FollowUpState["lost"]>).at, reason: state.lost?.reason ?? null, score: last?.score ?? null, group: last?.group ?? null, value: v ? (offerValue(optionsOf.get(v.id))?.likely ?? null) : null };
   });
   // The daily cap counts what is due now, per sender.
   const wait = overCap(rows.filter((r) => r.due.bucket === "due").map((r) => ({ id: r.quoteRecordId, owner: r.owner, score: r.score })), st.dailyCap);
@@ -346,7 +371,7 @@ async function readFollowUps(now: Date): Promise<Omit<FollowUpPage, "me">> {
   const visits = await visitsP;
   dueCache = { at: Date.now(), count: badgeCount(rows) + (visits?.length ?? 0) };
   const sending = { ...readiness(candidates.flatMap((c) => c.state.sent ?? [])), autoOn: autoSwitchOn(st) };
-  return { rows, lostReasons: reasons, inHomeUrl: BOOKING_URLS.inHome, ghlOn, makeOn: makeConfigured(), briefsOn: readerOn(), today: torontoDay(now), visits, sending, dials: { needsYouAt: st.needsYouAt, watchAt: st.watchAt, dailyCap: st.dailyCap } };
+  return { rows, lostReasons: reasons, inHomeUrl: BOOKING_URLS.inHome, ghlOn, makeOn: makeConfigured(), briefsOn: readerOn(), today: torontoDay(now), closedToday, visits, sending, dials: { needsYouAt: st.needsYouAt, watchAt: st.watchAt, dailyCap: st.dailyCap } };
 }
 
 /** The Toronto days a version was opened on, from its Activity Log ("2026-11-09 14:05 · opened · iPhone"). */
@@ -513,10 +538,36 @@ async function visitsNoQuote(quotes: Rec[], byQuote: Map<string, Rec[]>, now: Da
 const nameOf = (email: string | null) => (email ? (firstNameOf({ email, name: null }) ?? email.split("@")[0]) : null);
 
 /** What a brief was written from (src/lib/followup/brief.ts); null when GHL couldn't be read, so no brief is judged stale. */
-function signatureOf(messages: Message[] | null, opens: number, state: FollowUpState, sentAt: string, visit: Visit | null): string | null {
+function signatureOf(messages: Message[] | null, opens: number, state: FollowUpState, sentAt: string, visit: Visit | null, noteAt: string | null = null): string | null {
   if (!messages) return null;
   const last = messages.at(-1) ?? null;
-  return briefSignature({ lastMessage: last ? { id: last.id, at: last.at } : null, opens, touches: state.touches.length, postponeUntil: state.postpone?.until ?? null, sentAt, visit: visit ? visitWords(visit) : null });
+  return briefSignature({ lastMessage: last ? { id: last.id, at: last.at } : null, opens, touches: state.touches.length, postponeUntil: state.postpone?.until ?? null, sentAt, visit: visit ? visitWords(visit) : null, noteAt });
+}
+
+/** The newest note for the brief per GHL contact, across all of the contact's quotes (2026-11-22). */
+function notesByContact(list: { contactId: string | null; state: FollowUpState }[]): Map<string, CustomerNote> {
+  const by = new Map<string, CustomerNote>();
+  for (const x of list) {
+    if (!x.contactId || !x.state.note) continue;
+    const n = newestNote([by.get(x.contactId), x.state.note]);
+    if (n) by.set(x.contactId, n);
+  }
+  return by;
+}
+
+/** What the next brief is told about this customer (2026-11-22): their note and the last overrides, across their quotes. */
+async function learningFor(contactId: string | null, own: FollowUpState): Promise<{ note: CustomerNote | null; overrides: string[] }> {
+  let states: FollowUpState[] = [own];
+  if (contactId && /^[A-Za-z0-9]+$/.test(contactId)) {
+    try {
+      const recs = await listRecords(T.quotes, { fields: [QUOTE.followUp], filterByFormula: `{${QUOTE.ghlContactId}}='${contactId}'` });
+      states = recs.map((r) => parseState(str(r.fields[QUOTE.followUp])));
+      if (!states.length) states = [own];
+    } catch (e) {
+      console.error("learningFor", e);
+    }
+  }
+  return { note: newestNote(states.map((x) => x.note)), overrides: overrideLines(states.flatMap((x) => x.choices ?? [])) };
 }
 
 /* ---------- the top bar's red count (Albert, 2026-11-07: "a red notif on the top bar for number of ones due now") ---------- */
@@ -592,7 +643,10 @@ async function briefFor(quoteRecordId: string, force: boolean): Promise<BriefRes
   const sentAt = str(sent.fields[VERSION.sentAt]) as string;
   const opens = num(sent.fields[VERSION.openedCount]) ?? 0;
   const visit = visitNow(t, new Date());
-  const sig = signatureOf(t?.messages ?? [], opens, state, sentAt, visit) as string;
+  const learning = await learningFor(contactId, state);
+  const sig = signatureOf(t?.messages ?? [], opens, state, sentAt, visit, learning.note?.at ?? null) as string;
+  // A step staff picked holds while the conversation is the same one it was picked on (2026-11-22).
+  const staffStep = state.stepOverride && state.stepOverride.basedOn === sig ? state.stepOverride.kind : null;
   if (!force && state.brief && state.brief.basedOn === sig && writtenToday(state.brief, new Date())) return { ok: true, brief: state.brief, fresh: false };
 
   const opts = await listByIds(T.options, ids(sent.fields[VERSION.options]), [OPTION.name, OPTION.total, OPTION.notOffered]).catch(() => []);
@@ -623,6 +677,9 @@ async function briefFor(quoteRecordId: string, force: boolean): Promise<BriefRes
       openSlots: !visit || visit.kind === "none" || visit.kind === "missed" ? (await openSlots(now)).map((x) => ({ label: x.label, near: x.near })) : [],
       channel: str(sent.fields[VERSION.basis]) === "Preliminary" ? null : channelFor(lastCustomerChannel(t?.messages ?? null, sentAt), Boolean(str(q.fields[QUOTE.phone])), Boolean(str(q.fields[QUOTE.email]))),
       appSent: state.sent?.length ?? 0,
+      staffNote: liveNote(learning.note)?.text ?? null,
+      staffStep,
+      overrides: learning.overrides,
     },
     linesOf(t?.messages ?? [], sentAt),
   );
@@ -632,7 +689,7 @@ async function briefFor(quoteRecordId: string, force: boolean): Promise<BriefRes
   } catch (e) {
     return { ok: false, message: e instanceof ClaudeError ? e.message : "The brief couldn't be written. Try again." };
   }
-  const brief = cleanBrief(raw, { basedOn: sig, at: now.toISOString(), model: BRIEF_MODEL, today, lostReasons: (await lostReasons()).map((r) => r.name) });
+  const brief = cleanBrief(raw, { basedOn: sig, at: now.toISOString(), model: BRIEF_MODEL, today, lostReasons: (await lostReasons()).map((r) => r.name), forceStep: staffStep });
   if (!brief) return { ok: false, message: "Claude's answer wasn't a brief. Try again." };
   // Kept on top of whatever the field holds now, so a button pressed meanwhile is never undone.
   try {
@@ -664,7 +721,15 @@ async function openSlots(now: Date): Promise<ReturnType<typeof pickSlots>> {
 
 /* ---------- the buttons ---------- */
 
-export type FollowUpResult = { ok: true; notes: string[] } | { ok: false; message: string };
+/** `askWhy`: what was done went against this suggested step, so the page offers the one-tap reasons (2026-11-22). */
+export type FollowUpResult = { ok: true; notes: string[]; askWhy?: StepKind } | { ok: false; message: string };
+
+/** One entry of the choice log (2026-11-22): what the brief suggested, what was done, where the row sat. */
+function choiceOf(state: FollowUpState, by: string, did: Did, ctx: unknown, extra: Partial<Choice> = {}): Choice {
+  const { score, group } = cleanContext(ctx);
+  return { at: new Date().toISOString(), by, suggested: state.brief?.step.kind ?? null, score, group, did, ...extra };
+}
+const why = (c: Choice): { askWhy?: StepKind } => (isOverride(c) && c.suggested ? { askWhy: c.suggested } : {});
 
 const REC_ID = /^rec[A-Za-z0-9]{14}$/;
 const GONE = "This quote isn't in Airtable any more.";
@@ -741,15 +806,86 @@ async function comment(c: Current, words: string, notes: string[]) {
 }
 
 /** "I followed up": a call, a visit or a talk in the store that left nothing in GHL. */
-export async function logTouch(quoteRecordId: string, seen: string, note: unknown): Promise<FollowUpResult> {
+export async function logTouch(quoteRecordId: string, seen: string, note: unknown, ctx?: unknown): Promise<FollowUpResult> {
   const person = await requireQuoterPerson();
   const c = await current(quoteRecordId, seen);
   if (typeof c === "string") return { ok: false, message: c };
   const n = cleanNote(note);
-  const bad = await saveState(quoteRecordId, withTouch(c.state, { at: new Date().toISOString(), by: person.email, ...(n ? { note: n } : {}) }));
+  const ch = choiceOf(c.state, person.email, "touch", ctx);
+  const bad = await saveState(quoteRecordId, withChoice(withTouch(c.state, { at: new Date().toISOString(), by: person.email, ...(n ? { note: n } : {}) }), ch));
   if (bad) return { ok: false, message: `Not saved: ${bad}` };
   const notes: string[] = [];
   const logBad = await logOnVersion(c, person.email, `followed up${n ? `: ${n}` : ""}`);
+  if (logBad) notes.push(logBad);
+  return { ok: true, notes, ...why(ch) };
+}
+
+/**
+ * Staff pick the step themselves (2026-11-22): kept while the conversation stays the one the brief was written from,
+ * logged as a choice, and the brief rewritten for that step.
+ */
+export type StepResult = FollowUpResult & { brief?: Brief | null };
+export async function changeStep(quoteRecordId: string, seen: string, kind: unknown, ctx?: unknown): Promise<StepResult> {
+  const person = await requireQuoterPerson();
+  if (!(STEP_KINDS as readonly string[]).includes(String(kind))) return { ok: false, message: "Pick a step." };
+  const step = kind as StepKind;
+  const c = await current(quoteRecordId, seen);
+  if (typeof c === "string") return { ok: false, message: c };
+  if (!c.state.brief) return { ok: false, message: "There's no brief on this quote yet. Write one first." };
+  const ch = choiceOf(c.state, person.email, "step", ctx, { step });
+  const bad = await saveState(quoteRecordId, withChoice(withStepOverride(c.state, { kind: step, at: ch.at, by: person.email, basedOn: c.state.brief.basedOn }), ch));
+  if (bad) return { ok: false, message: `Not saved: ${bad}` };
+  const r = await briefFor(quoteRecordId, true);
+  return r.ok ? { ok: true, notes: [], brief: r.brief, ...why(ch) } : { ok: true, notes: [`The step is changed, but the brief wasn't rewritten: ${r.message}`], brief: null, ...why(ch) };
+}
+
+/** A row button that changes nothing here (Open in GHL, Copy booking link), logged as a choice. Best effort, no compare-and-swap. */
+export async function logChoice(quoteRecordId: string, did: unknown, ctx?: unknown): Promise<FollowUpResult> {
+  const person = await requireQuoterPerson();
+  if (did !== "ghl" && did !== "link") return { ok: false, message: "Not a choice the page logs." };
+  if (!REC_ID.test(quoteRecordId)) return { ok: false, message: GONE };
+  try {
+    const q = await getRecord(T.quotes, quoteRecordId);
+    const state = parseState(str(q.fields[QUOTE.followUp]));
+    const ch = choiceOf(state, person.email, did, ctx);
+    const bad = await saveState(quoteRecordId, withChoice(state, ch));
+    return bad ? { ok: false, message: bad } : { ok: true, notes: [], ...why(ch) };
+  } catch {
+    return { ok: false, message: GONE };
+  }
+}
+
+/** The one-tap reason for going against the suggestion, on the newest choice this person made (2026-11-22). */
+export async function setReason(quoteRecordId: string, reason: unknown): Promise<FollowUpResult> {
+  const person = await requireQuoterPerson();
+  if (!(REASONS as readonly string[]).includes(String(reason))) return { ok: false, message: "Pick a reason." };
+  if (!REC_ID.test(quoteRecordId)) return { ok: false, message: GONE };
+  try {
+    const q = await getRecord(T.quotes, quoteRecordId);
+    const next = withReason(parseState(str(q.fields[QUOTE.followUp])), person.email, reason as Reason, new Date());
+    if (!next) return { ok: false, message: "That was a while ago, so it wasn't added." };
+    const bad = await saveState(quoteRecordId, next);
+    return bad ? { ok: false, message: bad } : { ok: true, notes: [] };
+  } catch {
+    return { ok: false, message: GONE };
+  }
+}
+
+/**
+ * The customer's standing note for the brief (2026-11-22): kept on this quote, read across all their quotes by GHL
+ * contact, and posted to their GHL conversation as an internal comment. An empty note clears it.
+ */
+export async function setCustomerNote(quoteRecordId: string, seen: string, text: unknown): Promise<FollowUpResult> {
+  const person = await requireQuoterPerson();
+  const c = await current(quoteRecordId, seen);
+  if (typeof c === "string") return { ok: false, message: c };
+  const words = cleanCustomerNote(text);
+  const at = new Date().toISOString();
+  const bad = await saveState(quoteRecordId, withNote(c.state, words ? { text: words, at, by: person.email } : { text: "", at, by: person.email, cleared: true }));
+  if (bad) return { ok: false, message: `Not saved: ${bad}` };
+  const notes: string[] = [];
+  await comment(c, words ? `Note for follow-ups${c.quoteNumber ? ` (${c.quoteNumber})` : ""}, by ${person.email}: ${words}` : `Note for follow-ups cleared by ${person.email}.`, notes);
+  const logBad = await logOnVersion(c, person.email, words ? `note for the brief: ${words}` : "note for the brief cleared");
   if (logBad) notes.push(logBad);
   return { ok: true, notes };
 }
@@ -805,12 +941,13 @@ async function deliver(contactId: string, channel: Channel, text: string, subjec
 }
 
 /** Record a send on Quotes → Follow Up (it counts as a follow-up) and in the quote's History. */
-async function recordSend(quoteRecordId: string, c: Current, entry: Parameters<typeof withSent>[1], who: string): Promise<string[]> {
+async function recordSend(quoteRecordId: string, c: Current, entry: Parameters<typeof withSent>[1], who: string, choice: Choice | null = null): Promise<string[]> {
   const notes: string[] = [];
   // Read again: the message has gone, so the record must land on whatever the field holds now.
   try {
     const fresh = await getRecord(T.quotes, quoteRecordId);
-    const bad = await saveState(quoteRecordId, withSent(parseState(str(fresh.fields[QUOTE.followUp])), entry));
+    const sentState = withSent(parseState(str(fresh.fields[QUOTE.followUp])), entry);
+    const bad = await saveState(quoteRecordId, choice ? withChoice(sentState, choice) : sentState);
     if (bad) notes.push(`Sent, but not recorded here: ${bad}`);
   } catch (e) {
     notes.push(`Sent, but not recorded here (${e instanceof Error ? e.message.slice(0, 80) : "error"}).`);
@@ -825,7 +962,7 @@ async function recordSend(quoteRecordId: string, c: Current, entry: Parameters<t
  * ("Sent from the person signed in", 2026-10-22), on the channel the app picked, after the same check an automatic
  * send passes: no price that isn't on the quote.
  */
-export async function sendFollowUp(quoteRecordId: string, seen: string, text: unknown, subject: unknown): Promise<FollowUpResult> {
+export async function sendFollowUp(quoteRecordId: string, seen: string, text: unknown, subject: unknown, ctx?: unknown): Promise<FollowUpResult> {
   const person = await requireQuoterPerson();
   const r = await sendable(quoteRecordId, seen);
   if (typeof r === "string") return { ok: false, message: r };
@@ -843,8 +980,10 @@ export async function sendFollowUp(quoteRecordId: string, seen: string, text: un
     return { ok: false, message: `Not sent: ${e instanceof Error ? e.message.slice(0, 200) : "error"}` };
   }
   threadCache.delete(r.c.contactId as string);
-  const notes = await recordSend(quoteRecordId, r.c, { at: new Date().toISOString(), kind: brief?.draftKind ?? "other", how: "tap", channel, by: person.email, edited: brief?.draft ? editShare(brief.draft, words) : 1 }, person.email);
-  return { ok: true, notes: [`Sent by ${channel === "email" ? "email" : "text"}.`, ...notes] };
+  const edited = brief?.draft ? editShare(brief.draft, words) : 1;
+  const ch = choiceOf(r.c.state, person.email, "send", ctx, { edited });
+  const notes = await recordSend(quoteRecordId, r.c, { at: new Date().toISOString(), kind: brief?.draftKind ?? "other", how: "tap", channel, by: person.email, edited }, person.email, ch);
+  return { ok: true, notes: [`Sent by ${channel === "email" ? "email" : "text"}.`, ...notes], ...why(ch) };
 }
 
 /** This quote's own Auto follow-ups switch (on unless turned off). */
@@ -922,19 +1061,20 @@ export async function runAutoFollowUps(key: string | null): Promise<AutoRunResul
 }
 
 /** "Still deciding, check again in N days": the app only, nothing in GHL. */
-export async function snoozeFollowUp(quoteRecordId: string, seen: string, days: unknown): Promise<FollowUpResult> {
+export async function snoozeFollowUp(quoteRecordId: string, seen: string, days: unknown, ctx?: unknown): Promise<FollowUpResult> {
   const person = await requireQuoterPerson();
   const d = Number(days);
   if (!(SNOOZE_CHOICES as readonly number[]).includes(d)) return { ok: false, message: "Pick 3, 7 or 14 days." };
   const c = await current(quoteRecordId, seen);
   if (typeof c === "string") return { ok: false, message: c };
   const now = new Date();
-  const bad = await saveState(quoteRecordId, withSnooze(c.state, torontoDay(now), d, now.toISOString(), person.email));
-  return bad ? { ok: false, message: `Not saved: ${bad}` } : { ok: true, notes: [] };
+  const ch = choiceOf(c.state, person.email, "snooze", ctx);
+  const bad = await saveState(quoteRecordId, withChoice(withSnooze(c.state, torontoDay(now), d, now.toISOString(), person.email), ch));
+  return bad ? { ok: false, message: `Not saved: ${bad}` } : { ok: true, notes: [], ...why(ch) };
 }
 
 /** Postpone until a date: GHL's Postponed stage and Postponed Until, the tags off, an optional note; back on the list a month before. */
-export async function postponeFollowUp(quoteRecordId: string, seen: string, until: unknown, note: unknown): Promise<FollowUpResult> {
+export async function postponeFollowUp(quoteRecordId: string, seen: string, until: unknown, note: unknown, ctx?: unknown): Promise<FollowUpResult> {
   const person = await requireQuoterPerson();
   const now = new Date();
   const today = torontoDay(now);
@@ -966,18 +1106,19 @@ export async function postponeFollowUp(quoteRecordId: string, seen: string, unti
   }
 
   const back = postponeBack(today, date);
-  const bad = await saveState(quoteRecordId, withPostpone(c.state, { until: date, back, at: now.toISOString(), by: person.email, ...(n ? { note: n } : {}) }));
+  const ch = choiceOf(c.state, person.email, "postpone", ctx);
+  const bad = await saveState(quoteRecordId, withChoice(withPostpone(c.state, { until: date, back, at: now.toISOString(), by: person.email, ...(n ? { note: n } : {}) }), ch));
   if (bad) return { ok: false, message: `GHL was changed but the quote wasn't: ${bad} Press Postpone again.` };
   await untag(c, notes);
   await comment(c, `Follow-up: postponed to ${date}${c.quoteNumber ? ` (${c.quoteNumber})` : ""}, by ${person.email}.${n ? ` Note: ${n}` : ""}`, notes);
   const logBad = await logOnVersion(c, person.email, `postponed to ${date}${n ? `: ${n}` : ""}`);
   if (logBad) notes.push(logBad);
   notes.push(`It comes back on the list on ${back}.`);
-  return { ok: true, notes };
+  return { ok: true, notes, ...why(ch) };
 }
 
 /** Lost: GHL's own reason on the opportunity, the version Lost, the tags off, an optional note. */
-export async function markLost(quoteRecordId: string, seen: string, reasonId: unknown, note: unknown): Promise<FollowUpResult> {
+export async function markLost(quoteRecordId: string, seen: string, reasonId: unknown, note: unknown, ctx?: unknown): Promise<FollowUpResult> {
   const person = await requireQuoterPerson();
   const c = await current(quoteRecordId, seen);
   if (typeof c === "string") return { ok: false, message: c };
@@ -1011,13 +1152,14 @@ export async function markLost(quoteRecordId: string, seen: string, reasonId: un
     notes.push(c.opportunityId ? "Make isn't switched on here, so GHL wasn't changed." : "This quote isn't linked to an opportunity, so GHL wasn't changed.");
   }
 
-  const bad = await saveState(quoteRecordId, withLost(c.state, { at: new Date().toISOString(), by: person.email, reasonId: reason?.id ?? null, reason: reason?.name ?? null, ...(n ? { note: n } : {}) }));
+  const ch = choiceOf(c.state, person.email, "lost", ctx);
+  const bad = await saveState(quoteRecordId, withChoice(withLost(c.state, { at: new Date().toISOString(), by: person.email, reasonId: reason?.id ?? null, reason: reason?.name ?? null, ...(n ? { note: n } : {}) }), ch));
   if (bad) return { ok: false, message: `GHL was changed but the quote wasn't: ${bad} Press Lost again.` };
   await untag(c, notes);
   await comment(c, `Follow-up: marked lost${reason ? ` (${reason.name})` : ""}${c.quoteNumber ? ` on ${c.quoteNumber}` : ""}, by ${person.email}.${n ? ` Note: ${n}` : ""}`, notes);
   const logBad = await logOnVersion(c, person.email, `marked lost${reason ? `: ${reason.name}` : ""}${n ? `. ${n}` : ""}`, { [VERSION.status]: "Lost" });
   if (logBad) notes.push(logBad);
-  return { ok: true, notes };
+  return { ok: true, notes, ...why(ch) };
 }
 
 /* ---------- the twice-a-day recheck (Albert, 2026-11-13) ---------- */

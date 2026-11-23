@@ -9,6 +9,7 @@
 import { parseBrief, type Brief } from "./brief";
 import { parseOffChannel, type OffChannel } from "./offchannel";
 import { DRAFT_KINDS, type SentLog } from "./autosend";
+import { parseChoices, parseNote, parseStepOverride, type Choice, type CustomerNote, type StepOverride } from "./choices";
 import { parseEvents, type StateEvent } from "./perf";
 import type { Visit } from "./visit";
 
@@ -41,7 +42,7 @@ export type Alerted = { at: string; score: number };
  * `sent`: what the app itself sent (2026-11-09, round 3), for pacing and the Stage 2 report. `autoOff`: staff turned
  * this quote's Auto follow-ups off.
  */
-export type FollowUpState = { touches: Touch[]; snooze: Snooze | null; postpone: Postpone | null; lost: Lost | null; brief?: Brief | null; alerted?: Alerted | null; sent?: SentLog[]; autoOff?: boolean; events?: StateEvent[]; offChannel?: OffChannel | null; recheckedAt?: string };
+export type FollowUpState = { touches: Touch[]; snooze: Snooze | null; postpone: Postpone | null; lost: Lost | null; brief?: Brief | null; alerted?: Alerted | null; sent?: SentLog[]; autoOff?: boolean; events?: StateEvent[]; offChannel?: OffChannel | null; recheckedAt?: string; choices?: Choice[]; stepOverride?: StepOverride | null; note?: CustomerNote | null };
 
 export const emptyState = (): FollowUpState => ({ touches: [], snooze: null, postpone: null, lost: null });
 
@@ -83,7 +84,7 @@ export function parseState(raw: string | null | undefined): FollowUpState {
         .map((x) => ({ at: String(x.at), kind: x.kind as SentLog["kind"], how: x.how === "auto" ? ("auto" as const) : ("tap" as const), channel: x.channel === "email" ? ("email" as const) : ("sms" as const), by: who(x.by), edited: typeof x.edited === "number" ? Math.max(0, Math.min(1, x.edited)) : 0 }))
         .slice(-50)
     : [];
-  return { touches, snooze, postpone, lost, ...(brief ? { brief } : {}), ...(alerted ? { alerted } : {}), ...(sent.length ? { sent } : {}), ...(d.autoOff === true ? { autoOff: true } : {}), ...(parseEvents(d.events).length ? { events: parseEvents(d.events) } : {}), ...(parseOffChannel(d.offChannel) ? { offChannel: parseOffChannel(d.offChannel) } : {}), ...(isTime(d.recheckedAt) ? { recheckedAt: String(d.recheckedAt) } : {}) };
+  return { touches, snooze, postpone, lost, ...(brief ? { brief } : {}), ...(alerted ? { alerted } : {}), ...(sent.length ? { sent } : {}), ...(d.autoOff === true ? { autoOff: true } : {}), ...(parseEvents(d.events).length ? { events: parseEvents(d.events) } : {}), ...(parseOffChannel(d.offChannel) ? { offChannel: parseOffChannel(d.offChannel) } : {}), ...(isTime(d.recheckedAt) ? { recheckedAt: String(d.recheckedAt) } : {}), ...(parseChoices(d.choices).length ? { choices: parseChoices(d.choices) } : {}), ...(parseStepOverride(d.stepOverride) ? { stepOverride: parseStepOverride(d.stepOverride) } : {}), ...(parseNote(d.note) ? { note: parseNote(d.note) } : {}) };
 }
 
 export const serializeState = (s: FollowUpState): string => JSON.stringify(s);
@@ -328,4 +329,8 @@ export const withBrief = (s: FollowUpState, b: Brief): FollowUpState => ({ ...s,
 export const withAlerted = (s: FollowUpState, a: Alerted): FollowUpState => ({ ...s, alerted: a });
 /** A message the app sent: logged, and it counts as a follow-up (it is one), so the schedule moves on. */
 export const withSent = (s: FollowUpState, l: SentLog): FollowUpState => ({ ...s, sent: [...(s.sent ?? []), l].slice(-50), touches: [...s.touches, { at: l.at, by: l.by, note: `App ${l.how === "auto" ? "sent on its own" : "sent"} (${l.channel === "email" ? "email" : "text"})` }].slice(-50), snooze: null });
+/** Staff picked the step (2026-11-22); null takes it off. */
+export const withStepOverride = (s: FollowUpState, o: StepOverride | null): FollowUpState => { const { stepOverride: _gone, ...rest } = s; void _gone; return o ? { ...rest, stepOverride: o } : rest; };
+/** The customer's standing note (2026-11-22); null clears it. */
+export const withNote = (s: FollowUpState, n: CustomerNote | null): FollowUpState => { const { note: _gone, ...rest } = s; void _gone; return n ? { ...rest, note: n } : rest; };
 export const withAutoOff = (s: FollowUpState, off: boolean): FollowUpState => { const { autoOff: _gone, ...rest } = s; void _gone; return off ? { ...rest, autoOff: true } : rest; };

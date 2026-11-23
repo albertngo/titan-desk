@@ -56,3 +56,18 @@ on the Mac, `npm install -D playwright && npx playwright install chromium` in th
 Image generation for hero visuals is optional and asks before every paid call.
 
 To update: clone upstream, replace `unslop/` with its `skills/unslop/`, update the commit above.
+
+## From [mattpocock/skills](https://github.com/mattpocock/skills)
+
+Pinned at upstream commit `abeeaf95660ba9e8b7c753eb38f441ca707a8823` (2026-11-23). MIT, licence in `LICENSE-mattpocock-skills`.
+
+| Skill | Use it when |
+|---|---|
+| `grill-me` | You want a plan or design stress-tested. Type `/grill-me`; it only hands off to `grilling`. |
+| `grilling` | The interview itself: rounds of numbered questions, each with a recommended answer, until every decision is settled. |
+
+`grill-me` is a thin wrapper that calls `grilling`, so both are vendored. Left out on purpose: each folder's
+`agents/openai.yaml`, which is for Codex, not Claude Code.
+
+To update: clone upstream, copy `skills/productivity/grill-me/SKILL.md` and `skills/productivity/grilling/SKILL.md`
+over the matching folders here, and update the commit above.
