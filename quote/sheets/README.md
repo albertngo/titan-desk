@@ -10,7 +10,10 @@ The same menu offers the **Follow up staff guide** under Staff guides (`follow-u
 The same menu offers the **Installation Labor Warranty** under Warranty & insurance (`installation-labor-warranty-vN.pdf`,
 served at `/files/warranty`, since 2026-11-23). It is a PDF of Albert's Word doc (`TITAN FILES/Warranty and Insurance` on
 the info@ OneDrive); the version is the one in its footer, and may have a minor number (`v1.1`). v1.1 adds the Extra
-Underpad on Vinyl exclusion. Insurance policies and the WSIB certificate are not kept here: this repo is public.
+Underpad on Vinyl exclusion. Beside it, the **Commercial Insurance Policy** (`commercial-insurance-policy-v<YYYY>.pdf`,
+the year its term starts, served at `/files/insurance`, since 2026-11-23): the menu shows its term ("2026–27"). Albert
+okayed committing it knowing this repo is public ("its ok upload it"). Drop in the renewal as the next year. The auto
+policy and the WSIB certificate are not here.
 
 The paper sheets a PM fills on site. Print them on Letter, one sided. The PM photographs them into CompanyCam
 (tagged **Site Sheet**), and the quote's **Site sheet** tab reads them from there (From CompanyCam: tick the pages,

@@ -1558,8 +1558,10 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   section"): the same menu offers the newest `follow-up-staff-guide-vN.pdf` from that folder under its own heading, at
   `/files/followup`, the same way. **Warranty & insurance** (2026-11-23: "upload the folder in Warranty and Insurance,
   into the Company Files"): the newest `installation-labor-warranty-vN.pdf` at `/files/warranty`; a version may carry a
-  minor number (`v1.1`, compared as numbers). Only the warranty is in the folder: the repo is public, so the insurance
-  policies and the WSIB certificate are not committed.
+  minor number (`v1.1`, compared as numbers). Beside it the Co-operators **Commercial Insurance Policy**,
+  `commercial-insurance-policy-v<YYYY>.pdf` (the year its term starts) at `/files/insurance`, shown with its term
+  ("2026–27"); Albert okayed committing it to this public repo ("its ok upload it"). The auto policy and the WSIB
+  certificate are not in the folder.
 - **Report a bug (2026-10-28).** The header's Report a bug (staff only, hidden in Customer view and
   until `NOTION_BUG_TOKEN` is set) posts a summary, an urgency and up to five screenshots (shrunk in
   the browser to stay under Vercel's 4.5 MB body limit) to `/api/bug`. That signed-in route makes

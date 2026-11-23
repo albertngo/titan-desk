@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-23",
     kind: "new",
+    title: "Company files: the commercial insurance policy",
+    details: ["Warranty & insurance in Company files now has our Co-operators commercial insurance policy for the 2026–27 term, to send a builder or condo board who asks for proof of insurance."],
+  },
+  {
+    date: "2026-11-23",
+    kind: "new",
     title: "Won customers go into Lightspeed and Hike",
     details: [
       "When a customer accepts a quote, or a quote is started for someone already won, they are added as a customer in Lightspeed and in Hike. If either already has them (same email or phone), the app links to that customer and changes nothing.",

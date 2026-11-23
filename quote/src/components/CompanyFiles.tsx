@@ -5,7 +5,7 @@ import { GROUP_NOTE, type FileGroup, type LatestSheet } from "@/lib/files/sheets
 
 /**
  * Company files in the top bar (Albert, 2026-11-07), beside What's new: the newest Flooring and Stair Site
- * Sheets, the Follow up staff guide and the Installation Labor Warranty, each its own download (`/files/<kind>`), with its version. Staff only; TopBar leaves it out in
+ * Sheets, the Follow up staff guide, the Installation Labor Warranty and the insurance policy, each its own download (`/files/<kind>`), with its version. Staff only; TopBar leaves it out in
  * Customer view. Opens like the account menu: Escape or a click away closes it.
  */
 /** The files under their group headings, in the order they come. */
@@ -61,7 +61,7 @@ export function CompanyFiles({ sheets }: { sheets: LatestSheet[] }) {
                     <b>{s.title}</b>
                     <span>{s.note}</span>
                   </span>
-                  <span className="fi-v">v{s.version}</span>
+                  <span className="fi-v">{s.chip}</span>
                 </a>
               ))}
             </div>
