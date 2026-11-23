@@ -577,8 +577,13 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   in-home measurement calendar on its measure step; both GHL calendar ids in `src/lib/ghl/ids.ts`),
   and a transactional footer from the letterhead: no carousel, no click tracking, no unsubscribe. **No HST number** on the page, the PDF or the email (Albert, 2026-10-27: "This is just an estimate, so it's not like a formal invoice"); `QUOTE_COMPANY_HST` is no longer read. The
   accent is the logo's blue (`#283890`), not the old template's terracotta. Tables and inline styles
-  only, 600px collapsing under 620px, no web fonts. The text names who is writing, gives the one
-  number, puts the link on its own line and stays in GSM-7 (no curly quotes or emoji). **Preview the
+  only, 600px collapsing under 620px, no web fonts. The text names who is writing, gives a
+  preliminary's one number (its range), puts the link on its own line and stays in GSM-7 (no curly quotes or emoji).
+  **A measured quote's text and email preheader name no price (Albert, 2026-11-22: "I would want them to open the
+  link", for tracking):** the text says the quote is ready (with N options side by side, good until the date) and
+  "See your price and the full details here:", so the customer opens the page, the open is recorded and the
+  next-day call follows. The email's cards still show the price (opening an email is not tracked); a preliminary
+  keeps its range in both; resends, changes and the accepted message are unchanged. **Preview the
   email** on the Send card (`/q/<id>/preview/email`) shows it exactly as GHL will send it. The
   customer page `/c/<token>` carries OpenGraph tags so the link's preview card in a text shows the
   logo (`public/brand/og.png`), never the customer or the amount. **A preliminary always opens "Thanks for
@@ -1162,7 +1167,9 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   carries an amber band pinned to the top ("Accepted quote · Change N", whose accepted quote it is, and the
   difference against the contract with HST), an amber rule down the page edge, and **Save change N** as its save
   button. Display only (`.change-band` in `globals.css`).
-- **Changes after acceptance (Albert, 2026-10-27: "verbal, sent for record").** The accepted version
+- **Changes after acceptance (Albert, 2026-10-27: "verbal, sent for record").** **Taken as accepted (Albert, 2026-11-23):** the change's email, text and page say
+  "These are the changes we talked through together, so we'll go ahead with them. If anything doesn't look
+  right, let your project manager know right away and we'll sort it out." (`CHANGE_ACCEPTED_WORDS` in `src/lib/change/diff.ts`). The accepted version
   stays frozen. **Make a change** on the contract version starts a new version of the same quote,
   numbered (Quote Versions → **Change No** 1, 2, …): only the accepted option, its ticked add-ons now part
   of the work, the others gone, and a schedule where every agreed stage keeps its dollars and the final

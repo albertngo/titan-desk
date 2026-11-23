@@ -331,12 +331,13 @@ describe("the messages", () => {
     if (m.type !== "Email") throw new Error();
     // The big number is the price before HST, tagged "+ HST"; the two quiet lines carry the tax and the total.
     expect(m.html).toMatch(/class="total"[^>]*><span[^>]*>\$684\.00<\/span><span[^>]*> \+ HST<\/span>/);
-    expect(m.html.match(/\+ HST/g)?.length).toBe(2); // beside the number, and in the preheader; never twice on the card
+    expect(m.html.match(/\+ HST/g)?.length).toBe(1); // beside the number, never twice on the card; the preheader names no price (2026-11-22)
     expect(m.html).toContain(">HST (13%)</td>");
     expect(m.html).toContain(">$88.92</td>");
     expect(m.html).toContain(">With HST</td>");
     expect(m.html).toContain(">$772.92</td>");
-    expect(m.html).toContain("Total $684.00 + HST");
+    expect(m.html).toContain("Your price and payment schedule, ready to view · good until"); // the preheader, no price (2026-11-22)
+    expect(m.html).not.toContain("Total $684.00 + HST");
     expect(m.html).not.toContain("incl. HST");
     // No HST charged at all: "before HST", and no tax lines.
     const off = customerCopy(quote({ showHst: false, options: [option("Vinyl plank", quote().options[0].lines, 0.1, false)] }), AT);
@@ -344,12 +345,14 @@ describe("the messages", () => {
     expect(om.type === "Email" && om.html).toContain("before HST");
     expect(om.type === "Email" && om.html).not.toMatch(/With HST|\+ HST/);
     const ot = smsMessage(off, to);
-    expect(ot.type === "SMS" && ot.message).toMatch(/\$[\d,.]+ before HST, good until/);
-    // Two options: the text quotes the lower price before HST.
+    // A measured text names no price, HST or not (2026-11-22): the price is behind the link.
+    expect(ot.type === "SMS" && ot.message).not.toMatch(/\$|HST/);
+    // Two options: the text says how many, still no price.
     const pricier = option("Oak", quote().options[0].lines.map((l) => ({ ...l, unitPrice: l.unitPrice === null ? null : l.unitPrice * 2, unitPriceSnap: l.unitPriceSnap === null ? null : l.unitPriceSnap * 2 })));
     pricier.airtable = optionTotals(pricier.lines, 0.1, true);
     const two = smsMessage(customerCopy(quote({ options: [pricier, quote().options[0]] }), AT), to);
-    expect(two.type === "SMS" && two.message).toContain("There are 2 options for you to take a look at, from as low as $684 + HST");
+    expect(two.type === "SMS" && two.message).toContain("Your flooring quote is ready, with 2 options side by side, good until");
+    expect(two.type === "SMS" && two.message).not.toContain("$");
   });
 
   it("always opens a preliminary generically: a preliminary is before any visit (2026-10-27)", () => {
@@ -405,11 +408,12 @@ describe("the messages", () => {
     });
     const measured = smsMessage(customerCopy(quote(), AT), to, me);
     expect(measured.type === "SMS" && measured.message).toBe(
-      `Hi Pat, it's Albert from Titan Flooring. Your flooring quote is ready, $684 + HST, good until Nov 14.\n\nSee the full details here:\nhttps://view.example.com/c/${"A".repeat(32)}\n\nReply here if anything needs changing.`,
+      // No price in a measured quote's text (Albert, 2026-11-22): it is behind the link, so the open is tracked.
+      `Hi Pat, it's Albert from Titan Flooring. Your flooring quote is ready, good until Nov 14.\n\nSee your price and the full details here:\nhttps://view.example.com/c/${"A".repeat(32)}\n\nReply here if anything needs changing.`,
     );
     const two = customerCopy(quote({ options: [quote().options[0], option("Oak", quote().options[0].lines)] }), AT);
     const pair = smsMessage(two, to, me);
-    expect(pair.type === "SMS" && pair.message).toContain("There are 2 options for you to take a look at, from as low as $684 + HST, good until Nov 14.\n\nSee the full details here:\n");
+    expect(pair.type === "SMS" && pair.message).toContain("Your flooring quote is ready, with 2 options side by side, good until Nov 14.\n\nSee your price and the full details here:\n");
     // No curly quotes or emoji anywhere: one would switch the text to UCS-2 and halve each segment.
     for (const t of [m, measured]) expect(t.type === "SMS" && /^[\x20-\x7e\n]*$/.test(t.message)).toBe(true);
   });

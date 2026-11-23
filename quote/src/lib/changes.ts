@@ -21,6 +21,23 @@ export type Change = {
 
 export const CHANGES: Change[] = [
   {
+    date: "2026-11-23",
+    kind: "changed",
+    title: "A change says it is taken as accepted",
+    details: [
+      "When you send a change to an accepted quote, the email, the text and the customer's page now say: \"These are the changes we talked through together, so we'll go ahead with them. If anything doesn't look right, let your project manager know right away and we'll sort it out.\"",
+    ],
+  },
+  {
+    date: "2026-11-23",
+    kind: "changed",
+    title: "A measured quote's text no longer gives the price",
+    details: [
+      "The text says the quote is ready, how many options there are and the good-until date, then \"See your price and the full details here:\" with the link, so the customer opens it and you see the open. The line an inbox shows under the email's subject leaves the price out too.",
+      "A preliminary still gives its price range, and the email's price cards are unchanged.",
+    ],
+  },
+  {
     date: "2026-11-22",
     kind: "fixed",
     title: "Payout cards pay the Rate Card's Labor Cost",

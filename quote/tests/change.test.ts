@@ -3,7 +3,7 @@ import { withLegacyAddOns } from "./legacyAddOns";
 import { notAcceptable } from "../src/lib/accept/plan";
 import { optionTotals, round2, stageAmounts } from "../src/lib/calc";
 import { joinChange } from "../src/lib/contract/model";
-import { changeSummary, changeWords, diffOptions, itemDifference, paidLeft, signedMoney } from "../src/lib/change/diff";
+import { CHANGE_ACCEPTED_WORDS, changeSummary, changeWords, diffOptions, itemDifference, paidLeft, signedMoney } from "../src/lib/change/diff";
 import { swapMatches, swapOption, swapPreview, swapSource } from "../src/lib/change/swap";
 import type { EditorLine, EditorOption, EditorQuote } from "../src/lib/editor/model";
 import { money } from "../src/lib/format";
@@ -210,6 +210,7 @@ describe("sending a change", () => {
     expect(m.html).toContain("The payment schedule is worked out on the new total; what you&rsquo;ve already paid counts toward it.");
     // Nothing to do: no Accept or approve button, no deadline. (The deposit stage still says it was due "on acceptance".)
     expect(m.html).not.toMatch(/press Accept|approve|good until|View and accept/i);
+    expect(m.html).toContain(CHANGE_ACCEPTED_WORDS);
   });
 
   it("the text gives the new total and the link, in GSM-7", () => {
@@ -217,6 +218,8 @@ describe("sending a change", () => {
     if (m.type !== "SMS") throw new Error("expected a text");
     expect(m.message).toContain("here is your updated quote Q-9001 (change 1)");
     expect(m.message).toContain(to.link);
+    // Taken as accepted; a dispute goes to the project manager (Albert, 2026-11-23).
+    expect(m.message).toContain(CHANGE_ACCEPTED_WORDS);
     expect(m.message).toMatch(/^[\x20-\x7e\n]+$/);
   });
 

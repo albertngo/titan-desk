@@ -3,7 +3,7 @@ import type { Quote } from "@/lib/quotes/types";
 import { sqftFlag, sqftWords } from "@/lib/quotes/sqftCheck";
 import { payWords, scheduleFlags, scheduleProblems, shownStage } from "@/lib/pricing/schedule";
 import type { Acceptance } from "@/lib/accept/plan";
-import { changeWords as changeLine, paidLeft } from "@/lib/change/diff";
+import { CHANGE_ACCEPTED_WORDS, changeWords as changeLine, paidLeft } from "@/lib/change/diff";
 import { addDays, dollars, hstOf, hstRow, isIsoDate, isRange, isSplit, scopeLeads, scopeOf, leadPrice, longDate, offersPdf, quoteSchedule, rangeText, rangeWhy, stageNote, stagesOf, type CopyOption, type CopyStage, type CustomerCopy } from "./copy";
 import { copyKind, kindPhrase } from "./summary";
 
@@ -471,7 +471,12 @@ export function emailMessage(
   const lowEnd = ranged ? Math.min(...copy.options.map((o) => o.range?.low ?? leadPrice(copy, o.totals).amount)) : low.amount;
   // Flooring and stairs (2026-10-28): each scope's price on its own, never one "from" across both.
   const split = isSplit(copy);
-  const preheader = split
+  // A measured quote's preheader (the line an inbox shows under the subject) names no price (Albert, 2026-11-22),
+  // like its text: the price is inside, so the customer opens the quote page.
+  const until = copy.validUntil ? ` · good until ${longDate(copy.validUntil)}` : "";
+  const preheader = !prelim
+    ? `${split ? "Flooring and stairs, side by side" : several ? `${copy.options.length} options, side by side` : "Your price and payment schedule"}, ready to view${until}`
+    : split
     ? `${scopeLeads(copy, (n) => cad.format(n)).map((x) => `${x.scope} ${x.phrase}`).join(" · ")}${copy.validUntil ? ` · good until ${longDate(copy.validUntil)}` : ""}`
     : several
     ? `${copy.options.length} options to look at, from as low as ${ranged ? dollars(lowEnd) : cad.format(lowEnd)} ${low.tag}${copy.validUntil ? ` · good until ${longDate(copy.validUntil)}` : ""}`
@@ -593,11 +598,9 @@ export function smsMessage(copy: CustomerCopy, to: { contactId: string; firstNam
       ? // A range (2026-10-27), with " to ": an en dash is not GSM-7.
         `Thanks for telling us about your project. Your ${kind === "quote" ? "" : `${kind} `}estimate is ${rangeText(r0.low, r0.high, " to ")} ${leads[0].tag}.`
       : `Thanks for telling us about your project. Your rough ${kind === "quote" ? "" : `${kind} `}estimate is ${money(leads[0].amount)} ${leads[0].tag}.`
-    : split
-      ? `Your quote is ready: ${scopeWords}${copy.validUntil ? `, good until ${shortDate(copy.validUntil)}` : ""}.`
-    : several
-      ? `${fromWords}${copy.validUntil ? `, good until ${shortDate(copy.validUntil)}` : ""}.`
-      : `Your ${kind === "quote" ? "" : `${kind} `}quote is ready, ${money(leads[0].amount)} ${leads[0].tag}${copy.validUntil ? `, good until ${shortDate(copy.validUntil)}` : ""}.`;
+    : // A measured quote's text never states a price (Albert, 2026-11-22): the price is behind the link, so the
+      // customer opens the page, the open is tracked and the next-day call follows (src/lib/followup/plan.ts).
+      `Your ${kind === "quote" ? "" : `${kind} `}quote is ready${several && !split ? `, with ${copy.options.length} options side by side` : ""}${copy.validUntil ? `, good until ${shortDate(copy.validUntil)}` : ""}.`;
   const close = prelim
     ? several && !split
       ? `Each option shows its ${isRange(copy) ? "price range" : "rough price"}. Any questions, just reply.`
@@ -607,7 +610,8 @@ export function smsMessage(copy: CustomerCopy, to: { contactId: string; firstNam
     : several
       ? "Reply here with the one you'd like, or with any questions."
       : "Reply here if anything needs changing.";
-  return { type: "SMS", contactId: to.contactId, message: `${first} ${what}\n\nSee the full details here:\n${to.link}\n\n${close}` };
+  const lead = prelim ? "See the full details here:" : "See your price and the full details here:";
+  return { type: "SMS", contactId: to.contactId, message: `${first} ${what}\n\n${lead}\n${to.link}\n\n${close}` };
 }
 
 /**
@@ -833,7 +837,8 @@ export function changeEmailMessage(copy: CustomerCopy, to: { contactId: string; 
       : "") +
     row(eyebrow("Your payment schedule") + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${stages}</table>` + para("The payment schedule is worked out on the new total; what you&rsquo;ve already paid counts toward it.", 13, C.muted, "10px 0 0")) +
     hairline("22px 40px 28px") +
-    row(para("If anything here isn&rsquo;t what we agreed, reply to this email.", 15, C.body, "0 0 4px") + para(signoff, 14, C.muted, "0 0 36px"));
+    // Albert, 2026-11-23: the changes are taken as relayed and accepted; a dispute goes to the project manager at once.
+    row(para(CHANGE_ACCEPTED_WORDS, 15, C.body, "0 0 4px") + para(signoff, 14, C.muted, "0 0 36px"));
   const from = "emailFrom" in options ? options.emailFrom : emailFromFor(sender, copy.company.email, true);
   // Never an attachment (2026-10-27): the updated quote is on its page.
   return { type: "Email", contactId: to.contactId, subject, html: frame(copy, subject, preheader, body), ...(from ? { emailFrom: from } : {}) };
@@ -848,7 +853,7 @@ export function changeSmsMessage(copy: CustomerCopy, to: { contactId: string; fi
   return {
     type: "SMS",
     contactId: to.contactId,
-    message: `${hi ? `Hi ${hi}, ${whoFrom}.` : `Hi, ${whoFrom}.`} As we discussed, here is your updated quote ${copy.quoteNumber} (change ${c.no}). The new total is ${total}${copy.options[0].totals.hst ? " with HST" : ""}; the payments follow the new total, and what you've paid counts toward it.${paidLeft(c, copy.options[0].totals.total) ? ` Paid so far ${cad.format(paidLeft(c, copy.options[0].totals.total)!.paid)}, left to pay ${cad.format(paidLeft(c, copy.options[0].totals.total)!.left)}.` : ""}\n\nSee what changed:\n${to.link}\n\nIf anything isn't what we agreed, just reply.`,
+    message: `${hi ? `Hi ${hi}, ${whoFrom}.` : `Hi, ${whoFrom}.`} As we discussed, here is your updated quote ${copy.quoteNumber} (change ${c.no}). The new total is ${total}${copy.options[0].totals.hst ? " with HST" : ""}; the payments follow the new total, and what you've paid counts toward it.${paidLeft(c, copy.options[0].totals.total) ? ` Paid so far ${cad.format(paidLeft(c, copy.options[0].totals.total)!.paid)}, left to pay ${cad.format(paidLeft(c, copy.options[0].totals.total)!.left)}.` : ""}\n\nSee what changed:\n${to.link}\n\n${CHANGE_ACCEPTED_WORDS}`,
   };
 }
 
