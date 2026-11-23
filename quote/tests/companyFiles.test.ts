@@ -7,8 +7,8 @@ describe("latestSheets", () => {
   it("offers the newest version of each kind, flooring first", () => {
     const got = latestSheets(["stair-site-sheet-v6.pdf", "stair-site-sheet-v7.pdf", "flooring-site-sheet-v1.pdf", "stair-site-sheet-v7.html", "render.js", "README.md"]);
     expect(got.map((s) => [s.kind, s.version, s.file])).toEqual([
-      ["flooring", 1, "flooring-site-sheet-v1.pdf"],
-      ["stair", 7, "stair-site-sheet-v7.pdf"],
+      ["flooring", "1", "flooring-site-sheet-v1.pdf"],
+      ["stair", "7", "stair-site-sheet-v7.pdf"],
     ]);
     expect(got[1].downloadName).toBe("Titan-Stair-Site-Sheet-v7.pdf");
   });
@@ -16,14 +16,28 @@ describe("latestSheets", () => {
   it("offers the Follow up guide under Staff guides", () => {
     const got = latestSheets(["follow-up-staff-guide-v1.pdf", "follow-up-staff-guide-v2.pdf", "stair-site-sheet-v7.pdf"]);
     expect(got.map((s) => [s.kind, s.group, s.version])).toEqual([
-      ["stair", "Site sheets", 7],
-      ["followup", "Staff guides", 2],
+      ["stair", "Site sheets", "7"],
+      ["followup", "Staff guides", "2"],
     ]);
     expect(got[1].downloadName).toBe("Titan-Follow-up-staff-guide-v2.pdf");
   });
 
   it("compares versions as numbers, so v10 beats v9", () => {
-    expect(latestSheets(["stair-site-sheet-v9.pdf", "stair-site-sheet-v10.pdf"])[0].version).toBe(10);
+    expect(latestSheets(["stair-site-sheet-v9.pdf", "stair-site-sheet-v10.pdf"])[0].version).toBe("10");
+  });
+
+  it("offers the warranty under Warranty & insurance, reading a minor version", () => {
+    const got = latestSheets(["installation-labor-warranty-v1.pdf", "installation-labor-warranty-v1.1.pdf", "stair-site-sheet-v7.pdf"]);
+    expect(got.map((s) => [s.kind, s.group, s.version, s.file])).toEqual([
+      ["stair", "Site sheets", "7", "stair-site-sheet-v7.pdf"],
+      ["warranty", "Warranty & insurance", "1.1", "installation-labor-warranty-v1.1.pdf"],
+    ]);
+    expect(got[1].downloadName).toBe("Titan-Installation-Labor-Warranty-v1.1.pdf");
+  });
+
+  it("compares minor versions as numbers: 1.10 beats 1.9, and 2 beats 1.10", () => {
+    expect(latestSheets(["installation-labor-warranty-v1.9.pdf", "installation-labor-warranty-v1.10.pdf"])[0].version).toBe("1.10");
+    expect(latestSheets(["installation-labor-warranty-v1.10.pdf", "installation-labor-warranty-v2.pdf"])[0].version).toBe("2");
   });
 
   it("leaves out a kind with no PDF and ignores look-alikes", () => {
@@ -53,6 +67,6 @@ describe("companySheets and sheetFor", () => {
 
   it("finds both kinds in the real sheets folder", () => {
     const got = latestSheets(readdirSync(join(__dirname, "..", "sheets")));
-    expect(got.map((s) => s.kind)).toEqual(["flooring", "stair", "followup"]);
+    expect(got.map((s) => s.kind)).toEqual(["flooring", "stair", "followup", "warranty"]);
   });
 });

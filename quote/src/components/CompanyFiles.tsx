@@ -1,16 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { LatestSheet } from "@/lib/files/sheets";
+import { GROUP_NOTE, type FileGroup, type LatestSheet } from "@/lib/files/sheets";
 
 /**
  * Company files in the top bar (Albert, 2026-11-07), beside What's new: the newest Flooring and Stair Site
- * Sheets and the Follow up staff guide, each its own download (`/files/<kind>`), with its version. Staff only; TopBar leaves it out in
+ * Sheets, the Follow up staff guide and the Installation Labor Warranty, each its own download (`/files/<kind>`), with its version. Staff only; TopBar leaves it out in
  * Customer view. Opens like the account menu: Escape or a click away closes it.
  */
 /** The files under their group headings, in the order they come. */
-function groupsOf(sheets: LatestSheet[]): [string, LatestSheet[]][] {
-  const out = new Map<string, LatestSheet[]>();
+function groupsOf(sheets: LatestSheet[]): [FileGroup, LatestSheet[]][] {
+  const out = new Map<FileGroup, LatestSheet[]>();
   for (const s of sheets) out.set(s.group, [...(out.get(s.group) ?? []), s]);
   return [...out];
 }
@@ -50,7 +50,7 @@ export function CompanyFiles({ sheets }: { sheets: LatestSheet[] }) {
             <div key={group} className="files-group">
               <div className="em">
                 {group}
-                <span>{group === "Site sheets" ? "Latest versions. Print on Letter." : "Latest versions, for training."}</span>
+                <span>{GROUP_NOTE[group]}</span>
               </div>
               {items.map((s) => (
                 <a key={s.kind} ref={s.kind === sheets[0].kind ? first : undefined} className="acct-item file-item" role="menuitem" href={`/files/${s.kind}`} download={s.downloadName} onClick={() => setOpen(false)}>
