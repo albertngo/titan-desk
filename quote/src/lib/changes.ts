@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-23",
     kind: "changed",
+    title: "Company files is easier to scan",
+    details: ["Each group in Company files (Site sheets, Staff guides) now has a bolder heading and a clear line between groups, and each file's version sits on the same row as its name again."],
+  },
+  {
+    date: "2026-11-23",
+    kind: "changed",
     title: "Follow up is a morning brief",
     details: [
       "Follow up now opens with your day in one sentence (\"Joey, 6 people today: 2 texts, 1 call…\") and one line per person: the score, who they're with, the job size, the next step and one button that does it. Open a person with the arrow for the brief, the draft, the facts and every other button. The conversation opens when you open someone.",
