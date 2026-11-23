@@ -28,7 +28,8 @@ import { syncPosCustomers } from "@/lib/quotes/pos";
  *   3. hand off: the GHL opportunity goes to Project Won with the accepted total (with HST) through
  *      Make, which fires GHL's won workflow (Make 3710214: the Notion project, the WhatsApp post);
  *      then the acceptance email (stamped PDF and Project Expectations attached, the deposit request)
- *      and the text, by the channels the quote went out by.
+ *      and the text (the deposit, the payment schedule and the link), to every way we can reach them
+ *      (2026-11-22), whatever the quote first went out by.
  *
  * The yes is written first and stands whatever happens after: a hand-off that fails is kept on the
  * record and staff retry it from the quote page.
@@ -210,10 +211,11 @@ export async function handOff(versionId: string): Promise<Handoff> {
     if (!told.length) failed.push("The acceptance email and text are off on this deployment.");
   } else {
     const sender: Sender | null = t.sentBy ? { email: t.sentBy, firstName: firstNameOf({ email: t.sentBy, name: null }) } : null;
-    const channels = (t.sentTo ?? "Email").split(",").map((x) => x.trim());
+    // Both, whenever the customer has the address or the number (Albert, 2026-11-22: the deposit and payment schedule
+    // go by text along with the link, and "email is the same"), not only the channels the quote first went out by.
     // The version they agreed to, served by their own link (src/app/c/[token]/[file]/route.ts).
     const termsUrl = a.termsId ? `${links.link}/${TERMS_PDF}` : null;
-    if (channels.includes("Email") && t.quote?.email && !told.includes("Email")) {
+    if (t.quote?.email && !told.includes("Email")) {
       // From the person who sent the version and no one else (2026-11-05), so the address matches the name signing it.
       const attempts = acceptedFromAttempts(sender, t.copy.company.email);
       let last: unknown = attempts.length ? null : new Error(noSenderWords(sender?.email ?? "this sender"));
@@ -229,7 +231,7 @@ export async function handOff(versionId: string): Promise<Handoff> {
       }
       if (last) failed.push(`Email: ${why(last)}`);
     }
-    if (channels.includes("Text") && t.quote?.phone && !told.includes("Text")) {
+    if (t.quote?.phone && !told.includes("Text")) {
       try {
         // From the sender's own GHL number only (2026-11-05: "email and text should be aligned"). Only a version with no
         // Sent By, signed by the company, goes without one.

@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { lineFlags, lineTotal, optionHst, optionTotals } from "../src/lib/calc";
 import { OPTION } from "../src/lib/airtable/fields";
 import {
+  boxText,
+  fullBoxes,
+  productLine,
+  rankProducts,
   unsavedDraftAt,
   renameIds,
   invertIds,
@@ -115,6 +119,24 @@ describe("catalogue", () => {
     // A line saved with waste before then keeps its box, so it can be cleared.
     expect(showsWaste({ section: "Install", waste: 0.1 })).toBe(true);
     expect(lineFromEntry(click, "Install").waste).toBeNull();
+  });
+
+  it("puts the quick form's waste on a Materials line from the card (2026-11-20)", () => {
+    const mats = buildCatalogue(
+      [
+        R({ id: "recRateM000000001", labourType: "Material", spec: "Engineered" }),
+        R({ id: "recRateM000000002", labourType: "Material", spec: "Porcelain Tile" }),
+        R({ id: "recRateM000000003", labourType: "Material", spec: "Vinyl", defaultWaste: 0.05 }),
+        R({ id: "recRateM000000004", labourType: "Material", spec: "Pallet fee", uom: "flat" }),
+      ],
+      [],
+    ) as Extract<CardEntry, { kind: "rate" }>[];
+    const waste = (spec: string) => lineFromEntry(mats.find((e) => e.spec === spec)!, "Materials").waste;
+    expect(waste("Engineered")).toBe(0.1);
+    expect(waste("Porcelain Tile")).toBe(0.15);
+    // The Rate Card's own Default Waste still wins when it is set.
+    expect(waste("Vinyl")).toBe(0.05);
+    expect(waste("Pallet fee")).toBeNull();
   });
 });
 
@@ -786,5 +808,58 @@ describe("Moulding is its own section (Albert, 2026-11-06)", () => {
   it("puts a moulding line in Moulding as Install work", () => {
     const l = lineFromEntry(c2.find((e) => e.kind === "rate" && e.spec.startsWith("BASEBOARD"))!, "Moulding");
     expect([l.section, l.lineType]).toEqual(["Moulding", "Install"]);
+  });
+});
+
+describe("catalogue products in the Materials picker (2026-11-17)", () => {
+  const p = { recordId: "recTEST000000001", sku: "TST-OAK-01", name: "Test Oak Plank", rate: 5.5, cost: 3.25 };
+  it("makes a product line priced from the catalogue, per sqft, from 1 with waste", () => {
+    const l = productLine(p);
+    expect([l.sourceKind, l.sourceId, l.section, l.lineType, l.uom, l.qty, l.waste]).toEqual(["product", "recTEST000000001", "Materials", "Material", "sqft", 1, 0.1]);
+    expect([l.unitPriceSnap, l.unitCostSnap, l.unitPrice, l.hasSource]).toEqual([5.5, 3.25, null, true]);
+    expect(l.description).toBe("Test Oak Plank (TST-OAK-01)");
+    expect(lineTotal(l)).toBeCloseTo(6.05);
+  });
+  it("takes 15% waste for herringbone or tile", () => {
+    expect(productLine({ ...p, name: "Test Herringbone Oak" }).waste).toBe(0.15);
+    expect(productLine({ ...p, name: "Test Porcelain Tile" }).waste).toBe(0.15);
+  });
+  it("puts an exact SKU first, then a SKU that starts with the query", () => {
+    const list = [
+      { sku: "B-100", name: "Alpha" },
+      { sku: "A-100X", name: "Beta" },
+      { sku: "a-100", name: "Gamma" },
+    ];
+    expect(rankProducts(list, "A-100").map((x) => x.name)).toEqual(["Gamma", "Beta", "Alpha"]);
+  });
+});
+
+describe("box size beside a catalogue product (2026-11-17)", () => {
+  it("reads as sf/box, and as nothing when the catalogue has none", () => {
+    expect(boxText(22.456)).toBe("22.46 sf/box");
+    expect(boxText(20)).toBe("20 sf/box");
+    expect([boxText(null), boxText(undefined), boxText(0)]).toEqual(["", "", ""]);
+  });
+});
+
+describe("whole boxes on a product line (2026-11-17)", () => {
+  it("rounds the quantity up so qty x (1 + waste) orders the next whole box", () => {
+    const fb = fullBoxes({ qty: 100, waste: 0.1 }, 20);
+    expect(fb).toMatchObject({ boxes: 5.5, up: 6, whole: false });
+    // 6 boxes x 20 sf = 120 sf ordered; 120 / 1.1 = 109.0909.. rounded up to the cent.
+    expect(fb!.qty).toBe(109.1);
+    expect(lineTotal({ ...productLine({ recordId: "recTEST000000001", sku: "T", name: "Test", rate: 1, cost: 1 }), qty: fb!.qty, waste: 0.1 })).toBeGreaterThanOrEqual(120);
+  });
+  it("says whole when it already is, and nothing without a box size or a quantity", () => {
+    expect(fullBoxes({ qty: 100, waste: 0.2 }, 20)).toMatchObject({ boxes: 6, whole: true, qty: 100 });
+    expect(fullBoxes({ qty: 100, waste: 0.1 }, null)).toBeNull();
+    expect(fullBoxes({ qty: null, waste: 0.1 }, 20)).toBeNull();
+  });
+  it("never orders short after rounding", () => {
+    for (const [qty, waste, box] of [[87.3, 0.1, 23.46], [412, 0.15, 19.92], [55.5, 0, 31.2], [1000, 0.1, 22.17]] as const) {
+      const fb = fullBoxes({ qty, waste }, box)!;
+      expect(Math.round(fb.qty * (1 + waste) * 100) / 100).toBeGreaterThanOrEqual(Math.round(fb.up * box * 100) / 100);
+      expect(fullBoxes({ qty: fb.qty, waste }, box)!.up).toBe(fb.up);
+    }
   });
 });

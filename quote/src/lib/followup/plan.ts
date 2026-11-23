@@ -7,6 +7,7 @@
  */
 
 import { parseBrief, type Brief } from "./brief";
+import { parseOffChannel, type OffChannel } from "./offchannel";
 import { DRAFT_KINDS, type SentLog } from "./autosend";
 import { parseEvents, type StateEvent } from "./perf";
 import type { Visit } from "./visit";
@@ -40,7 +41,7 @@ export type Alerted = { at: string; score: number };
  * `sent`: what the app itself sent (2026-11-09, round 3), for pacing and the Stage 2 report. `autoOff`: staff turned
  * this quote's Auto follow-ups off.
  */
-export type FollowUpState = { touches: Touch[]; snooze: Snooze | null; postpone: Postpone | null; lost: Lost | null; brief?: Brief | null; alerted?: Alerted | null; sent?: SentLog[]; autoOff?: boolean; events?: StateEvent[] };
+export type FollowUpState = { touches: Touch[]; snooze: Snooze | null; postpone: Postpone | null; lost: Lost | null; brief?: Brief | null; alerted?: Alerted | null; sent?: SentLog[]; autoOff?: boolean; events?: StateEvent[]; offChannel?: OffChannel | null; recheckedAt?: string };
 
 export const emptyState = (): FollowUpState => ({ touches: [], snooze: null, postpone: null, lost: null });
 
@@ -82,7 +83,7 @@ export function parseState(raw: string | null | undefined): FollowUpState {
         .map((x) => ({ at: String(x.at), kind: x.kind as SentLog["kind"], how: x.how === "auto" ? ("auto" as const) : ("tap" as const), channel: x.channel === "email" ? ("email" as const) : ("sms" as const), by: who(x.by), edited: typeof x.edited === "number" ? Math.max(0, Math.min(1, x.edited)) : 0 }))
         .slice(-50)
     : [];
-  return { touches, snooze, postpone, lost, ...(brief ? { brief } : {}), ...(alerted ? { alerted } : {}), ...(sent.length ? { sent } : {}), ...(d.autoOff === true ? { autoOff: true } : {}), ...(parseEvents(d.events).length ? { events: parseEvents(d.events) } : {}) };
+  return { touches, snooze, postpone, lost, ...(brief ? { brief } : {}), ...(alerted ? { alerted } : {}), ...(sent.length ? { sent } : {}), ...(d.autoOff === true ? { autoOff: true } : {}), ...(parseEvents(d.events).length ? { events: parseEvents(d.events) } : {}), ...(parseOffChannel(d.offChannel) ? { offChannel: parseOffChannel(d.offChannel) } : {}), ...(isTime(d.recheckedAt) ? { recheckedAt: String(d.recheckedAt) } : {}) };
 }
 
 export const serializeState = (s: FollowUpState): string => JSON.stringify(s);

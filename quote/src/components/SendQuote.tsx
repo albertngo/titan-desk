@@ -3,11 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useContext, useState, useSyncExternalStore, useTransition } from "react";
 import { EditorSend } from "@/components/editor/EditorSend";
-import { resendQuoteAction, sendQuoteAction } from "@/app/q/[id]/actions";
+import { markSentAction, resendQuoteAction, sendQuoteAction } from "@/app/q/[id]/actions";
 import { activityEntries, devicesSeen, whenWords } from "@/lib/activity/track";
 import { draftKey, unsavedDraftAt } from "@/lib/editor/model";
 import type { QuoteActivity } from "@/lib/quotes/types";
-import { lastSentWords, type LastSentWay } from "@/lib/send/sendAs";
+import { lastSentWords, MARKED_SENT, type LastSentWay } from "@/lib/send/sendAs";
+import { STAFF_NOTE_MAX } from "@/lib/quotes/staffNote";
 
 /**
  * Unsaved changes for this version on this device (Albert, 2026-11-05): the editor keeps them under
@@ -175,6 +176,21 @@ export function SendAsPicker({ list, value, onChange, disabled = false }: { list
 }
 
 /**
+ * The optional staff note (Albert, 2026-11-20: "a message to put on this sent quote for staff only … its an optional
+ * note"). Kept on the version's Edit Log line and shown under that version on All quotes; on a send it also goes in GHL's
+ * internal comment. Never in the email, the text, the page or the PDF.
+ */
+function StaffNoteField({ value, onChange, disabled, ghl }: { value: string; onChange: (v: string) => void; disabled?: boolean; ghl: boolean }) {
+  return (
+    <label className="sq-until-in sq-note">
+      Note for staff <span className="faint">(optional)</span>
+      <input className="in" type="text" value={value} maxLength={STAFF_NOTE_MAX} placeholder="e.g. Customer asked to drop the stairs" onChange={(e) => onChange(e.target.value)} disabled={disabled} />
+      <span className="sub">The customer never sees this. It shows in the quote&rsquo;s history on All quotes{ghl ? " and in GHL's internal comment" : ""}.</span>
+    </label>
+  );
+}
+
+/**
  * Send the link again (Albert, 2026-10-30): when the customer asks for the PDF, or lost the message. The same
  * quote and link; "Include the PDF" turns on its Download button if it was off and puts its link in the message.
  */
@@ -192,6 +208,7 @@ function SendAgain({ versionId, sendAs = null, email, phone, pdfOn, kind, dated,
   const [byEmail, setByEmail] = useState(!!email);
   const [bySms, setBySms] = useState(!email && !!phone);
   const [pdf, setPdf] = useState(true);
+  const [note, setNote] = useState("");
   const [busy, start] = useTransition();
   const [result, setResult] = useState<{ text: string; bad: boolean; problems?: string[] } | null>(null);
   if (!open)
@@ -204,7 +221,7 @@ function SendAgain({ versionId, sendAs = null, email, phone, pdfOn, kind, dated,
   function go() {
     setResult(null);
     start(async () => {
-      const r = await resendQuoteAction(versionId, { channels: { email: byEmail && canEmail, sms: bySms && canText }, pdf, ...(asOther ? { as: asEmail } : {}) });
+      const r = await resendQuoteAction(versionId, { channels: { email: byEmail && canEmail, sms: bySms && canText }, pdf, staffNote: note, ...(asOther ? { as: asEmail } : {}) });
       if (r.ok) {
         setOpen(false);
         setResult({ text: `Sent again by ${r.sentTo.join(" and ").toLowerCase()}${r.pdf ? ", with the PDF" : ""}.${r.warning ? ` ${r.warning}` : ""}`, bad: false });
@@ -220,6 +237,7 @@ function SendAgain({ versionId, sendAs = null, email, phone, pdfOn, kind, dated,
       <label className="sq-tick"><input type="checkbox" checked={pdf} onChange={(e) => setPdf(e.target.checked)} /> Include the PDF <span className="faint">{accepted ? "(the signed, accepted PDF)" : pdfOn ? "(already on their page)" : "(turns on Download PDF on their page)"}</span></label>
       <label className="sq-tick"><input type="checkbox" checked={byEmail && canEmail} disabled={!email || !canEmail} onChange={(e) => setByEmail(e.target.checked)} /> Email {email ? <span className="faint">{email}{canEmail ? "" : ", can't go from this sender's address"}</span> : <span className="faint">no email on the contact</span>}</label>
       <label className="sq-tick"><input type="checkbox" checked={bySms && canText} disabled={!phone || !canText} onChange={(e) => setBySms(e.target.checked)} /> Text {phone ? <span className="faint">{phone}{canText ? "" : ", can't go: this sender's GHL user has no number of its own"}</span> : <span className="faint">no phone on the contact</span>}</label>
+      <StaffNoteField value={note} onChange={setNote} disabled={busy} ghl={false} />
       {result && (
         <div className={`sq-msg ${result.bad ? "bad" : "ok"}`} role="status">
           {result.text}
@@ -240,6 +258,7 @@ export function SendQuote({
   label,
   status,
   base,
+  outside = null,
   today,
   defaultUntil,
   maxUntil,
@@ -256,11 +275,14 @@ export function SendQuote({
   sendAs = null,
   options,
   lastSent = null,
+  markSent = null,
 }: {
   versionId: string;
   label: string;
   status: string | null;
   base: string;
+  /** A firm price given by text or on a call, nothing sent from the app since (2026-11-13): the card offers the formal copy. */
+  outside?: { words: string; note: string } | null;
   today: string;
   defaultUntil: string;
   maxUntil: string;
@@ -284,6 +306,11 @@ export function SendQuote({
   options: { id: string; name: string; price: string; range: string | null; recommended: boolean; notOffered?: boolean; problem: string | null; priv?: { label: string; amount: string; stairs: boolean } | null; words?: string | null }[];
   /** How the newest sent version went (Albert, 2026-11-06): the card says so and starts on the same way. */
   lastSent?: LastSentWay | null;
+  /**
+   * Mark as sent, sending nothing (Albert, 2026-11-17: "for admin ALBERT only"): present only for the sign-ins on the
+   * Settings list, with what stops it (the send's checks less email and text).
+   */
+  markSent?: { problems: string[] } | null;
 }) {
   const router = useRouter();
   /** Unsaved changes for this version on this device (2026-11-05): nothing sends while there are. */
@@ -308,6 +335,7 @@ export function SendQuote({
   const exact = preliminary && !range;
   /** The quote page offers the PDF (Albert, 2026-10-27): off by default. Never attached to the email. */
   const [pdf, setPdf] = useState(false);
+  const [note, setNote] = useState("");
   /** Which options go to the customer (2026-10-24): all of them unless the sender unticks some; a Not offered one starts unticked (2026-10-30). */
   // Since 2026-10-31 a Not offered one can't be ticked at all (Albert: "as a safeguard, not even an option").
   // Kept as the ones unticked (2026-11-13): options that arrive after the card first renders (a new quote) start ticked
@@ -351,6 +379,7 @@ export function SendQuote({
     ...optionProblems,
   ];
   const [asking, setAsking] = useState(false);
+  const [askingMark, setAskingMark] = useState(false);
   const [error, setError] = useState<{ message: string; problems?: string[] } | null>(null);
   const [done, setDone] = useState<{ link: string; sentTo: string[]; warning: string | null } | null>(null);
   const [sending, startSend] = useTransition();
@@ -370,7 +399,13 @@ export function SendQuote({
           {status && !done && <span className="right">{status}</span>}
         </div>
         <div className="card-b">
-          {s?.sentAt ? (
+          {s?.sentAt && s.sentTo === MARKED_SENT ? (
+            <p className="sq-what">
+              Marked sent {day(s.sentAt)}
+              <span className="faint sq-by">Nothing went to the customer from the app{s.sentBy ? `. As ${s.sentBy}` : ""}</span>
+              {s.validUntil && <span className="sq-until">Good until {day(s.validUntil)}</span>}
+            </p>
+          ) : s?.sentAt ? (
             <p className="sq-what">
               Sent {day(s.sentAt)}
               {s.sentTo ? ` by ${s.sentTo.toLowerCase().replace(", ", " and ")}` : ""}
@@ -399,10 +434,25 @@ export function SendQuote({
   const channels = [byEmail && email && from ? `email (${email})` : null, bySms && phone && textFrom ? `text (${phone})` : null].filter(Boolean);
   const blocked = allProblems.length > 0 || !ready.ready || Boolean(unsaved);
 
+  const markProblems = markSent ? [...markSent.problems, ...allProblems.filter((p) => !problems.includes(p))] : [];
+  const markBlocked = !markSent || markProblems.length > 0 || Boolean(unsaved) || (!undated && !until);
+
+  function mark() {
+    setError(null);
+    startSend(async () => {
+      const r = await markSentAction(versionId, { base, validUntil: undated ? null : until, channels: { email: false, sms: false }, itemised, pdf, optionIds, range: !exact, staffNote: note, ...(asOther ? { as: asEmail } : {}) });
+      setAskingMark(false);
+      if (r.ok) {
+        setDone(r);
+        router.refresh();
+      } else setError({ message: r.message, problems: r.problems });
+    });
+  }
+
   function send() {
     setError(null);
     startSend(async () => {
-      const r = await sendQuoteAction(versionId, { base, validUntil: undated ? null : until, channels: { email: byEmail && !!from, sms: bySms && !!textFrom }, itemised, pdf, optionIds, range: !exact, ...(asOther ? { as: asEmail } : {}) });
+      const r = await sendQuoteAction(versionId, { base, validUntil: undated ? null : until, channels: { email: byEmail && !!from, sms: bySms && !!textFrom }, itemised, pdf, optionIds, range: !exact, staffNote: note, ...(asOther ? { as: asEmail } : {}) });
       setAsking(false);
       if (r.ok) {
         setDone(r);
@@ -413,8 +463,18 @@ export function SendQuote({
 
   return (
     <section className="card sq" id="send" aria-labelledby="sq-h">
-      <div className="card-h" id="sq-h">Send quote to customer</div>
+      <div className="card-h" id="sq-h">
+        {outside ? "Send formal copy" : "Send quote to customer"}
+        {outside && <span className="right">{outside.words}</span>}
+      </div>
       <div className="card-b">
+        {outside && (
+          <div className="sq-msg sq-outside" role="note">
+            <b>{outside.words}, not from the app</b>
+            <p>{outside.note}</p>
+            <p className="faint">No link and no open tracking yet. Sending here gives them the written copy; nothing goes unless you press Send.</p>
+          </div>
+        )}
         {allProblems.length > 0 && (
           <div className="sq-msg warn">
             <b>Not ready to send</b>
@@ -537,6 +597,8 @@ export function SendQuote({
         </label>
         )}
 
+        <StaffNoteField value={note} onChange={setNote} disabled={sending || asking || askingMark} ghl />
+
         <div className="sq-tools">
           <a href={preview} target="_blank" rel="noreferrer">Preview what the customer sees</a>
           <a href={emailPreview} target="_blank" rel="noreferrer">Preview the email</a>
@@ -550,7 +612,20 @@ export function SendQuote({
           </div>
         )}
 
-        {asking ? (
+        {askingMark ? (
+          <div className="ca sq-ask" role="group" aria-label="Confirm marking sent">
+            <p>
+              Mark <b>{label}</b> as sent{asOther && asChoice ? <> as {asChoice.label}</> : null}, sending nothing to {firstName ?? "the customer"}?
+              <span className="faint"> The version is locked and counted as sent, with its link ready to copy. No email, no text, no follow-up sequence.</span>
+            </p>
+            <div className="ca-btns">
+              <button type="button" className="btn small" onClick={() => setAskingMark(false)} disabled={sending}>Cancel</button>
+              <button type="button" className="btn small primary" onClick={mark} disabled={sending || markBlocked}>
+                {sending ? "Marking…" : "Yes, mark it sent"}
+              </button>
+            </div>
+          </div>
+        ) : asking ? (
           <div className="ca sq-ask" role="group" aria-label="Confirm sending">
             <p>
               Send <b>{label}</b> to {firstName ?? "the customer"} by {channels.join(" and ")}?
@@ -565,7 +640,12 @@ export function SendQuote({
           </div>
         ) : (
           <button type="button" className="btn primary sq-go" disabled={blocked || channels.length === 0 || (!undated && !until)} onClick={() => setAsking(true)}>
-            Send quote
+            {outside ? "Send formal copy" : "Send quote"}
+          </button>
+        )}
+        {markSent && !asking && !askingMark && (
+          <button type="button" className="btn small sq-mark" disabled={markBlocked || sending} onClick={() => setAskingMark(true)} title="For a price the customer already has another way: counts as sent, sends nothing.">
+            Mark as sent, send nothing
           </button>
         )}
       </div>

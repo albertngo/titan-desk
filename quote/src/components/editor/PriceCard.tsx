@@ -2,7 +2,7 @@
 
 import { useId, useState } from "react";
 import { money, pct } from "@/lib/format";
-import { optionHst } from "@/lib/calc";
+import { optionHst, optionTotals } from "@/lib/calc";
 import {
   acceptedIsSet,
   acceptedReason,
@@ -14,6 +14,9 @@ import {
   resetAccepted,
   setAcceptedPrice,
   setAcceptedReason,
+  setAcceptedTotal,
+  totalAtPrice,
+  totalCeiling,
   updateDiscount,
   type EditorOption,
   type EditorQuote,
@@ -22,8 +25,8 @@ import { isAcceptedLine, isContractorLine, isDiscountLine, MIN_MARGIN_PCT, price
 
 /**
  * The option's price card, under its totals (Albert, 2026-11-04). Left: the discount items, which stay
- * until removed. Right: the accepted price, three linked boxes (the price before HST, the total discount
- * and the margin): type in one and the other two follow; clear any one, or press Reset, and all three
+ * until removed. Right: the accepted price, three linked boxes (what the customer pays, HST included
+ * where it is charged (Albert, 2026-11-21: "the FINAL value they pay"), the total discount and the margin): type in one and the other two follow; clear any one, or press Reset, and all three
  * go back to what the slider and the discount items make. The accepted price never goes above that
  * (2026-11-04): a price increase is a Private line or a higher rate, so a typo can't mark a quote up. Under them, the margin and profit at that
  * price, and an (i) with the lowest price that keeps the 20% margin minimum. Every change is a pure
@@ -33,7 +36,11 @@ import { isAcceptedLine, isContractorLine, isDiscountLine, MIN_MARGIN_PCT, price
  * are left out, not hidden.
  */
 export function PriceCard({ quote, option, customer, apply }: { quote: EditorQuote; option: EditorOption; customer: boolean; apply: (q: EditorQuote) => boolean | void }) {
-  const s = priceSummary(option.lines, quote.discountRate, optionHst(quote, option));
+  const hstOn = optionHst(quote, option);
+  const s = priceSummary(option.lines, quote.discountRate, hstOn);
+  const t = optionTotals(option.lines, quote.discountRate, hstOn);
+  // What the first box says it holds: HST on everything, on the materials alone, or none.
+  const hstWord = hstOn ? "with HST" : t.hst ? "with HST on materials" : "no HST";
   const set = acceptedIsSet(quote, option);
   const round = (n: number) => Math.round(n * 100) / 100;
   // The accepted price's own discount line is the right-hand side's, never a discount item (2026-11-04).
@@ -45,26 +52,36 @@ export function PriceCard({ quote, option, customer, apply }: { quote: EditorQuo
   const [bad, setBad] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const ceiling = priceCeiling(quote, option.id);
+  const topTotal = totalCeiling(quote, option.id);
+  const minTotal = !customer && s.minPrice !== null ? totalAtPrice(quote, option.id, s.minPrice) : null;
   const below = !customer && s.minPrice !== null && s.subtotal > 0 && s.subtotal < s.minPrice;
   const reset = () => {
     setNote(null);
     apply(resetAccepted(quote, option.id));
   };
+  const above = () => setNote(`That is above ${money(topTotal ?? 0)} (${hstWord}), the price the slider and the discounts make. To charge more, add a Private line or raise a rate.`);
   /**
-   * One of the three boxes was committed, as the price it means. Cleared is a reset (Albert, 2026-11-04:
-   * "Deleting any of the 3 accepted price fields is essentially pressing the reset"). Above the ceiling is
-   * refused with the way to charge more; nothing changes.
+   * The discount % or margin box was committed, as the price before HST it means. Cleared is a reset
+   * (Albert, 2026-11-04: "Deleting any of the 3 accepted price fields is essentially pressing the reset").
+   * Above the ceiling is refused with the way to charge more; nothing changes.
    */
   const commit = (raw: string, toPrice: (n: number) => number | null) => {
     const v = parseNum(raw.replace("%", ""));
     if (v === null) return reset();
     const price = toPrice(v);
     if (price === null || !(price >= 0)) return setNote("That isn't a price the card can use.");
-    if (ceiling === null || round(price) > ceiling) {
-      return setNote(`That is above ${money(ceiling ?? 0)}, the price the slider and the discounts make. To charge more, add a Private line or raise a rate.`);
-    }
+    if (ceiling === null || round(price) > ceiling) return above();
     setNote(null);
     apply(setAcceptedPrice(quote, option.id, price));
+  };
+  /** The first box: the final amount the customer pays, HST included where charged (2026-11-21). */
+  const commitTotal = (raw: string) => {
+    const v = parseNum(raw);
+    if (v === null) return reset();
+    if (!(v >= 0)) return setNote("That isn't a price the card can use.");
+    if (topTotal === null || round(v) > topTotal) return above();
+    setNote(null);
+    apply(setAcceptedTotal(quote, option.id, v));
   };
 
   const add = (e: React.FormEvent) => {
@@ -74,7 +91,7 @@ export function PriceCard({ quote, option, customer, apply }: { quote: EditorQuo
       setBad("Type the discount in dollars, like 250. Discounts here are dollars only.");
       return;
     }
-    // Refused when holding the accepted price would need a markup (2026-11-04): the typing stays, the editor says why.
+    // Refused only when nothing priced is left to hold the accepted price on; a change the hold had to mark up waits on the editor's confirmation (2026-11-21).
     if (apply(addDiscount(quote, option.id, label, amt)) === false) return;
     setLabel("");
     setAmount("");
@@ -140,15 +157,15 @@ export function PriceCard({ quote, option, customer, apply }: { quote: EditorQuo
             </span>
           )}
           <span className="spacer" />
-          {set ? <span className="chip" title="Discounts, the slider and line changes move the discount and the margin, never this price. Reset to change it.">Held</span> : <span className="faint pc-follow">Following the slider and discounts</span>}
+          {set ? <span className="chip" title="Discounts, the slider, line changes and HST move the discount and the margin, never what the customer pays. Reset to change it.">Held</span> : <span className="faint pc-follow">Following the slider and discounts</span>}
           <button type="button" className="btn small" disabled={!set} onClick={reset} title="Back to the price the slider and the discounts make">
             Reset
           </button>
         </div>
         <div className="pc-boxes">
           <label>
-            Price before HST
-            <Box text={String(s.subtotal)} label="Accepted price before HST" num onCommit={(v) => commit(v, (n) => n)} />
+            Customer pays ({hstWord})
+            <Box text={String(t.total)} label={`Accepted price, what the customer pays, ${hstWord}`} num onCommit={commitTotal} />
           </label>
           <label>
             Total discount %
@@ -161,7 +178,7 @@ export function PriceCard({ quote, option, customer, apply }: { quote: EditorQuo
             </label>
           )}
         </div>
-        {set && <p className="pc-mt">Held at {money(s.subtotal)}. Discounts, the slider and line changes move the discount and the margin, never this price. Reset to change it.</p>}
+        {set && <p className="pc-mt">Held at {money(t.total)} ({hstWord}). Discounts, the slider, line changes and HST move the discount and the margin, never what the customer pays. Reset to change it.</p>}
         {hasAccepted && (
           <label className="pc-reason" title="Printed beside this option's Discount row on the customer's page and PDF, e.g. Fall promotion.">
             Reason the customer sees
@@ -174,7 +191,7 @@ export function PriceCard({ quote, option, customer, apply }: { quote: EditorQuo
             Under the {MIN_MARGIN_PCT}% margin minimum.{" "}
             {ceiling !== null && s.minPrice <= ceiling ? (
               <button type="button" className="linkbtn" onClick={() => commit(String(s.minPrice), (n) => n)}>
-                Set {money(s.minPrice)}
+                Set {money(minTotal ?? s.minPrice)}{minTotal !== null && minTotal !== s.minPrice ? ` (${money(s.minPrice)} before HST)` : ""}
               </button>
             ) : (
               "Even with no accepted-price discount it is under. Raise a rate or add a Private line."
@@ -186,7 +203,9 @@ export function PriceCard({ quote, option, customer, apply }: { quote: EditorQuo
             <div><dt>List price</dt><dd>{money(s.gross)}</dd></div>
             {s.itemsTotal !== 0 && <div><dt>Discount items</dt><dd>{money(-s.itemsTotal)}</dd></div>}
             {s.adjustment !== 0 && <div><dt>Accepted price adjustment</dt><dd>{money(-s.adjustment)}</dd></div>}
-            <div className="strong"><dt>Price before HST</dt><dd>{money(s.subtotal)}</dd></div>
+            <div><dt>Price before HST</dt><dd>{money(s.subtotal)}</dd></div>
+            <div><dt>HST</dt><dd>{money(t.hst)}</dd></div>
+            <div className="strong"><dt>Customer pays</dt><dd>{money(t.total)}</dd></div>
             <div><dt>Cost</dt><dd>{money(s.cost)}</dd></div>
             <div><dt>Profit</dt><dd>{money(s.profit)}</dd></div>
             <div className={below ? "warn" : undefined}><dt>Margin</dt><dd>{pct(s.marginPct, 1) || "None"}</dd></div>

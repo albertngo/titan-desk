@@ -57,6 +57,8 @@ export type QuoteHead = {
   projectNumber: string | null;
   linkStatus: string | null;
   addressStatus: string | null;
+  /** "Sent by text" / "Given on a call" (2026-11-13): a firm price given outside the app, nothing sent from it since. */
+  outside?: string | null;
   /** Quotes → Quote Description (2026-11-03): staff's short label for this quote, e.g. "Unit 1204 · kitchen + hall". */
   description?: string | null;
   /** Quotes → Contract's total with HST, when the quote has a contract (2026-11-07, the Value column). */
@@ -253,6 +255,18 @@ export function offerValue(options: OptionMoney[] | undefined): Extract<QuoteVal
     if (!rec && os.length > 1) recommended = false;
   }
   return { kind: "quote", low: round2(low), high: round2(high), likely: round2(likely), recommended, options: offered.length };
+}
+
+/**
+ * The value of what went out (2026-11-17), for GHL's opportunity on a send: the frozen copy's options read the way the
+ * Value column reads an offer, and its `likely` figure (the recommended option per part, else the cheapest), with HST.
+ * Flooring and stairs always count one of each (Albert, 2026-11-17: "if there are stairs and flooring; add one of
+ * each. otherwise your logic"), so the group is scope then part. A copy's missing scope is Flooring. Null when no
+ * option has a total.
+ */
+export function sentValue(options: { recommended: boolean; totals: { total: number }; scope?: string; part?: string }[]): number | null {
+  const v = offerValue(options.map((o, i) => ({ id: String(i), total: o.totals.total, recommended: o.recommended, notOffered: false, part: `${o.scope ?? "Flooring"}|${o.part ?? ""}`, scope: o.scope ?? "Flooring", sortOrder: i })));
+  return v && v.likely > 0 ? v.likely : null;
 }
 
 const isAccepted = (g: Pick<QuoteGroup, "projectNumber"> & { versions: VersionMoney[] }) =>

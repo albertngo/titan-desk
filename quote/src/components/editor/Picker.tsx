@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { searchCatalogueAction } from "@/app/q/[id]/edit/actions";
 import { optionTotals } from "@/lib/calc";
-import { bestContractor, entryLabel, entryWords, lineFromEntry, manualLine, materialWords, rateSnap, searchCatalogue, SECTION_LABOUR, type CardEntry, type EditorLine } from "@/lib/editor/model";
+import { bestContractor, entryLabel, entryWords, boxText, lineFromEntry, manualLine, materialWords, productLine, rateSnap, searchCatalogue, SECTION_LABOUR, type CardEntry, type CatalogueProduct, type EditorLine } from "@/lib/editor/model";
 import { defaultInput, expandProfile, stepSplit, type BuilderInput } from "@/lib/editor/stairBuilder";
 import { stairGroupLabel, stairGroupOf } from "@/lib/editor/stairGroups";
 import { money } from "@/lib/format";
@@ -85,6 +86,23 @@ export function Picker({
   const [famPick, setFamPick] = useState<string | null>(null);
   const [famGlue, setFamGlue] = useState<string | null>(null);
   const narrowed = category !== null || stairsOnly;
+  // The catalogue (2026-11-17): in Materials, a SKU or a product's name finds the flooring product itself.
+  const productSearch = section === "Materials" && !narrowed;
+  const [products, setProducts] = useState<{ q: string; found: CatalogueProduct[] } | null>(null);
+  const [productError, setProductError] = useState(false);
+  const pq = q.trim();
+  useEffect(() => {
+    if (!productSearch || pq.replace(/\s/g, "").length < 3) return;
+    let live = true;
+    const t = setTimeout(() => {
+      searchCatalogueAction(pq)
+        .then((found) => { if (live) { setProducts({ q: pq, found }); setProductError(false); } })
+        .catch(() => { if (live) setProductError(true); });
+    }, 300);
+    return () => { live = false; clearTimeout(t); };
+  }, [productSearch, pq]);
+  const shownProducts = productSearch && pq.replace(/\s/g, "").length >= 3 && products?.q === pq ? products.found : [];
+  const productsLoading = productSearch && pq.replace(/\s/g, "").length >= 3 && products?.q !== pq && !productError;
   const families = narrowed ? [] : familiesFor(families0 ?? [], section, q);
   // A family's own Rate Card rows are left off the plain search; the whole rate card still lists them.
   const hidden = narrowed || all ? new Set<string>() : familyRows(families0 ?? [], section);
@@ -122,7 +140,7 @@ export function Picker({
           <input
             className="in"
             autoFocus
-            placeholder={section === "Stairs" || stairsOnly ? "Search stair items…" : "Search the rate card, e.g. click, baseboard, bin"}
+            placeholder={section === "Stairs" || stairsOnly ? "Search stair items…" : productSearch ? "Search a SKU, product or the rate card" : "Search the rate card, e.g. click, baseboard, bin"}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             aria-label="Search the rate card"
@@ -275,6 +293,20 @@ export function Picker({
                 </button>
               </li>
             ))}
+          {!building &&
+            !fam &&
+            shownProducts.map((p) => (
+              <li key={`product|${p.recordId}`}>
+                <button className="pick" onClick={() => onPick(productLine(p, section))}>
+                  <span className="nm">{p.name}</span>
+                  <span className="mt">
+                    {p.sku ? `${p.sku} · ` : ""}catalogue · {money(p.rate)} / sqft{boxText(p.boxSf) ? ` · ${boxText(p.boxSf)}` : ""}{customer ? "" : p.cost === null ? " · no cost on file" : ` · cost ${money(p.cost)}`}
+                  </span>
+                </button>
+              </li>
+            ))}
+          {!building && !fam && productsLoading && <li className="empty">Searching the catalogue…</li>}
+          {!building && !fam && productError && <li className="empty">The catalogue search didn&apos;t answer. Try again.</li>}
           {results.map((e) => {
             const from = e.kind === "rate" ? (e.contractors.find((c) => c.name === crew) ?? bestContractor(e)) : null;
             // Sand steps → painted risers and stringers only (2026-11-06): whichever is on the option first greys the other out.
@@ -297,7 +329,7 @@ export function Picker({
               </li>
             );
           })}
-          {results.length === 0 && rows.length === 0 && codeProfiles.length === 0 && families.length === 0 && <li className="empty">{narrowed ? `No stair item${category !== null ? ` in ${stairGroupLabel(category)}` : ""} matches “${q}”.` : filterable && !all ? `Nothing in ${section} matches “${q}”.` : `Nothing on the rate card matches “${q}”.`}</li>}
+          {results.length === 0 && rows.length === 0 && codeProfiles.length === 0 && families.length === 0 && shownProducts.length === 0 && !productsLoading && <li className="empty">{narrowed ? `No stair item${category !== null ? ` in ${stairGroupLabel(category)}` : ""} matches “${q}”.` : filterable && !all ? `Nothing in ${section} matches “${q}”.` : `Nothing on the rate card matches “${q}”.`}</li>}
           <li>
             <button className="pick manual" onClick={() => onPick(manualLine(section, q.trim()))}>
               <span className="nm">Type it in yourself{q.trim() ? `: “${q.trim()}”` : ""}</span>

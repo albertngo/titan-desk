@@ -15,6 +15,7 @@ import {
   parityDiffs,
   priceUsed,
   type OptionTotals,
+  isTyped,
 } from "@/lib/calc";
 import { money, pct, rate } from "@/lib/format";
 import type { QuoteLine, QuoteOption } from "@/lib/quotes/types";
@@ -105,8 +106,8 @@ function Row({ l, n, customer, lump, stairsOpt = false, rateCol = !lump, prelim 
   const total = lineTotal(l);
   const cost = lineCost(l);
   const flags = lineFlags(l);
-  const rateOvr = !!l.unitPrice && !!l.unitPriceSnap && l.unitPrice !== l.unitPriceSnap;
-  const costOvr = !!l.costOverride && !!l.unitCostSnap && l.costOverride !== l.unitCostSnap;
+  const rateOvr = isTyped(l.unitPrice) && !!l.unitPriceSnap && l.unitPrice !== l.unitPriceSnap;
+  const costOvr = isTyped(l.costOverride) && !!l.unitCostSnap && l.costOverride !== l.unitCostSnap;
   const margin = total && total > 0 && cost !== null ? ((total - cost) / total) * 100 : null;
   // Stairs are one price for the customer (2026-10-28): in Customer view an included stair line keeps its quantity, never a price.
   const stairPrice = customer && (sectionOf(l) === "Stairs" || stairsOpt) && l.include;
@@ -131,7 +132,7 @@ function Row({ l, n, customer, lump, stairsOpt = false, rateCol = !lump, prelim 
         <td className="r" data-label="Cost">
           <span className={costOvr || l.manualCost ? "chgd" : "muted"}>{money(cost)}</span>
           {costOvr && <span className="sub">card {money(l.unitCostSnap)}/unit, now {money(costUsed(l))}</span>}
-          {!!l.manualCost && <span className="sub">manual line cost</span>}
+          {isTyped(l.manualCost) && <span className="sub">manual line cost</span>}
         </td>
       )}
       {rateCol && (

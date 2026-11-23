@@ -73,6 +73,8 @@ export const OPP_FIELDS = {
   projectCity: "8xlNjiw1kf3MFNsII0jv",
   /** Per job: set once the job has its CompanyCam project (read through Make's GHL connection, 2026-10-15). */
   companyCamUrl: "fEZdUNuN9TWKjIOD6fBo",
+  /** Job Folder (made in GHL by Albert, read 2026-11-18): the job's OneDrive folder, set with the CompanyCam URL. */
+  jobFolder: "3DvV1XUR9SXBwlxAPqmI",
 } as const;
 
 /**

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CONTACT_ORIGIN_FIELD, CONTACT_TIMING_FIELD, GHL_LOCATION_ID, LEAD_STAGE_IDS, LEADS_PIPELINE_ID, MEETING_SCHEDULED_STAGE_ID, OPP_FIELDS, SALES_PIPELINE_ID } from "../src/lib/ghl/ids";
-import { buildBookingOpportunity, buildContactAddress, buildGhlRequest, buildNewJob, CONTACT_ID_SLOT, type GhlRequestInput } from "../src/lib/link/ghlRequest";
+import { buildBookingOpportunity, buildContactAddress, buildGhlRequest, buildNewJob, buildValue, CONTACT_ID_SLOT, type GhlRequestInput } from "../src/lib/link/ghlRequest";
 
 // INVENTED customer and ids only: this repo is public.
 const base: GhlRequestInput = {
@@ -181,5 +181,22 @@ describe("a new opportunity from the Link to Opportunity card (2026-11-03): in t
       { id: OPP_FIELDS.projectCity, field_value: "Oakville" },
       { id: OPP_FIELDS.companyCamUrl, field_value: "https://app.companycam.com/projects/123" },
     ]);
+  });
+
+  it("carries the quote's job folder onto the new job (2026-11-18)", () => {
+    const r = buildNewJob({ ...job, companyCamUrl: null, folderUrl: "https://example.sharepoint.com/f/1" });
+    expect(parse(r.oppBody).customFields).toEqual([
+      { id: OPP_FIELDS.quoteNumber, field_value: "Q-1234" },
+      { id: OPP_FIELDS.jobFolder, field_value: "https://example.sharepoint.com/f/1" },
+    ]);
+  });
+});
+
+describe("the value on a send (2026-11-17)", () => {
+  it("sets only the opportunity's value", () => {
+    const r = buildValue({ contactId: "c1", opportunityId: "o1", total: 1234.5 });
+    expect(r).toMatchObject({ mode: "link", contactId: "c1", opportunityId: "o1" });
+    expect(JSON.parse(r.oppBody!)).toEqual({ monetaryValue: 1234.5 });
+    expect(JSON.parse(r.contactBody!)).toEqual({});
   });
 });

@@ -27,6 +27,8 @@ export type GhlOpportunity = {
   statusChangedAt: string | null;
   /** Its CompanyCam URL: set once the job's folder and CompanyCam project were made. */
   companyCamUrl: string | null;
+  /** Its Job Folder (2026-11-18): the OneDrive folder's link, set with the CompanyCam URL. Absent reads as none. */
+  folderUrl?: string | null;
   /** Its Project Address, to tell two jobs of one customer apart. */
   siteAddress: string | null;
   /** Its Source (2026-10-27): replaced by the picked origin unless it is already one of the exact options. */

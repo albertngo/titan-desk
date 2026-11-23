@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { payoutAmount, payoutTotal } from "../src/lib/calc";
 import {
+  assignOption,
+  scopeTotals,
+  stairsOptions,
   addCard,
+  emptySet,
   addLine,
   buildCards,
   camDescription,
@@ -13,6 +17,7 @@ import {
   defaultOptionIds,
   labourRate,
   moveLine,
+  moveLineTo,
   parsePayouts,
   payoutCandidates,
   pushProblem,
@@ -68,7 +73,7 @@ function option(over: Partial<QuoteOption> = {}): QuoteOption {
 }
 
 const card: RateCard = {
-  rates: [{ id: "recRATE0000000001", labourType: "Install", spec: "Glue down", contractor: "Crew A", uom: "sqft", rate: 4, cost: 1.5, minCharge: null, defaultWaste: null, materialGroup: "Glue", defaultMaterialId: "recMAT00000000001" }],
+  rates: [{ id: "recRATE0000000001", labourType: "Install", spec: "Glue down", contractor: "Crew A", uom: "sqft", rate: 4, cost: 1.5, labourCost: 1.2, minCharge: null, defaultWaste: null, materialGroup: "Glue", defaultMaterialId: "recMAT00000000001" }],
   stairs: [
     { id: "recSTAIR000000001", name: "Step", category: "step", size: null, rate: 90, cost: 50, labourCost: 35 },
     { id: "recSTAIR000000002", name: "Riser", category: "riser", size: null, rate: 30, cost: 12, labourCost: 12 },
@@ -85,11 +90,17 @@ describe("labourRate: what Titan pays for one unit, labour only", () => {
     expect(labourRate(line({ costOverride: 2.25 }), card)).toBe(2.25);
   });
 
-  it("takes the swapped material out of a Rate Card line", () => {
+  it("pays a Rate Card line the row's Labor Cost, only (2026-11-22)", () => {
     const l = line({ sourceKind: "rate", sourceId: "recRATE0000000001", materialId: "recMAT00000000001", unitCostSnap: 1.9 });
-    expect(labourRate(l, card)).toBe(1.5);
-    // A typed cost on a material line is the card's labour + the typed material: the labour is the card's.
-    expect(labourRate({ ...l, costOverride: 2.5 }, card)).toBe(1.5);
+    expect(labourRate(l, card)).toBe(1.2);
+    // Nothing typed on the line moves it: a cost override, the glue's cost, a whole-line cost.
+    expect(labourRate({ ...l, costOverride: 2.6, materialCost: 0.5 }, card)).toBe(1.2);
+    expect(labourRate({ ...l, manualCost: 900, qty: 300 }, card)).toBe(1.2);
+    expect(labourRate({ ...l, materialId: null, unitCostSnap: 1.5 }, card)).toBe(1.2);
+    // A blank Labor Cost leaves the rate blank to type.
+    expect(labourRate(l, { ...card, rates: [{ ...card.rates[0], labourCost: null }] })).toBeNull();
+    // A row no longer on the card: the line's own cost.
+    expect(labourRate({ ...l, sourceId: "recRATE0000000099" }, card)).toBe(1.9);
   });
 
   it("takes a Stair Item's material cost out, and leaves a labour-only snap from before 2026-10-31 alone", () => {
@@ -291,5 +302,84 @@ describe("storing", () => {
     expect(parsePayouts("")).toBeNull();
     expect(parsePayouts("pay Bob 500")).toBeNull();
     expect(parsePayouts('{"v":9,"cards":[]}')).toBeNull();
+  });
+});
+
+describe("flooring and stairs on one card (2026-11-17)", () => {
+  const header = { quoteNumber: "Q-1000", projectNumber: "PP-10", customer: "Pat Example", site: "1 Test St, Town", date: "Nov 17, 2026" };
+  const floor = () => option({ name: "Vinyl", scope: "Flooring", lines: [line({ qty: 400, unitCostSnap: 2 })] });
+  const stairs = () =>
+    option({
+      name: "Main stairs",
+      scope: "Stairs",
+      lines: [
+        line({ section: "Stairs", sourceKind: "stair", sourceId: "recSTAIR000000002", description: "Riser", qty: 12, unitCostSnap: 12, contractor: null, uom: "pcs" }),
+        line({ section: "Stairs", sourceKind: "manual", description: "Handrail", qty: 1, unitCostSnap: 100, contractor: null, uom: "each" }),
+      ],
+    });
+
+  it("puts a whole stairs option on one contractor's card with one pick", () => {
+    const f = floor();
+    const s = stairs();
+    const set = buildCards(quote([f, s]), [f.id, s.id], card, null);
+    expect(set.cards.map((c) => c.contractor)).toEqual(["Crew A", ""]);
+    expect(stairsOptions(set)).toEqual([{ option: "Main stairs", contractor: "" }]);
+    // No card for Crew B: the unnamed card holding only the stairs is named.
+    const b = assignOption(set, "Main stairs", "Crew B");
+    expect(b.cards.map((c) => [c.contractor, c.lines.length])).toEqual([["Crew A", 1], ["Crew B", 2]]);
+    // Crew A already has a card: the stairs join it, and the empty card goes.
+    const a = assignOption(b, "Main stairs", "crew a");
+    expect(a.cards.map((c) => [c.contractor, c.lines.length])).toEqual([["Crew A", 3]]);
+    expect(stairsOptions(a)).toEqual([{ option: "Main stairs", contractor: "Crew A" }]);
+    expect(assignOption(a, "Main stairs", "  ")).toBe(a);
+  });
+
+  it("prints flooring and stairs as their own sections with subtotals and one total", () => {
+    const f = floor();
+    const s = stairs();
+    const set = assignOption(buildCards(quote([f, s]), [f.id, s.id], card, null), "Main stairs", "Crew A");
+    const c = set.cards[0];
+    expect(scopeTotals(c)).toEqual({ split: true, flooring: 800, stairs: 244 });
+    const sheet = cardSheet(c, header);
+    expect(sheet.groups.map((g) => [g.option, g.lines.map((l) => l.description), g.subtotal])).toEqual([
+      ["Flooring", ["Install vinyl plank"], "$800.00"],
+      ["Stairs", ["Riser", "Handrail"], "$244.00"],
+    ]);
+    expect(sheet.total).toBe("$1,044.00");
+    expect(sheet.totalLabel).toBe("Total payout, flooring and stairs");
+  });
+
+  it("keeps a single-scope card as before, and reads old cards' stairs by section", () => {
+    const f = floor();
+    const sheet = cardSheet(buildCards(quote([f]), [f.id], card, null).cards[0], header);
+    expect(sheet.groups[0].subtotal).toBeUndefined();
+    expect(sheet.totalLabel).toBe("Total payout");
+    const old = { lines: [{ ...line(), id: "l1", ref: null, option: null, section: "Stairs", description: "Step", area: "", uom: "", qty: 2, rate: 10, cardRate: 10, on: true }] };
+    expect(scopeTotals(old as never)).toEqual({ split: false, flooring: 0, stairs: 20 });
+  });
+
+  it("keeps the scope through a save", () => {
+    const f = floor();
+    const s = stairs();
+    const set = buildCards(quote([f, s]), [f.id, s.id], card, null);
+    const back = parsePayouts(serializePayouts(set, "Sam", "2026-11-17T12:00:00.000Z"))!;
+    expect(back.cards.flatMap((c) => c.lines.map((l) => l.scope))).toEqual(["Flooring", "Stairs", "Stairs"]);
+  });
+});
+
+describe("typed payout receivers (2026-11-17)", () => {
+  it("moves a line to a typed name: their card, else a new card named for them", () => {
+    const o = option({ lines: [line({ description: "Install" }), line({ description: "Baseboard", section: "Moulding" })] });
+    const set = buildCards(quote([o]), [o.id], card, null);
+    const id = set.cards[0].lines[1].id;
+    const made = moveLineTo(set, id, "  Jo Helper ");
+    expect(made.cards.map((c) => [c.contractor, c.lines.map((l) => l.description)])).toEqual([["Crew A", ["Install"]], ["Jo Helper", ["Baseboard"]]]);
+    const back = moveLineTo(made, id, "crew a");
+    expect(back.cards.map((c) => [c.contractor, c.lines.length])).toEqual([["Crew A", 2], ["Jo Helper", 0]]);
+    expect(moveLineTo(set, id, " ")).toBe(set);
+    expect(moveLineTo(set, "l999", "Jo")).toBe(set);
+  });
+  it("adds a card with a typed name, trimmed", () => {
+    expect(addCard(emptySet(), "  Sam Crew  ").cards[0].contractor).toBe("Sam Crew");
   });
 });

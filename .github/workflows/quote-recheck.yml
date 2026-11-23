@@ -1,0 +1,35 @@
+name: Quote recheck
+
+# Twice a day the staff quote app re-reads every open quote's conversation (Albert, 2026-11-13; vault
+# 05_decisions/2026-11-13-quote-price-given-outside-app): briefs are rewritten from the whole thread (internal comments,
+# call summaries, appointments, "I'll let you know"), and a price staff gave by text or on a call marks the quote sent
+# outside the app. It sends nothing to any customer. Off until QUOTE_STAFF_URL and QUOTE_FOLLOWUP_KEY are both set.
+# About 8am and 2pm Toronto: 13:05 and 19:05 UTC in winter (EST), an hour later in the clock in summer (EDT).
+
+on:
+  schedule:
+    - cron: "5 13,19 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: quote-recheck
+  cancel-in-progress: false
+
+jobs:
+  recheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Recheck open quotes
+        env:
+          QUOTE_STAFF_URL: ${{ secrets.QUOTE_STAFF_URL }}
+          QUOTE_FOLLOWUP_KEY: ${{ secrets.QUOTE_FOLLOWUP_KEY }}
+        run: |
+          if [ -z "$QUOTE_STAFF_URL" ] || [ -z "$QUOTE_FOLLOWUP_KEY" ]; then
+            echo "QUOTE_STAFF_URL or QUOTE_FOLLOWUP_KEY is not set; the recheck is off."
+            exit 0
+          fi
+          curl -fsS --max-time 320 -X POST "${QUOTE_STAFF_URL%/}/api/followups/recheck" \
+            -H "Content-Type: application/json" \
+            -H "x-quote-key: $QUOTE_FOLLOWUP_KEY" \
+            -d '{}'

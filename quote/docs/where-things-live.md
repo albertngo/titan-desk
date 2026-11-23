@@ -144,6 +144,58 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   Basis Measured have gone out (Sent At set, no longer a Draft; changes not counted, `measuredOut()` in `savePlan.ts`), the
   editor offers Measured only, on Goes out as and on The next draft is, and the server refuses Preliminary on both
   (`prelimRefusal()`, `measuredOutFor()` in `load.ts`). One measured quote out still allows a preliminary. Tested in `tests/save.test.ts`.
+- **Copy options from a past quote (Albert, 2026-11-16: "REUSE a quote from the past, for another quote… while
+  'creating another quote' or when I'm 'in a quote edit'").** The editor's **+ From old quotes** (beside + Add option and
+  + From quick form, staff only, never in Customer view) searches past quotes with All quotes' own `matchesSearch()` (the quote
+  being edited left out, versions without options left out, 12 at most), opens one version's options with their
+  list price before discounts and HST, and copies the ticked ones in as new options: an unsaved editor change, saved
+  like any other (`copyPastOptions()` in `src/lib/editor/past.ts`; reads in `src/lib/quotes/past.ts`, which writes
+  nothing). Kept: name (made distinct, "Name (2)"), description, lines, service level, crew, scope, Part, Private
+  label, the option's own HST. Left behind: Recommended, Not offered, a square-feet OK, every Discounts-section line
+  (typed discounts, the accepted price discount, the contractor 10%, which `settleContractor()` works out again) and
+  the accepted price adjustment. Card lines are re-priced from today's Rate Card / Stair Items at the option's level
+  (`refreshLine()`); a typed price or cost stays as typed; a line whose row or material is gone keeps its old figure
+  and the note after the copy counts it. A measured version's copied flooring option gets Delivery when it has none
+  (`withFees()`). Not offered options start unticked. **New quote's Start from a past quote** (both screens) only
+  picks a version: `startQuoteAction()` starts the quote as usual and opens `/q/<id>/edit?copy=<version>`, where the
+  panel opens on that version with its options ticked; nothing is copied until Copy is pressed. **Duplicate quote**
+  (same day: "In the quote main screen. You can 'duplicate a quote' but have to fill in for new customer details") on
+  the quote page beside Edit quote (staff only, any status, a version with options) opens `/new?from=<version>`: the
+  full New quote screen titled Duplicate quote, basis starting as that version's (`duplicateOf()` in
+  `src/lib/quotes/past.ts`), any customer and any opportunity picked as usual. Create opens
+  `/q/<id>/edit?copy=<version>&all=1`, and the editor copies every offered option as it opens (`autoCopy`), by the
+  same rules; Not offered options are not duplicated. The copied quote's customer, site, opportunity, description,
+  discounts and payment schedule are never carried over. Tested in `tests/past.test.ts`.
+  **An exact copy (Albert, same day: "Can we copy over the quotes exactly, including the discounts per option"),
+  replacing the copy rules above.** Every line comes over at the price it had (no re-pricing), with every
+  Discounts-section line, the accepted price discount and its adjustment, the contractor 10%, Recommended (unless an
+  option of the same Part here is already recommended), Not offered and the square-feet OK; no Delivery is added.
+  Every option starts ticked, Not offered ones too, and Duplicate quote copies them all. An old version-wide discount
+  rate is handed to each option as its own accepted price first (`detachVersionDiscount()`, in `pastOptions()` for
+  the source and in `copyPastOptions()` for the quote copied into), so the copy's totals match. The panel shows each
+  option's price after its discounts, before HST; the note after a copy counts card lines whose price today differs
+  (`cardPriceNow()`), kept as copied.
+- **Create CompanyCam + folder (Albert, 2026-11-16: "a button there to officially 'create' the Ccam folder and run the
+  whole 'booked' process to give the folder and Ccam process? But the address doesn't have to be set as confirmed").**
+  On the quote page, staff only, while the quote has a GHL contact and neither a folder nor a CompanyCam link. It asks
+  first, then `requestJobFiles()` in `src/lib/quotes/jobFiles.ts` posts GHL's own webhook fields for this quote to Make
+  3453735 (`bookedRunPayload()` in `src/lib/link/booking.ts`: the contact, the opportunity, the site as it stands,
+  confirmed or not), plus `quote_record_id` and `manual`, an HMAC of the quote and contact keyed with
+  `QUOTE_BOOKING_KEY` (`jobToken()`). The scenario's first request passes both to `/api/booking`, where `fromApp()`
+  answers for exactly that quote: no match against other quotes, no site confirmed, no opportunity made, and no
+  opportunity body, so Make skips its opportunity update. The rest of the run is a booking's: the CompanyCam project at
+  the quote's site, the OneDrive folder with Project Expectations, the INQ/QE sheets, and the links on the quote, the
+  contact and the opportunity. It needs a site address (CompanyCam is made at it) and refuses a second ask within 15
+  minutes (`lastAsk()` reads the Notes line each ask leaves), because a second run before the links land would make a
+  second folder. **Make change:** module 200's body gains `"quoteRecordId"` and `"manual"` from
+  `52.customData.quote_record_id` / `.manual`; GHL never sends them, so a real booking is unchanged. Set
+  `QUOTE_MAKE_BOOKING_HOOK` only after that change. Tested in `tests/jobFiles.test.ts` and `tests/boundary.test.ts`.
+  **The job folder on the opportunity (Albert, 2026-11-18: "add folder field").** GHL's opportunity field **Job Folder**
+  (`OPP_FIELDS.jobFolder`, made by Albert) holds the OneDrive folder's link. Make 3453735's opportunity steps (206 and
+  207) write it with the CompanyCam URL, on every run, booked or from the button; their filter is now "the job has an
+  opportunity and either link was made". Linking a quote (`buildLinkJob()`) and making its opportunity (`buildNewJob()`)
+  carry the quote's folder link too, and a job that already has its own folder keeps it, as with CompanyCam. The
+  button's run also sends `first_name` / `last_name`, which the INQ and QE sheets' name cells read.
 - **Where they found us (Albert, 2026-10-27).** A preliminary's customer step asks **Where did they
   find us?** from a fixed list (`ORIGINS` in `src/lib/link/origin.ts`). The pick is the most
   trusted answer: it goes into the GHL contact's **Quote Origin** custom field (`CONTACT_ORIGIN_FIELD`),
@@ -277,7 +329,7 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   `methodCost` too; both parts on the card = no override). A line typed before the split has no glue figure: its method
   reads as the card's and the glue as the rest, as it did. Swapping the glue keeps a typed method and brings the new
   glue in at its card figure; Back to the card, a method switch and a whole-line revert clear both. Payout cards pay
-  the cost override less the typed glue cost when there is one (`labourRate()`).
+  the Rate Card row's Labor Cost (`labourRate()`, since 2026-11-22).
   **Line words from Customer Wording** (same day: "draft the wordings, use everywhere"): Rate Card → **Customer
   Wording** names the work and Install Materials → **Customer Wording** the glue (both made that day; blank = the row's
   own "Labor Type | Specification" or Name). A line reads `entryWords()` + `materialPart()`, e.g. "Solid Hardwood T&G
@@ -525,8 +577,13 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   in-home measurement calendar on its measure step; both GHL calendar ids in `src/lib/ghl/ids.ts`),
   and a transactional footer from the letterhead: no carousel, no click tracking, no unsubscribe. **No HST number** on the page, the PDF or the email (Albert, 2026-10-27: "This is just an estimate, so it's not like a formal invoice"); `QUOTE_COMPANY_HST` is no longer read. The
   accent is the logo's blue (`#283890`), not the old template's terracotta. Tables and inline styles
-  only, 600px collapsing under 620px, no web fonts. The text names who is writing, gives the one
-  number, puts the link on its own line and stays in GSM-7 (no curly quotes or emoji). **Preview the
+  only, 600px collapsing under 620px, no web fonts. The text names who is writing, gives a
+  preliminary's one number (its range), puts the link on its own line and stays in GSM-7 (no curly quotes or emoji).
+  **A measured quote's text and email preheader name no price (Albert, 2026-11-22: "I would want them to open the
+  link", for tracking):** the text says the quote is ready (with N options side by side, good until the date) and
+  "See your price and the full details here:", so the customer opens the page, the open is recorded and the
+  next-day call follows. The email's cards still show the price (opening an email is not tracked); a preliminary
+  keeps its range in both; resends, changes and the accepted message are unchanged. **Preview the
   email** on the Send card (`/q/<id>/preview/email`) shows it exactly as GHL will send it. The
   customer page `/c/<token>` carries OpenGraph tags so the link's preview card in a text shows the
   logo (`public/brand/og.png`), never the customer or the amount. **A preliminary always opens "Thanks for
@@ -670,6 +727,36 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   Airtable's own last-modified fields would name the app's token for everyone. The quote page shows a
   **History** card, newest first, staff only. Pure helpers in `src/lib/quotes/history.ts`, tested in
   `tests/history.test.ts`.
+- **Show history on All quotes, and the staff note (Albert, 2026-11-20: "review what has changed, whose account made
+  the last sent version, and a short description on those changes … a per quote show history"; "Jsut the quote app
+  front desk"; "its an optional note"; the note goes in GHL "only after the text sms goes out … add it to that
+  internal message"; then "put the history right below each individual quote line … right under it instead of a
+  separate history section").** Opening a quote's row on All quotes reads its history once, and each version that went
+  out (Sent At and a frozen copy) carries its own right under its line, with Sent By as a first name (`firstNameOf()`, info@ = Joey), how it went (from
+  the send's Edit Log line, else Sent To), the staff note, and what changed since the version sent before it, from the
+  two frozen customer copies (`copyChanges()`). **One line per option** (Albert, 2026-11-20: "a simple one liner to
+  describe so its easy to see. Sqft and Prices noted"): name, install sqft (`installSqft()`: Install lines in sqft, as
+  the material check counts them) and price before HST or the range, an arrow where either moved, "(new)" or "removed
+  (was …)"; options pair by name, a lone option renamed. Behind **Details**: lines through `diffOptions()` in
+  `src/lib/change/diff.ts`, range/exact, lump/breakdown, discount, good-until. Send
+  again lines show under their version. The working draft's line says who last saved it. Not on Follow up.
+  **Also at the top of the quote page and the editor** (Albert, 2026-11-20: "at the top next to the name? A small
+  scrollable section for ease of use but out of the way", "to the left touching the left column", then "it does not have
+  to be 'sticky'. But it is good to have a 'pop out' so it will open as a modal if pressed"): `HistoryPanel` in
+  `src/components/QuoteHistory.tsx`, at the top of the left column under the sticky header (not in it, so it scrolls
+  away with the page), 116px tall and scrolling, the version on screen highlighted, Details shortened to one line.
+  **Pop out** opens `HistoryModalView` (drawn on the body), the whole history with every Details list open; Close or
+  Esc. Staff only: never in Customer view.
+  Read only when a row is opened (`useSendHistory()` in `src/components/QuoteHistory.tsx`, cached per page view by the
+  quote's versions and statuses → `sendHistoryAction()` → `loadSendHistory()` in `src/lib/quotes/sendHistoryLoad.ts`),
+  so the list loads no copies; shaped by `sendHistory()` in `src/lib/quotes/sendHistory.ts`, tested in
+  `tests/sendHistory.test.ts`. **The staff note** is optional, one line, at most 140 characters
+  (`src/lib/quotes/staffNote.ts`), on the Send card (Send and Mark as sent) and on Send again. It is kept at the end
+  of that send's Edit Log line after ` · note: ` (no new Airtable field: the Edit Log is the version's record of
+  what happened, 2026-10-22's decision), and on a Send it is the last line of GHL's internal comment and contact note
+  (`sentComment()`), which post after the email and the text. Mark as sent and Send again post no GHL comment, so
+  their note shows only under the version. Never in the customer copy, the email, the text, the page or the PDF; the test
+  checks send.ts passes it to none of them.
 - **The customer deployment (2026-10-15).** Customer links `/c/<token>` and their PDFs are served by
   a second Vercel project on this folder with `QUOTE_MODE=customer` and a read-only Airtable token,
   never by the staff app (root rule: a public page never shares a deployment with a write token).
@@ -841,10 +928,31 @@ the behaviour it describes.** New bullets go here, with a line in the index.
     `settleContractor()`): an option whose accepted price is set, and was not itself just set, reset or cleared
     (`acceptedSig()`), keeps its price before HST to the cent, its accepted price discount taking up whatever moved
     (discount items, the slider, the Contractor level, lines), so only the margin and total discount % change. A change
-    that could only be held with a markup is **refused**, never reset: nothing changes and the editor says so, above the
-    lines and above the card, until Reset. A price typed at the price as it stands pins it (a $0 accepted line). The card
+    that could only be held with a markup was **refused** until 2026-11-21; since then it is held with the private
+    adjustment line behind a confirmation (below). A price typed at the price as it stands pins it (a $0 accepted line). The card
     shows **Held** and says what moves instead. This replaces "a slider change that would need a markup resets it".
     Tested in `tests/discounts.test.ts`.
+  - **The accepted price is what the customer pays, HST included (Albert, 2026-11-21: "It should be the FINAL value
+    they pay, accounting for all labor and material HST if there is any").** The first box is now **Customer pays**,
+    labelled with HST, with HST on materials, or no HST, as the option charges it; typed, it goes through
+    `setAcceptedTotal()`, which finds the price before HST that lands that total and sets it with `setAcceptedPrice()`,
+    so the accepted price discount is still a pre-tax line and calc.ts and Airtable are unchanged. HST rounds to the
+    cent, so now and then a total is a cent off every reachable one and the nearest is taken. **What is held is the
+    total:** `holdAccepted()` and `keepAccepted()` keep what the customer pays, so turning HST on takes the HST out of
+    the price before HST. **Locked whatever it takes, behind a confirmation (Albert, same day: "As long as the price
+    stays locked at what was typed. you can adjust the hst and margin as much as needed to account for it. If there
+    needs to be a warning modal popout to confirm the change and what has been affected. id much rather have that"):**
+    a change that could only be held above the list price (HST turned off, a material losing its HST, a line deleted,
+    a bigger discount) is no longer refused. The difference goes in as the private "Accepted price adjustment" line
+    (`holdAtPrice()`; the customer reads it in the Private row), the accepted discount stays at $0 with its reason, and
+    Reset takes both off. Every option whose HST changed or that needed that markup comes back in `holdAccepted().confirm`
+    and the editor applies the change only after **HoldConfirm** (`HoldConfirm.tsx`): per option, what the customer pays
+    (locked) and the price before HST, HST, profit and margin now and after, flagged under the 20% minimum. A change the
+    accepted discount takes up on its own asks nothing. Refused only when nothing priced is left to hold the price on.
+    A price typed in the card still never goes above the list (2026-11-04). The ceiling and the refusal read as totals (`totalCeiling()`, `HoldRefusal.total`);
+    the discount % and margin boxes still mean a price before HST. The readout adds HST and Customer pays, and the
+    20% minimum's Set button names the total. The Analysis tab's If they accept a price takes the total too
+    (`atAcceptedTotal()`). Tested in `tests/discounts.test.ts` and `tests/accepted.test.ts`.
   - **Margin and profit** under the boxes (list price, items, adjustment, price, cost, profit, margin),
     and an **(i)** with the lowest price that keeps the **20% margin minimum** (`MIN_MARGIN_PCT`,
     `priceForMargin()`, rounded up to the cent); under it the card says so and offers to set it. Customer
@@ -859,7 +967,7 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   for the page and the PDF: `discountRows()` in `copy.ts`; a long reason wraps in the PDF. The email and
   the text are unchanged: they lead with the price only. Tested in `tests/send.test.ts`.
 - **If they accept a price (Albert, 2026-10-22).** The Analysis tab opens with a card where staff type
-  the pre-tax amount the customer agreed to, or a discount %, and see the discount it implies against
+  the amount the customer agreed to (what they pay, HST included where charged, since 2026-11-21), or a discount %, and see the discount it implies against
   the list price and the cost, profit and margin left, beside the quote as it stands. Analysis only:
   nothing is saved and the quote's discount is not changed; applying it is still an edit. Staff only:
   the server never renders it in Customer view, so cost never reaches that page. Pure maths in
@@ -1027,7 +1135,17 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   (`buildWon()` in `src/lib/link/ghlRequest.ts`; the stage is found by name, `wonStageId()`); then the
   **acceptance email** (the stamped accepted PDF and the Project Expectations attached; the one deposit
   request: the amount, "e-transfer to `QUOTE_ETRANSFER_EMAIL` and put Q-1234 in the message"; the PM sets
-  the date) and the text, by the channels the quote went out by. GHL's own on-win deposit text is switched
+  the date) and the text. **One text with everything (Albert, 2026-11-22: "put the instructions into SMS form and send it out
+  for the deposit and payment schedule. This could be one SMS altogether along with the link to the accepted quote
+  details. Email is the same"):** the text gives the deposit and how to pay it, then the schedule one line a stage
+  (`smsSchedule()` in `src/lib/send/plan.ts`, the email's stages and notes, GSM-7), then the link; the email and the text
+  both go whenever the quote has an email address and a phone number, whatever the quote first went out by.
+  **What a material deposit is for (Albert, 2026-11-22: "If it is for material deposit. It should say 'For purchasing
+  of the Flooring material before delivery' or something similar"):** `MATERIAL_PURPOSE` in `src/lib/pricing/schedule.ts`,
+  "for purchasing your flooring material before delivery", on the deposit lines (`depositSteps()`), the text
+  (`smsDepositHow()`, its own sentence after how to pay), the sent email's schedule words (`paymentWords()`) and the
+  note under a Materials stage still on the preset's words (`stageNote()`); typed words and `MATERIAL_FIRST_WHEN` stay.
+  This amends "the customer's words give the amount and how to pay, never why" above for the material only; HST is still never the reason given. GHL's own on-win deposit text is switched
   off when this goes live. The yes is written first and stands whatever happens after: a failed hand-off
   is kept on the record and staff **Retry** it; **Cancel acceptance** (with a reason) sets the version
   Lost and the opportunity lost and leaves the Notion project to a person. The customer's link then shows
@@ -1059,7 +1177,9 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   carries an amber band pinned to the top ("Accepted quote · Change N", whose accepted quote it is, and the
   difference against the contract with HST), an amber rule down the page edge, and **Save change N** as its save
   button. Display only (`.change-band` in `globals.css`).
-- **Changes after acceptance (Albert, 2026-10-27: "verbal, sent for record").** The accepted version
+- **Changes after acceptance (Albert, 2026-10-27: "verbal, sent for record").** **Taken as accepted (Albert, 2026-11-23):** the change's email, text and page say
+  "These are the changes we talked through together, so we'll go ahead with them. If anything doesn't look
+  right, let your project manager know right away and we'll sort it out." (`CHANGE_ACCEPTED_WORDS` in `src/lib/change/diff.ts`). The accepted version
   stays frozen. **Make a change** on the contract version starts a new version of the same quote,
   numbered (Quote Versions → **Change No** 1, 2, …): only the accepted option, its ticked add-ons now part
   of the work, the others gone, and a schedule where every agreed stage keeps its dollars and the final
@@ -1111,6 +1231,11 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   never sent (Albert, 2026-10-31: "as a safeguard, not even an option"): shown greyed and unselectable on the Send card, dropped by `chooseOptions()` even when a send names it (and refused by `sendProblems()`), a grey struck-through tab labelled Not offered and a note above the option.
   Both join the editor's option only when set (absent, never null or false), so drafts saved before them keep their
   fingerprint. Tested in `tests/scope.test.ts`.
+  **The option a quote opens on (Albert, 2026-11-20: "When something is 'not offered' can we ensure only the next
+  'open' option is selected as default? rather than the first one on the list"):** the quote page, the editor (on
+  load, after Discard and after deleting an option) and Analysis's accepted price open on `firstOpenOption()` in
+  `src/lib/quotes/scope.ts`: the first offered option in tab order (flooring, then stairs), else the first tab.
+  A link with `?opt=` still opens that option, offered or not. Tested in `tests/scope.test.ts`.
 - **One working quote (Albert, 2026-10-30; vault `05_decisions/2026-10-30-quote-one-working-quote`).** Staff work on
   one quote and its options; versions are the send history. **No Save as new version button**: a Draft saves in place;
   a sent version's editor saves **as the next draft** (`saveAsNewVersion()`, every option carried over, the basis picked
@@ -1221,8 +1346,9 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   options' lines (`payoutCandidates()` / `groupCards()` in `src/lib/payout/cards.ts`). Chosen by Albert the same day:
   Install, Stairs, Removal, Prep and Disposal lines start **ticked**; Delivery, Other, Private and unsorted lines are
   listed **unticked**; Materials, Discounts and Exclusions never appear; an add-on counts only when the customer took it.
-  **The rate starts at our labour cost** (`labourRate()`): a Rate Card line with a swapped material pays the row's cost
-  without the material (the card's labour when a cost was typed, as `materialSplit()` reads it); a Stair Item pays its
+  **The rate starts at our labour cost** (`labourRate()`): a Rate Card line pays the row's **Labor Cost**, only
+  (Albert, 2026-11-22: "Simply ONLY use the rate card's labor cost for labor payouts"; typed costs and the glue never
+  change it, a blank Labor Cost leaves the rate to type, a row since switched off falls back to the line's cost); a Stair Item pays its
   Labor Cost without its Material Cost (a line snapped before 2026-10-31 already holds labour only; `getRateCard()` now
   carries `labourCost` on Stair Items); anything else pays the line's cost (override, then snap); a typed whole-line
   cost is spread over the quantity. The quantity is the line's own, **without waste**. Staff tick and untick, retype
@@ -1241,6 +1367,23 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   again** adds a new photo, never replaces one. **One click (2026-11-05):** with unsaved changes the button reads
   **Save and push** and saves the cards first (the same compare-and-swap save), then pushes the card as saved. Preview shows the picture with Download. Not done (Albert, same day: "not
   now"): Notion's Project Costs lines stay by hand. Tested in `tests/payout.test.ts`; screen `src/components/PayoutCards.tsx`.
+  **Stairs contractor, and flooring and stairs apart (Albert, 2026-11-17: "stairs option should be able to CHANGE the
+  payout easily through a whole select; since it is always one contractor that does it. But the printout or the export
+  should separate sections for flooring; or stairs. But provide a total altogether").** Each card line keeps the scope of
+  its option (`scope`, from `optionScope()`; absent on older cards and typed lines, read as Stairs for a Stairs-section
+  line, else Flooring, `lineScope()`). The tab lists each stairs option on the cards under **Stairs contractor** with one
+  select (`stairsOptions()`); a pick moves every line of that option onto that contractor's card (`assignOption()`: their
+  card by name, else an unnamed card holding only that option is named, else a new card; a card left empty with no push
+  or note is dropped). A card with ticked lines of both scopes reads "Flooring $… · Stairs $… · Total $…" and its
+  picture (`cardSheet()`) groups Flooring then Stairs, each ending on its subtotal, with "Total payout, flooring and
+  stairs"; a one-scope card prints as before. The card's push signature is unchanged by this. **Typed payout receivers
+  (same day, Albert: "Payouts should be fluid; and new contractor sections can be created and named manually. This is
+  until the rate card items with included contractors are more finalized… having the option to type our own payout
+  receiver is a good backup"):** **+ New contractor** (was + Add card) asks for a name and adds that card (`addCard()`,
+  trimmed, 80 characters); a line's **Move…** and the Stairs contractor select end with **+ New contractor…**, which
+  asks for a name and moves the line, or the whole staircase, to that name's card, made if missing (`moveLineTo()`,
+  `assignOption()`; names match without case). A card's name stays a free text box with the Rate Card's contractors only
+  suggested.
 - **Typed lines saved for next time, and logged (Albert, 2026-11-01: "When we add custom items and the quote ends
   up being SENT… make it so that those items are created for next time use and make them 'require review'… There
   should be a log of where it was used so I can ensure it wasn't wrongly charged").** After a quote is sent (never
@@ -1510,3 +1653,24 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   `src/lib/send/sendAs.ts` reads the newest sent version's frozen copy: `pricing` gives lump sum or breakdown, and a
   preliminary's options having a `range` gives range or exact. A draft's card defaults to it and says "Last version
   (v2) was sent as a breakdown." under Pricing shown (or Price shown). `lastSentWayFor()` in `send.ts`.
+- **Prices given outside the app, and the twice-a-day recheck (Albert, 2026-11-13; vault `05_decisions/2026-11-13-quote-price-given-outside-app`: "read the context and update 2x a day… (internal comments, appts, 'ill let you knows' etc) before categorizing"; "When a manual quote is provided through sms or phone convo; the system should 'create' a draft… as a custom item in the install section with the price… mark it as 'sent' but note that it was given through another channel"; "app should read on its own. and use the already available quote. creating a new one only if it needs to"; "As of right now; no quote should auto sent"; "keep auto follow-ups off for now").** `runRecheck()` in `src/lib/quotes/followup.ts`, at `/api/followups/recheck` (key-gated like 2c'''), called at about 8am and 2pm Toronto by `.github/workflows/quote-recheck.yml`. **First**, open quotes (not won, accepted or lost, with a GHL contact; the newest 80) have their thread read; `priceCandidates()` in `src/lib/followup/offchannel.ts` keeps our own human texts, emails and chats and internal comments (call summaries) with a dollar figure since the quote was made and since the last find, never the app's own notes or a customer's message; only those go to Claude (`offChannelPrompt()`, 25 a run), and `cleanOffChannel()` refuses an answer that doesn't point at one of them. **Firm** (one price for named work): an option on the newest version within a dollar of it, with or without HST, is used (`matched`); else, only when the newest version is a Draft, `addOutsideOption()` in `src/lib/quotes/outside.ts` adds ONE option named "Price given by text 2026-11-13" with ONE custom Install line, flat, qty 1, at the amount, HST charged only when the words said "plus HST" (`added`); on a version the app already sent nothing is added (`noted`). **Ballpark** (a range, "around"): `noted` only, never marked sent. The find is kept as Quotes → Follow Up `offChannel` (compare-and-swap) and a History line on the newest version. **Marked sent** (`sentOutside()`): a firm find with no app send after it. The version is not written: Follow up reads the draft as sent at the time the price was given (`waitingOrOutside()`), with the chip Sent by text / Sent by email / Given on a call and the note; All quotes shows the same chip; the Send card on the draft is headed **Send formal copy** with the note, and sends only on a person's press, the normal send. Auto follow-ups never take such a row (`autoWhy`). **Second**, every Follow up row in any section whose brief is over 4 hours old or stale is rewritten from the whole thread (40 a run). Nothing in the recheck sends anything to anyone. A contact with no quote in the app at all is not looked at yet.
+- **Catalogue SKUs in the editor's Materials picker (Albert, 2026-11-17: "we should be able to also search for a SKU for
+  flooring materials in the edit quote app from the catalogue").** In the Materials section only (never on a stairs
+  option), the picker also asks `searchCatalogueAction()` (`src/app/q/[id]/edit/actions.ts` → `searchProducts()` in
+  `load.ts`) after 3 characters: active catalogue products whose SKU, name, collection or brand hold every word, an exact
+  SKU first, then a SKU starting with it (`rankProducts()`), 12 at most. Picking one adds a `product` line from
+  `productLine()` in `src/lib/editor/model.ts`: "Name (SKU)", retail as the card price and catalogue cost as the cost
+  snapshot, per sqft, qty 1, 10% waste (15% herringbone or tile, as `materialWaste()`). Premium does not mark it up
+  (materials never are). The Customer view hides its cost. Read-only: the catalogue is never written. Tested in
+  `tests/editor.test.ts`. **Box size (same day, Albert: "Can the material catalogue selection also show sf/b"):** both
+  product pickers (this one and the quick form's Choose a specific product, its standard product too) show the
+  catalogue's Box Size (sf) as "22.5 sf/box" (`boxText()`, `CAT.boxSf`); none on file shows nothing. Display only: it
+  changes no quantity or price. **Whole boxes (same day, Albert: "a button calculator to help 'adjust' the quantity to
+  match the desired types sf so that it becomes equal number of boxes"):** under a product line's material math the
+  editor shows what it orders in boxes and, when that isn't whole, a **Round up to N boxes** button. `fullBoxes()` in
+  `model.ts`: the next whole box up of Qty x (1 + Waste), and the quantity that orders it with the same waste, rounded up
+  to the cent so it is never short (within 0.02 sf counts as whole). It changes the Qty only, never the waste. Box sizes
+  come from `productBoxesAction()` → `productBoxes()` in `load.ts` (read-only, by record id) and live in the editor's
+  state, never on the line, so the quote's fingerprint is untouched. Tested in `tests/editor.test.ts`.
+- **Send-as permissions and Mark as sent in Settings (Albert, 2026-11-17: "for admin ALBERT only. I should be able to mark a quote as sent. without having to actually send it. Is it possible to mark certain permissions in a settings tab that I can edit? As of right now; Albert can choose to sent from anyone. including myself. Joey and Pourya are staff; and can send from either one of them except for alberts").** Two `emails` settings in `src/lib/settings/registry.ts`, group "Sending: who as whom", each Albert by default and each may be cleared to nobody. **Nobody else can send as** (`onlyThemselves`) replaces the hard-coded `ONLY_THEMSELVES` (still its default, and the pure functions' fallback): each address on it can send as anyone and is a choice only for itself; everyone else can send as each other (`sendAsChoices()` / `resolveSender()` in `src/lib/send/sendAs.ts`, given the list by `src/lib/quotes/send.ts`; invoices and receipts follow through `pickSender()`). **Who can mark a quote sent without sending** (`markSentEmails`, `canMarkSent()`): only they see **Mark as sent, send nothing** on a draft's Send card. `markQuoteSent()` in `src/lib/quotes/send.ts` runs the send's checks less email and text (`sendProblems(..., { markOnly: true })`), freezes the same copy and link (`buildCopy()`, shared with `sendQuote()`), and writes the version Sent, Sent By the person picked on the card, Sent To `Marked sent`, tracked, with an Edit Log line saying nothing went. Older versions are superseded, a change becomes the contract, typed lines are saved, as on a send. Nothing goes to the customer: no email, no text, no follow-up tag, no GHL comment. The Sent card reads "Marked sent <date>. Nothing went to the customer from the app".
+- **GHL's value follows every send (Albert, 2026-11-17: "yes, push the value to GHL on first send too. essentially it is always live data from the quote app").** A send or a Mark as sent of anything but a change sets the GHL opportunity's `monetaryValue` to what went out: `sentValue()` in `src/lib/quotes/group.ts` reads the frozen copy's options the way the Value column reads an offer and takes its `likely` (the recommended option per part, else the cheapest), with HST; flooring and stairs always count one of each (Albert, same day: "if there are stairs and flooring; add one of each. otherwise your logic"), so options group by scope, then part. `recordValue()` in `src/lib/quotes/send.ts` sends it through Make's `link` route (`buildValue()` in `src/lib/link/ghlRequest.ts`: value only, never stage, status or the accepted-quote link), skips a quote that already has a contract (acceptance and changes own the value then), and never stops a send; a failure is in the warning with the figure to type in. A change still goes through `recordContract()`. Notion follows GHL as it already does.

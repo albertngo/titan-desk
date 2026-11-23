@@ -127,7 +127,8 @@ export function buildGhlRequest(i: GhlRequestInput): GhlRequest {
  * Linking a quote that says Needs linking to the job staff picked (2026-10-15). Same "link" route
  * through Make as starting a quote on an existing opportunity, with the contact left as it is (an
  * empty update). The job gets the quote number, the site if the quote's is confirmed, and the
- * CompanyCam link if the job has none; a job that was lost or abandoned is set back to open.
+ * CompanyCam link if the job has none; a job that was lost or abandoned is set back to open. Since 2026-11-18 the
+ * quote's job folder goes on the job's Job Folder field the same way, when the job has none.
  */
 export function buildLinkJob(i: {
   contactId: string;
@@ -136,10 +137,12 @@ export function buildLinkJob(i: {
   quoteNumber: string;
   site: { address: string | null; city: string | null } | null;
   companyCamUrl: string | null;
+  folderUrl?: string | null;
 }): GhlRequest {
   const fields = [
     ...oppFields(i.quoteNumber, i.site ?? { address: null, city: null }),
     ...(i.companyCamUrl ? [{ id: OPP_FIELDS.companyCamUrl, field_value: i.companyCamUrl }] : []),
+    ...(i.folderUrl ? [{ id: OPP_FIELDS.jobFolder, field_value: i.folderUrl }] : []),
   ];
   return {
     mode: "link",
@@ -167,6 +170,7 @@ export function buildNewJob(i: {
   stageId: string;
   site: { address: string | null; city: string | null } | null;
   companyCamUrl: string | null;
+  folderUrl?: string | null;
 }): GhlRequest {
   return {
     mode: "new-opportunity",
@@ -183,6 +187,7 @@ export function buildNewJob(i: {
       customFields: [
         ...oppFields(i.quoteNumber, i.site ?? { address: null, city: null }),
         ...(i.companyCamUrl ? [{ id: OPP_FIELDS.companyCamUrl, field_value: i.companyCamUrl }] : []),
+        ...(i.folderUrl ? [{ id: OPP_FIELDS.jobFolder, field_value: i.folderUrl }] : []),
       ],
     }),
   };
@@ -285,6 +290,15 @@ export function buildContract(i: { contactId: string; opportunityId: string; tot
     contactBody: JSON.stringify({}),
     oppBody: JSON.stringify({ monetaryValue: i.total, ...(acceptedQuoteField(i.link).length ? { customFields: acceptedQuoteField(i.link) } : {}) }),
   };
+}
+
+/**
+ * A quote sent, or marked sent, before any acceptance (Albert, 2026-11-17: "push the value to GHL on first send too.
+ * essentially it is always live data from the quote app"): the opportunity's value is what went out, with HST. Value
+ * only: stage, status and the accepted-quote link are left alone.
+ */
+export function buildValue(i: { contactId: string; opportunityId: string; total: number }): GhlRequest {
+  return { mode: "link", contactId: i.contactId, opportunityId: i.opportunityId, contactBody: JSON.stringify({}), oppBody: JSON.stringify({ monetaryValue: i.total }) };
 }
 
 /** Cancelling an acceptance (staff, with a reason): the opportunity is lost. The Notion project is left to a person. */

@@ -97,3 +97,10 @@ export function itemDifference(c: ChangeItem): number | null {
   if (c.kind === "removed") return c.before.amount === null ? null : -c.before.amount;
   return c.before.amount !== null && c.after.amount !== null ? round2(c.after.amount - c.before.amount) : null;
 }
+
+/**
+ * What a change's email, text and page say about agreement (Albert, 2026-11-23: "it is assumed that there will be
+ * wording that describes the changes to be assumed relayed and accepted. If there is a dispute, please contact your
+ * project manager right away"; "can we make it friendlier?", same day). Straight apostrophes only: it goes in the text too (GSM-7).
+ */
+export const CHANGE_ACCEPTED_WORDS = "These are the changes we talked through together, so we'll go ahead with them. If anything doesn't look right, let your project manager know right away and we'll sort it out.";

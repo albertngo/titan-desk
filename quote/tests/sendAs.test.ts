@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { lastSentOf, lastSentWay, lastSentWords, ONLY_THEMSELVES, resolveSender, sendAsChoices } from "../src/lib/send/sendAs";
+import { canMarkSent, lastSentOf, lastSentWay, lastSentWords, ONLY_THEMSELVES, resolveSender, sendAsChoices } from "../src/lib/send/sendAs";
 
 /* Send as someone else (2026-11-04; opened to everyone 2026-11-05). Invented addresses except Albert's. */
 
@@ -24,12 +24,31 @@ describe("send as (2026-11-05)", () => {
     const choices = sendAsChoices(pat.email, allow, "hello@titanfloors.ca", users);
     expect(resolveSender(pat, "info@titanfloors.ca", choices)).toEqual({ ok: true, sender: { email: "info@titanfloors.ca", name: null }, as: true });
     expect(resolveSender(pat, "outside@example.com", choices).ok).toBe(false);
-    expect(resolveSender(pat, ALBERT, choices)).toEqual({ ok: false, message: "Only Albert can send a quote as Albert." });
+    expect(resolveSender(pat, ALBERT, choices)).toEqual({ ok: false, message: `Nobody else can send a quote as ${ALBERT}.` });
     // No pick, or picking yourself, is just sending as yourself: the default.
     expect(resolveSender(pat, null, choices)).toEqual({ ok: true, sender: pat, as: false });
     expect(resolveSender(pat, "PAT@titanfloors.ca", [])).toEqual({ ok: true, sender: pat, as: false });
     const albert = { email: ALBERT, name: "Albert" };
     expect(resolveSender(albert, "pat@titanfloors.ca", sendAsChoices(ALBERT, allow, "hello@titanfloors.ca", users)).ok).toBe(true);
+  });
+
+  it("follows the Settings list of who nobody else can send as (2026-11-17)", () => {
+    // Pat added to the list: Pat is a choice only for Pat; Albert taken off it: Albert is a choice for everyone.
+    const only = ["PAT@titanfloors.ca"];
+    expect(sendAsChoices("info@titanfloors.ca", allow, "hello@titanfloors.ca", users, only).map((c) => c.email)).toEqual(["info@titanfloors.ca", ALBERT]);
+    expect(sendAsChoices(ALBERT, allow, "hello@titanfloors.ca", users, only).map((c) => c.email)).toEqual([ALBERT, "info@titanfloors.ca"]);
+    const info = { email: "info@titanfloors.ca", name: null };
+    expect(resolveSender(info, "pat@titanfloors.ca", sendAsChoices(info.email, allow, "hello@titanfloors.ca", users, only), only).ok).toBe(false);
+    expect(resolveSender(info, ALBERT, sendAsChoices(info.email, allow, "hello@titanfloors.ca", users, only), only).ok).toBe(true);
+    // An empty list: everyone can send as everyone.
+    expect(sendAsChoices("pat@titanfloors.ca", allow, "hello@titanfloors.ca", users, []).map((c) => c.email)).toEqual(["pat@titanfloors.ca", ALBERT, "info@titanfloors.ca"]);
+  });
+
+  it("lets only the sign-ins on the Settings list mark a quote sent without sending (2026-11-17)", () => {
+    expect(canMarkSent(ALBERT.toUpperCase(), [ALBERT])).toBe(true);
+    expect(canMarkSent("pat@titanfloors.ca", [ALBERT])).toBe(false);
+    expect(canMarkSent("pat@titanfloors.ca", [])).toBe(false);
+    expect(canMarkSent(null, [ALBERT])).toBe(false);
   });
 
   it("says who sent the quote last: the newest version that went out, drafts never", () => {

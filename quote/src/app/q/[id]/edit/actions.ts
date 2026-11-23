@@ -1,6 +1,8 @@
 "use server";
 
 import { quickFormForBrowser, quickOption, type QuickOptionResult } from "@/lib/quotes/quickOption";
+import type { CatalogueProduct } from "@/lib/editor/model";
+import { productBoxes, searchProducts } from "@/lib/quotes/load";
 import { autosaveVersion, saveAsNewVersion, saveVersion, setDraftBasis, type AutosaveResult, type SaveResult } from "@/lib/quotes/save";
 
 /** Server actions for the editor. Each checks the quoter allowlist inside. Quote pages are dynamic, so nothing needs revalidating. */
@@ -31,4 +33,18 @@ export async function quickFormAction() {
 /** One option priced from the quick form, for the editor to add to its unsaved changes. Writes nothing. */
 export async function quickOptionAction(work: unknown, taken: unknown): Promise<QuickOptionResult> {
   return quickOption(work, taken);
+}
+
+/**
+ * The Materials picker's catalogue search (2026-11-17): active products whose SKU, name, collection or brand holds every
+ * word typed, an exact SKU first. Quoters only (checked inside). Cost comes too, as it does for every Rate Card line the
+ * editor already shows; the Customer view hides it.
+ */
+export async function searchCatalogueAction(query: string): Promise<CatalogueProduct[]> {
+  return (await searchProducts(String(query ?? "").slice(0, 80))).map(({ recordId, sku, name, rate, cost, boxSf }) => ({ recordId, sku, name, rate, cost, boxSf: boxSf ?? null }));
+}
+
+/** Box sizes of the catalogue products on the editor's lines (2026-11-17), for the whole-boxes button. Quoters only. */
+export async function productBoxesAction(recordIds: unknown): Promise<Record<string, number>> {
+  return productBoxes(Array.isArray(recordIds) ? recordIds.filter((x): x is string => typeof x === "string") : []);
 }

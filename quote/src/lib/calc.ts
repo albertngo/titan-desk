@@ -5,16 +5,18 @@
  * Airtable agree to the cent (the quote page shows a parity check against Airtable's own
  * rollups). Change a formula here and in Airtable together, never one alone.
  *
- *   Quote Lines.Price Used   = IF({Unit Price}, {Unit Price}, {Unit Price Snap})
- *   Quote Lines.Cost Used    = IF({Cost Override}, {Cost Override}, {Unit Cost Snap})
+ *   Quote Lines.Price Used   = IF({Unit Price}&"" = "", {Unit Price Snap}, {Unit Price})
+ *   Quote Lines.Cost Used    = IF({Cost Override}&"" = "", {Unit Cost Snap}, {Cost Override})
  *   Quote Lines.Line Total   = blank for Note/Section/Exclusions; 0 when Include is off;
  *                              ROUND(min-charge-or Qty*(1+Waste)*PriceUsed, 2)
- *   Quote Lines.Line Cost    = blank/0 as above; Manual Cost wins; else ROUND(Qty*(1+Waste)*CostUsed, 2)
+ *   Quote Lines.Line Cost    = blank/0 as above; Manual Cost wins when typed (0 too); else ROUND(Qty*(1+Waste)*CostUsed, 2)
  *   Quote Lines.HST Base Own   = Line Total of a Materials line without No HST, else 0
  *   Quote Lines.HST Base Quote = Line Total of every line outside Materials, else 0
  *   Quote Options.*          = the option-level formulas in `optionTotals` below
  *
- * Airtable's IF({x}, …) treats blank AND 0 as false; `firstSet` reproduces that.
+ * A typed 0 is a value, only a blank box falls back to the card (Albert, 2026-11-21: a delivery cost typed as 0
+ * left the profit where it was). Until then the formulas were IF({x}, …), which treats 0 as blank too;
+ * `{x}&"" = ""` is true for a blank only, and `firstSet` / `isTyped` match it.
  */
 
 import type { PaymentSchedule, PayHow } from "@/lib/pricing/schedule";
@@ -116,8 +118,11 @@ export function round(x: number, places: number): number {
 
 export const round2 = (x: number) => round(x, 2);
 
+/** Whether a number box was typed in: 0 counts, blank (null or undefined) does not. */
+export const isTyped = (x: number | null | undefined): x is number => x !== null && x !== undefined;
+
 function firstSet(a: number | null, b: number | null): number {
-  return a ? a : (b ?? 0);
+  return isTyped(a) ? a : (b ?? 0);
 }
 
 /** Note, Section and Exclusions rows carry text only: no price, no cost, no number. */
@@ -143,15 +148,15 @@ export function lineTotal(l: LineInput): number | null {
 export function lineCost(l: LineInput): number | null {
   if (!isPriced(l)) return null;
   if (!l.include) return 0;
-  if (l.manualCost) return l.manualCost;
+  if (isTyped(l.manualCost)) return l.manualCost;
   return round2(extent(l) * costUsed(l));
 }
 
 export function lineFlags(l: LineInput): Flag[] {
   if (!isPriced(l)) return [];
   const flags: Flag[] = [];
-  const rateOvr = !!l.unitPrice && !!l.unitPriceSnap && l.unitPrice !== l.unitPriceSnap;
-  const costOvr = !!l.costOverride && !!l.unitCostSnap && l.costOverride !== l.unitCostSnap;
+  const rateOvr = isTyped(l.unitPrice) && !!l.unitPriceSnap && l.unitPrice !== l.unitPriceSnap;
+  const costOvr = isTyped(l.costOverride) && !!l.unitCostSnap && l.costOverride !== l.unitCostSnap;
   if (rateOvr || costOvr) flags.push("OVR");
   const t = lineTotal(l) ?? 0;
   const c = lineCost(l) ?? 0;

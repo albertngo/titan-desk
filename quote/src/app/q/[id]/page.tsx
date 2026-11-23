@@ -1,3 +1,4 @@
+import { JobFilesButton } from "@/components/JobFilesButton";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AcceptedCard, AcceptForCustomer, ChangeCard, PutOnContract } from "@/components/AcceptStaff";
@@ -22,7 +23,7 @@ import { optionHst, optionTotals, parityDiffs } from "@/lib/calc";
 import { money } from "@/lib/format";
 import { jobChoices } from "@/lib/quotes/link";
 import { billingState } from "@/lib/quotes/billing";
-import { partKey, scopeGroups } from "@/lib/quotes/scope";
+import { firstOpenOption, partKey, scopeGroups } from "@/lib/quotes/scope";
 import { loadContract } from "@/lib/quotes/contract";
 import { contractParts } from "@/lib/contract/model";
 import { fromWords } from "@/lib/quotes/group";
@@ -40,6 +41,7 @@ import { acceptReadiness } from "@/lib/accept/staff";
 import { termsLabel } from "@/lib/accept/terms";
 import { ghlOpportunityUrl } from "@/lib/ghl/ids";
 import { logEntries } from "@/lib/quotes/history";
+import { HistoryPanel } from "@/components/QuoteHistory";
 import { partOf, quoteSchedule } from "@/lib/send/copy";
 import { parseRooms } from "@/lib/rooms/log";
 import { defaultOptionIds, parsePayouts, payoutCandidates } from "@/lib/payout/cards";
@@ -71,7 +73,7 @@ export default async function QuotePage({
   const showPhotos = opt === "photos" && !customer && Boolean(camUrl);
   // The Payouts tab (2026-11-04): contractor payout cards, staff only (it shows what we pay).
   const showPayouts = opt === "payouts" && !customer;
-  const option = showAnalysis || showRooms || showSheet || showPhotos || showPayouts ? null : (quote.options.find((o) => o.id === opt) ?? quote.options[0] ?? null);
+  const option = showAnalysis || showRooms || showSheet || showPhotos || showPayouts ? null : (quote.options.find((o) => o.id === opt) ?? firstOpenOption(quote.options));
   const tabGroups = scopeGroups(quote.options);
   // The option's own HST (2026-11-04), else the version's.
   const hstOn = optionHst(quote, option);
@@ -228,14 +230,23 @@ export default async function QuotePage({
             {!customer && quote.link && <QuoteDescription key={quote.link.quoteRecordId} quoteRecordId={quote.link.quoteRecordId} initial={quote.link.description ?? null} />}
           </div>
           {quote.status && <span className={`status ${quote.status}`}>{quote.status}</span>}
-          {!locked && (
+          {(!locked || !customer) && (
             <div className="actions">
-              <Link className="btn primary" href={`/q/${quote.id}/edit`}>Edit quote</Link>
+              {/* Duplicate quote (Albert, 2026-11-16): a new quote for another customer and opportunity, with these options. */}
+              {!customer && quote.options.length > 0 && (
+                <Link className="btn" href={`/new?from=${quote.id}`} title="Start a new quote, for any customer, with this version's options">Duplicate quote</Link>
+              )}
+              {/* Create CompanyCam + folder (2026-11-16): the booked steps for a job never booked. Staff only, until the links exist. */}
+              {!customer && quote.link?.ghlContactId && !quote.link.folderUrl && !quote.link.companyCamUrl && <JobFilesButton versionId={quote.id} />}
+              {!locked && <Link className="btn primary" href={`/q/${quote.id}/edit`}>Edit quote</Link>}
             </div>
           )}
         </div>
         {/* On a phone the Conversation button sits here instead of on the screen's edge (2026-11-03). */}
         <div id="conv-slot" className="conv-slot" />
+        {/* The send history at the top of the left column (Albert, 2026-11-20): small, scrollable, not sticky, a Pop out
+            for the whole of it. Staff only. */}
+        {!customer && quote.link?.quoteRecordId && <HistoryPanel quoteRecordId={quote.link.quoteRecordId} versionId={quote.id} status={quote.status} />}
 
         <div className={`layout ed-layout${option && totals ? "" : " full"}`}>
           <div className="stack">

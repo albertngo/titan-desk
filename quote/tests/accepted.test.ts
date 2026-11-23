@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { optionTotals, type LineInput } from "../src/lib/calc";
-import { atAcceptedPrice, atDiscountPct, impliedRate } from "../src/lib/pricing/accepted";
+import { atAcceptedPrice, atAcceptedTotal, atDiscountPct, impliedRate } from "../src/lib/pricing/accepted";
 
 // INVENTED numbers only: this repo is public.
 const line = (o: Partial<LineInput>): LineInput => ({
@@ -46,5 +46,16 @@ describe("accepted price (2026-10-22)", () => {
 
   it("has nothing to say about an option with nothing priced", () => {
     expect(atAcceptedPrice([], true, 500)).toBeNull();
+  });
+});
+
+describe("atAcceptedTotal: the final amount, HST included (2026-11-21)", () => {
+  // INVENTED: $1,000 of taxed work.
+  const work = [line({})];
+  it("lands the total typed with HST, and as typed without", () => {
+    expect(atAcceptedTotal(work, true, 1017)!.t).toMatchObject({ subtotal: 900, total: 1017 });
+    expect(atAcceptedTotal(work, false, 900)!.t).toMatchObject({ subtotal: 900, total: 900 });
+    expect(Math.abs(atAcceptedTotal(work, true, 1000.01)!.t.total - 1000.01)).toBeLessThanOrEqual(0.01);
+    expect(atAcceptedTotal([], true, 500)).toBeNull();
   });
 });

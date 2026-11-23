@@ -31,7 +31,19 @@ import type { Parsed } from "./newQuote";
 const GHL_ID = /^[A-Za-z0-9]{6,40}$/;
 const isGhlId = (v: unknown): v is string => typeof v === "string" && GHL_ID.test(v);
 
-export type BookingRequest = { opportunityId: string | null; contactId: string };
+export type BookingRequest = {
+  opportunityId: string | null;
+  contactId: string;
+  /**
+   * Create CompanyCam + folder (Albert, 2026-11-16): the run was started from a quote's page, not by a booking. The
+   * quote is this one, never matched, and its site is never confirmed. `token` is the app's own signature over the
+   * quote and contact (`jobToken()` in src/lib/quotes/jobToken.ts), so nobody else can name a quote here.
+   */
+  fromApp?: { quoteRecordId: string; token: string };
+};
+
+const RECORD_ID = /^rec[A-Za-z0-9]{14}$/;
+const TOKEN = /^[a-f0-9]{64}$/;
 
 export function parseBooking(raw: unknown): Parsed<BookingRequest> {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
@@ -39,7 +51,51 @@ export function parseBooking(raw: unknown): Parsed<BookingRequest> {
   // GHL sends an empty value when the appointment has no opportunity yet.
   const opp = typeof r.opportunityId === "string" ? r.opportunityId.trim() : "";
   if (opp && !isGhlId(opp)) return { ok: false, message: "opportunityId isn't a GHL id." };
-  return { ok: true, value: { opportunityId: opp || null, contactId: r.contactId } };
+  // A booking from GHL sends these empty (Make maps them from fields GHL doesn't have).
+  const quoteRecordId = typeof r.quoteRecordId === "string" ? r.quoteRecordId.trim() : "";
+  const token = typeof r.manual === "string" ? r.manual.trim() : "";
+  if (!quoteRecordId && !token) return { ok: true, value: { opportunityId: opp || null, contactId: r.contactId } };
+  if (!RECORD_ID.test(quoteRecordId) || !TOKEN.test(token)) return { ok: false, message: "A run from the quote app needs its quote and its signature." };
+  return { ok: true, value: { opportunityId: opp || null, contactId: r.contactId, fromApp: { quoteRecordId, token } } };
+}
+
+/**
+ * What the quote app sends Make 3453735's webhook to run the booked steps for one quote (2026-11-16): the same fields
+ * GHL's "Estimate Scheduled" workflow sends, so every step reads them as it always has, plus the quote and the
+ * signature in customData, which the scenario's first request passes on to /api/booking. The CompanyCam project's
+ * address is the quote's site as it stands, confirmed or not; nothing here confirms it.
+ */
+export function bookedRunPayload(i: {
+  contactId: string;
+  opportunityId: string | null;
+  quoteRecordId: string;
+  token: string;
+  name: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  city: string | null;
+}) {
+  return {
+    contact_id: i.contactId,
+    full_name: i.name ?? "",
+    // The INQ / QE sheets' name cell reads these two (Make 3453735, modules 24 and 31).
+    first_name: i.firstName ?? "",
+    last_name: i.lastName ?? "",
+    phone: i.phone ?? "",
+    email: i.email ?? "",
+    city: i.city ?? "",
+    customData: {
+      opportunity_id: i.opportunityId ?? "",
+      project_address: i.address ?? "",
+      project_city: i.city ?? "",
+      contact_number: i.phone ?? "",
+      quote_record_id: i.quoteRecordId,
+      manual: i.token,
+    },
+  };
 }
 
 // ---------- which job ----------
@@ -208,4 +264,14 @@ export function parseBookingLinks(raw: unknown): Parsed<BookingLinks> {
   const companyCamUrl = url(r.companyCamUrl);
   if (!folderUrl && !companyCamUrl) return { ok: false, message: "Send folderUrl or companyCamUrl (https)." };
   return { ok: true, value: { quoteRecordId: r.quoteRecordId, contactId: r.contactId, folderUrl, companyCamUrl } };
+}
+
+/** The Notes line a Create CompanyCam + folder ask leaves on the quote (2026-11-16), after its ISO time. */
+export const ASK_MARK = "CompanyCam project and job folder asked for";
+
+/** When this quote's last ask was, from its Notes, or null for none. */
+export function lastAsk(notes: string | null): number | null {
+  const lines = (notes ?? "").split("\n").filter((l) => l.includes(ASK_MARK));
+  const m = lines.at(-1)?.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)/);
+  return m ? Date.parse(m[1]) : null;
 }

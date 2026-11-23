@@ -4,7 +4,7 @@ import { acceptedCopy, acceptProblems, addOnsOf, buildAcceptance, picksOf, readA
 import type { Terms } from "../src/lib/accept/terms";
 import { optionTotals, round2 } from "../src/lib/calc";
 import { fromQuote, updateOption } from "../src/lib/editor/model";
-import { optionScope, partKey, partValue, scopeGroups } from "../src/lib/quotes/scope";
+import { firstOpenOption, optionScope, partKey, partValue, scopeGroups } from "../src/lib/quotes/scope";
 import { cleanEditorQuote, fingerprint } from "../src/lib/quotes/savePlan";
 import type { Quote, QuoteLine, QuoteOption } from "../src/lib/quotes/types";
 import { contractOn, contractVersions, contractView, fromAcceptance, fromChange, legacyContract, parseContract, serializeContract, type Contract } from "../src/lib/contract/model";
@@ -180,14 +180,16 @@ describe("each scope's price on its own", () => {
     expect(body(mail)).toMatch(/Flooring \$[\d,]+ – \$[\d,]+ \+ HST · Stairs/);
   });
 
-  it("several options in a scope read from the lowest; a measured text names both", () => {
+  it("several options in a scope read from the lowest; a measured text names neither (2026-11-22)", () => {
     const c = copyOf(split());
     const leads = scopeLeads(c, (n) => `$${n}`);
     expect(leads).toEqual([
       { scope: "Flooring", count: 2, phrase: `from $${Math.min(c.options[0].totals.subtotal, c.options[1].totals.subtotal)} + HST` },
       { scope: "Stairs", count: 1, phrase: `$${c.options[2].totals.subtotal} + HST` },
     ]);
-    expect(body(smsMessage(c, TO))).toMatch(/Your quote is ready: flooring from .*, stairs .*, good until/);
+    // A measured text names no price (2026-11-22): the scopes' prices are behind the link.
+    expect(body(smsMessage(c, TO))).toMatch(/Your flooring and stairs quote is ready, good until/);
+    expect(body(smsMessage(c, TO))).not.toContain("$");
   });
 });
 
@@ -365,5 +367,18 @@ describe("a contract joining options with different HST (2026-11-04)", () => {
     const items = view.options[0].sections.flatMap((s) => s.lines).filter((l) => l.kind === "item");
     // The floor's labour carries HST against a whole that doesn't: it now says so; the stairs say nothing.
     expect(items.map((l) => (l.kind === "item" ? l.hst ?? null : null))).toEqual(["plus", null]);
+  });
+});
+
+describe("the option a quote opens on (2026-11-20)", () => {
+  const o = (id: string, scope: "Flooring" | "Stairs", notOffered = false) => ({ id, scope, notOffered, lines: [] as never[] });
+  it("is the first offered one in tab order, flooring then stairs", () => {
+    expect(firstOpenOption([o("a", "Flooring", true), o("b", "Flooring", true), o("c", "Flooring"), o("d", "Stairs")])?.id).toBe("c");
+    expect(firstOpenOption([o("s", "Stairs"), o("f", "Flooring", true), o("g", "Flooring")])?.id).toBe("g");
+    expect(firstOpenOption([o("f", "Flooring", true), o("s", "Stairs")])?.id).toBe("s");
+  });
+  it("falls back to the first tab when none is offered, and is null with none", () => {
+    expect(firstOpenOption([o("s", "Stairs", true), o("f", "Flooring", true)])?.id).toBe("f");
+    expect(firstOpenOption([])).toBeNull();
   });
 });

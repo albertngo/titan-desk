@@ -2,6 +2,7 @@ import Link from "next/link";
 import { bugReportsOn } from "@/lib/bug/notion";
 import { CHANGES } from "@/lib/changes";
 import { companySheets } from "@/lib/files/sheets";
+import { isAdminEmail } from "@/lib/settings/settings";
 import { customerView } from "@/lib/view";
 import { AccountMenu } from "./AccountMenu";
 import { BuildLine } from "./BuildLine";
@@ -11,7 +12,7 @@ import { ReportBug } from "./ReportBug";
 import { ViewSwitch } from "./ViewSwitch";
 
 export async function TopBar({ email }: { email: string }) {
-  const customer = await customerView();
+  const [customer, admin] = await Promise.all([customerView(), isAdminEmail(email)]);
   return (
     <>
     <header className="topbar">
@@ -57,7 +58,8 @@ export async function TopBar({ email }: { email: string }) {
           </>
         )}
         <span className="tb-sep" aria-hidden />
-        <AccountMenu email={email} />
+        {/* Settings is for admins, and internal, so not while a customer is looking (2026-11-17). */}
+        <AccountMenu email={email} admin={admin && !customer} />
       </div>
     </header>
     </>

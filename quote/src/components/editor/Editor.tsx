@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { HoldConfirm } from "./HoldConfirm";
 import { HstAll } from "./HstAll";
 import { addChoices, sectionLinesInOrder, stairGroupLabel, stairGroups, stairSections, type AddChoice } from "@/lib/editor/stairGroups";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type { AutosaveResult } from "@/lib/quotes/save";
-import { autosaveVersionAction, quickFormAction, quickOptionAction, saveAsNewVersionAction, saveVersionAction, setDraftBasisAction } from "@/app/q/[id]/edit/actions";
+import { PastQuotes } from "@/components/PastQuotes";
+import { copyPastOptions, pastNote } from "@/lib/editor/past";
+import { autosaveVersionAction, quickFormAction, productBoxesAction, quickOptionAction, saveAsNewVersionAction, saveVersionAction, setDraftBasisAction } from "@/app/q/[id]/edit/actions";
 import { estimateWork, glueWait, initialWork, QuickWork, workInput, type WorkState } from "@/components/QuickWork";
 import type { QuickChoice, QuickProfile } from "@/lib/quick/plan";
 import { methodChoices, switchMethod } from "@/lib/editor/waterfall";
@@ -45,12 +48,14 @@ import { manualLine,
   setAllHst,
   setOptionHst,
   showsWaste,
+  fullBoxes,
   wasteMath,
   withCustomerFrom,
   updateLine,
   updateOption,
   type EditorLine,
   type EditorQuote,
+  type HoldChange,
   draftKey,
   distinctIds,
   invertIds,
@@ -60,7 +65,7 @@ import { ghlContactUrl } from "@/lib/ghl/ids";
 import { fixAddressLink } from "@/lib/link/linkJob";
 import { money, pct, rate } from "@/lib/format";
 import type { RateCard } from "@/lib/quotes/types";
-import { STAIRS_FOLDED, optionScope, PARTS, partValue, scopeGroups } from "@/lib/quotes/scope";
+import { firstOpenOption, STAIRS_FOLDED, optionScope, PARTS, partValue, scopeGroups } from "@/lib/quotes/scope";
 import { Picker } from "./Picker";
 import { ScheduleEditor } from "./ScheduleEditor";
 import { SwapOption } from "./SwapOption";
@@ -73,6 +78,7 @@ import { quoteSchedule } from "@/lib/send/copy";
 import { levelApplies, levelOf, PREMIUM_MARKUP, SERVICE_LEVELS } from "@/lib/pricing/service";
 import { CONTRACTOR_DISCOUNT, DISCOUNTS_SECTION, priceSummary } from "@/lib/pricing/discounts";
 import { PriceCard } from "./PriceCard";
+import { HistoryPanel } from "@/components/QuoteHistory";
 
 // Discount items live in the price card, never in the line tables (2026-11-04).
 const WORK_SECTIONS = SECTIONS.filter((s) => s !== "Exclusions" && s !== DISCOUNTS_SECTION);
@@ -185,6 +191,8 @@ export default function Editor({
   swapTo = null,
   sendCard = null,
   lastWay = null,
+  copyFrom = null,
+  copyAll = false,
 }: {
   initial: EditorQuote;
   card: RateCard;
@@ -200,6 +208,10 @@ export default function Editor({
   sendCard?: ReactNode;
   /** How the last version was sent (2026-11-07): the Private note's switch starts on it. */
   lastWay?: "lump" | "itemised" | "range" | "exact" | null;
+  /** + From old quotes (2026-11-16): a version picked on New quote, opened in the panel ready to copy. */
+  copyFrom?: string | null;
+  /** Duplicate quote (2026-11-16): copy every option of `copyFrom` as the editor opens. */
+  copyAll?: boolean;
 }) {
   const router = useRouter();
   const key = draftKey(initial);
@@ -216,12 +228,15 @@ export default function Editor({
   const [quote, setQuote] = useState<EditorQuote>(boot ? withCustomerFrom(boot.quote, initial) : initial);
   const [restoredAt, setRestoredAt] = useState<string | null>(boot?.savedAt ?? null);
   const [savedAt, setSavedAt] = useState<string | null>(boot?.savedAt ?? null);
-  const [activeId, setActiveId] = useState<string | null>(quote.options[0]?.id ?? null);
+  const [activeId, setActiveId] = useState<string | null>(firstOpenOption(quote.options)?.id ?? null);
   const [picking, setPicking] = useState<AddChoice | null>(null);
   const [newExclusion, setNewExclusion] = useState("");
   /** + From quick form (2026-10-31): the preliminary's screen, opened beside the tabs to build one more option. */
   const [quick, setQuick] = useState<{ choices: QuickChoice[]; profiles: QuickProfile[]; work: WorkState } | "loading" | null>(null);
   const [quickNote, setQuickNote] = useState<string | null>(null);
+  /** + From old quotes (2026-11-16): copy options from another quote's version into this one. Staff only. */
+  const [past, setPast] = useState<boolean>(Boolean(copyFrom) && !customer);
+  const [pastMsg, setPastMsg] = useState<string | null>(null);
   /** The waterfall families (2026-11-06), for the Add search and each line's Method; fetched once, after the editor draws. */
   const [families, setFamilies] = useState<QuickChoice[] | null>(null);
   const wantsFamilies = families === null;
@@ -239,6 +254,21 @@ export default function Editor({
 
   // The rate card and the stair items, for the picker and for re-pricing (service level, contractor, material).
   const catalogue = useMemo(() => buildCatalogue(card.rates, card.stairs, card.materials), [card]);
+  // Box sizes of the catalogue products on the lines (2026-11-17), kept off the quote so its fingerprint never moves.
+  const [boxSf, setBoxSf] = useState<Record<string, number | null>>({});
+  const productIds = useMemo(
+    () => [...new Set(quote.options.flatMap((o) => o.lines.filter((l) => l.sourceKind === "product" && l.sourceId).map((l) => l.sourceId as string)))].sort().join(","),
+    [quote.options],
+  );
+  useEffect(() => {
+    const missing = productIds.split(",").filter((id) => id && !(id in boxSf));
+    if (missing.length === 0) return;
+    let live = true;
+    productBoxesAction(missing)
+      .then((found) => { if (live) setBoxSf((b) => ({ ...b, ...Object.fromEntries(missing.map((id) => [id, found[id] ?? null])) })); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [productIds, boxSf]);
   const pricing = catalogue;
   /** What this version goes out as. A Draft can switch it in place before it is sent (Albert, 2026-11-07). */
   const [basisNow, setBasisNow] = useState<string | null>(version.basis);
@@ -251,6 +281,8 @@ export default function Editor({
   const privShown = measured && privWay === "breakdown";
   const [levelNote, setLevelNote] = useState<string | null>(null);
   const [holdNote, setHoldNote] = useState<string | null>(null);
+  /** A change waiting on the hold's confirmation (2026-11-21): applied only when someone presses Apply. */
+  const [holdAsk, setHoldAsk] = useState<{ quote: EditorQuote; changes: HoldChange[] } | null>(null);
   const [crewNote, setCrewNote] = useState<string | null>(null);
   /** What Airtable holds, in its own ids: the version as the editor opened it, then each autosave's read back (2026-11-05). */
   const [saved, setSaved] = useState<EditorQuote>(initial);
@@ -355,23 +387,29 @@ export default function Editor({
   // The Contractor level's 10% follows the list price after every change (2026-11-04).
   const apply = (next: EditorQuote): boolean => {
     // The accepted price is held, firmly (Albert, 2026-11-04): a change that would move it is taken up by
-    // the option's accepted discount, and one that could only be held with a markup is refused.
+    // the option's accepted discount. Since 2026-11-21 what is held is what the customer pays, and a change
+    // that moves the HST or needs the price before HST above the list waits on a confirmation instead of a refusal.
     // On a preliminary, an option's Customer wording follows its Stair Profile lines (2026-11-07): rewritten when they change.
     const worded = measured ? next : syncStairWording(quote, next, card.profiles ?? []);
     const r = holdAccepted(quote, settleContractor(worded));
     if (r.refused) {
       setHoldNote(
-        `Not changed: that would bring ${r.refused.name ? `"${r.refused.name}"` : "this option"} under its accepted price of ${money(r.refused.price)}, and the accepted price never moves on its own. Press Reset in its price card first to change the price.`,
+        `Not changed: "${r.refused.name || "this option"}" has nothing priced left to hold its accepted price of ${money(r.refused.total)} on. Press Reset in its price card first to change the price.`,
       );
       return false;
     }
     setHoldNote(null);
+    if (r.confirm.length) {
+      setHoldAsk({ quote: r.quote, changes: r.confirm });
+      return true;
+    }
     setQuote(r.quote);
     setSavedAt(new Date().toISOString());
     return true;
   };
 
-  const option = quote.options.find((o) => o.id === activeId) ?? quote.options[0] ?? null;
+  // Memoized so the hooks below see one stable option per render (the React Compiler lint, 2026-11-20).
+  const option = useMemo(() => quote.options.find((o) => o.id === activeId) ?? firstOpenOption(quote.options), [quote.options, activeId]);
   // HST is the option's own (Albert, 2026-11-04), the version's only where the option has none set.
   const hstOn = option ? (option.showHst ?? quote.showHst) : quote.showHst;
   const t = option ? optionTotals(option.lines, quote.discountRate, hstOn) : null;
@@ -469,7 +507,7 @@ export default function Editor({
     setSavedAt(null);
     setSaveError(null);
     setAuto({ state: "idle" });
-    setActiveId(saved.options[0]?.id ?? null);
+    setActiveId(firstOpenOption(saved.options)?.id ?? null);
   };
 
   // The short lines the sidebar and the folded terms show (Option C, 2026-11-01).
@@ -647,6 +685,22 @@ export default function Editor({
               return m ? (
                 <div className="wastemath" aria-label="Quantity with waste">
                   {fmtQty(m.typed)} {u} + {fmtQty(m.pct)}% = <b>{fmtQty(m.actual)} {u}</b>
+                  {(() => {
+                    // Whole boxes (2026-11-17): what is ordered in boxes, and a button to round the quantity up to the next whole box.
+                    const fb = l.sourceKind === "product" && l.sourceId ? fullBoxes(l, boxSf[l.sourceId]) : null;
+                    if (!fb) return null;
+                    const box = boxSf[l.sourceId!]!;
+                    return (
+                      <div className="boxmath">
+                        {fmtQty(fb.boxes)} box{fb.boxes === 1 ? "" : "es"} of {fmtQty(box)} sf
+                        {!fb.whole && (
+                          <button type="button" className="linkbtn" title={`Sets the quantity to ${fmtQty(fb.qty)} ${u}, so with ${fmtQty(m.pct)}% waste it orders ${fb.up} full boxes`} onClick={() => upd({ qty: fb.qty })}>
+                            Round up to {fb.up} box{fb.up === 1 ? "" : "es"}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               ) : null;
             })()}
@@ -799,6 +853,8 @@ export default function Editor({
       </div>
       {/* On a phone the Conversation button sits here, in the page, instead of on the screen's edge (2026-11-03). */}
       <div id="conv-slot" className="conv-slot" />
+      {/* The send history at the top of the left column (Albert, 2026-11-20): small, scrollable, not sticky, a Pop out. */}
+      {quote.quoteRecordId && <HistoryPanel quoteRecordId={quote.quoteRecordId} versionId={version.id} status={version.status} />}
       {saveError && (
         <p className="card banner bad save-error" role="alert">
           {saveError.message}
@@ -881,10 +937,49 @@ export default function Editor({
             >
               {quick === "loading" ? "Opening…" : "+ From quick form"}
             </button>
+            {!customer && (
+              <button
+                className="tab ed-add-past"
+                aria-expanded={past}
+                title="Copy options from another quote"
+                onClick={() => {
+                  setPastMsg(null);
+                  setPast(!past);
+                }}
+              >
+                + From old quotes
+              </button>
+            )}
             </div>
           </nav>
 
           {quickNote && <div className="banner warn" role="status">{quickNote}</div>}
+          {pastMsg && <div className="banner" role="status">{pastMsg}</div>}
+          {past && !customer && (
+            <section className="card ed-past" aria-label="Copy options from a past quote">
+              <div className="card-h">
+                <span>Copy options from a past quote</span>
+                <button type="button" className="linkbtn right" onClick={() => setPast(false)}>Close</button>
+              </div>
+              <div className="card-b">
+                <PastQuotes
+                  exceptVersionId={version.id}
+                  startVersionId={copyFrom}
+                  autoCopy={copyAll}
+                  onCopy={(picked) => {
+                    // An exact copy (2026-11-16): no fee added, nothing re-priced.
+                    const r = copyPastOptions(quote, picked, catalogue);
+                    if (!apply(r.quote)) return;
+                    setActiveId(r.added[0] ?? activeId);
+                    setPast(false);
+                    setPastMsg(pastNote(r));
+                    // Opened from New quote: drop ?copy= so a reload doesn't offer the same copy again.
+                    if (copyFrom) router.replace(window.location.pathname);
+                  }}
+                />
+              </div>
+            </section>
+          )}
           {quick !== null && quick !== "loading" && (() => {
             const est = estimateWork(quick.choices, quick.profiles, quick.work);
             return (
@@ -1090,7 +1185,7 @@ export default function Editor({
                         if (!window.confirm(`Delete "${option.name || "this option"}" and its ${option.lines.length} lines?`)) return;
                         const next = removeOption(quote, option.id);
                         apply(next);
-                        setActiveId(next.options[0]?.id ?? null);
+                        setActiveId(firstOpenOption(next.options)?.id ?? null);
                       }}
                     >
                       Delete option
@@ -1467,6 +1562,17 @@ export default function Editor({
           onPickMany={(lines, replacing) => {
             apply(addLines(quote, option.id, lines, replacing));
             setPicking(null);
+          }}
+        />
+      )}
+      {holdAsk && (
+        <HoldConfirm
+          changes={holdAsk.changes}
+          onCancel={() => setHoldAsk(null)}
+          onApply={() => {
+            setQuote(holdAsk.quote);
+            setSavedAt(new Date().toISOString());
+            setHoldAsk(null);
           }}
         />
       )}

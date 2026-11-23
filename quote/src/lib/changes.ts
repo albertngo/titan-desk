@@ -30,6 +30,240 @@ export const CHANGES: Change[] = [
     ],
   },
   {
+    date: "2026-11-23",
+    kind: "changed",
+    title: "A change says it is taken as accepted",
+    details: [
+      "When you send a change to an accepted quote, the email, the text and the customer's page now say: \"These are the changes we talked through together, so we'll go ahead with them. If anything doesn't look right, let your project manager know right away and we'll sort it out.\"",
+    ],
+  },
+  {
+    date: "2026-11-23",
+    kind: "changed",
+    title: "A measured quote's text no longer gives the price",
+    details: [
+      "The text says the quote is ready, how many options there are and the good-until date, then \"See your price and the full details here:\" with the link, so the customer opens it and you see the open. The line an inbox shows under the email's subject leaves the price out too.",
+      "A preliminary still gives its price range, and the email's price cards are unchanged.",
+    ],
+  },
+  {
+    date: "2026-11-22",
+    kind: "changed",
+    title: "A material deposit says what it is for",
+    details: [
+      "When the deposit is for the material, the customer now reads that it is for purchasing their flooring material before delivery: on the quote's payment schedule, the PDF, the emails, the acceptance text and the accepted page.",
+      "A Materials stage whose words you typed yourself, or that says purchasing the material is required first, keeps its own words.",
+    ],
+  },
+  {
+    date: "2026-11-22",
+    kind: "changed",
+    title: "The acceptance text carries the payment schedule",
+    details: [
+      "When a quote is accepted, the customer's text now gives the deposit and how to pay it, then every payment in the schedule with its amount and when it is due, then the link to their accepted quote, all in one text.",
+      "The acceptance email and text now both go whenever the customer has an email address and a phone number, not only the way the quote was first sent. The text still goes from the sender's own GHL number.",
+    ],
+  },
+  {
+    date: "2026-11-22",
+    kind: "fixed",
+    title: "Payout cards pay the Rate Card's Labor Cost",
+    details: [
+      "Every line from the Rate Card now starts on a payout card at that row's Labor Cost, whatever cost was typed on the quote. Glue and other materials never change it.",
+      "Before, a glue line took the glue's current cost off the line's cost, so a line saved before the glue's cost went up paid too little. Press Build cards again to pick up the right rate. A row with a blank Labor Cost shows no rate until you type one.",
+    ],
+  },
+  {
+    date: "2026-11-20",
+    kind: "changed",
+    title: "Quotes open on the first offered option",
+    details: [
+      "The quote page, the edit screen and Analysis's accepted-price box now open on the first option that is offered, in tab order (flooring, then stairs), instead of the first tab. A Not offered option is skipped.",
+      "If every option is Not offered, they open on the first tab as before.",
+    ],
+  },
+  {
+    date: "2026-11-20",
+    kind: "changed",
+    title: "History box scrolls away, and pops out",
+    details: [
+      "On the quote page and the edit screen the History box now sits at the top of the page, under the name, and scrolls away with the page instead of staying pinned at the top.",
+      "Pop out, on the box, opens the whole history in a window: every version, everything that changed, the staff notes. Close or Esc goes back.",
+    ],
+  },
+  {
+    date: "2026-11-20",
+    kind: "new",
+    title: "Each version's history on All quotes, and a note for staff on every send",
+    details: [
+      "Open a quote on All quotes: under each version that went out is who sent it, when and how (email, text, or marked sent). The draft says who last saved it.",
+      "The same history is in a small scrolling box at the top of the quote page and the edit screen, beside the customer's name, with the version you are on highlighted.",
+      "Each option is one line with its install square feet and its price before HST, with an arrow where either moved since the send before, e.g. \"Oak: 800 → 860 sqft · $9,150 → $8,900\". New and removed options say so. Details opens the rest: lines changed, range or exact, lump sum or breakdown, discount and good-until date.",
+      "The Send card has an optional Note for staff (one line). It shows under that version on All quotes and goes in GHL's internal comment and contact note after the quote goes out. The customer never sees it: it is not in the email, the text, their page or the PDF.",
+      "Mark as sent and Send again take a note too; it shows under the version.",
+    ],
+  },
+  {
+    date: "2026-11-20",
+    kind: "fixed",
+    title: "Waste on materials added in the editor",
+    details: [
+      "A material added from the rate card in the edit screen (Engineered, Vinyl, Laminate and the rest) now starts with the same waste as the quick form: 10%, or 15% for herringbone and tile.",
+      "A rate card row with its own Default Waste still uses that. You can change the % waste on the line as before.",
+    ],
+  },
+  {
+    date: "2026-11-19",
+    kind: "fixed",
+    title: "Material lines keep their names",
+    details: [
+      "A material picked from the rate card no longer turns into \"Material ||\" a few seconds after you add it. The rate was always right; only the name was lost when the editor saved.",
+      "Lines already saved with that name now show the rate card's name again.",
+    ],
+  },
+  {
+    date: "2026-11-18",
+    kind: "new",
+    title: "The job folder goes on the GHL opportunity",
+    details: [
+      "When a job's OneDrive folder is made, by a booking or by Create CompanyCam + folder, its link now goes on the opportunity's Job Folder field in GHL, next to the CompanyCam URL.",
+      "Linking a quote to an opportunity, or making one from the quote, also puts the quote's folder link there when the opportunity has none.",
+    ],
+  },
+  {
+    date: "2026-11-17",
+    kind: "changed",
+    title: "Settings in your account menu",
+    details: ["Admins open Settings from the menu under their initials, top right, on any page. The link on Follow up stays too."],
+  },
+  {
+    date: "2026-11-17",
+    kind: "new",
+    title: "Mark a quote as sent, without sending it",
+    details: [
+      "On the Send card, Mark as sent, send nothing locks the version and counts it as sent, with its link ready to copy. No email, no text and no follow-up sequence go to the customer. For a price they already have another way.",
+      "Only the people on Settings, Who can mark a quote sent without sending, see the button. Albert to start with.",
+      "Who nobody else can send as is now a Settings list too (Nobody else can send as, Albert to start with). Everyone else can still send as each other.",
+    ],
+  },
+  {
+    date: "2026-11-17",
+    kind: "new",
+    title: "GHL's value follows every send",
+    details: [
+      "Sending a quote, or marking it sent, sets the GHL opportunity's value to what went out, with HST: one flooring option and one stairs option when there are both, each the recommended one, else the cheapest.",
+      "Once a quote is accepted its value is the contract's, as before, and only a change moves it.",
+    ],
+  },
+  {
+    date: "2026-11-17",
+    kind: "changed",
+    title: "Payouts: pay anyone you type",
+    details: [
+      "On the Payouts tab, + New contractor asks for a name and starts a card for them, whether or not they're on the Rate Card.",
+      "A line's Move… and each staircase's Stairs contractor pick both end with + New contractor…, so you can send work to a name you type and its card is made for you.",
+    ],
+  },
+  {
+    date: "2026-11-17",
+    kind: "changed",
+    title: "Payouts: pay anyone you type",
+    details: [
+      "On the Payouts tab, + New contractor asks for a name and starts a card for them, whether or not they're on the Rate Card.",
+      "A line's Move… and each staircase's Stairs contractor pick both end with + New contractor…, so you can send work to a name you type and its card is made for you.",
+    ],
+  },
+  {
+    date: "2026-11-17",
+    kind: "changed",
+    title: "Payouts: one contractor per staircase, flooring and stairs apart",
+    details: [
+      "On the Payouts tab, each stairs option has a Stairs contractor pick. Choose the contractor once and every line of that staircase moves onto their card.",
+      "A card with both flooring and stairs work shows Flooring and Stairs as their own sections, each with its subtotal, and one total for both, on screen and on the picture pushed to CompanyCam.",
+    ],
+  },
+  {
+    date: "2026-11-17",
+    kind: "new",
+    title: "Round a flooring product up to whole boxes",
+    details: [
+      "On a catalogue product's line in the editor, under the sqft + waste math, you now see how many boxes that orders (for example 5.5 boxes of 20 sf).",
+      "When it isn't a whole number, press Round up to 6 boxes: the sqft is set so that, with the same waste %, it orders exactly that many full boxes. Products with no box size in the catalogue don't show it.",
+    ],
+  },
+  {
+    date: "2026-11-17",
+    kind: "changed",
+    title: "Box size beside each catalogue product",
+    details: [
+      "When you pick a flooring product, in the editor's Materials search or the quick form's Choose a specific product, each one now shows its square feet per box (sf/box) when the catalogue has it.",
+    ],
+  },
+  {
+    date: "2026-11-17",
+    kind: "new",
+    title: "Find a flooring product by SKU in the editor",
+    details: [
+      "In the editor, + Add in Materials now searches the flooring catalogue too: type a SKU, or part of a product's name, collection or brand, and pick it.",
+      "The product goes in at its catalogue price per sqft, starting at 1 sqft with 10% waste (15% for herringbone or tile), named with its SKU.",
+    ],
+  },
+  {
+    date: "2026-11-16",
+    kind: "new",
+    title: "Create CompanyCam + folder from a quote",
+    details: [
+      "A quote that has no CompanyCam project or job folder yet, such as a duplicate or a repeat job that was never booked, now has Create CompanyCam + folder at the top of its page. It runs the same steps a booking does: the CompanyCam project, the OneDrive job folder and its sheets, and the links on the quote and in GHL.",
+      "The site address is not confirmed by it, and nothing else on the quote or the opportunity changes. The links show on the quote in about a minute.",
+    ],
+  },
+  {
+    date: "2026-11-16",
+    kind: "changed",
+    title: "Old quotes copy over exactly, discounts included",
+    details: [
+      "+ From old quotes and Duplicate quote now copy each option exactly as it was: the same prices, every discount item and accepted price, Recommended and Not offered. Nothing is re-priced from today's Rate Card.",
+      "After a copy, a note says how many card lines are priced differently on today's card, so you can update them if you want to.",
+    ],
+  },
+  {
+    date: "2026-11-16",
+    kind: "new",
+    title: "Copy options from old quotes, and Duplicate quote",
+    details: [
+      "In the editor, + From old quotes (beside + Add option and + From quick form) finds any past quote by customer, quote number, city or description. Pick a version, tick the options you want, and they are added to this quote as new options, saved like any other edit.",
+      "On New quote, Start from a past quote picks one before you create it: the editor then opens with that quote's options ready to copy.",
+      "On a quote's page, Duplicate quote (beside Edit quote) starts a new quote with every option of that version: pick any customer and opportunity, answer the timing, and the editor opens with the options already copied.",
+      "Card lines take today's Rate Card; prices typed on the old quote stay as typed. Discounts, Recommended and Not offered are left behind, and the old quote is never changed.",
+    ],
+  },
+  {
+    date: "2026-11-13",
+    kind: "fixed",
+    title: "A rate per unit is not a price given on a call",
+    details: ["The price check no longer reads a rate like \"$160 per door\" or \"$4 a foot\" as a price for the job. One it had already marked is taken back on the next check, with a History line saying which option to remove."],
+  },
+  {
+    date: "2026-11-13",
+    kind: "fixed",
+    title: "The price check skips the app's own quote texts",
+    details: [
+      "The twice-a-day check no longer reads the app's own quote messages (or anything sent with a quote) as a price given by text.",
+      "It now reads the quotes on Follow up and the visits owed a quote first, so an older quote isn't skipped.",
+      "A visit the customer called off by text (\"we'll have to reschedule\") no longer counts as a visit that went ahead. On Visited, no quote yet it reads \"Called off by text: waiting on them to rebook\".",
+    ],
+  },
+  {
+    date: "2026-11-13",
+    kind: "new",
+    title: "Prices given by text or on a call",
+    details: [
+      "Twice a day (about 8am and 2pm) the app re-reads each open quote's conversation, internal comments, call summaries and visits included, and rewrites its Follow up brief, so an \"I'll let you know\" or a booked visit is counted before the quote is sorted.",
+      "When someone gives a firm price by text or on a call, the quote is marked Sent by text or Given on a call, with a note of what was said. If an option already has that price it is used; if not, a custom option with one Install line at that price is added to the draft. A ballpark is only noted.",
+      "Nothing is sent to the customer. The quote's Send card then reads Send formal copy, for when you want them to have it in writing.",
+    ],
+  },
+  {
     date: "2026-11-13",
     kind: "fixed",
     title: "Send card sees a new quote's options",

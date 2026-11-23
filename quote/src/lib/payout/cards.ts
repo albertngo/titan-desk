@@ -1,6 +1,7 @@
-import { isPriced, payoutAmount, payoutTotal, round2, sectionOf, SECTIONS } from "@/lib/calc";
+import { isPriced, isTyped, payoutAmount, payoutTotal, round2, sectionOf, SECTIONS } from "@/lib/calc";
 import { picksOf } from "@/lib/accept/plan";
-import type { Quote, QuoteLine, QuoteOption, RateCard } from "@/lib/quotes/types";
+import { optionScope } from "@/lib/quotes/scope";
+import type { Quote, QuoteLine, QuoteOption, RateCard, Scope } from "@/lib/quotes/types";
 
 /**
  * Contractor payout cards (Albert, 2026-11-04: "we have to also send the contractor a payout form… select the final
@@ -15,7 +16,7 @@ import type { Quote, QuoteLine, QuoteOption, RateCard } from "@/lib/quotes/types
  * What a card starts with (Albert, same day, from the choices offered):
  * - the labour sections ticked (`ON_SECTIONS`); Delivery, Other, Private and unsorted lines listed but unticked;
  *   Materials, Discounts and Exclusions never listed, since they are not labour;
- * - the rate is our labour cost on the line: the Rate Card row's cost without the swapped material, a Stair Item's
+ * - the rate is our labour cost on the line: a Rate Card line the row's Labor Cost only (2026-11-22), a Stair Item's
  *   Labor Cost without its Material Cost, else the line's cost (typed override, then the card snap);
  * - the quantity is the line's own, without waste: the contractor is paid for the floor they lay.
  */
@@ -49,7 +50,15 @@ export type PayoutLine = {
   /** What the rate started at (our labour cost), so a typed rate shows as changed; null on a typed line. */
   cardRate: number | null;
   on: boolean;
+  /**
+   * Flooring or Stairs (2026-11-17): the scope of the option it came from, so the printout can split the two. Absent on
+   * cards saved before, and on typed lines: then a Stairs-section line reads as Stairs, anything else as Flooring.
+   */
+  scope?: Scope;
 };
+
+/** A card line's scope: the one it was built with, else Stairs for a Stairs-section line, else Flooring. */
+export const lineScope = (l: Pick<PayoutLine, "scope" | "section">): Scope => l.scope ?? (l.section === "Stairs" ? "Stairs" : "Flooring");
 
 /** One push of a card to CompanyCam: when, by whom, the total and a signature of what was on it. Server-written only. */
 export type PayoutPush = { at: string; by: string; total: number; sig: string; file: string; camPhotoId: string | null };
@@ -104,19 +113,15 @@ function takenAddOns(q: Pick<Quote, "acceptance">): Set<string> {
  * (Manual Cost) is spread over the quantity.
  */
 export function labourRate(l: QuoteLine, card: RateCard): number | null {
+  // A Rate Card line pays the row's Labor Cost, only (Albert, 2026-11-22: "Simply ONLY use the rate card's labor cost
+  // for labor payouts"): no typed cost, no glue, nothing subtracted. A blank Labor Cost leaves the rate blank to type.
+  // Only a row no longer on the card (switched off since) falls through to the line's own cost below.
+  const rateRow = l.sourceKind === "rate" ? card.rates.find((r) => r.id === l.sourceId) : undefined;
+  if (rateRow) return rateRow.labourCost ?? null;
   const qty = l.qty ?? 0;
-  if (l.manualCost) return qty > 0 ? round2(l.manualCost / qty) : l.manualCost;
-  const used = l.costOverride ? l.costOverride : l.unitCostSnap;
-  if (l.sourceKind === "rate" && l.materialId) {
-    const row = card.rates.find((r) => r.id === l.sourceId);
-    const material = (card.materials ?? []).find((m) => m.id === l.materialId);
-    // The glue's cost as typed (2026-11-06): the method is the rest of the line's cost, typed or not.
-    if (l.costOverride && l.materialCost != null) return Math.max(0, round2(l.costOverride - l.materialCost));
-    // A typed cost on a material line from before is labour from the card + the typed material: the card's labour.
-    if (l.costOverride && row) return row.cost;
-    if (used !== null && material?.cost != null) return Math.max(0, round2(used - material.cost));
-    return row ? row.cost : used;
-  }
+  // A typed 0 is a cost of nothing, as in calc.ts (2026-11-21); only a blank box falls back.
+  if (isTyped(l.manualCost)) return qty > 0 ? round2(l.manualCost / qty) : l.manualCost;
+  const used = isTyped(l.costOverride) ? l.costOverride : l.unitCostSnap;
   if (l.sourceKind === "stair") {
     const row = card.stairs.find((s) => s.id === l.sourceId);
     const labour = row?.labourCost ?? null;
@@ -137,7 +142,7 @@ const sectionRank = (s: string) => {
 };
 
 /** Just the card line of a candidate. */
-const lineOf = (c: PayoutLine): PayoutLine => ({ id: c.id, ref: c.ref, option: c.option, section: c.section, description: c.description, area: c.area, uom: c.uom, qty: c.qty, rate: c.rate, cardRate: c.cardRate, on: c.on });
+const lineOf = (c: PayoutLine): PayoutLine => ({ id: c.id, ref: c.ref, option: c.option, section: c.section, description: c.description, area: c.area, uom: c.uom, qty: c.qty, rate: c.rate, cardRate: c.cardRate, on: c.on, ...(c.scope ? { scope: c.scope } : {}) });
 
 /** A line that can go on a card: the labour, with the contractor it is set to and the option it is on. */
 export type Candidate = PayoutLine & { contractor: string; optionId: string };
@@ -149,6 +154,7 @@ export function payoutCandidates(q: Pick<Quote, "acceptance" | "options">, optio
   const out: (Candidate & { rank: number; order: number })[] = [];
   let order = 0;
   for (const o of picked as QuoteOption[]) {
+    const scope = optionScope(o);
     for (const l of o.lines) {
       if (!isPriced(l)) continue;
       const section = sectionOf(l);
@@ -167,6 +173,7 @@ export function payoutCandidates(q: Pick<Quote, "acceptance" | "options">, optio
         rate,
         cardRate: rate,
         on: ON_SECTIONS.has(section) && (rate ?? 0) > 0,
+        scope,
         contractor: (l.contractor ?? "").trim(),
         optionId: o.id,
         rank: sectionRank(section),
@@ -216,7 +223,7 @@ const mapCard = (set: PayoutSet, cardId: string, f: (c: PayoutCard) => PayoutCar
 
 export function addCard(set: PayoutSet, contractor = ""): PayoutSet {
   if (set.cards.length >= MAX_CARDS) return set;
-  return { ...set, cards: [...set.cards, { id: nextId(set, "c"), contractor, note: "", lines: [], pushes: [] }] };
+  return { ...set, cards: [...set.cards, { id: nextId(set, "c"), contractor: contractor.trim().slice(0, 80), note: "", lines: [], pushes: [] }] };
 }
 
 export function removeCard(set: PayoutSet, cardId: string): PayoutSet {
@@ -252,6 +259,62 @@ export function moveLine(set: PayoutSet, lineId: string, toCardId: string): Payo
   return { ...set, cards: set.cards.map((c) => (c.id === from.id ? { ...c, lines: c.lines.filter((l) => l.id !== lineId) } : c.id === to.id ? { ...c, lines: [...c.lines, line] } : c)) };
 }
 
+/**
+ * One contractor for a whole stairs option (Albert, 2026-11-17: "stairs option should be able to CHANGE the payout easily
+ * through a whole select; since it is always one contractor that does it"). Every line from that option, on any card,
+ * goes to the card of `contractor` (same name, any case). With no such card, an unnamed card holding only this option's
+ * lines is named instead, else a new card is made. Cards left empty with no pushes and no note are dropped. Blank
+ * contractor = nothing changes.
+ */
+export function assignOption(set: PayoutSet, option: string, contractor: string): PayoutSet {
+  const name = contractor.trim();
+  if (!name || !option) return set;
+  const mine = (l: PayoutLine) => l.option === option;
+  const moving = set.cards.flatMap((c) => c.lines.filter(mine));
+  if (moving.length === 0) return set;
+  let target = set.cards.find((c) => key(c.contractor) === key(name));
+  let cards = set.cards;
+  if (!target) {
+    const solo = set.cards.find((c) => !c.contractor.trim() && c.lines.length > 0 && c.lines.every(mine));
+    if (solo) {
+      target = { ...solo, contractor: name };
+      cards = cards.map((c) => (c.id === solo.id ? target! : c));
+    } else {
+      if (set.cards.length >= MAX_CARDS) return set;
+      target = { id: nextId(set, "c"), contractor: name, note: "", lines: [], pushes: [] };
+      cards = [...cards, target];
+    }
+  }
+  const to = target.id;
+  const kept = moving.filter((l) => !target!.lines.some((x) => x.id === l.id));
+  cards = cards.map((c) => (c.id === to ? { ...c, lines: [...c.lines, ...kept].slice(0, MAX_LINES) } : { ...c, lines: c.lines.filter((l) => !mine(l)) }));
+  return { ...set, cards: cards.filter((c) => c.id === to || c.lines.length > 0 || c.pushes.length > 0 || c.note.trim()) };
+}
+
+/** The stairs options on the cards, each with the contractor whose card holds all its lines ("" when split or unnamed). */
+export function stairsOptions(set: PayoutSet): { option: string; contractor: string }[] {
+  const names = [...new Set(set.cards.flatMap((c) => c.lines.filter((l) => l.option && lineScope(l) === "Stairs").map((l) => l.option as string)))];
+  return names.map((option) => {
+    const holders = set.cards.filter((c) => c.lines.some((l) => l.option === option));
+    return { option, contractor: holders.length === 1 ? holders[0].contractor.trim() : "" };
+  });
+}
+
+/**
+ * Give a line to a payout receiver by name (Albert, 2026-11-17: "new contractor sections can be created and named
+ * manually… having the option to type our own payout receiver is a good backup"): their card (same name, any case),
+ * else a new card with that name. Blank name or a full set = nothing changes.
+ */
+export function moveLineTo(set: PayoutSet, lineId: string, contractor: string): PayoutSet {
+  const name = contractor.trim().slice(0, 80);
+  if (!name || !set.cards.some((c) => c.lines.some((l) => l.id === lineId))) return set;
+  const found = set.cards.find((c) => key(c.contractor) === key(name));
+  if (found) return moveLine(set, lineId, found.id);
+  if (set.cards.length >= MAX_CARDS) return set;
+  const made = addCard(set, name);
+  return moveLine(made, lineId, made.cards[made.cards.length - 1].id);
+}
+
 /** Back to the rate the line started at. */
 export const resetRate = (set: PayoutSet, cardId: string, lineId: string): PayoutSet =>
   mapCard(set, cardId, (c) => ({ ...c, lines: c.lines.map((l) => (l.id === lineId && l.cardRate !== null ? { ...l, rate: l.cardRate } : l)) }));
@@ -259,6 +322,12 @@ export const resetRate = (set: PayoutSet, cardId: string, lineId: string): Payou
 /* ---------- reading a card ---------- */
 
 export const cardTotal = (c: Pick<PayoutCard, "lines">) => payoutTotal(c.lines);
+/** A card's ticked total split into Flooring and Stairs; `split` when it has ticked lines of both. */
+export function scopeTotals(c: Pick<PayoutCard, "lines">): { split: boolean; flooring: number; stairs: number } {
+  const of = (s: Scope) => payoutTotal(c.lines.filter((l) => lineScope(l) === s));
+  const on = c.lines.filter((l) => l.on);
+  return { split: on.some((l) => lineScope(l) === "Stairs") && on.some((l) => lineScope(l) === "Flooring"), flooring: of("Flooring"), stairs: of("Stairs") };
+}
 export const rateChanged = (l: Pick<PayoutLine, "rate" | "cardRate">) => l.cardRate !== null && l.rate !== null && Math.abs(l.rate - l.cardRate) >= 0.005;
 
 /** What is on the card as the contractor sees it: two cards that read the same have the same signature. */
@@ -295,9 +364,14 @@ export type CardSheet = {
   title: string;
   ref: string;
   rows: [string, string][];
-  /** Lines grouped by option when the card covers more than one. */
-  groups: { option: string | null; lines: { description: string; detail: string; amount: string }[] }[];
+  /**
+   * Lines grouped: by Flooring and Stairs when the card has both (2026-11-17, each with its subtotal), else by option
+   * when the card covers more than one. `option` is the group's heading.
+   */
+  groups: { option: string | null; lines: { description: string; detail: string; amount: string }[]; subtotal?: string }[];
   total: string;
+  /** "Total payout", or "Total payout, flooring and stairs" when the card has both. */
+  totalLabel: string;
   note: string;
   footer: string;
 };
@@ -308,18 +382,25 @@ const qtyText = (n: number | null) => (n === null ? "" : Number.isInteger(n) ? S
 /** The card's words and figures, laid out top to bottom, ticked lines only. */
 export function cardSheet(c: PayoutCard, h: CardHeader): CardSheet {
   const on = c.lines.filter((l) => l.on);
-  const options = [...new Set(on.map((l) => l.option))];
-  const split = options.filter((o) => o !== null).length > 1;
-  const groups = (split ? options : [null]).map((option) => ({
-    option,
-    lines: on
-      .filter((l) => !split || l.option === option)
-      .map((l) => ({
-        description: l.description.trim(),
-        detail: [l.area.trim(), `${qtyText(l.qty)}${l.uom ? ` ${l.uom}` : ""} × ${dollars(l.rate ?? 0)}`].filter(Boolean).join(" · "),
-        amount: dollars(payoutAmount(l)),
-      })),
-  }));
+  const row = (l: PayoutLine, withOption: boolean) => ({
+    description: l.description.trim(),
+    detail: [withOption ? (l.option ?? "") : "", l.area.trim(), `${qtyText(l.qty)}${l.uom ? ` ${l.uom}` : ""} × ${dollars(l.rate ?? 0)}`].filter(Boolean).join(" · "),
+    amount: dollars(payoutAmount(l)),
+  });
+  const scopes = { split: on.some((l) => lineScope(l) === "Stairs") && on.some((l) => lineScope(l) === "Flooring") };
+  let groups: CardSheet["groups"];
+  if (scopes.split) {
+    // Flooring, then Stairs, each with its subtotal; the option names the line when its scope covers two (2026-11-17).
+    groups = (["Flooring", "Stairs"] as Scope[]).map((s) => {
+      const ls = on.filter((l) => lineScope(l) === s);
+      const many = new Set(ls.map((l) => l.option).filter(Boolean)).size > 1;
+      return { option: s, lines: ls.map((l) => row(l, many)), subtotal: dollars(payoutTotal(ls)) };
+    });
+  } else {
+    const options = [...new Set(on.map((l) => l.option))];
+    const split = options.filter((o) => o !== null).length > 1;
+    groups = (split ? options : [null]).map((option) => ({ option, lines: on.filter((l) => !split || l.option === option).map((l) => row(l, false)) }));
+  }
   return {
     title: "Contractor payout",
     ref: [h.projectNumber, h.quoteNumber].filter(Boolean).join(" · "),
@@ -331,6 +412,7 @@ export function cardSheet(c: PayoutCard, h: CardHeader): CardSheet {
     ].filter((r): r is [string, string] => Boolean(r[1])),
     groups,
     total: dollars(cardTotal(c)),
+    totalLabel: scopes.split ? "Total payout, flooring and stairs" : "Total payout",
     note: c.note.trim(),
     footer: "Labour only. Materials are not part of this payout.",
   };
@@ -389,6 +471,7 @@ function cleanLine(v: unknown): PayoutLine | null {
     rate: rate === null ? null : round2(rate),
     cardRate: cardRate === null ? null : round2(cardRate),
     on: l.on === true,
+    ...(l.scope === "Flooring" || l.scope === "Stairs" ? { scope: l.scope } : {}),
   };
 }
 

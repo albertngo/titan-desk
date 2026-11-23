@@ -9,7 +9,7 @@ import { PRESETS } from "../src/lib/pricing/schedule";
 import type { Quote, QuoteLine, QuoteOption } from "../src/lib/quotes/types";
 import { acceptedPdfName, customerCopy, pdfName, type CustomerCopy, type Letterhead } from "../src/lib/send/copy";
 import { quotePdf } from "../src/lib/send/pdf";
-import { acceptedEmailMessage, acceptedSmsMessage, depositHow } from "../src/lib/send/plan";
+import { acceptedEmailMessage, acceptedSmsMessage, depositHow, gsmPlain, smsSchedule } from "../src/lib/send/plan";
 
 /* Invented numbers and people only (quote/CLAUDE.md rule 4). */
 
@@ -282,6 +282,21 @@ describe("the acceptance email and text", () => {
     expect(m.message).toContain("e-transfer it to deposits@example.com and put Q-9001 in the message");
     expect(m.message).toContain(to.link);
     expect(m.message).toMatch(/^[\x20-\x7e\n]+$/);
+  });
+
+  it("the same text carries the whole payment schedule, one line a stage, before the link (2026-11-22)", () => {
+    const m = acceptedSmsMessage(copy, a, to, { etransfer: "deposits@example.com" }, { email: "pat.quoter@example.com", firstName: "Pat" });
+    if (m.type !== "SMS") throw new Error("expected a text");
+    const shown = a.stages.filter((s) => !(s.kind === "topUp" && s.amount === 0));
+    expect(m.message).toContain("Your payment schedule:");
+    for (const s of shown) expect(m.message).toContain(`- ${s.label}: $${s.amount!.toLocaleString("en-CA", { minimumFractionDigits: 2 })}`);
+    expect(m.message.indexOf("Your payment schedule:")).toBeLessThan(m.message.indexOf(to.link));
+    expect(m.message).toMatch(/^[\x20-\x7e\n]+$/);
+  });
+
+  it("a one-stage schedule adds no schedule lines, and typed words are made GSM-7", () => {
+    expect(smsSchedule([a.stages[0]])).toBe("");
+    expect(gsmPlain("Balance \u2013 \u201cfinal\u201d day\u2026 \u2705")).toBe('Balance - "final" day...');
   });
 
   it("a deposit paid on site says so, and never says why", () => {

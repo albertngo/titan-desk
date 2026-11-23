@@ -1,10 +1,12 @@
 import "server-only";
+import { parseState } from "@/lib/followup/plan";
+import { SENT_WORDS, sentOutside } from "@/lib/followup/offchannel";
 import { stairCost } from "@/lib/pricing/stairCost";
 import { requireQuoter } from "@/lib/auth";
 import { AirtableError, getRecord, listByIds, listRecords, type AirtableRecord } from "@/lib/airtable/client";
 import { CAT, CATALOGUE_TABLE, LINE, MATERIAL, MATERIAL_TABLE, OPTION, PROFILE, PROFILE_TABLE, QUICK, QUICK_TABLE, QUOTE, RATE, RATE_TABLE, STAIR, STAIR_TABLE, T, VERSION } from "@/lib/airtable/fields";
 import { QUICK_GROUPS, quickProfiles, splitPath, type QuickChoice, type QuickGroup, type QuickPart, type QuickPartMaterial, type QuickProduct, type QuickProfile } from "@/lib/quick/plan";
-import { buildCatalogue, materialWords } from "@/lib/editor/model";
+import { buildCatalogue, materialWords, rankProducts } from "@/lib/editor/model";
 import { stairLineUom } from "@/lib/editor/stairGroups";
 import { parseAcceptance } from "@/lib/accept/plan";
 import { cleanSchedule } from "@/lib/pricing/schedule";
@@ -31,7 +33,7 @@ export async function listQuoteGroups(): Promise<QuoteGroup[]> {
       fields: [VERSION.label, VERSION.version, VERSION.status, VERSION.basis, VERSION.quote, VERSION.options, VERSION.openedCount, VERSION.lastOpenedAt, VERSION.trackActivity, VERSION.supersedes, VERSION.changeNo, VERSION.sentAt, VERSION.validUntil, VERSION.acceptedOption, VERSION.acceptedAt],
     }),
     listRecords(T.quotes, {
-      fields: [QUOTE.customerName, QUOTE.lastName, QUOTE.firstName, QUOTE.siteCity, QUOTE.quoteNumber, QUOTE.linkStatus, QUOTE.addressStatus, QUOTE.phone, QUOTE.email, QUOTE.projectNumber, QUOTE.description, QUOTE.contract],
+      fields: [QUOTE.customerName, QUOTE.lastName, QUOTE.firstName, QUOTE.siteCity, QUOTE.quoteNumber, QUOTE.linkStatus, QUOTE.addressStatus, QUOTE.phone, QUOTE.email, QUOTE.projectNumber, QUOTE.description, QUOTE.contract, QUOTE.followUp],
     }),
     // The Value column and the strip (2026-11-07): each option's customer total, never its cost or margin.
     listRecords(T.options, {
@@ -70,6 +72,12 @@ export async function listQuoteGroups(): Promise<QuoteGroup[]> {
         addressStatus: str(q.fields[QUOTE.addressStatus]),
         description: str(q.fields[QUOTE.description]),
         contractTotal: parseContract(str(q.fields[QUOTE.contract]))?.totals.total ?? null,
+        // Given by text or on a call (2026-11-13), after the app's last send: the row's "Sent by text" chip.
+        outside: (() => {
+          const off = parseState(str(q.fields[QUOTE.followUp])).offChannel;
+          const last = versions.filter((v) => ids(v.fields[VERSION.quote])[0] === q.id).map((v) => str(v.fields[VERSION.sentAt])).filter((x): x is string => Boolean(x)).sort().at(-1) ?? null;
+          return sentOutside(off, last) ? SENT_WORDS[off.how] : null;
+        })(),
       },
     ]),
   );
@@ -475,6 +483,7 @@ export async function getRateCard(): Promise<RateCard> {
           uom: str(f[RATE.uom]),
           rate,
           cost: num(f[RATE.totalCost]) ?? 0,
+          labourCost: num(f[RATE.laborCost]),
           minCharge: num(f[RATE.minCharge]),
           defaultWaste: num(f[RATE.defaultWaste]),
           materialGroup: str(f[RATE.materialGroup]),
@@ -508,7 +517,8 @@ function toProduct(r: AirtableRecord): QuickProduct | null {
   const rate = num(f[CAT.retail]);
   const name = str(f[CAT.name]);
   if (rate === null || !name) return null;
-  return { recordId: r.id, sku: str(f[CAT.sku]) ?? "", name, rate, cost: num(f[CAT.cost]) };
+  const box = num(f[CAT.boxSf]);
+  return { recordId: r.id, sku: str(f[CAT.sku]) ?? "", name, rate, cost: num(f[CAT.cost]), boxSf: box !== null && box > 0 ? box : null };
 }
 
 const skuFormula = (skus: string[]) => `OR(${skus.map((s) => `{${CAT.sku}}='${s.replace(/[\\']/g, "")}'`).join(",")})`;
@@ -587,5 +597,20 @@ export async function searchProducts(query: string): Promise<QuickProduct[]> {
   const hay = `LOWER({${CAT.sku}}&' '&{${CAT.name}}&' '&{${CAT.collection}}&' '&{${CAT.brand}})`;
   const formula = `AND({${CAT.active}},${words.map((w) => `SEARCH('${w}',${hay})`).join(",")})`;
   const recs = await listRecords(CATALOGUE_TABLE, { fields: Object.values(CAT), filterByFormula: formula });
-  return recs.flatMap((r) => { const p = toProduct(r); return p ? [p] : []; }).slice(0, 12);
+  // An exact SKU first (2026-11-17), so typing a SKU in the editor's Materials search finds that product at the top.
+  return rankProducts(recs.flatMap((r) => { const p = toProduct(r); return p ? [p] : []; }), query).slice(0, 12);
+}
+
+/**
+ * Box Size (sf) of catalogue products by record id (2026-11-17), for the editor's whole-boxes button on product lines.
+ * Read-only; any product, active or not, since a saved line may point at one switched off since. Absent = none on file.
+ */
+export async function productBoxes(recordIds: string[]): Promise<Record<string, number>> {
+  await requireQuoter();
+  const wanted = [...new Set(recordIds.filter((id) => /^rec[A-Za-z0-9]{14}$/.test(id)))].slice(0, 100);
+  if (wanted.length === 0) return {};
+  const recs = await listByIds(CATALOGUE_TABLE, wanted, [CAT.boxSf]);
+  const out: Record<string, number> = {};
+  for (const r of recs) { const b = num(r.fields[CAT.boxSf]); if (b !== null && b > 0) out[r.id] = b; }
+  return out;
 }

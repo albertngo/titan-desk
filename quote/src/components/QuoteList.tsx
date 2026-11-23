@@ -6,6 +6,7 @@ import { whenWords } from "@/lib/activity/track";
 import { displayPhone } from "@/lib/link/identity";
 import { ago, DEFAULT_SORT, followUpReasons, fromWords, inFilter, quoteValue, reasonWords, isQuoteSort, lastSentVersion, matchesSearch, nextSort, openedOn, opensWords, QUOTE_FILTERS, QUOTE_SORTS, sortGroups, type QuoteFilter, type QuoteGroup, type QuoteSort, type QuoteSortKey, type VersionRow } from "@/lib/quotes/group";
 import { money, pulse, valueWords } from "@/lib/quotes/pipeline";
+import { DraftHistory, useSendHistory, VersionHistory } from "./QuoteHistory";
 
 const dateOf = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric", year: "numeric" });
 const initials = (name: string | null) =>
@@ -72,6 +73,42 @@ function LastOpened({ versions, now }: { versions: (OpenInfo & Pick<VersionRow, 
       <span className="none">Not opened</span>
       {which && <span className="mt">{which}</span>}
     </div>
+  );
+}
+
+/**
+ * A quote's versions, newest first (one working quote, 2026-10-30: versions are the send history; only a change keeps its
+ * number), each with its own history right under its line (Albert, 2026-11-20).
+ */
+function Versions({ id, versions, latestId, quoteRecordId, now }: { id: string; versions: VersionRow[]; latestId: string; quoteRecordId: string | null; now: Date }) {
+  const { history, error, loading } = useSendHistory(quoteRecordId, versions.map((v) => `${v.id}:${v.status ?? ""}`).join(","));
+  return (
+    <ul className="ql-vs" id={id}>
+      {versions.map((v) => {
+        const from = fromWords(v.changeNo, null);
+        const row = history?.rows.find((r) => r.id === v.id) ?? null;
+        const draft = history?.draft?.id === v.id ? history.draft : null;
+        return (
+          <li key={v.id}>
+            <Link href={`/q/${v.id}`} className="ql-v">
+              <span className="nm">{v.label ?? `v${v.version ?? "?"}`}</span>
+              {from && <span className="ql-from">{from}</span>}
+              {v.id === latestId && <span className="ql-cur">Current</span>}
+              <Status status={v.status} />
+              {v.basis && <span className={`ql-basis ${v.basis}`}>{v.basis}</span>}
+              <Opened v={v} now={now} />
+              <span className="mt">
+                {v.optionCount > 0 ? `${v.optionCount} option${v.optionCount === 1 ? "" : "s"}` : "old A/B/C format"} · {dateOf(v.createdTime)}
+              </span>
+            </Link>
+            {row && <VersionHistory row={row} />}
+            {draft && <DraftHistory draft={draft} />}
+          </li>
+        );
+      })}
+      {loading && <li className="qh-wait faint">Reading the history…</li>}
+      {error && <li className="qh-wait bad">{error}</li>}
+    </ul>
   );
 }
 
@@ -385,35 +422,15 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
                         </span>
                       );
                     })}
+                    {g.outside && <span className="chip warn">{g.outside}</span>}
                     {g.linkStatus === "Needs linking" && <span className="chip bad">Needs linking</span>}
                     {g.addressStatus === "Unconfirmed" && <span className="chip warn">Address unconfirmed</span>}
                     {g.addressStatus === "No address" && <span className="chip warn">No address yet</span>}
                   </div>
                   <span className="ql-when" title={dateOf(g.latestAt)}>{ago(g.latestAt, now)}</span>
                 </div>
-                {expanded && (
-                  <ul className="ql-vs" id={`v-${k}`}>
-                    {g.versions.map((v) => {
-                      // One working quote (2026-10-30): versions are the send history, newest first; only a change keeps its number.
-                      const from = fromWords(v.changeNo, null);
-                      return (
-                      <li key={v.id}>
-                        <Link href={`/q/${v.id}`} className="ql-v">
-                          <span className="nm">{v.label ?? `v${v.version ?? "?"}`}</span>
-                          {from && <span className="ql-from">{from}</span>}
-                          {v.id === latest.id && <span className="ql-cur">Current</span>}
-                          <Status status={v.status} />
-                          {v.basis && <span className={`ql-basis ${v.basis}`}>{v.basis}</span>}
-                          <Opened v={v} now={now} />
-                          <span className="mt">
-                            {v.optionCount > 0 ? `${v.optionCount} option${v.optionCount === 1 ? "" : "s"}` : "old A/B/C format"} · {dateOf(v.createdTime)}
-                          </span>
-                        </Link>
-                      </li>
-                      );
-                    })}
-                  </ul>
-                )}
+                {/* Each version's history right under its line (Albert, 2026-11-20), read when the row is opened. */}
+                {expanded && <Versions id={`v-${k}`} versions={g.versions} latestId={latest.id} quoteRecordId={g.quoteRecordId} now={now} />}
               </li>
             );
           })}

@@ -30,6 +30,8 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
 - Fix address (Albert, 2026-10-21).
 - Address arrived (Albert, 2026-10-27: "filled auto").
 - Two ways to start a quote (Albert, 2026-10-18).
+- Copy options from a past quote (Albert, 2026-11-16).
+- Create CompanyCam + folder (Albert, 2026-11-16).
 - Where they found us (Albert, 2026-10-27).
 - The preliminary's option is named for what it installs (Albert, 2026-10-31).
 - Several options from the quick form (Albert, 2026-10-31).
@@ -59,6 +61,7 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
 - A preliminary goes as a range (Albert, 2026-10-27).
 - Sent from the person signed in (Albert, 2026-10-22).
 - Who worked on a version (Albert, 2026-10-22).
+- Show history on All quotes, and the staff note (Albert, 2026-11-20).
 - The customer deployment (2026-10-15).
 - Service level (Albert, 2026-10-16).
 - Crew per option (Albert, 2026-10-16).
@@ -69,7 +72,7 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
 - Lump sum is the default, always (Albert, 2026-10-22).
 - The Private section (Albert, 2026-10-22).
 - Accepted price (Albert, 2026-10-22; above the list blocked 2026-11-04, see The price card).
-- The price card (Albert, 2026-11-04).
+- The price card (Albert, 2026-11-04; the accepted price is what the customer pays, HST included, 2026-11-21).
 - The customer always sees the discount (Albert, 2026-11-03: "All quote links and PDF should show the client what the discounts are").
 - If they accept a price (Albert, 2026-10-22).
 - Rooms (Albert, 2026-10-27).
@@ -112,7 +115,10 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
 - Private is back on stairs options, staff only (Albert, 2026-11-06, later the same day: "Should we bring back the private section? Where f…
 - Two fees every option starts with (Albert, 2026-11-06), `src/lib/quotes/fees.ts`.
 - Stair Site Sheet v7 (Albert, 2026-11-06/07).
+- Prices given outside the app, and the twice-a-day recheck (Albert, 2026-11-13; vault `05_decisions/2026-11-13-quote-price-given-outside-app`): marks a quote Sent by text / Given on a call, sends nothing.
 - The Send card starts the way the last version went (Albert, 2026-11-06: "send card should also show and default to the 'breakdown' or 'lu…
+- Catalogue SKUs in the editor's Materials picker (Albert, 2026-11-17).
+- Send-as permissions and Mark as sent in Settings (Albert, 2026-11-17): who nobody else can send as, and who can mark a quote sent without sending.
 
 ## Hard rules
 
@@ -151,7 +157,10 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
    `05_decisions/2026-11-23-hike-customer-scan`). A hit is linked; only a miss is created; never an update, merge or
    delete. Ids land in Quotes → POS Customers. Switches: Settings, POS customers.
    Set those two variables only after the scenario is switched on: a request to a scenario
-   that is off waits in Make's queue and would run later.
+   that is off waits in Make's queue and would run later. **Create CompanyCam + folder (Albert, 2026-11-16):**
+   `startBookedRun()` posts to Make 3453735's own webhook (`QUOTE_MAKE_BOOKING_HOOK`, read only here), called only from
+   `src/lib/quotes/jobFiles.ts` (quoter-guarded; writes only Quotes → Notes), with the quote and an HMAC of it and its
+   contact keyed by `QUOTE_BOOKING_KEY` (`src/lib/quotes/jobToken.ts`).
 2c. **A path without a sign-in on the staff app:** `/api/booking`, called by Make 3453735 when an appointment
    is confirmed. The proxy lets only it and `/api/activity` (2c') through (besides signing in); the route and every function in
    `src/lib/quotes/booking.ts` check `QUOTE_BOOKING_KEY` first (constant-time; unset = off). Make
@@ -168,6 +177,9 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
    addresses, and no opportunity is made. Make still makes its folder and CompanyCam project. Staff then
    create the new opportunity and link it, or, if it was the same job at a new address, fix the address
    and delete the new quote. A booking never moves a confirmed site.
+   **A run started from the app (2026-11-16)** carries `quoteRecordId` and `manual` (the signature): `fromApp()` checks
+   the signature and that the quote is the contact's, then answers for exactly that quote and writes nothing but a
+   CompanyCam URL already on its opportunity: no match, no site confirmed, no opportunity made or updated.
    It answers `made: true` when the job's folder and CompanyCam project already exist (links on the
    quote, or a CompanyCam URL on the opportunity), and Make then skips making them.
 2c'. **A second path without a sign-in: `/api/activity` (2026-10-27)**, open tracking, called by the
@@ -193,7 +205,9 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
    most), and only drafts `checkDraft()` passes (no dollar amount the quote doesn't carry). Stage 1 is the signed-in
    Send button (`sendFollowUp()`), from the person signed in. Since 2026-11-09 the same run first rewrites up to 10
    stale briefs (written before today or before something new happened) for due and upcoming quotes, whatever the
-   switch; that writes only Quotes → Follow Up. `tests/boundary.test.ts` pins all of this.
+   switch; that writes only Quotes → Follow Up. **The twice-a-day recheck (2026-11-13)** is `/api/followups/recheck`,
+   `runRecheck()`, same key: it sends nothing, writes Quotes → Follow Up and a History line, and adds a price given
+   outside the app only through `src/lib/quotes/outside.ts` (one option, one line, a Draft only). `tests/boundary.test.ts` pins all of this.
 2d. **Customer links live on the customer deployment only.** There the proxy serves `/c/<token>`
    and 404s everything else, and `write()` refuses; on the staff app `/c/` is 404.
    `src/lib/quotes/customer.ts` answers only there and only for a well-formed token, returns the

@@ -3,17 +3,18 @@
 import { useState } from "react";
 import { optionTotals, type LineInput, type OptionTotals } from "@/lib/calc";
 import { money, pct } from "@/lib/format";
-import { atAcceptedPrice, atDiscountPct, type Accepted } from "@/lib/pricing/accepted";
+import { atAcceptedTotal, atDiscountPct, type Accepted } from "@/lib/pricing/accepted";
 
 /**
- * "If they accept this price": type the pre-tax amount the customer agreed to, or a discount, and
+ * "If they accept this price": type the amount the customer agreed to pay, HST included where it is
+ * charged (Albert, 2026-11-21: "the FINAL value they pay"), or a discount, and
  * see the discount it implies and the margin left, beside the quote as it stands (Albert,
  * 2026-10-22). Analysis only: nothing is saved and the quote is not changed. Staff only: the
  * server never renders it in Customer view, so cost and margin never reach that page.
  */
 
 /** `showHst`: the option's own HST (2026-11-04); absent = the quote's. */
-type Opt = { id: string; name: string; lines: LineInput[]; showHst?: boolean };
+type Opt = { notOffered?: boolean; id: string; name: string; lines: LineInput[]; showHst?: boolean };
 
 const ROWS: { key: keyof OptionTotals; label: string; money?: false }[] = [
   { key: "preDiscount", label: "List price (before discount)" },
@@ -32,7 +33,8 @@ const toNumber = (s: string) => {
 };
 
 export function AcceptedPrice({ options, discountRate, showHst }: { options: Opt[]; discountRate: number; showHst: boolean }) {
-  const [optionId, setOptionId] = useState(options[0]?.id ?? "");
+  // The first offered option by default, as the quote page opens (2026-11-20).
+  const [optionId, setOptionId] = useState((options.find((o) => !o.notOffered) ?? options[0])?.id ?? "");
   const [price, setPrice] = useState("");
   const [discount, setDiscount] = useState("");
   /** Which box was typed last decides the other. */
@@ -43,16 +45,17 @@ export function AcceptedPrice({ options, discountRate, showHst }: { options: Opt
   const o = picked;
   const hstOn = o.showHst ?? showHst;
   const now = optionTotals(o.lines, discountRate, hstOn);
+  const hstWord = hstOn ? "with HST" : now.hst ? "with HST on materials" : "no HST";
 
   let at: Accepted | null = null;
   if (by === "price") {
     const p = toNumber(price);
-    at = p !== null ? atAcceptedPrice(o.lines, hstOn, p) : null;
+    at = p !== null ? atAcceptedTotal(o.lines, hstOn, p) : null;
   } else {
     const d = toNumber(discount);
     at = d !== null ? atDiscountPct(o.lines, hstOn, d) : null;
   }
-  const shownPrice = by === "price" ? price : at ? String(at.t.subtotal) : "";
+  const shownPrice = by === "price" ? price : at ? String(at.t.total) : "";
   const shownDiscount = by === "discount" ? discount : at ? String(Math.round(at.rate * 1000) / 10) : "";
 
   const cell = (t: OptionTotals, r: (typeof ROWS)[number]) => (r.money === false ? pct(t[r.key]) : money(t[r.key]));
@@ -76,8 +79,8 @@ export function AcceptedPrice({ options, discountRate, showHst }: { options: Opt
             </label>
           )}
           <label>
-            Accepted price, before HST
-            <input className="in" inputMode="decimal" placeholder={String(now.subtotal)} value={shownPrice} onChange={(e) => { setPrice(e.target.value); setBy("price"); }} />
+            Accepted price, what they pay ({hstWord})
+            <input className="in" inputMode="decimal" placeholder={String(now.total)} value={shownPrice} onChange={(e) => { setPrice(e.target.value); setBy("price"); }} />
           </label>
           <label>
             or discount %
@@ -124,7 +127,7 @@ export function AcceptedPrice({ options, discountRate, showHst }: { options: Opt
             </div>
           </>
         ) : (
-          <p className="muted">Type the amount the customer agreed to before HST, or the discount, to see the margin that leaves.</p>
+          <p className="muted">Type the amount the customer agreed to pay ({hstWord}), or the discount, to see the margin that leaves.</p>
         )}
       </div>
     </section>
