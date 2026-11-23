@@ -3,7 +3,7 @@ import type { Quote } from "@/lib/quotes/types";
 import { sqftFlag, sqftWords } from "@/lib/quotes/sqftCheck";
 import { payWords, scheduleFlags, scheduleProblems, shownStage } from "@/lib/pricing/schedule";
 import type { Acceptance } from "@/lib/accept/plan";
-import { changeWords as changeLine, paidLeft } from "@/lib/change/diff";
+import { CHANGE_ACCEPTED_WORDS, changeWords as changeLine, paidLeft } from "@/lib/change/diff";
 import { addDays, dollars, hstOf, hstRow, isIsoDate, isRange, isSplit, scopeLeads, scopeOf, leadPrice, longDate, offersPdf, quoteSchedule, rangeText, rangeWhy, stageNote, stagesOf, type CopyOption, type CopyStage, type CustomerCopy } from "./copy";
 import { copyKind, kindPhrase } from "./summary";
 
@@ -837,7 +837,8 @@ export function changeEmailMessage(copy: CustomerCopy, to: { contactId: string; 
       : "") +
     row(eyebrow("Your payment schedule") + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${stages}</table>` + para("The payment schedule is worked out on the new total; what you&rsquo;ve already paid counts toward it.", 13, C.muted, "10px 0 0")) +
     hairline("22px 40px 28px") +
-    row(para("If anything here isn&rsquo;t what we agreed, reply to this email.", 15, C.body, "0 0 4px") + para(signoff, 14, C.muted, "0 0 36px"));
+    // Albert, 2026-11-23: the changes are taken as relayed and accepted; a dispute goes to the project manager at once.
+    row(para(CHANGE_ACCEPTED_WORDS, 15, C.body, "0 0 4px") + para(signoff, 14, C.muted, "0 0 36px"));
   const from = "emailFrom" in options ? options.emailFrom : emailFromFor(sender, copy.company.email, true);
   // Never an attachment (2026-10-27): the updated quote is on its page.
   return { type: "Email", contactId: to.contactId, subject, html: frame(copy, subject, preheader, body), ...(from ? { emailFrom: from } : {}) };
@@ -852,7 +853,7 @@ export function changeSmsMessage(copy: CustomerCopy, to: { contactId: string; fi
   return {
     type: "SMS",
     contactId: to.contactId,
-    message: `${hi ? `Hi ${hi}, ${whoFrom}.` : `Hi, ${whoFrom}.`} As we discussed, here is your updated quote ${copy.quoteNumber} (change ${c.no}). The new total is ${total}${copy.options[0].totals.hst ? " with HST" : ""}; the payments follow the new total, and what you've paid counts toward it.${paidLeft(c, copy.options[0].totals.total) ? ` Paid so far ${cad.format(paidLeft(c, copy.options[0].totals.total)!.paid)}, left to pay ${cad.format(paidLeft(c, copy.options[0].totals.total)!.left)}.` : ""}\n\nSee what changed:\n${to.link}\n\nIf anything isn't what we agreed, just reply.`,
+    message: `${hi ? `Hi ${hi}, ${whoFrom}.` : `Hi, ${whoFrom}.`} As we discussed, here is your updated quote ${copy.quoteNumber} (change ${c.no}). The new total is ${total}${copy.options[0].totals.hst ? " with HST" : ""}; the payments follow the new total, and what you've paid counts toward it.${paidLeft(c, copy.options[0].totals.total) ? ` Paid so far ${cad.format(paidLeft(c, copy.options[0].totals.total)!.paid)}, left to pay ${cad.format(paidLeft(c, copy.options[0].totals.total)!.left)}.` : ""}\n\nSee what changed:\n${to.link}\n\n${CHANGE_ACCEPTED_WORDS}`,
   };
 }
 

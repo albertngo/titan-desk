@@ -1,7 +1,7 @@
 import { Inter } from "next/font/google";
 import localFont from "next/font/local";
 import { shownStage } from "@/lib/pricing/schedule";
-import { changeWords, itemDifference, paidLeft, signedMoney, type CopyChange } from "@/lib/change/diff";
+import { CHANGE_ACCEPTED_WORDS, changeWords, itemDifference, paidLeft, signedMoney, type CopyChange } from "@/lib/change/diff";
 import { money, rate } from "@/lib/format";
 import { OptionSwitcher } from "@/components/OptionSwitcher";
 import { discountRows, hstRow, isLump, isSplit, scopeHeading, scopeOf, scopesOf, itemHstNote, leadPrice, longDate, partGroups, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyState, type CopyText, type CustomerCopy } from "@/lib/send/copy";
@@ -174,7 +174,7 @@ function ChangeBox({ c, o, lump }: { c: CopyChange; o: CopyOption; lump: boolean
           })}
         </div>
       )}
-      <p className="faint">This updated quote is the record of the change we agreed. The full quote follows.</p>
+      <p className="faint">This updated quote is the record of the change. {CHANGE_ACCEPTED_WORDS} The full quote follows.</p>
     </section>
   );
 }
