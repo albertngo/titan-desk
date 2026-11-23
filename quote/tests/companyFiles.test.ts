@@ -35,6 +35,14 @@ describe("latestSheets", () => {
     expect(got[1].downloadName).toBe("Titan-Installation-Labor-Warranty-v1.1.pdf");
   });
 
+  it("shows the insurance policy's term, newest term first", () => {
+    const got = latestSheets(["commercial-insurance-policy-v2025.pdf", "commercial-insurance-policy-v2026.pdf", "installation-labor-warranty-v1.1.pdf"]);
+    expect(got.map((s) => [s.kind, s.chip, s.downloadName])).toEqual([
+      ["warranty", "v1.1", "Titan-Installation-Labor-Warranty-v1.1.pdf"],
+      ["insurance", "2026\u201327", "Titan-Commercial-Insurance-Policy-2026-2027.pdf"],
+    ]);
+  });
+
   it("compares minor versions as numbers: 1.10 beats 1.9, and 2 beats 1.10", () => {
     expect(latestSheets(["installation-labor-warranty-v1.9.pdf", "installation-labor-warranty-v1.10.pdf"])[0].version).toBe("1.10");
     expect(latestSheets(["installation-labor-warranty-v1.10.pdf", "installation-labor-warranty-v2.pdf"])[0].version).toBe("2");
@@ -67,6 +75,6 @@ describe("companySheets and sheetFor", () => {
 
   it("finds both kinds in the real sheets folder", () => {
     const got = latestSheets(readdirSync(join(__dirname, "..", "sheets")));
-    expect(got.map((s) => s.kind)).toEqual(["flooring", "stair", "followup", "warranty"]);
+    expect(got.map((s) => s.kind)).toEqual(["flooring", "stair", "followup", "warranty", "insurance"]);
   });
 });
