@@ -22,6 +22,15 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-23",
+    kind: "new",
+    title: "Won customers go into Lightspeed and Hike",
+    details: [
+      "When a customer accepts a quote, or a quote is started for someone already won, they are added as a customer in Lightspeed and in Hike. If either already has them (same email or phone), the app links to that customer and changes nothing.",
+      "What happened is noted on the quote. Each system has its own switch in Settings, under POS customers.",
+    ],
+  },
+  {
+    date: "2026-11-23",
     kind: "changed",
     title: "A change says it is taken as accepted",
     details: [

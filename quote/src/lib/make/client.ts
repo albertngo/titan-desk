@@ -134,6 +134,41 @@ export async function setOpportunityStatus(opportunityId: string, statusBody: st
 }
 
 /**
+ * POS customers (Albert, 2026-11-23; vault 05_decisions/2026-11-23-quote-pos-customers and -hike-customer-scan): a
+ * separate scenario, "Quote app → POS customers", on its own hook and key (QUOTE_MAKE_POS_HOOK / QUOTE_MAKE_POS_KEY),
+ * so the GHL scenario never holds a POS connection. Four routes, each passed on as is: `ls_search` (a customer search),
+ * `ls_create`, `hike_page` (one page of Hike's customer list) and `hike_create`. Make's filters refuse a create body
+ * carrying an id; nothing updates, merges or deletes. Returns the POS's parsed answer; throws MakeError otherwise.
+ */
+export const posConfigured = () => Boolean(process.env.QUOTE_MAKE_POS_HOOK && process.env.QUOTE_MAKE_POS_KEY);
+
+export type PosRoute = "ls_search" | "ls_create" | "hike_page" | "hike_create";
+
+export async function posRequest(route: PosRoute, args: { query?: string; body?: Record<string, unknown> } = {}): Promise<unknown> {
+  const url = process.env.QUOTE_MAKE_POS_HOOK;
+  const key = process.env.QUOTE_MAKE_POS_KEY;
+  if (!url || !key) throw new MakeError("The POS customers step isn't switched on for this deployment.");
+  if (args.body && "id" in args.body) throw new MakeError("A POS create never carries an id.");
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ key, mode: route, query: args.query ?? "", bodyJson: args.body ? JSON.stringify(args.body) : "" }),
+    cache: "no-store",
+    signal: AbortSignal.timeout(60_000),
+  });
+  const text = await res.text().catch(() => "");
+  let d: Record<string, unknown> = {};
+  try {
+    d = (JSON.parse(text) ?? {}) as Record<string, unknown>;
+  } catch {
+    // not a confirmation
+  }
+  const status = Number(d.status);
+  if (!res.ok || d.ok !== true || !(status >= 200 && status < 300)) throw new MakeError(`Make didn't confirm ${route} (${res.status}/${d.status ?? "?"}: ${text.slice(0, 120)})`);
+  return d.data;
+}
+
+/**
  * The hot-tier follow-up alert (Albert, 2026-11-09: "WhatsApp to staff"), through the same scenario's `alert` route,
  * which sends one WhatsApp. Off until QUOTE_ALERT_TO is set, and that holds the one number every alert goes to
  * (a test number first, as the Tacoma alerts did, until Albert switches each one to its real person). The text names
