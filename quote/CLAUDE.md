@@ -233,7 +233,7 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
 2f'. **Installer Project Week writes Notion through one file (Albert, 2026-11-24; vault
    `05_decisions/2026-11-24-installer-project-week-boards`):** `src/lib/notion/payoutApi.ts`, `server-only`, the only reader
    of `QUOTE_NOTION_PAYOUT_TOKEN` (an internal integration shared with Project Costs, Titan Projects, Titan Team, QA Work
-   Orders and the Project Week Boards page alone; staff deployment only), one request function that refuses any call
+   Orders and the Contractor Boards page alone; staff deployment only), one request function that refuses any call
    outside `allowed()`: queries of those four data sources, reading pages and blocks, creating a page in Project Costs or
    under the boards page, updating a page, appending blocks, deleting a block, uploading a picture. Never a database or data
    source changed, never a page moved. Reached only from `src/lib/notion/projectCosts.ts` (the only Project Costs writer:

@@ -35,40 +35,47 @@ const testPhone = () => process.env.QUOTE_PROJECT_WEEK_TEST_PHONE?.trim() || nul
  * once a feed has been opened logged out and shows no payout photos. A pasted CCAM Share Link always wins.
  */
 const embedOn = () => process.env.QUOTE_PROJECT_WEEK_EMBED?.trim() === "on";
-const publicBase = () => (process.env.QUOTE_PROJECT_WEEK_PUBLIC_BASE?.trim() || "").replace(/\/+$/, "");
 
 const updatedLabel = (d: Date) =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(d);
 
-/** The public address of a page under the published boards page. */
-function publicUrl(page: Record<string, unknown>): string | null {
-  if (typeof page.public_url === "string" && /^https:\/\//.test(page.public_url)) return page.public_url;
-  const id = normalId(String(page.id ?? ""));
-  return id && publicBase() ? `${publicBase()}/${id.replace(/-/g, "")}` : null;
+/**
+ * Whether a page is shared to the web, and its public address when it is. The boards sit under Contractor Boards
+ * (Albert, 2026-11-24: "Why cant they be in the same pages as Contractor Boards"), which is never published itself:
+ * each installer's page is published on its own, by hand, once (Share, Publish). Notion's API can't publish a page, so
+ * until then the page has no public address and nothing is texted.
+ */
+function published(page: Record<string, unknown>): string | null {
+  return typeof page.public_url === "string" && /^https:\/\//.test(page.public_url) ? page.public_url : null;
 }
 
+type BoardPage = { id: string; url: string; publicUrl: string | null };
+
 /** The installer's page: the one on their Titan Team row if it is still under the boards page, else a new one. */
-async function boardFor(member: Member, parent: string): Promise<{ id: string; url: string } | null> {
+async function boardFor(member: Member, parent: string): Promise<BoardPage | null> {
   const known = normalId(member.boardUrl);
+  let page: Record<string, unknown> | null = null;
   if (known) {
     try {
-      const page = await notionPayout("GET", `/pages/${known}`);
-      const under = normalId(String((page.parent as Record<string, unknown> | undefined)?.page_id ?? ""));
-      if (under === parent && !page.archived && !page.in_trash) return { id: known, url: member.boardUrl! };
+      const found = await notionPayout("GET", `/pages/${known}`);
+      const under = normalId(String((found.parent as Record<string, unknown> | undefined)?.page_id ?? ""));
+      if (under === parent && !found.archived && !found.in_trash) page = found;
     } catch (e) {
       if (!(e instanceof NotionPayoutError && (e.status === 404 || e.status === 400))) throw e;
     }
   }
-  const page = await notionPayout("POST", "/pages", {
+  page ??= await notionPayout("POST", "/pages", {
     parent: { type: "page_id", page_id: parent },
-    properties: { title: { title: [{ type: "text", text: { content: `Project Week: ${member.name}`.slice(0, 200) } }] } },
+    properties: { title: { title: [{ type: "text", text: { content: `${member.name}: Project Week`.slice(0, 200) } }] } },
   });
   const id = normalId(String(page.id ?? ""));
-  const url = publicUrl(page);
-  if (!id || !url) return null;
-  // The one field the app sets on a Titan Team row: where this person's own page is.
-  await notionPayout("PATCH", `/pages/${member.id}`, { properties: { [TEAM.boardUrl]: { url } } });
-  return { id, url };
+  if (!id) return null;
+  const publicUrl = published(page);
+  const url = publicUrl ?? (typeof page.url === "string" ? page.url : null);
+  if (!url) return null;
+  // The one field the app sets on a Titan Team row: where this person's own page is (its public address once published).
+  if (url !== member.boardUrl) await notionPayout("PATCH", `/pages/${member.id}`, { properties: { [TEAM.boardUrl]: { url } } });
+  return { id, url, publicUrl };
 }
 
 /** The newest payout card picture on a Project Costs line the app made. */
@@ -131,14 +138,18 @@ export async function runProjectWeek(scope: RunScope, now = new Date()): Promise
       const board = buildBoard({ member, week, today, jobs: weekJobs, projects, lines, openWorkOrders: workOrders });
       const page = await boardFor(member, parent);
       if (!page) {
-        result.notes.push(`${member.name}'s page was made, but it has no public address (set QUOTE_PROJECT_WEEK_PUBLIC_BASE).`);
+        result.notes.push(`${member.name}'s page couldn't be made.`);
         continue;
       }
       await publish(board, page.id, cache, now);
       result.pages.push({ name: member.name, url: page.url });
       const wantsText = scope.kind === "one" ? board.jobs.length > 0 || board.ready.length > 0 : scope.kind === "all" && board.jobs.length > 0;
       if (!send || !wantsText || !dispatchConfigured()) continue;
-      const messages = messagesFor(board, page.url);
+      if (!page.publicUrl) {
+        result.notes.push(`${member.name}'s Project Week page isn't published yet, so nothing was sent. Open it under Contractor Boards, Share, Publish, then press Send again.`);
+        continue;
+      }
+      const messages = messagesFor(board, page.publicUrl);
       if (!messages.length) {
         result.notes.push(`${member.name} has no Project Week Channels with a phone, group or email set in Titan Team, so nothing was sent.`);
         continue;

@@ -588,7 +588,9 @@ describe("Installer Project Week (2026-11-24: Project Costs lines and each insta
   it("deletes blocks only on an installer's page under the boards page, and texts only on a Send press", () => {
     const run = code(all.find((f) => f.rel === "lib/projectWeek/run.ts")!.text);
     expect(run.match(/"DELETE"/g)?.length).toBe(1);
-    expect(run).toMatch(/if \(under === parent && !page\.archived && !page\.in_trash\)/);
+    expect(run).toMatch(/if \(under === parent && !found\.archived && !found\.in_trash\) page = found;/);
+    // Nothing is texted until the page is published (2026-11-24: boards sit under Contractor Boards, published one by one).
+    expect(run).toMatch(/if \(!page\.publicUrl\) \{/);
     expect(run).toMatch(/const send = scope\.kind === "all" \|\| scope\.kind === "one";/);
     // Until Albert flips it, every text goes to the test phone.
     expect(run).toMatch(/const sendsLive = \(\) => process\.env\.QUOTE_PROJECT_WEEK_SEND\?\.trim\(\) === "live";/);
