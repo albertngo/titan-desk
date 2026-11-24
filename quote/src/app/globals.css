@@ -2453,7 +2453,7 @@ table.items tr.subsect td { box-shadow: none !important; border-left: 0 !importa
 .files-pop { min-width: 340px; }
 /* Each group reads as its own block (2026-11-23): the heading carries the break, with no rule under it; one
    stronger rule and more air sit between groups, and the items sit indented under their heading. */
-.files-pop { padding: 6px 6px 8px; }
+.files-pop { padding: 6px 6px 8px; max-height: calc(100vh - 80px); max-height: calc(100dvh - 80px); overflow-y: auto; overscroll-behavior: contain; }
 .files-pop .em { border-bottom: 0; margin: 0; padding: 10px 12px 4px; font-size: 14px; font-weight: 600; color: var(--fg); }
 .files-pop .em span { font-size: 12px; font-weight: 400; color: var(--fg-faint); }
 .files-group .file-item { margin-left: 4px; width: calc(100% - 4px); }

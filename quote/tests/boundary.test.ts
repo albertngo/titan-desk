@@ -381,12 +381,25 @@ describe("acceptance (2026-10-27): the one write path from a customer link", () 
     const live = text("lib/accept/live.ts");
     expect(live).not.toMatch(/\b(createRecords?|updateRecords?)\(/);
     expect(all.filter((f) => /SETTINGS\.onlineAcceptance|TERMS\.pdf/.test(code(f.text))).map((f) => f.rel)).toEqual(["lib/accept/live.ts"]);
-    expect(importers("accept/live").sort()).toEqual(["lib/accept/record.ts", "lib/quotes/customer.ts", "lib/quotes/send.ts"]);
+    // lib/files/live.ts (2026-11-23) offers the newest Project Expectations in Company files, on the staff app.
+    expect(importers("accept/live").sort()).toEqual(["lib/accept/record.ts", "lib/files/live.ts", "lib/quotes/customer.ts", "lib/quotes/send.ts"]);
     // Anything that can't be read reads as off.
     expect(live).toMatch(/acceptanceSwitchedOn\(\): Promise<boolean> \{\s*return remembered\([\s\S]*?,\s*false,\s*\);/);
     // Neither is ever written: Quote Settings and Terms Versions are not quote tables.
     expect(WRITABLE_TABLES).not.toContain("tbl87nxBec8uKta8V");
     expect(WRITABLE_TABLES).not.toContain("tblYN4djj4SmQWvkJ");
+  });
+
+  it("live Company files (2026-11-23): read only, staff only, served only from Airtable's file host by a listed kind", () => {
+    const live = text("lib/files/live.ts");
+    expect(live).not.toMatch(/\b(createRecords?|updateRecords?|write|uploadAttachment|createReviewRecord)\(/);
+    expect(live).toMatch(/if \(isCustomerDeployment\(\)\) return \[\];/);
+    expect(all.filter((f) => /COMPANY_FILES_TABLE/.test(code(f.text))).map((f) => f.rel).sort()).toEqual(["lib/airtable/fields.ts", "lib/files/live.ts"]);
+    expect(all.filter((f) => /from ["']@\/lib\/files\/live["']/.test(f.text)).map((f) => f.rel).sort()).toEqual(["app/files/[kind]/route.ts", "components/TopBar.tsx"]);
+    expect(WRITABLE_TABLES).not.toContain("tbl9eTGa4RM7DLUeB");
+    const route = text("app/files/[kind]/route.ts");
+    expect(route).toMatch(/if \(isCustomerDeployment\(\)\) return new NextResponse\("Not found", \{ status: 404 \}\);/);
+    expect(route).toMatch(/if \(!doc \|\| !isAirtableFile\(doc\.pdfUrl\)\) return new NextResponse\("Not found", \{ status: 404 \}\);/);
   });
 
   it("the Project Expectations PDF is served by the customer's link, fetched only from Airtable's file host", () => {

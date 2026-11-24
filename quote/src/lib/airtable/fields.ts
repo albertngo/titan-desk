@@ -293,6 +293,21 @@ export const TERMS = {
   sourceFileId: "fld0DByOwla08481v",
 } as const;
 
+/**
+ * Company Files, read only (2026-11-23): one row per save of a file in OneDrive `TITAN FILES/Warranty and Insurance`,
+ * made by Make "Warranty and Insurance -> Company Files" (5062776) and never edited after, except Hidden, which Albert
+ * ticks to pull a row from the app. Read by src/lib/files/live.ts.
+ */
+export const COMPANY_FILES_TABLE = "tbl9eTGa4RM7DLUeB";
+export const COMPANY_FILES = {
+  name: "fldaawFgSlMA7wdbV",
+  fileName: "fldvoezuzbkRF9ife",
+  modifiedAt: "fldfJM0PT9OmBkPfQ",
+  sourceFileId: "fldu1JdyUDbdNryE4",
+  pdf: "fldfVbYxhHWv0b9O5",
+  hidden: "fldBZKqShvJT50Rb6",
+} as const;
+
 export const RATE_TABLE = "tblGBGezZfBWhEgmu";
 export const RATE = {
   laborType: "fldawNJcW3bbKnCp8",
