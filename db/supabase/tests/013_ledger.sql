@@ -1,6 +1,6 @@
 -- 013: the Titan Ledger (migration 011). Grants, append-only, current_state, idempotency.
 begin;
-select plan(27);
+select plan(30);
 
 -- Grants: ledger_writer gets exactly INSERT+SELECT on events and SELECT on current_state.
 select ok(has_table_privilege('ledger_writer', 'ledger.events', 'insert'), 'writer can insert events');
@@ -59,6 +59,23 @@ select throws_ok($$select ledger_api.append_events('{}'::jsonb)$$, '22023', null
 select throws_ok($$select ledger_api.append_event('{"occurred_at":"2026-11-01T10:00:00Z","actor":"x","actor_kind":"robot",
     "entity_type":"sku","entity_source":"airtable","entity_id":"A","event_type":"a.b","result":"executed",
     "idempotency_key":"test-key-0102"}'::jsonb)$$, '23514', null, 'check constraints refuse an unknown actor_kind');
+
+-- Outcomes: a later row pointing at the decision, never an edit to it.
+select is(
+  ledger_api.append_event(jsonb_build_object('occurred_at','2026-11-05T10:00:00Z','actor','ghl-triage',
+    'actor_kind','agent','entity_type','conversation','entity_source','ghl','entity_id','conv_1',
+    'event_type','triage.outcome','result','executed','outcome','worked',
+    'outcome_of',(select id from ledger.events where idempotency_key = 'test-key-0001'),
+    'idempotency_key','test-key-0201'))->>'status',
+  'inserted', 'an outcome row links to its decision');
+select throws_ok($$select ledger_api.append_event('{"occurred_at":"2026-11-05T10:00:00Z","actor":"x","actor_kind":"agent",
+    "entity_type":"sku","entity_source":"airtable","entity_id":"A","event_type":"a.outcome","result":"executed",
+    "outcome":"worked","idempotency_key":"test-key-0202"}'::jsonb)$$, '23514', null, 'an outcome needs outcome_of');
+select is(
+  ledger_api.append_event('{"occurred_at":"2026-11-05T10:00:00Z","actor":"bookkeeper","actor_kind":"agent",
+    "entity_type":"bank_transaction","entity_source":"qbo","entity_id":"txn-9","event_type":"books.recode",
+    "result":"planned","idempotency_key":"test-key-0203"}'::jsonb)->>'status',
+  'inserted', 'the wider entity types and sources are accepted');
 
 -- Append-only.
 select throws_ok($$update ledger.events set reason = 'x' where idempotency_key = 'test-key-0001'$$,

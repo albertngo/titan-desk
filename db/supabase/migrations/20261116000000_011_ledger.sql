@@ -28,8 +28,12 @@ create table ledger.events (
   actor_kind       text not null check (actor_kind in ('agent', 'app', 'person', 'make')),
   entity_type      text not null check (entity_type in (
                      'customer', 'opportunity', 'quote', 'project', 'work_order', 'contractor',
-                     'supplier', 'price_list', 'sku', 'post', 'conversation')),
-  entity_source    text not null check (entity_source in ('ghl', 'airtable', 'notion', 'lightspeed', 'metricool')),
+                     'supplier', 'price_list', 'sku', 'post', 'conversation',
+                     -- 2026-11-24 memory-architecture doc: the overseer's wider entity set.
+                     -- A "product" is a `sku` (the catalogue SKU), never a second type.
+                     'campaign', 'bank_transaction', 'purchase_order', 'return', 'period_close')),
+  entity_source    text not null check (entity_source in (
+                     'ghl', 'airtable', 'notion', 'lightspeed', 'metricool', 'qbo', 'meta', 'whatsapp')),
   entity_id        text not null check (length(entity_id) between 1 and 128),
   event_type       text not null check (event_type ~ '^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$'),
   result           text not null check (result in ('planned', 'executed', 'refused', 'failed')),
@@ -44,6 +48,11 @@ create table ledger.events (
   payload          jsonb not null default '{}'::jsonb
                      check (jsonb_typeof(payload) = 'object' and pg_column_size(payload) <= 2048),
   idempotency_key  text not null unique check (length(idempotency_key) between 8 and 200),
+  -- Outcomes (2026-11-24, "do first"): whether an earlier decision worked. An outcome is its
+  -- own row, never an edit: outcome_of points at the decision, outcome says how it went.
+  outcome_of       uuid references ledger.events (id),
+  outcome          text check (outcome in ('worked', 'did_not_work', 'mixed', 'unknown')),
+  check ((outcome_of is null) = (outcome is null)),
   check (state_value is null or state_key is not null),
   check (valid_until is null or state_key is not null)
 );
@@ -54,6 +63,7 @@ comment on table ledger.events is
 
 create index events_entity_idx on ledger.events (entity_source, entity_id, occurred_at desc);
 create index events_type_idx   on ledger.events (event_type, occurred_at desc);
+create index events_outcome_idx on ledger.events (outcome_of) where outcome_of is not null;
 create index events_state_idx  on ledger.events (entity_source, entity_type, entity_id, state_key, occurred_at desc)
   where state_key is not null;
 
@@ -103,13 +113,14 @@ begin
   insert into ledger.events (
     occurred_at, actor, actor_kind, entity_type, entity_source, entity_id, event_type,
     result, reason, rule_ref, state_key, state_value, valid_until, approved_by, run_ref,
-    sensitivity, payload, idempotency_key)
+    sensitivity, payload, idempotency_key, outcome_of, outcome)
   values (
     (e->>'occurred_at')::timestamptz, e->>'actor', e->>'actor_kind', e->>'entity_type',
     e->>'entity_source', e->>'entity_id', e->>'event_type', e->>'result', e->>'reason',
     e->>'rule_ref', e->>'state_key', e->>'state_value', (e->>'valid_until')::timestamptz,
     e->>'approved_by', e->>'run_ref', coalesce(e->>'sensitivity', 'private'),
-    coalesce(e->'payload', '{}'::jsonb), e->>'idempotency_key')
+    coalesce(e->'payload', '{}'::jsonb), e->>'idempotency_key',
+    (e->>'outcome_of')::uuid, e->>'outcome')
   on conflict (idempotency_key) do nothing
   returning id into new_id;
 
@@ -138,12 +149,13 @@ begin
   insert into ledger.events (
     occurred_at, actor, actor_kind, entity_type, entity_source, entity_id, event_type,
     result, reason, rule_ref, state_key, state_value, valid_until, approved_by, run_ref,
-    sensitivity, payload, idempotency_key)
+    sensitivity, payload, idempotency_key, outcome_of, outcome)
   select (e->>'occurred_at')::timestamptz, e->>'actor', e->>'actor_kind', e->>'entity_type',
          e->>'entity_source', e->>'entity_id', e->>'event_type', e->>'result', e->>'reason',
          e->>'rule_ref', e->>'state_key', e->>'state_value', (e->>'valid_until')::timestamptz,
          e->>'approved_by', e->>'run_ref', coalesce(e->>'sensitivity', 'private'),
-         coalesce(e->'payload', '{}'::jsonb), e->>'idempotency_key'
+         coalesce(e->'payload', '{}'::jsonb), e->>'idempotency_key',
+         (e->>'outcome_of')::uuid, e->>'outcome'
     from jsonb_array_elements(es) e
   on conflict (idempotency_key) do nothing;
   get diagnostics n_in = row_count;

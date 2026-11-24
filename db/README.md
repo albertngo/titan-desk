@@ -217,6 +217,11 @@ make a decision from it.** The writer and CLI live in titan-agents (`scripts/led
 - `ledger.events` refuses UPDATE, DELETE and TRUNCATE by trigger, for every role. A
   correction is a new row. `idempotency_key` is unique; `append_event` returns
   `duplicate` instead of failing on a repeat.
+- **Outcomes** (2026-11-24): whether a decision worked is its own later row, with
+  `outcome_of` = the decision's id and `outcome` = `worked` | `did_not_work` | `mixed` |
+  `unknown`. Never an edit to the decision.
+- Entity types now include `campaign`, `bank_transaction`, `purchase_order`, `return` and
+  `period_close`; sources include `qbo`, `meta`, `whatsapp`. A product is a `sku`.
 - `ledger.current_state`: latest **executed** row per (source, type, id, `state_key`);
   a later row with a null `state_value` clears it; an expired `valid_until` drops it.
 - Database-side guards: `reason` ≤ 280 chars, `payload` an object ≤ 2 KB, enumerated
