@@ -22,6 +22,14 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-24",
+    kind: "fixed",
+    title: "Project Week buttons no longer time out",
+    details: [
+      "The Send Project Week buttons in Notion answer straight away, then build the pages and send the texts in the background, which can take up to a minute.",
+    ],
+  },
+  {
+    date: "2026-11-24",
     kind: "changed",
     title: "Project Week pages sit under Contractor Boards",
     details: [

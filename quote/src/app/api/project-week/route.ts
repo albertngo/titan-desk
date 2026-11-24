@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
 import { isCustomerDeployment } from "@/lib/mode";
 import { runProjectWeek, type RunScope } from "@/lib/projectWeek/run";
 
@@ -17,7 +17,9 @@ export const maxDuration = 300;
  *   used, and it must be a Titan Team row.
  * - GET: the nightly rebuild (Vercel cron, `Authorization: Bearer <CRON_SECRET>`). Texts nobody.
  *
- * Notion's button sends the key in the `x-project-week-key` header (set on the button's webhook action).
+ * Notion's button sends the key in the `x-project-week-key` header (set on the button's webhook action). A run reads
+ * several databases one request at a time, longer than Notion's button waits, so a POST answers 202 at once and runs
+ * after the reply (2026-11-24: "button failed to execute"); what it did is in the function's log.
  */
 
 function same(a: string, b: string): boolean {
@@ -44,8 +46,14 @@ export async function POST(request: NextRequest) {
     if (!id) return NextResponse.json({ ok: false, message: "No Titan Team row in the request." }, { status: 400 });
     scope = { kind: "one", memberId: id };
   } else return NextResponse.json({ ok: false, message: "scope must be all or one." }, { status: 400 });
-  const result = await runProjectWeek(scope);
-  return NextResponse.json(result, { status: result.ok ? 200 : 500 });
+  after(async () => {
+    try {
+      console.log("project-week", JSON.stringify(await runProjectWeek(scope)));
+    } catch (e) {
+      console.error("project-week failed", e instanceof Error ? e.message.slice(0, 300) : typeof e);
+    }
+  });
+  return NextResponse.json({ ok: true, started: scope.kind }, { status: 202 });
 }
 
 export async function GET(request: NextRequest) {
