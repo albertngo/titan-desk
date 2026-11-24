@@ -12,7 +12,8 @@ import { costLineOf, COST, jobOf, memberOf, OPEN_WO_STATUSES, PROJECT, TEAM, WOR
  * - `one`: rebuild and text one installer (the Send my week button on their Titan Team row).
  * - `refresh`: rebuild one installer's page, no text (after their payout card goes final or changes).
  *
- * Texts go through the QA dispatch's Make scenario (5030370), on the installer's own Dispatch Channels. Until
+ * Texts go through the QA dispatch's Make scenario (5030370), on the installer's own Project Week Channels (Titan Team, apart from the QA dispatch's
+ * Dispatch Channels; empty = no text). Until
  * QUOTE_PROJECT_WEEK_SEND is exactly `live` every text goes to QUOTE_PROJECT_WEEK_TEST_PHONE instead, marked as a test;
  * flipping it is Albert's call, as a dated vault decision.
  */
@@ -132,7 +133,7 @@ export async function runProjectWeek(scope: RunScope, now = new Date()): Promise
       if (!send || !wantsText || !dispatchConfigured()) continue;
       const messages = messagesFor(board, page.url);
       if (!messages.length) {
-        result.notes.push(`${member.name} has no Dispatch Channels with a phone or group set in Titan Team, so nothing was sent.`);
+        result.notes.push(`${member.name} has no Project Week Channels with a phone or group set in Titan Team, so nothing was sent.`);
         continue;
       }
       for (const m of messages) {

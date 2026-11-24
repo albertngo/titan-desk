@@ -2,8 +2,8 @@ import type { CostLine, Job, Member, OpenWorkOrder } from "./model";
 
 /**
  * Reading Notion rows for Project Week (2026-11-24). Pure; the requests are in src/lib/notion/payoutApi.ts. Property
- * names are Titan's Notion names; the three new ones (Rate Card Name and Project Week Link on Titan Team, CCAM Share
- * Link on Titan Projects) are made by hand in Notion.
+ * names are Titan's Notion names; the four new ones (Rate Card Name, Project Week Link and Project Week Channels on Titan
+ * Team, CCAM Share Link on Titan Projects) are made by hand in Notion.
  */
 
 type Props = Record<string, Record<string, unknown>>;
@@ -13,7 +13,7 @@ export type Row = { id: string; properties?: Props };
 export const CARD_MARK = "quote-card:";
 export const cardMark = (quoteRecordId: string, cardId: string) => `${CARD_MARK}${quoteRecordId}/${cardId}`;
 
-export const TEAM = { name: "Name", phone: "Phone", channels: "Dispatch Channels", groupId: "WhatsApp Group ID", rateCardName: "Rate Card Name", boardUrl: "Project Week Link" } as const;
+export const TEAM = { name: "Name", phone: "Phone", channels: "Project Week Channels", groupId: "WhatsApp Group ID", rateCardName: "Rate Card Name", boardUrl: "Project Week Link" } as const;
 export const PROJECT = { customer: "Name", street: "Street Address", city: "City", phone: "Contact", type: "Project Type", start: "Confirmed Start Date", end: "Project End Date", contractors: "Contractor", shareLink: "CCAM Share Link" } as const;
 export const COST = { name: "Name", category: "Category", project: "Project", assignedTo: "Assigned To", cost: "Cost", calculated: "Calculated (1/3)", paidOut: "Paid Out Date (2/3)", paidRef: "Paid Reference (3/3)", notes: "Notes", source: "Cost Source" } as const;
 export const WORK_ORDER = { status: "Status", contractor: "Contractor To Fix", project: "Project" } as const;

@@ -23,6 +23,14 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-24",
     kind: "changed",
+    title: "Project Week texts have their own channels",
+    details: [
+      "Project Week texts go on the channels ticked in the new Project Week Channels column in Notion Titan Team, separate from the QA dispatch's Dispatch Channels. Leave it empty and that person gets no Project Week text.",
+    ],
+  },
+  {
+    date: "2026-11-24",
+    kind: "changed",
     title: "Payout cards: Mark final sends them to Project Costs, not CompanyCam",
     details: [
       "On the Payouts tab, Push to CompanyCam is now Mark final. It puts the card, with its picture, on that contractor's own line in Notion Project Costs, ticked Calculated. Mark it final again after a change: the line's amount updates and the change is added to its history.",

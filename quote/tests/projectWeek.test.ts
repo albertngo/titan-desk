@@ -173,12 +173,14 @@ describe("reading Notion rows", () => {
       properties: {
         Name: { title: [{ plain_text: "Alex One" }] },
         Phone: { phone_number: "+15550000000" },
-        "Dispatch Channels": { multi_select: [{ name: "SMS" }] },
+        "Dispatch Channels": { multi_select: [{ name: "Email" }] },
+        "Project Week Channels": { multi_select: [{ name: "WhatsApp" }] },
         "WhatsApp Group ID": { rich_text: [{ plain_text: "[120363000000000000@g.us](mailto:120363000000000000@g.us)" }] },
         "Rate Card Name": { rich_text: [{ plain_text: "Crew A" }] },
         "Project Week Link": { url: "https://example.notion.site/abc" },
       },
     });
+    expect(m.channels).toEqual(["WhatsApp"]); // its own column, never the QA dispatch's
     expect(m).toMatchObject({ id: A, name: "Alex One", groupId: "120363000000000000@g.us", rateCardName: "Crew A", boardUrl: "https://example.notion.site/abc" });
     expect(cleanGroupId(null)).toBeNull();
   });

@@ -18,7 +18,11 @@ export type Member = {
   id: string;
   name: string;
   phone: string | null;
-  /** Titan Team → Dispatch Channels: SMS, WhatsApp, WhatsApp Group, Email. Empty means nothing is sent. */
+  /**
+   * Titan Team → Project Week Channels (SMS, WhatsApp, WhatsApp Group), its own column, apart from the QA dispatch's
+   * Dispatch Channels (Albert, 2026-11-24: "I might want the Project Week to be to another channel"). Empty means
+   * nothing is sent; it never falls back to Dispatch Channels.
+   */
   channels: string[];
   groupId: string | null;
   /** Titan Team → Project Week Link: this installer's page, once made. */
