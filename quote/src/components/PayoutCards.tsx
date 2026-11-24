@@ -37,7 +37,8 @@ import { cardJpeg } from "./payoutImage";
 /**
  * The Payouts tab (Albert, 2026-11-04): tick the options that are final, build one card per contractor from their
  * labour lines, check and edit them (tick, retype a rate, add a line, move a line to someone else, add a card), save,
- * and push each card to the job's CompanyCam project as a picture. Every change is a pure function in
+ * and mark each card final, which sends it with its picture to the contractor's own Notion Project Costs line (since
+ * 2026-11-24; it used to go to CompanyCam, where a share link showed everyone's pay). Every change is a pure function in
  * src/lib/payout/cards.ts; this screen only calls them. Kept on the quote, so every version shows the same cards.
  */
 
@@ -53,6 +54,8 @@ type Props = {
   header: CardHeader;
   contractors: string[];
   camUrl: string | null;
+  /** The quote's Notion project (Titan Projects): marking a card final needs it (2026-11-24). */
+  projectUrl: string | null;
 };
 
 const when = (iso: string) => new Date(iso).toLocaleString("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
@@ -89,7 +92,7 @@ function NumBox({ value, onChange, label, placeholder, className }: { value: num
   );
 }
 
-const NO_CAM = "This quote has no CompanyCam project linked yet.";
+const NO_PROJECT = "This quote has no Notion project yet. It's filled in once the job is won.";
 /** The select value that asks for a typed name (2026-11-17: any payout receiver, not only the Rate Card's). */
 const NEW = "__new__";
 /** Ask for a payout receiver's name; null when cancelled or blank. */
@@ -98,7 +101,7 @@ function askName(): string | null {
   return name && name.trim() ? name.trim().slice(0, 80) : null;
 }
 
-export function PayoutCards({ quoteRecordId, versionId, raw, options, defaultIds, candidates, header, contractors, camUrl }: Props) {
+export function PayoutCards({ quoteRecordId, versionId, raw, options, defaultIds, candidates, header, contractors, camUrl, projectUrl }: Props) {
   const [seen, setSeen] = useState(raw);
   const stored = useMemo(() => parsePayouts(seen), [seen]);
   const [set, setSet] = useState<PayoutSet>(() => stored ?? emptySet());
@@ -122,7 +125,7 @@ export function PayoutCards({ quoteRecordId, versionId, raw, options, defaultIds
   const togglePick = (id: string) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
 
   function build() {
-    if (set.cards.length && !window.confirm("Build the cards again from the ticked options? Lines, rates and notes typed on the cards are replaced. Pushes already in CompanyCam stay on record.")) return;
+    if (set.cards.length && !window.confirm("Build the cards again from the ticked options? Lines, rates and notes typed on the cards are replaced. Cards already marked final stay in Project Costs.")) return;
     setSet(groupCards(candidates, versionId, options.filter((o) => picked.includes(o.id)).map((o) => o.id), stored));
     setNotice(null);
     setError(null);
@@ -144,9 +147,9 @@ export function PayoutCards({ quoteRecordId, versionId, raw, options, defaultIds
   }
 
   /**
-   * Push one card. Unsaved changes are saved first, in the same click (Albert, 2026-11-05: "can we get the push to
-   * ccam button to work?": it stayed greyed out until Save cards, at the foot of the tab, was pressed). The picture
-   * is drawn from the card as saved, which is what the server checks it against.
+   * Mark one card final. Unsaved changes are saved first, in the same click (Albert, 2026-11-05: the button stayed
+   * greyed out until Save cards, at the foot of the tab, was pressed). The picture is drawn from the card as saved,
+   * which is what the server checks it against.
    */
   async function push(card: PayoutCard) {
     setError(null);
@@ -167,7 +170,7 @@ export function PayoutCards({ quoteRecordId, versionId, raw, options, defaultIds
         at = r.saved;
         const kept = now.cards.find((c) => c.id === card.id);
         if (!kept) {
-          setError("The cards were saved, but this one wasn't among them. Check it and push again.");
+          setError("The cards were saved, but this one wasn't among them. Check it and mark it final again.");
           return;
         }
         const problem = pushProblem(kept);
@@ -184,10 +187,10 @@ export function PayoutCards({ quoteRecordId, versionId, raw, options, defaultIds
         setSeen(r.saved);
         setSet(parsePayouts(r.saved) ?? emptySet());
       }
-      if (!r.ok) setError(r.message ?? "The card wasn't pushed.");
-      else setNotice(r.warning ?? `${card.contractor.trim()}'s card is in CompanyCam.`);
+      if (!r.ok) setError(r.message ?? "The card wasn't marked final.");
+      else setNotice(r.warning ?? `${card.contractor.trim()}'s card is final and in Project Costs. Their Project Week page is updated.`);
     } catch {
-      setError("The card wasn't pushed. Check the connection and try again.");
+      setError("The card wasn't marked final. Check the connection and try again.");
     } finally {
       setPushing(null);
     }
@@ -213,7 +216,7 @@ export function PayoutCards({ quoteRecordId, versionId, raw, options, defaultIds
       <div className="card-b po-body">
         <p className="faint po-intro">
           One card per contractor: the labour on the options the customer is getting, at what we pay for it. Check the lines, change a rate, add
-          what&apos;s missing, then push each card to the job&apos;s CompanyCam photos. Staff only; the customer never sees this.
+          what&apos;s missing, then mark each card final. It goes to that contractor&apos;s own Project Costs line and their Project Week page, never to anyone else. Staff only; the customer never sees this.
         </p>
 
         {unreadable && (
@@ -311,7 +314,7 @@ export function PayoutCards({ quoteRecordId, versionId, raw, options, defaultIds
                     </p>
                   )}
                   <p className={`po-state ${state.kind}`}>
-                    {state.kind === "never" ? "Not in CompanyCam yet" : state.kind === "current" ? `In CompanyCam since ${when(state.last.at)}, ${money(state.last.total)}` : `Changed since it went to CompanyCam on ${when(state.last.at)} (${money(state.last.total)})`}
+                    {state.kind === "never" ? "Not final yet" : state.kind === "current" ? `${state.last.notionPageId ? "Final in Project Costs" : "Sent to CompanyCam (before Nov 24)"} since ${when(state.last.at)}, ${money(state.last.total)}` : `Changed since it was marked final on ${when(state.last.at)} (${money(state.last.total)})`}
                   </p>
 
                   <div className="po-scroll">
@@ -399,12 +402,12 @@ export function PayoutCards({ quoteRecordId, versionId, raw, options, defaultIds
                       type="button"
                       className="btn primary"
                       onClick={() => push(card)}
-                      disabled={busy || !camUrl || problem !== null}
-                      title={!camUrl ? NO_CAM : (problem ?? (dirty ? "Saves the cards, then pushes this one." : undefined))}
+                      disabled={busy || !projectUrl || problem !== null}
+                      title={!projectUrl ? NO_PROJECT : (problem ?? (dirty ? "Saves the cards, then marks this one final." : undefined))}
                     >
-                      {pushing === card.id ? "Pushing…" : `${dirty ? "Save and push" : "Push"}${state.kind === "never" ? " to CompanyCam" : " again"}`}
+                      {pushing === card.id ? "Marking final…" : dirty ? "Save and mark final" : state.kind === "never" ? "Mark final" : "Mark final again"}
                     </button>
-                    {(!camUrl || problem) && <span className="faint po-why">{!camUrl ? NO_CAM : problem}</span>}
+                    {(!projectUrl || problem) && <span className="faint po-why">{!projectUrl ? NO_PROJECT : problem}</span>}
                   </div>
                   {preview?.cardId === card.id && (
                     <figure className="po-preview">

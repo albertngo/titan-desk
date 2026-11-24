@@ -21,6 +21,16 @@ export type Change = {
 
 export const CHANGES: Change[] = [
   {
+    date: "2026-11-24",
+    kind: "changed",
+    title: "Payout cards: Mark final sends them to Project Costs, not CompanyCam",
+    details: [
+      "On the Payouts tab, Push to CompanyCam is now Mark final. It puts the card, with its picture, on that contractor's own line in Notion Project Costs, ticked Calculated. Mark it final again after a change: the line's amount updates and the change is added to its history.",
+      "Cards no longer go to CompanyCam, so a CompanyCam share link never shows anyone's pay. The contractor must have their Rate Card Name in Notion Titan Team, and the quote needs its Notion project.",
+      "Each installer also gets their own Project Week page with next week's jobs, scope links and their payouts. It updates itself, and staff text it to them with the Send buttons in Notion.",
+    ],
+  },
+  {
     date: "2026-11-23",
     kind: "changed",
     title: "Company files: warranty, insurance and terms, always the latest",

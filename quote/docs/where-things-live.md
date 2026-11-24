@@ -1384,6 +1384,22 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   asks for a name and moves the line, or the whole staircase, to that name's card, made if missing (`moveLineTo()`,
   `assignOption()`; names match without case). A card's name stays a free text box with the Rate Card's contractors only
   suggested.
+- **Installer Project Week (Albert, 2026-11-24; vault `05_decisions/2026-11-24-installer-project-week-boards`).** The
+  payout card's **Mark final** (it was Push to CompanyCam) keeps the picture on Quotes → Payout Cards, then
+  `syncCardToProjectCosts()` (`src/lib/notion/projectCosts.ts`) writes the card to Notion **Project Costs**: one Labor line
+  per card, found by `quote-card:<quote>/<card>` in Notes, Assigned To the Titan Team person whose **Rate Card Name** is the
+  card's contractor (exactly one, or nothing is written), Calculated (1/3) ticked, the picture on the page. Marked final
+  again, the line's Cost updates and a dated entry (old to new, new picture) is appended; refused once Paid Out Date or
+  Paid Reference is set; a hand-typed line is never touched. Nothing goes to CompanyCam any more (a share link showed every
+  installer's pay). Then `runProjectWeek()` (`src/lib/projectWeek/run.ts`, rules pure in `model.ts`) rebuilds that
+  installer's **Project Week page** under the published boards page: next Monday to Sunday's jobs they are in Contractor for
+  (customer first name, address, phone, type, CCAM Share Link or "scope link coming", their payout or Pending, their card
+  picture), the week's total, and **Ready to be paid** (their Calculated, unpaid lines on ended projects, on hold while they
+  have an open work order there). Never another installer's job or pay; a line assigned to someone not on the job is left
+  off every page. Rebuilt nightly (Vercel cron) and after a card goes final; it texts nobody. The **Send Project Week**
+  button (Project Preparation) and **Send my week** (Titan Team row) call `/api/project-week` (key-gated), which rebuilds
+  and texts the link through the QA dispatch's Make 5030370 on the person's Dispatch Channels, to the test phone until
+  `QUOTE_PROJECT_WEEK_SEND` is `live`. Tested in `tests/projectWeek.test.ts`.
 - **Typed lines saved for next time, and logged (Albert, 2026-11-01: "When we add custom items and the quote ends
   up being SENT… make it so that those items are created for next time use and make them 'require review'… There
   should be a log of where it was used so I can ensure it wasn't wrongly charged").** After a quote is sent (never

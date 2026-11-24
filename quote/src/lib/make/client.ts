@@ -181,3 +181,28 @@ export async function sendAlert(alert: { to: string; forEmail: string | null; te
   const { res, text, d } = await post({ mode: "alert", to, forEmail: alert.forEmail ?? "", alertBody: JSON.stringify({ text: alert.text }) });
   if (!res.ok || d.ok !== true) throw new MakeError(`Make didn't confirm the alert (${res.status}: ${text.slice(0, 120)})`);
 }
+
+/**
+ * Installer Project Week texts (Albert, 2026-11-24; vault `05_decisions/2026-11-24-installer-project-week-boards`):
+ * the QA dispatch's own Make scenario, "QA Weekly Dispatch - contractor messages" (5030370), so an installer hears from
+ * Titan on the same channel for both (Albert: "we use the QA dispatch so the channel can be the same"). The only reader
+ * of QUOTE_MAKE_DISPATCH_HOOK, a credential (anyone with it can send from the store number). Called only from
+ * src/lib/projectWeek/run.ts. Unset = no texts; the pages are still updated.
+ */
+export const dispatchConfigured = () => Boolean(process.env.QUOTE_MAKE_DISPATCH_HOOK?.trim());
+
+export type DispatchMessage = { name: string; channel: string; phone: string | null; whatsapp_group_id: string | null; text: string };
+
+export async function sendDispatchMessage(m: DispatchMessage): Promise<void> {
+  const url = process.env.QUOTE_MAKE_DISPATCH_HOOK?.trim();
+  if (!url) throw new MakeError("Project Week texts aren't switched on for this deployment.");
+  if (!["SMS", "WhatsApp", "WhatsApp Group"].includes(m.channel)) throw new MakeError("Not a dispatch channel.");
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ source: "project-week", name: m.name, channel: m.channel, phone: m.phone, whatsapp_group_id: m.whatsapp_group_id, text: m.text, text_json: JSON.stringify(m.text), ready: true }),
+    cache: "no-store",
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!res.ok) throw new MakeError(`Make didn't take the text (${res.status}).`);
+}

@@ -151,10 +151,11 @@ describe("booking step (Make, no sign-in)", () => {
   it("is one of the three paths the staff app lets through without a sign-in, besides signing in", () => {
     const proxy = all.find((f) => f.rel === "proxy.ts")!.text;
     expect(proxy).toContain('matcher: ["/((?!_next/|brand/|favicon\\\\.ico|robots\\\\.txt).*)"]');
-    expect(proxy).toContain("const OPEN_ON_STAFF = /^\\/(login|auth\\/|denied|api\\/booking|api\\/activity|api\\/accept|api\\/followups)/;");
+    expect(proxy).toContain("const OPEN_ON_STAFF = /^\\/(login|auth\\/|denied|api\\/booking|api\\/activity|api\\/accept|api\\/followups|api\\/project-week)/;");
     // Open tracking and acceptance (2026-10-27) are the other two key-gated routes; see their own blocks below.
-    // Report a bug and Upload site sheet (2026-10-28) and Push a payout card (2026-11-04) are the API routes that are NOT open: the proxy signs people in first.
-    expect(all.filter((f) => f.rel.startsWith("app/api/")).map((f) => f.rel).sort()).toEqual(["app/api/accept/route.ts", "app/api/activity/route.ts", ROUTE, "app/api/bug/route.ts", "app/api/followups/recheck/route.ts", "app/api/followups/route.ts", "app/api/payout/route.ts", "app/api/sitesheet/route.ts"]);
+    // Report a bug and Upload site sheet (2026-10-28) and Mark a payout card final (2026-11-04) are the API routes that are NOT open: the proxy signs people in first.
+    // Project Week (2026-11-24) is key-gated; see its own block below.
+    expect(all.filter((f) => f.rel.startsWith("app/api/")).map((f) => f.rel).sort()).toEqual(["app/api/accept/route.ts", "app/api/activity/route.ts", ROUTE, "app/api/bug/route.ts", "app/api/followups/recheck/route.ts", "app/api/followups/route.ts", "app/api/payout/route.ts", "app/api/project-week/route.ts", "app/api/sitesheet/route.ts"]);
   });
 
   it("keeps the shared quote helpers away from pages and actions", () => {
@@ -195,33 +196,20 @@ describe("CompanyCam boundary (2026-10-30: the job's photos on the quote page)",
     expect(all.filter((f) => code(f.text).includes("QUOTE_COMPANYCAM_TOKEN")).map((f) => f.rel).sort()).toEqual([CAM]);
   });
 
-  it("reads, and adds a photo to a project (2026-11-04): one request, one POST, never on the customer deployment", () => {
+  it("only reads (2026-11-24: payout cards no longer go to CompanyCam): one request, always a GET, never on the customer deployment", () => {
     const client = code(all.find((f) => f.rel === CAM)!.text);
-    for (const verb of ["PATCH", "PUT", "DELETE"]) expect(client).not.toMatch(new RegExp(`["'\`]${verb}["'\`]`));
-    // The one POST is chosen by a photo body, and the request refuses it for any address but a project's photos.
-    expect(client.match(/["'`]POST["'`]/g)?.length).toBe(1);
-    expect(client).toMatch(/method: photo === undefined \? "GET" : "POST"/);
-    expect(client).toMatch(/if \(photo !== undefined && !\(api && \/\^https:\\\/\\\/api\\\.companycam\\\.com\\\/v2\\\/projects\\\/\\d\+\\\/photos\$\/\.test\(url\)\)\) throw/);
-    expect(client.match(/request\([^)]*, true, \{/g)?.length).toBe(1);
-    expect(client).toMatch(/request\(`\$\{BASE\}\/projects\/\$\{projectId\}\/photos`, true, \{/);
+    for (const verb of ["POST", "PATCH", "PUT", "DELETE"]) expect(client).not.toMatch(new RegExp(`["'\`]${verb}["'\`]`));
+    expect(client).toMatch(/method: "GET"/);
+    expect(client).not.toMatch(/addProjectPhoto|body:/);
     expect(client.match(/\bfetch\(/g)?.length).toBe(1);
     expect(client).toMatch(/if \(!token \|\| isCustomerDeployment\(\)\) throw/);
-  });
-
-  it("adds payout cards only (2026-11-04): reached from the payouts writer, on the quote's own project, tagged Payout", () => {
-    const loader = code(all.find((f) => f.rel === LOADER)!.text);
-    expect(loader.match(/addProjectPhoto\(/g)?.length).toBe(1);
-    expect(loader).toMatch(/addProjectPhoto\(id, \{ uri, capturedAt: new Date\(\), description, tags: \["Payout"\] \}\)/);
-    expect(loader).toMatch(/const id = projectIdOf\(companyCamUrl\);/);
-    expect(all.filter((f) => /\baddPayoutPhoto\(/.test(code(f.text)) && f.rel !== LOADER).map((f) => f.rel)).toEqual(["lib/quotes/payouts.ts"]);
-    // The project comes from the quote's own record, never the browser.
-    expect(code(all.find((f) => f.rel === "lib/quotes/payouts.ts")!.text)).toMatch(/const camUrl = str\(f\[QUOTE\.companyCamUrl\]\);/);
+    expect(all.filter((f) => /addPayoutPhoto|addProjectPhoto/.test(code(f.text))).map((f) => f.rel)).toEqual([]);
   });
 
   it("downloads a site sheet photo without the token (2026-11-03): the token goes to the API only", () => {
     const client = code(all.find((f) => f.rel === CAM)!.text);
     // The one request sends the token only when it is an API call, built from BASE; an image address gets nothing but Accept.
-    expect(client).toMatch(/headers: api \? \{ Authorization: `Bearer \$\{token\}`, Accept: "application\/json", \.\.\.\(photo === undefined \? \{\} : \{ "Content-Type": "application\/json" \}\) \} : \{ Accept: "image\/jpeg, image\/png, image\/webp" \}/);
+    expect(client).toMatch(/headers: api \? \{ Authorization: `Bearer \$\{token\}`, Accept: "application\/json" \} : \{ Accept: "image\/jpeg, image\/png, image\/webp" \}/);
     expect(client).toMatch(/request\(`\$\{BASE\}\$\{path\}/);
     expect(client.match(/request\([^)]*, true\)/g)?.length).toBe(1);
     // The loader downloads only the addresses CompanyCam gave for a photo on the quote's own project.
@@ -234,9 +222,9 @@ describe("CompanyCam boundary (2026-10-30: the job's photos on the quote page)",
     expect(all.filter((f) => /from ["']@\/lib\/companycam\/client["']/.test(f.text)).map((f) => f.rel)).toEqual([LOADER]);
     const loader = code(all.find((f) => f.rel === LOADER)!.text);
     expect(loader).not.toMatch(/airtable|createRecord|updateRecord|make\/client|sendToGhl/);
-    // The quote page's Photos tab, since 2026-11-03 the site sheet reader (picking and downloading sheet photos), and
-    // since 2026-11-04 the payout cards writer (adding a card to the project).
-    expect(all.filter((f) => /^import (?!type )[^;]*from ["'](@\/lib\/quotes\/|\.\/|\.\.\/quotes\/)companycam["']/m.test(f.text)).map((f) => f.rel).sort()).toEqual(["app/q/[id]/page.tsx", "lib/quotes/payouts.ts", "lib/quotes/sitesheet.ts"]);
+    // The quote page's Photos tab and, since 2026-11-03, the site sheet reader (picking and downloading sheet photos).
+    // The payout cards writer used it from 2026-11-04 to 2026-11-24.
+    expect(all.filter((f) => /^import (?!type )[^;]*from ["'](@\/lib\/quotes\/|\.\/|\.\.\/quotes\/)companycam["']/m.test(f.text)).map((f) => f.rel).sort()).toEqual(["app/q/[id]/page.tsx", "lib/quotes/sitesheet.ts"]);
     // Staff only: the tab is never drawn in Customer view.
     expect(all.find((f) => f.rel === "app/q/[id]/page.tsx")!.text).toMatch(/const showPhotos = opt === "photos" && !customer/);
   });
@@ -286,7 +274,7 @@ describe("Make boundary", () => {
   it("is server-only and only reached from starting, booking, linking, sending and tracking a quote, Address arrived, and acceptance", () => {
     expect(all.find((f) => f.rel === "lib/make/client.ts")!.text).toMatch(/^import "server-only";/m);
     const callers = all.filter((f) => f.rel !== "lib/make/client.ts" && /from ["']@\/lib\/make\/client["']/.test(f.text)).map((f) => f.rel);
-    expect(callers.sort()).toEqual(["lib/accept/record.ts", "lib/quotes/activity.ts", "lib/quotes/address.ts", "lib/quotes/billing.ts", "lib/quotes/booking.ts", "lib/quotes/followup.ts", "lib/quotes/jobFiles.ts", "lib/quotes/link.ts", "lib/quotes/pos.ts", "lib/quotes/send.ts", "lib/quotes/start.ts"]);
+    expect(callers.sort()).toEqual(["lib/accept/record.ts", "lib/quotes/activity.ts", "lib/quotes/address.ts", "lib/quotes/billing.ts", "lib/quotes/booking.ts", "lib/quotes/followup.ts", "lib/quotes/jobFiles.ts", "lib/quotes/link.ts", "lib/quotes/pos.ts", "lib/quotes/send.ts", "lib/quotes/start.ts", "lib/projectWeek/run.ts"].sort());
   });
 
   it("Address arrived fills only the contact in GHL and only the Quotes table in Airtable", () => {
@@ -524,7 +512,7 @@ describe("Notion payments (2026-10-30: read-only, for invoices and receipts)", (
   const READER = "lib/notion/payments.ts";
   it("one file reads the payments token, and it only queries the Master Payments Log", () => {
     expect(all.filter((f) => code(f.text).includes("QUOTE_NOTION_PAYMENTS_TOKEN")).map((f) => f.rel)).toEqual([READER]);
-    expect(all.filter((f) => code(f.text).includes("api.notion.com")).map((f) => f.rel).sort()).toEqual(["lib/bug/notion.ts", READER].sort());
+    expect(all.filter((f) => code(f.text).includes("api.notion.com")).map((f) => f.rel).sort()).toEqual(["lib/bug/notion.ts", READER, "lib/notion/payoutApi.ts"].sort());
     const text = code(all.find((f) => f.rel === READER)!.text);
     expect(text.match(/\bfetch\(/g)?.length).toBe(1);
     expect(text).toMatch(/fetch\(`\$\{API\}\/data_sources\/\$\{PAYMENTS_LOG\}\/query`/);
@@ -562,5 +550,54 @@ describe("Follow up (2026-11-07)", () => {
   it("reaches GHL only through Make's link, status, untag and message routes, and comments tag nobody", () => {
     expect(text()).toMatch(/mentions: \[\]/);
     expect(text()).not.toMatch(/mentions: \[[^\]]/);
+  });
+});
+
+describe("Installer Project Week (2026-11-24: Project Costs lines and each installer's own page)", () => {
+  const API_FILE = "lib/notion/payoutApi.ts";
+  const ROUTE_FILE = "app/api/project-week/route.ts";
+
+  it("one file reads the token, makes the one request and refuses anything it isn't for", () => {
+    expect(all.filter((f) => code(f.text).includes("QUOTE_NOTION_PAYOUT_TOKEN")).map((f) => f.rel)).toEqual([API_FILE]);
+    const text = code(all.find((f) => f.rel === API_FILE)!.text);
+    expect(text).toMatch(/^import "server-only";/m);
+    expect(text.match(/\bfetch\(`\$\{API\}/g)?.length).toBe(1);
+    expect(text).toMatch(/if \(!t \|\| isCustomerDeployment\(\)\) throw/);
+    expect(text).toMatch(/if \(!allowed\(method, path\)\) throw/);
+    // Never a database or data source changed, never a page moved.
+    expect(text).not.toMatch(/\/databases|\/move/);
+  });
+
+  it("is reached only from the Project Costs writer and the Project Week run", () => {
+    expect(all.filter((f) => /from ["'](@\/lib\/notion\/|\.\/)payoutApi["']/.test(f.text)).map((f) => f.rel).sort()).toEqual(["lib/notion/projectCosts.ts", "lib/projectWeek/run.ts"]);
+    expect(all.filter((f) => /from ["']@\/lib\/notion\/projectCosts["']/.test(f.text)).map((f) => f.rel)).toEqual(["lib/quotes/payouts.ts"]);
+    expect(all.filter((f) => /from ["']@\/lib\/projectWeek\/run["']/.test(f.text)).map((f) => f.rel).sort()).toEqual([ROUTE_FILE, "lib/quotes/payouts.ts"]);
+  });
+
+  it("writes only lines it made: found by the card's mark, refused once paid", () => {
+    const text = code(all.find((f) => f.rel === "lib/notion/projectCosts.ts")!.text);
+    expect(text).toMatch(/rich_text: \{ contains: mark \}/);
+    expect(text).toMatch(/if \(paidOut \|\| paidRef\) return \{ ok: false/);
+    expect(text).not.toMatch(/"DELETE"/);
+  });
+
+  it("deletes blocks only on an installer's page under the boards page, and texts only on a Send press", () => {
+    const run = code(all.find((f) => f.rel === "lib/projectWeek/run.ts")!.text);
+    expect(run.match(/"DELETE"/g)?.length).toBe(1);
+    expect(run).toMatch(/if \(under === parent && !page\.archived && !page\.in_trash\)/);
+    expect(run).toMatch(/const send = scope\.kind === "all" \|\| scope\.kind === "one";/);
+    // Until Albert flips it, every text goes to the test phone.
+    expect(run).toMatch(/const sendsLive = \(\) => process\.env\.QUOTE_PROJECT_WEEK_SEND\?\.trim\(\) === "live";/);
+  });
+
+  it("the route checks its key first, and 404s on the customer deployment", () => {
+    const route = code(all.find((f) => f.rel === ROUTE_FILE)!.text);
+    expect(route).toMatch(/export async function POST\(request: NextRequest\) \{\s*if \(isCustomerDeployment\(\)\) return[^\n]*\n\s*if \(!keyOk\(request\)\) return/);
+    expect(route).toMatch(/export async function GET\(request: NextRequest\) \{\s*if \(isCustomerDeployment\(\)\) return/);
+    expect(route).toMatch(/if \(!key\) return false;/);
+  });
+
+  it("the Make sender for it is the dispatch hook alone", () => {
+    expect(all.filter((f) => code(f.text).includes("QUOTE_MAKE_DISPATCH_HOOK")).map((f) => f.rel)).toEqual(["lib/make/client.ts"]);
   });
 });

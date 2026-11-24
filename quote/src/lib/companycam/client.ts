@@ -6,10 +6,11 @@ import { toPhotos, toProject, type CamPhoto, type CamProject } from "./photos";
  * The ONLY file in quote/ that talks to CompanyCam (Albert, 2026-10-30: the job's photos in the
  * app, with their times and descriptions), and the only reader of QUOTE_COMPANYCAM_TOKEN, set on
  * the staff deployment only. Server-only. A CompanyCam access token is not scoped, so this file is
- * the limit: it reads one project and its photos, and since 2026-11-04 (Albert: payout cards "quickly
- * push this to the companycam so it is shareable with the other photos") it adds one kind of thing,
- * a photo to a project (`addProjectPhoto()`, the only POST). Never an update, never a delete, never
- * a project; tests/boundary.test.ts pins that. Making projects stays Make's job (3453735).
+ * the limit: it reads one project and its photos, nothing else. From 2026-11-04 to 2026-11-24 it also added payout
+ * cards to a project; Albert stopped that on 2026-11-24 ("No ccam push payout cards", vault
+ * `05_decisions/2026-11-24-installer-project-week-boards`): a project share link showed every installer's pay. Payout
+ * cards now go to Notion Project Costs and each installer's own Project Week page. GET only; tests/boundary.test.ts
+ * pins that. Making projects stays Make's job (3453735).
  *
  * Since 2026-11-03 (Albert: site sheets read from CompanyCam) it also downloads a photo's image for
  * the Site sheet tab. That is the same one GET, without the token: the token goes to the API only,
@@ -38,18 +39,13 @@ export const NOT_CONFIGURED = "CompanyCam photos aren't set up for this app yet 
 
 export const companyCamConfigured = () => !isCustomerDeployment() && Boolean(process.env.QUOTE_COMPANYCAM_TOKEN?.trim());
 
-/**
- * The one request: a GET to the API with the token, or to an image address CompanyCam gave, without it; or, with a
- * `photo` body, the one POST, adding a photo to a project (2026-11-04), always to the API.
- */
-async function request(url: string, api: boolean, photo?: unknown): Promise<Response> {
+/** The one request, always a GET: to the API with the token, or to an image address CompanyCam gave, without it. */
+async function request(url: string, api: boolean): Promise<Response> {
   const token = process.env.QUOTE_COMPANYCAM_TOKEN?.trim();
   if (!token || isCustomerDeployment()) throw new CompanyCamError(NOT_CONFIGURED, null);
-  if (photo !== undefined && !(api && /^https:\/\/api\.companycam\.com\/v2\/projects\/\d+\/photos$/.test(url))) throw new CompanyCamError("Refused: the quote app only adds photos to a project", null);
   return fetch(url, {
-    method: photo === undefined ? "GET" : "POST",
-    headers: api ? { Authorization: `Bearer ${token}`, Accept: "application/json", ...(photo === undefined ? {} : { "Content-Type": "application/json" }) } : { Accept: "image/jpeg, image/png, image/webp" },
-    body: photo === undefined ? undefined : JSON.stringify({ photo }),
+    method: "GET",
+    headers: api ? { Authorization: `Bearer ${token}`, Accept: "application/json" } : { Accept: "image/jpeg, image/png, image/webp" },
     cache: "no-store",
     signal: AbortSignal.timeout(api ? 15_000 : 20_000),
   });
@@ -94,28 +90,4 @@ export async function imageBytes(uri: string): Promise<{ type: string; bytes: Ui
   const bytes = new Uint8Array(await res.arrayBuffer());
   if (bytes.byteLength > MAX_IMAGE_BYTES) throw new CompanyCamError("CompanyCam image too large", null);
   return { type: (res.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase(), bytes };
-}
-
-/** What a payout card photo carries (2026-11-04): a public address CompanyCam fetches the image from, and its words. */
-export type NewPhoto = { uri: string; capturedAt: Date; description: string; tags: string[] };
-
-/**
- * Add one photo to a project (2026-11-04, payout cards): CompanyCam downloads the image from `uri` itself (an Airtable
- * attachment address the app just uploaded). The project id must be digits; the answer's photo id is returned.
- */
-export async function addProjectPhoto(projectId: string, p: NewPhoto): Promise<{ id: string | null }> {
-  if (!/^\d+$/.test(projectId)) throw new CompanyCamError("Not a CompanyCam project id.", null);
-  if (!/^https:\/\//.test(p.uri)) throw new CompanyCamError("Not an image address CompanyCam can fetch.", null);
-  const res = await request(`${BASE}/projects/${projectId}/photos`, true, {
-    uri: p.uri,
-    captured_at: Math.floor(p.capturedAt.getTime() / 1000),
-    description: p.description.slice(0, 1000),
-    tags: p.tags.slice(0, 5),
-  });
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new CompanyCamError(`CompanyCam ${res.status} adding a photo: ${body.slice(0, 200)}`, res.status);
-  }
-  const out = (await res.json().catch(() => null)) as { id?: unknown } | null;
-  return { id: out && (typeof out.id === "string" || typeof out.id === "number") ? String(out.id) : null };
 }
