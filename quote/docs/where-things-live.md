@@ -1401,7 +1401,8 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   off every page. Rebuilt nightly (Vercel cron) and after a card goes final; it texts nobody. The **Send Project Week**
   button (Project Preparation) and **Send my week** (Titan Team row) call `/api/project-week` (key-gated), which rebuilds
   and texts the link through the QA dispatch's Make 5030370 on the person's **Project Week Channels** (its own Titan
-  Team column, apart from Dispatch Channels, Albert 2026-11-24; empty = no text), to the test phone until
+  Team column, apart from Dispatch Channels, Albert 2026-11-24; empty = no text; Email, also 2026-11-24, goes from info@
+  through 5030370's Outlook route to the Titan Team Email, subject "Your project week, <dates>"), to the test phone until
   `QUOTE_PROJECT_WEEK_SEND` is `live`. Tested in `tests/projectWeek.test.ts`.
 - **Typed lines saved for next time, and logged (Albert, 2026-11-01: "When we add custom items and the quote ends
   up being SENT… make it so that those items are created for next time use and make them 'require review'… There

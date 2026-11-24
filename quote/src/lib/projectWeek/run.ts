@@ -140,7 +140,7 @@ export async function runProjectWeek(scope: RunScope, now = new Date()): Promise
       if (!send || !wantsText || !dispatchConfigured()) continue;
       const messages = messagesFor(board, page.url);
       if (!messages.length) {
-        result.notes.push(`${member.name} has no Project Week Channels with a phone or group set in Titan Team, so nothing was sent.`);
+        result.notes.push(`${member.name} has no Project Week Channels with a phone, group or email set in Titan Team, so nothing was sent.`);
         continue;
       }
       for (const m of messages) {
@@ -153,7 +153,7 @@ export async function runProjectWeek(scope: RunScope, now = new Date()): Promise
             result.notes.push("Sending is in test mode and QUOTE_PROJECT_WEEK_TEST_PHONE is empty, so no text went out.");
             break;
           }
-          await sendDispatchMessage({ name: member.name, channel: "SMS", phone, whatsapp_group_id: null, text: `[Test: for ${member.name} by ${m.channel}]\n${m.text}` });
+          await sendDispatchMessage({ name: member.name, channel: "SMS", phone, whatsapp_group_id: null, text: `[Test: for ${member.name} by ${m.channel}${m.email ? ` to ${m.email}` : ""}]\n${m.text}` });
           result.sent.push({ name: member.name, channel: m.channel, test: true });
         }
       }

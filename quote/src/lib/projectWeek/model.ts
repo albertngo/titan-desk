@@ -25,6 +25,8 @@ export type Member = {
    */
   channels: string[];
   groupId: string | null;
+  /** Titan Team → Email: used when Email is ticked in Project Week Channels (Albert, 2026-11-24: "Build email sending"). */
+  email?: string | null;
   /** Titan Team → Project Week Link: this installer's page, once made. */
   boardUrl: string | null;
 };
@@ -208,15 +210,26 @@ export function messageText(b: Board, link: string): string {
   );
 }
 
-/** One message per selected channel, as the QA dispatch's Make scenario (5030370) takes them. Email is never sent. */
-export function messagesFor(b: Board, link: string): { channel: string; phone: string | null; whatsapp_group_id: string | null; text: string }[] {
+export type OutMessage = { channel: string; phone: string | null; whatsapp_group_id: string | null; email: string | null; subject: string | null; text: string };
+
+/** The email's subject. */
+export const emailSubject = (b: Board) => `Your project week, ${dayLabel(b.week.mon)} to ${dayLabel(b.week.sun)}`;
+
+/**
+ * One message per selected channel, as the QA dispatch's Make scenario (5030370) takes them. Email (since 2026-11-24)
+ * goes from info@ through that scenario's Outlook route, to the Titan Team Email. A channel without its contact is skipped,
+ * never swapped for another.
+ */
+export function messagesFor(b: Board, link: string): OutMessage[] {
   const text = messageText(b, link);
-  const out: { channel: string; phone: string | null; whatsapp_group_id: string | null; text: string }[] = [];
+  const out: OutMessage[] = [];
   for (const channel of ["SMS", "WhatsApp", "WhatsApp Group"]) {
     if (!b.member.channels.includes(channel)) continue;
     if (channel === "WhatsApp Group" ? !b.member.groupId : !b.member.phone) continue;
-    out.push({ channel, phone: channel === "WhatsApp Group" ? null : b.member.phone, whatsapp_group_id: channel === "WhatsApp Group" ? b.member.groupId : null, text });
+    out.push({ channel, phone: channel === "WhatsApp Group" ? null : b.member.phone, whatsapp_group_id: channel === "WhatsApp Group" ? b.member.groupId : null, email: null, subject: null, text });
   }
+  const email = (b.member.email ?? "").trim();
+  if (b.member.channels.includes("Email") && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) out.push({ channel: "Email", phone: null, whatsapp_group_id: null, email, subject: emailSubject(b), text });
   return out;
 }
 

@@ -13,7 +13,7 @@ export type Row = { id: string; properties?: Props };
 export const CARD_MARK = "quote-card:";
 export const cardMark = (quoteRecordId: string, cardId: string) => `${CARD_MARK}${quoteRecordId}/${cardId}`;
 
-export const TEAM = { name: "Name", phone: "Phone", channels: "Project Week Channels", groupId: "WhatsApp Group ID", rateCardName: "Rate Card Name", boardUrl: "Project Week Link" } as const;
+export const TEAM = { name: "Name", phone: "Phone", channels: "Project Week Channels", groupId: "WhatsApp Group ID", rateCardName: "Rate Card Name", boardUrl: "Project Week Link", email: "Email" } as const;
 export const PROJECT = { customer: "Name", street: "Street Address", city: "City", phone: "Contact", type: "Project Type", start: "Confirmed Start Date", end: "Project End Date", contractors: "Contractor", shareLink: "CCAM Share Link", camUrl: "CompanyCam Link" } as const;
 export const COST = { name: "Name", category: "Category", project: "Project", assignedTo: "Assigned To", cost: "Cost", calculated: "Calculated (1/3)", paidOut: "Paid Out Date (2/3)", paidRef: "Paid Reference (3/3)", notes: "Notes", source: "Cost Source" } as const;
 export const WORK_ORDER = { status: "Status", contractor: "Contractor To Fix", project: "Project" } as const;
@@ -63,6 +63,7 @@ export function memberOf(r: Row): Member & { rateCardName: string | null } {
     phone: text(p[TEAM.phone]),
     channels: multi(p[TEAM.channels]),
     groupId: cleanGroupId(text(p[TEAM.groupId])),
+    email: text(p[TEAM.email]),
     boardUrl: text(p[TEAM.boardUrl]),
     rateCardName: text(p[TEAM.rateCardName]),
   };

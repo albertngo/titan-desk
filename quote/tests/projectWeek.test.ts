@@ -144,12 +144,21 @@ describe("what a page holds", () => {
 describe("texts", () => {
   const board = buildBoard({ member: member(A, "Alex One", { channels: ["SMS", "WhatsApp Group", "Email"], groupId: "120363000000000000@g.us" }), week, today, jobs: [job(J1, "2026-12-01", [A])], projects: new Map(), lines: [line(J1, [A], 800)], openWorkOrders: [] });
 
-  it("one per selected channel, never email, each to that installer's own number or group", () => {
+  it("one per selected channel (Email only with an address), each to that installer's own number or group", () => {
     const m = messagesFor(board, "https://x.test/a");
     expect(m.map((x) => [x.channel, x.phone, x.whatsapp_group_id])).toEqual([
       ["SMS", "+15550000000", null],
       ["WhatsApp Group", null, "120363000000000000@g.us"],
     ]);
+  });
+
+  it("email goes to their Titan Team Email with a subject, only when Email is ticked", () => {
+    const withEmail = { ...board, member: { ...board.member, channels: ["Email"], email: "alex@example.test" } };
+    expect(messagesFor(withEmail, "https://x.test/a")).toEqual([
+      { channel: "Email", phone: null, whatsapp_group_id: null, email: "alex@example.test", subject: "Your project week, Mon Nov 30 to Sun Dec 6", text: messageText(withEmail, "https://x.test/a") },
+    ]);
+    expect(messagesFor({ ...withEmail, member: { ...withEmail.member, email: "not-an-email" } }, "https://x.test/a")).toEqual([]);
+    expect(messagesFor({ ...withEmail, member: { ...withEmail.member, channels: ["SMS"], phone: null } }, "https://x.test/a")).toEqual([]);
   });
 
   it("a channel without its contact is skipped, never swapped", () => {

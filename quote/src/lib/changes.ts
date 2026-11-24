@@ -23,6 +23,14 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-24",
     kind: "new",
+    title: "Project Week can go by email",
+    details: [
+      "Tick Email in someone's Project Week Channels in Notion Titan Team and their Project Week link is emailed to their Titan Team Email from info@, with the subject Your project week and the dates.",
+    ],
+  },
+  {
+    date: "2026-11-24",
+    kind: "new",
     title: "Photos tab: Embed feed link, for testing Project Week scope links",
     details: [
       "The Photos tab's header has an Embed feed link when CompanyCam gives one. Open it in a private window: if the job's photos show without signing in, and no payout photos are among them, tell Albert, and Project Week can send it as the scope link when nobody has pasted a CCAM Share Link.",

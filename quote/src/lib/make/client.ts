@@ -191,16 +191,18 @@ export async function sendAlert(alert: { to: string; forEmail: string | null; te
  */
 export const dispatchConfigured = () => Boolean(process.env.QUOTE_MAKE_DISPATCH_HOOK?.trim());
 
-export type DispatchMessage = { name: string; channel: string; phone: string | null; whatsapp_group_id: string | null; text: string };
+export type DispatchMessage = { name: string; channel: string; phone: string | null; whatsapp_group_id: string | null; email?: string | null; subject?: string | null; text: string };
 
 export async function sendDispatchMessage(m: DispatchMessage): Promise<void> {
   const url = process.env.QUOTE_MAKE_DISPATCH_HOOK?.trim();
   if (!url) throw new MakeError("Project Week texts aren't switched on for this deployment.");
-  if (!["SMS", "WhatsApp", "WhatsApp Group"].includes(m.channel)) throw new MakeError("Not a dispatch channel.");
+  if (!["SMS", "WhatsApp", "WhatsApp Group", "Email"].includes(m.channel)) throw new MakeError("Not a dispatch channel.");
+  // Email (2026-11-24): the scenario's Outlook route sends from info@, and only for source project-week.
+  if (m.channel === "Email" && !(m.email && m.subject)) throw new MakeError("An email needs an address and a subject.");
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ source: "project-week", name: m.name, channel: m.channel, phone: m.phone, whatsapp_group_id: m.whatsapp_group_id, text: m.text, text_json: JSON.stringify(m.text), ready: true }),
+    body: JSON.stringify({ source: "project-week", name: m.name, channel: m.channel, phone: m.phone, whatsapp_group_id: m.whatsapp_group_id, email: m.email ?? null, subject: m.subject ?? null, text: m.text, text_json: JSON.stringify(m.text), ready: true }),
     cache: "no-store",
     signal: AbortSignal.timeout(30_000),
   });
