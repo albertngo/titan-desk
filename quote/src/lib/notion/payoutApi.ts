@@ -4,7 +4,7 @@ import { isCustomerDeployment } from "@/lib/mode";
 /**
  * Installer Project Week (Albert, 2026-11-24; vault `05_decisions/2026-11-24-installer-project-week-boards`). The ONLY
  * file that reads QUOTE_NOTION_PAYOUT_TOKEN: a Notion internal integration shared with Project Costs, Titan Projects,
- * Titan Team, QA Work Orders and the "Project Week Boards" page alone, set on the staff deployment only. One request
+ * Titan Team, QA Work Orders and the Contractor Boards page alone, set on the staff deployment only. One request
  * function, `notionPayout()`, and it refuses anything outside `allowed()`:
  *
  * - queries of those four data sources (read);

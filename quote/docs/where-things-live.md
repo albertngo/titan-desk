@@ -1392,7 +1392,7 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   again, the line's Cost updates and a dated entry (old to new, new picture) is appended; refused once Paid Out Date or
   Paid Reference is set; a hand-typed line is never touched. Nothing goes to CompanyCam any more (a share link showed every
   installer's pay). Then `runProjectWeek()` (`src/lib/projectWeek/run.ts`, rules pure in `model.ts`) rebuilds that
-  installer's **Project Week page** under the published boards page: next Monday to Sunday's jobs they are in Contractor for
+  installer's **Project Week page** under Contractor Boards (each page published by hand once): next Monday to Sunday's jobs they are in Contractor for
   (customer first name, address, phone, type, CCAM Share Link, else, once `QUOTE_PROJECT_WEEK_EMBED` is `on`, the
   project's CompanyCam embed feed (`embedFeedFor()`; the Photos tab's Embed feed link is for testing it logged out), else
   "scope link coming", their payout or Pending, their card

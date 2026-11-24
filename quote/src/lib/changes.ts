@@ -22,6 +22,14 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-24",
+    kind: "changed",
+    title: "Project Week pages sit under Contractor Boards",
+    details: [
+      "Each installer's Project Week page is now made under Contractor Boards in Notion, next to their work-order board. The first time a page is made, open it, then Share and Publish. Until it's published, Send skips that person and says so.",
+    ],
+  },
+  {
+    date: "2026-11-24",
     kind: "new",
     title: "Project Week can go by email",
     details: [
