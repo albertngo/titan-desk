@@ -60,8 +60,12 @@ export type PayoutLine = {
 /** A card line's scope: the one it was built with, else Stairs for a Stairs-section line, else Flooring. */
 export const lineScope = (l: Pick<PayoutLine, "scope" | "section">): Scope => l.scope ?? (l.section === "Stairs" ? "Stairs" : "Flooring");
 
-/** One push of a card to CompanyCam: when, by whom, the total and a signature of what was on it. Server-written only. */
-export type PayoutPush = { at: string; by: string; total: number; sig: string; file: string; camPhotoId: string | null };
+/**
+ * One time a card was marked final: when, by whom, the total and a signature of what was on it. Server-written only.
+ * Until 2026-11-24 a push went to CompanyCam (`camPhotoId`); since then it goes to the contractor's Notion Project Costs
+ * line (`notionPageId`, Albert: "Yes on final and update own line").
+ */
+export type PayoutPush = { at: string; by: string; total: number; sig: string; file: string; camPhotoId: string | null; notionPageId?: string | null };
 
 export type PayoutCard = { id: string; contractor: string; note: string; lines: PayoutLine[]; pushes: PayoutPush[] };
 
@@ -339,14 +343,14 @@ export function cardSig(c: Pick<PayoutCard, "contractor" | "note" | "lines">): s
   return h.toString(36);
 }
 
-/** Where a card stands with CompanyCam: never pushed, pushed and the same since, or changed since its last push. */
+/** Where a card stands: never marked final, final and the same since, or changed since it was last marked final. */
 export function pushState(c: PayoutCard): { kind: "never" } | { kind: "current" | "changed"; last: PayoutPush } {
   const last = c.pushes[c.pushes.length - 1];
   if (!last) return { kind: "never" };
   return { kind: last.sig === cardSig(c) ? "current" : "changed", last };
 }
 
-/** Why a card can't be pushed yet, or null. */
+/** Why a card can't be marked final yet, or null. */
 export function pushProblem(c: PayoutCard): string | null {
   if (!c.contractor.trim()) return "Name the contractor first.";
   const on = c.lines.filter((l) => l.on);
@@ -479,7 +483,7 @@ function cleanPush(v: unknown): PayoutPush | null {
   if (!v || typeof v !== "object") return null;
   const p = v as Record<string, unknown>;
   if (typeof p.at !== "string" || typeof p.sig !== "string") return null;
-  return { at: p.at, by: text(p.by, TEXT_MAX), total: amount(p.total, -NUM_MAX) ?? 0, sig: p.sig.slice(0, 20), file: text(p.file, 200), camPhotoId: typeof p.camPhotoId === "string" ? p.camPhotoId.slice(0, 40) : null };
+  return { at: p.at, by: text(p.by, TEXT_MAX), total: amount(p.total, -NUM_MAX) ?? 0, sig: p.sig.slice(0, 20), file: text(p.file, 200), camPhotoId: typeof p.camPhotoId === "string" ? p.camPhotoId.slice(0, 40) : null, notionPageId: typeof p.notionPageId === "string" && /^[0-9a-f-]{32,36}$/i.test(p.notionPageId) ? p.notionPageId : null };
 }
 
 /**

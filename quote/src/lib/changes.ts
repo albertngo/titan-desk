@@ -21,6 +21,40 @@ export type Change = {
 
 export const CHANGES: Change[] = [
   {
+    date: "2026-11-24",
+    kind: "new",
+    title: "Project Week can go by email",
+    details: [
+      "Tick Email in someone's Project Week Channels in Notion Titan Team and their Project Week link is emailed to their Titan Team Email from info@, with the subject Your project week and the dates.",
+    ],
+  },
+  {
+    date: "2026-11-24",
+    kind: "new",
+    title: "Photos tab: Embed feed link, for testing Project Week scope links",
+    details: [
+      "The Photos tab's header has an Embed feed link when CompanyCam gives one. Open it in a private window: if the job's photos show without signing in, and no payout photos are among them, tell Albert, and Project Week can send it as the scope link when nobody has pasted a CCAM Share Link.",
+    ],
+  },
+  {
+    date: "2026-11-24",
+    kind: "changed",
+    title: "Project Week texts have their own channels",
+    details: [
+      "Project Week texts go on the channels ticked in the new Project Week Channels column in Notion Titan Team, separate from the QA dispatch's Dispatch Channels. Leave it empty and that person gets no Project Week text.",
+    ],
+  },
+  {
+    date: "2026-11-24",
+    kind: "changed",
+    title: "Payout cards: Mark final sends them to Project Costs, not CompanyCam",
+    details: [
+      "On the Payouts tab, Push to CompanyCam is now Mark final. It puts the card, with its picture, on that contractor's own line in Notion Project Costs, ticked Calculated. Mark it final again after a change: the line's amount updates and the change is added to its history.",
+      "Cards no longer go to CompanyCam, so a CompanyCam share link never shows anyone's pay. The contractor must have their Rate Card Name in Notion Titan Team, and the quote needs its Notion project.",
+      "Each installer also gets their own Project Week page with next week's jobs, scope links and their payouts. It updates itself, and staff text it to them with the Send buttons in Notion.",
+    ],
+  },
+  {
     date: "2026-11-23",
     kind: "changed",
     title: "Company files: warranty, insurance and terms, always the latest",

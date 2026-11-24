@@ -6,9 +6,10 @@ import { isCustomerDeployment } from "@/lib/mode";
 /**
  * Pages a staff member reaches before signing in, the booking step Make calls, open tracking
  * (2026-10-27), which the customer deployment and the daily run call, and the accept step the customer
- * deployment calls (2026-10-27), and the app's automatic follow-ups (2026-11-09, /api/followups). Each checks its own key.
+ * deployment calls (2026-10-27), the app's automatic follow-ups (2026-11-09, /api/followups) and Installer Project Week
+ * (2026-11-24, /api/project-week: the Notion buttons and the nightly rebuild). Each checks its own key.
  */
-const OPEN_ON_STAFF = /^\/(login|auth\/|denied|api\/booking|api\/activity|api\/accept|api\/followups)/;
+const OPEN_ON_STAFF = /^\/(login|auth\/|denied|api\/booking|api\/activity|api\/accept|api\/followups|api\/project-week)/;
 /** The only pages the customer deployment serves: customer links. */
 const CUSTOMER_PAGES = /^\/c\/[A-Za-z0-9]+(\/[^/]+)?$/;
 

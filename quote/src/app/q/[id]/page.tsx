@@ -132,6 +132,7 @@ export default async function QuotePage({
         }}
         contractors={[...new Set(payoutCard.rates.map((r) => r.contractor).filter(Boolean))].sort()}
         camUrl={camUrl}
+        projectUrl={quote.link?.notionProjectUrl ?? null}
       />
     ) : null;
   // CompanyCam is read only when the Photos tab is open, so it never slows a quote opening.

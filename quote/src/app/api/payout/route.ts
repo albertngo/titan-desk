@@ -5,10 +5,10 @@ import { isCustomerDeployment } from "@/lib/mode";
 import { pushPayoutCard } from "@/lib/quotes/payouts";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 /**
- * Push a payout card to the job's CompanyCam project (2026-11-04): a signed-in quoter sends the card's id and its
+ * Mark a payout card final (2026-11-04; since 2026-11-24 it goes to Notion Project Costs, not CompanyCam): a signed-in quoter sends the card's id and its
  * picture (a JPEG drawn in the browser from the saved card). A route, not a server action, because the picture is
  * larger than a server action takes. Staff app only, behind sign-in; the writer checks the quoter again.
  */

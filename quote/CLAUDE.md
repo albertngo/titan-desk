@@ -94,6 +94,7 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
 - The HST flips after a number was issued (Albert, 2026-10-31,
 - An overpayment can read as Paid in full (Albert, 2026-10-31: "in case it backfires on us, I would rather it be paid in full").
 - Photos (Albert, 2026-10-30: "display all those photos with their proper timestamps and descriptions, mirroring company cam itself").
+- Installer Project Week (Albert, 2026-11-24): Mark final writes the card to Notion Project Costs; each installer's own page, Send buttons in Notion.
 - Payout cards (Albert, 2026-11-04: "we have to also send the contractor a payout form… select the final sent options and summarize for the…
 - Typed lines saved for next time, and logged (Albert, 2026-11-01: "When we add custom items and the quote ends up being SENT… make it so t…
 - All quotes (2026-10-15).
@@ -147,7 +148,8 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
 2b. **One file sends to Make:** `src/lib/make/client.ts`, `server-only`, the only reader of
    `QUOTE_MAKE_GHL_HOOK` / `QUOTE_MAKE_GHL_KEY`, called only from `src/lib/quotes/start.ts`, `src/lib/quotes/booking.ts`, `src/lib/quotes/link.ts`, `src/lib/quotes/send.ts`,
    `src/lib/quotes/address.ts` (Address arrived: the contact's street only, never a site on the opportunity),
-   `src/lib/quotes/activity.ts` (internal comments, and the one-off send notes as contact notes), `src/lib/accept/record.ts` (acceptance: Won,
+   `src/lib/quotes/activity.ts` (internal comments, and the one-off send notes as contact notes), `src/lib/projectWeek/run.ts` (Installer
+   Project Week texts, 2f'), `src/lib/accept/record.ts` (acceptance: Won,
    cancel, and the acceptance messages), `src/lib/quotes/billing.ts` (the invoice or receipt email) and `src/lib/quotes/followup.ts`
    (Follow up's Lost, Postpone and comments; since 2026-11-09 a measured quote's follow-up text or email, see 2c''').
    **POS customers (Albert, 2026-11-23; vault `05_decisions/2026-11-23-quote-pos-customers`):** the same file alone
@@ -227,19 +229,32 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
    of `QUOTE_NOTION_PAYMENTS_TOKEN` (a Notion internal integration with read content only, shared with the Master
    Payments Log alone, staff deployment only), one request (a query of that log), reached only from
    `src/lib/quotes/billing.ts` and, since 2026-10-31, `src/lib/quotes/send.ts` (a change's paid so far). `src/lib/bug/notion.ts`
-   is the only other file that talks to Notion.
-2g. **One file talks to CompanyCam, and it reads plus adds payout cards (2026-10-30; one write since 2026-11-04):** `src/lib/companycam/client.ts`, `server-only`,
+   and `src/lib/notion/payoutApi.ts` (2f') are the only other files that talk to Notion.
+2f'. **Installer Project Week writes Notion through one file (Albert, 2026-11-24; vault
+   `05_decisions/2026-11-24-installer-project-week-boards`):** `src/lib/notion/payoutApi.ts`, `server-only`, the only reader
+   of `QUOTE_NOTION_PAYOUT_TOKEN` (an internal integration shared with Project Costs, Titan Projects, Titan Team, QA Work
+   Orders and the Project Week Boards page alone; staff deployment only), one request function that refuses any call
+   outside `allowed()`: queries of those four data sources, reading pages and blocks, creating a page in Project Costs or
+   under the boards page, updating a page, appending blocks, deleting a block, uploading a picture. Never a database or data
+   source changed, never a page moved. Reached only from `src/lib/notion/projectCosts.ts` (the only Project Costs writer:
+   only lines carrying its card mark, never once paid; called only from `src/lib/quotes/payouts.ts`) and
+   `src/lib/projectWeek/run.ts` (deletes blocks only on an installer's page under the boards page; on a Titan Team row sets
+   only Project Week Link). **A fifth path without a sign-in: `/api/project-week`**, the two Notion buttons
+   (`x-project-week-key` = `QUOTE_PROJECT_WEEK_KEY`, constant-time; unset = off) and the nightly Vercel cron (`CRON_SECRET`,
+   rebuild only, no texts). Texts go only on a button press, through `sendDispatchMessage()` in `src/lib/make/client.ts`
+   (the only reader of `QUOTE_MAKE_DISPATCH_HOOK`, the QA dispatch's Make 5030370), and only to the test phone until
+   `QUOTE_PROJECT_WEEK_SEND` is exactly `live`, which is Albert's switch, flipped only as a dated vault decision.
+   `tests/boundary.test.ts` pins all of this.
+2g. **One file talks to CompanyCam, and it only reads (2026-10-30; the payout-card write, 2026-11-04 to 2026-11-24, is gone):** `src/lib/companycam/client.ts`, `server-only`,
    one request function, the only reader of `QUOTE_COMPANYCAM_TOKEN` (staff deployment only; refuses on
    the customer one) and the only file naming `api.companycam.com`. A CompanyCam access token is not scoped, so this
    file is the limit: one project and its photos. It is reached only from `src/lib/quotes/companycam.ts`, which only
    the quote page and (since 2026-11-03) `src/lib/quotes/sitesheet.ts` import. Making projects stays Make's. **Site sheet
    photos (2026-11-03):** the one request also downloads a photo's image, without the token (the token goes only to
    `api.companycam.com`), and only from an address CompanyCam's own answer gave for a photo on the quote's project, never
-   one a browser sent. **The one write (Albert, 2026-11-04, payout cards):** `addProjectPhoto()`, a POST that the request
-   refuses for any address but `https://api.companycam.com/v2/projects/<digits>/photos`; never an update, a delete or a
-   project. It is reached only through `addPayoutPhoto()` in `src/lib/quotes/companycam.ts` (the quote's own project,
-   tagged Payout), called only from `src/lib/quotes/payouts.ts`, which reads the project from the quote's record, never
-   from a browser. `tests/boundary.test.ts` pins all of this.
+   one a browser sent. **No writes (Albert, 2026-11-24: "No ccam push payout cards"):** from 2026-11-04 the app added payout
+   cards to the project's photos; a project share link then showed every installer's pay, so that write was removed and
+   cards go to Notion instead (2f'). The one request is a GET. `tests/boundary.test.ts` pins all of this.
 3. **Staff is not enough.** Only emails on `QUOTE_ALLOWED_EMAILS` get in. The proxy checks
    it and every loader in `src/lib/quotes/load.ts` and `src/lib/quotes/start.ts` checks again
    (`requireQuoter()`). An empty list lets nobody in.

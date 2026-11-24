@@ -1,6 +1,6 @@
 import "server-only";
 import { requireQuoter } from "@/lib/auth";
-import { addProjectPhoto, companyCamConfigured, CompanyCamError, NOT_CONFIGURED, getProject, imageBytes, projectPhotos } from "@/lib/companycam/client";
+import { companyCamConfigured, CompanyCamError, NOT_CONFIGURED, getProject, imageBytes, projectPhotos } from "@/lib/companycam/client";
 import { projectIdOf, type CamPhoto, type CamProject } from "@/lib/companycam/photos";
 
 /**
@@ -118,24 +118,18 @@ async function read(id: string, url: string): Promise<CompanyCamResult> {
   return { ok: true, project: project ?? { id, name: null, address: null, url }, photos, more };
 }
 
-export type PayoutPhotoResult = { ok: true; id: string | null } | { ok: false; message: string };
-
 /**
- * A payout card into the job's timeline (Albert, 2026-11-04): one photo on the quote's own CompanyCam project, its image
- * fetched by CompanyCam from `uri`, tagged Payout. The project comes from the quote's link, never from a browser. The
- * only CompanyCam write in the app; called only from src/lib/quotes/payouts.ts.
+ * The job's embed feed link, for Installer Project Week (2026-11-24): read with the server's token on the key-gated
+ * Project Week run, so no quoter is signed in. Returns only CompanyCam's own embed address for the project the job's
+ * Notion row links, or null. Reads nothing else and is called only from src/lib/projectWeek/run.ts.
  */
-export async function addPayoutPhoto(companyCamUrl: string | null, uri: string, description: string): Promise<PayoutPhotoResult> {
-  await requireQuoter();
+export async function embedFeedFor(companyCamUrl: string | null): Promise<string | null> {
   const id = projectIdOf(companyCamUrl);
-  if (!id) return { ok: false, message: "This quote has no CompanyCam project linked yet." };
-  if (!companyCamConfigured()) return { ok: false, message: NOT_CONFIGURED };
+  if (!id || !companyCamConfigured()) return null;
   try {
-    const photo = await addProjectPhoto(id, { uri, capturedAt: new Date(), description, tags: ["Payout"] });
-    return { ok: true, id: photo.id };
+    return (await getProject(id, companyCamUrl!))?.embedUrl ?? null;
   } catch (e) {
-    console.error("addPayoutPhoto", e instanceof Error ? e.message.slice(0, 300) : typeof e);
-    const gone = e instanceof CompanyCamError && e.status === 404;
-    return { ok: false, message: gone ? "CompanyCam doesn't have that project any more. Check the link on the GHL opportunity." : `CompanyCam didn't take the card (${e instanceof Error ? e.message.slice(0, 160) : "error"}).` };
+    console.error("embedFeedFor", e instanceof Error ? e.message.slice(0, 200) : typeof e);
+    return null;
   }
 }

@@ -90,7 +90,8 @@ const read = (root: string, rel: string) => readFileSync(path.join(root, rel), "
 describe("Notion boundary (Report a bug)", () => {
   it("has exactly one file that writes to Notion, and it alone reads the token", () => {
     // Since 2026-10-30 lib/notion/payments.ts also talks to Notion, read-only (tests/boundary.test.ts, "Notion payments").
-    expect(all.filter((f) => f.text.includes("api.notion.com")).map((f) => f.rel).sort()).toEqual(["lib/bug/notion.ts", "lib/notion/payments.ts"]);
+    // Since 2026-11-24 lib/notion/payoutApi.ts too, for Installer Project Week (tests/boundary.test.ts, "Project Week").
+    expect(all.filter((f) => f.text.includes("api.notion.com")).map((f) => f.rel).sort()).toEqual(["lib/bug/notion.ts", "lib/notion/payments.ts", "lib/notion/payoutApi.ts"]);
     expect(all.filter((f) => f.text.includes("NOTION_BUG_TOKEN") && !f.rel.startsWith("lib/bug/notion")).map((f) => f.rel)).toEqual([]);
   });
   it("is server-only, POSTs only, and is reached only from the bug route and the header check", () => {

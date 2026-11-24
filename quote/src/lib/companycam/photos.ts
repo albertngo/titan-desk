@@ -33,7 +33,12 @@ export type CamPhoto = {
 /** A photo tagged or described as a site sheet (Albert, 2026-11-03: the PM tags them "Site Sheet"). Ticked first in the picker. */
 export const looksLikeSheet = (p: Pick<CamPhoto, "tags" | "description">): boolean => [...p.tags, p.description ?? ""].some((t) => /site\s*sheet/i.test(t));
 
-export type CamProject = { id: string; name: string | null; address: string | null; url: string };
+/**
+ * `embedUrl`: CompanyCam's "embeddable photo feed" for the project (`embedded_project_url`), only an
+ * app.companycam.com/embed/ address. Installer Project Week may send it as the scope link (Albert, 2026-11-24: "Try the
+ * embed feed link"), once it is shown to open without a login.
+ */
+export type CamProject = { id: string; name: string | null; address: string | null; url: string; embedUrl?: string | null };
 
 export type CamDay = { day: string; label: string; photos: CamPhoto[] };
 
@@ -108,7 +113,8 @@ export function toProject(raw: unknown, url: string): CamProject | null {
   if (p.id === undefined || p.id === null) return null;
   const a = (p.address && typeof p.address === "object" ? p.address : {}) as Record<string, unknown>;
   const address = [str(a.street_address_1), str(a.street_address_2), str(a.city), str(a.state), str(a.postal_code)].filter(Boolean).join(", ") || null;
-  return { id: String(p.id), name: str(p.name), address, url: https(p.project_url) ?? url };
+  const embed = https(p.embedded_project_url);
+  return { id: String(p.id), name: str(p.name), address, url: https(p.project_url) ?? url, embedUrl: embed && /^https:\/\/app\.companycam\.com\/embed\//.test(embed) ? embed : null };
 }
 
 const TZ = "America/Toronto";

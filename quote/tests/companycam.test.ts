@@ -112,7 +112,11 @@ describe("CompanyCam photos", () => {
       name: "Pat Example - 1026 - Q-1000",
       address: "1 Example St, Toronto, ON",
       url,
+      embedUrl: null,
     });
     expect(toProject(null, url)).toBeNull();
+    // The embed feed (2026-11-24, Project Week): only CompanyCam's own /embed/ address is kept.
+    expect(toProject({ id: 42, embedded_project_url: "https://app.companycam.com/embed/projects/AbC123" }, url)?.embedUrl).toBe("https://app.companycam.com/embed/projects/AbC123");
+    expect(toProject({ id: 42, embedded_project_url: "https://evil.test/embed/x" }, url)?.embedUrl).toBeNull();
   });
 });
