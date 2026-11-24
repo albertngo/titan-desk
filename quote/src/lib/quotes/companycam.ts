@@ -117,3 +117,19 @@ async function read(id: string, url: string): Promise<CompanyCamResult> {
   const [project, { photos, more }] = await Promise.all([getProject(id, url), projectPhotos(id)]);
   return { ok: true, project: project ?? { id, name: null, address: null, url }, photos, more };
 }
+
+/**
+ * The job's embed feed link, for Installer Project Week (2026-11-24): read with the server's token on the key-gated
+ * Project Week run, so no quoter is signed in. Returns only CompanyCam's own embed address for the project the job's
+ * Notion row links, or null. Reads nothing else and is called only from src/lib/projectWeek/run.ts.
+ */
+export async function embedFeedFor(companyCamUrl: string | null): Promise<string | null> {
+  const id = projectIdOf(companyCamUrl);
+  if (!id || !companyCamConfigured()) return null;
+  try {
+    return (await getProject(id, companyCamUrl!))?.embedUrl ?? null;
+  } catch (e) {
+    console.error("embedFeedFor", e instanceof Error ? e.message.slice(0, 200) : typeof e);
+    return null;
+  }
+}

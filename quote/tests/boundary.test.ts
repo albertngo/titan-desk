@@ -113,7 +113,9 @@ describe("Airtable boundary", () => {
       const guarded = text.match(/export async function \w+[^{]*\{\s*(const \w+ = )?await requireQuoter(Person)?\(\);/g) ?? [];
       // The one exception (2026-11-09): the Stage 2 follow-up run, key-gated instead (its own block below).
       // And the twice-a-day recheck (2026-11-13), key-gated the same way.
-      const keyed = rel === "lib/quotes/followup.ts" ? (text.match(/export async function (runAutoFollowUps|runRecheck)\(key: string \| null\)[^{]*\{\s*if \(!followUpKeyOk\(key\)\) return/g) ?? []) : [];
+      const keyed: string[] = rel === "lib/quotes/followup.ts" ? (text.match(/export async function (runAutoFollowUps|runRecheck)\(key: string \| null\)[^{]*\{\s*if \(!followUpKeyOk\(key\)\) return/g) ?? []) : [];
+      // And (2026-11-24) the job's embed feed link for the key-gated Project Week run; only run.ts calls it (CompanyCam block).
+      if (rel === "lib/quotes/companycam.ts") keyed.push(...(text.match(/export async function embedFeedFor\(/g) ?? []));
       expect(exported.length).toBeGreaterThan(0);
       expect(guarded.length + keyed.length).toBe(exported.length);
     }
@@ -223,8 +225,10 @@ describe("CompanyCam boundary (2026-10-30: the job's photos on the quote page)",
     const loader = code(all.find((f) => f.rel === LOADER)!.text);
     expect(loader).not.toMatch(/airtable|createRecord|updateRecord|make\/client|sendToGhl/);
     // The quote page's Photos tab and, since 2026-11-03, the site sheet reader (picking and downloading sheet photos).
-    // The payout cards writer used it from 2026-11-04 to 2026-11-24.
-    expect(all.filter((f) => /^import (?!type )[^;]*from ["'](@\/lib\/quotes\/|\.\/|\.\.\/quotes\/)companycam["']/m.test(f.text)).map((f) => f.rel).sort()).toEqual(["app/q/[id]/page.tsx", "lib/quotes/sitesheet.ts"]);
+    // The payout cards writer used it from 2026-11-04 to 2026-11-24. Since 2026-11-24 the Project Week run reads a job's
+    // embed feed link through it (embedFeedFor, behind QUOTE_PROJECT_WEEK_EMBED).
+    expect(all.filter((f) => /^import (?!type )[^;]*from ["'](@\/lib\/quotes\/|\.\/|\.\.\/quotes\/)companycam["']/m.test(f.text)).map((f) => f.rel).sort()).toEqual(["app/q/[id]/page.tsx", "lib/projectWeek/run.ts", "lib/quotes/sitesheet.ts"]);
+    expect(all.filter((f) => /\bembedFeedFor\(/.test(code(f.text)) && f.rel !== LOADER).map((f) => f.rel)).toEqual(["lib/projectWeek/run.ts"]);
     // Staff only: the tab is never drawn in Customer view.
     expect(all.find((f) => f.rel === "app/q/[id]/page.tsx")!.text).toMatch(/const showPhotos = opt === "photos" && !customer/);
   });

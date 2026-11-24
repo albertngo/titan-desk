@@ -44,6 +44,8 @@ export type Job = {
   contractors: string[];
   /** Titan Projects → CCAM Share Link: the public CompanyCam link, pasted by staff. */
   shareLink: string | null;
+  /** Titan Projects → CompanyCam Link: the project's own (signed-in) address, used to find its embed feed. */
+  camUrl?: string | null;
 };
 
 export type CostLine = {

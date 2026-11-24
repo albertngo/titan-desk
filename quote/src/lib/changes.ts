@@ -22,6 +22,14 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-24",
+    kind: "new",
+    title: "Photos tab: Embed feed link, for testing Project Week scope links",
+    details: [
+      "The Photos tab's header has an Embed feed link when CompanyCam gives one. Open it in a private window: if the job's photos show without signing in, and no payout photos are among them, tell Albert, and Project Week can send it as the scope link when nobody has pasted a CCAM Share Link.",
+    ],
+  },
+  {
+    date: "2026-11-24",
     kind: "changed",
     title: "Project Week texts have their own channels",
     details: [

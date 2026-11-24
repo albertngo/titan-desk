@@ -49,6 +49,11 @@ export function CompanyCamPhotos({ result, linkUrl }: { result: CompanyCamResult
         <a className="right" href={projectUrl} target="_blank" rel="noreferrer">
           Open in CompanyCam ↗
         </a>
+        {result.ok && result.project.embedUrl && (
+          <a className="right faint" href={result.project.embedUrl} target="_blank" rel="noreferrer" title="CompanyCam's embed feed. Open it in a private window to check whether it works without a login (Project Week).">
+            Embed feed ↗
+          </a>
+        )}
       </div>
       {!result.ok ? (
         <p className={`banner ${result.reason === "error" ? "bad" : "warn"}`}>{result.message}</p>

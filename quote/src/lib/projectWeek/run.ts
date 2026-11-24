@@ -1,6 +1,7 @@
 import "server-only";
 import { appendBlocks, boardsParent, childrenOf, DS, downloadNotionFile, normalId, notionPayout, NotionPayoutError, payoutNotionOn, queryAll, uploadJpeg, type NotionBlock } from "@/lib/notion/payoutApi";
 import { sendDispatchMessage, dispatchConfigured } from "@/lib/make/client";
+import { embedFeedFor } from "@/lib/quotes/companycam";
 import { boardBlocks, buildBoard, isReadyLine, membersToBuild, messagesFor, nextWeek, strayLines, torontoToday, type Board, type Job, type Member } from "./model";
 import { costLineOf, COST, jobOf, memberOf, OPEN_WO_STATUSES, PROJECT, TEAM, WORK_ORDER, workOrderOf, type Row } from "./rows";
 
@@ -29,6 +30,11 @@ export type RunResult = {
 
 const sendsLive = () => process.env.QUOTE_PROJECT_WEEK_SEND?.trim() === "live";
 const testPhone = () => process.env.QUOTE_PROJECT_WEEK_TEST_PHONE?.trim() || null;
+/**
+ * Albert's switch for CompanyCam's embed feed as the scope link (2026-11-24: "Try the embed feed link"): exactly `on`
+ * once a feed has been opened logged out and shows no payout photos. A pasted CCAM Share Link always wins.
+ */
+const embedOn = () => process.env.QUOTE_PROJECT_WEEK_EMBED?.trim() === "on";
 const publicBase = () => (process.env.QUOTE_PROJECT_WEEK_PUBLIC_BASE?.trim() || "").replace(/\/+$/, "");
 
 const updatedLabel = (d: Date) =>
@@ -105,6 +111,7 @@ export async function runProjectWeek(scope: RunScope, now = new Date()): Promise
   const lines = (await queryAll(DS.projectCosts, { property: COST.paidRef, rich_text: { is_empty: true } }, 3000)).map((r) => costLineOf(r as Row));
   const workOrders = (await queryAll(DS.workOrders, { or: OPEN_WO_STATUSES.map((s) => ({ property: WORK_ORDER.status, status: { equals: s } })) }, 1000)).flatMap((r) => workOrderOf(r as Row) ?? []);
 
+  if (embedOn()) for (const j of weekJobs) if (!j.shareLink && j.camUrl) j.shareLink = await embedFeedFor(j.camUrl);
   const projects = new Map<string, Job>([...ended, ...weekJobs].map((j) => [j.id, j]));
   for (const s of strayLines(weekJobs, lines)) result.notes.push(`"${s.line.name}" on the ${s.job.start ?? ""} job in ${s.job.city ?? "?"} is assigned to someone who isn't in its Contractor list, so it is on nobody's page.`);
 
