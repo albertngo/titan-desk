@@ -3,8 +3,9 @@ import { appendBlocks, boardsParent, childrenOf, DS, downloadNotionFile, normalI
 import { sendDispatchMessage, dispatchConfigured } from "@/lib/make/client";
 import { galleryLink } from "@/lib/gallery/token";
 import { embedFeedFor } from "@/lib/quotes/companycam";
+import { writeLog } from "./log";
 import { quoteScopes } from "./quoteScope";
-import { boardBlocks, buildBoard, isReadyLine, membersToBuild, messagesFor, nextWeek, strayLines, torontoToday, type Board, type Job, type Member } from "./model";
+import { boardBlocks, buildBoard, isReadyLine, type LogEntry, membersToBuild, messagesFor, nextWeek, strayLines, torontoToday, type Board, type Job, type Member } from "./model";
 import { costLineOf, COST, jobOf, memberOf, OPEN_WO_STATUSES, PROJECT, TEAM, WORK_ORDER, workOrderOf, type Row } from "./rows";
 
 /**
@@ -139,7 +140,11 @@ export async function runProjectWeek(scope: RunScope, now = new Date()): Promise
   const cache = new Map<string, Uint8Array | null>();
   const send = scope.kind === "all" || scope.kind === "one";
   if (send && !dispatchConfigured()) result.notes.push("Texts aren't switched on for this deployment; the pages were still updated.");
+  // The send log (2026-11-25): each person's Titan Team row gets a status and a dated line per message (log.ts).
+  const log: LogEntry[] = [];
   for (const member of members) {
+    let jobs = 0;
+    const manual = (reason: string) => log.push({ memberId: member.id, name: member.name, status: "Needs Manual", channel: "None", test: !sendsLive(), jobs, reason });
     try {
       const board = buildBoard({ member, week, today, jobs: weekJobs, projects, lines, openWorkOrders: workOrders });
       const page = await boardFor(member, parent);
@@ -149,35 +154,61 @@ export async function runProjectWeek(scope: RunScope, now = new Date()): Promise
       }
       await publish(board, page.id, cache, now);
       result.pages.push({ name: member.name, url: page.url });
+      jobs = board.jobs.length;
       const wantsText = scope.kind === "one" ? board.jobs.length > 0 || board.ready.length > 0 : scope.kind === "all" && board.jobs.length > 0;
-      if (!send || !wantsText || !dispatchConfigured()) continue;
+      if (!send || !wantsText) continue;
+      if (!dispatchConfigured()) {
+        manual("Texts aren't switched on for this deployment (the Make dispatch hook isn't set).");
+        continue;
+      }
       if (!page.publicUrl) {
-        result.notes.push(`${member.name}'s Project Week page isn't published yet, so nothing was sent. Open it under Contractor Boards, Share, Publish, then press Send again.`);
+        const why = `${member.name}'s Project Week page isn't published yet, so nothing was sent. Open it under Contractor Boards, Share, Publish, then press Send again.`;
+        result.notes.push(why);
+        manual(why);
         continue;
       }
       const messages = messagesFor(board, page.publicUrl);
       if (!messages.length) {
-        result.notes.push(`${member.name} has no Project Week Channels with a phone, group or email set in Titan Team, so nothing was sent.`);
+        const why = `${member.name} has no Project Week Channels with a phone, group or email set in Titan Team, so nothing was sent.`;
+        result.notes.push(why);
+        manual(why);
         continue;
       }
       for (const m of messages) {
-        if (sendsLive()) {
-          await sendDispatchMessage({ name: member.name, ...m });
-          result.sent.push({ name: member.name, channel: m.channel, test: false });
-        } else {
-          const phone = testPhone();
-          if (!phone) {
-            result.notes.push("Sending is in test mode and QUOTE_PROJECT_WEEK_TEST_PHONE is empty, so no text went out.");
-            break;
+        const entry = { memberId: member.id, name: member.name, channel: m.channel, test: !sendsLive(), jobs };
+        // Each message is tried on its own: one channel failing doesn't stop the others, and each gets its own row.
+        try {
+          if (sendsLive()) {
+            await sendDispatchMessage({ name: member.name, ...m });
+          } else {
+            const phone = testPhone();
+            if (!phone) {
+              const why = "Sending is in test mode and QUOTE_PROJECT_WEEK_TEST_PHONE is empty, so no text went out.";
+              result.notes.push(why);
+              log.push({ ...entry, status: "Needs Manual", reason: why });
+              continue;
+            }
+            await sendDispatchMessage({ name: member.name, channel: "SMS", phone, whatsapp_group_id: null, text: `[Test: for ${member.name} by ${m.channel}${m.email ? ` to ${m.email}` : ""}]\n${m.text}` });
           }
-          await sendDispatchMessage({ name: member.name, channel: "SMS", phone, whatsapp_group_id: null, text: `[Test: for ${member.name} by ${m.channel}${m.email ? ` to ${m.email}` : ""}]\n${m.text}` });
-          result.sent.push({ name: member.name, channel: m.channel, test: true });
+          result.sent.push({ name: member.name, channel: m.channel, test: !sendsLive() });
+          log.push({ ...entry, status: "Sent Successfully", reason: null });
+        } catch (e) {
+          const why = e instanceof Error ? e.message.slice(0, 300) : "failed";
+          console.error("project week send", member.name, m.channel, why);
+          result.notes.push(`${member.name} (${m.channel}): ${why.slice(0, 160)}`);
+          log.push({ ...entry, status: "Needs Manual", reason: why });
         }
       }
     } catch (e) {
       console.error("project week", member.name, e instanceof Error ? e.message.slice(0, 300) : typeof e);
-      result.notes.push(`${member.name}: ${e instanceof Error ? e.message.slice(0, 160) : "failed"}`);
+      const why = e instanceof Error ? e.message.slice(0, 300) : "failed";
+      result.notes.push(`${member.name}: ${why.slice(0, 160)}`);
+      if (send) manual(`The page or text failed: ${why}`);
     }
+  }
+  if (send && log.length) {
+    const note = await writeLog(log, week, scope.kind === "all" ? "Send all" : "Send my week", now);
+    if (note) result.notes.push(note);
   }
   return { ...result, ok: true };
 }

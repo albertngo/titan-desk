@@ -576,7 +576,7 @@ describe("Installer Project Week (2026-11-24: Project Costs lines and each insta
   });
 
   it("is reached only from the Project Costs writer and the Project Week run", () => {
-    expect(all.filter((f) => /from ["'](@\/lib\/notion\/|\.\/)payoutApi["']/.test(f.text)).map((f) => f.rel).sort()).toEqual(["lib/notion/projectCosts.ts", "lib/projectWeek/run.ts"]);
+    expect(all.filter((f) => /from ["'](@\/lib\/notion\/|\.\/)payoutApi["']/.test(f.text)).map((f) => f.rel).sort()).toEqual(["lib/notion/projectCosts.ts", "lib/projectWeek/log.ts", "lib/projectWeek/run.ts"]);
     expect(all.filter((f) => /from ["']@\/lib\/notion\/projectCosts["']/.test(f.text)).map((f) => f.rel)).toEqual(["lib/quotes/payouts.ts"]);
     expect(all.filter((f) => /from ["']@\/lib\/projectWeek\/run["']/.test(f.text)).map((f) => f.rel).sort()).toEqual([ROUTE_FILE, "lib/quotes/payouts.ts"]);
   });
@@ -604,6 +604,16 @@ describe("Installer Project Week (2026-11-24: Project Costs lines and each insta
     expect(route).toMatch(/export async function POST\(request: NextRequest\) \{\s*if \(isCustomerDeployment\(\)\) return[^\n]*\n\s*if \(!keyOk\(request\)\) return/);
     expect(route).toMatch(/export async function GET\(request: NextRequest\) \{\s*if \(isCustomerDeployment\(\)\) return/);
     expect(route).toMatch(/if \(!key\) return false;/);
+  });
+
+  it("the send log only sets Project Week Status and adds lines on a Titan Team row, and only after a Send (2026-11-25)", () => {
+    const log = code(all.find((f) => f.rel === "lib/projectWeek/log.ts")!.text);
+    expect(log.match(/notionPayout\(/g)?.length).toBe(1);
+    expect(log).toMatch(/notionPayout\("PATCH", `\/pages\/\$\{memberId\}`, \{ properties: \{ \[TEAM\.sendStatus\]: \{ select: \{ name: memberStatus\(list\) \} \} \} \}\)/);
+    expect(log).not.toMatch(/"DELETE"|"POST"/);
+    expect(all.filter((f) => /from ["'](@\/lib\/projectWeek\/|\.\/)log["']/.test(f.text)).map((f) => f.rel)).toEqual(["lib/projectWeek/run.ts"]);
+    const run = code(all.find((f) => f.rel === "lib/projectWeek/run.ts")!.text);
+    expect(run).toMatch(/if \(send && log\.length\) \{/);
   });
 
   it("the Make sender for it is the dispatch hook alone", () => {

@@ -303,3 +303,16 @@ describe("the work, in the standard layout (2026-11-25)", () => {
     expect(JSON.stringify(boardBlocks(noCard, new Map(), "now"))).toContain("700 sf From the quote");
   });
 });
+
+describe("the send log on a Titan Team row (2026-11-25)", () => {
+  it("says Needs Manual if anything failed, with the reason on the line", async () => {
+    const { logLine, memberStatus } = await import("@/lib/projectWeek/model");
+    const ok = { memberId: "m", name: "Alex One", status: "Sent Successfully" as const, channel: "SMS", test: true, jobs: 2, reason: null };
+    const bad = { ...ok, status: "Needs Manual" as const, channel: "None", reason: "No Project Week Channels set." };
+    expect(memberStatus([ok])).toBe("Sent Successfully");
+    expect(memberStatus([ok, bad])).toBe("Needs Manual");
+    const week = { mon: "2026-11-30", sun: "2026-12-06" };
+    expect(logLine(ok, week, "Send my week", "Nov 25, 2026, 4:12 p.m.")).toMatch(/^Nov 25, 2026, 4:12 p\.m\.: Sent Successfully\. Project Week .+, 2 jobs \(SMS, Test, Send my week\)\.$/);
+    expect(logLine(bad, week, "Send all", "now")).toMatch(/: Needs Manual\. .+ \(Test, Send all\)\. No Project Week Channels set\.$/);
+  });
+});
