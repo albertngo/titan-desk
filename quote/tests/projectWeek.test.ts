@@ -250,7 +250,8 @@ describe("the work, in the standard layout (2026-11-25)", () => {
       { section: "Disposal", description: "Bin", qty: 1, uom: null },
     ])!;
     expect(workLines(w)).toEqual([
-      { label: "Install", text: "650sf Engineered hardwood | 120sf Vinyl plank" },
+      { label: "Install", text: "650sf Engineered hardwood" },
+      { label: "Install", text: "120sf Vinyl plank" },
       { label: "Remove", text: "400sf Carpet" },
       { label: "Prep", text: "200sf Floor levelling" },
       { label: "Stairs", text: "New Steps, Refinish - 14 steps | 20 spindles | 2 posts | 12ft handrails | 14ft nosings" },
