@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-25",
     kind: "changed",
+    title: "Project Week: no dollar amounts for finished jobs",
+    details: ["Ready to be paid now says the job is done and payment is on the way, with no amount, on the page and in the text."],
+  },
+  {
+    date: "2026-11-25",
+    kind: "changed",
     title: "Project Week: one line per item",
     details: ["Each Install, Remove and Prep item is on its own line on the installer's page. Stairs stays on one line."],
   },

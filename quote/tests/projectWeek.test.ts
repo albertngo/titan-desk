@@ -105,6 +105,11 @@ describe("what a page holds", () => {
     const free = buildBoard({ member: member(A, "Alex One"), week, today, jobs: [], projects, lines, openWorkOrders: [] });
     expect(free.ready.map((r) => [r.label, r.amount, r.held])).toEqual([["Sam Past · 1 Test St, Oldtown · Flooring", 300, false]]);
     expect(free.readyTotal).toBe(300);
+    // Finished jobs show no dollar amount, on the page or in the text (Albert, 2026-11-25).
+    expect(JSON.stringify(boardBlocks(free, new Map(), "now"))).not.toContain("300");
+    expect(JSON.stringify(boardBlocks(free, new Map(), "now"))).toContain("payment is on the way".replace("p", "P"));
+    expect(messageText(free, "https://x.test/a")).not.toContain("300");
+    expect(messageText(free, "https://x.test/a")).toContain("payment is on the way");
     const held = buildBoard({ member: member(A, "Alex One"), week, today, jobs: [], projects, lines, openWorkOrders: [{ projectId: OLD, contractorIds: [A] }] });
     expect(held.ready[0].held).toBe(true);
     expect(held.readyTotal).toBe(0);
