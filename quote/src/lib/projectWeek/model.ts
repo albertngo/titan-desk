@@ -212,7 +212,7 @@ export function messageText(b: Board, link: string): string {
   const parts = [`${n} job${n === 1 ? "" : "s"}`];
   if (b.weekTotal > 0) parts.push(`${money(b.weekTotal)} confirmed`);
   if (b.pending) parts.push(`${b.pending} payout${b.pending === 1 ? "" : "s"} still pending`);
-  const ready = b.readyTotal > 0 ? `\n\n${money(b.readyTotal)} from finished jobs is ready to be paid to you.` : "";
+  const ready = b.readyTotal > 0 ? `\n\nYour finished jobs are done and payment is on the way.` : "";
   return (
     `[Automated] Hello ${firstName(b.member.name)}. This is Titan Flooring.\n\n` +
     `Your project week, ${dayLabel(b.week.mon)} to ${dayLabel(b.week.sun)}: ${parts.join(", ")}.${ready}\n\n` +
@@ -287,8 +287,7 @@ export function boardBlocks(b: Board, images: Map<string, string[]>, updated: st
   if (b.jobs.length) out.push(para(`Week total, confirmed: ${money(b.weekTotal)}${b.pending ? ` (plus ${b.pending} pending)` : ""}.`));
   out.push(divider(), heading(2, "Ready to be paid"));
   if (!b.ready.length) out.push(para("Nothing waiting right now."));
-  for (const r of b.ready) out.push(bullet(`${r.label} (finished ${dayLabel(r.ended)})`, `${money(r.amount)}${r.held ? ", on hold until your open work order there is closed" : ""}`));
-  if (b.ready.length) out.push(para(`Ready now: ${money(b.readyTotal)}.`));
+  for (const r of b.ready) out.push(bullet(`${r.label} (finished ${dayLabel(r.ended)})`, r.held ? "Done. Payment on hold until your open work order there is closed" : "Done. Payment is on the way"));
   out.push({ object: "block", type: "divider", divider: {} }, para("Questions about a job or a payout? Ask your project manager."));
   return out;
 }
