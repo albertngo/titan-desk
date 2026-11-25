@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-25",
     kind: "changed",
+    title: "Project Week Status is a Notion status",
+    details: ["Project Week Status on Titan Team is now a status: Sending..... while a send runs, then Sent Successfully, Needs Manual, or Nothing to Send when there was nothing to text."],
+  },
+  {
+    date: "2026-11-25",
+    kind: "changed",
     title: "Dispatch Log in two columns on the Titan Team page",
     details: ["Each installer's Titan Team page now has a Dispatch Log with Project Week on the left and the weekly QA Dispatch on the right. Project Week sends are written in the left column. The Dispatch Log table column is gone."],
   },

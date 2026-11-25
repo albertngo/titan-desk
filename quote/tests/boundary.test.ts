@@ -608,12 +608,13 @@ describe("Installer Project Week (2026-11-24: Project Costs lines and each insta
 
   it("the send log only sets Project Week Status and adds lines on a Titan Team row, and only after a Send (2026-11-25)", () => {
     const log = code(all.find((f) => f.rel === "lib/projectWeek/log.ts")!.text);
-    expect(log.match(/notionPayout\(/g)?.length).toBe(1);
+    expect(log.match(/notionPayout\(/g)?.length).toBe(2);
+    expect(log).toMatch(/\[TEAM\.sendStatus\]: \{ status: \{ name: "Nothing to Send" \} \}/);
     // Lines go into the Project Week column only; the columns are made once (appendBlocks on the page) when missing.
     expect(log.match(/appendBlocks\(/g)?.length).toBe(2);
     expect(log).toMatch(/appendBlocks\(memberId, dispatchLogBlocks\(\)\)/);
     expect(log).toMatch(/appendBlocks\(\s*column,/);
-    expect(log).toMatch(/notionPayout\("PATCH", `\/pages\/\$\{memberId\}`, \{ properties: \{ \[TEAM\.sendStatus\]: \{ select: \{ name: status \} \}, \.\.\.sent \} \}\)/);
+    expect(log).toMatch(/notionPayout\("PATCH", `\/pages\/\$\{memberId\}`, \{ properties: \{ \[TEAM\.sendStatus\]: \{ status: \{ name: status \} \}, \.\.\.sent \} \}\)/);
     expect(log).toMatch(/const sent = status === "Sent Successfully" \? \{ \[TEAM\.sentDate\]: \{ date: \{ start: at\.toISOString\(\) \} \} \} : \{\};/);
     expect(log).not.toMatch(/"DELETE"|"POST"/);
     expect(all.filter((f) => /from ["'](@\/lib\/projectWeek\/|\.\/)log["']/.test(f.text)).map((f) => f.rel)).toEqual(["lib/projectWeek/run.ts"]);
