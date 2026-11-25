@@ -606,4 +606,11 @@ describe("Installer Project Week (2026-11-24: Project Costs lines and each insta
   it("the Make sender for it is the dispatch hook alone", () => {
     expect(all.filter((f) => code(f.text).includes("QUOTE_MAKE_DISPATCH_HOOK")).map((f) => f.rel)).toEqual(["lib/make/client.ts"]);
   });
+
+  it("reads the accepted quote's scope from Airtable, and only reads (2026-11-25)", () => {
+    const text = code(all.find((f) => f.rel === "lib/projectWeek/quoteScope.ts")!.text);
+    expect(text).toMatch(/^import "server-only";/m);
+    expect(text).not.toMatch(/createRecord|updateRecord|uploadAttachment|write\(/);
+    expect(all.filter((f) => /from ["'](@\/lib\/projectWeek\/|\.\/)quoteScope["']/.test(f.text)).map((f) => f.rel)).toEqual(["lib/projectWeek/run.ts"]);
+  });
 });

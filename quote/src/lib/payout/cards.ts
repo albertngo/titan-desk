@@ -435,6 +435,21 @@ export function camDescription(c: PayoutCard, h: Pick<CardHeader, "quoteNumber" 
   return `Payout card: ${c.contractor.trim()}, ${dollars(cardTotal(c))} labour${ref ? ` (${ref})` : ""}. Sent from the quote app by ${by}.`;
 }
 
+/**
+ * The work on a card in one short line, for the installer's Project Week page (Albert, 2026-11-25: "a short description of
+ * the project... simply the payout card itself"): each ticked line's description with its quantity and unit, joined.
+ */
+export function cardScope(c: Pick<PayoutCard, "lines">, max = 400): string {
+  const parts = c.lines
+    .filter((l) => l.on && l.description.trim())
+    .map((l) => {
+      const qty = l.qty !== null && l.qty !== 1 ? `${Math.round(l.qty * 100) / 100}${l.uom.trim() ? ` ${l.uom.trim()}` : ""}` : "";
+      return [l.description.trim(), l.area.trim() ? `(${l.area.trim()})` : "", qty].filter(Boolean).join(" ");
+    });
+  const text = parts.join(" · ").replace(/\s+/g, " ").trim();
+  return text.length > max ? `${text.slice(0, max - 3).trimEnd()}...` : text;
+}
+
 /* ---------- storing ---------- */
 
 export function payoutsRaw(v: unknown): string {

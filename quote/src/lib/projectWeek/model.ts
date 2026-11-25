@@ -46,6 +46,8 @@ export type Job = {
   contractors: string[];
   /** Titan Projects → CCAM Share Link: the public CompanyCam link, pasted by staff. */
   shareLink: string | null;
+  /** The accepted quote's scope (scope.ts), the fallback for Work until a payout card is final (2026-11-25). */
+  quoteScope?: string | null;
   /** Titan Projects → CompanyCam Link: the project's own (signed-in) address, used to find its embed feed. */
   camUrl?: string | null;
 };
@@ -61,13 +63,15 @@ export type CostLine = {
   paid: boolean;
   /** Made by the quote app from a payout card (Notes carries the card marker). */
   fromCard: boolean;
+  /** The work on that card, in one line (2026-11-25), or null. */
+  work?: string | null;
 };
 
 export type OpenWorkOrder = { projectId: string; contractorIds: string[] };
 
 export type Payout = { kind: "final"; amount: number } | { kind: "partial"; amount: number } | { kind: "pending" };
 
-export type BoardJob = { job: Job; payout: Payout; cardLineIds: string[] };
+export type BoardJob = { job: Job; payout: Payout; cardLineIds: string[]; work: string | null };
 export type ReadyLine = { lineId: string; projectId: string; label: string; ended: string; amount: number; held: boolean };
 
 export type Board = {
@@ -165,6 +169,8 @@ export function buildBoard(input: { member: Member; week: Week; today: string; j
       job,
       payout: payoutFor(job.id, member.id, lines),
       cardLineIds: lines.filter((l) => l.projectId === job.id && l.fromCard && !l.paid).map((l) => l.id),
+      // Albert, 2026-11-25 ("Card, else quote"): the installer's own card work once final, else the accepted quote's scope.
+      work: lines.filter((l) => l.projectId === job.id && !l.paid && l.work).map((l) => l.work).join(" · ") || job.quoteScope || null,
     }));
   const ready: ReadyLine[] = [];
   for (const l of lines) {
@@ -260,13 +266,14 @@ export function boardBlocks(b: Board, images: Map<string, string[]>, updated: st
   ];
   if (!b.jobs.length) out.push(para("No jobs booked for you this week yet."));
   // A line between jobs (Albert, 2026-11-25: "add some ui separation").
-  b.jobs.forEach(({ job, payout }, n) => {
+  b.jobs.forEach(({ job, payout, work }, n) => {
     if (n > 0) out.push(divider());
     out.push(heading(3, `${job.start ? dayLabel(job.start) : "Date to be confirmed"}: ${job.city ?? "City to be confirmed"}`));
     if (firstName(job.customer)) out.push(bullet("Customer", firstName(job.customer)));
     out.push(bullet("Address", [job.street, job.city].filter(Boolean).join(", ") || "To be confirmed"));
     if (job.phone) out.push(bullet("Customer phone", job.phone));
     if (job.type) out.push(bullet("Type", job.type));
+    if (work) out.push(bullet("Work", work));
     out.push(job.shareLink ? bullet("Scope photos", "Open in CompanyCam", job.shareLink) : bullet("Scope photos", "Scope link coming"));
     out.push(bullet("Your payout", payoutWords(payout)));
     for (const id of images.get(job.id) ?? []) out.push(image(id));

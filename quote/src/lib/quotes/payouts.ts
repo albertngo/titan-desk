@@ -2,7 +2,7 @@ import "server-only";
 import { AirtableError, getRecord, updateRecord, uploadAttachment } from "@/lib/airtable/client";
 import { QUOTE, T } from "@/lib/airtable/fields";
 import { requireQuoter, requireQuoterPerson } from "@/lib/auth";
-import { camDescription, cardFileName, cardSig, cardTotal, cleanPayouts, parsePayouts, payoutsRaw, pushProblem, serializePayouts, withPush, type PayoutPush } from "@/lib/payout/cards";
+import { camDescription, cardFileName, cardScope, cardSig, cardTotal, cleanPayouts, parsePayouts, payoutsRaw, pushProblem, serializePayouts, withPush, type PayoutPush } from "@/lib/payout/cards";
 import { syncCardToProjectCosts } from "@/lib/notion/projectCosts";
 import { runProjectWeek } from "@/lib/projectWeek/run";
 import { str } from "./values";
@@ -110,6 +110,7 @@ export async function pushPayoutCard(quoteRecordId: string, seen: string, cardId
     jpeg: new Uint8Array(bytes),
     filename,
     summary: camDescription(card, head, by),
+    scope: cardScope(card),
   });
   if (!sync.ok) return { ok: false, message: `${sync.message} The card is kept on the quote in Airtable (Payout Cards).` };
   // The contractor's own page follows the card; a text only ever goes on a Send press.

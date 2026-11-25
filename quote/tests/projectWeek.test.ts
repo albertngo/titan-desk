@@ -231,3 +231,52 @@ describe("reading Notion rows", () => {
     expect(matchRateCardName(team, "  ")).toEqual([]);
   });
 });
+
+describe("the work from the payout card (2026-11-25)", () => {
+  it("the card's ticked lines become one short line", async () => {
+    const { cardScope } = await import("@/lib/payout/cards");
+    const l = (description: string, qty: number | null, uom: string, on = true, area = "") => ({ id: description, ref: null, option: null, section: "Install", description, area, uom, qty, rate: 1, cardRate: null, on });
+    expect(cardScope({ lines: [l("Install engineered", 650, "sf"), l("Removal carpet", 400, "sf", false), l("Stair treads", 14, "steps", true, "Main stairs"), l("Disposal", 1, "")] })).toBe(
+      "Install engineered 650 sf · Stair treads (Main stairs) 14 steps · Disposal",
+    );
+  });
+
+  it("is read back from the line's Notes and shown under the job, from that installer's own lines only", async () => {
+    const { workOf } = await import("@/lib/projectWeek/rows");
+    const notes = `${cardMark("recAAAAAAAAAAAAAA", "c1")} Work: Install engineered 650 sf. Made by the quote app from the payout card. Change the card in the quote app, not this line.`;
+    expect(workOf(notes)).toBe("Install engineered 650 sf");
+    expect(workOf("typed by hand")).toBeNull();
+    const board = buildBoard({ member: member(A, "Alex One"), week, today, jobs: [job(J1, "2026-12-01", [A, B])], projects: new Map(), lines: [line(J1, [A], 800, { work: "Install engineered 650 sf" }), line(J1, [B], 300, { work: "Stairs 14 steps" })], openWorkOrders: [] });
+    const text = JSON.stringify(boardBlocks(board, new Map(), "now"));
+    expect(text).toContain("Install engineered 650 sf");
+    expect(text).not.toContain("Stairs 14 steps");
+  });
+});
+
+describe("the accepted quote's scope, until a card is final (2026-11-25)", () => {
+  it("sections and item descriptions with quantities, no prices, no discounts or optional add-ons", async () => {
+    const { scopeFromCopy } = await import("@/lib/projectWeek/scope");
+    const item = (description: string, qty: number | null, uom: string | null, optional = false) => ({ kind: "item" as const, n: 1, description, note: null, qty, uom, wastePct: null, unitPrice: 9.99, minimum: false, amount: 1234.56, optional });
+    const copy = {
+      options: [
+        {
+          name: "Option 1",
+          sections: [
+            { name: "Install", total: 999, lines: [item("Engineered hardwood", 650, "sf"), item("Baseboard", 300, "lf"), item("Upgrade underpad", 650, "sf", true)] },
+            { name: "Stairs", total: 999, lines: [item("Stair treads", 14, "steps")] },
+            { name: "Discounts", total: -100, lines: [item("Loyalty", 1, null)] },
+          ],
+        },
+      ],
+    } as unknown as import("@/lib/send/copy").CustomerCopy;
+    const text = scopeFromCopy(copy)!;
+    expect(text).toBe("Install: Engineered hardwood 650 sf, Baseboard 300 lf · Stairs: Stair treads 14 steps");
+    expect(text).not.toMatch(/\$|9\.99|1234/);
+  });
+
+  it("the card's own work wins over the quote's scope", () => {
+    const j = job(J1, "2026-12-01", [A], { quoteScope: "Install: Engineered hardwood 650 sf" });
+    expect(buildBoard({ member: member(A, "Alex One"), week, today, jobs: [j], projects: new Map(), lines: [], openWorkOrders: [] }).jobs[0].work).toBe("Install: Engineered hardwood 650 sf");
+    expect(buildBoard({ member: member(A, "Alex One"), week, today, jobs: [j], projects: new Map(), lines: [line(J1, [A], 800, { work: "Install 650 sf" })], openWorkOrders: [] }).jobs[0].work).toBe("Install 650 sf");
+  });
+});
