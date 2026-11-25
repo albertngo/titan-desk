@@ -39,6 +39,8 @@ export type Member = {
   lastSentOn?: string | null;
   /** Titan Team → Notion User: the Notion people this row is (project managers), matched to a job's Project Manager. */
   userIds?: string[];
+  /** Titan Team → Project Week Status as read at the start of a run. */
+  sendStatus?: string | null;
 };
 
 export type Job = {

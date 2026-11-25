@@ -73,6 +73,7 @@ export function memberOf(r: Row): Member & { rateCardName: string | null } {
     lastSent: text(p[TEAM.lastSent]),
     lastSentOn: dateStart(p[TEAM.sentDate]),
     userIds: people(p[TEAM.notionUser]),
+    sendStatus: text(p[TEAM.sendStatus]),
   };
 }
 
