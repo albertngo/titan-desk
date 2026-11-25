@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-25",
     kind: "changed",
+    title: "Project Week: one line per item",
+    details: ["Each Install, Remove and Prep item is on its own line on the installer's page. Stairs stays on one line."],
+  },
+  {
+    date: "2026-11-25",
+    kind: "changed",
     title: "Project Week: tidier stair and area numbers",
     details: ["Areas read 650sf, handrails and nosings show in feet, and risers are no longer counted on the Stairs line."],
   },

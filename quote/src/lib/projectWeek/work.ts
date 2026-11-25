@@ -108,9 +108,10 @@ export function stairCountsText(s: StairCounts): string {
 /** The sub-lines under Work, in the standard order. */
 export function workLines(w: Work): { label: string; text: string }[] {
   const out: { label: string; text: string }[] = [];
-  if (w.install.length) out.push({ label: "Install", text: w.install.join(" | ") });
-  if (w.remove.length) out.push({ label: "Remove", text: w.remove.join(" | ") });
-  if (w.prep?.length) out.push({ label: "Prep", text: w.prep.join(" | ") });
+  // One line per item (Albert, 2026-11-25: "every line a separate line"); only Stairs stays on one line.
+  for (const t of w.install) out.push({ label: "Install", text: t });
+  for (const t of w.remove) out.push({ label: "Remove", text: t });
+  for (const t of w.prep ?? []) out.push({ label: "Prep", text: t });
   if (hasStairs(w)) {
     const counts = stairCountsText(w.stairs);
     out.push({ label: "Stairs", text: [w.stairTypes.join(", "), counts].filter(Boolean).join(" - ") || "See scope photos" });
