@@ -568,12 +568,8 @@ describe("Installer Project Week (2026-11-24: Project Costs lines and each insta
     expect(text.match(/\bfetch\(`\$\{API\}/g)?.length).toBe(1);
     expect(text).toMatch(/if \(!t \|\| isCustomerDeployment\(\)\) throw/);
     expect(text).toMatch(/if \(!allowed\(method, path\)\) throw/);
-    // Never a database or data source changed, never a page moved. Since 2026-11-25 it may create an installer's calendar
-    // database (POST /databases) and read one (GET /databases/<id>), and query it only once run.ts trusted it.
-    expect(text).not.toMatch(/\/move|\/data_sources\/\$\{ID\}["`]|PATCH[^\n]*\/databases/);
-    expect(text).toMatch(/if \(path === "\/databases"\) return method === "POST";/);
-    expect(text).toMatch(/return method === "GET";\n/);
-    expect(all.filter((f) => /\btrustBoardSource\(/.test(code(f.text)) && f.rel !== API_FILE).map((f) => f.rel)).toEqual(["lib/projectWeek/run.ts"]);
+    // Never a database or data source changed, never a page moved.
+    expect(text).not.toMatch(/\/databases|\/move/);
   });
 
   it("is reached only from the Project Costs writer and the Project Week run", () => {

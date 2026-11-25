@@ -23,6 +23,14 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-25",
     kind: "changed",
+    title: "Project Week pages back to the simple layout",
+    details: [
+      "Each installer's Project Week page is back to the first, simple layout: one section per job with the customer, address, phone, scope photos and payout, then the week's total and Ready to be paid, with a line between each job and before Ready to be paid. The grid, cards and calendar are gone.",
+    ],
+  },
+  {
+    date: "2026-11-25",
+    kind: "changed",
     title: "Project Week pages: a real calendar of the installer's own jobs",
     details: [
       "The week grid and job cards are replaced by a small Notion calendar on each installer's page, holding only their own jobs. Tapping a job shows the address, phone, scope photos and their payout, with the card picture. The week's total and Ready to be paid sit under it.",

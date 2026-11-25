@@ -1,8 +1,8 @@
 import "server-only";
-import { appendBlocks, boardsParent, childrenOf, DS, downloadNotionFile, normalId, notionPayout, NotionPayoutError, payoutNotionOn, queryAll, trustBoardSource, uploadJpeg, type NotionBlock } from "@/lib/notion/payoutApi";
+import { appendBlocks, boardsParent, childrenOf, DS, downloadNotionFile, normalId, notionPayout, NotionPayoutError, payoutNotionOn, queryAll, uploadJpeg, type NotionBlock } from "@/lib/notion/payoutApi";
 import { sendDispatchMessage, dispatchConfigured } from "@/lib/make/client";
 import { embedFeedFor } from "@/lib/quotes/companycam";
-import { boardBlocks, buildBoard, calendarRows, calendarSchema, isReadyLine, rowBlocks, membersToBuild, messagesFor, nextWeek, strayLines, torontoToday, type Board, type Job, type Member } from "./model";
+import { boardBlocks, buildBoard, isReadyLine, membersToBuild, messagesFor, nextWeek, strayLines, torontoToday, type Board, type Job, type Member } from "./model";
 import { costLineOf, COST, jobOf, memberOf, OPEN_WO_STATUSES, PROJECT, TEAM, WORK_ORDER, workOrderOf, type Row } from "./rows";
 
 /**
@@ -87,55 +87,19 @@ async function lastCardImage(lineId: string): Promise<Uint8Array | null> {
 }
 
 /** Rewrites the page: the new content goes on first, then the old is taken off, so it is never empty. */
-/**
- * The installer's mini calendar (Albert, 2026-11-25: "Real mini calendar"): an inline database on their own page, holding
- * only their own jobs, published with the page. Made once; its Calendar view is added once by hand (the API makes a
- * table view). Returns its data source, trusted for this run only after checking it sits on this board page.
- */
-async function calendarFor(pageId: string, member: Member): Promise<string> {
-  const blocks = await childrenOf(pageId);
-  const existing = blocks.find((b) => b.type === "child_database");
-  let databaseId = existing ? normalId(existing.id) : null;
-  if (!databaseId) {
-    const made = await notionPayout("POST", "/databases", {
-      parent: { type: "page_id", page_id: pageId },
-      is_inline: true,
-      title: [{ type: "text", text: { content: `${member.name.split(/\s+/)[0]}'s week` } }],
-      initial_data_source: { properties: calendarSchema() },
-    });
-    databaseId = normalId(String(made.id ?? ""));
-  }
-  if (!databaseId) throw new NotionPayoutError("The calendar couldn't be made.", null);
-  const db = await notionPayout("GET", `/databases/${databaseId}`);
-  const parent = normalId(String((db.parent as Record<string, unknown> | undefined)?.page_id ?? ""));
-  if (parent !== pageId) throw new NotionPayoutError("That calendar isn't on this installer's page.", null);
-  const source = normalId(String(((db.data_sources as { id?: string }[] | undefined) ?? [])[0]?.id ?? ""));
-  if (!source) throw new NotionPayoutError("The calendar has no data source.", null);
-  trustBoardSource(source);
-  return source;
-}
-
-/**
- * Rewrites the page: the calendar's rows are replaced (old ones to the trash, one page per job made fresh), then the text
- * below it is rewritten, the new text going on before the old is taken off. The calendar block itself is never deleted.
- */
 async function publish(board: Board, pageId: string, cache: Map<string, Uint8Array | null>, now: Date): Promise<void> {
-  const source = await calendarFor(pageId, board.member);
-  for (const old of await queryAll(source, undefined, 200)) await notionPayout("PATCH", `/pages/${normalId(old.id)}`, { in_trash: true });
-  const rows = calendarRows(board);
+  const images = new Map<string, string[]>();
   for (const j of board.jobs) {
-    const images: string[] = [];
+    const ids: string[] = [];
     for (const lineId of j.cardLineIds) {
       if (!cache.has(lineId)) cache.set(lineId, await lastCardImage(lineId).catch(() => null));
       const bytes = cache.get(lineId);
-      if (bytes) images.push(await uploadJpeg(bytes, `Payout ${board.member.name}.jpg`));
+      if (bytes) ids.push(await uploadJpeg(bytes, `Payout ${board.member.name}.jpg`));
     }
-    const row = rows.find((r) => r.jobId === j.job.id);
-    if (!row) continue;
-    await notionPayout("POST", "/pages", { parent: { type: "data_source_id", data_source_id: source }, properties: row.properties, children: rowBlocks(j.job, j.payout, images) });
+    images.set(j.job.id, ids);
   }
-  const old = (await childrenOf(pageId)).filter((b) => b.type !== "child_database");
-  await appendBlocks(pageId, boardBlocks(board, updatedLabel(now)));
+  const old = await childrenOf(pageId);
+  await appendBlocks(pageId, boardBlocks(board, images, updatedLabel(now)));
   for (const b of old) await notionPayout("DELETE", `/blocks/${normalId(b.id)}`);
 }
 
