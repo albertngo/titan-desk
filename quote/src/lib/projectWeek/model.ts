@@ -172,7 +172,9 @@ export function buildBoard(input: { member: Member; week: Week; today: string; j
     const p = input.projects.get(l.projectId);
     if (!p || !p.end || p.end > today) continue;
     const held = input.openWorkOrders.some((w) => w.projectId === l.projectId && w.contractorIds.includes(member.id));
-    const label = [firstName(p.customer), p.city].filter(Boolean).join(", ") || "A job";
+    // Albert, 2026-11-25: "The payouts names should show the Name of the contact; the address; and Stairs/Flooring/Both".
+    const address = [p.street, p.city].filter(Boolean).join(", ");
+    const label = [p.customer?.trim(), address, p.type].filter(Boolean).join(" · ") || "A job";
     ready.push({ lineId: l.id, projectId: l.projectId, label, ended: p.end, amount: round2(l.cost ?? 0), held });
   }
   ready.sort((a, b) => a.ended.localeCompare(b.ended));

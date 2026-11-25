@@ -103,7 +103,7 @@ describe("what a page holds", () => {
     const lines = [line(OLD, [A], 300), line(OLD, [B], 999)];
     const projects = new Map([[OLD, ended]]);
     const free = buildBoard({ member: member(A, "Alex One"), week, today, jobs: [], projects, lines, openWorkOrders: [] });
-    expect(free.ready.map((r) => [r.label, r.amount, r.held])).toEqual([["Sam, Oldtown", 300, false]]);
+    expect(free.ready.map((r) => [r.label, r.amount, r.held])).toEqual([["Sam Past · 1 Test St, Oldtown · Flooring", 300, false]]);
     expect(free.readyTotal).toBe(300);
     const held = buildBoard({ member: member(A, "Alex One"), week, today, jobs: [], projects, lines, openWorkOrders: [{ projectId: OLD, contractorIds: [A] }] });
     expect(held.ready[0].held).toBe(true);

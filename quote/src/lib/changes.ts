@@ -25,7 +25,7 @@ export const CHANGES: Change[] = [
     kind: "changed",
     title: "Project Week pages back to the simple layout",
     details: [
-      "Each installer's Project Week page is back to the first, simple layout: one section per job with the customer, address, phone, scope photos and payout, then the week's total and Ready to be paid, with a line between each job and before Ready to be paid. The grid, cards and calendar are gone.",
+      "Each installer's Project Week page is back to the first, simple layout: one section per job with the customer, address, phone, scope photos and payout, then the week's total and Ready to be paid, with a line between each job and before Ready to be paid. Each Ready to be paid line now names the customer, the address and whether it was Flooring, Stairs or Both. The grid, cards and calendar are gone.",
     ],
   },
   {
