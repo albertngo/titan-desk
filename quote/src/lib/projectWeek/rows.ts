@@ -87,6 +87,13 @@ export function jobOf(r: Row): Job {
   };
 }
 
+/** The work a card-made line's Notes carry ("... Work: <scope>. Made by the quote app ..."), or null. */
+export function workOf(notes: string | null): string | null {
+  if (!notes || !notes.includes(CARD_MARK)) return null;
+  const m = notes.match(/Work: (.*?)\. Made by the quote app/);
+  return m && m[1].trim() && m[1].trim() !== "see the card" ? m[1].trim() : null;
+}
+
 export function costLineOf(r: Row): CostLine {
   const p = r.properties ?? {};
   return {
@@ -98,6 +105,7 @@ export function costLineOf(r: Row): CostLine {
     calculated: check(p[COST.calculated]),
     paid: Boolean(text(p[COST.paidRef])),
     fromCard: (text(p[COST.notes]) ?? "").includes(CARD_MARK),
+    work: workOf(text(p[COST.notes])),
   };
 }
 

@@ -22,6 +22,14 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-25",
+    kind: "new",
+    title: "Project Week pages say what the work is",
+    details: [
+      "Each job on an installer's Project Week page now has a Work line. Once their payout card is marked final it lists their own lines from the card; until then it shows the accepted quote's scope (sections and items with quantities, never prices).",
+    ],
+  },
+  {
+    date: "2026-11-25",
     kind: "changed",
     title: "Project Week pages back to the simple layout",
     details: [

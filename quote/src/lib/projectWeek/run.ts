@@ -2,6 +2,7 @@ import "server-only";
 import { appendBlocks, boardsParent, childrenOf, DS, downloadNotionFile, normalId, notionPayout, NotionPayoutError, payoutNotionOn, queryAll, uploadJpeg, type NotionBlock } from "@/lib/notion/payoutApi";
 import { sendDispatchMessage, dispatchConfigured } from "@/lib/make/client";
 import { embedFeedFor } from "@/lib/quotes/companycam";
+import { quoteScopes } from "./quoteScope";
 import { boardBlocks, buildBoard, isReadyLine, membersToBuild, messagesFor, nextWeek, strayLines, torontoToday, type Board, type Job, type Member } from "./model";
 import { costLineOf, COST, jobOf, memberOf, OPEN_WO_STATUSES, PROJECT, TEAM, WORK_ORDER, workOrderOf, type Row } from "./rows";
 
@@ -119,6 +120,8 @@ export async function runProjectWeek(scope: RunScope, now = new Date()): Promise
   const workOrders = (await queryAll(DS.workOrders, { or: OPEN_WO_STATUSES.map((s) => ({ property: WORK_ORDER.status, status: { equals: s } })) }, 1000)).flatMap((r) => workOrderOf(r as Row) ?? []);
 
   if (embedOn()) for (const j of weekJobs) if (!j.shareLink && j.camUrl) j.shareLink = await embedFeedFor(j.camUrl);
+  const scopes = await quoteScopes(weekJobs.map((j) => j.id));
+  for (const j of weekJobs) j.quoteScope = scopes.get(j.id.replace(/-/g, "")) ?? null;
   const projects = new Map<string, Job>([...ended, ...weekJobs].map((j) => [j.id, j]));
   for (const s of strayLines(weekJobs, lines)) result.notes.push(`"${s.line.name}" on the ${s.job.start ?? ""} job in ${s.job.city ?? "?"} is assigned to someone who isn't in its Contractor list, so it is on nobody's page.`);
 

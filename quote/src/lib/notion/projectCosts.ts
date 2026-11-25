@@ -34,12 +34,16 @@ export type CardSyncInput = {
   filename: string;
   /** The card in one line, for the entry. */
   summary: string;
+  /** The work on the card (cardScope), shown on the installer's Project Week page. */
+  scope: string;
 };
 
 const when = (d: Date) =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }).format(d);
 
 const rt = (content: string) => [{ type: "text", text: { content: content.slice(0, 1900) } }];
+/** Notes on a card's line: the mark first (how the app finds it), then the work, read back by the Project Week page. */
+const notesFor = (mark: string, scope: string) => `${mark} Work: ${scope.replace(/\. Made by/g, ", made by") || "see the card"}. Made by the quote app from the payout card. Change the card in the quote app, not this line.`;
 
 export async function syncCardToProjectCosts(c: CardSyncInput): Promise<CardSync> {
   if (!payoutNotionOn()) return { ok: false, message: "Project Costs isn't connected on this app yet." };
@@ -82,7 +86,7 @@ export async function syncCardToProjectCosts(c: CardSyncInput): Promise<CardSync
           [COST.cost]: { number: c.total },
           [COST.calculated]: { checkbox: true },
           [COST.source]: { select: { name: "Quote" } },
-          [COST.notes]: { rich_text: rt(`${mark} Made by the quote app from the payout card. Change the card in the quote app, not this line.`) },
+          [COST.notes]: { rich_text: rt(notesFor(mark, c.scope)) },
         },
         children: [
           { object: "block", type: "heading_3", heading_3: { rich_text: rt(`${when(now)}: marked final by ${c.by}, ${money(c.total)}`) } },
@@ -111,6 +115,7 @@ export async function syncCardToProjectCosts(c: CardSyncInput): Promise<CardSync
         [COST.cost]: { number: c.total },
         [COST.assignedTo]: { relation: [{ id: member.id }] },
         [COST.calculated]: { checkbox: true },
+        [COST.notes]: { rich_text: rt(notesFor(mark, c.scope)) },
       },
     });
     const change = before === null ? money(c.total) : before === c.total ? `${money(c.total)}, amount unchanged` : `${money(before)} to ${money(c.total)}`;
