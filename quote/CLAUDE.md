@@ -245,7 +245,7 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
    only lines carrying its card mark, never once paid; called only from `src/lib/quotes/payouts.ts`) and
    `src/lib/projectWeek/run.ts` (deletes blocks only on an installer's page under the boards page; on a Titan Team row sets
    only Project Week Link, and since 2026-11-25 `src/lib/projectWeek/log.ts`, after a Send press, sets only Project Week
-   Status, Project Week Sent and the Dispatch Log column, and adds dated send-log lines at the bottom of that row's page). Since 2026-11-25 the run also reads each week job's accepted-quote scope from Airtable through
+   Status and Project Week Sent, and adds dated send-log lines to the Project Week (left) column of the Dispatch Log on that row's page, making the two columns once if missing). Since 2026-11-25 the run also reads each week job's accepted-quote scope from Airtable through
    `src/lib/projectWeek/quoteScope.ts` (reads only, imported only by run.ts), shown until the installer's card is final. **A fifth path without a sign-in: `/api/project-week`**, the two Notion buttons
    (`x-project-week-key` = `QUOTE_PROJECT_WEEK_KEY`, constant-time; unset = off) and the nightly Vercel cron (`CRON_SECRET`,
    rebuild only, no texts). Texts go only on a button press, through `sendDispatchMessage()` in `src/lib/make/client.ts`

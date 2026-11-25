@@ -314,19 +314,17 @@ export function logLine(e: LogEntry, week: { mon: string; sun: string }, pressed
 }
 
 /**
- * Titan Team's Dispatch Log column (Albert, 2026-11-25: "add a column for a dispatch log"): the newest lines on top of
- * what is there, Project Week and QA Dispatch alike, kept under Notion's 2000-character limit by dropping the oldest
- * whole lines. The full history stays at the bottom of the person's page. Pure.
+ * The Dispatch Log on a Titan Team page (Albert, 2026-11-25: "a 2 column field where the left is the project week, and
+ * right is the QA"): a "Dispatch Log" heading over two columns, each headed by its name. The quote app writes the left,
+ * the weekly QA dispatch the right; whichever writes first makes both. Pure.
  */
-export function prependLog(existing: string | null, lines: string[], max = 1900): string {
-  const all = [...lines, ...(existing ?? "").split("\n").filter((l) => l.trim())];
-  const out: string[] = [];
-  let size = 0;
-  for (const l of all) {
-    const line = l.slice(0, max);
-    if (size + line.length + (out.length ? 1 : 0) > max) break;
-    out.push(line);
-    size += line.length + (out.length > 1 ? 1 : 0);
-  }
-  return out.join("\n");
+export const DISPATCH_COLUMNS = ["Project Week", "QA Dispatch"] as const;
+export const isDispatchColumns = (firstHeadings: string[]): boolean =>
+  firstHeadings.length === 2 && firstHeadings[0] === DISPATCH_COLUMNS[0] && firstHeadings[1] === DISPATCH_COLUMNS[1];
+export function dispatchLogBlocks(): object[] {
+  const h = (type: "heading_2" | "heading_3", t: string) => ({ object: "block", type, [type]: { rich_text: [{ type: "text", text: { content: t } }] } });
+  return [
+    h("heading_2", "Dispatch Log"),
+    { object: "block", type: "column_list", column_list: { children: DISPATCH_COLUMNS.map((name) => ({ object: "block", type: "column", column: { children: [h("heading_3", name)] } })) } },
+  ];
 }
