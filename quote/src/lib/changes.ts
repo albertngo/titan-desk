@@ -22,6 +22,12 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-25",
+    kind: "fixed",
+    title: "Project Week: no row left on Sending",
+    details: ["After a Send all, any Titan Team row still on Sending..... that got no text is set to Nothing to Send. Send all and the Friday send also only rebuild the pages of the people they text, so they finish faster."],
+  },
+  {
+    date: "2026-11-25",
     kind: "changed",
     title: "Project Week email: the project manager on CC",
     details: ["Project Week emails still come from info@, with the project manager of the installer's jobs on CC and as Reply-To, so a reply goes straight to them. A PM is found by Notion User on their Titan Team row, which needs an Email."],

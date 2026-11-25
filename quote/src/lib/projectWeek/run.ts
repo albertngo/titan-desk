@@ -197,8 +197,9 @@ export async function runProjectWeek(scope: RunScope, now = new Date()): Promise
               : scope.kind === "headsup"
                 ? prev !== null && needsHeadsUp(prev, snap, today) && member.lastSentOn !== today
                 : false;
-      // The hourly heads-up only touches the pages it texts about; the nightly rebuild does the rest.
-      if (scope.kind === "headsup" && !wantsText) continue;
+      // The heads-up, Send all and Friday's send only rebuild the pages they text about, so a run stays well inside the
+      // five minutes Vercel allows; the nightly rebuild does everyone else.
+      if ((scope.kind === "headsup" || scope.kind === "all" || scope.kind === "weekly") && !wantsText) continue;
       const page = await boardFor(member, parent);
       if (!page) {
         result.notes.push(`${member.name}'s page couldn't be made.`);
@@ -259,8 +260,13 @@ export async function runProjectWeek(scope: RunScope, now = new Date()): Promise
       if (send) manual(`The page or text failed: ${why}`);
     }
   }
-  // Send my week on someone with nothing to text: their row's Sending..... becomes Nothing to Send.
-  if (scope.kind === "one" && members[0] && !log.some((e) => e.memberId === members[0].id)) await markNothingToSend(members[0].id);
+  // A row the button put on Sending..... that got no text (nothing new, or nothing booked) becomes Nothing to Send, so
+  // no row is left on Sending..... once a run is over (2026-11-25: Send all sets every row before it calls the app).
+  if (send) {
+    const texted = new Set(log.map((e) => e.memberId));
+    const left = (scope.kind === "one" ? members : team).filter((m) => !texted.has(m.id) && (scope.kind === "one" || m.sendStatus === "Sending....."));
+    for (const m of left) await markNothingToSend(m.id);
+  }
   if (send && log.length) {
     const note = await writeLog(log, week, PRESSED[scope.kind] ?? "Send my week", now, snaps);
     if (note) result.notes.push(note);
