@@ -23,6 +23,15 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-25",
     kind: "new",
+    title: "Project Week: send status on Titan Team",
+    details: [
+      "After a Send, each installer's Titan Team row shows Project Week Status: Sent Successfully, or Needs Manual if something didn't go.",
+      "A dated line for every message is added at the bottom of their Titan Team page, with the reason when it failed. Flip the status to Done Manually once you've handled it.",
+    ],
+  },
+  {
+    date: "2026-11-25",
+    kind: "new",
     title: "Project Week: the app's own job photos page",
     details: [
       "Each job on an installer's Project Week page now links to a photos page the app hosts: every CompanyCam photo on the job, newest day first, with its description and time. Installers open it without a login.",

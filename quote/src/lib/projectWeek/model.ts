@@ -291,3 +291,24 @@ export function boardBlocks(b: Board, images: Map<string, string[]>, updated: st
   out.push({ object: "block", type: "divider", divider: {} }, para("Questions about a job or a payout? Ask your project manager."));
   return out;
 }
+
+/** One send result for the send log on a Titan Team row (2026-11-25): a message that went, or one that needs a manual send. */
+export type LogEntry = {
+  memberId: string;
+  name: string;
+  status: "Sent Successfully" | "Needs Manual";
+  channel: string;
+  test: boolean;
+  jobs: number;
+  reason: string | null;
+};
+
+/** The row's Project Week Status after a press: Needs Manual if anything failed, else Sent Successfully. Pure. */
+export const memberStatus = (entries: LogEntry[]): LogEntry["status"] => (entries.some((e) => e.status === "Needs Manual") ? "Needs Manual" : "Sent Successfully");
+
+/** One dated line for the bottom of the person's Titan Team page. Pure; `when` is the Toronto time already formatted. */
+export function logLine(e: LogEntry, week: { mon: string; sun: string }, pressedBy: string, when: string): string {
+  const what = `Project Week ${dayLabel(week.mon)} to ${dayLabel(week.sun)}, ${e.jobs} job${e.jobs === 1 ? "" : "s"}`;
+  const how = [e.channel === "None" ? null : e.channel, e.test ? "Test" : "Live", pressedBy].filter(Boolean).join(", ");
+  return `${when}: ${e.status}. ${what} (${how}).${e.reason ? ` ${e.reason}` : ""}`;
+}

@@ -9,7 +9,7 @@ import { isCustomerDeployment } from "@/lib/mode";
  *
  * - queries of those four data sources (read);
  * - reading a page, or a block's children (read);
- * - creating a page in Project Costs, or under the boards page (`createIn` checks the parent);
+ * - creating a page in Project Costs, or under the boards page;
  * - updating a page's properties, appending children, deleting a block (callers check whose page it is first:
  *   `src/lib/notion/projectCosts.ts` only touches lines it made, `src/lib/projectWeek/publish.ts` only a board under the
  *   boards page);
