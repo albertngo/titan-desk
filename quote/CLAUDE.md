@@ -247,8 +247,10 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
    only Project Week Link, and since 2026-11-25 `src/lib/projectWeek/log.ts`, after a Send press, sets only Project Week
    Status, Project Week Sent and (after a live text) Project Week Last Sent, a snapshot for the next text's What's new, and adds dated send-log lines to the Project Week (left) column of the Dispatch Log on that row's page, making the two columns once if missing). Since 2026-11-25 the run also reads each week job's accepted-quote scope from Airtable through
    `src/lib/projectWeek/quoteScope.ts` (reads only, imported only by run.ts), shown until the installer's card is final. **A fifth path without a sign-in: `/api/project-week`**, the two Notion buttons
-   (`x-project-week-key` = `QUOTE_PROJECT_WEEK_KEY`, constant-time; unset = off) and the nightly Vercel cron (`CRON_SECRET`,
-   rebuild only, no texts). Texts go only on a button press, through `sendDispatchMessage()` in `src/lib/make/client.ts`
+   (`x-project-week-key` = `QUOTE_PROJECT_WEEK_KEY`, constant-time; unset = off), the nightly Vercel cron (`CRON_SECRET`,
+   rebuild only, no texts), and since 2026-11-25 `.github/workflows/quote-project-week.yml` (same key): the Friday 3 pm send
+   (`?scope=weekly`, only people with something new) and the hourly 3-day heads-up (`?scope=headsup`, 8 am to 7 pm, a near
+   job added, removed, moved or re-addressed, once a day); the run checks the Toronto clock itself. Texts go only on a button press or those two sends, through `sendDispatchMessage()` in `src/lib/make/client.ts`
    (the only reader of `QUOTE_MAKE_DISPATCH_HOOK`, the QA dispatch's Make 5030370), and only to the test phone until
    `QUOTE_PROJECT_WEEK_SEND` is exactly `live`, which is Albert's switch, flipped only as a dated vault decision.
    `tests/boundary.test.ts` pins all of this.

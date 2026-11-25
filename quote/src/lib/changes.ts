@@ -23,6 +23,15 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-25",
     kind: "new",
+    title: "Project Week sends itself: Friday 3 pm and a 3-day heads-up",
+    details: [
+      "Every Friday at 3 pm, installers with upcoming jobs and something new since their last text get their Project Week text. Nobody gets one just to say nothing changed.",
+      "During the day (8 am to 7 pm), if a job in the next 3 days is added, removed, moved or changes address, that installer gets a heads-up, at most once a day. Scope, payout and photo changes wait for Friday.",
+    ],
+  },
+  {
+    date: "2026-11-25",
+    kind: "new",
     title: "Project Week page: What changed box",
     details: ["When something changed since an installer's last update, their Project Week page shows a yellow box at the top naming it, for example \"Sam, Testville: moved from Mon Nov 30 to Wed Dec 2\"."],
   },

@@ -96,3 +96,33 @@ export function changeDetails(prev: Snapshot, b: Board, today: string): string[]
   if (paid) out.push(`${paid} finished job${paid === 1 ? " is" : "s are"} now ready to be paid.`);
   return out;
 }
+
+const plusDays = (iso: string, n: number) => new Date(Date.parse(`${iso}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+
+/**
+ * The 3-day heads-up (Albert, 2026-11-25: "Build the Friday 3pm send and 3-day heads-up"): true when a job starting
+ * today to 3 days from now was added, removed, moved or changed address since the last live text. Scope, payout and
+ * photo changes never trigger it on their own; they wait for Friday's send or a button. Pure.
+ */
+export function needsHeadsUp(prev: Snapshot, now: Snapshot, today: string, days = 3): boolean {
+  const last = plusDays(today, days);
+  const near = (d: string) => Boolean(d) && d >= today && d <= last;
+  for (const [id, n] of Object.entries(now.j)) {
+    const p = prev.j[id];
+    if (!p) {
+      if (near(n[0])) return true;
+      continue;
+    }
+    if ((near(n[0]) || near(p[0])) && (p[0] !== n[0] || p[2] !== n[2])) return true;
+  }
+  for (const [id, p] of Object.entries(prev.j)) if (!now.j[id] && near(p[0])) return true;
+  return false;
+}
+
+/** Toronto weekday (1 Mon .. 7 Sun) and hour, for the automatic sends' own check of the clock. */
+export function torontoClock(now: Date): { weekday: number; hour: number } {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", weekday: "short", hour: "numeric", hourCycle: "h23" }).formatToParts(now);
+  const wd = parts.find((p) => p.type === "weekday")?.value ?? "";
+  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? "0");
+  return { weekday: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].indexOf(wd) + 1, hour };
+}

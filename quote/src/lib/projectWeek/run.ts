@@ -3,7 +3,7 @@ import { appendBlocks, boardsParent, childrenOf, DS, downloadNotionFile, normalI
 import { sendDispatchMessage, dispatchConfigured } from "@/lib/make/client";
 import { galleryLink } from "@/lib/gallery/token";
 import { embedFeedFor } from "@/lib/quotes/companycam";
-import { changeDetails, changesSince, parseSnapshot, serializeSnapshot, snapshotOf } from "./changes";
+import { changeDetails, changesSince, needsHeadsUp, parseSnapshot, torontoClock, serializeSnapshot, snapshotOf } from "./changes";
 import { markNothingToSend, writeLog } from "./log";
 import { quoteScopes } from "./quoteScope";
 import { boardBlocks, buildBoard, isReadyLine, type LogEntry, membersToBuild, messagesFor, upcoming, strayLines, torontoToday, type Board, type Job, type Member } from "./model";
@@ -23,7 +23,7 @@ import { costLineOf, COST, jobOf, memberOf, OPEN_WO_STATUSES, PROJECT, TEAM, WOR
  * flipping it is Albert's call, as a dated vault decision.
  */
 
-export type RunScope = { kind: "rebuild" | "all" } | { kind: "one" | "refresh"; memberId: string };
+export type RunScope = { kind: "rebuild" | "all" | "weekly" | "headsup" } | { kind: "one" | "refresh"; memberId: string };
 export type RunResult = {
   ok: boolean;
   week: string;
@@ -107,11 +107,19 @@ async function publish(board: Board, pageId: string, cache: Map<string, Uint8Arr
   for (const b of old) await notionPayout("DELETE", `/blocks/${normalId(b.id)}`);
 }
 
+/** How a send reads in the log on the Titan Team page. */
+const PRESSED: Partial<Record<RunScope["kind"], string>> = { all: "Send all", one: "Send my week", weekly: "Friday send", headsup: "Heads-up" };
+
 export async function runProjectWeek(scope: RunScope, now = new Date()): Promise<RunResult> {
   const today = torontoToday(now);
   // Every upcoming job (Albert, 2026-11-25: "All upcoming jobs"); it was next Monday to Sunday.
   const week = upcoming(today);
   const result: RunResult = { ok: false, week: `${week.mon} on`, pages: [], sent: [], notes: [] };
+  // The automatic sends check the Toronto clock themselves (Albert, 2026-11-25: "Build the Friday 3pm send and 3-day
+  // heads-up"), so a schedule that runs wide, or twice across a time change, sends once.
+  const clock = torontoClock(now);
+  if (scope.kind === "weekly" && !(clock.weekday === 5 && clock.hour === 15)) return { ...result, ok: true, notes: ["Not Friday 3 pm in Toronto; nothing sent."] };
+  if (scope.kind === "headsup" && (clock.hour < 8 || clock.hour >= 19)) return { ...result, ok: true, notes: ["Outside 8 am to 7 pm in Toronto; nothing sent."] };
   if (!payoutNotionOn()) return { ...result, notes: ["Project Week isn't set up on this deployment."] };
   const parent = boardsParent();
   if (!parent) return { ...result, notes: ["Project Week has no boards page (QUOTE_PROJECT_WEEK_PARENT)."] };
@@ -145,7 +153,7 @@ export async function runProjectWeek(scope: RunScope, now = new Date()): Promise
   }
 
   const cache = new Map<string, Uint8Array | null>();
-  const send = scope.kind === "all" || scope.kind === "one";
+  const send = scope.kind === "all" || scope.kind === "one" || scope.kind === "weekly" || scope.kind === "headsup";
   if (send && !dispatchConfigured()) result.notes.push("Texts aren't switched on for this deployment; the pages were still updated.");
   // The send log (2026-11-25): each person's Titan Team row gets a status and a dated line per message (log.ts).
   const log: LogEntry[] = [];
@@ -163,6 +171,20 @@ export async function runProjectWeek(scope: RunScope, now = new Date()): Promise
       board.details = prev ? changeDetails(prev, board, today) : [];
       board.lastSentOn = member.lastSentOn ?? null;
       snaps.set(member.id, serializeSnapshot(snap));
+      // Who gets a text: a button press as before; Friday's send only someone with jobs and something new (or a first
+      // text); the heads-up only someone whose next 3 days moved, at most once a day.
+      const wantsText =
+        scope.kind === "one"
+          ? board.jobs.length > 0 || board.ready.length > 0
+          : scope.kind === "all"
+            ? board.jobs.length > 0
+            : scope.kind === "weekly"
+              ? board.jobs.length > 0 && (board.changes === null || (board.changes?.length ?? 0) > 0)
+              : scope.kind === "headsup"
+                ? prev !== null && needsHeadsUp(prev, snap, today) && member.lastSentOn !== today
+                : false;
+      // The hourly heads-up only touches the pages it texts about; the nightly rebuild does the rest.
+      if (scope.kind === "headsup" && !wantsText) continue;
       const page = await boardFor(member, parent);
       if (!page) {
         result.notes.push(`${member.name}'s page couldn't be made.`);
@@ -171,7 +193,6 @@ export async function runProjectWeek(scope: RunScope, now = new Date()): Promise
       await publish(board, page.id, cache, now);
       result.pages.push({ name: member.name, url: page.url });
       jobs = board.jobs.length;
-      const wantsText = scope.kind === "one" ? board.jobs.length > 0 || board.ready.length > 0 : scope.kind === "all" && board.jobs.length > 0;
       if (!send || !wantsText) continue;
       if (!dispatchConfigured()) {
         manual("Texts aren't switched on for this deployment (the Make dispatch hook isn't set).");
@@ -225,7 +246,7 @@ export async function runProjectWeek(scope: RunScope, now = new Date()): Promise
   // Send my week on someone with nothing to text: their row's Sending..... becomes Nothing to Send.
   if (scope.kind === "one" && members[0] && !log.some((e) => e.memberId === members[0].id)) await markNothingToSend(members[0].id);
   if (send && log.length) {
-    const note = await writeLog(log, week, scope.kind === "all" ? "Send all" : "Send my week", now, snaps);
+    const note = await writeLog(log, week, PRESSED[scope.kind] ?? "Send my week", now, snaps);
     if (note) result.notes.push(note);
   }
   return { ...result, ok: true };
