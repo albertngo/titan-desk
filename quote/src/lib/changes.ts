@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-25",
     kind: "changed",
+    title: "Project Week: job photos found from the quote",
+    details: ["When a project in Notion has no CompanyCam Link, Project Week now uses the CompanyCam link on that job's quote in the app, so the photos link still shows."],
+  },
+  {
+    date: "2026-11-25",
+    kind: "changed",
     title: "Project Week Status is a Notion status",
     details: ["Project Week Status on Titan Team is now a status: Sending..... while a send runs, then Sent Successfully, Needs Manual, or Nothing to Send when there was nothing to text."],
   },

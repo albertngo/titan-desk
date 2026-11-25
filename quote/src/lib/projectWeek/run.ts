@@ -121,11 +121,16 @@ export async function runProjectWeek(scope: RunScope, now = new Date()): Promise
   const lines = (await queryAll(DS.projectCosts, { property: COST.paidRef, rich_text: { is_empty: true } }, 3000)).map((r) => costLineOf(r as Row));
   const workOrders = (await queryAll(DS.workOrders, { or: OPEN_WO_STATUSES.map((s) => ({ property: WORK_ORDER.status, status: { equals: s } })) }, 1000)).flatMap((r) => workOrderOf(r as Row) ?? []);
 
+  const facts = await quoteScopes(weekJobs.map((j) => j.id));
+  for (const j of weekJobs) {
+    const f = facts.get(j.id.replace(/-/g, ""));
+    j.quoteScope = f?.scope ?? null;
+    // No CompanyCam Link on the Titan Projects row: the job's quote's own link (2026-11-25).
+    if (!j.camUrl && f?.camUrl) j.camUrl = f.camUrl;
+  }
   // The scope link: a pasted CCAM Share Link, else the app's own photo gallery (2026-11-25), else the embed feed if on.
   for (const j of weekJobs) if (!j.shareLink) j.shareLink = galleryLink(j.camUrl ?? null);
   if (embedOn()) for (const j of weekJobs) if (!j.shareLink && j.camUrl) j.shareLink = await embedFeedFor(j.camUrl);
-  const scopes = await quoteScopes(weekJobs.map((j) => j.id));
-  for (const j of weekJobs) j.quoteScope = scopes.get(j.id.replace(/-/g, "")) ?? null;
   const projects = new Map<string, Job>([...ended, ...weekJobs].map((j) => [j.id, j]));
   for (const s of strayLines(weekJobs, lines)) result.notes.push(`"${s.line.name}" on the ${s.job.start ?? ""} job in ${s.job.city ?? "?"} is assigned to someone who isn't in its Contractor list, so it is on nobody's page.`);
 
