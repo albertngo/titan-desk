@@ -8,16 +8,24 @@
 
 export type WorkItem = { section: string; description: string; qty: number | null; uom: string | null };
 export type StairCounts = { steps: number; spindles: number; posts: number; handrails: number; nosings: number };
-export type Work = { install: string[]; remove: string[]; stairTypes: string[]; stairs: StairCounts };
+/** `prep` (Albert, 2026-11-25: "Prep should show"); absent on works stored before then. */
+export type Work = { install: string[]; remove: string[]; prep?: string[]; stairTypes: string[]; stairs: StairCounts };
 
 const num = (n: number) => String(Math.round(n * 100) / 100);
-const amount = (i: WorkItem) => (i.qty !== null && i.qty > 0 ? `${num(i.qty)}${i.uom?.trim() ? ` ${i.uom.trim()}` : ""} ` : "");
+/** "650sf": an area or length unit sits on the number (Albert, 2026-11-25: "sf attached to the number"); others keep a space. */
+const SHORT_UNIT = /^(sf|sq ?ft|sqft|ft|lf|lin ?ft|m2?)$/i;
+const amount = (i: WorkItem) => {
+  if (i.qty === null || i.qty <= 0) return "";
+  const u = i.uom?.trim() ?? "";
+  return `${num(i.qty)}${u ? (SHORT_UNIT.test(u) ? u.toLowerCase().replace(/\s+/g, "") : ` ${u}`) : ""} `;
+};
 const empty = (): StairCounts => ({ steps: 0, spindles: 0, posts: 0, handrails: 0, nosings: 0 });
 
 /** Which part of the work a section is: Install, Remove, Stairs, or none (prep, disposal, delivery, discounts...). */
-function partOf(section: string): "install" | "remove" | "stairs" | null {
+function partOf(section: string): "install" | "remove" | "prep" | "stairs" | null {
   const s = section.toLowerCase();
   if (/stair/.test(s)) return "stairs";
+  if (/prep|level/.test(s)) return "prep";
   if (/remov|tear/.test(s)) return "remove";
   if (/install|material|moulding|molding|floor/.test(s)) return "install";
   return null;
@@ -39,7 +47,7 @@ function stairType(text: string): string | null {
 }
 
 export function workFromItems(items: WorkItem[]): Work | null {
-  const w: Work = { install: [], remove: [], stairTypes: [], stairs: empty() };
+  const w: Work = { install: [], remove: [], prep: [], stairTypes: [], stairs: empty() };
   const stepLines: number[] = [];
   for (const i of items) {
     const desc = i.description.trim();
@@ -47,11 +55,14 @@ export function workFromItems(items: WorkItem[]): Work | null {
     const part = partOf(i.section);
     if (part === "install") w.install.push(`${amount(i)}${desc}`);
     else if (part === "remove") w.remove.push(`${amount(i)}${desc}`);
+    else if (part === "prep") w.prep!.push(`${amount(i)}${desc}`);
     else if (part === "stairs") {
       const text = `${desc} ${i.uom ?? ""}`.toLowerCase();
+      // Risers aren't counted or typed (Albert, 2026-11-25: "risers dont need to be considered").
+      if (/riser/.test(text)) continue;
       const kind = stairKind(text);
       const qty = i.qty ?? 0;
-      // Treads and risers are the same steps: the step count is the largest step line, not their sum.
+      // Two step lines (treads and caps, say) are the same steps: the count is the largest, not their sum.
       if (kind === "steps") stepLines.push(qty);
       else w.stairs[kind] += qty;
       const type = stairType(text);
@@ -61,7 +72,7 @@ export function workFromItems(items: WorkItem[]): Work | null {
   w.stairs.steps = stepLines.length ? Math.max(...stepLines) : 0;
   if (w.stairs.steps && !w.stairTypes.length) w.stairTypes.push("New Steps");
   const hasStairs = Object.values(w.stairs).some((n) => n > 0) || w.stairTypes.length > 0;
-  return w.install.length || w.remove.length || hasStairs ? w : null;
+  return w.install.length || w.remove.length || w.prep!.length || hasStairs ? w : null;
 }
 
 /** Two works on one job (an installer with more than one card line there) added together. */
@@ -70,7 +81,7 @@ export function mergeWork(a: Work | null, b: Work | null): Work | null {
   if (!b) return a;
   const stairs = empty();
   for (const k of Object.keys(stairs) as (keyof StairCounts)[]) stairs[k] = k === "steps" ? Math.max(a.stairs.steps, b.stairs.steps) : a.stairs[k] + b.stairs[k];
-  return { install: [...a.install, ...b.install], remove: [...a.remove, ...b.remove], stairTypes: [...new Set([...a.stairTypes, ...b.stairTypes])], stairs };
+  return { install: [...a.install, ...b.install], remove: [...a.remove, ...b.remove], prep: [...(a.prep ?? []), ...(b.prep ?? [])], stairTypes: [...new Set([...a.stairTypes, ...b.stairTypes])], stairs };
 }
 
 export const hasStairs = (w: Work) => Object.values(w.stairs).some((n) => n > 0) || w.stairTypes.length > 0;
@@ -81,14 +92,17 @@ export function workKind(w: Work, projectType: string | null): string {
   if (t === "both") return "Flooring & Stairs";
   if (t === "stairs") return "Stairs Only";
   if (t === "flooring") return "Flooring Only";
-  const floor = w.install.length > 0 || w.remove.length > 0;
+  const floor = w.install.length > 0 || w.remove.length > 0 || (w.prep?.length ?? 0) > 0;
   return floor && hasStairs(w) ? "Flooring & Stairs" : hasStairs(w) ? "Stairs Only" : "Flooring Only";
 }
 
-/** The Stairs line's right-hand side: "14 steps | 20 spindles | 2 posts | 12 handrails | 14 nosings", zeros left out. */
+/**
+ * The Stairs line's right-hand side: "14 steps | 20 spindles | 2 posts | 12ft handrails | 14ft nosings", zeros left out.
+ * Handrails and nosings are quoted in feet (Albert, 2026-11-25).
+ */
 export function stairCountsText(s: StairCounts): string {
-  const parts: [number, string][] = [[s.steps, "steps"], [s.spindles, "spindles"], [s.posts, "posts"], [s.handrails, "handrails"], [s.nosings, "nosings"]];
-  return parts.filter(([n]) => n > 0).map(([n, w]) => `${num(n)} ${w}`).join(" | ");
+  const parts: [number, string][] = [[s.steps, " steps"], [s.spindles, " spindles"], [s.posts, " posts"], [s.handrails, "ft handrails"], [s.nosings, "ft nosings"]];
+  return parts.filter(([n]) => n > 0).map(([n, w]) => `${num(n)}${w}`).join(" | ");
 }
 
 /** The sub-lines under Work, in the standard order. */
@@ -96,6 +110,7 @@ export function workLines(w: Work): { label: string; text: string }[] {
   const out: { label: string; text: string }[] = [];
   if (w.install.length) out.push({ label: "Install", text: w.install.join(" | ") });
   if (w.remove.length) out.push({ label: "Remove", text: w.remove.join(" | ") });
+  if (w.prep?.length) out.push({ label: "Prep", text: w.prep.join(" | ") });
   if (hasStairs(w)) {
     const counts = stairCountsText(w.stairs);
     out.push({ label: "Stairs", text: [w.stairTypes.join(", "), counts].filter(Boolean).join(" - ") || "See scope photos" });

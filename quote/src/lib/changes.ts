@@ -23,6 +23,18 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-25",
     kind: "changed",
+    title: "Project Week: tidier stair and area numbers",
+    details: ["Areas read 650sf, handrails and nosings show in feet, and risers are no longer counted on the Stairs line."],
+  },
+  {
+    date: "2026-11-25",
+    kind: "changed",
+    title: "Project Week: Prep shows under Work",
+    details: ["The Work line on an installer's Project Week page now lists Prep (for example floor levelling) after Remove."],
+  },
+  {
+    date: "2026-11-25",
+    kind: "changed",
     title: "Project Week: the work in a standard layout",
     details: [
       "Each job's Work line now reads Flooring Only, Stairs Only or Flooring & Stairs, with Install, Remove and Stairs underneath (square feet and material, and for stairs the type of work with total steps, spindles, posts, handrails and nosings).",

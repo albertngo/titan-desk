@@ -239,22 +239,25 @@ describe("the work, in the standard layout (2026-11-25)", () => {
       { section: "Install", description: "Engineered hardwood", qty: 650, uom: "sf" },
       { section: "Install", description: "Vinyl plank", qty: 120, uom: "sf" },
       { section: "Removal", description: "Carpet", qty: 400, uom: "sf" },
+      { section: "Prep", description: "Floor levelling", qty: 200, uom: "sf" },
       { section: "Stairs", description: "Oak tread cap", qty: 14, uom: "steps" },
-      { section: "Stairs", description: "Oak riser", qty: 14, uom: "steps" },
-      { section: "Stairs", description: "Refinish handrail", qty: 2, uom: "pcs" },
+      { section: "Stairs", description: "Oak riser", qty: 16, uom: "steps" },
+      { section: "Stairs", description: "Vinyl riser wrap", qty: 16, uom: "pcs" },
+      { section: "Stairs", description: "Refinish handrail", qty: 12, uom: "ft" },
       { section: "Stairs", description: "Iron spindles", qty: 20, uom: "pcs" },
       { section: "Stairs", description: "Newel post", qty: 2, uom: "pcs" },
-      { section: "Stairs", description: "Stair nosing", qty: 3, uom: "pcs" },
+      { section: "Stairs", description: "Stair nosing", qty: 14, uom: "ft" },
       { section: "Disposal", description: "Bin", qty: 1, uom: null },
     ])!;
     expect(workLines(w)).toEqual([
-      { label: "Install", text: "650 sf Engineered hardwood | 120 sf Vinyl plank" },
-      { label: "Remove", text: "400 sf Carpet" },
-      { label: "Stairs", text: "New Steps, Refinish - 14 steps | 20 spindles | 2 posts | 2 handrails | 3 nosings" },
+      { label: "Install", text: "650sf Engineered hardwood | 120sf Vinyl plank" },
+      { label: "Remove", text: "400sf Carpet" },
+      { label: "Prep", text: "200sf Floor levelling" },
+      { label: "Stairs", text: "New Steps, Refinish - 14 steps | 20 spindles | 2 posts | 12ft handrails | 14ft nosings" },
     ]);
     expect(workKind(w, "Both")).toBe("Flooring & Stairs");
     expect(workKind(w, null)).toBe("Flooring & Stairs");
-    expect(workKind({ ...w, install: [], remove: [] }, null)).toBe("Stairs Only");
+    expect(workKind({ ...w, install: [], remove: [], prep: [] }, null)).toBe("Stairs Only");
   });
 
   it("a payout card's ticked lines round-trip through the Project Costs Notes", async () => {
@@ -264,7 +267,7 @@ describe("the work, in the standard layout (2026-11-25)", () => {
     const l = (section: string, description: string, qty: number | null, uom: string, on = true) => ({ id: description, ref: null, option: null, section, description, area: "", uom, qty, rate: 1, cardRate: null, on });
     const stored = cardScope({ lines: [l("Install", "Install engineered", 650, "sf"), l("Removal", "Remove carpet", 400, "sf", false)] });
     const notes = `${cardMark("recAAAAAAAAAAAAAA", "c1")} Work: ${stored}. Made by the quote app from the payout card. Change the card in the quote app, not this line.`;
-    expect(workLines(parseWork(workOf(notes))!)).toEqual([{ label: "Install", text: "650 sf Install engineered" }]);
+    expect(workLines(parseWork(workOf(notes))!)).toEqual([{ label: "Install", text: "650sf Install engineered" }]);
     expect(workOf("typed by hand")).toBeNull();
   });
 
@@ -274,7 +277,7 @@ describe("the work, in the standard layout (2026-11-25)", () => {
     const item = (description: string, qty: number | null, uom: string | null, optional = false) => ({ kind: "item" as const, n: 1, description, note: null, qty, uom, wastePct: null, unitPrice: 9.99, minimum: false, amount: 1234.56, optional });
     const copy = { options: [{ name: "Option 1", sections: [{ name: "Install", total: 9, lines: [item("Engineered hardwood", 650, "sf"), item("Upgrade underpad", 650, "sf", true)] }, { name: "Discounts", total: -1, lines: [item("Loyalty", 1, null)] }] }] } as unknown as import("@/lib/send/copy").CustomerCopy;
     const lines = workLines(scopeFromCopy(copy)!);
-    expect(lines).toEqual([{ label: "Install", text: "650 sf Engineered hardwood" }]);
+    expect(lines).toEqual([{ label: "Install", text: "650sf Engineered hardwood" }]);
     expect(JSON.stringify(lines)).not.toMatch(/9\.99|1234/);
   });
 
