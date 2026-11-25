@@ -312,3 +312,21 @@ export function logLine(e: LogEntry, week: { mon: string; sun: string }, pressed
   const how = [e.channel === "None" ? null : e.channel, e.test ? "Test" : "Live", pressedBy].filter(Boolean).join(", ");
   return `${when}: ${e.status}. ${what} (${how}).${e.reason ? ` ${e.reason}` : ""}`;
 }
+
+/**
+ * Titan Team's Dispatch Log column (Albert, 2026-11-25: "add a column for a dispatch log"): the newest lines on top of
+ * what is there, Project Week and QA Dispatch alike, kept under Notion's 2000-character limit by dropping the oldest
+ * whole lines. The full history stays at the bottom of the person's page. Pure.
+ */
+export function prependLog(existing: string | null, lines: string[], max = 1900): string {
+  const all = [...lines, ...(existing ?? "").split("\n").filter((l) => l.trim())];
+  const out: string[] = [];
+  let size = 0;
+  for (const l of all) {
+    const line = l.slice(0, max);
+    if (size + line.length + (out.length ? 1 : 0) > max) break;
+    out.push(line);
+    size += line.length + (out.length > 1 ? 1 : 0);
+  }
+  return out.join("\n");
+}
