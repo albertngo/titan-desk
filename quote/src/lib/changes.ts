@@ -22,6 +22,12 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-25",
+    kind: "changed",
+    title: "Send all only texts installers with changes",
+    details: ["Send Project Week (all) now texts only installers with something new since their last text, or who have never had one, like the Friday send. Send my week still texts that one person whatever changed."],
+  },
+  {
+    date: "2026-11-25",
     kind: "new",
     title: "Project Week sends itself: Friday 3 pm and a 3-day heads-up",
     details: [

@@ -11,8 +11,8 @@ export const maxDuration = 300;
  * without a sign-in, like /api/followups: the Notion buttons and the nightly cron call it, and every call checks
  * QUOTE_PROJECT_WEEK_KEY first (constant-time; unset = off).
  *
- * - POST `?scope=all`: the Send Project Week button on Project Preparation. Rebuilds every page, texts everyone with a
- *   job next week.
+ * - POST `?scope=all`: the Send Project Week button on Project Preparation. Rebuilds every page, texts everyone with
+ *   upcoming jobs and something new since their last text, or a first text (2026-11-25).
  * - POST `?scope=one`: the Send my week button on a Titan Team row. Notion sends that row as `data`; only its id is
  *   used, and it must be a Titan Team row.
  * - POST `?scope=weekly` / `?scope=headsup` (2026-11-25): the Friday 3 pm send and the hourly 3-day heads-up, called by
