@@ -23,6 +23,15 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-25",
     kind: "changed",
+    title: "Project Week text: what changed, no payout total",
+    details: [
+      "The Project Week text no longer shows a dollar total. It now says what changed since the installer's last text, for example \"What's new: Extra job, Some dates changed\", or \"No changes since your last update\".",
+      "The comparison is with the last live text, kept on their Titan Team row.",
+    ],
+  },
+  {
+    date: "2026-11-25",
+    kind: "changed",
     title: "Project Week: payout card pictures fold away",
     details: ["On an installer's Project Week page, the payout card pictures now sit inside the Your payout line: tap it to open them."],
   },

@@ -33,6 +33,8 @@ export type Member = {
   email?: string | null;
   /** Titan Team → Project Week Link: this installer's page, once made. */
   boardUrl: string | null;
+  /** Titan Team → Project Week Last Sent: the snapshot of the last live text (changes.ts), or null. */
+  lastSent?: string | null;
 };
 
 export type Job = {
@@ -87,6 +89,11 @@ export type Board = {
   weekTotal: number;
   pending: number;
   readyTotal: number;
+  /**
+   * What changed since the last live text (changes.ts; Albert, 2026-11-25): null on a first text (nothing to compare),
+   * [] when nothing changed. Set by the run before the text is built.
+   */
+  changes?: string[] | null;
 };
 
 export type Week = { mon: string; sun: string };
@@ -224,14 +231,15 @@ export function payoutWords(p: Payout): string {
 
 /** The text that carries the link (the QA dispatch's opener). No em dashes. */
 export function messageText(b: Board, link: string): string {
+  // No payout total in the text (Albert, 2026-11-25: "keep the total payout off the SMS"); payouts are on the page.
   const n = b.jobs.length;
   const parts = [`${n} job${n === 1 ? "" : "s"}`];
-  if (b.weekTotal > 0) parts.push(`${money(b.weekTotal)} confirmed`);
   if (b.pending) parts.push(`${b.pending} payout${b.pending === 1 ? "" : "s"} still pending`);
-  const ready = b.readyTotal > 0 ? `\n\nYour finished jobs are done and payment is on the way.` : "";
+  const changes = b.changes == null ? "" : b.changes.length ? ` What's new: ${b.changes.join(", ")}.` : " No changes since your last update.";
+  const ready = b.readyTotal > 0 && !(b.changes ?? []).includes("Payment on the way") ? `\n\nYour finished jobs are done and payment is on the way.` : "";
   return (
     `[Automated] Hello ${firstName(b.member.name)}. This is Titan Flooring.\n\n` +
-    `${openEnded(b.week) ? "Your upcoming jobs" : `Your project week, ${periodLabel(b.week)}`}: ${parts.join(", ")}.${ready}\n\n` +
+    `${openEnded(b.week) ? "Your upcoming jobs" : `Your project week, ${periodLabel(b.week)}`}: ${parts.join(", ")}.${changes}${ready}\n\n` +
     `Your schedule, scope photos and payouts: ${link}`
   );
 }

@@ -3,6 +3,7 @@ import { appendBlocks, boardsParent, childrenOf, DS, downloadNotionFile, normalI
 import { sendDispatchMessage, dispatchConfigured } from "@/lib/make/client";
 import { galleryLink } from "@/lib/gallery/token";
 import { embedFeedFor } from "@/lib/quotes/companycam";
+import { changesSince, parseSnapshot, serializeSnapshot, snapshotOf } from "./changes";
 import { markNothingToSend, writeLog } from "./log";
 import { quoteScopes } from "./quoteScope";
 import { boardBlocks, buildBoard, isReadyLine, type LogEntry, membersToBuild, messagesFor, upcoming, strayLines, torontoToday, type Board, type Job, type Member } from "./model";
@@ -148,6 +149,8 @@ export async function runProjectWeek(scope: RunScope, now = new Date()): Promise
   if (send && !dispatchConfigured()) result.notes.push("Texts aren't switched on for this deployment; the pages were still updated.");
   // The send log (2026-11-25): each person's Titan Team row gets a status and a dated line per message (log.ts).
   const log: LogEntry[] = [];
+  // What each person is sent this time, kept after a live text so the next one can say what changed (changes.ts).
+  const snaps = new Map<string, string>();
   for (const member of members) {
     let jobs = 0;
     const manual = (reason: string) => log.push({ memberId: member.id, name: member.name, status: "Needs Manual", channel: "None", test: !sendsLive(), jobs, reason });
@@ -173,6 +176,10 @@ export async function runProjectWeek(scope: RunScope, now = new Date()): Promise
         manual(why);
         continue;
       }
+      const snap = snapshotOf(board);
+      const prev = parseSnapshot(member.lastSent);
+      board.changes = prev ? changesSince(prev, snap, today) : null;
+      snaps.set(member.id, serializeSnapshot(snap));
       const messages = messagesFor(board, page.publicUrl);
       if (!messages.length) {
         const why = `${member.name} has no Project Week Channels with a phone, group or email set in Titan Team, so nothing was sent.`;
@@ -215,7 +222,7 @@ export async function runProjectWeek(scope: RunScope, now = new Date()): Promise
   // Send my week on someone with nothing to text: their row's Sending..... becomes Nothing to Send.
   if (scope.kind === "one" && members[0] && !log.some((e) => e.memberId === members[0].id)) await markNothingToSend(members[0].id);
   if (send && log.length) {
-    const note = await writeLog(log, week, scope.kind === "all" ? "Send all" : "Send my week", now);
+    const note = await writeLog(log, week, scope.kind === "all" ? "Send all" : "Send my week", now, snaps);
     if (note) result.notes.push(note);
   }
   return { ...result, ok: true };
