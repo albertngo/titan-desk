@@ -280,7 +280,7 @@ export function boardBlocks(b: Board, images: Map<string, string[]>, updated: st
     if (job.phone) out.push(bullet("Customer phone", job.phone));
     if (job.type && !work) out.push(bullet("Type", job.type));
     if (work) out.push(bulletWith("Work", workKind(work, job.type), workLines(work).map((w) => bullet(w.label, w.text))));
-    out.push(job.shareLink ? bullet("Scope photos", "Open in CompanyCam", job.shareLink) : bullet("Scope photos", "Scope link coming"));
+    out.push(job.shareLink ? bullet("Scope photos", "Open the job photos", job.shareLink) : bullet("Scope photos", "Scope link coming"));
     out.push(bullet("Your payout", payoutWords(payout)));
     for (const id of images.get(job.id) ?? []) out.push(image(id));
   });

@@ -204,7 +204,10 @@ describe("CompanyCam boundary (2026-10-30: the job's photos on the quote page)",
     expect(client).toMatch(/method: "GET"/);
     expect(client).not.toMatch(/addProjectPhoto|body:/);
     expect(client.match(/\bfetch\(/g)?.length).toBe(1);
-    expect(client).toMatch(/if \(!token \|\| isCustomerDeployment\(\)\) throw/);
+    // Since 2026-11-25 the token also reads on the customer deployment, for the installer photo gallery only (below);
+    // the quote page's loaders stay staff only.
+    expect(client).toMatch(/if \(!token\) throw/);
+    expect(client).toMatch(/export const companyCamConfigured = \(\) => !isCustomerDeployment\(\) && /);
     expect(all.filter((f) => /addPayoutPhoto|addProjectPhoto/.test(code(f.text))).map((f) => f.rel)).toEqual([]);
   });
 
@@ -221,7 +224,7 @@ describe("CompanyCam boundary (2026-10-30: the job's photos on the quote page)",
   });
 
   it("is read live and stored nowhere, reached only from the loader, and the loader only from the quote page", () => {
-    expect(all.filter((f) => /from ["']@\/lib\/companycam\/client["']/.test(f.text)).map((f) => f.rel)).toEqual([LOADER]);
+    expect(all.filter((f) => /from ["']@\/lib\/companycam\/client["']/.test(f.text)).map((f) => f.rel).sort()).toEqual(["lib/gallery/load.ts", LOADER]);
     const loader = code(all.find((f) => f.rel === LOADER)!.text);
     expect(loader).not.toMatch(/airtable|createRecord|updateRecord|make\/client|sendToGhl/);
     // The quote page's Photos tab and, since 2026-11-03, the site sheet reader (picking and downloading sheet photos).
@@ -325,7 +328,7 @@ describe("customer links (no sign-in, customer deployment only)", () => {
 
   it("the proxy serves customer links only on the customer deployment, and 404s them on the staff app", () => {
     const proxy = code(all.find((f) => f.rel === "proxy.ts")!.text);
-    expect(proxy).toMatch(/export async function proxy\(request: NextRequest\) \{\s*const path = request\.nextUrl\.pathname;\s*if \(isCustomerDeployment\(\)\) return CUSTOMER_PAGES\.test\(path\) \? NextResponse\.next\(\) : notFound\(\);\s*if \(path\.startsWith\("\/c\/"\)\) return notFound\(\);/);
+    expect(proxy).toMatch(/export async function proxy\(request: NextRequest\) \{\s*const path = request\.nextUrl\.pathname;\s*if \(isCustomerDeployment\(\)\) return CUSTOMER_PAGES\.test\(path\) \? NextResponse\.next\(\) : notFound\(\);\s*if \(path\.startsWith\("\/c\/"\) \|\| path\.startsWith\("\/g\/"\)\) return notFound\(\);/);
   });
 });
 
@@ -612,5 +615,40 @@ describe("Installer Project Week (2026-11-24: Project Costs lines and each insta
     expect(text).toMatch(/^import "server-only";/m);
     expect(text).not.toMatch(/createRecord|updateRecord|uploadAttachment|write\(/);
     expect(all.filter((f) => /from ["'](@\/lib\/projectWeek\/|\.\/)quoteScope["']/.test(f.text)).map((f) => f.rel)).toEqual(["lib/projectWeek/run.ts"]);
+  });
+});
+
+describe("installer photo gallery (2026-11-25: no sign-in, customer deployment only, reads CompanyCam only)", () => {
+  const LOAD = "lib/gallery/load.ts";
+  const TOKEN = "lib/gallery/token.ts";
+
+  it("answers only on the customer deployment and only for a signed token, before asking CompanyCam anything", () => {
+    const load = code(all.find((f) => f.rel === LOAD)!.text);
+    expect(load).toMatch(/export async function loadGallery\(token: string\)[^{]*\{\s*if \(!isCustomerDeployment\(\)\) return null;\s*const id = galleryProjectId\(token\);\s*if \(!id\) return null;/);
+    expect((load.match(/export async function/g) ?? []).length).toBe(1);
+  });
+
+  it("reads only: one project and its photos, no Airtable, Notion, GHL, Make or sign-in, no image download", () => {
+    const load = code(all.find((f) => f.rel === LOAD)!.text);
+    expect([...load.matchAll(/from ["']([^"']+)["']/g)].map((m) => m[1]).sort()).toEqual(["./token", "@/lib/companycam/client", "@/lib/companycam/photos", "@/lib/mode"]);
+    expect(all.find((f) => f.rel === LOAD)!.text).toMatch(/^import "server-only";/);
+    expect(load).toMatch(/import \{ getProject, projectPhotos \} from "@\/lib\/companycam\/client";/);
+    expect(load).not.toMatch(/imageBytes|fetch\(/);
+  });
+
+  it("the key is read in one file, the loader is reached only from the gallery page, and the page reaches nothing else", () => {
+    expect(all.filter((f) => code(f.text).includes("QUOTE_GALLERY_KEY")).map((f) => f.rel)).toEqual([TOKEN]);
+    expect(all.filter((f) => /from ["']@\/lib\/gallery\/load["']/.test(f.text)).map((f) => f.rel)).toEqual(["app/g/[token]/page.tsx"]);
+    // The staff app makes links (the Project Week run); only it imports the token file besides the loader.
+    expect(all.filter((f) => /from ["'](@\/lib\/gallery\/token|\.\/token)["']/.test(f.text)).map((f) => f.rel).sort()).toEqual([LOAD, "lib/projectWeek/run.ts"]);
+    for (const f of all.filter((x) => x.rel.startsWith("app/g/"))) {
+      const lib = [...f.text.matchAll(/from ["']@\/lib\/([^"']+)["']/g)].map((m) => m[1]);
+      expect(lib.filter((l) => !["gallery/load", "companycam/photos"].includes(l))).toEqual([]);
+    }
+  });
+
+  it("the proxy serves only a well-formed gallery link on the customer deployment", () => {
+    const proxy = code(all.find((f) => f.rel === "proxy.ts")!.text);
+    expect(proxy).toContain("const CUSTOMER_PAGES = /^\\/(c\\/[A-Za-z0-9]+(\\/[^/]+)?|g\\/\\d{1,15}-[0-9a-f]{32})$/;");
   });
 });

@@ -6,7 +6,9 @@ import { toPhotos, toProject, type CamPhoto, type CamProject } from "./photos";
  * The ONLY file in quote/ that talks to CompanyCam (Albert, 2026-10-30: the job's photos in the
  * app, with their times and descriptions), and the only reader of QUOTE_COMPANYCAM_TOKEN, set on
  * the staff deployment only. Server-only. A CompanyCam access token is not scoped, so this file is
- * the limit: it reads one project and its photos, nothing else. From 2026-11-04 to 2026-11-24 it also added payout
+ * the limit: it reads one project and its photos, nothing else. Since 2026-11-25 the token is also on the customer
+ * deployment, for the installer photo gallery (`src/lib/gallery/load.ts`, a signed link only); the quote page's loaders
+ * there still answer nothing (`companyCamConfigured()` is staff only, and they need a signed-in quoter). From 2026-11-04 to 2026-11-24 it also added payout
  * cards to a project; Albert stopped that on 2026-11-24 ("No ccam push payout cards", vault
  * `05_decisions/2026-11-24-installer-project-week-boards`): a project share link showed every installer's pay. Payout
  * cards now go to Notion Project Costs and each installer's own Project Week page. GET only; tests/boundary.test.ts
@@ -42,7 +44,7 @@ export const companyCamConfigured = () => !isCustomerDeployment() && Boolean(pro
 /** The one request, always a GET: to the API with the token, or to an image address CompanyCam gave, without it. */
 async function request(url: string, api: boolean): Promise<Response> {
   const token = process.env.QUOTE_COMPANYCAM_TOKEN?.trim();
-  if (!token || isCustomerDeployment()) throw new CompanyCamError(NOT_CONFIGURED, null);
+  if (!token) throw new CompanyCamError(NOT_CONFIGURED, null);
   return fetch(url, {
     method: "GET",
     headers: api ? { Authorization: `Bearer ${token}`, Accept: "application/json" } : { Accept: "image/jpeg, image/png, image/webp" },

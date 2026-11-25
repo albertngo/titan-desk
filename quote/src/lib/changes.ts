@@ -22,6 +22,15 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-25",
+    kind: "new",
+    title: "Project Week: the app's own job photos page",
+    details: [
+      "Each job on an installer's Project Week page now links to a photos page the app hosts: every CompanyCam photo on the job, newest day first, with its description and time. Installers open it without a login.",
+      "A CCAM Share Link pasted on the project still wins.",
+    ],
+  },
+  {
+    date: "2026-11-25",
     kind: "changed",
     title: "Project Week: no dollar amounts for finished jobs",
     details: ["Ready to be paid now says the job is done and payment is on the way, with no amount, on the page and in the text."],

@@ -10,8 +10,8 @@ import { isCustomerDeployment } from "@/lib/mode";
  * (2026-11-24, /api/project-week: the Notion buttons and the nightly rebuild). Each checks its own key.
  */
 const OPEN_ON_STAFF = /^\/(login|auth\/|denied|api\/booking|api\/activity|api\/accept|api\/followups|api\/project-week)/;
-/** The only pages the customer deployment serves: customer links. */
-const CUSTOMER_PAGES = /^\/c\/[A-Za-z0-9]+(\/[^/]+)?$/;
+/** The only pages the customer deployment serves: customer links, and job photo galleries for installers (2026-11-25). */
+const CUSTOMER_PAGES = /^\/(c\/[A-Za-z0-9]+(\/[^/]+)?|g\/\d{1,15}-[0-9a-f]{32})$/;
 
 const notFound = () => new NextResponse("Not found", { status: 404, headers: { "Content-Type": "text/plain" } });
 
@@ -24,7 +24,7 @@ const notFound = () => new NextResponse("Not found", { status: 404, headers: { "
 export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
   if (isCustomerDeployment()) return CUSTOMER_PAGES.test(path) ? NextResponse.next() : notFound();
-  if (path.startsWith("/c/")) return notFound();
+  if (path.startsWith("/c/") || path.startsWith("/g/")) return notFound();
   if (OPEN_ON_STAFF.test(path)) return NextResponse.next();
 
   let response = NextResponse.next({ request });

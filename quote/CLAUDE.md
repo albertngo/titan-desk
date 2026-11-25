@@ -95,6 +95,7 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
 - An overpayment can read as Paid in full (Albert, 2026-10-31: "in case it backfires on us, I would rather it be paid in full").
 - Photos (Albert, 2026-10-30: "display all those photos with their proper timestamps and descriptions, mirroring company cam itself").
 - Installer Project Week (Albert, 2026-11-24): Mark final writes the card to Notion Project Costs; each installer's own page, Send buttons in Notion.
+- Job photos for installers (Albert, 2026-11-25; vault `05_decisions/2026-11-25-installer-photo-gallery`): `/g/<token>` on the customer deployment, every CompanyCam photo with its description, signed by QUOTE_GALLERY_KEY.
 - Payout cards (Albert, 2026-11-04: "we have to also send the contractor a payout form… select the final sent options and summarize for the…
 - Typed lines saved for next time, and logged (Albert, 2026-11-01: "When we add custom items and the quote ends up being SENT… make it so t…
 - All quotes (2026-10-15).
@@ -218,7 +219,11 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
    frozen copy and nothing live, and is imported only by `src/app/c/`. The only other thing `src/app/c/` may
    reach is `src/lib/activity/relay.ts`, which reports opens to the staff app and reads no Airtable, and, for
    acceptance, `src/lib/quotes/acceptClient.ts` and the pure rules it needs (accept plan, terms, settings,
-   schedule). `tests/boundary.test.ts` pins all of this.
+   schedule). `tests/boundary.test.ts` pins all of this. **Job photos for installers (Albert, 2026-11-25):** the proxy also
+   serves `/g/<project id>-<signature>` there (404 on the staff app). `src/lib/gallery/load.ts` answers only on the
+   customer deployment and only for a link `QUOTE_GALLERY_KEY` signed (`src/lib/gallery/token.ts`, the key's only reader;
+   the staff app's Project Week run signs), reads that one CompanyCam project and its photos and nothing else, and is
+   imported only by `src/app/g/`, which reaches nothing else.
 2e. **One file talks to Claude (2026-10-28):** `src/lib/anthropic/client.ts`, `server-only`, the only reader of
    `QUOTE_ANTHROPIC_KEY` (staff deployment only) and the only file naming `api.anthropic.com`; one request,
    called only from `src/lib/quotes/sitesheet.ts`, which writes the Quotes table only (the Site Sheet field and,
@@ -247,9 +252,9 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
    `QUOTE_PROJECT_WEEK_SEND` is exactly `live`, which is Albert's switch, flipped only as a dated vault decision.
    `tests/boundary.test.ts` pins all of this.
 2g. **One file talks to CompanyCam, and it only reads (2026-10-30; the payout-card write, 2026-11-04 to 2026-11-24, is gone):** `src/lib/companycam/client.ts`, `server-only`,
-   one request function, the only reader of `QUOTE_COMPANYCAM_TOKEN` (staff deployment only; refuses on
-   the customer one) and the only file naming `api.companycam.com`. A CompanyCam access token is not scoped, so this
-   file is the limit: one project and its photos. It is reached only from `src/lib/quotes/companycam.ts`, which only
+   one request function, the only reader of `QUOTE_COMPANYCAM_TOKEN` (staff deployment, and since 2026-11-25 the customer
+   one for the installer photo gallery only, 2d; `companyCamConfigured()` stays staff only) and the only file naming `api.companycam.com`. A CompanyCam access token is not scoped, so this
+   file is the limit: one project and its photos. It is reached only from `src/lib/quotes/companycam.ts` and `src/lib/gallery/load.ts` (2d), the first of which only
    the quote page and (since 2026-11-03) `src/lib/quotes/sitesheet.ts` import. Making projects stays Make's. **Site sheet
    photos (2026-11-03):** the one request also downloads a photo's image, without the token (the token goes only to
    `api.companycam.com`), and only from an address CompanyCam's own answer gave for a photo on the quote's project, never
