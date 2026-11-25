@@ -37,6 +37,8 @@ export type Member = {
   lastSent?: string | null;
   /** Titan Team → Project Week Sent, YYYY-MM-DD. */
   lastSentOn?: string | null;
+  /** Titan Team → Notion User: the Notion people this row is (project managers), matched to a job's Project Manager. */
+  userIds?: string[];
 };
 
 export type Job = {
@@ -58,6 +60,8 @@ export type Job = {
   quoteScope?: Work | null;
   /** Titan Projects → CompanyCam Link: the project's own (signed-in) address, used to find its embed feed. */
   camUrl?: string | null;
+  /** Titan Projects → Project Manager: Notion user ids (2026-11-25). */
+  pmIds?: string[];
 };
 
 export type CostLine = {
@@ -100,6 +104,8 @@ export type Board = {
   details?: string[];
   /** When the last live text went out (Titan Team → Project Week Sent), for "since your last update on …". */
   lastSentOn?: string | null;
+  /** The project managers on this installer's jobs, with a Titan Team Email (2026-11-25): CC and Reply-To on the email. */
+  pms?: { name: string; email: string }[];
 };
 
 export type Week = { mon: string; sun: string };
@@ -250,7 +256,7 @@ export function messageText(b: Board, link: string): string {
   );
 }
 
-export type OutMessage = { channel: string; phone: string | null; whatsapp_group_id: string | null; email: string | null; subject: string | null; text: string };
+export type OutMessage = { channel: string; phone: string | null; whatsapp_group_id: string | null; email: string | null; subject: string | null; text: string; cc?: { address: string; name: string }[]; reply_to?: { address: string; name: string }[] };
 
 /** The email's subject. */
 export const emailSubject = (b: Board) => (openEnded(b.week) ? "Your upcoming jobs with Titan Flooring" : `Your project week, ${periodLabel(b.week)}`);
@@ -269,7 +275,11 @@ export function messagesFor(b: Board, link: string): OutMessage[] {
     out.push({ channel, phone: channel === "WhatsApp Group" ? null : b.member.phone, whatsapp_group_id: channel === "WhatsApp Group" ? b.member.groupId : null, email: null, subject: null, text });
   }
   const email = (b.member.email ?? "").trim();
-  if (b.member.channels.includes("Email") && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) out.push({ channel: "Email", phone: null, whatsapp_group_id: null, email, subject: emailSubject(b), text });
+  if (b.member.channels.includes("Email") && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    // From info@, the job's project manager on CC and as Reply-To (Albert, 2026-11-25), every PM on their jobs.
+    const pms = (b.pms ?? []).map((p) => ({ address: p.email, name: p.name }));
+    out.push({ channel: "Email", phone: null, whatsapp_group_id: null, email, subject: emailSubject(b), text, cc: pms, reply_to: pms });
+  }
   return out;
 }
 

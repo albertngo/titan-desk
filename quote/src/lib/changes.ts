@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-25",
     kind: "changed",
+    title: "Project Week email: the project manager on CC",
+    details: ["Project Week emails still come from info@, with the project manager of the installer's jobs on CC and as Reply-To, so a reply goes straight to them. A PM is found by Notion User on their Titan Team row, which needs an Email."],
+  },
+  {
+    date: "2026-11-25",
+    kind: "changed",
     title: "Project Week test mode can test email too",
     details: ["With a test email address set, an installer's Project Week email goes to that address through the real email route while testing, instead of coming to the test phone as a text."],
   },

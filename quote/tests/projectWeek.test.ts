@@ -161,7 +161,7 @@ describe("texts", () => {
   it("email goes to their Titan Team Email with a subject, only when Email is ticked", () => {
     const withEmail = { ...board, member: { ...board.member, channels: ["Email"], email: "alex@example.test" } };
     expect(messagesFor(withEmail, "https://x.test/a")).toEqual([
-      { channel: "Email", phone: null, whatsapp_group_id: null, email: "alex@example.test", subject: "Your project week, Mon Nov 30 to Sun Dec 6", text: messageText(withEmail, "https://x.test/a") },
+      { channel: "Email", phone: null, whatsapp_group_id: null, email: "alex@example.test", subject: "Your project week, Mon Nov 30 to Sun Dec 6", text: messageText(withEmail, "https://x.test/a") , cc: [], reply_to: [] },
     ]);
     expect(messagesFor({ ...withEmail, member: { ...withEmail.member, email: "not-an-email" } }, "https://x.test/a")).toEqual([]);
     expect(messagesFor({ ...withEmail, member: { ...withEmail.member, channels: ["SMS"], phone: null } }, "https://x.test/a")).toEqual([]);
@@ -409,5 +409,23 @@ describe("the Friday send and the 3-day heads-up (2026-11-25)", () => {
     expect(needsHeadsUp(prev, { ...prev, j: { ...prev.j, n: ["2026-11-26", "", "h", "w", "p", 0] as T } }, today)).toBe(true);
     // Fri Nov 27 2026, 3:10 pm Toronto is 20:10 UTC (EST).
     expect(torontoClock(new Date("2026-11-27T20:10:00Z"))).toEqual({ weekday: 5, hour: 15 });
+  });
+});
+
+describe("the project manager on the email (2026-11-25)", () => {
+  it("CCs every PM on their jobs and sets them as Reply-To, once each", async () => {
+    const { messagesFor, buildBoard } = await import("@/lib/projectWeek/model");
+    const board = buildBoard({ member: { id: "m1", name: "Alex One", phone: null, channels: ["Email"], groupId: null, email: "alex@example.test", boardUrl: null }, week: { mon: "2026-11-25", sun: "9999-12-31" }, today: "2026-11-25", jobs: [], projects: new Map(), lines: [], openWorkOrders: [] });
+    const pms = [{ name: "Pat Manager", email: "pat@example.test" }];
+    const [m] = messagesFor({ ...board, pms }, "https://x.test/a");
+    expect(m.cc).toEqual([{ address: "pat@example.test", name: "Pat Manager" }]);
+    expect(m.reply_to).toEqual(m.cc);
+  });
+
+  it("reads Project Manager on a project and Notion User on Titan Team", async () => {
+    const { jobOf, memberOf } = await import("@/lib/projectWeek/rows");
+    const u = "11111111-2222-3333-4444-555555555555";
+    expect(jobOf({ id: "a".repeat(32), properties: { "Project Manager": { people: [{ id: u }] } } }).pmIds).toEqual([u]);
+    expect(memberOf({ id: "b".repeat(32), properties: { "Notion User": { people: [{ id: u }] } } }).userIds).toEqual([u]);
   });
 });
