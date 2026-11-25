@@ -328,3 +328,17 @@ describe("the Dispatch Log columns on a Titan Team page (2026-11-25)", () => {
     expect(isDispatchColumns(["Project Week"])).toBe(false);
   });
 });
+
+describe("every upcoming job (2026-11-25)", () => {
+  it("takes jobs starting today or later, and ones still running, grouped by week on the page", async () => {
+    const { jobInWindow, upcoming, mondayOf, periodLabel } = await import("@/lib/projectWeek/model");
+    const w = upcoming("2026-11-25");
+    expect(jobInWindow({ start: "2027-03-01", end: null }, w)).toBe(true);
+    expect(jobInWindow({ start: "2026-11-20", end: "2026-11-26" }, w)).toBe(true);
+    expect(jobInWindow({ start: "2026-11-20", end: "2026-11-24" }, w)).toBe(false);
+    expect(jobInWindow({ start: null, end: null }, w)).toBe(false);
+    expect(mondayOf("2026-12-03")).toBe("2026-11-30");
+    expect(mondayOf("2026-11-30")).toBe("2026-11-30");
+    expect(periodLabel(w)).toBe("Wed Nov 25 on");
+  });
+});

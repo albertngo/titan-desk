@@ -3,8 +3,10 @@
  * rows read from Notion in, each installer's page and text out. Tested in tests/projectWeek.test.ts.
  *
  * The rules, from the grilling:
- * - The week is the next Monday to Sunday (Toronto). A job is in it when its Confirmed Start Date is, and the installer
- *   is in its Contractor relation. Nobody sees a job they aren't on.
+ * - The window is every upcoming job (Albert, 2026-11-25: "can we make the time frame the entire list", "All upcoming
+ *   jobs"; it was next Monday to Sunday): a job is in it when its Confirmed Start Date is today or later, or it started
+ *   earlier and its Project End Date is today or later, and the installer is in its Contractor relation. Nobody sees a
+ *   job they aren't on.
  * - A job's payout is that installer's own Project Costs lines on that project, never anyone else's: the Calculated,
  *   unpaid lines summed. No line yet, or none calculated, reads "pending" (Albert: "can be put as 'pending' if it isn't
  *   set by the PM yet"), and never blocks the page or the text.
@@ -107,6 +109,20 @@ export function nextWeek(today: string): Week {
 
 export const inWeek = (d: string | null, w: Week) => d !== null && d >= w.mon && d <= w.sun;
 
+/** Every upcoming job from `today` on (2026-11-25): the window has no end. */
+export const OPEN_END = "9999-12-31";
+export const upcoming = (today: string): Week => ({ mon: today, sun: OPEN_END });
+const openEnded = (w: Week) => w.sun === OPEN_END;
+/** A job is in the window when it starts in it, or started before it and is still running. */
+export const jobInWindow = (j: Pick<Job, "start" | "end">, w: Week) => inWeek(j.start, w) || (j.start !== null && j.start < w.mon && j.end !== null && j.end >= w.mon);
+/** "Wed Nov 25 on" for the open window, else "Mon Nov 30 to Sun Dec 6". */
+export const periodLabel = (w: Week) => (openEnded(w) ? `${dayLabel(w.mon)} on` : `${dayLabel(w.mon)} to ${dayLabel(w.sun)}`);
+/** The Monday of a date's week, for grouping the page by week. */
+export function mondayOf(iso: string): string {
+  const dow = new Date(`${iso}T12:00:00Z`).getUTCDay() || 7;
+  return addDays(iso, 1 - dow);
+}
+
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 /** "Mon Dec 1". */
@@ -165,7 +181,7 @@ export function buildBoard(input: { member: Member; week: Week; today: string; j
   const strays = new Set(strayLines(input.jobs, input.lines).map((s) => s.line.id));
   const lines = input.lines.filter((l) => !strays.has(l.id) && l.assignedTo.includes(member.id));
   const jobs: BoardJob[] = input.jobs
-    .filter((j) => inWeek(j.start, week) && j.contractors.includes(member.id))
+    .filter((j) => jobInWindow(j, week) && j.contractors.includes(member.id))
     .sort((a, b) => (a.start ?? "").localeCompare(b.start ?? "") || (a.city ?? "").localeCompare(b.city ?? ""))
     .map((job) => ({
       job,
@@ -215,7 +231,7 @@ export function messageText(b: Board, link: string): string {
   const ready = b.readyTotal > 0 ? `\n\nYour finished jobs are done and payment is on the way.` : "";
   return (
     `[Automated] Hello ${firstName(b.member.name)}. This is Titan Flooring.\n\n` +
-    `Your project week, ${dayLabel(b.week.mon)} to ${dayLabel(b.week.sun)}: ${parts.join(", ")}.${ready}\n\n` +
+    `${openEnded(b.week) ? "Your upcoming jobs" : `Your project week, ${periodLabel(b.week)}`}: ${parts.join(", ")}.${ready}\n\n` +
     `Your schedule, scope photos and payouts: ${link}`
   );
 }
@@ -223,7 +239,7 @@ export function messageText(b: Board, link: string): string {
 export type OutMessage = { channel: string; phone: string | null; whatsapp_group_id: string | null; email: string | null; subject: string | null; text: string };
 
 /** The email's subject. */
-export const emailSubject = (b: Board) => `Your project week, ${dayLabel(b.week.mon)} to ${dayLabel(b.week.sun)}`;
+export const emailSubject = (b: Board) => (openEnded(b.week) ? "Your upcoming jobs with Titan Flooring" : `Your project week, ${periodLabel(b.week)}`);
 
 /**
  * One message per selected channel, as the QA dispatch's Make scenario (5030370) takes them. Email (since 2026-11-24)
@@ -266,14 +282,19 @@ const image = (uploadId: string) => ({ object: "block", type: "image", image: { 
  */
 export function boardBlocks(b: Board, images: Map<string, string[]>, updated: string): object[] {
   const out: object[] = [
-    heading(1, `Project week: ${dayLabel(b.week.mon)} to ${dayLabel(b.week.sun)}`),
+    heading(1, openEnded(b.week) ? "Your upcoming jobs" : `Project week: ${periodLabel(b.week)}`),
     para(`For ${firstName(b.member.name)} only. Updated ${updated}. This page updates itself when your schedule or payouts change.`),
-    heading(2, "This week"),
   ];
-  if (!b.jobs.length) out.push(para("No jobs booked for you this week yet."));
-  // A line between jobs (Albert, 2026-11-25: "add some ui separation").
+  if (!openEnded(b.week)) out.push(heading(2, "This week"));
+  if (!b.jobs.length) out.push(para(openEnded(b.week) ? "No upcoming jobs booked for you yet." : "No jobs booked for you this week yet."));
+  // A line between jobs (Albert, 2026-11-25: "add some ui separation"); every upcoming job is grouped by its week.
+  let lastWeek: string | null = null;
   b.jobs.forEach(({ job, payout, work }, n) => {
-    if (n > 0) out.push(divider());
+    const wk = openEnded(b.week) ? (job.start && job.start >= b.week.mon ? mondayOf(job.start) : "now") : null;
+    if (wk !== null && wk !== lastWeek) {
+      out.push(heading(2, wk === "now" ? "In progress" : `Week of ${dayLabel(wk)}`));
+      lastWeek = wk;
+    } else if (n > 0) out.push(divider());
     out.push(heading(3, `${job.start ? dayLabel(job.start) : "Date to be confirmed"}: ${job.city ?? "City to be confirmed"}`));
     if (firstName(job.customer)) out.push(bullet("Customer", firstName(job.customer)));
     out.push(bullet("Address", [job.street, job.city].filter(Boolean).join(", ") || "To be confirmed"));
@@ -284,7 +305,7 @@ export function boardBlocks(b: Board, images: Map<string, string[]>, updated: st
     out.push(bullet("Your payout", payoutWords(payout)));
     for (const id of images.get(job.id) ?? []) out.push(image(id));
   });
-  if (b.jobs.length) out.push(para(`Week total, confirmed: ${money(b.weekTotal)}${b.pending ? ` (plus ${b.pending} pending)` : ""}.`));
+  if (b.jobs.length) out.push(para(`${openEnded(b.week) ? "Total" : "Week total"}, confirmed: ${money(b.weekTotal)}${b.pending ? ` (plus ${b.pending} pending)` : ""}.`));
   out.push(divider(), heading(2, "Ready to be paid"));
   if (!b.ready.length) out.push(para("Nothing waiting right now."));
   for (const r of b.ready) out.push(bullet(`${r.label} (finished ${dayLabel(r.ended)})`, r.held ? "Done. Payment on hold until your open work order there is closed" : "Done. Payment is on the way"));
@@ -308,7 +329,7 @@ export const memberStatus = (entries: LogEntry[]): LogEntry["status"] => (entrie
 
 /** One dated line for the bottom of the person's Titan Team page. Pure; `when` is the Toronto time already formatted. */
 export function logLine(e: LogEntry, week: { mon: string; sun: string }, pressedBy: string, when: string): string {
-  const what = `Project Week ${dayLabel(week.mon)} to ${dayLabel(week.sun)}, ${e.jobs} job${e.jobs === 1 ? "" : "s"}`;
+  const what = `Project Week ${periodLabel(week)}, ${e.jobs} job${e.jobs === 1 ? "" : "s"}`;
   const how = [e.channel === "None" ? null : e.channel, e.test ? "Test" : "Live", pressedBy].filter(Boolean).join(", ");
   return `${when}: ${e.status}. ${what} (${how}).${e.reason ? ` ${e.reason}` : ""}`;
 }
