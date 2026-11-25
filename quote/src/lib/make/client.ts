@@ -191,7 +191,9 @@ export async function sendAlert(alert: { to: string; forEmail: string | null; te
  */
 export const dispatchConfigured = () => Boolean(process.env.QUOTE_MAKE_DISPATCH_HOOK?.trim());
 
-export type DispatchMessage = { name: string; channel: string; phone: string | null; whatsapp_group_id: string | null; email?: string | null; subject?: string | null; text: string };
+/** An address for the email route's CC and Reply-To (2026-11-25: the job's project manager). */
+export type MailAddress = { address: string; name: string };
+export type DispatchMessage = { name: string; channel: string; phone: string | null; whatsapp_group_id: string | null; email?: string | null; subject?: string | null; cc?: MailAddress[]; reply_to?: MailAddress[]; text: string };
 
 export async function sendDispatchMessage(m: DispatchMessage): Promise<void> {
   const url = process.env.QUOTE_MAKE_DISPATCH_HOOK?.trim();
@@ -202,7 +204,7 @@ export async function sendDispatchMessage(m: DispatchMessage): Promise<void> {
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ source: "project-week", name: m.name, channel: m.channel, phone: m.phone, whatsapp_group_id: m.whatsapp_group_id, email: m.email ?? null, subject: m.subject ?? null, text: m.text, text_json: JSON.stringify(m.text), ready: true }),
+    body: JSON.stringify({ source: "project-week", name: m.name, channel: m.channel, phone: m.phone, whatsapp_group_id: m.whatsapp_group_id, email: m.email ?? null, subject: m.subject ?? null, cc: m.cc ?? [], reply_to: m.reply_to ?? [], text: m.text, text_json: JSON.stringify(m.text), ready: true }),
     cache: "no-store",
     signal: AbortSignal.timeout(30_000),
   });

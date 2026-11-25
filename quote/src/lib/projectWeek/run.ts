@@ -162,6 +162,9 @@ export async function runProjectWeek(scope: RunScope, now = new Date()): Promise
     members = [one];
   }
 
+  // Project managers by Notion user id, from Titan Team rows with a Notion User and an Email (2026-11-25).
+  const pmByUser = new Map<string, { name: string; email: string }>();
+  for (const m of team) for (const id of m.userIds ?? []) if (m.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(m.email)) pmByUser.set(id, { name: m.name, email: m.email });
   const cache = new Map<string, Uint8Array | null>();
   const send = scope.kind === "all" || scope.kind === "one" || scope.kind === "weekly" || scope.kind === "headsup";
   if (send && !dispatchConfigured()) result.notes.push("Texts aren't switched on for this deployment; the pages were still updated.");
@@ -180,6 +183,8 @@ export async function runProjectWeek(scope: RunScope, now = new Date()): Promise
       board.changes = prev ? changesSince(prev, snap, today) : null;
       board.details = prev ? changeDetails(prev, board, today) : [];
       board.lastSentOn = member.lastSentOn ?? null;
+      // The project managers on their jobs (Titan Projects → Project Manager, matched by Notion User on Titan Team).
+      board.pms = [...new Map(board.jobs.flatMap(({ job }) => job.pmIds ?? []).flatMap((id) => pmByUser.get(id) ?? []).map((p) => [p.email, p])).values()];
       snaps.set(member.id, serializeSnapshot(snap));
       // Who gets a text: a button press as before; Friday's send only someone with jobs and something new (or a first
       // text); the heads-up only someone whose next 3 days moved, at most once a day.
@@ -227,7 +232,7 @@ export async function runProjectWeek(scope: RunScope, now = new Date()): Promise
           if (sendsLive()) {
             await sendDispatchMessage({ name: member.name, ...m });
           } else if (m.channel === "Email" && testEmail()) {
-            await sendDispatchMessage({ name: member.name, ...m, email: testEmail(), subject: `[Test for ${member.name}] ${m.subject ?? ""}`.trim(), text: `[Test: for ${member.name} to ${m.email}]\n${m.text}` });
+            await sendDispatchMessage({ name: member.name, ...m, cc: [], reply_to: [], email: testEmail(), subject: `[Test for ${member.name}] ${m.subject ?? ""}`.trim(), text: `[Test: for ${member.name} to ${m.email}]\n${m.text}` });
           } else {
             const phone = testPhone();
             if (!phone) {

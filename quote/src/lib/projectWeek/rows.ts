@@ -13,8 +13,8 @@ export type Row = { id: string; properties?: Props };
 export const CARD_MARK = "quote-card:";
 export const cardMark = (quoteRecordId: string, cardId: string) => `${CARD_MARK}${quoteRecordId}/${cardId}`;
 
-export const TEAM = { name: "Name", phone: "Phone", channels: "Project Week Channels", groupId: "WhatsApp Group ID", rateCardName: "Rate Card Name", boardUrl: "Project Week Link", email: "Email", sendStatus: "Project Week Status", sentDate: "Project Week Sent", lastSent: "Project Week Last Sent" } as const;
-export const PROJECT = { customer: "Name", street: "Street Address", city: "City", phone: "Contact", type: "Project Type", start: "Confirmed Start Date", end: "Project End Date", contractors: "Contractor", shareLink: "CCAM Share Link", camUrl: "CompanyCam Link" } as const;
+export const TEAM = { name: "Name", phone: "Phone", channels: "Project Week Channels", groupId: "WhatsApp Group ID", rateCardName: "Rate Card Name", boardUrl: "Project Week Link", email: "Email", sendStatus: "Project Week Status", sentDate: "Project Week Sent", lastSent: "Project Week Last Sent", notionUser: "Notion User" } as const;
+export const PROJECT = { customer: "Name", street: "Street Address", city: "City", phone: "Contact", type: "Project Type", start: "Confirmed Start Date", end: "Project End Date", contractors: "Contractor", shareLink: "CCAM Share Link", camUrl: "CompanyCam Link", pm: "Project Manager" } as const;
 export const COST = { name: "Name", category: "Category", project: "Project", assignedTo: "Assigned To", cost: "Cost", calculated: "Calculated (1/3)", paidOut: "Paid Out Date (2/3)", paidRef: "Paid Reference (3/3)", notes: "Notes", source: "Cost Source" } as const;
 export const WORK_ORDER = { status: "Status", contractor: "Contractor To Fix", project: "Project" } as const;
 /** The QA dispatch's active statuses (Sending.... has four dots). */
@@ -37,6 +37,10 @@ export function text(p: Record<string, unknown> | undefined): string | null {
 
 export const relation = (p: Record<string, unknown> | undefined): string[] =>
   Array.isArray(p?.relation) ? (p!.relation as { id?: string }[]).flatMap((r) => (typeof r.id === "string" ? [dashed(r.id)] : [])) : [];
+
+/** A people property's user ids. */
+export const people = (p: Record<string, unknown> | undefined): string[] =>
+  Array.isArray(p?.people) ? (p!.people as { id?: string }[]).flatMap((u) => (typeof u.id === "string" ? [dashed(u.id)] : [])) : [];
 
 export const multi = (p: Record<string, unknown> | undefined): string[] =>
   Array.isArray(p?.multi_select) ? (p!.multi_select as { name?: string }[]).flatMap((r) => (typeof r.name === "string" ? [r.name] : [])) : [];
@@ -68,6 +72,7 @@ export function memberOf(r: Row): Member & { rateCardName: string | null } {
     rateCardName: text(p[TEAM.rateCardName]),
     lastSent: text(p[TEAM.lastSent]),
     lastSentOn: dateStart(p[TEAM.sentDate]),
+    userIds: people(p[TEAM.notionUser]),
   };
 }
 
@@ -86,6 +91,7 @@ export function jobOf(r: Row): Job {
     contractors: relation(p[PROJECT.contractors]),
     shareLink: link && /^https:\/\//.test(link) ? link : null,
     camUrl: text(p[PROJECT.camUrl]),
+    pmIds: people(p[PROJECT.pm]),
   };
 }
 
