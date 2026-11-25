@@ -3,7 +3,7 @@ import { appendBlocks, boardsParent, childrenOf, DS, downloadNotionFile, normalI
 import { sendDispatchMessage, dispatchConfigured } from "@/lib/make/client";
 import { galleryLink } from "@/lib/gallery/token";
 import { embedFeedFor } from "@/lib/quotes/companycam";
-import { writeLog } from "./log";
+import { markNothingToSend, writeLog } from "./log";
 import { quoteScopes } from "./quoteScope";
 import { boardBlocks, buildBoard, isReadyLine, type LogEntry, membersToBuild, messagesFor, nextWeek, strayLines, torontoToday, type Board, type Job, type Member } from "./model";
 import { costLineOf, COST, jobOf, memberOf, OPEN_WO_STATUSES, PROJECT, TEAM, WORK_ORDER, workOrderOf, type Row } from "./rows";
@@ -206,6 +206,8 @@ export async function runProjectWeek(scope: RunScope, now = new Date()): Promise
       if (send) manual(`The page or text failed: ${why}`);
     }
   }
+  // Send my week on someone with nothing to text: their row's Sending..... becomes Nothing to Send.
+  if (scope.kind === "one" && members[0] && !log.some((e) => e.memberId === members[0].id)) await markNothingToSend(members[0].id);
   if (send && log.length) {
     const note = await writeLog(log, week, scope.kind === "all" ? "Send all" : "Send my week", now);
     if (note) result.notes.push(note);

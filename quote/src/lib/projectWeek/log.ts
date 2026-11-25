@@ -34,6 +34,19 @@ async function projectWeekColumn(memberId: string): Promise<string> {
   throw new Error("The Dispatch Log columns couldn't be made on the page.");
 }
 
+/**
+ * Project Week Status is a Notion status (Albert, 2026-11-25): his Send my week button sets it to "Sending....." before
+ * calling the app, and the app always moves it on. When a press had nothing to text (no jobs or payouts next week),
+ * this sets "Nothing to Send", so the row never stays on Sending.
+ */
+export async function markNothingToSend(memberId: string): Promise<void> {
+  try {
+    await notionPayout("PATCH", `/pages/${memberId}`, { properties: { [TEAM.sendStatus]: { status: { name: "Nothing to Send" } } } });
+  } catch (err) {
+    console.error("project week status", err instanceof Error ? err.message.slice(0, 200) : typeof err);
+  }
+}
+
 export async function writeLog(entries: LogEntry[], week: { mon: string; sun: string }, pressedBy: "Send all" | "Send my week", at: Date): Promise<string | null> {
   const when = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }).format(at);
   const byMember = new Map<string, LogEntry[]>();
@@ -44,7 +57,7 @@ export async function writeLog(entries: LogEntry[], week: { mon: string; sun: st
       const status = memberStatus(list);
       // Project Week Sent (Albert, 2026-11-25): moves only when everything went out; a failed press leaves the last good date.
       const sent = status === "Sent Successfully" ? { [TEAM.sentDate]: { date: { start: at.toISOString() } } } : {};
-      await notionPayout("PATCH", `/pages/${memberId}`, { properties: { [TEAM.sendStatus]: { select: { name: status } }, ...sent } });
+      await notionPayout("PATCH", `/pages/${memberId}`, { properties: { [TEAM.sendStatus]: { status: { name: status } }, ...sent } });
       const column = await projectWeekColumn(memberId);
       await appendBlocks(
         column,
