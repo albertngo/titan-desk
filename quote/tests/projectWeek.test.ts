@@ -342,3 +342,17 @@ describe("every upcoming job (2026-11-25)", () => {
     expect(periodLabel(w)).toBe("Wed Nov 25 on");
   });
 });
+
+describe("the card pictures fold under Your payout (2026-11-25)", () => {
+  it("is a toggle holding the pictures when there are any, a plain line when not", async () => {
+    const { boardBlocks } = await import("@/lib/projectWeek/model");
+    const job = { id: "j1", customer: "Sam Test", street: "1 Test St", city: "Testville", phone: null, type: "Flooring", start: "2026-12-01", end: null, contractors: ["m1"], shareLink: null, camUrl: null };
+    const board = { member: { id: "m1", name: "Alex One", phone: null, channels: [], groupId: null, email: null, boardUrl: null }, week: { mon: "2026-11-25", sun: "9999-12-31" }, jobs: [{ job, payout: { kind: "final", amount: 500 }, cardLineIds: [], work: null }], ready: [], weekTotal: 500, pending: 0, readyTotal: 0 } as unknown as Parameters<typeof boardBlocks>[0];
+    const withPics = boardBlocks(board, new Map([["j1", ["up1", "up2"]]]), "now") as { type: string; toggle?: { children: { type: string }[] } }[];
+    const t = withPics.find((b) => b.type === "toggle")!;
+    expect(t.toggle!.children.map((c) => c.type)).toEqual(["image", "image"]);
+    expect(withPics.filter((b) => b.type === "image")).toEqual([]);
+    const none = boardBlocks(board, new Map(), "now") as { type: string }[];
+    expect(none.some((b) => b.type === "toggle")).toBe(false);
+  });
+});
