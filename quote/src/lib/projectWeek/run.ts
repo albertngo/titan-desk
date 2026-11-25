@@ -36,6 +36,15 @@ export type RunResult = {
 const sendsLive = () => process.env.QUOTE_PROJECT_WEEK_SEND?.trim() === "live";
 const testPhone = () => process.env.QUOTE_PROJECT_WEEK_TEST_PHONE?.trim() || null;
 /**
+ * Test mode's email address (2026-11-25: "sort out the email for gerardo and that pipeline"): an installer's Email
+ * message goes there through the real Outlook route, so the email path is tested too. Unset: it comes to the test
+ * phone as a text, as before.
+ */
+const testEmail = () => {
+  const e = process.env.QUOTE_PROJECT_WEEK_TEST_EMAIL?.trim() ?? "";
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) ? e : null;
+};
+/**
  * Albert's switch for CompanyCam's embed feed as the scope link (2026-11-24: "Try the embed feed link"): exactly `on`
  * once a feed has been opened logged out and shows no payout photos. A pasted CCAM Share Link always wins.
  */
@@ -217,6 +226,8 @@ export async function runProjectWeek(scope: RunScope, now = new Date()): Promise
         try {
           if (sendsLive()) {
             await sendDispatchMessage({ name: member.name, ...m });
+          } else if (m.channel === "Email" && testEmail()) {
+            await sendDispatchMessage({ name: member.name, ...m, email: testEmail(), subject: `[Test for ${member.name}] ${m.subject ?? ""}`.trim(), text: `[Test: for ${member.name} to ${m.email}]\n${m.text}` });
           } else {
             const phone = testPhone();
             if (!phone) {
