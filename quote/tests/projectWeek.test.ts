@@ -393,3 +393,21 @@ describe("the What changed box at the top of the page (2026-11-25)", () => {
     expect(JSON.stringify(boardBlocks(board, new Map(), "now"))).not.toContain("callout");
   });
 });
+
+describe("the Friday send and the 3-day heads-up (2026-11-25)", () => {
+  it("heads-up only for a near job added, removed, moved or re-addressed", async () => {
+    const { needsHeadsUp, torontoClock } = await import("@/lib/projectWeek/changes");
+    type T = [string, string, string, string, string, 0 | 1];
+    const prev = { v: 1 as const, j: { a: ["2026-11-27", "", "h", "w", "p", 0] as T, far: ["2026-12-20", "", "h", "w", "p", 0] as T }, r: [] };
+    const today = "2026-11-25";
+    expect(needsHeadsUp(prev, prev, today)).toBe(false);
+    expect(needsHeadsUp(prev, { ...prev, j: { ...prev.j, a: ["2026-11-28", "", "h", "w", "p", 0] as T } }, today)).toBe(true);
+    expect(needsHeadsUp(prev, { ...prev, j: { ...prev.j, a: ["2026-11-27", "", "h2", "w", "p", 0] as T } }, today)).toBe(true);
+    expect(needsHeadsUp(prev, { ...prev, j: { ...prev.j, a: ["2026-11-27", "", "h", "w2", "p2", 1] as T } }, today)).toBe(false);
+    expect(needsHeadsUp(prev, { ...prev, j: { ...prev.j, far: ["2026-12-21", "", "h", "w", "p", 0] as T } }, today)).toBe(false);
+    expect(needsHeadsUp(prev, { ...prev, j: { far: prev.j.far } }, today)).toBe(true);
+    expect(needsHeadsUp(prev, { ...prev, j: { ...prev.j, n: ["2026-11-26", "", "h", "w", "p", 0] as T } }, today)).toBe(true);
+    // Fri Nov 27 2026, 3:10 pm Toronto is 20:10 UTC (EST).
+    expect(torontoClock(new Date("2026-11-27T20:10:00Z"))).toEqual({ weekday: 5, hour: 15 });
+  });
+});

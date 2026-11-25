@@ -594,7 +594,11 @@ describe("Installer Project Week (2026-11-24: Project Costs lines and each insta
     expect(run).toMatch(/if \(under === parent && !found\.archived && !found\.in_trash\) page = found;/);
     // Nothing is texted until the page is published (2026-11-24: boards sit under Contractor Boards, published one by one).
     expect(run).toMatch(/if \(!page\.publicUrl\) \{/);
-    expect(run).toMatch(/const send = scope\.kind === "all" \|\| scope\.kind === "one";/);
+    // Texts go on a Send press, and since 2026-11-25 on the Friday 3 pm send and the 3-day heads-up, which check the
+    // Toronto clock themselves; the nightly rebuild and a card going final never text.
+    expect(run).toMatch(/const send = scope\.kind === "all" \|\| scope\.kind === "one" \|\| scope\.kind === "weekly" \|\| scope\.kind === "headsup";/);
+    expect(run).toMatch(/if \(scope\.kind === "weekly" && !\(clock\.weekday === 5 && clock\.hour === 15\)\) return/);
+    expect(run).toMatch(/if \(scope\.kind === "headsup" && \(clock\.hour < 8 \|\| clock\.hour >= 19\)\) return/);
     // Until Albert flips it, every text goes to the test phone.
     expect(run).toMatch(/const sendsLive = \(\) => process\.env\.QUOTE_PROJECT_WEEK_SEND\?\.trim\(\) === "live";/);
   });

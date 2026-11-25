@@ -1,0 +1,46 @@
+name: Quote Project Week sends
+
+# Installer Project Week's automatic sends (Albert, 2026-11-25: "Build the Friday 3pm send and 3-day heads-up"; vault
+# 05_decisions/2026-11-25-project-week-auto-sends). This only calls the staff quote app at /api/project-week:
+# - weekly: Friday 3 pm Toronto. Texts each installer with upcoming jobs and something new since their last text.
+# - headsup: every hour 8 am to 7 pm Toronto. Texts only someone whose jobs in the next 3 days were added, removed,
+#   moved or re-addressed, at most once a day.
+# The app checks the Toronto day and hour itself, so the UTC schedule runs a little wide (and twice across a time
+# change) and sends once. Texts go to the test phone until QUOTE_PROJECT_WEEK_SEND is live. Off until both secrets
+# (QUOTE_STAFF_URL and QUOTE_PROJECT_WEEK_KEY) are set in this repo's Actions secrets.
+
+on:
+  schedule:
+    - cron: "5 19,20 * * 5"
+    - cron: "35 12-23 * * *"
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: "weekly or headsup"
+        required: true
+        default: "headsup"
+
+concurrency:
+  group: quote-project-week
+  cancel-in-progress: false
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call the Project Week run
+        env:
+          QUOTE_STAFF_URL: ${{ secrets.QUOTE_STAFF_URL }}
+          QUOTE_PROJECT_WEEK_KEY: ${{ secrets.QUOTE_PROJECT_WEEK_KEY }}
+          SCHEDULE: ${{ github.event.schedule }}
+          INPUT_SCOPE: ${{ github.event.inputs.scope }}
+        run: |
+          if [ -z "$QUOTE_STAFF_URL" ] || [ -z "$QUOTE_PROJECT_WEEK_KEY" ]; then
+            echo "QUOTE_STAFF_URL or QUOTE_PROJECT_WEEK_KEY is not set; automatic Project Week sends are off."
+            exit 0
+          fi
+          if [ -n "$INPUT_SCOPE" ]; then SCOPE="$INPUT_SCOPE"; elif [ "$SCHEDULE" = "5 19,20 * * 5" ]; then SCOPE=weekly; else SCOPE=headsup; fi
+          case "$SCOPE" in weekly|headsup) ;; *) echo "scope must be weekly or headsup"; exit 1 ;; esac
+          curl -fsS --max-time 60 -X POST "${QUOTE_STAFF_URL%/}/api/project-week?scope=$SCOPE" \
+            -H "x-project-week-key: $QUOTE_PROJECT_WEEK_KEY"

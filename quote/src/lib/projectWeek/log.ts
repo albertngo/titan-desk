@@ -50,7 +50,7 @@ export async function markNothingToSend(memberId: string): Promise<void> {
   }
 }
 
-export async function writeLog(entries: LogEntry[], week: { mon: string; sun: string }, pressedBy: "Send all" | "Send my week", at: Date, snaps: Map<string, string> = new Map()): Promise<string | null> {
+export async function writeLog(entries: LogEntry[], week: { mon: string; sun: string }, pressedBy: string, at: Date, snaps: Map<string, string> = new Map()): Promise<string | null> {
   const when = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }).format(at);
   const byMember = new Map<string, LogEntry[]>();
   for (const e of entries) byMember.set(e.memberId, [...(byMember.get(e.memberId) ?? []), e]);

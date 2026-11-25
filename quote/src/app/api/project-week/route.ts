@@ -15,6 +15,8 @@ export const maxDuration = 300;
  *   job next week.
  * - POST `?scope=one`: the Send my week button on a Titan Team row. Notion sends that row as `data`; only its id is
  *   used, and it must be a Titan Team row.
+ * - POST `?scope=weekly` / `?scope=headsup` (2026-11-25): the Friday 3 pm send and the hourly 3-day heads-up, called by
+ *   `.github/workflows/quote-project-week.yml` with the same key.
  * - GET: the nightly rebuild (Vercel cron, `Authorization: Bearer <CRON_SECRET>`). Texts nobody.
  *
  * Notion's button sends the key in the `x-project-week-key` header (set on the button's webhook action). A run reads
@@ -40,12 +42,16 @@ export async function POST(request: NextRequest) {
   const what = request.nextUrl.searchParams.get("scope");
   let scope: RunScope;
   if (what === "all") scope = { kind: "all" };
+  // The Friday 3 pm send and the 3-day heads-up (2026-11-25), from .github/workflows/quote-project-week.yml. The run
+  // checks the Toronto clock itself.
+  else if (what === "weekly") scope = { kind: "weekly" };
+  else if (what === "headsup") scope = { kind: "headsup" };
   else if (what === "one") {
     const body = (await request.json().catch(() => null)) as { data?: { id?: unknown } } | null;
     const id = typeof body?.data?.id === "string" ? body.data.id : "";
     if (!id) return NextResponse.json({ ok: false, message: "No Titan Team row in the request." }, { status: 400 });
     scope = { kind: "one", memberId: id };
-  } else return NextResponse.json({ ok: false, message: "scope must be all or one." }, { status: 400 });
+  } else return NextResponse.json({ ok: false, message: "scope must be all, one, weekly or headsup." }, { status: 400 });
   after(async () => {
     try {
       console.log("project-week", JSON.stringify(await runProjectWeek(scope)));
