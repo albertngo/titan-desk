@@ -2819,3 +2819,17 @@ a.file-item, .file-item { display: grid; grid-template-columns: 16px minmax(0, 1
   .mb-more { grid-template-columns: minmax(0, 1fr); padding: 6px 12px 14px; }
   .mb-acts .btn { min-height: 40px; }
 }
+
+/* ---------- Job photos for installers (/g/<token>, customer deployment, 2026-11-25) ---------- */
+.gal { max-width: 1100px; margin: 0 auto; padding: 20px 16px 48px; font-size: 15px; line-height: 1.45; }
+.gal-head h1 { font-family: var(--font-ptserif), Georgia, serif; font-size: 22px; margin: 8px 0 4px; }
+.gal-head p { margin: 0 0 8px; }
+.gal-day { margin-top: 22px; }
+.gal-day h2 { font-size: 15px; font-weight: 700; margin: 0 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
+.gal-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+.gal-item { background: var(--card); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.gal-item img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; background: var(--head); }
+.gal-desc { margin: 8px 10px 0; font-size: 13.5px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.gal-time { margin: 4px 10px 8px; font-size: 12px; }
+.gal-item img + .gal-time, .gal-item a + .gal-time { margin-top: 8px; }
+.gal-empty { margin-top: 20px; }

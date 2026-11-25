@@ -1404,6 +1404,16 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   Team column, apart from Dispatch Channels, Albert 2026-11-24; empty = no text; Email, also 2026-11-24, goes from info@
   through 5030370's Outlook route to the Titan Team Email, subject "Your project week, <dates>"), to the test phone until
   `QUOTE_PROJECT_WEEK_SEND` is `live`. Tested in `tests/projectWeek.test.ts`.
+- **Job photos for installers (Albert, 2026-11-25: "can the quote app host the photos and share it all with its own
+  link", "include descriptions"; vault `05_decisions/2026-11-25-installer-photo-gallery`).** CompanyCam's embed feed shows
+  twelve photos and sends the rest to a CompanyCam login, so the app hosts its own page instead: `/g/<project id>-<HMAC>`
+  on the customer deployment (Albert chose it over the staff app, which holds the write tokens). Every photo on the job's
+  CompanyCam project, newest day first, each with its description and time, tap for full size; read live each open,
+  stored nowhere, images loaded from CompanyCam's own addresses. Nothing is hidden ("share it all"). The Project Week run
+  signs the link with `QUOTE_GALLERY_KEY` (the same value on both deployments; changing it turns every link off) from the
+  Titan Projects row's CompanyCam Link and the customer address `QUOTE_CUSTOMER_URL`. Scope link order: a pasted CCAM
+  Share Link, else this gallery, else the embed feed when `QUOTE_PROJECT_WEEK_EMBED` is `on`. Files:
+  `src/lib/gallery/token.ts`, `src/lib/gallery/load.ts`, `src/app/g/[token]/page.tsx`; rule 2d.
 - **Typed lines saved for next time, and logged (Albert, 2026-11-01: "When we add custom items and the quote ends
   up being SENT… make it so that those items are created for next time use and make them 'require review'… There
   should be a log of where it was used so I can ensure it wasn't wrongly charged").** After a quote is sent (never
