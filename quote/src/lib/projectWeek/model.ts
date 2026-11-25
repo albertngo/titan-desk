@@ -14,6 +14,8 @@
  * - A line on a week job assigned to someone who isn't on the job is left off every page and reported.
  */
 
+import { mergeWork, parseWork, workKind, workLines, type Work } from "./work";
+
 export type Member = {
   id: string;
   name: string;
@@ -47,7 +49,7 @@ export type Job = {
   /** Titan Projects → CCAM Share Link: the public CompanyCam link, pasted by staff. */
   shareLink: string | null;
   /** The accepted quote's scope (scope.ts), the fallback for Work until a payout card is final (2026-11-25). */
-  quoteScope?: string | null;
+  quoteScope?: Work | null;
   /** Titan Projects → CompanyCam Link: the project's own (signed-in) address, used to find its embed feed. */
   camUrl?: string | null;
 };
@@ -63,7 +65,7 @@ export type CostLine = {
   paid: boolean;
   /** Made by the quote app from a payout card (Notes carries the card marker). */
   fromCard: boolean;
-  /** The work on that card, in one line (2026-11-25), or null. */
+  /** The work on that card, stored as text (work.ts serializeWork, 2026-11-25), or null. */
   work?: string | null;
 };
 
@@ -71,7 +73,7 @@ export type OpenWorkOrder = { projectId: string; contractorIds: string[] };
 
 export type Payout = { kind: "final"; amount: number } | { kind: "partial"; amount: number } | { kind: "pending" };
 
-export type BoardJob = { job: Job; payout: Payout; cardLineIds: string[]; work: string | null };
+export type BoardJob = { job: Job; payout: Payout; cardLineIds: string[]; work: Work | null };
 export type ReadyLine = { lineId: string; projectId: string; label: string; ended: string; amount: number; held: boolean };
 
 export type Board = {
@@ -170,7 +172,7 @@ export function buildBoard(input: { member: Member; week: Week; today: string; j
       payout: payoutFor(job.id, member.id, lines),
       cardLineIds: lines.filter((l) => l.projectId === job.id && l.fromCard && !l.paid).map((l) => l.id),
       // Albert, 2026-11-25 ("Card, else quote"): the installer's own card work once final, else the accepted quote's scope.
-      work: lines.filter((l) => l.projectId === job.id && !l.paid && l.work).map((l) => l.work).join(" · ") || job.quoteScope || null,
+      work: lines.filter((l) => l.projectId === job.id && !l.paid).reduce<Work | null>((acc, l) => mergeWork(acc, parseWork(l.work)), null) ?? job.quoteScope ?? null,
     }));
   const ready: ReadyLine[] = [];
   for (const l of lines) {
@@ -251,6 +253,10 @@ const bullet = (label: string, value: string, link?: string | null) => ({
   type: "bulleted_list_item",
   bulleted_list_item: { rich_text: [{ type: "text", text: { content: `${label}: ` }, annotations: { bold: true } }, ...rich(value, link)] },
 });
+const bulletWith = (label: string, value: string, children: object[]) => {
+  const b = bullet(label, value) as { bulleted_list_item: Record<string, unknown> };
+  return children.length ? { ...b, bulleted_list_item: { ...b.bulleted_list_item, children } } : b;
+};
 const divider = () => ({ object: "block", type: "divider", divider: {} });
 const image = (uploadId: string) => ({ object: "block", type: "image", image: { type: "file_upload", file_upload: { id: uploadId } } });
 
@@ -272,8 +278,8 @@ export function boardBlocks(b: Board, images: Map<string, string[]>, updated: st
     if (firstName(job.customer)) out.push(bullet("Customer", firstName(job.customer)));
     out.push(bullet("Address", [job.street, job.city].filter(Boolean).join(", ") || "To be confirmed"));
     if (job.phone) out.push(bullet("Customer phone", job.phone));
-    if (job.type) out.push(bullet("Type", job.type));
-    if (work) out.push(bullet("Work", work));
+    if (job.type && !work) out.push(bullet("Type", job.type));
+    if (work) out.push(bulletWith("Work", workKind(work, job.type), workLines(work).map((w) => bullet(w.label, w.text))));
     out.push(job.shareLink ? bullet("Scope photos", "Open in CompanyCam", job.shareLink) : bullet("Scope photos", "Scope link coming"));
     out.push(bullet("Your payout", payoutWords(payout)));
     for (const id of images.get(job.id) ?? []) out.push(image(id));

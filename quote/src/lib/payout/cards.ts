@@ -2,6 +2,7 @@ import { isPriced, isTyped, payoutAmount, payoutTotal, round2, sectionOf, SECTIO
 import { picksOf } from "@/lib/accept/plan";
 import { optionScope } from "@/lib/quotes/scope";
 import type { Quote, QuoteLine, QuoteOption, RateCard, Scope } from "@/lib/quotes/types";
+import { serializeWork, workFromItems } from "@/lib/projectWeek/work";
 
 /**
  * Contractor payout cards (Albert, 2026-11-04: "we have to also send the contractor a payout form… select the final
@@ -436,18 +437,12 @@ export function camDescription(c: PayoutCard, h: Pick<CardHeader, "quoteNumber" 
 }
 
 /**
- * The work on a card in one short line, for the installer's Project Week page (Albert, 2026-11-25: "a short description of
- * the project... simply the payout card itself"): each ticked line's description with its quantity and unit, joined.
+ * The work on a card, in the standard shape the installer's Project Week page shows (Albert, 2026-11-25), as stored text
+ * (JSON): the ticked lines' section, description, quantity and unit. Empty when there is nothing to show.
  */
-export function cardScope(c: Pick<PayoutCard, "lines">, max = 400): string {
-  const parts = c.lines
-    .filter((l) => l.on && l.description.trim())
-    .map((l) => {
-      const qty = l.qty !== null && l.qty !== 1 ? `${Math.round(l.qty * 100) / 100}${l.uom.trim() ? ` ${l.uom.trim()}` : ""}` : "";
-      return [l.description.trim(), l.area.trim() ? `(${l.area.trim()})` : "", qty].filter(Boolean).join(" ");
-    });
-  const text = parts.join(" · ").replace(/\s+/g, " ").trim();
-  return text.length > max ? `${text.slice(0, max - 3).trimEnd()}...` : text;
+export function cardScope(c: Pick<PayoutCard, "lines">): string {
+  const w = workFromItems(c.lines.filter((l) => l.on).map((l) => ({ section: l.section, description: [l.description, l.area.trim() ? `(${l.area.trim()})` : ""].filter(Boolean).join(" "), qty: l.qty, uom: l.uom })));
+  return w ? serializeWork(w) : "";
 }
 
 /* ---------- storing ---------- */

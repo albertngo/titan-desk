@@ -3,14 +3,15 @@ import { listRecords } from "@/lib/airtable/client";
 import { QUOTE, T } from "@/lib/airtable/fields";
 import { loadContract } from "@/lib/quotes/contract";
 import { scopeFromCopy } from "./scope";
+import type { Work } from "./work";
 
 /**
  * For the Project Week run (key-gated, no one signed in): each week job's accepted-quote scope, found by the quote whose
  * Notion Project link is that job's page. Reads Airtable only, writes nothing; a job with no accepted quote, or any
  * read that fails, just has no scope.
  */
-export async function quoteScopes(projectPageIds: string[]): Promise<Map<string, string>> {
-  const out = new Map<string, string>();
+export async function quoteScopes(projectPageIds: string[]): Promise<Map<string, Work>> {
+  const out = new Map<string, Work>();
   const hexes = [...new Set(projectPageIds.map((id) => id.replace(/-/g, "").toLowerCase()).filter((h) => /^[0-9a-f]{32}$/.test(h)))];
   if (!hexes.length) return out;
   try {
