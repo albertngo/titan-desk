@@ -5,7 +5,7 @@ import { galleryLink } from "@/lib/gallery/token";
 import { embedFeedFor } from "@/lib/quotes/companycam";
 import { markNothingToSend, writeLog } from "./log";
 import { quoteScopes } from "./quoteScope";
-import { boardBlocks, buildBoard, isReadyLine, type LogEntry, membersToBuild, messagesFor, nextWeek, strayLines, torontoToday, type Board, type Job, type Member } from "./model";
+import { boardBlocks, buildBoard, isReadyLine, type LogEntry, membersToBuild, messagesFor, upcoming, strayLines, torontoToday, type Board, type Job, type Member } from "./model";
 import { costLineOf, COST, jobOf, memberOf, OPEN_WO_STATUSES, PROJECT, TEAM, WORK_ORDER, workOrderOf, type Row } from "./rows";
 
 /**
@@ -108,14 +108,15 @@ async function publish(board: Board, pageId: string, cache: Map<string, Uint8Arr
 
 export async function runProjectWeek(scope: RunScope, now = new Date()): Promise<RunResult> {
   const today = torontoToday(now);
-  const week = nextWeek(today);
-  const result: RunResult = { ok: false, week: `${week.mon} to ${week.sun}`, pages: [], sent: [], notes: [] };
+  // Every upcoming job (Albert, 2026-11-25: "All upcoming jobs"); it was next Monday to Sunday.
+  const week = upcoming(today);
+  const result: RunResult = { ok: false, week: `${week.mon} on`, pages: [], sent: [], notes: [] };
   if (!payoutNotionOn()) return { ...result, notes: ["Project Week isn't set up on this deployment."] };
   const parent = boardsParent();
   if (!parent) return { ...result, notes: ["Project Week has no boards page (QUOTE_PROJECT_WEEK_PARENT)."] };
 
   const team = (await queryAll(DS.titanTeam, undefined, 500)).map((r) => memberOf(r as Row));
-  const weekJobs = (await queryAll(DS.titanProjects, { and: [{ property: PROJECT.start, date: { on_or_after: week.mon } }, { property: PROJECT.start, date: { on_or_before: week.sun } }] }, 300)).map((r) => jobOf(r as Row));
+  const weekJobs = (await queryAll(DS.titanProjects, { or: [{ property: PROJECT.start, date: { on_or_after: today } }, { property: PROJECT.end, date: { on_or_after: today } }] }, 1000)).map((r) => jobOf(r as Row));
   const yearAgo = new Date(Date.parse(`${today}T12:00:00Z`) - 365 * 86_400_000).toISOString().slice(0, 10);
   const ended = (await queryAll(DS.titanProjects, { and: [{ property: PROJECT.end, date: { on_or_before: today } }, { property: PROJECT.end, date: { on_or_after: yearAgo } }] }, 1000)).map((r) => jobOf(r as Row));
   const lines = (await queryAll(DS.projectCosts, { property: COST.paidRef, rich_text: { is_empty: true } }, 3000)).map((r) => costLineOf(r as Row));

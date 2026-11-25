@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-25",
     kind: "changed",
+    title: "Project Week: every upcoming job",
+    details: ["An installer's Project Week page and text now cover every job they're on from today onward, grouped by week (jobs already under way first), not only next Monday to Sunday."],
+  },
+  {
+    date: "2026-11-25",
+    kind: "changed",
     title: "Project Week: job photos found from the quote",
     details: ["When a project in Notion has no CompanyCam Link, Project Week now uses the CompanyCam link on that job's quote in the app, so the photos link still shows."],
   },
