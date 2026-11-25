@@ -377,3 +377,19 @@ describe("what changed since the last text (2026-11-25)", () => {
     expect(messageText({ ...board, changes: ["Extra job", "Some dates changed"] }, "https://x.test/a")).toContain("What's new: Extra job, Some dates changed.");
   });
 });
+
+describe("the What changed box at the top of the page (2026-11-25)", () => {
+  it("names the job and its old and new day, and shows nothing without a last update", async () => {
+    const { changeDetails, snapshotOf } = await import("@/lib/projectWeek/changes");
+    const { boardBlocks } = await import("@/lib/projectWeek/model");
+    const job = { id: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", customer: "Sam Test", street: "1 Test St", city: "Testville", phone: null, type: "Flooring", start: "2026-12-02", end: null, contractors: ["m1"], shareLink: null, camUrl: null };
+    const board = { member: { id: "m1", name: "Alex One", phone: null, channels: [], groupId: null, boardUrl: null }, week: { mon: "2026-11-25", sun: "9999-12-31" }, jobs: [{ job, payout: { kind: "pending" }, cardLineIds: [], work: null }], ready: [], weekTotal: 0, pending: 1, readyTotal: 0 } as unknown as Parameters<typeof boardBlocks>[0];
+    const before = snapshotOf({ ...board, jobs: [{ ...board.jobs[0], job: { ...job, start: "2026-11-30" } }] });
+    const details = changeDetails(before, board, "2026-11-25");
+    expect(details).toEqual(["Sam, Testville: moved from Mon Nov 30 to Wed Dec 2."]);
+    const blocks = JSON.stringify(boardBlocks({ ...board, details, lastSentOn: "2026-11-24" }, new Map(), "now"));
+    expect(blocks).toContain('"type":"callout"');
+    expect(blocks).toContain("What changed since your last update (Tue Nov 24)");
+    expect(JSON.stringify(boardBlocks(board, new Map(), "now"))).not.toContain("callout");
+  });
+});

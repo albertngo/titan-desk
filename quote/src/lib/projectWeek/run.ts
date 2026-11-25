@@ -3,7 +3,7 @@ import { appendBlocks, boardsParent, childrenOf, DS, downloadNotionFile, normalI
 import { sendDispatchMessage, dispatchConfigured } from "@/lib/make/client";
 import { galleryLink } from "@/lib/gallery/token";
 import { embedFeedFor } from "@/lib/quotes/companycam";
-import { changesSince, parseSnapshot, serializeSnapshot, snapshotOf } from "./changes";
+import { changeDetails, changesSince, parseSnapshot, serializeSnapshot, snapshotOf } from "./changes";
 import { markNothingToSend, writeLog } from "./log";
 import { quoteScopes } from "./quoteScope";
 import { boardBlocks, buildBoard, isReadyLine, type LogEntry, membersToBuild, messagesFor, upcoming, strayLines, torontoToday, type Board, type Job, type Member } from "./model";
@@ -156,6 +156,13 @@ export async function runProjectWeek(scope: RunScope, now = new Date()): Promise
     const manual = (reason: string) => log.push({ memberId: member.id, name: member.name, status: "Needs Manual", channel: "None", test: !sendsLive(), jobs, reason });
     try {
       const board = buildBoard({ member, week, today, jobs: weekJobs, projects, lines, openWorkOrders: workOrders });
+      // Against the last live text (changes.ts): the text's What's new and the page's What changed box.
+      const snap = snapshotOf(board);
+      const prev = parseSnapshot(member.lastSent);
+      board.changes = prev ? changesSince(prev, snap, today) : null;
+      board.details = prev ? changeDetails(prev, board, today) : [];
+      board.lastSentOn = member.lastSentOn ?? null;
+      snaps.set(member.id, serializeSnapshot(snap));
       const page = await boardFor(member, parent);
       if (!page) {
         result.notes.push(`${member.name}'s page couldn't be made.`);
@@ -176,10 +183,6 @@ export async function runProjectWeek(scope: RunScope, now = new Date()): Promise
         manual(why);
         continue;
       }
-      const snap = snapshotOf(board);
-      const prev = parseSnapshot(member.lastSent);
-      board.changes = prev ? changesSince(prev, snap, today) : null;
-      snaps.set(member.id, serializeSnapshot(snap));
       const messages = messagesFor(board, page.publicUrl);
       if (!messages.length) {
         const why = `${member.name} has no Project Week Channels with a phone, group or email set in Titan Team, so nothing was sent.`;

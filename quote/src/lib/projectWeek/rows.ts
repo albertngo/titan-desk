@@ -67,6 +67,7 @@ export function memberOf(r: Row): Member & { rateCardName: string | null } {
     boardUrl: text(p[TEAM.boardUrl]),
     rateCardName: text(p[TEAM.rateCardName]),
     lastSent: text(p[TEAM.lastSent]),
+    lastSentOn: dateStart(p[TEAM.sentDate]),
   };
 }
 

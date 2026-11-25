@@ -35,6 +35,8 @@ export type Member = {
   boardUrl: string | null;
   /** Titan Team → Project Week Last Sent: the snapshot of the last live text (changes.ts), or null. */
   lastSent?: string | null;
+  /** Titan Team → Project Week Sent, YYYY-MM-DD. */
+  lastSentOn?: string | null;
 };
 
 export type Job = {
@@ -94,6 +96,10 @@ export type Board = {
    * [] when nothing changed. Set by the run before the text is built.
    */
   changes?: string[] | null;
+  /** The page's "What changed" lines (changes.ts changeDetails), shown at the top; empty or missing shows nothing. */
+  details?: string[];
+  /** When the last live text went out (Titan Team → Project Week Sent), for "since your last update on …". */
+  lastSentOn?: string | null;
 };
 
 export type Week = { mon: string; sun: string };
@@ -299,6 +305,19 @@ export function boardBlocks(b: Board, images: Map<string, string[]>, updated: st
     heading(1, openEnded(b.week) ? "Your upcoming jobs" : `Project week: ${periodLabel(b.week)}`),
     para(`For ${firstName(b.member.name)} only. Updated ${updated}. This page updates itself when your schedule or payouts change.`),
   ];
+  // What changed since their last update, at the top (Albert, 2026-11-25).
+  if (b.details?.length) {
+    out.push({
+      object: "block",
+      type: "callout",
+      callout: {
+        rich_text: [{ type: "text", text: { content: `What changed since your last update${b.lastSentOn ? ` (${dayLabel(b.lastSentOn)})` : ""}` }, annotations: { bold: true } }],
+        icon: { type: "emoji", emoji: "🔔" },
+        color: "yellow_background",
+        children: b.details.map((d) => ({ object: "block", type: "bulleted_list_item", bulleted_list_item: { rich_text: rich(d) } })),
+      },
+    });
+  }
   if (!openEnded(b.week)) out.push(heading(2, "This week"));
   if (!b.jobs.length) out.push(para(openEnded(b.week) ? "No upcoming jobs booked for you yet." : "No jobs booked for you this week yet."));
   // A line between jobs (Albert, 2026-11-25: "add some ui separation"); every upcoming job is grouped by its week.

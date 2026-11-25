@@ -22,6 +22,12 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-25",
+    kind: "new",
+    title: "Project Week page: What changed box",
+    details: ["When something changed since an installer's last update, their Project Week page shows a yellow box at the top naming it, for example \"Sam, Testville: moved from Mon Nov 30 to Wed Dec 2\"."],
+  },
+  {
+    date: "2026-11-25",
     kind: "changed",
     title: "Project Week text: what changed, no payout total",
     details: [
