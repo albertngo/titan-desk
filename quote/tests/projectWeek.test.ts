@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { boardBlocks, buildBoard, weekDays, weekGrid, membersToBuild, messagesFor, messageText, nextWeek, payoutFor, strayLines, torontoToday, type CostLine, type Job, type Member } from "@/lib/projectWeek/model";
+import { boardBlocks, buildBoard, calendarRows, rowBlocks, membersToBuild, messagesFor, messageText, nextWeek, payoutFor, strayLines, torontoToday, type CostLine, type Job, type Member } from "@/lib/projectWeek/model";
 import { cardMark, cleanGroupId, costLineOf, jobOf, matchRateCardName, memberOf } from "@/lib/projectWeek/rows";
 
 /** Installer Project Week (Albert, 2026-11-24). Invented people, jobs and amounts only. */
@@ -61,8 +61,8 @@ describe("two installers on one job", () => {
   it("each sees only their own amount", () => {
     expect(a.jobs[0].payout).toEqual({ kind: "final", amount: 800 });
     expect(b.jobs[0].payout).toEqual({ kind: "final", amount: 450 });
-    expect(JSON.stringify(boardBlocks(a, new Map(), "now"))).not.toContain("450");
-    expect(JSON.stringify(boardBlocks(b, new Map(), "now"))).not.toContain("800");
+    expect(JSON.stringify([boardBlocks(a, "now"), calendarRows(a)])).not.toContain("450");
+    expect(JSON.stringify([boardBlocks(b, "now"), calendarRows(b)])).not.toContain("800");
   });
 
   it("each page carries only that installer's card pictures", () => {
@@ -91,7 +91,7 @@ describe("what a page holds", () => {
     expect(payoutFor(J1, A, [line(J1, [A], 500), line(J1, [A], 100, { calculated: false })])).toEqual({ kind: "partial", amount: 500 });
     const board = buildBoard({ member: member(A, "Alex One"), week, today, jobs, projects: new Map(), lines: [], openWorkOrders: [] });
     expect(board.pending).toBe(1);
-    expect(JSON.stringify(boardBlocks(board, new Map(), "now"))).toContain("Pending, your project manager will confirm");
+    expect(JSON.stringify(calendarRows(board))).toContain("Pending, your project manager will confirm");
   });
 
   it("paid lines don't count", () => {
@@ -125,14 +125,14 @@ describe("what a page holds", () => {
     expect(strayLines(jobs, [stray]).map((s) => s.line.id)).toEqual([stray.id]);
     const a = buildBoard({ member: member(A, "Alex One"), week, today, jobs, projects: new Map(), lines: [stray], openWorkOrders: [] });
     const b = buildBoard({ member: member(B, "Bo Two"), week, today, jobs, projects: new Map(), lines: [stray], openWorkOrders: [] });
-    expect(JSON.stringify(boardBlocks(a, new Map(), "now"))).not.toContain("777");
+    expect(JSON.stringify([boardBlocks(a, "now"), calendarRows(a)])).not.toContain("777");
     expect(b.jobs).toEqual([]);
     expect(b.ready).toEqual([]);
   });
 
   it("a missing share link says so", () => {
     const board = buildBoard({ member: member(A, "Alex One"), week, today, jobs: [job(J1, "2026-12-01", [A], { shareLink: null })], projects: new Map(), lines: [], openWorkOrders: [] });
-    expect(JSON.stringify(boardBlocks(board, new Map(), "now"))).toContain("Scope link coming");
+    expect(JSON.stringify(rowBlocks(board.jobs[0].job, board.jobs[0].payout, []))).toContain("Scope link coming");
   });
 
   it("pages are built for everyone on a week job or with something ready", () => {
@@ -171,7 +171,7 @@ describe("texts", () => {
     expect(t.startsWith("[Automated] Hello Alex. This is Titan Flooring.")).toBe(true);
     expect(t).toContain("Mon Nov 30 to Sun Dec 6");
     expect(t).not.toMatch(/[—–]/);
-    expect(JSON.stringify(boardBlocks(board, new Map(), "now"))).not.toMatch(/[—–]/);
+    expect(JSON.stringify([boardBlocks(board, "now"), calendarRows(board)])).not.toMatch(/[—–]/);
   });
 });
 
@@ -232,31 +232,21 @@ describe("reading Notion rows", () => {
   });
 });
 
-describe("the page layout (2026-11-24: week grid and day cards)", () => {
-  const jobs = [job(J1, "2026-11-30", [A], { city: "Bolton", type: "Flooring" }), job(J2, "2026-11-30", [A], { city: "Milton", type: "Stairs" }), job(OLD, "2026-12-02", [A], { city: "Oakville", type: null })];
+describe("the mini calendar (2026-11-25)", () => {
+  const jobs = [job(J1, "2026-11-30", [A], { city: "Bolton", type: "Flooring" }), job(J2, "2026-11-30", [A], { city: "Milton", type: "Stairs", shareLink: null })];
   const board = buildBoard({ member: member(A, "Alex One"), week, today, jobs, projects: new Map(), lines: [line(J1, [A], 800)], openWorkOrders: [] });
+  const rows = calendarRows(board);
 
-  it("the grid has a column per day, stacks two jobs on one day, and says Free on empty days", () => {
-    expect(weekDays(week)).toEqual(["2026-11-30", "2026-12-01", "2026-12-02", "2026-12-03", "2026-12-04", "2026-12-05", "2026-12-06"]);
-    const grid = weekGrid(board) as { table: { table_width: number; children: { table_row: { cells: { text: { content: string } }[][] } }[] } };
-    expect(grid.table.table_width).toBe(7);
-    const rows = grid.table.children.map((r) => r.table_row.cells.map((c) => c[0].text.content));
-    expect(rows[0][0]).toBe("Mon Nov 30");
-    expect(rows[1]).toEqual(["Bolton, Flooring", "Free", "Oakville", "Free", "Free", "Free", "Free"]);
-    expect(rows[2]).toEqual(["Milton, Stairs", "", "", "", "", "", ""]);
+  it("one row per job, dated, with only this installer's own payout", () => {
+    expect(rows.map((r) => (r.properties.Job as { title: { text: { content: string } }[] }).title[0].text.content)).toEqual(["Bolton · Flooring", "Milton · Stairs"]);
+    expect(rows.map((r) => (r.properties.Date as { date: { start: string } }).date.start)).toEqual(["2026-11-30", "2026-11-30"]);
+    expect(rows.map((r) => (r.properties["Payout status"] as { select: { name: string } }).select.name)).toEqual(["Confirmed", "Pending"]);
+    expect((rows[1].properties["Scope photos"] as { url: string | null }).url).toBeNull();
   });
 
-  it("no jobs, no grid", () => {
-    expect(weekGrid({ ...board, jobs: [] })).toBeNull();
-  });
-
-  it("each job is a card, blue when its payout is final and yellow while pending", () => {
-    const cards = boardBlocks(board, new Map(), "now").filter((b) => (b as { type: string }).type === "callout") as { callout: { color: string; rich_text: { text: { content: string } }[] } }[];
-    expect(cards.map((c) => [c.callout.rich_text[0].text.content, c.callout.color])).toEqual([
-      ["Mon Nov 30 · Bolton · Flooring", "blue_background"],
-      ["Mon Nov 30 · Milton · Stairs", "yellow_background"],
-      ["Wed Dec 2 · Oakville", "yellow_background"],
-      ["Week total, confirmed: $800 (plus 2 pending)", "green_background"],
-    ]);
+  it("the page text sums the week and lists what's ready to be paid", () => {
+    const text = JSON.stringify(boardBlocks(board, "now"));
+    expect(text).toContain("Mon Nov 30 to Sun Dec 6: 2 jobs, $800 confirmed, 1 pending");
+    expect(text).toContain("Nothing waiting right now.");
   });
 });
