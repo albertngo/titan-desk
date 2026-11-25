@@ -22,6 +22,12 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-25",
+    kind: "changed",
+    title: "Dispatch Log in two columns on the Titan Team page",
+    details: ["Each installer's Titan Team page now has a Dispatch Log with Project Week on the left and the weekly QA Dispatch on the right. Project Week sends are written in the left column. The Dispatch Log table column is gone."],
+  },
+  {
+    date: "2026-11-25",
     kind: "new",
     title: "Dispatch Log column on Titan Team",
     details: ["Each Project Week send is also written to the Dispatch Log column on the installer's Titan Team row, newest first, next to the weekly QA dispatch's lines."],

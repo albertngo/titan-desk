@@ -317,11 +317,14 @@ describe("the send log on a Titan Team row (2026-11-25)", () => {
   });
 });
 
-describe("the Dispatch Log column (2026-11-25)", () => {
-  it("puts new lines on top and drops the oldest whole lines past the limit", async () => {
-    const { prependLog } = await import("@/lib/projectWeek/model");
-    expect(prependLog(null, ["b", "a"])).toBe("b\na");
-    expect(prependLog("old 1\nold 2", ["new"])).toBe("new\nold 1\nold 2");
-    expect(prependLog("x".repeat(10) + "\n" + "y".repeat(10), ["z".repeat(10)], 21)).toBe(`${"z".repeat(10)}\n${"x".repeat(10)}`);
+describe("the Dispatch Log columns on a Titan Team page (2026-11-25)", () => {
+  it("are Project Week on the left and QA Dispatch on the right, found by their headings", async () => {
+    const { dispatchLogBlocks, isDispatchColumns } = await import("@/lib/projectWeek/model");
+    const json = JSON.stringify(dispatchLogBlocks());
+    expect(json.indexOf("Project Week")).toBeLessThan(json.indexOf("QA Dispatch"));
+    expect(json).toContain('"type":"column_list"');
+    expect(isDispatchColumns(["Project Week", "QA Dispatch"])).toBe(true);
+    expect(isDispatchColumns(["QA Dispatch", "Project Week"])).toBe(false);
+    expect(isDispatchColumns(["Project Week"])).toBe(false);
   });
 });
