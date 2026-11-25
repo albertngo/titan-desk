@@ -22,6 +22,14 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-25",
+    kind: "changed",
+    title: "Project Week: the work in a standard layout",
+    details: [
+      "Each job's Work line now reads Flooring Only, Stairs Only or Flooring & Stairs, with Install, Remove and Stairs underneath (square feet and material, and for stairs the type of work with total steps, spindles, posts, handrails and nosings).",
+    ],
+  },
+  {
+    date: "2026-11-25",
     kind: "new",
     title: "Project Week pages say what the work is",
     details: [

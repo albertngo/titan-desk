@@ -232,51 +232,65 @@ describe("reading Notion rows", () => {
   });
 });
 
-describe("the work from the payout card (2026-11-25)", () => {
-  it("the card's ticked lines become one short line", async () => {
+describe("the work, in the standard layout (2026-11-25)", () => {
+  it("sorts items into Install, Remove and Stairs, and counts the stairs", async () => {
+    const { workFromItems, workLines, workKind } = await import("@/lib/projectWeek/work");
+    const w = workFromItems([
+      { section: "Install", description: "Engineered hardwood", qty: 650, uom: "sf" },
+      { section: "Install", description: "Vinyl plank", qty: 120, uom: "sf" },
+      { section: "Removal", description: "Carpet", qty: 400, uom: "sf" },
+      { section: "Stairs", description: "Oak tread cap", qty: 14, uom: "steps" },
+      { section: "Stairs", description: "Oak riser", qty: 14, uom: "steps" },
+      { section: "Stairs", description: "Refinish handrail", qty: 2, uom: "pcs" },
+      { section: "Stairs", description: "Iron spindles", qty: 20, uom: "pcs" },
+      { section: "Stairs", description: "Newel post", qty: 2, uom: "pcs" },
+      { section: "Stairs", description: "Stair nosing", qty: 3, uom: "pcs" },
+      { section: "Disposal", description: "Bin", qty: 1, uom: null },
+    ])!;
+    expect(workLines(w)).toEqual([
+      { label: "Install", text: "650 sf Engineered hardwood | 120 sf Vinyl plank" },
+      { label: "Remove", text: "400 sf Carpet" },
+      { label: "Stairs", text: "New Steps, Refinish - 14 steps | 20 spindles | 2 posts | 2 handrails | 3 nosings" },
+    ]);
+    expect(workKind(w, "Both")).toBe("Flooring & Stairs");
+    expect(workKind(w, null)).toBe("Flooring & Stairs");
+    expect(workKind({ ...w, install: [], remove: [] }, null)).toBe("Stairs Only");
+  });
+
+  it("a payout card's ticked lines round-trip through the Project Costs Notes", async () => {
     const { cardScope } = await import("@/lib/payout/cards");
-    const l = (description: string, qty: number | null, uom: string, on = true, area = "") => ({ id: description, ref: null, option: null, section: "Install", description, area, uom, qty, rate: 1, cardRate: null, on });
-    expect(cardScope({ lines: [l("Install engineered", 650, "sf"), l("Removal carpet", 400, "sf", false), l("Stair treads", 14, "steps", true, "Main stairs"), l("Disposal", 1, "")] })).toBe(
-      "Install engineered 650 sf · Stair treads (Main stairs) 14 steps · Disposal",
-    );
-  });
-
-  it("is read back from the line's Notes and shown under the job, from that installer's own lines only", async () => {
     const { workOf } = await import("@/lib/projectWeek/rows");
-    const notes = `${cardMark("recAAAAAAAAAAAAAA", "c1")} Work: Install engineered 650 sf. Made by the quote app from the payout card. Change the card in the quote app, not this line.`;
-    expect(workOf(notes)).toBe("Install engineered 650 sf");
+    const { parseWork, workLines } = await import("@/lib/projectWeek/work");
+    const l = (section: string, description: string, qty: number | null, uom: string, on = true) => ({ id: description, ref: null, option: null, section, description, area: "", uom, qty, rate: 1, cardRate: null, on });
+    const stored = cardScope({ lines: [l("Install", "Install engineered", 650, "sf"), l("Removal", "Remove carpet", 400, "sf", false)] });
+    const notes = `${cardMark("recAAAAAAAAAAAAAA", "c1")} Work: ${stored}. Made by the quote app from the payout card. Change the card in the quote app, not this line.`;
+    expect(workLines(parseWork(workOf(notes))!)).toEqual([{ label: "Install", text: "650 sf Install engineered" }]);
     expect(workOf("typed by hand")).toBeNull();
-    const board = buildBoard({ member: member(A, "Alex One"), week, today, jobs: [job(J1, "2026-12-01", [A, B])], projects: new Map(), lines: [line(J1, [A], 800, { work: "Install engineered 650 sf" }), line(J1, [B], 300, { work: "Stairs 14 steps" })], openWorkOrders: [] });
-    const text = JSON.stringify(boardBlocks(board, new Map(), "now"));
-    expect(text).toContain("Install engineered 650 sf");
-    expect(text).not.toContain("Stairs 14 steps");
   });
-});
 
-describe("the accepted quote's scope, until a card is final (2026-11-25)", () => {
-  it("sections and item descriptions with quantities, no prices, no discounts or optional add-ons", async () => {
+  it("the accepted quote's sections give the same shape, never a price", async () => {
     const { scopeFromCopy } = await import("@/lib/projectWeek/scope");
+    const { workLines } = await import("@/lib/projectWeek/work");
     const item = (description: string, qty: number | null, uom: string | null, optional = false) => ({ kind: "item" as const, n: 1, description, note: null, qty, uom, wastePct: null, unitPrice: 9.99, minimum: false, amount: 1234.56, optional });
-    const copy = {
-      options: [
-        {
-          name: "Option 1",
-          sections: [
-            { name: "Install", total: 999, lines: [item("Engineered hardwood", 650, "sf"), item("Baseboard", 300, "lf"), item("Upgrade underpad", 650, "sf", true)] },
-            { name: "Stairs", total: 999, lines: [item("Stair treads", 14, "steps")] },
-            { name: "Discounts", total: -100, lines: [item("Loyalty", 1, null)] },
-          ],
-        },
-      ],
-    } as unknown as import("@/lib/send/copy").CustomerCopy;
-    const text = scopeFromCopy(copy)!;
-    expect(text).toBe("Install: Engineered hardwood 650 sf, Baseboard 300 lf · Stairs: Stair treads 14 steps");
-    expect(text).not.toMatch(/\$|9\.99|1234/);
+    const copy = { options: [{ name: "Option 1", sections: [{ name: "Install", total: 9, lines: [item("Engineered hardwood", 650, "sf"), item("Upgrade underpad", 650, "sf", true)] }, { name: "Discounts", total: -1, lines: [item("Loyalty", 1, null)] }] }] } as unknown as import("@/lib/send/copy").CustomerCopy;
+    const lines = workLines(scopeFromCopy(copy)!);
+    expect(lines).toEqual([{ label: "Install", text: "650 sf Engineered hardwood" }]);
+    expect(JSON.stringify(lines)).not.toMatch(/9\.99|1234/);
   });
 
-  it("the card's own work wins over the quote's scope", () => {
-    const j = job(J1, "2026-12-01", [A], { quoteScope: "Install: Engineered hardwood 650 sf" });
-    expect(buildBoard({ member: member(A, "Alex One"), week, today, jobs: [j], projects: new Map(), lines: [], openWorkOrders: [] }).jobs[0].work).toBe("Install: Engineered hardwood 650 sf");
-    expect(buildBoard({ member: member(A, "Alex One"), week, today, jobs: [j], projects: new Map(), lines: [line(J1, [A], 800, { work: "Install 650 sf" })], openWorkOrders: [] }).jobs[0].work).toBe("Install 650 sf");
+  it("on the page: the installer's own card work wins over the quote, another installer's never shows", async () => {
+    const { serializeWork } = await import("@/lib/projectWeek/work");
+    const mine = serializeWork({ install: ["650 sf Install engineered"], remove: [], stairTypes: [], stairs: { steps: 0, spindles: 0, posts: 0, handrails: 0, nosings: 0 } });
+    const theirs = serializeWork({ install: [], remove: [], stairTypes: ["Refinish"], stairs: { steps: 14, spindles: 0, posts: 0, handrails: 0, nosings: 0 } });
+    const quote = { install: ["700 sf From the quote"], remove: [], stairTypes: [], stairs: { steps: 0, spindles: 0, posts: 0, handrails: 0, nosings: 0 } };
+    const j = job(J1, "2026-12-01", [A, B], { type: "Both", quoteScope: quote });
+    const withCard = buildBoard({ member: member(A, "Alex One"), week, today, jobs: [j], projects: new Map(), lines: [line(J1, [A], 800, { work: mine }), line(J1, [B], 300, { work: theirs })], openWorkOrders: [] });
+    const text = JSON.stringify(boardBlocks(withCard, new Map(), "now"));
+    expect(text).toContain("Flooring & Stairs");
+    expect(text).toContain("650 sf Install engineered");
+    expect(text).not.toContain("Refinish");
+    expect(text).not.toContain("From the quote");
+    const noCard = buildBoard({ member: member(A, "Alex One"), week, today, jobs: [j], projects: new Map(), lines: [], openWorkOrders: [] });
+    expect(JSON.stringify(boardBlocks(noCard, new Map(), "now"))).toContain("700 sf From the quote");
   });
 });
