@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-25",
     kind: "changed",
+    title: "Project Week test mode can test email too",
+    details: ["With a test email address set, an installer's Project Week email goes to that address through the real email route while testing, instead of coming to the test phone as a text."],
+  },
+  {
+    date: "2026-11-25",
+    kind: "changed",
     title: "Send all only texts installers with changes",
     details: ["Send Project Week (all) now texts only installers with something new since their last text, or who have never had one, like the Friday send. Send my week still texts that one person whatever changed."],
   },
