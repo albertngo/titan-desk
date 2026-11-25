@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { boardBlocks, buildBoard, membersToBuild, messagesFor, messageText, nextWeek, payoutFor, strayLines, torontoToday, type CostLine, type Job, type Member } from "@/lib/projectWeek/model";
+import { boardBlocks, buildBoard, weekDays, weekGrid, membersToBuild, messagesFor, messageText, nextWeek, payoutFor, strayLines, torontoToday, type CostLine, type Job, type Member } from "@/lib/projectWeek/model";
 import { cardMark, cleanGroupId, costLineOf, jobOf, matchRateCardName, memberOf } from "@/lib/projectWeek/rows";
 
 /** Installer Project Week (Albert, 2026-11-24). Invented people, jobs and amounts only. */
@@ -229,5 +229,34 @@ describe("reading Notion rows", () => {
     expect(matchRateCardName(team, "crew a").map((m) => m.id)).toEqual([A]);
     expect(matchRateCardName(team, "Crew")).toEqual([]);
     expect(matchRateCardName(team, "  ")).toEqual([]);
+  });
+});
+
+describe("the page layout (2026-11-24: week grid and day cards)", () => {
+  const jobs = [job(J1, "2026-11-30", [A], { city: "Bolton", type: "Flooring" }), job(J2, "2026-11-30", [A], { city: "Milton", type: "Stairs" }), job(OLD, "2026-12-02", [A], { city: "Oakville", type: null })];
+  const board = buildBoard({ member: member(A, "Alex One"), week, today, jobs, projects: new Map(), lines: [line(J1, [A], 800)], openWorkOrders: [] });
+
+  it("the grid has a column per day, stacks two jobs on one day, and says Free on empty days", () => {
+    expect(weekDays(week)).toEqual(["2026-11-30", "2026-12-01", "2026-12-02", "2026-12-03", "2026-12-04", "2026-12-05", "2026-12-06"]);
+    const grid = weekGrid(board) as { table: { table_width: number; children: { table_row: { cells: { text: { content: string } }[][] } }[] } };
+    expect(grid.table.table_width).toBe(7);
+    const rows = grid.table.children.map((r) => r.table_row.cells.map((c) => c[0].text.content));
+    expect(rows[0][0]).toBe("Mon Nov 30");
+    expect(rows[1]).toEqual(["Bolton, Flooring", "Free", "Oakville", "Free", "Free", "Free", "Free"]);
+    expect(rows[2]).toEqual(["Milton, Stairs", "", "", "", "", "", ""]);
+  });
+
+  it("no jobs, no grid", () => {
+    expect(weekGrid({ ...board, jobs: [] })).toBeNull();
+  });
+
+  it("each job is a card, blue when its payout is final and yellow while pending", () => {
+    const cards = boardBlocks(board, new Map(), "now").filter((b) => (b as { type: string }).type === "callout") as { callout: { color: string; rich_text: { text: { content: string } }[] } }[];
+    expect(cards.map((c) => [c.callout.rich_text[0].text.content, c.callout.color])).toEqual([
+      ["Mon Nov 30 · Bolton · Flooring", "blue_background"],
+      ["Mon Nov 30 · Milton · Stairs", "yellow_background"],
+      ["Wed Dec 2 · Oakville", "yellow_background"],
+      ["Week total, confirmed: $800 (plus 2 pending)", "green_background"],
+    ]);
   });
 });

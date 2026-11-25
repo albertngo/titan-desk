@@ -21,6 +21,14 @@ export type Change = {
 
 export const CHANGES: Change[] = [
   {
+    date: "2026-11-25",
+    kind: "changed",
+    title: "Project Week pages: a week grid and a card per job",
+    details: [
+      "Each installer's Project Week page now opens with a Monday to Sunday grid of their jobs, then one card per job (blue when the payout is confirmed, yellow while it's pending), the week's total, and a small table of what's ready to be paid.",
+    ],
+  },
+  {
     date: "2026-11-24",
     kind: "fixed",
     title: "Project Week buttons no longer time out",
