@@ -1,4 +1,4 @@
-import type { Board } from "./model";
+import { dayLabel, firstName, type Board } from "./model";
 import { serializeWork } from "./work";
 
 /**
@@ -64,3 +64,35 @@ export function changesSince(prev: Snapshot, now: Snapshot, today: string): stri
   return CHANGE_PHRASES.filter((c) => found.has(c));
 }
 
+
+/**
+ * The page's "What changed" summary (Albert, 2026-11-25: "When a date changes; a little summary at the top page is
+ * good"): one line per change, naming the job by the customer's first name and its day, against the same snapshot
+ * the text compares with. Jobs that left the list are counted, not named (the snapshot keeps no names). Pure.
+ */
+export function changeDetails(prev: Snapshot, b: Board, today: string): string[] {
+  const out: string[] = [];
+  const label = (j: Board["jobs"][number]["job"]) => [firstName(j.customer) || "A job", j.city].filter(Boolean).join(", ");
+  const day = (d: string) => (d ? dayLabel(d) : "date to be confirmed");
+  const now = snapshotOf(b);
+  for (const { job } of b.jobs) {
+    const k = key(job.id);
+    const p = prev.j[k];
+    const n = now.j[k];
+    if (!p) {
+      out.push(`New job: ${label(job)}, starting ${day(n[0])}.`);
+      continue;
+    }
+    if (p[0] !== n[0]) out.push(`${label(job)}: moved from ${day(p[0])} to ${day(n[0])}.`);
+    else if (p[1] !== n[1]) out.push(`${label(job)}: end date now ${day(n[1])}.`);
+    if (p[2] !== n[2]) out.push(`${label(job)}: the address changed.`);
+    if (p[3] !== n[3]) out.push(`${label(job)}: the scope changed.`);
+    if (p[4] !== n[4]) out.push(`${label(job)}: payout updated.`);
+    if (!p[5] && n[5]) out.push(`${label(job)}: photos added.`);
+  }
+  const gone = Object.entries(prev.j).filter(([id, p]) => !now.j[id] && !((p[1] || p[0]) && (p[1] || p[0]) < today)).length;
+  if (gone) out.push(`${gone} job${gone === 1 ? " was" : "s were"} taken off your list.`);
+  const paid = now.r.filter((r) => !prev.r.includes(r)).length;
+  if (paid) out.push(`${paid} finished job${paid === 1 ? " is" : "s are"} now ready to be paid.`);
+  return out;
+}
