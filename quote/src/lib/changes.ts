@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-25",
     kind: "new",
+    title: "Project Week: last sent date on Titan Team",
+    details: ["Project Week Sent on each installer's Titan Team row shows when their week last went out. It only moves when every message went; a failed send leaves the last good date."],
+  },
+  {
+    date: "2026-11-25",
+    kind: "new",
     title: "Project Week: send status on Titan Team",
     details: [
       "After a Send, each installer's Titan Team row shows Project Week Status: Sent Successfully, or Needs Manual if something didn't go.",
