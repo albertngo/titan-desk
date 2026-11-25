@@ -273,6 +273,12 @@ const bulletWith = (label: string, value: string, children: object[]) => {
   const b = bullet(label, value) as { bulleted_list_item: Record<string, unknown> };
   return children.length ? { ...b, bulleted_list_item: { ...b.bulleted_list_item, children } } : b;
 };
+/** A toggle ("dropdown") with a bold label, closed until tapped, holding `children`. */
+const toggle = (label: string, value: string, children: object[]) => ({
+  object: "block",
+  type: "toggle",
+  toggle: { rich_text: [{ type: "text", text: { content: `${label}: ` }, annotations: { bold: true } }, ...rich(value)], children },
+});
 const divider = () => ({ object: "block", type: "divider", divider: {} });
 const image = (uploadId: string) => ({ object: "block", type: "image", image: { type: "file_upload", file_upload: { id: uploadId } } });
 
@@ -302,8 +308,10 @@ export function boardBlocks(b: Board, images: Map<string, string[]>, updated: st
     if (job.type && !work) out.push(bullet("Type", job.type));
     if (work) out.push(bulletWith("Work", workKind(work, job.type), workLines(work).map((w) => bullet(w.label, w.text))));
     out.push(job.shareLink ? bullet("Scope photos", "Open the job photos", job.shareLink) : bullet("Scope photos", "Scope link coming"));
-    out.push(bullet("Your payout", payoutWords(payout)));
-    for (const id of images.get(job.id) ?? []) out.push(image(id));
+    // The card pictures fold under the payout line (Albert, 2026-11-25: "make the card picture a dropdown from the
+    // your payout line"): a toggle, closed until tapped. No picture yet: a plain line.
+    const pics = (images.get(job.id) ?? []).map(image);
+    out.push(pics.length ? toggle("Your payout", payoutWords(payout), pics) : bullet("Your payout", payoutWords(payout)));
   });
   if (b.jobs.length) out.push(para(`${openEnded(b.week) ? "Total" : "Week total"}, confirmed: ${money(b.weekTotal)}${b.pending ? ` (plus ${b.pending} pending)` : ""}.`));
   out.push(divider(), heading(2, "Ready to be paid"));
