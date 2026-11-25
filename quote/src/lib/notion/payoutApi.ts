@@ -13,7 +13,10 @@ import { isCustomerDeployment } from "@/lib/mode";
  * - updating a page's properties, appending children, deleting a block (callers check whose page it is first:
  *   `src/lib/notion/projectCosts.ts` only touches lines it made, `src/lib/projectWeek/publish.ts` only a board under the
  *   boards page);
- * - uploading a file (a payout card picture).
+ * - uploading a file (a payout card picture);
+ * - creating an inline database on an installer's board page and reading it (2026-11-25, the mini calendar). Its data
+ *   source is queried only once `src/lib/projectWeek/run.ts` has checked that the database sits on a board page under
+ *   Contractor Boards and called `trustBoardSource()`.
  *
  * Never a database or a data source changed, never a page moved. tests/boundary.test.ts pins who may import this.
  */
@@ -53,13 +56,21 @@ export function normalId(v: string | null | undefined): string | null {
 
 const ID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const SOURCES = new Set<string>(Object.values(DS));
+/** Installers' own calendar data sources, added for this run after their parent page was checked (run.ts only). */
+const boardSources = new Set<string>();
+export function trustBoardSource(id: string): void {
+  const n = normalId(id);
+  if (n) boardSources.add(n);
+}
 
 type Method = "GET" | "POST" | "PATCH" | "DELETE";
 
 /** The calls this token may make. Pure, so the boundary test can read it. */
 export function allowed(method: Method, path: string): boolean {
   const q = path.match(new RegExp(`^/data_sources/(${ID})/query$`));
-  if (q) return method === "POST" && SOURCES.has(q[1]);
+  if (q) return method === "POST" && (SOURCES.has(q[1]) || boardSources.has(q[1]));
+  if (path === "/databases") return method === "POST";
+  if (new RegExp(`^/databases/${ID}$`).test(path)) return method === "GET";
   if (new RegExp(`^/pages/${ID}$`).test(path)) return method === "GET" || method === "PATCH";
   if (path === "/pages") return method === "POST";
   if (new RegExp(`^/blocks/${ID}/children(\\?[a-z_=0-9&-]*)?$`).test(path)) return method === "GET" || method === "PATCH";

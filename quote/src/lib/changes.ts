@@ -23,6 +23,14 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-25",
     kind: "changed",
+    title: "Project Week pages: a real calendar of the installer's own jobs",
+    details: [
+      "The week grid and job cards are replaced by a small Notion calendar on each installer's page, holding only their own jobs. Tapping a job shows the address, phone, scope photos and their payout, with the card picture. The week's total and Ready to be paid sit under it.",
+    ],
+  },
+  {
+    date: "2026-11-25",
+    kind: "changed",
     title: "Project Week pages: a week grid and a card per job",
     details: [
       "Each installer's Project Week page now opens with a Monday to Sunday grid of their jobs, then one card per job (blue when the payout is confirmed, yellow while it's pending), the week's total, and a small table of what's ready to be paid.",

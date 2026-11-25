@@ -245,58 +245,76 @@ const bullet = (label: string, value: string, link?: string | null) => ({
 });
 const image = (uploadId: string) => ({ object: "block", type: "image", image: { type: "file_upload", file_upload: { id: uploadId } } });
 
-/** The seven days of the week, YYYY-MM-DD. */
-export function weekDays(w: Week): string[] {
-  return Array.from({ length: 7 }, (_, n) => new Date(Date.parse(`${w.mon}T12:00:00Z`) + n * DAY).toISOString().slice(0, 10));
-}
-
 const cell = (content: string, bold = false) => [{ type: "text", text: { content: content.slice(0, 500) }, ...(bold ? { annotations: { bold: true } } : {}) }];
 const tableRow = (cells: { text: string; bold?: boolean }[]) => ({ object: "block", type: "table_row", table_row: { cells: cells.map((c) => cell(c.text, c.bold)) } });
 const table = (width: number, rows: object[]) => ({ object: "block", type: "table", table: { table_width: width, has_column_header: true, has_row_header: false, children: rows } });
-const callout = (title: string, emoji: string, color: string, children: object[]) => ({
+const callout = (title: string, emoji: string, color: string) => ({
   object: "block",
   type: "callout",
-  callout: { rich_text: [{ type: "text", text: { content: title.slice(0, 1900) }, annotations: { bold: true } }], icon: { type: "emoji", emoji }, color, children },
+  callout: { rich_text: [{ type: "text", text: { content: title.slice(0, 1900) }, annotations: { bold: true } }], icon: { type: "emoji", emoji }, color },
 });
 
-/** The Mon to Sun grid (Albert, 2026-11-24: "Any way to have a calendar view there?"): each day's jobs by city and type. */
-export function weekGrid(b: Board): object | null {
-  if (!b.jobs.length) return null;
-  const days = weekDays(b.week);
-  const byDay = days.map((d) => b.jobs.filter((j) => j.job.start === d).map((j) => [j.job.city, j.job.type].filter(Boolean).join(", ") || "Job"));
-  const depth = Math.max(1, ...byDay.map((d) => d.length));
-  const rows = [tableRow(days.map((d) => ({ text: dayLabel(d), bold: true })))];
-  for (let r = 0; r < depth; r++) rows.push(tableRow(byDay.map((d) => ({ text: d[r] ?? (r === 0 ? "Free" : "") }))));
-  return table(7, rows);
+/* ---------- the mini calendar (Albert, 2026-11-25: "Real mini calendar") ---------- */
+
+/** The calendar database's columns. Made once per installer page; staff add the Calendar view to it once. */
+export const CALENDAR = { job: "Job", date: "Date", status: "Payout status", payout: "Your payout", customer: "Customer", address: "Address", phone: "Customer phone", scope: "Scope photos" } as const;
+
+export const calendarSchema = () => ({
+  [CALENDAR.job]: { title: {} },
+  [CALENDAR.date]: { date: {} },
+  [CALENDAR.status]: { select: { options: [{ name: "Confirmed", color: "blue" }, { name: "Pending", color: "yellow" }] } },
+  [CALENDAR.payout]: { rich_text: {} },
+  [CALENDAR.customer]: { rich_text: {} },
+  [CALENDAR.address]: { rich_text: {} },
+  [CALENDAR.phone]: { phone_number: {} },
+  [CALENDAR.scope]: { url: {} },
+});
+
+const prop = (content: string) => ({ rich_text: rich(content) });
+
+/** One calendar row per job this week: only this installer's own job and payout. */
+export function calendarRows(b: Board): { jobId: string; properties: Record<string, unknown> }[] {
+  return b.jobs.map(({ job, payout }) => ({
+    jobId: job.id,
+    properties: {
+      [CALENDAR.job]: { title: rich([job.city ?? "Job", job.type].filter(Boolean).join(" · ")) },
+      [CALENDAR.date]: job.start ? { date: { start: job.start } } : { date: null },
+      [CALENDAR.status]: { select: { name: payout.kind === "final" ? "Confirmed" : "Pending" } },
+      [CALENDAR.payout]: prop(payoutWords(payout)),
+      [CALENDAR.customer]: prop(firstName(job.customer)),
+      [CALENDAR.address]: prop([job.street, job.city].filter(Boolean).join(", ") || "To be confirmed"),
+      [CALENDAR.phone]: { phone_number: job.phone || null },
+      [CALENDAR.scope]: { url: job.shareLink },
+    },
+  }));
+}
+
+/** What a job's own calendar page shows when opened: the scope link and the payout card pictures. */
+export function rowBlocks(job: Job, payout: Payout, images: string[]): object[] {
+  return [
+    job.shareLink ? bullet("Scope photos", "Open in CompanyCam", job.shareLink) : bullet("Scope photos", "Scope link coming"),
+    bullet("Your payout", payoutWords(payout)),
+    ...images.map(image),
+  ];
 }
 
 /**
- * The page's content, rebuilt whole each time: the week grid, one card per job, the week's total, then Ready to be
- * paid as a small table. `images` maps a job's id to the card pictures already uploaded for this page. `updated` is a
- * plain "Nov 24, 9:15 pm" from the caller.
+ * The page's text around the calendar, rebuilt whole each time: the week's total, then Ready to be paid as a small
+ * table. The calendar database itself stays at the top of the page and is never deleted (its view is set up by hand).
+ * `updated` is a plain "Nov 24, 9:15 pm" from the caller.
  */
-export function boardBlocks(b: Board, images: Map<string, string[]>, updated: string): object[] {
+export function boardBlocks(b: Board, updated: string): object[] {
   const out: object[] = [
-    heading(1, `Project week: ${dayLabel(b.week.mon)} to ${dayLabel(b.week.sun)}`),
-    para(`For ${firstName(b.member.name)} only. Updated ${updated}. This page updates itself when your schedule or payouts change.`),
+    callout(
+      b.jobs.length
+        ? `${dayLabel(b.week.mon)} to ${dayLabel(b.week.sun)}: ${b.jobs.length} job${b.jobs.length === 1 ? "" : "s"}, ${money(b.weekTotal)} confirmed${b.pending ? `, ${b.pending} pending` : ""}`
+        : `${dayLabel(b.week.mon)} to ${dayLabel(b.week.sun)}: no jobs booked for you yet`,
+      "📅",
+      "blue_background",
+    ),
+    para(`For ${firstName(b.member.name)} only. Tap a job in the calendar for the address, scope photos and your payout. Updated ${updated}.`),
+    heading(2, "Ready to be paid"),
   ];
-  const grid = weekGrid(b);
-  if (grid) out.push(grid);
-  out.push(heading(2, "Your jobs"));
-  if (!b.jobs.length) out.push(para("No jobs booked for you this week yet."));
-  for (const { job, payout } of b.jobs) {
-    const title = [job.start ? dayLabel(job.start) : "Date to be confirmed", job.city ?? "City to be confirmed", job.type].filter(Boolean).join(" · ");
-    const inside: object[] = [];
-    if (firstName(job.customer)) inside.push(bullet("Customer", firstName(job.customer)));
-    inside.push(bullet("Address", [job.street, job.city].filter(Boolean).join(", ") || "To be confirmed"));
-    if (job.phone) inside.push(bullet("Customer phone", job.phone));
-    inside.push(job.shareLink ? bullet("Scope photos", "Open in CompanyCam", job.shareLink) : bullet("Scope photos", "Scope link coming"));
-    inside.push(bullet("Your payout", payoutWords(payout)));
-    for (const id of images.get(job.id) ?? []) inside.push(image(id));
-    out.push(callout(title, "📍", payout.kind === "final" ? "blue_background" : "yellow_background", inside));
-  }
-  if (b.jobs.length) out.push(callout(`Week total, confirmed: ${money(b.weekTotal)}${b.pending ? ` (plus ${b.pending} pending)` : ""}`, "💵", "green_background", []));
-  out.push(heading(2, "Ready to be paid"));
   if (!b.ready.length) out.push(para("Nothing waiting right now."));
   else {
     const rows = [tableRow([{ text: "Job", bold: true }, { text: "Finished", bold: true }, { text: "Amount", bold: true }, { text: "Status", bold: true }])];
