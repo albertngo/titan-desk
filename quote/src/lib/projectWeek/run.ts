@@ -13,7 +13,8 @@ import { costLineOf, COST, jobOf, memberOf, OPEN_WO_STATUSES, PROJECT, TEAM, WOR
  * Installer Project Week runs (Albert, 2026-11-24; vault `05_decisions/2026-11-24-installer-project-week-boards`).
  *
  * - `rebuild`: every installer's page is rewritten from Notion. Nobody is texted. Nightly, and after a card goes final.
- * - `all`: rebuild, then text every installer with a job next week (the Send Project Week button on Project Preparation).
+ * - `all`: rebuild, then text every installer with upcoming jobs and something new since their last text, or a first
+ *   text (the Send Project Week button on Project Preparation; changes only since 2026-11-25).
  * - `one`: rebuild and text one installer (the Send my week button on their Titan Team row).
  * - `refresh`: rebuild one installer's page, no text (after their payout card goes final or changes).
  *
@@ -176,10 +177,9 @@ export async function runProjectWeek(scope: RunScope, now = new Date()): Promise
       const wantsText =
         scope.kind === "one"
           ? board.jobs.length > 0 || board.ready.length > 0
-          : scope.kind === "all"
-            ? board.jobs.length > 0
-            : scope.kind === "weekly"
-              ? board.jobs.length > 0 && (board.changes === null || (board.changes?.length ?? 0) > 0)
+          : scope.kind === "all" || scope.kind === "weekly"
+            ? // Send all, like Friday's send (Albert, 2026-11-25: "Yes"): only someone with something new, or a first text.
+              board.jobs.length > 0 && (board.changes === null || (board.changes?.length ?? 0) > 0)
               : scope.kind === "headsup"
                 ? prev !== null && needsHeadsUp(prev, snap, today) && member.lastSentOn !== today
                 : false;
