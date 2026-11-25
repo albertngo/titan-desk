@@ -15,6 +15,9 @@ import { TEAM } from "./rows";
  * the run's notes, and the texts have already gone.
  */
 
+/** Text in Notion's 2000-character pieces. */
+const chunks = (s: string) => (s.match(/[\s\S]{1,1900}/g) ?? []).map((content) => ({ type: "text", text: { content } }));
+
 const heading = (b: NotionBlock | undefined): string => {
   const h = b && (b[b.type] as { rich_text?: { plain_text?: string }[] } | undefined);
   return (h?.rich_text ?? []).map((r) => r.plain_text ?? "").join("").trim();
@@ -47,7 +50,7 @@ export async function markNothingToSend(memberId: string): Promise<void> {
   }
 }
 
-export async function writeLog(entries: LogEntry[], week: { mon: string; sun: string }, pressedBy: "Send all" | "Send my week", at: Date): Promise<string | null> {
+export async function writeLog(entries: LogEntry[], week: { mon: string; sun: string }, pressedBy: "Send all" | "Send my week", at: Date, snaps: Map<string, string> = new Map()): Promise<string | null> {
   const when = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }).format(at);
   const byMember = new Map<string, LogEntry[]>();
   for (const e of entries) byMember.set(e.memberId, [...(byMember.get(e.memberId) ?? []), e]);
@@ -57,7 +60,11 @@ export async function writeLog(entries: LogEntry[], week: { mon: string; sun: st
       const status = memberStatus(list);
       // Project Week Sent (Albert, 2026-11-25): moves only when everything went out; a failed press leaves the last good date.
       const sent = status === "Sent Successfully" ? { [TEAM.sentDate]: { date: { start: at.toISOString() } } } : {};
-      await notionPayout("PATCH", `/pages/${memberId}`, { properties: { [TEAM.sendStatus]: { status: { name: status } }, ...sent } });
+      // Project Week Last Sent (2026-11-25): what this text said, kept only after a live text that fully went out, so a
+      // test or a failed send never becomes the thing the next text compares against.
+      const snap = snaps.get(memberId);
+      const keep = status === "Sent Successfully" && list.every((e) => !e.test) && snap ? { [TEAM.lastSent]: { rich_text: chunks(snap) } } : {};
+      await notionPayout("PATCH", `/pages/${memberId}`, { properties: { [TEAM.sendStatus]: { status: { name: status } }, ...sent, ...keep } });
       const column = await projectWeekColumn(memberId);
       await appendBlocks(
         column,

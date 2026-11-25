@@ -72,7 +72,8 @@ describe("two installers on one job", () => {
 
   it("each text names only them and their total", () => {
     expect(messageText(a, "https://x.test/a")).toContain("Hello Alex.");
-    expect(messageText(a, "https://x.test/a")).toContain("$800 confirmed");
+    // No payout total in the text (2026-11-25): payouts are on the page only.
+    expect(messageText(a, "https://x.test/a")).not.toContain("800");
     expect(messageText(a, "https://x.test/a")).not.toContain("450");
   });
 });
@@ -354,5 +355,25 @@ describe("the card pictures fold under Your payout (2026-11-25)", () => {
     expect(withPics.filter((b) => b.type === "image")).toEqual([]);
     const none = boardBlocks(board, new Map(), "now") as { type: string }[];
     expect(none.some((b) => b.type === "toggle")).toBe(false);
+  });
+});
+
+describe("what changed since the last text (2026-11-25)", () => {
+  it("names only what changed, in a fixed order, and says so when nothing did", async () => {
+    const { changesSince } = await import("@/lib/projectWeek/changes");
+    const prev = { v: 1 as const, j: { a1: ["2026-12-01", "", "h1", "w1", "p1", 0] as [string, string, string, string, string, 0 | 1], b2: ["2026-12-03", "", "h2", "w2", "p2", 1] as [string, string, string, string, string, 0 | 1] }, r: [] };
+    expect(changesSince(prev, prev, "2026-11-25")).toEqual([]);
+    const now = { v: 1 as const, j: { a1: ["2026-12-02", "", "h1", "w9", "p9", 1] as [string, string, string, string, string, 0 | 1], c3: ["2026-12-09", "", "h3", "", "p3", 0] as [string, string, string, string, string, 0 | 1] }, r: ["l1"] };
+    expect(changesSince(prev, now, "2026-11-25")).toEqual(["Extra job", "Job removed", "Some dates changed", "Scope changed", "Payout updated", "Photos added", "Payment on the way"]);
+    // A job that dropped off because it ended isn't "removed".
+    expect(changesSince(prev, { ...prev, j: { a1: prev.j.a1 } }, "2026-12-05")).toEqual([]);
+  });
+
+  it("the text carries the phrases, no dollar amount, and nothing extra on a first text", async () => {
+    const { messageText, buildBoard } = await import("@/lib/projectWeek/model");
+    const board = buildBoard({ member: { id: "m1", name: "Alex One", phone: null, channels: [], groupId: null, boardUrl: null }, week: { mon: "2026-11-25", sun: "9999-12-31" }, today: "2026-11-25", jobs: [], projects: new Map(), lines: [], openWorkOrders: [] });
+    expect(messageText({ ...board, changes: null }, "https://x.test/a")).not.toMatch(/What's new|No changes/);
+    expect(messageText({ ...board, changes: [] }, "https://x.test/a")).toContain("No changes since your last update.");
+    expect(messageText({ ...board, changes: ["Extra job", "Some dates changed"] }, "https://x.test/a")).toContain("What's new: Extra job, Some dates changed.");
   });
 });
