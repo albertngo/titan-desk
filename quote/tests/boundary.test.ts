@@ -608,8 +608,9 @@ describe("Installer Project Week (2026-11-24: Project Costs lines and each insta
 
   it("the send log only sets Project Week Status and adds lines on a Titan Team row, and only after a Send (2026-11-25)", () => {
     const log = code(all.find((f) => f.rel === "lib/projectWeek/log.ts")!.text);
-    expect(log.match(/notionPayout\(/g)?.length).toBe(1);
-    expect(log).toMatch(/notionPayout\("PATCH", `\/pages\/\$\{memberId\}`, \{ properties: \{ \[TEAM\.sendStatus\]: \{ select: \{ name: status \} \}, \.\.\.sent \} \}\)/);
+    expect(log.match(/notionPayout\(/g)?.length).toBe(2);
+    expect(log).toMatch(/notionPayout\("GET", `\/pages\/\$\{memberId\}`\)/);
+    expect(log).toMatch(/notionPayout\("PATCH", `\/pages\/\$\{memberId\}`, \{ properties: \{ \[TEAM\.sendStatus\]: \{ select: \{ name: status \} \}, \.\.\.sent, \[TEAM\.dispatchLog\]: \{ rich_text: \[\{ type: "text", text: \{ content: column \} \}\] \} \} \}\)/);
     expect(log).toMatch(/const sent = status === "Sent Successfully" \? \{ \[TEAM\.sentDate\]: \{ date: \{ start: at\.toISOString\(\) \} \} \} : \{\};/);
     expect(log).not.toMatch(/"DELETE"|"POST"/);
     expect(all.filter((f) => /from ["'](@\/lib\/projectWeek\/|\.\/)log["']/.test(f.text)).map((f) => f.rel)).toEqual(["lib/projectWeek/run.ts"]);

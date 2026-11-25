@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-25",
     kind: "new",
+    title: "Dispatch Log column on Titan Team",
+    details: ["Each Project Week send is also written to the Dispatch Log column on the installer's Titan Team row, newest first, next to the weekly QA dispatch's lines."],
+  },
+  {
+    date: "2026-11-25",
+    kind: "new",
     title: "Project Week: last sent date on Titan Team",
     details: ["Project Week Sent on each installer's Titan Team row shows when their week last went out. It only moves when every message went; a failed send leaves the last good date."],
   },

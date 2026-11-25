@@ -316,3 +316,12 @@ describe("the send log on a Titan Team row (2026-11-25)", () => {
     expect(logLine(bad, week, "Send all", "now")).toMatch(/: Needs Manual\. .+ \(Test, Send all\)\. No Project Week Channels set\.$/);
   });
 });
+
+describe("the Dispatch Log column (2026-11-25)", () => {
+  it("puts new lines on top and drops the oldest whole lines past the limit", async () => {
+    const { prependLog } = await import("@/lib/projectWeek/model");
+    expect(prependLog(null, ["b", "a"])).toBe("b\na");
+    expect(prependLog("old 1\nold 2", ["new"])).toBe("new\nold 1\nold 2");
+    expect(prependLog("x".repeat(10) + "\n" + "y".repeat(10), ["z".repeat(10)], 21)).toBe(`${"z".repeat(10)}\n${"x".repeat(10)}`);
+  });
+});
