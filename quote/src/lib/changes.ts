@@ -23,6 +23,15 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-26",
     kind: "changed",
+    title: "Rounded payments, and dollars you can type",
+    details: [
+      "On every payment schedule, the payments between the deposit and the final are rounded to the nearest $50, and the final makes up the difference. Quotes already sent keep the figures they were sent with.",
+      "In a payment schedule, the dollar figure of a payment can be typed as well as its percent: it fixes that payment and the rest adjust. Clear it or type 0 to put it back as it was.",
+    ],
+  },
+  {
+    date: "2026-11-26",
+    kind: "changed",
     title: "Payment schedules per option, a combined schedule, and a final 20%",
     details: [
       "Each option now keeps its own payment schedule, headed \"Payment schedule for option: <name>\" in the editor's terms. Changing one no longer changes the others.",

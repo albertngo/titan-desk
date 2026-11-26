@@ -1017,6 +1017,7 @@ a.chip.accent:hover { text-decoration: underline; }
 .sched-part { display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--fg-dim); }
 .sched-part .cell-in { width: 56px; }
 .sched-amt { font-variant-numeric: tabular-nums; text-align: right; font-size: 13px; }
+.sched-amt .sched-dollar { width: 92px; text-align: right; }
 .sched-amt.bad, .pay .v.bad { color: var(--bad, #b42318); }
 .sched-bad { margin: 0; padding-left: 18px; color: var(--bad, #b42318); font-size: 13px; }
 @media (max-width: 760px) { .sched-r { grid-template-columns: 1fr 84px; } .sched-when, .sched-r select { grid-column: 1 / -1; } }

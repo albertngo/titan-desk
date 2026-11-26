@@ -3,7 +3,8 @@
 import { useId } from "react";
 import type { StageAmount } from "@/lib/calc";
 import { money } from "@/lib/format";
-import { autoReason, MAX_STAGES, PAY_HOWS, PAY_LABELS, PRESETS, sameSchedule, scheduleProblems, type PayHow, type PaymentSchedule, type PresetKey, type ScheduleStage } from "@/lib/pricing/schedule";
+import { PAYMENT_ROUND } from "@/lib/calc";
+import { autoReason, MAX_STAGES, PAY_HOWS, PAY_LABELS, PRESETS, sameSchedule, scheduleProblems, type PayHow, type PaymentSchedule, type PresetKey, type ScheduleStage, type StagePart } from "@/lib/pricing/schedule";
 
 /**
  * The payment schedule in the editor's terms (Albert, 2026-10-27): pick a preset, then change any
@@ -40,8 +41,20 @@ export function ScheduleEditor({
   const hid = useId();
   const s = schedule ?? auto;
   const problems = scheduleProblems(s);
-  const edit = (stages: ScheduleStage[]) => onChange({ preset: "custom", stages });
+  const edit = (stages: ScheduleStage[]) => onChange({ preset: "custom", stages, round: s.round ?? PAYMENT_ROUND });
   const patch = (i: number, p: Partial<ScheduleStage>) => edit(s.stages.map((x, k) => (k === i ? { ...x, ...p } : x)));
+  // A typed percent or dollar figure (2026-11-26) remembers what the stage was; clearing it or typing 0 puts that back.
+  const setPart = (i: number, part: StagePart) => patch(i, { part, reset: s.stages[i].reset ?? s.stages[i].part });
+  const resetPart = (i: number) => {
+    const x = s.stages[i];
+    if (!x.reset) return;
+    const { reset, ...rest } = x;
+    edit(s.stages.map((y, k) => (k === i ? { ...rest, part: reset } : y)));
+  };
+  const typed = (raw: string) => {
+    const t = raw.replace(/[$,%\s]/g, "");
+    return t === "" ? 0 : Number(t);
+  };
   const pick = (key: PresetKey) => {
     if (key === "custom") return;
     // The automatic one is stored as nothing at all, so it keeps following the quote's HST.
@@ -96,7 +109,7 @@ export function ScheduleEditor({
           const last = i === s.stages.length - 1;
           const a = amounts[i];
           return (
-            <li key={`${i}:${JSON.stringify(x)}`} className="sched-r">
+            <li key={`${i}:${JSON.stringify(x)}:${a?.amount ?? ""}`} className="sched-r">
               <input className="cell-in" aria-label="Payment name" defaultValue={x.label} onBlur={(e) => e.currentTarget.value !== x.label && patch(i, { label: e.currentTarget.value })} />
               <span className="sched-part">
                 {x.part.kind === "share" || x.part.kind === "topUp" || x.part.kind === "ofTotal" || x.part.kind === "upTo" ? (
@@ -107,8 +120,10 @@ export function ScheduleEditor({
                       aria-label="Share, percent"
                       defaultValue={String(x.part.pct)}
                       onBlur={(e) => {
-                        const v = Number(e.currentTarget.value.replace(/[%\s]/g, ""));
-                        if (Number.isFinite(v) && (x.part.kind === "share" || x.part.kind === "topUp" || x.part.kind === "ofTotal" || x.part.kind === "upTo") && v !== x.part.pct) patch(i, { part: { kind: x.part.kind, pct: v } });
+                        const v = typed(e.currentTarget.value);
+                        if (!Number.isFinite(v)) return;
+                        if (v === 0) return resetPart(i);
+                        if ((x.part.kind === "share" || x.part.kind === "topUp" || x.part.kind === "ofTotal" || x.part.kind === "upTo") && v !== x.part.pct) setPart(i, { kind: x.part.kind, pct: v });
                       }}
                     />
                     {x.part.kind === "topUp" || x.part.kind === "upTo" ? "% in all" : x.part.kind === "ofTotal" ? "% of the total" : "%"}
@@ -116,7 +131,16 @@ export function ScheduleEditor({
                 ) : x.part.kind === "materials" ? (
                   "the material"
                 ) : x.part.kind === "amount" ? (
-                  money(x.part.amount)
+                  x.reset ? (
+                    <>
+                      fixed{" "}
+                      <button type="button" className="linkbtn" onClick={() => resetPart(i)}>
+                        reset
+                      </button>
+                    </>
+                  ) : (
+                    money(x.part.amount)
+                  )
                 ) : (
                   "the balance"
                 )}
@@ -130,7 +154,26 @@ export function ScheduleEditor({
                   </option>
                 ))}
               </select>
-              <span className={`sched-amt${a && a.amount < 0 ? " bad" : ""}`}>{a ? `${money(a.amount)} · ${a.pct}%` : ""}</span>
+              {/* The dollar figure is typed too (2026-11-26): it fixes this payment and the rest follow; clear or 0 resets. */}
+              {a && !last && x.part.kind !== "materials" ? (
+                <span className={`sched-amt${a.amount < 0 ? " bad" : ""}`}>
+                  <input
+                    className="cell-in num sched-dollar"
+                    inputMode="decimal"
+                    aria-label={`${x.label}, dollars`}
+                    defaultValue={a.amount.toFixed(2)}
+                    onBlur={(e) => {
+                      const v = typed(e.currentTarget.value);
+                      if (!Number.isFinite(v)) return;
+                      if (v <= 0) return resetPart(i);
+                      if (Math.abs(v - a.amount) >= 0.005) setPart(i, { kind: "amount", amount: Math.round(v * 100) / 100 });
+                    }}
+                  />
+                  <span className="faint"> · {a.pct}%</span>
+                </span>
+              ) : (
+                <span className={`sched-amt${a && a.amount < 0 ? " bad" : ""}`}>{a ? `${money(a.amount)} · ${a.pct}%` : ""}</span>
+              )}
               {!last && i > 0 ? (
                 <button type="button" className="linkbtn" aria-label={`Remove ${x.label}`} onClick={() => edit(s.stages.filter((_, k) => k !== i))}>
                   Remove

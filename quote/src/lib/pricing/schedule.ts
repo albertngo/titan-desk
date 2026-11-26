@@ -1,4 +1,4 @@
-import { chargesHst, isPriced, materialsDeposit, optionTotals, PAYMENT_SPLIT, restageAmounts, sectionOf, type LineInput, type StageAmount } from "@/lib/calc";
+import { chargesHst, isPriced, materialsDeposit, optionTotals, PAYMENT_ROUND, PAYMENT_SPLIT, restageAmounts, sectionOf, type LineInput, type StageAmount } from "@/lib/calc";
 
 /**
  * The payment schedule (Albert, 2026-10-27): editable per quote. 35 / 35 / 30 is the default, or
@@ -47,9 +47,18 @@ export type StagePart =
  */
 export type PayHow = "etransfer" | "onsite" | "instore" | "cash" | "cashOnsite" | null;
 export const PAY_HOWS: readonly Exclude<PayHow, null>[] = ["etransfer", "onsite", "instore", "cash", "cashOnsite"];
-export type ScheduleStage = { label: string; when: string; part: StagePart; pay: PayHow };
+/**
+ * `reset` (2026-11-26): what the stage was before a percent or dollar figure was typed over it, so clearing the figure or
+ * typing 0 puts it back (Albert: "each edit should adjust the rest. and clearing or 0 means reset").
+ */
+export type ScheduleStage = { label: string; when: string; part: StagePart; pay: PayHow; reset?: StagePart };
 export type PresetKey = "35-35-30" | "25-25-25-25" | "50-50" | "full" | "materials" | "cash" | "custom";
-export type PaymentSchedule = { preset: PresetKey; stages: ScheduleStage[] };
+/**
+ * `round` (2026-11-26): the payments between the deposit and the final are rounded to this many dollars, the final
+ * taking the difference. Every preset and every schedule read from Airtable or the editor has it (50); a schedule frozen
+ * on a copy sent before then has none and keeps its exact figures.
+ */
+export type PaymentSchedule = { preset: PresetKey; stages: ScheduleStage[]; round?: number };
 
 export const MAX_STAGES = 5;
 
@@ -68,6 +77,7 @@ export const PRESETS: Record<Exclude<PresetKey, "custom">, { name: string; sched
     name: "35 / 35 / 30",
     schedule: () => ({
       preset: "35-35-30",
+      round: PAYMENT_ROUND,
       stages: [
         stage("Deposit", WHEN.acceptance, { kind: "share", pct: 35 }, "etransfer"),
         stage("Second payment", WHEN.firstDay, { kind: "share", pct: 35 }),
@@ -79,6 +89,7 @@ export const PRESETS: Record<Exclude<PresetKey, "custom">, { name: string; sched
     name: "25 / 25 / 25 / 25",
     schedule: () => ({
       preset: "25-25-25-25",
+      round: PAYMENT_ROUND,
       stages: [
         stage("Deposit", WHEN.acceptance, { kind: "share", pct: 25 }, "etransfer"),
         stage("Second payment", WHEN.firstDay, { kind: "share", pct: 25 }),
@@ -91,6 +102,7 @@ export const PRESETS: Record<Exclude<PresetKey, "custom">, { name: string; sched
     name: "50 / 50",
     schedule: () => ({
       preset: "50-50",
+      round: PAYMENT_ROUND,
       stages: [stage("Deposit", WHEN.acceptance, { kind: "share", pct: 50 }, "etransfer"), stage("Final payment", WHEN.completion, { kind: "balance" })],
     }),
   },
@@ -102,6 +114,7 @@ export const PRESETS: Record<Exclude<PresetKey, "custom">, { name: string; sched
     name: "100% (paid in full)",
     schedule: () => ({
       preset: "full",
+      round: PAYMENT_ROUND,
       stages: [stage("Full payment", "On acceptance, to secure your materials and your dates", { kind: "balance" }, "etransfer")],
     }),
   },
@@ -121,6 +134,7 @@ export const PRESETS: Record<Exclude<PresetKey, "custom">, { name: string; sched
     name: "Material deposit",
     schedule: () => ({
       preset: "materials",
+      round: PAYMENT_ROUND,
       stages: [
         stage("Materials", MATERIAL_WHEN, { kind: "materials" }, "etransfer"),
         stage("Rest of the deposit", "On acceptance, to secure your dates", { kind: "topUp", pct: 35 }, "instore"),
@@ -137,6 +151,7 @@ export const PRESETS: Record<Exclude<PresetKey, "custom">, { name: string; sched
     name: "Cash (35 / 35 / 30)",
     schedule: () => ({
       preset: "cash",
+      round: PAYMENT_ROUND,
       stages: [
         stage("Deposit", WHEN.acceptance, { kind: "share", pct: 35 }, "cash"),
         stage("Second payment", WHEN.firstDay, { kind: "share", pct: 35 }, "cashOnsite"),
@@ -177,6 +192,7 @@ export function materialFirstSchedule(cash: boolean): PaymentSchedule {
   const s = PRESETS.materials.schedule();
   return {
     preset: "materials",
+    round: s.round,
     stages: s.stages.map((x, i) => ({
       ...x,
       when: i === 0 ? MATERIAL_FIRST_WHEN : x.when,
@@ -365,8 +381,12 @@ export function acceptPlan<S extends { amount: number | null; when?: string }>(
   }
   const [first, ...rest] = picks.map((p) => p.stages);
   const frozen = (first ?? []).map((st, i) => ({ ...st, amount: st.amount === null ? null : Math.round((st.amount + rest.reduce((a, x) => a + (x[i]?.amount ?? 0), 0)) * 100) / 100 }));
-  return { schedule: legacy ?? defaultSchedule(), frozen };
+  // A copy sent before 2026-11-26 is paid as it was shown: never rounded.
+  return { schedule: legacy ?? exactDefault(), frozen };
 }
+
+/** 35 / 35 / 30 to the cent, as every copy frozen before rounding (2026-11-26) was worked out. */
+const exactDefault = (): PaymentSchedule => ({ ...defaultSchedule(), round: undefined });
 
 /**
  * `acceptPlan()` in dollars on the accepted total (add-ons included): what the Accept panel shows as the customer picks,
@@ -380,7 +400,7 @@ export function acceptStages<S extends { amount: number | null; when?: string }>
   total: number,
 ): { stages: StageAmount[]; frozen: { amount: number | null; when?: string }[] } {
   const { schedule, frozen } = acceptPlan(picks, combined, legacy);
-  return { stages: restageAmounts(schedule.stages.length === frozen.length ? schedule : defaultSchedule(), frozen, total), frozen };
+  return { stages: restageAmounts(schedule.stages.length === frozen.length ? schedule : exactDefault(), frozen, total), frozen };
 }
 
 /** The schedule that applies: the version's own, else the automatic one. */
@@ -458,10 +478,13 @@ export function cleanSchedule(raw: unknown): PaymentSchedule | null {
     const s = (x && typeof x === "object" ? x : {}) as Record<string, unknown>;
     const part = readPart(s.part);
     if (!part) return null;
-    stages.push({ label: text(s.label, 40), when: text(s.when, 120), part, pay: PAY_HOWS.includes(s.pay as Exclude<PayHow, null>) ? (s.pay as PayHow) : null });
+    const reset = s.reset ? readPart(s.reset) : null;
+    stages.push({ label: text(s.label, 40), when: text(s.when, 120), part, pay: PAY_HOWS.includes(s.pay as Exclude<PayHow, null>) ? (s.pay as PayHow) : null, ...(reset ? { reset } : {}) });
   }
   if (stages.length === 0) return null;
-  return { preset: PRESET_KEYS.includes(r.preset as PresetKey) ? (r.preset as PresetKey) : "custom", stages };
+  // Rounded to $50 unless it says otherwise (2026-11-26), so a schedule stored before then rounds too once it is sent again.
+  const round = typeof r.round === "number" && Number.isFinite(r.round) && r.round >= 0 && r.round <= 1000 ? r.round : PAYMENT_ROUND;
+  return { preset: PRESET_KEYS.includes(r.preset as PresetKey) ? (r.preset as PresetKey) : "custom", stages, round };
 }
 
 /**
@@ -471,7 +494,7 @@ export function cleanSchedule(raw: unknown): PaymentSchedule | null {
  */
 export function scheduleField(s: PaymentSchedule | null | undefined): string | null {
   if (!s) return null;
-  return JSON.stringify({ preset: s.preset, stages: s.stages });
+  return JSON.stringify({ preset: s.preset, stages: s.stages, ...(s.round !== undefined ? { round: s.round } : {}) });
 }
 
 /**
@@ -491,7 +514,8 @@ export function cleanCombined(raw: unknown): PaymentSchedule | null {
 /** What goes into Quote Versions → Payment Schedule (2026-11-26): the version-wide schedule, if any, and the combined one. */
 export function versionScheduleField(s: PaymentSchedule | null | undefined, combined: PaymentSchedule | null | undefined): string | null {
   if (!s && !combined) return null;
-  return JSON.stringify({ ...(s ? { preset: s.preset, stages: s.stages } : {}), ...(combined ? { combined: { preset: combined.preset, stages: combined.stages } } : {}) });
+  const one = (x: PaymentSchedule) => ({ preset: x.preset, stages: x.stages, ...(x.round !== undefined ? { round: x.round } : {}) });
+  return JSON.stringify({ ...(s ? one(s) : {}), ...(combined ? { combined: one(combined) } : {}) });
 }
 
 /** The same schedule, blank (automatic) only matching blank. */

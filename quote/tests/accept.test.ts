@@ -174,9 +174,9 @@ describe("the acceptance record", () => {
 
   it("the accepted total is the option plus the ticked add-ons at their shown price, with HST; the deposit follows", () => {
     const a = buildAcceptance(copy, input({ addOns: [keys[0].key] }), { now: NOW, terms: TERMS, method: "link", recordedBy: null, userAgent: "Test" });
-    // 1,000 + 100 = 1,100; HST 143; 1,243. 35% = 435.05, 35% = 435.05, balance 372.90.
+    // 1,000 + 100 = 1,100; HST 143; 1,243. 35% = 435.05, 35% = 435.05 rounded to the nearest $50 (450, 2026-11-26), balance 357.95.
     expect(a.totals).toEqual({ subtotal: 1100, hst: 143, total: 1243 });
-    expect(a.stages.map((s) => s.amount)).toEqual([435.05, 435.05, 372.9]);
+    expect(a.stages.map((s) => s.amount)).toEqual([435.05, 450, 357.95]);
     expect(a).toMatchObject({ on: "2026-11-03", method: "link", name: "Sam Sample", terms: "2026-10-27", termsId: TERMS.id, option: { index: 0, name: "Oak", ref: copy.options[0].ref }, addOns: [{ description: "Stair nosing", amount: 100 }], recordedBy: null, reason: null, signature: null });
   });
 
@@ -184,7 +184,7 @@ describe("the acceptance record", () => {
     const a = buildAcceptance(copy, input(), { now: NOW, terms: TERMS, method: "link", recordedBy: null, userAgent: null });
     const t = copy.options[0].totals;
     expect(a.totals).toEqual({ subtotal: t.subtotal, hst: t.hst, total: t.total });
-    expect(a.stages.map((s) => s.amount)).toEqual([t.payment1, t.payment2, t.paymentFinal]);
+    expect(a.stages.map((s) => s.amount)).toEqual(copy.options[0].schedule!.map((s) => s.amount));
   });
 
   it("follows the quote's own schedule, and keeps a material deposit's dollars when add-ons are ticked", () => {

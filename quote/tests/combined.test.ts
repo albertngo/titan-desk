@@ -122,3 +122,29 @@ describe("accepting with the combined schedule (2026-11-26)", () => {
     expect(r.schedule.preset).toBe("35-35-30");
   });
 });
+
+describe("rounding and typed figures (2026-11-26)", () => {
+  const lines = [L({ qty: 1000, unitPriceSnap: 3.33 })]; // 3,330, untaxed
+  const total = optionTotals(lines, 0, false).total;
+
+  it("rounds every payment between the deposit and the final to the nearest $50, the final taking the rest", async () => {
+    const { stageAmounts } = await import("../src/lib/calc");
+    const four = stageAmounts(PRESETS["25-25-25-25"].schedule(), lines, 0, false, total).map((s) => s.amount);
+    expect(four).toEqual([832.5, 850, 850, 797.5]);
+    const cash = stageAmounts(PRESETS.cash.schedule(), lines, 0, false, total).map((s) => s.amount);
+    expect(cash).toEqual([1165.5, 1150, 1014.5]);
+  });
+
+  it("never rounds a schedule frozen before then (no round on it)", async () => {
+    const { stageAmounts } = await import("../src/lib/calc");
+    const old = { ...PRESETS.cash.schedule(), round: undefined };
+    expect(stageAmounts(old, lines, 0, false, total).map((s) => s.amount)).toEqual([1165.5, 1165.5, 999]);
+  });
+
+  it("keeps what a stage was before a typed figure, so clearing it puts that back", () => {
+    const s = PRESETS["35-35-30"].schedule();
+    const typed = { ...s, preset: "custom" as const, stages: s.stages.map((x, i) => (i === 1 ? { ...x, part: { kind: "amount" as const, amount: 1000 }, reset: x.part } : x)) };
+    const back = cleanSchedule(JSON.parse(JSON.stringify(typed)));
+    expect(back?.stages[1]).toMatchObject({ part: { kind: "amount", amount: 1000 }, reset: { kind: "share", pct: 35 } });
+  });
+});

@@ -64,6 +64,7 @@ describe("payment schedule: presets and checks", () => {
     expect(cleanSchedule({ preset: "nonsense", stages: [{ label: "Only", when: 3, part: { kind: "balance" }, pay: "cheque" }] })).toEqual({
       preset: "custom",
       stages: [{ label: "Only", when: "", part: { kind: "balance" }, pay: null }],
+      round: 50,
     });
   });
 
@@ -88,13 +89,17 @@ describe("payment schedule: presets and checks", () => {
 });
 
 describe("payment schedule: the money (calc.ts)", () => {
-  it("the default schedule is exactly the old payment1 / payment2 / paymentFinal", () => {
+  it("the default schedule is the old payment1, a second payment rounded to the nearest $50, and the rest (2026-11-26)", () => {
     for (const rate of [0, 0.1, 0.137]) {
       const lines = [install, floor];
       const t = optionTotals(lines, rate, true);
       const a = stageAmounts(defaultSchedule(), lines, rate, true, t.total);
-      expect(a.map((x) => x.amount)).toEqual([t.payment1, t.payment2, t.paymentFinal]);
+      expect(a[0].amount).toBe(t.payment1);
+      expect(a[1].amount).toBe(Math.round(t.payment2 / 50) * 50);
       expect(a.reduce((s, x) => s + x.amount, 0)).toBeCloseTo(t.total, 2);
+      // Without rounding (a copy sent before then), exactly the old split.
+      const exact = stageAmounts({ ...defaultSchedule(), round: undefined }, lines, rate, true, t.total);
+      expect(exact.map((x) => x.amount)).toEqual([t.payment1, t.payment2, t.paymentFinal]);
     }
   });
 
@@ -261,6 +266,7 @@ describe("payment schedule: saving", () => {
         { label: "Deposit", when: "Now", part: { kind: "share", pct: 50 }, pay: "etransfer" },
         { label: "Final", when: "", part: { kind: "balance" }, pay: null },
       ],
+      round: 50,
     });
   });
 });

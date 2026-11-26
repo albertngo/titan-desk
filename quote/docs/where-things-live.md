@@ -1122,7 +1122,13 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   against their total together. The copy freezes each option's `plan` and `planFacts` and the version's `combinedPlan`; a
   copy frozen before then accepts the old way. **The material deposit** now ends with an `upTo` stage: the second payment
   brings what is paid to 80%, rounded to the nearest $50 (`SECOND_ROUND` in `calc.ts`), and the final takes the rest, so
-  35 / 45 / 20 with a small material and nothing second when the material passes 80%. **On the customer's page** the
+  35 / 45 / 20 with a small material and nothing second when the material passes 80%. **Rounding (same day, "rounding for others should also happen. It especially helps if it is all cash"):**
+  every schedule has `round` (50 on every preset and on anything read by `cleanSchedule()`): `restageAmounts()` rounds each
+  share, percent-of-total or up-to stage between the deposit (the first stage and its top-ups) and the final, never a fixed
+  amount or the material, and the final takes the rest. A schedule frozen on a copy sent before then has no `round` and
+  stays exact. **Typed dollars (same day: "let us also edit the dollar values too; each edit should adjust the rest. and
+  clearing or 0 means reset"):** in `ScheduleEditor` a payment's dollar figure makes it a fixed amount, keeping what it was
+  in `reset`; clearing a percent or dollar figure, or typing 0, puts `reset` back. **On the customer's page** the
   schedule shows once at the bottom (`scheduleAtEnd`): in the Accept panel, else `PlanAtEnd` with a pick per Part. The
   accepted page, a change, the PDF and the email keep each option's schedule. Tested in `tests/combined.test.ts`.
 - **Acceptance (Albert, 2026-10-27: "it is always best to have an accept step").** Only a **measured**
