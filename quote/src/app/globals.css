@@ -1012,6 +1012,8 @@ a.chip.accent:hover { text-decoration: underline; }
 .sched { grid-column: 1 / -1; display: grid; gap: 8px; padding-top: 6px; border-top: 1px solid var(--line, #e5e7eb); }
 .sched-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-weight: 600; }
 .sched-tip { margin: 0; font-size: 13px; color: var(--fg-dim); }
+.sched { container-type: inline-size; }
+@container (max-width: 560px) { .sched-r { grid-template-columns: 1fr 84px; } .sched-r .sched-when, .sched-r select { grid-column: 1 / -1; } }
 .sched-l { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .sched-r { display: grid; grid-template-columns: minmax(110px, 1fr) 84px minmax(140px, 2fr) 140px 130px 56px; gap: 8px; align-items: center; }
 .sched-part { display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--fg-dim); }
@@ -1027,9 +1029,37 @@ a.chip.accent:hover { text-decoration: underline; }
 .cq-accept { padding: 18px; display: grid; gap: 14px; scroll-margin-top: 12px; }
 /* The payment schedule once, at the end (2026-11-26), on a page with no Accept panel. */
 .cq-plan { padding: 18px; display: grid; gap: 12px; }
+/* A deposit in parts (2026-11-26, option A): one outlined Deposit, each part inside with how it is paid. */
+.cq-dep { display: grid; gap: 8px; padding: 12px 14px; border: 2px solid color-mix(in srgb, var(--accent) 30%, var(--line)); background: var(--accent-soft); border-radius: 10px; color: var(--fg); }
+.cq-dep-h, .cq-dep-p { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.cq-dep-h > span:first-child { display: grid; gap: 2px; font-weight: 700; }
+.cq-dep-h .sub, .cq-dep-p .sub { font-weight: 400; font-size: 13px; color: var(--fg-dim); }
+.cq-dep-p { background: var(--card); border-radius: 8px; padding: 9px 12px; }
+.cq-dep-p .n { display: grid; gap: 2px; min-width: 0; }
+.cq-dep-p .t { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.cq-dep .amt { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cq-how { display: inline-block; font-size: 12px; font-weight: 600; line-height: 1.5; padding: 0 8px; border-radius: 999px; white-space: nowrap; }
+.cq-how.et { background: var(--card-2); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent); }
+.cq-how.cash { background: var(--warn-soft); color: var(--warn); }
+/* The page's schedule and Accept rows are flex rows; the deposit box is a grid of its own, padded, at full width. */
+.cq .cq-pay > .cq-dep, .cq .acc-sum .cq-dep { display: grid; justify-content: stretch; padding: 12px 14px; color: var(--fg); }
+.cq .acc-sum .dep-group { display: block; margin: 2px 0; }
+.cq .acc-sum .dep-group dd { white-space: normal; margin: 0; }
+.cq .cq-dep .cq-dep-h, .cq .cq-dep .cq-dep-p { display: flex; justify-content: space-between; }
+.cq .cq-dep .cq-dep-h { padding: 0 2px; }
+.cq .cq-dep .cq-dep-p { padding: 9px 12px; }
 /* The editor's combined schedule (2026-11-26), set apart from the option's own. */
-.ed-divider { display: flex; align-items: center; gap: 10px; margin: 18px 0 10px; color: var(--fg-faint); font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
-.ed-divider::before, .ed-divider::after { content: ""; flex: 1; border-top: 2px dashed var(--line-strong); }
+/* The combined schedule in the sidebar (2026-11-26): the editor's own card, a quiet tint on its header and a dashed
+   edge so it never reads as the option's. */
+.ed-combined { border-style: dashed; }
+.ed-combined > summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; background: var(--card-2); }
+.ed-combined > summary::-webkit-details-marker { display: none; }
+.ed-combined[open] > summary { border-bottom: 1px solid var(--line); }
+.ed-combined-t { display: grid; gap: 2px; }
+.ed-combined-t .faint { font-weight: 400; font-size: 12.5px; }
+.ed-combined-note { font-size: 11.5px; font-weight: 600; color: var(--fg-dim); white-space: nowrap; }
+.ed-combined-note::after { content: " ▾"; }
+.ed-combined[open] .ed-combined-note::after { content: " ▴"; }
 .ed-combined .card-b { display: grid; gap: 10px; }
 .ed-combined-picks { display: grid; gap: 10px; }
 .ed-combined-picks fieldset { border: 1px solid var(--line); border-radius: 8px; margin: 0; padding: 8px 10px; display: grid; gap: 4px; }

@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { money } from "@/lib/format";
-import { acceptPlan, acceptStages, shownStage } from "@/lib/pricing/schedule";
+import { acceptPlan, acceptStages, depositSplit, shownStage, type PayHow } from "@/lib/pricing/schedule";
+import { DepositParts } from "@/components/DepositParts";
 import { leadPrice, partKeys, partOf, partWords, stageNote, stagesOf, type CustomerCopy } from "@/lib/send/copy";
 
 /**
@@ -26,19 +27,25 @@ export function PlanAtEnd({ copy }: { copy: CustomerCopy }) {
   const chosen = options.filter((x) => picks.includes(x.index));
   const ranged = chosen.some((x) => x.o.range);
   const total = chosen.reduce((a, x) => a + x.o.totals.total, 0);
-  const lines = useMemo(() => {
+  const lines = useMemo((): { label: string; note: string; bare: string; figure: string; kind: string; pay: PayHow; amount: number | null }[] => {
     const picked = chosen.map((x) => ({ plan: x.o.plan, planFacts: x.o.planFacts, stages: stagesOf(x.o) }));
     if (!picked.length) return [];
-    if (!ranged) return acceptStages(picked, copy.combinedPlan, copy.paymentSchedule, total).stages.filter(shownStage).map((s) => ({ label: s.label, note: stageNote(s), figure: money(s.amount) }));
+    if (!ranged) return acceptStages(picked, copy.combinedPlan, copy.paymentSchedule, total).stages.filter(shownStage).map((s) => ({ label: s.label, note: stageNote(s), bare: stageNote({ when: s.when, pay: null, kind: s.kind }), figure: money(s.amount), kind: s.kind, pay: s.pay, amount: s.amount }));
     // A range: one option as it was frozen; several by the combined schedule's own words.
-    if (picked.length === 1) return stagesOf(chosen[0].o).filter((s) => s.amount === null || shownStage(s)).map((s) => ({ label: s.label, note: stageNote(s), figure: s.kind === "balance" ? "The balance" : s.kind === "materials" ? "Your materials" : s.target ? `Up to ${s.target}% in all` : s.pct !== null ? `${s.pct}%` : "" }));
+    if (picked.length === 1) return stagesOf(chosen[0].o).filter((s) => s.amount === null || shownStage(s)).map((s) => ({ label: s.label, note: stageNote(s), bare: stageNote({ when: s.when, pay: null, kind: s.kind }), figure: s.kind === "balance" ? "The balance" : s.kind === "materials" ? "Your materials" : s.target ? `Up to ${s.target}% in all` : s.pct !== null ? `${s.pct}%` : "", kind: s.kind, pay: s.pay, amount: null }));
     return acceptPlan(picked, copy.combinedPlan, copy.paymentSchedule).schedule.stages.map((s) => ({
       label: s.label,
       note: stageNote({ when: s.when, pay: s.pay, kind: s.part.kind }),
+      bare: stageNote({ when: s.when, pay: null, kind: s.part.kind }),
       figure: s.part.kind === "balance" ? "The balance" : s.part.kind === "materials" ? "Your materials" : s.part.kind === "amount" ? money(s.part.amount) : s.part.kind === "share" || s.part.kind === "ofTotal" ? `${s.part.pct}%` : `Up to ${s.part.pct}% in all`,
+      kind: s.part.kind,
+      pay: s.pay,
+      amount: null,
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [picks, ranged, total, copy.combinedPlan, copy.paymentSchedule]);
+  const n = depositSplit(lines);
+  const dep = n >= 2 ? lines.slice(0, n) : [];
   const withHst = chosen.some((x) => leadPrice(copy, x.o.totals).addsHst);
 
   return (
@@ -73,7 +80,14 @@ export function PlanAtEnd({ copy }: { copy: CustomerCopy }) {
         <p className="cq-plan-note">Choose an option to see its payment schedule.</p>
       ) : (
         <div className="cq-pay">
-          {lines.map((s, i) => (
+          {/* A deposit in parts (2026-11-26): one outlined Deposit, each part with how it is paid. */}
+          {dep.length > 0 && (
+            <DepositParts
+              total={dep.every((s) => s.amount !== null) ? money(dep.reduce((a, s) => a + (s.amount ?? 0), 0)) : dep[dep.length - 1].figure}
+              parts={dep.map((s) => ({ label: s.label, note: s.bare, figure: s.figure, pay: s.pay }))}
+            />
+          )}
+          {lines.slice(dep.length).map((s, i) => (
             <div key={i}>
               <span>
                 {s.label}

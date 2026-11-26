@@ -441,6 +441,17 @@ export const scheduleFor = (schedule: PaymentSchedule | null | undefined, option
  */
 export const shownStage = (s: { kind: string; amount: number | null }) => !((s.kind === "topUp" || s.kind === "upTo" || s.kind === "materials") && s.amount !== null && Math.abs(s.amount) < 0.005);
 
+/**
+ * How many of the shown stages, from the first, make up the deposit (2026-11-26): the first and any top-ups right
+ * after it. 1 = a deposit of one part; 2 or more = a deposit paid in parts the same day, shown together.
+ */
+export function depositSplit(shown: { kind: string }[]): number {
+  if (!shown.length) return 0;
+  let n = 1;
+  while (shown[n]?.kind === "topUp") n++;
+  return n;
+}
+
 /* ---------- checking and reading ---------- */
 
 /** What is wrong with a schedule, said to staff; empty means it may be saved and sent. */

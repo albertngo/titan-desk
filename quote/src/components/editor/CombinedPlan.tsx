@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { optionTotals, type LineInput } from "@/lib/calc";
 import { money } from "@/lib/format";
-import { acceptStages, autoFromFacts, ruleBreaks, scheduleFacts, type PaymentSchedule } from "@/lib/pricing/schedule";
+import { acceptStages, autoFromFacts, PRESETS, ruleBreaks, scheduleFacts, type PaymentSchedule, type PresetKey } from "@/lib/pricing/schedule";
 import { partKey, scheduleLines } from "@/lib/quotes/scope";
 import type { Part, Scope } from "@/lib/quotes/types";
 import type { EditorLine } from "@/lib/editor/model";
@@ -37,10 +37,14 @@ export function CombinedPlan({ options, discountRate, combined, onChange }: { op
 
   if (options.length < 2) return null;
   return (
-    <section className="card ed-combined" aria-label="Combined options payment schedule">
-      <div className="card-h">
-        Combined options <span className="right">Not for one option: for two or more accepted together</span>
-      </div>
+    <details className="card ed-combined">
+      <summary className="card-h">
+        <span className="ed-combined-t">
+          Combined options
+          <span className="faint">{combined ? `${PRESETS[combined.preset as Exclude<PresetKey, "custom">]?.name ?? "Custom"}, picked by hand` : "Automatic on what they choose"}</span>
+        </span>
+        <span className="ed-combined-note">Not for one option</span>
+      </summary>
       <div className="card-b">
         <p className="note">Tick the options as if the customer is accepting them together. The schedule below is what they would pay for that combination.</p>
         <div className="ed-combined-picks">
@@ -88,6 +92,6 @@ export function CombinedPlan({ options, discountRate, combined, onChange }: { op
           </>
         )}
       </div>
-    </section>
+    </details>
   );
 }

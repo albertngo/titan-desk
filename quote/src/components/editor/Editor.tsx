@@ -1446,7 +1446,8 @@ export default function Editor({
             </section>
           )}
 
-          <details className="card ed-terms" ref={termsRef} id="ed-terms">
+          {/* Open from the start (Albert, 2026-11-26: "expand the option one by default"). */}
+          <details className="card ed-terms" ref={termsRef} id="ed-terms" open>
             <summary className="card-h">
               Customer and terms <span className="right">{termsLine}</span>
             </summary>
@@ -1505,20 +1506,6 @@ export default function Editor({
             </div>
           </details>
 
-          {/* The combined schedule (Albert, 2026-11-26), set apart from the option's own by a divider: "so its obvious its not for the option". */}
-          {!customer && quote.options.filter((o) => !o.notOffered).length > 1 && (
-            <>
-              <div className="ed-divider" role="separator" aria-label="Not for this option">
-                <span>Not for this option</span>
-              </div>
-              <CombinedPlan
-                options={quote.options.filter((o) => !o.notOffered).map((o) => ({ id: o.id, name: o.name, recommended: o.recommended, part: o.part, scope: o.scope, lines: o.lines, showHst: o.showHst ?? quote.showHst }))}
-                discountRate={quote.discountRate}
-                combined={quote.combined ?? null}
-                onChange={(next) => apply(setCombinedSchedule(quote, next))}
-              />
-            </>
-          )}
 
 
         </div>
@@ -1555,6 +1542,16 @@ export default function Editor({
               </button>
             </div>
           </section>
+          {/* The combined schedule (Albert, 2026-11-26: option C, "a layout change into the current aesthetic and slight
+              separation for clarity"): in the sidebar, apart from the option's own, a dropdown closed until opened. */}
+          {!customer && quote.options.filter((o) => !o.notOffered).length > 1 && (
+            <CombinedPlan
+              options={quote.options.filter((o) => !o.notOffered).map((o) => ({ id: o.id, name: o.name, recommended: o.recommended, part: o.part, scope: o.scope, lines: o.lines, showHst: o.showHst ?? quote.showHst }))}
+              discountRate={quote.discountRate}
+              combined={quote.combined ?? null}
+              onChange={(next) => apply(setCombinedSchedule(quote, next))}
+            />
+          )}
           {/* The Send card (2026-11-06), as on the quote page; off while this screen holds unsaved changes. */}
           {hasSendCard && (
             <div className="ed-send">

@@ -22,6 +22,18 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-26",
+    kind: "changed",
+    title: "A two-part deposit shows as one deposit",
+    details: ["On the customer's quote page, when the deposit is the material plus the rest of the deposit, both show inside one outlined Deposit with its total and \"Both parts on acceptance\", each part tagged with how it is paid (by e-transfer, paid in store). A single deposit stays one line."],
+  },
+  {
+    date: "2026-11-26",
+    kind: "changed",
+    title: "Combined options moved to the sidebar",
+    details: ["In the editor, Combined options is now a dropdown in the right-hand sidebar under Customer and terms, closed until you open it, so it is never mistaken for the option's own schedule. The option's terms and its payment schedule now open expanded."],
+  },
+  {
+    date: "2026-11-26",
     kind: "removed",
     title: "No payment schedule in a sent quote's email",
     details: ["The email that sends a quote no longer spells out the payment schedule. It is on the quote link, where it follows the options the customer picks. The emails after they accept still say what to pay and how."],
