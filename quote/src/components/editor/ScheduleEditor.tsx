@@ -28,7 +28,10 @@ export function ScheduleEditor({
   schedule: PaymentSchedule | null;
   /** What the version gets with no schedule of its own (2026-11-05). */
   auto: PaymentSchedule;
-  /** Where it goes against the HST rules (2026-11-05): shown here, and the send is refused until it is fixed. */
+  /**
+   * Where it goes against the HST rules (2026-11-05; `ruleBreaks()`): shown here, and the send is refused until it is
+   * fixed or kept anyway with the override (2026-11-26).
+   */
   flags?: string[];
   onChange: (next: PaymentSchedule | null) => void;
   /** The stages in dollars for the option on screen, in order. */
@@ -41,7 +44,8 @@ export function ScheduleEditor({
   const hid = useId();
   const s = schedule ?? auto;
   const problems = scheduleProblems(s);
-  const edit = (stages: ScheduleStage[]) => onChange({ preset: "custom", stages, round: s.round ?? PAYMENT_ROUND });
+  // An override stays with the schedule through stage edits (2026-11-26); picking a preset starts fresh without it.
+  const edit = (stages: ScheduleStage[]) => onChange({ preset: "custom", stages, round: s.round ?? PAYMENT_ROUND, ...(s.override ? { override: true } : {}) });
   const patch = (i: number, p: Partial<ScheduleStage>) => edit(s.stages.map((x, k) => (k === i ? { ...x, ...p } : x)));
   // A typed percent or dollar figure (2026-11-26) remembers what the stage was; clearing it or typing 0 puts that back.
   const setPart = (i: number, part: StagePart) => patch(i, { part, reset: s.stages[i].reset ?? s.stages[i].part });
@@ -94,16 +98,43 @@ export function ScheduleEditor({
           </p>
         )
       )}
-      {flags.length > 0 && (
-        <div className="sq-msg warn" role="status">
-          <b>Fix the payment schedule before sending</b>
-          <ul>
-            {flags.map((f) => (
-              <li key={f}>{f}</li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {/* The HST rules (2026-11-05), with an override (Albert, 2026-11-26: "clarify why and have an override if we want to"). */}
+      {flags.length > 0 &&
+        (s.override ? (
+          <div className="sq-msg" role="status">
+            <b>Kept against the HST rule, on purpose</b>
+            <ul>
+              {flags.map((f) => (
+                <li key={f}>{f}</li>
+              ))}
+            </ul>
+            <button type="button" className="linkbtn" onClick={() => onChange({ ...s, override: undefined })}>
+              Undo: follow the rule again
+            </button>
+          </div>
+        ) : (
+          <div className="sq-msg warn" role="status">
+            <b>This schedule goes against the HST rule, so the quote can&apos;t be sent yet</b>
+            <ul>
+              {flags.map((f) => (
+                <li key={f}>{f}</li>
+              ))}
+            </ul>
+            <p className="sched-tip">
+              The rule keeps the payment instructions in step with where HST is charged. Fix the schedule (for example, pick the automatic one), or keep it as it is if you mean it.
+            </p>
+            <div className="sched-override">
+              <button type="button" className="btn small" onClick={() => onChange({ ...s, override: true })}>
+                Keep this schedule anyway
+              </button>
+              {schedule && !sameSchedule({ ...schedule, override: undefined }, auto) && (
+                <button type="button" className="linkbtn" onClick={() => onChange(null)}>
+                  Use the automatic one ({PRESETS[auto.preset as Exclude<PresetKey, "custom">]?.name ?? "35 / 35 / 30"})
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
       <ol className="sched-l">
         {s.stages.map((x, i) => {
           const last = i === s.stages.length - 1;

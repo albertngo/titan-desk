@@ -186,9 +186,11 @@ describe("before sending", () => {
       const v = quote({ showHst: false, options: opt, schedule });
       return sendProblems(v, { ...ok, base: fingerprint(fromQuote(v)) }, { ...ctx, fingerprint: fingerprint(fromQuote(v)) });
     };
-    expect(noHst(defaultSchedule()).join(" ")).toMatch(/Nothing on this quote carries HST, so it is paid in cash, but Deposit is set to e-transfer/);
+    expect(noHst(defaultSchedule()).join(" ")).toMatch(/nothing carries HST, so the rule is to be paid in cash, but Deposit is set to e-transfer/);
     expect(noHst(null)).toEqual([]);
     expect(noHst(PRESETS.cash.schedule())).toEqual([]);
+    // Kept anyway (2026-11-26): the send goes.
+    expect(noHst({ ...defaultSchedule(), override: true })).toEqual([]);
   });
 
   it("a text goes only from the sender's own number, as an email only from their address", () => {

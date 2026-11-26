@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { optionTotals, type LineInput } from "@/lib/calc";
 import { money } from "@/lib/format";
-import { acceptStages, autoFromFacts, scheduleFacts, scheduleFlags, type PaymentSchedule } from "@/lib/pricing/schedule";
+import { acceptStages, autoFromFacts, ruleBreaks, scheduleFacts, type PaymentSchedule } from "@/lib/pricing/schedule";
 import { partKey, scheduleLines } from "@/lib/quotes/scope";
 import type { Part, Scope } from "@/lib/quotes/types";
 import type { EditorLine } from "@/lib/editor/model";
@@ -33,7 +33,7 @@ export function CombinedPlan({ options, discountRate, combined, onChange }: { op
   const auto = autoFromFacts(facts);
   const plan = combined ?? auto;
   const amounts = chosen.length > 1 ? acceptStages(chosen.map((o, i) => ({ plan, planFacts: facts[i], stages: [] })), plan, null, total).stages : [];
-  const flags = chosen.length > 1 ? scheduleFlags(plan, chosen.map((o) => ({ name: o.name, lines: scheduleLines(o), showHst: o.showHst, discountRate }))) : [];
+  const flags = chosen.length > 1 ? ruleBreaks(plan, chosen.map((o) => ({ name: o.name, lines: scheduleLines(o), showHst: o.showHst, discountRate }))) : [];
 
   if (options.length < 2) return null;
   return (

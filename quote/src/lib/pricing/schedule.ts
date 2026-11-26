@@ -58,7 +58,17 @@ export type PresetKey = "35-35-30" | "25-25-25-25" | "50-50" | "full" | "materia
  * taking the difference. Every preset and every schedule read from Airtable or the editor has it (50); a schedule frozen
  * on a copy sent before then has none and keeps its exact figures.
  */
-export type PaymentSchedule = { preset: PresetKey; stages: ScheduleStage[]; round?: number };
+export type PaymentSchedule = {
+  preset: PresetKey;
+  stages: ScheduleStage[];
+  round?: number;
+  /**
+   * Kept against the HST rules on purpose (Albert, 2026-11-26: "Can we clarify why and have an override if we want to"):
+   * `scheduleFlags()` then raises nothing for this schedule, so the send goes. `ruleBreaks()` still names what it goes
+   * against, for the editor to show beside the Undo.
+   */
+  override?: boolean;
+};
 
 export const MAX_STAGES = 5;
 
@@ -291,14 +301,31 @@ export function autoReason(auto: PaymentSchedule): string {
  * `options` carry their names and discount for the money: the material's share is `materialsDeposit()` over the total.
  */
 export function scheduleFlags(s: PaymentSchedule, options: { name: string; lines: LineInput[]; showHst: boolean; discountRate: number }[]): string[] {
+  return s.override ? [] : ruleBreaks(s, options);
+}
+
+const nameList = (names: string[]) => (names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`);
+
+/**
+ * What a schedule goes against, whether or not it was kept anyway (2026-11-26): the editor shows these with the
+ * override; `scheduleFlags()` is these unless the schedule is overridden. Each names the option it is about and why
+ * (Albert, same day: "Why is this happening? … Can we clarify why").
+ */
+export function ruleBreaks(s: PaymentSchedule, options: { name: string; lines: LineInput[]; showHst: boolean; discountRate: number }[]): string[] {
   const auto = hstSchedule(options);
   const out: string[] = [];
+  const named = (os: typeof options) => nameList(os.map((o) => `"${o.name || "an option"}"`));
   if (auto.preset === "cash") {
     const et = s.stages.filter((x) => x.pay === "etransfer").map((x) => x.label || "a payment");
-    if (et.length) out.push(`Nothing on this quote carries HST, so it is paid in cash, but ${et.join(" and ")} ${et.length === 1 ? "is" : "are"} set to e-transfer.`);
+    if (et.length)
+      out.push(`${named(options)}: nothing carries HST, so the rule is to be paid in cash, but ${et.join(" and ")} ${et.length === 1 ? "is" : "are"} set to e-transfer.`);
   }
   if (auto.preset === "materials") {
-    if (s.stages[0]?.part.kind !== "materials") out.push(`HST is on the material only, so Materials should come first, but the schedule starts with ${s.stages[0]?.label || "another payment"}.`);
+    const materialOnly = options.filter((o) => suggestsMaterialDeposit(o.lines, o.showHst));
+    if (s.stages[0]?.part.kind !== "materials")
+      out.push(
+        `${named(materialOnly)}: HST is charged on the material only (the work carries none), so the rule is to take the material deposit first. This schedule starts with ${s.stages[0]?.label || "another payment"} instead.`,
+      );
     else if (s.stages[1]?.part.kind !== "topUp") {
       for (const o of options) {
         const total = optionTotals(o.lines, o.discountRate, o.showHst).total;
@@ -484,7 +511,7 @@ export function cleanSchedule(raw: unknown): PaymentSchedule | null {
   if (stages.length === 0) return null;
   // Rounded to $50 unless it says otherwise (2026-11-26), so a schedule stored before then rounds too once it is sent again.
   const round = typeof r.round === "number" && Number.isFinite(r.round) && r.round >= 0 && r.round <= 1000 ? r.round : PAYMENT_ROUND;
-  return { preset: PRESET_KEYS.includes(r.preset as PresetKey) ? (r.preset as PresetKey) : "custom", stages, round };
+  return { preset: PRESET_KEYS.includes(r.preset as PresetKey) ? (r.preset as PresetKey) : "custom", stages, round, ...(r.override === true ? { override: true } : {}) };
 }
 
 /**
@@ -494,7 +521,7 @@ export function cleanSchedule(raw: unknown): PaymentSchedule | null {
  */
 export function scheduleField(s: PaymentSchedule | null | undefined): string | null {
   if (!s) return null;
-  return JSON.stringify({ preset: s.preset, stages: s.stages, ...(s.round !== undefined ? { round: s.round } : {}) });
+  return JSON.stringify({ preset: s.preset, stages: s.stages, ...(s.round !== undefined ? { round: s.round } : {}), ...(s.override ? { override: true } : {}) });
 }
 
 /**
@@ -514,12 +541,13 @@ export function cleanCombined(raw: unknown): PaymentSchedule | null {
 /** What goes into Quote Versions → Payment Schedule (2026-11-26): the version-wide schedule, if any, and the combined one. */
 export function versionScheduleField(s: PaymentSchedule | null | undefined, combined: PaymentSchedule | null | undefined): string | null {
   if (!s && !combined) return null;
-  const one = (x: PaymentSchedule) => ({ preset: x.preset, stages: x.stages, ...(x.round !== undefined ? { round: x.round } : {}) });
+  const one = (x: PaymentSchedule) => ({ preset: x.preset, stages: x.stages, ...(x.round !== undefined ? { round: x.round } : {}), ...(x.override ? { override: true } : {}) });
   return JSON.stringify({ ...(s ? one(s) : {}), ...(combined ? { combined: one(combined) } : {}) });
 }
 
 /** The same schedule, blank (automatic) only matching blank. */
-export const sameSchedule = (a: PaymentSchedule | null | undefined, b: PaymentSchedule | null | undefined) => JSON.stringify(a?.stages ?? null) === JSON.stringify(b?.stages ?? null);
+export const sameSchedule = (a: PaymentSchedule | null | undefined, b: PaymentSchedule | null | undefined) =>
+  JSON.stringify(a?.stages ?? null) === JSON.stringify(b?.stages ?? null) && !!a?.override === !!b?.override;
 
 /** The deposit's share, for words like "35% deposit"; null when the deposit is the material or a fixed amount. */
 export const depositPct = (s: PaymentSchedule): number | null => (s.stages[0]?.part.kind === "share" ? s.stages[0].part.pct : null);

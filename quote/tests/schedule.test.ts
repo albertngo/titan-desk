@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { materialsDeposit, optionTotals, stageAmountProblems, stageAmounts, type LineInput } from "../src/lib/calc";
-import { autoReason, autoSchedule, MATERIAL_FIRST_WHEN, MATERIAL_WHEN, materialFirst, materialFirstSchedule, scheduleFlags, cleanSchedule, defaultSchedule, payWords, PRESETS, sameSchedule, scheduleField, scheduleProblems, shownStage, suggestsMaterialDeposit, type PaymentSchedule } from "../src/lib/pricing/schedule";
+import { autoReason, autoSchedule, MATERIAL_FIRST_WHEN, MATERIAL_WHEN, materialFirst, materialFirstSchedule, ruleBreaks, scheduleFlags, cleanSchedule, defaultSchedule, payWords, PRESETS, sameSchedule, scheduleField, scheduleProblems, shownStage, suggestsMaterialDeposit, type PaymentSchedule } from "../src/lib/pricing/schedule";
 import { cleanEditorQuote, fingerprint, planSave } from "../src/lib/quotes/savePlan";
 import { VERSION } from "../src/lib/airtable/fields";
 import { blankQuote, setSchedule } from "../src/lib/editor/model";
@@ -229,7 +229,7 @@ describe("payment schedule: the money (calc.ts)", () => {
     expect(scheduleFlags(cash, [{ name: "Option 1", lines: [install, untaxedBig], showHst: false, discountRate: 0 }])).toEqual([]);
     // Still the cash rule's flags: a plain 35 / 35 / 30 by e-transfer is flagged, nothing about the material.
     expect(scheduleFlags(defaultSchedule(), [{ name: "Option 1", lines: [install, untaxedBig], showHst: false, discountRate: 0 }])).toEqual([
-      "Nothing on this quote carries HST, so it is paid in cash, but Deposit is set to e-transfer.",
+      '"Option 1": nothing carries HST, so the rule is to be paid in cash, but Deposit is set to e-transfer.',
     ]);
   });
 
@@ -392,11 +392,22 @@ describe("flags a schedule that goes against the HST rules (2026-11-05)", () => 
   });
 
   it("flags e-transfer on a quote with no HST at all", () => {
-    expect(scheduleFlags(defaultSchedule(), o([install, untaxedFloor], false))).toEqual(["Nothing on this quote carries HST, so it is paid in cash, but Deposit is set to e-transfer."]);
+    expect(scheduleFlags(defaultSchedule(), o([install, untaxedFloor], false))).toEqual(['"Option 1": nothing carries HST, so the rule is to be paid in cash, but Deposit is set to e-transfer.']);
   });
 
   it("flags a quote with HST on the material only that doesn't start with the material", () => {
-    expect(scheduleFlags(defaultSchedule(), o([install, floor], false))).toEqual(["HST is on the material only, so Materials should come first, but the schedule starts with Deposit."]);
+    expect(scheduleFlags(defaultSchedule(), o([install, floor], false))).toEqual([
+      '"Option 1": HST is charged on the material only (the work carries none), so the rule is to take the material deposit first. This schedule starts with Deposit instead.',
+    ]);
+  });
+
+  it("raises nothing for a schedule kept anyway (2026-11-26), and still says what it goes against", () => {
+    const kept = { ...defaultSchedule(), override: true };
+    expect(scheduleFlags(kept, o([install, floor], false))).toEqual([]);
+    expect(ruleBreaks(kept, o([install, floor], false))).toHaveLength(1);
+    // The override is saved and read back, and counts as a change.
+    expect(cleanSchedule(scheduleField(kept))?.override).toBe(true);
+    expect(sameSchedule(kept, defaultSchedule())).toBe(false);
   });
 
   it("flags a material under 35% with nothing after it bringing the deposit up to 35%", () => {

@@ -72,7 +72,7 @@ import { ScheduleEditor } from "./ScheduleEditor";
 import { CombinedPlan } from "./CombinedPlan";
 import { SwapOption } from "./SwapOption";
 import type { SwapSource } from "@/lib/change/swap";
-import { autoSchedule, scheduleFlags, shownStage } from "@/lib/pricing/schedule";
+import { autoSchedule, ruleBreaks, shownStage } from "@/lib/pricing/schedule";
 import { SAND_DISCLAIMER, sandFlag, sandRole } from "@/lib/editor/sandRule";
 import { syncStairWording } from "@/lib/quick/stairs";
 import { EditorSend } from "@/components/editor/EditorSend";
@@ -523,7 +523,7 @@ export default function Editor({
   const schedule = option ? optionSchedule(quote, option) : autoPlan;
   // A schedule that goes against the HST rules is flagged, never stopped (2026-11-05).
   const scheduleWarnings = useMemo(
-    () => (option ? scheduleFlags(schedule, [{ name: option.name, lines: planLines, showHst: hstOn, discountRate: quote.discountRate }]) : []),
+    () => (option ? ruleBreaks(schedule, [{ name: option.name, lines: planLines, showHst: hstOn, discountRate: quote.discountRate }]) : []),
     [schedule, option, planLines, hstOn, quote.discountRate],
   );
   const payLine = option && t ? stageAmounts(schedule, planLines, quote.discountRate, option.showHst ?? quote.showHst, t.total).filter(shownStage).map((x) => x.pct).join(" / ") : "35 / 35 / 30";

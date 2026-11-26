@@ -22,6 +22,15 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-26",
+    kind: "changed",
+    title: "HST schedule warnings say which option and why, with an override",
+    details: [
+      "When a payment schedule goes against the HST rule, the warning now names the option and says why, for example that HST is charged on its material only, so the rule is to take the material deposit first.",
+      "Under the warning in the option's payment schedule, \"Keep this schedule anyway\" lets the quote go as it is. It is marked \"Kept against the HST rule, on purpose\", with an Undo.",
+    ],
+  },
+  {
+    date: "2026-11-26",
     kind: "fixed",
     title: "A quote won outside the app gets its PP number",
     details: ["When a job is won in GHL or in the store rather than accepted in the app, its quote now picks up the PP number and Notion project the next time it is opened, as long as it is the only quote on that opportunity."],
