@@ -821,6 +821,22 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   Cost Override (labour from the card + the typed material), so Airtable and `calc.ts` are unchanged;
   `materialSplit()` / `setMaterialFigures()`.
   Rules: `rateSnap()` / `setMaterial()` in `src/lib/editor/model.ts`; tested in `tests/editor.test.ts`.
+- **Flooring choices (Albert, 2026-11-26; vault `05_decisions/2026-11-26-quote-flooring-choices`).** One option offered in
+  up to four floorings, the labour unchanged. Every flooring is a real option underneath, so totals, the Airtable check,
+  acceptance (one per Part), the contract, payouts and the payment schedule work as they did: options sharing Quote
+  Options → **Choice Group** are one option, the first of them shown first (the lead), and each has one **Choice Line**
+  (Quote Lines), its flooring, the only line that differs. `src/lib/editor/choices.ts`: every flooring follows the lead after
+  each edit (`syncChoices()`: lines matched in order keep their ids; name, words, Part, scope, level, crew, HST, schedule),
+  the square feet and waste are shared (Albert: "shared"), each may be rounded to its own whole boxes (`roundChoices()`),
+  and typing new square feet on the lead puts every flooring back on them. The editor shows only the lead's tab ("· 3
+  floorings", "from" its lowest) and the list under its lines (`ChoiceList`); "Offer other floorings" on a product line in
+  Materials starts one. Copying from a past quote keeps floorings copied together as one under a new key. The send checks
+  look at a follower's square feet on its lead. The copy freezes `choiceGroup` and `choiceLabel`; `optionEntries()` counts
+  an option once (its number, "Option 2", shared), and the customer's page shows it as one tab with "Choose your
+  flooring" (`FlooringChoices`), each flooring's own block under it; a preliminary's headline runs from the lowest low to
+  the highest high, each flooring keeping its own range. The Accept panel and the bottom schedule name each flooring
+  ("Main floor: Vinyl B"). The email and text fold each into one option (`emailView()`), "N floorings to choose from",
+  priced "from" its lowest. Tested in `tests/choices.test.ts` and `tests/accept.test.ts`.
 - **The customer's conversation (Albert, 2026-10-20).** On the quote page and the editor it is a
   **drawer docked to the right edge**: a tab with the message and photo counts, a click opens a
   panel beside the quote (a wide screen makes room for it, a narrow one is slid over; remembered

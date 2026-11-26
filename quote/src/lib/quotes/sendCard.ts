@@ -1,4 +1,5 @@
 import "server-only";
+import { staffName } from "@/lib/editor/choices";
 import { outsideFor } from "./followup";
 import type { ComponentProps } from "react";
 import type { SendQuote } from "@/components/SendQuote";
@@ -43,7 +44,7 @@ export async function sendCardData(quote: Quote, customer: boolean) {
     const priv = privAmount > 0 ? { label: o.privateLabel?.trim() || DEFAULT_PRIVATE_LABEL, amount: money(privAmount), stairs } : null;
     // A preliminary's stairs option goes as its words only (2026-11-07): the card shows them, so the sender knows exactly what goes.
     const words = wordsOnly(o, preliminary) ? (o.description ?? "").trim() : null;
-    return { id: o.id, name: o.name, price: `${money(lead.amount)} ${lead.tag}`, range, recommended: o.recommended, notOffered: o.notOffered === true, problem: optionProblem(quote, o), priv, words };
+    return { id: o.id, name: staffName(quote.options, o), price: `${money(lead.amount)} ${lead.tag}`, range, recommended: o.recommended, notOffered: o.notOffered === true, problem: optionProblem(quote, o), priv, words };
   });
   // Send again (2026-10-30) says whether their page already offers the PDF: read from the frozen copy, only for a version out with the customer.
   const sentPdf = !customer && quote.status === "Sent" ? offersPdf((await previewCopy(quote.id)) ?? { pdf: false }) : false;

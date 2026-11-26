@@ -42,7 +42,8 @@ import { termsLabel } from "@/lib/accept/terms";
 import { ghlOpportunityUrl } from "@/lib/ghl/ids";
 import { logEntries } from "@/lib/quotes/history";
 import { HistoryPanel } from "@/components/QuoteHistory";
-import { optionSchedule, partOf } from "@/lib/send/copy";
+import { optionSchedule, optionTitle, partOf } from "@/lib/send/copy";
+import { staffName } from "@/lib/editor/choices";
 import { parseRooms } from "@/lib/rooms/log";
 import { defaultOptionIds, parsePayouts, payoutCandidates } from "@/lib/payout/cards";
 
@@ -120,7 +121,7 @@ export default async function QuotePage({
         quoteRecordId={quote.link.quoteRecordId}
         versionId={quote.id}
         raw={payoutsRawText}
-        options={quote.options.map((o) => ({ id: o.id, name: o.name, part: o.part ?? null, accepted: acceptedIds.has(o.id), notOffered: o.notOffered === true }))}
+        options={quote.options.map((o) => ({ id: o.id, name: staffName(quote.options, o), part: o.part ?? null, accepted: acceptedIds.has(o.id), notOffered: o.notOffered === true }))}
         defaultIds={defaultOptionIds(quote)}
         candidates={payoutCandidates(quote, quote.options.map((o) => o.id), payoutCard)}
         header={{
@@ -147,7 +148,7 @@ export default async function QuotePage({
       <AcceptForCustomer
         versionId={quote.id}
         link={link}
-        options={sentCopy.options.map((o, index) => ({ index, name: o.name, subtotal: o.totals.subtotal, part: partOf(o), addOns: addOnsOf(sentCopy, index) }))}
+        options={sentCopy.options.map((o, index) => ({ index, name: optionTitle(sentCopy, index), subtotal: o.totals.subtotal, part: partOf(o), addOns: addOnsOf(sentCopy, index) }))}
         customerName={[quote.link?.firstName, quote.link?.lastName].filter(Boolean).join(" ") || quote.customerName}
         terms={acceptGate?.terms ? { id: acceptGate.terms.id, label: termsLabel(acceptGate.terms.on) } : null}
         off={acceptGate?.off ?? null}
@@ -285,7 +286,7 @@ export default async function QuotePage({
                             {acceptedIds.has(o.id) && <span className="t-acc">✓ Accepted</span>}
                             {o.notOffered && <span className="t-off">Not offered</span>}
                             {o.part && <span className="t-part">{o.part}</span>}
-                            <span className="t-name">{o.name}</span>
+                            <span className="t-name">{staffName(quote.options, o)}</span>
                             <span className="t-amt">{money(optionTotals(o.lines, quote.discountRate, optionHst(quote, o)).total)}</span>
                           </Link>
                         ))}

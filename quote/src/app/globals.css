@@ -1012,6 +1012,23 @@ a.chip.accent:hover { text-decoration: underline; }
 .sched { grid-column: 1 / -1; display: grid; gap: 8px; padding-top: 6px; border-top: 1px solid var(--line, #e5e7eb); }
 .sched-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-weight: 600; }
 .sched-tip { margin: 0; font-size: 13px; color: var(--fg-dim); }
+/* Flooring choices in the editor (2026-11-26): the floorings an option offers, under its lines. */
+.ed-choices { margin: 10px 0 0; border: 1px solid var(--line-strong); border-radius: 10px; overflow: hidden; background: var(--card); }
+.ed-choices-h { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 8px 12px; background: var(--card-2); border-bottom: 1px solid var(--line); font-size: 13px; }
+.ed-choices-l { list-style: none; margin: 0; padding: 0; }
+.ed-choices-l li { display: grid; grid-template-columns: 24px minmax(0, 1fr) 110px 110px 24px; gap: 8px; align-items: center; padding: 8px 12px; border-top: 1px solid var(--line); font-size: 13px; }
+.ed-choices-l li:first-child { border-top: 0; }
+.ed-choice-n { display: grid; gap: 2px; min-width: 0; }
+.ed-choice-n .chip { justify-self: start; margin-left: 0; }
+.ed-choice-n small { color: var(--fg-dim); font-size: 12px; }
+.ed-choice-m, .ed-choice-t { text-align: right; font-variant-numeric: tabular-nums; }
+.ed-choice-t { font-weight: 600; }
+.ed-choice-first input { accent-color: var(--accent); }
+.ed-choices > .addrow { margin: 6px 12px; }
+.ed-choices > .note { margin: 0 12px 10px; font-size: 12px; color: var(--fg-dim); }
+.ed-offer { display: block; margin-top: 4px; font-size: 12px; }
+.t-choices { font-weight: 400; color: var(--fg-dim); font-size: .9em; }
+@media (max-width: 640px) { .ed-choices-l li { grid-template-columns: 24px minmax(0, 1fr) 90px 24px; } .ed-choice-m { display: none; } }
 .sched { container-type: inline-size; }
 @container (max-width: 560px) { .sched-r { grid-template-columns: 1fr 84px; } .sched-r .sched-when, .sched-r select { grid-column: 1 / -1; } }
 .sched-l { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
@@ -1039,6 +1056,20 @@ a.chip.accent:hover { text-decoration: underline; }
 .cq-accept { padding: 18px; display: grid; gap: 14px; scroll-margin-top: 12px; }
 /* The payment schedule once, at the end (2026-11-26), on a page with no Accept panel. */
 .cq-plan { padding: 18px; display: grid; gap: 12px; }
+/* "Choose your flooring" (2026-11-26): an option offered in several floorings. */
+.cq-choices { display: grid; gap: 16px; }
+.cq-choose { padding: 18px; display: grid; gap: 10px; }
+.cq-choose h3 { margin: 0; font-size: 18px; }
+.cq-choose-head { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cq-choose-why { margin: 0; font-size: 14px; color: var(--fg-dim); padding: 10px 12px; background: var(--accent-soft); border-radius: 8px; }
+.cq-choose-l { display: grid; gap: 8px; }
+.cq-floor { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 11px 14px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--card); cursor: pointer; }
+.cq-floor.on { border: 2px solid var(--accent); padding: 10px 13px; }
+.cq-floor input { accent-color: var(--accent); margin: 0; }
+.cq-floor .t { min-width: 0; }
+.cq-floor .d { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cq-floor .d small { display: block; font-weight: 400; font-size: 13px; color: var(--fg-dim); }
+.cq-choose-note { margin: 0; font-size: 13px; color: var(--fg-dim); }
 /* A deposit in parts (2026-11-26, option A): one outlined Deposit, each part inside with how it is paid. */
 .cq-dep { display: grid; gap: 8px; padding: 12px 14px; border: 2px solid color-mix(in srgb, var(--accent) 30%, var(--line)); background: var(--accent-soft); border-radius: 10px; color: var(--fg); }
 .cq-dep-h, .cq-dep-p { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }

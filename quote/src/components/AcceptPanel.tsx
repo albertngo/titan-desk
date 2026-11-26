@@ -21,6 +21,8 @@ import { partKeys, partWords } from "@/lib/send/copy";
 
 export type AcceptOption = {
   index: number;
+  /** Its number as the customer counts options (2026-11-26: several floorings of one option share it); absent = index + 1. */
+  no?: number;
   name: string;
   subtotal: number;
   hst: number;
@@ -110,7 +112,7 @@ export function AcceptPanel({
               <label key={x.index} className={x.index === current ? "on" : undefined}>
                 <input type="radio" name={`acc-option-${part}`} checked={x.index === current} onChange={() => choose(part, x.index)} />
                 <span className="nm">
-                  Option {x.index + 1}: {x.name}
+                  Option {x.no ?? x.index + 1}: {x.name}
                 </span>
                 <span className="amt">{money(x.subtotal)} before HST</span>
               </label>
@@ -190,7 +192,7 @@ export function AcceptPanel({
         </p>
       )}
       <button type="button" className="btn primary acc-go" disabled={!ready || busy} onClick={accept}>
-        {busy ? "Accepting…" : chosen.length === 0 ? "Choose an option" : options.length > 1 ? `Accept ${chosen.length > 1 ? "options" : "option"} ${chosen.map((x) => x.index + 1).join(" and ")}` : "Accept this quote"}
+        {busy ? "Accepting…" : chosen.length === 0 ? "Choose an option" : options.length > 1 ? `Accept ${chosen.length > 1 ? "options" : "option"} ${chosen.map((x) => x.no ?? x.index + 1).join(" and ")}` : "Accept this quote"}
       </button>
     </section>
   );

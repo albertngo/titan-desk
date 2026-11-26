@@ -31,6 +31,8 @@ export type QuoteLine = LineInput & {
   customerWording?: string | null;
   clientNote: string | null;
   sortOrder: number | null;
+  /** Quote Lines → Choice Line (2026-11-26): the flooring line of an option offered in several floorings. */
+  choiceLine?: boolean;
   /** Airtable's own Line Total / Line Cost, for the per-line parity check. */
   airtableTotal: number | null;
   airtableCost: number | null;
@@ -67,6 +69,8 @@ export type QuoteOption = {
   sqftOk?: string | null;
   /** Quote Options → Payment Schedule (2026-11-26): this option's own schedule; null or absent = the version's, else automatic. */
   schedule?: PaymentSchedule | null;
+  /** Quote Options → Choice Group (2026-11-26): options that are one option in several floorings share it; null = none. */
+  choiceGroup?: string | null;
   lines: QuoteLine[];
   /** Airtable's own option rollups, for the parity check. */
   airtable: Partial<OptionTotals>;

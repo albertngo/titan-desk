@@ -54,15 +54,27 @@ export function copyPastOptions(q: EditorQuote, picked: EditorOption[], entries:
   const recommended = new Set(base.options.filter((o) => o.recommended).map((o) => partKey(o)));
   const added: string[] = [];
   let cardMoved = 0;
-  const options = picked.map((src): EditorOption => {
+  // Flooring choices (2026-11-26): floorings copied together stay one option under a new key, sharing one name; a
+  // flooring copied on its own is an ordinary option.
+  const inGroup = new Map<string, number>();
+  for (const o of picked) if (o.choiceGroup) inGroup.set(o.choiceGroup, (inGroup.get(o.choiceGroup) ?? 0) + 1);
+  const newKey = new Map<string, string>();
+  const groupName = new Map<string, string>();
+  const options = picked.map((src0): EditorOption => {
+    const together = !!src0.choiceGroup && (inGroup.get(src0.choiceGroup) ?? 0) > 1;
+    const { choiceGroup: oldKey, ...bare } = src0;
+    const src: EditorOption = together
+      ? { ...bare, choiceGroup: newKey.get(oldKey!) ?? (newKey.set(oldKey!, `cg_${Math.random().toString(36).slice(2, 10)}`), newKey.get(oldKey!)!) }
+      : { ...bare, lines: bare.lines.map(({ choiceLine: _c, ...l }) => (void _c, l)) };
     const level = levelOf(src);
     const lines = src.lines.map((l) => {
       const now = cardPriceNow(l, entries, level);
       if (now !== undefined && now !== l.unitPriceSnap) cardMoved++;
       return { ...l, id: newId("line") };
     });
-    const name = freeName(src.name, taken);
+    const name = src.choiceGroup && groupName.has(src.choiceGroup) ? groupName.get(src.choiceGroup)! : freeName(src.name, taken);
     taken.add(name.toLowerCase());
+    if (src.choiceGroup) groupName.set(src.choiceGroup, name);
     const key = partKey(src);
     const rec = src.recommended && !recommended.has(key);
     if (rec) recommended.add(key);

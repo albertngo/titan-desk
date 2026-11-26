@@ -198,6 +198,8 @@ export const OPTION = {
   chargeHst: "fldabPO6MNY8i4NjM",
   /** 2026-11-26 (Albert): this option's own payment schedule as JSON (src/lib/pricing/schedule.ts); blank = the version's, else automatic. */
   paymentSchedule: "fldy0P3XMEBLksTZJ",
+  /** 2026-11-26 (Albert): flooring choices. Options that are one option offered in several floorings share this key. */
+  choiceGroup: "fldQwEJwvP0XnyT4t",
   lines: "fldYmOczi2hNUldJU",
   /** The version this option belongs to; emptied, never deleted, when the option is removed. */
   version: "flduprOIp2Z5Z6JcG",
@@ -247,6 +249,8 @@ export const LINE = {
   descriptionOverride: "fldAdkBeY59oOSPNh",
   /** Materials lines only (2026-10-16): ticked = no HST on this material. Other sections follow Show HST. */
   noHst: "fldq8sPfy3iaBFJu5",
+  /** 2026-11-26: the flooring line that differs between an option's flooring choices; every other line is shared. */
+  choiceLine: "fldiC59rGgwg3RZt0",
   /** 2026-10-16: the Install Material picked for a Rate Card line; its price and cost are in the snaps. */
   installMaterial: "fldLHVDiQWa3lOIcq",
   /** 2026-11-06: lookup of the Rate Card row's Material Group; with no Install Material, the glue isn't picked yet. */

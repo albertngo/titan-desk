@@ -85,7 +85,8 @@ export function sectionLinesInOrder<T extends { stairCategory?: string | null }>
  * 2026-11-06 (Albert: "You can take away the 'build staircase' option").
  * No Private or Other section (Albert, 2026-11-06: "simply eliminate the PRIVATE logic in stairs altogether"). A Flooring option: every work section but Stairs. Lines already on an option are untouched.
  */
-export type AddChoice = { label: string; section: string; category?: string; stairsOnly?: true; typed?: true };
+/** `choice` (2026-11-26): the pick is another flooring for the option, not a new line. */
+export type AddChoice = { label: string; section: string; category?: string; stairsOnly?: true; typed?: true; choice?: true };
 
 export function addChoices(scope: "Flooring" | "Stairs", categories: (string | null | undefined)[], sections: readonly string[]): AddChoice[] {
   if (scope === "Flooring") return sections.filter((s) => s !== "Stairs").map((s) => ({ label: s, section: s }));

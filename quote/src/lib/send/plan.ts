@@ -5,7 +5,7 @@ import { sqftFlag, sqftWords } from "@/lib/quotes/sqftCheck";
 import { MATERIAL_PURPOSE, payWords, scheduleFlags, scheduleProblems, shownStage } from "@/lib/pricing/schedule";
 import type { Acceptance } from "@/lib/accept/plan";
 import { CHANGE_ACCEPTED_WORDS, changeWords as changeLine, paidLeft } from "@/lib/change/diff";
-import { addDays, dollars, hstOf, hstRow, isIsoDate, isRange, isSplit, scopeLeads, scopeOf, leadPrice, longDate, offersPdf, optionSchedule, rangeText, rangeWhy, stageNote, stagesOf, type CopyOption, type CopyStage, type CustomerCopy } from "./copy";
+import { addDays, dollars, hstOf, hstRow, isIsoDate, isRange, isSplit, scopeLeads, scopeOf, leadPrice, longDate, offersPdf, optionSchedule, rangeText, rangeWhy, stageNote, stagesOf, type CopyOption, type CopyStage, type CustomerCopy, optionEntries } from "./copy";
 import { copyKind, kindPhrase } from "./summary";
 
 /**
@@ -87,7 +87,9 @@ export function optionProblem(quote: Pick<Quote, "discountRate" | "showHst" | "s
   const t = optionTotals(o.lines, quote.discountRate, hst);
   if (t.total <= 0) return `${o.name} has nothing priced in it.`;
   // The material against the install (Albert, 2026-11-06): 10 to 15% over, or OK'd in the editor for these figures.
-  const sq = sqftFlag(o.lines, o.sqftOk);
+  // A flooring choice that follows its lead (2026-11-26) is checked on the lead: its square feet are the lead's, rounded to its own boxes.
+  const follower = !!o.choiceGroup && quote.options.find((x) => x.choiceGroup === o.choiceGroup)?.id !== o.id;
+  const sq = follower ? null : sqftFlag(o.lines, o.sqftOk);
   if (sq) return `${o.name}: ${sqftWords(sq)} Check it, or press OK in the editor.`;
   // Never a default (Albert, 2026-11-06): a line whose work takes a glue goes only once its glue is picked.
   const noGlue = o.lines.find((l) => l.sourceKind === "rate" && l.materialGroup && !l.materialId);
@@ -297,7 +299,7 @@ function optionCard(o: CopyOption, copy: CustomerCopy): string {
   const prelim = copy.basis === "Preliminary";
   const title = prelim ? "Your estimate" : "Your quote";
   const r = o.range;
-  const totalLabel = r ? "Estimated range" : prelim ? "Rough total" : "Total";
+  const totalLabel = r ? "Estimated range" : o.floorings ? "From" : prelim ? "Rough total" : "Total";
   // Before HST, set large, with the HST and the with-HST total as two quiet lines under it (2026-10-24).
   const lead = leadPrice(copy, o.totals);
   const tax = hstRow(copy, o.totals);
@@ -325,13 +327,46 @@ function optionCard(o: CopyOption, copy: CustomerCopy): string {
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.wash};border-radius:18px;"><tr><td style="padding:8px;">` +
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.card};border:1px solid ${C.hair};border-radius:12px;">` +
     `<tr><td style="padding:22px 24px 6px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>` +
-    `<td style="font-family:${SERIF};font-size:20px;color:${C.ink};">${title}</td></tr></table></td></tr>` +
+    `<td style="font-family:${SERIF};font-size:20px;color:${C.ink};">${title}${flooringsTag(o)}</td></tr></table></td></tr>` +
     `<tr><td style="padding:12px 24px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">` +
     `${figure}${breakdown}</table></td></tr>` +
     `<tr><td style="padding:14px 24px 20px;font-family:${SANS};font-size:13px;line-height:1.5;color:${C.muted};">${ON_PAGE("What&rsquo;s included")}</td></tr>` +
     `</table></td></tr></table>`
   );
 }
+
+/**
+ * The copy as the email and text count options (Albert, 2026-11-26: the email should say an option comes in floorings to
+ * choose from): each option offered in several floorings becomes one, priced from its lowest (its range from the lowest
+ * low to the highest high on a preliminary), carrying how many floorings it comes in.
+ */
+export function emailView(copy: CustomerCopy): CustomerCopy {
+  const entries = optionEntries(copy);
+  if (entries.every((e) => e.members.length < 2)) return copy;
+  return {
+    ...copy,
+    options: entries.map((e) => {
+      const grp = e.members.map((i) => copy.options[i]);
+      if (grp.length < 2) return grp[0];
+      const low = grp.reduce((a, o) => (o.totals.subtotal < a.totals.subtotal ? o : a));
+      const ranges = grp.map((o) => o.range).filter((r): r is NonNullable<typeof r> => !!r);
+      const range = ranges.length
+        ? {
+            low: Math.min(...ranges.map((r) => r.low)),
+            high: Math.max(...ranges.map((r) => r.high)),
+            lowWithHst: Math.min(...ranges.map((r) => r.lowWithHst)),
+            highWithHst: Math.max(...ranges.map((r) => r.highWithHst)),
+          }
+        : undefined;
+      return { ...low, name: grp[0].name, recommended: grp[0].recommended, floorings: grp.length, ...(range ? { range } : {}) };
+    }),
+  };
+}
+
+const flooringsTag = (o: CopyOption) =>
+  o.floorings
+    ? ` <span style="display:inline-block;margin-left:6px;padding:2px 8px;border-radius:999px;background:${C.cream};font-family:${SANS};font-size:11px;color:${C.accentDeep};font-weight:600;vertical-align:2px;">${o.floorings} floorings to choose from</span>`
+    : "";
 
 /** The line under the email's prices that sends the customer to the page for the rest (2026-10-31). */
 const ON_PAGE = (what: string) => `${what}, the materials and the payment schedule are on your quote page.`;
@@ -342,11 +377,11 @@ function optionList(copy: CustomerCopy): string {
   const rows = copy.options
     .map((o, i) => {
       const lead = leadPrice(copy, o.totals);
-      const price = o.range ? `${dollars(o.range.low)} &ndash; ${dollars(o.range.high)}` : cad.format(lead.amount);
+      const price = o.range ? `${dollars(o.range.low)} &ndash; ${dollars(o.range.high)}` : `${o.floorings ? "from " : ""}${cad.format(lead.amount)}`;
       const badge = o.recommended
         ? ` <span style="display:inline-block;margin-left:6px;padding:2px 8px;border-radius:999px;background:${C.cream};font-family:${SANS};font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:${C.accentDeep};font-weight:600;vertical-align:2px;">Recommended</span>`
         : "";
-      const name = `<span style="color:${C.muted};font-size:13px;">${isSplit(copy) ? `${scopeOf(o)} &middot; ` : ""}Option ${i + 1}</span><br>${esc(o.name)}${badge}`;
+      const name = `<span style="color:${C.muted};font-size:13px;">${isSplit(copy) ? `${scopeOf(o)} &middot; ` : ""}Option ${i + 1}</span><br>${esc(o.name)}${badge}${flooringsTag(o)}`;
       // A range is two figures: it goes under the name, so a phone never squeezes the name into a narrow column (2026-10-31).
       if (o.range)
         return (
@@ -456,11 +491,13 @@ export function paymentWords(o: CopyOption): string {
 }
 
 export function emailMessage(
-  copy: CustomerCopy,
+  sent: CustomerCopy,
   to: { contactId: string; firstName: string | null; link: string },
   sender: Sender | null = null,
   options: { emailFrom?: string | null; booking?: { inStore: string; inHome: string } | null; acceptOnline?: boolean } = {},
 ): GhlMessage {
+  // An option offered in several floorings is one option in the email, "from" its lowest (2026-11-26).
+  const copy = emailView(sent);
   const hi = greetingName(to.firstName);
   const prelim = copy.basis === "Preliminary";
   // Online acceptance (2026-10-27): a measured quote says to accept it on the page once it is switched on.
@@ -580,7 +617,8 @@ export function emailMessage(
  * line, how to reply. Straight apostrophes on purpose: one curly quote or emoji switches the
  * whole message to UCS-2 and halves each segment.
  */
-export function smsMessage(copy: CustomerCopy, to: { contactId: string; firstName: string | null; link: string }, sender: Sender | null = null): GhlMessage {
+export function smsMessage(sent: CustomerCopy, to: { contactId: string; firstName: string | null; link: string }, sender: Sender | null = null): GhlMessage {
+  const copy = emailView(sent);
   const hi = greetingName(to.firstName);
   const prelim = copy.basis === "Preliminary";
   const several = copy.options.length > 1;

@@ -22,6 +22,15 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-26",
+    kind: "new",
+    title: "Flooring choices on one option",
+    details: [
+      "In the editor, a flooring product line in Materials has \"Offer other floorings\": pick more floorings (up to 4) for the same work. They show under the option's lines with their rate, boxes, material total and the option's total with each; the radio sets which the customer sees first, and each can be rounded up to its own full boxes. The labour and every other line are typed once and shared, and the square feet and waste are shared too.",
+      "The customer sees one option with \"Choose your flooring\": each flooring with its price and what it adds, and that flooring's details under it. On a preliminary each flooring keeps its own range. They pick the flooring when they accept, and the payment schedule follows it. The email says how many floorings the option comes in and its \"from\" price.",
+    ],
+  },
+  {
+    date: "2026-11-26",
     kind: "changed",
     title: "The deposit's parts grouped in the editor; Combined options in slate",
     details: [

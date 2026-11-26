@@ -6,7 +6,8 @@ import { CHANGE_ACCEPTED_WORDS, changeWords, itemDifference, paidLeft, signedMon
 import { money, rate } from "@/lib/format";
 import { OptionSwitcher } from "@/components/OptionSwitcher";
 import { PlanAtEnd } from "@/components/PlanAtEnd";
-import { discountRows, hstRow, isLump, isSplit, scopeHeading, scopeOf, scopesOf, itemHstNote, leadPrice, longDate, partGroups, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyState, type CopyText, type CustomerCopy } from "@/lib/send/copy";
+import { FlooringChoices } from "@/components/FlooringChoices";
+import { discountRows, dollars, hstRow, isLump, optionEntries, type OptionEntry, isSplit, scopeHeading, scopeOf, scopesOf, itemHstNote, leadPrice, longDate, partGroups, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyState, type CopyText, type CustomerCopy } from "@/lib/send/copy";
 
 /** The customer page's display face (2026-11-07, brand guide): Cysan, for the customer's name, the option
  *  prices and the total only. PT Serif comes from the root layout. Scoped to .cq. */
@@ -208,6 +209,36 @@ function Sections({ sections }: { sections: CopyOption["sections"] }) {
   );
 }
 
+/**
+ * One option as the customer counts them (2026-11-26): a plain option's block, or for an option offered in several
+ * floorings the "Choose your flooring" picker with each flooring's own block under it.
+ */
+function EntryBlock({ e, copy, numbered, end }: { e: OptionEntry; copy: CustomerCopy; numbered: boolean; end: boolean }) {
+  const no = numbered ? e.no : null;
+  if (e.members.length < 2) return <OptionBlock o={copy.options[e.members[0]]} i={no} copy={copy} end={end} />;
+  const grp = e.members.map((i) => copy.options[i]);
+  const ranged = grp.some((o) => o.range);
+  const amount = (o: CopyOption) => leadPrice(copy, o.totals).amount;
+  const labels = grp.map((o) => o.choiceLabel ?? o.name);
+  const figures = grp.map((o) => (o.range ? rangeText(o.range.low, o.range.high) : `${money(amount(o))} ${leadPrice(copy, o.totals).tag}`));
+  const diffs = ranged ? grp.map(() => "") : grp.map((o, k) => (k === 0 ? "Included" : `${amount(o) >= amount(grp[0]) ? "+" : "-"} ${money(Math.abs(amount(o) - amount(grp[0])))}`));
+  let headline: string | undefined;
+  let why: string | undefined;
+  if (ranged) {
+    const lows = grp.map((o) => o.range?.low ?? amount(o));
+    const highs = grp.map((o) => o.range?.high ?? amount(o));
+    const lo = lows.indexOf(Math.min(...lows));
+    const hi = highs.indexOf(Math.max(...highs));
+    headline = `From ${dollars(lows[lo])} (${labels[lo]}) to ${dollars(highs[hi])} (${labels[hi]})`;
+    why = "Your flooring choice sets most of the price. Each range covers the space until we've measured.";
+  }
+  return (
+    <FlooringChoices labels={labels} figures={figures} diffs={diffs} headline={headline} why={why}>
+      {grp.map((o, k) => <OptionBlock key={k} o={o} i={no} copy={copy} end={end} />)}
+    </FlooringChoices>
+  );
+}
+
 function OptionBlock({ o, i, copy, end = false }: { o: CopyOption; i: number | null; copy: CustomerCopy; end?: boolean }) {
   const groups = partGroups(o);
   // A contract of several options (Albert, 2026-10-31): each keeps its own heading, words, work and price, then one total.
@@ -297,7 +328,9 @@ export function CustomerQuote({
   scheduleAtEnd?: boolean;
 }) {
   const c = copy.company;
-  const several = copy.options.length > 1;
+  // An option offered in several floorings counts once (2026-11-26).
+  const entries = optionEntries(copy);
+  const several = entries.length > 1;
   const note = STATE_NOTE[state]?.(copy);
   const site = [copy.customer.siteAddress, copy.customer.siteCity].filter(Boolean).join(", ");
 
@@ -362,26 +395,27 @@ export function CustomerQuote({
         {several ? (
           // Options side by side (Albert, 2026-10-31): pick one and its details show right here, no scrolling
           // down to it. With flooring and stairs options (2026-10-28), one switcher per scope under its heading.
+          // An option offered in several floorings (2026-11-26) is one tab, its floorings chosen inside it.
           (isSplit(copy) ? scopesOf(copy) : [null]).map((scope) => {
-            const mine = copy.options.map((o, i) => ({ o, i })).filter(({ o }) => !scope || scopeOf(o) === scope);
+            const mine = entries.filter((e) => !scope || scopeOf(copy.options[e.members[0]]) === scope);
             return (
               <OptionSwitcher
                 key={scope ?? "all"}
                 label={scope ? scopeHeading(scope, mine.length) : "Your options"}
                 heading={scope ? scopeHeading(scope, mine.length) : "Your options"}
-                tabs={mine.map(({ o, i }) => ({
-                  no: i + 1,
-                  name: o.name,
-                  price: o.range ? rangeText(o.range.low, o.range.high) : money(leadPrice(copy, o.totals).amount),
-                  tag: leadPrice(copy, o.totals).tag,
-                  recommended: o.recommended,
-                }))}
-                panels={mine.map(({ o, i }) => <OptionBlock key={i} o={o} i={i + 1} copy={copy} end={scheduleAtEnd} />)}
+                tabs={mine.map((e) => {
+                  const o = copy.options[e.members[0]];
+                  const grp = e.members.map((i) => copy.options[i]);
+                  const low = Math.min(...grp.map((x) => (x.range ? x.range.low : leadPrice(copy, x.totals).amount)));
+                  const price = grp.length > 1 ? `from ${o.range ? dollars(low) : money(low)}` : o.range ? rangeText(o.range.low, o.range.high) : money(leadPrice(copy, o.totals).amount);
+                  return { no: e.no, name: o.name, price, tag: leadPrice(copy, o.totals).tag, recommended: o.recommended };
+                })}
+                panels={mine.map((e) => <EntryBlock key={e.no} e={e} copy={copy} numbered end={scheduleAtEnd} />)}
               />
             );
           })
         ) : (
-          copy.options.map((o, i) => <OptionBlock key={i} o={o} i={null} copy={copy} end={scheduleAtEnd} />)
+          entries.map((e) => <EntryBlock key={e.no} e={e} copy={copy} numbered={false} end={scheduleAtEnd} />)
         )}
 
         {after}

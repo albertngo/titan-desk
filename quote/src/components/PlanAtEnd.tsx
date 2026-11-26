@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { money } from "@/lib/format";
 import { acceptPlan, acceptStages, depositSplit, shownStage, type PayHow } from "@/lib/pricing/schedule";
 import { DepositParts } from "@/components/DepositParts";
-import { leadPrice, partKeys, partOf, partWords, stageNote, stagesOf, type CustomerCopy } from "@/lib/send/copy";
+import { leadPrice, optionNo, optionTitle, partKeys, partOf, partWords, stageNote, stagesOf, type CustomerCopy } from "@/lib/send/copy";
 
 /**
  * The payment schedule once, at the end of the customer's page (Albert, 2026-11-26: "The payment option on the customer
@@ -64,7 +64,7 @@ export function PlanAtEnd({ copy }: { copy: CustomerCopy }) {
             {mine.map((x) => (
               <label key={x.index} className={x.index === current ? "on" : undefined}>
                 <input type="radio" name={`plan-option-${part}`} checked={x.index === current} onChange={() => choose(x.index)} />
-                <span className="nm">Option {x.index + 1}: {x.o.name}</span>
+                <span className="nm">Option {optionNo(copy, x.index)}: {optionTitle(copy, x.index)}</span>
               </label>
             ))}
             {split && (
