@@ -22,6 +22,12 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-25",
+    kind: "changed",
+    title: "Notion projects get their links from the quote",
+    details: ["For upcoming jobs, an empty CompanyCam Link on the Notion project is filled from the job's quote, and a Quote Link that points to an old folder is replaced with the quote's page in this app. It happens on each Project Week update (nightly or a Send)."],
+  },
+  {
+    date: "2026-11-25",
     kind: "fixed",
     title: "Project Week: no row left on Sending",
     details: ["After a Send all, any Titan Team row still on Sending..... that got no text is set to Nothing to Send. Send all and the Friday send also only rebuild the pages of the people they text, so they finish faster."],

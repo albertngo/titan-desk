@@ -64,6 +64,8 @@ export type Job = {
   camUrl?: string | null;
   /** Titan Projects → Project Manager: Notion user ids (2026-11-25). */
   pmIds?: string[];
+  /** Titan Projects → Quote Link as it stands (an app link, an old OneDrive folder, or empty). */
+  quoteLink?: string | null;
 };
 
 export type CostLine = {
