@@ -51,8 +51,8 @@ export function PastQuotes({
   const [loading, startLoad] = useTransition();
 
   function search(q: string) {
-    setNote(null);
     startSearch(async () => {
+      setNote(null);
       const r = await findPastQuotesAction(q, exceptVersionId).catch(() => null);
       if (!r) return setNote("The search didn't go through. Try again in a moment.");
       setResults(r);
