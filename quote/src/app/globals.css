@@ -291,6 +291,12 @@ table.cmp td:first-child { text-align: left; color: var(--fg-dim); }
 .ql-f .n { font-size: 11px; font-variant-numeric: tabular-nums; min-width: 20px; padding: 1px 6px; border-radius: 999px; background: var(--card-2); color: var(--fg-faint); text-align: center; }
 .ql-f[aria-pressed="true"] .n { background: var(--card); color: var(--accent); }
 .ql-f:focus-visible, .ql-tog:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* Appointments (2026-11-26): the filter row, and the in-home / in-store line under the customer. */
+.ql-appt-f { align-items: center; }
+.ql-appt-f > .k, .ql-appt-f > .faint { font-size: 12px; color: var(--fg-faint); white-space: nowrap; padding-right: 2px; }
+.ql-appt { display: flex; flex-wrap: wrap; gap: 4px; }
+.ql-appt-i { font-size: 11.5px; line-height: 1.3; padding: 1px 7px; border-radius: 999px; background: var(--card-2); color: var(--fg-dim); white-space: nowrap; }
+.ql-appt-i.ahead { background: var(--accent-soft); color: var(--accent); }
 .ql { list-style: none; margin: 0; padding: 0; }
 .ql-q { border-bottom: 1px solid var(--line); }
 .ql-q:last-child { border-bottom: 0; }

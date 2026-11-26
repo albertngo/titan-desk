@@ -6,6 +6,9 @@ import { whenWords } from "@/lib/activity/track";
 import { displayPhone } from "@/lib/link/identity";
 import { ago, DEFAULT_SORT, followUpReasons, fromWords, inFilter, quoteValue, reasonWords, isQuoteSort, lastSentVersion, matchesSearch, nextSort, openedOn, opensWords, QUOTE_FILTERS, QUOTE_SORTS, sortGroups, type QuoteFilter, type QuoteGroup, type QuoteSort, type QuoteSortKey, type VersionRow } from "@/lib/quotes/group";
 import { money, pulse, valueWords } from "@/lib/quotes/pipeline";
+import { quoteAppointmentsAction } from "@/app/actions/appointments";
+import { APPT_FILTERS, apptWords, inApptFilter, type ApptFilter } from "@/lib/quotes/appts";
+import type { QuoteApptsResult } from "@/lib/quotes/appointments";
 import { DraftHistory, useSendHistory, VersionHistory } from "./QuoteHistory";
 
 const dateOf = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric", year: "numeric" });
@@ -257,6 +260,9 @@ function Chevron() {
 export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<QuoteFilter>("all");
+  /** Appointments (Albert, 2026-11-26): read from GHL once the list has drawn; the filter row waits for them. */
+  const [appts, setAppts] = useState<QuoteApptsResult | null>(null);
+  const [apptFilter, setApptFilter] = useState<ApptFilter>("any");
   const [open, setOpen] = useState<Set<string>>(() => new Set());
   const sortRaw = useSyncExternalStore(sortStore.subscribe, sortStore.read, sortStore.server);
   const sort = useMemo(() => parseSort(sortRaw), [sortRaw]);
@@ -281,9 +287,25 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  useEffect(() => {
+    let live = true;
+    quoteAppointmentsAction()
+      .then((r) => live && setAppts(r))
+      .catch(() => live && setAppts({ ok: false, message: "Appointments couldn't be read. Try again in a moment." }));
+    return () => {
+      live = false;
+    };
+  }, []);
+  const apptOf = (g: QuoteGroup) => (appts?.ok && g.quoteRecordId ? appts.byQuote[g.quoteRecordId] : null);
+  const inAppt = (g: QuoteGroup, f: ApptFilter) => f === "any" || (appts?.ok === true && inApptFilter(apptOf(g), f));
+
   const searched = useMemo(() => groups.filter((g) => matchesSearch(g, query)), [groups, query]);
-  const counts = useMemo(() => Object.fromEntries(QUOTE_FILTERS.map((f) => [f.key, searched.filter((g) => inFilter(g, f.key, now)).length])), [searched, now]);
-  const shown = useMemo(() => sortGroups(searched.filter((g) => inFilter(g, filter, now)), sort), [searched, filter, sort, now]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const counts = useMemo(() => Object.fromEntries(QUOTE_FILTERS.map((f) => [f.key, searched.filter((g) => inFilter(g, f.key, now) && inAppt(g, apptFilter)).length])), [searched, now, appts, apptFilter]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const apptCounts = useMemo(() => Object.fromEntries(APPT_FILTERS.map((f) => [f.key, searched.filter((g) => inFilter(g, filter, now) && inAppt(g, f.key)).length])), [searched, now, appts, filter]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const shown = useMemo(() => sortGroups(searched.filter((g) => inFilter(g, filter, now) && inAppt(g, apptFilter)), sort), [searched, filter, sort, now, appts, apptFilter]);
   const keyOf = (g: QuoteGroup) => g.quoteRecordId ?? g.versions[0].id;
   const toggle = (k: string) =>
     setOpen((s) => {
@@ -295,6 +317,7 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
   const reset = () => {
     setQuery("");
     setFilter("all");
+    setApptFilter("any");
     search.current?.focus();
   };
 
@@ -334,6 +357,22 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
             </button>
           ))}
         </div>
+        {/* Appointments (Albert, 2026-11-26): had one, and which: in-home, in-store or both. Booked ones still ahead count. */}
+        <div className="ql-filters ql-appt-f" role="group" aria-label="Appointment">
+          <span className="k">Appointment</span>
+          {appts === null ? (
+            <span className="faint">Reading GHL…</span>
+          ) : !appts.ok ? (
+            <span className="faint" title={appts.message}>Couldn&apos;t read GHL</span>
+          ) : (
+            APPT_FILTERS.map((f) => (
+              <button key={f.key} type="button" className="ql-f" aria-pressed={apptFilter === f.key} onClick={() => setApptFilter(f.key)}>
+                {f.label}
+                <span className="n">{apptCounts[f.key]}</span>
+              </button>
+            ))
+          )}
+        </div>
         {/* On a phone the column headings are hidden, so the sort is a menu there (2026-11-05). */}
         <label className="ql-sortpick">
           <span className="k">Sort</span>
@@ -356,7 +395,7 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
         </div>
       ) : shown.length === 0 ? (
         <div className="ql-empty">
-          <p className="t">Nothing matches{query.trim() ? ` “${query.trim()}”` : ""}{filter !== "all" ? ` in ${QUOTE_FILTERS.find((f) => f.key === filter)!.label}` : ""}</p>
+          <p className="t">Nothing matches{query.trim() ? ` “${query.trim()}”` : ""}{filter !== "all" ? ` in ${QUOTE_FILTERS.find((f) => f.key === filter)!.label}` : ""}{apptFilter !== "any" ? ` with ${APPT_FILTERS.find((f) => f.key === apptFilter)!.label.toLowerCase()}` : ""}</p>
           <button type="button" className="btn small" onClick={reset}>Show all quotes</button>
         </div>
       ) : (
@@ -400,6 +439,13 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
                     {/* Quote Description (2026-11-03): tells apart several quotes for one customer at one address. */}
                     {g.description && <span className="ql-desc" title={g.description}>{g.description}</span>}
                     {sub && <span className="mt">{sub}</span>}
+                    {appts?.ok && apptWords(apptOf(g), appts.today).length > 0 && (
+                      <span className="ql-appt">
+                        {apptWords(apptOf(g), appts.today).map((a) => (
+                          <span key={a.where} className={`ql-appt-i ${a.where}${a.ahead ? " ahead" : ""}`}>{a.text}</span>
+                        ))}
+                      </span>
+                    )}
                   </div>
                   <div className="ql-num">
                     <span>{g.quoteNumber ?? <span className="faint">No number</span>}</span>

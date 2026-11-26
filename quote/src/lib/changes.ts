@@ -21,6 +21,21 @@ export type Change = {
 
 export const CHANGES: Change[] = [
   {
+    date: "2026-11-26",
+    kind: "new",
+    title: "Appointments on All quotes",
+    details: [
+      "A new Appointment row of filters on All quotes: With appt, In-home, In-store or Both, read from the two GHL booking calendars over the last year and the months ahead. Cancelled and no-show visits don't count.",
+      "Each quote with a visit shows it under the customer's name, for example \"In-home · Nov 12\". One still ahead reads \"booked\".",
+    ],
+  },
+  {
+    date: "2026-11-26",
+    kind: "changed",
+    title: "Copy options from another version of the same quote",
+    details: ["In the editor, + From old quotes now lists the quote you're in first, with its other versions, so an earlier version's options can be copied back. The list opens without a search."],
+  },
+  {
     date: "2026-11-25",
     kind: "changed",
     title: "Notion projects get their links from the quote",
