@@ -175,7 +175,7 @@ export function ScheduleEditor({
                         if ((x.part.kind === "share" || x.part.kind === "topUp" || x.part.kind === "ofTotal" || x.part.kind === "upTo") && v !== x.part.pct) setPart(i, { kind: x.part.kind, pct: v });
                       }}
                     />
-                    {x.part.kind === "topUp" || x.part.kind === "upTo" ? "% in all" : x.part.kind === "ofTotal" ? "% of the total" : "%"}
+                    {x.part.kind === "ofTotal" ? "% of the total" : "%"}
                   </>
                 ) : x.part.kind === "materials" ? (
                   "the material"
@@ -229,6 +229,13 @@ export function ScheduleEditor({
                 </button>
               ) : (
                 <span />
+              )}
+              {/* A running-total stage in plain words (Albert, 2026-11-26: "% of total paid so far" wording, on its own line). */}
+              {(x.part.kind === "topUp" || x.part.kind === "upTo") && (
+                <p className="sched-help">
+                  {x.part.pct}% of the total paid so far, once this is in.
+                  {a ? (Math.abs(a.amount) < 0.005 ? " Nothing is due here: what comes before already reaches it." : ` This payment makes up the difference: ${money(a.amount)}.`) : ""}
+                </p>
               )}
             </li>
           );

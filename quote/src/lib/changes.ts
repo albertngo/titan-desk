@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-26",
     kind: "changed",
+    title: "Clearer \"paid so far\" payments in the schedule",
+    details: ["In a payment schedule, the Rest of the deposit and Second payment rows now say under them what their percent means, for example \"80% of the total paid so far, once this is in. This payment makes up the difference: $2,850.00.\" The old \"% in all\" is gone."],
+  },
+  {
+    date: "2026-11-26",
+    kind: "changed",
     title: "Combined options has its own colour",
     details: ["In the editor, Combined options is purple, never the option's blue: a purple header, and once opened the whole card is tinted with a solid purple edge, so it is easy to tell apart from the option's own schedule."],
   },

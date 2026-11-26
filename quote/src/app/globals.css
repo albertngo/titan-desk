@@ -1015,11 +1015,13 @@ a.chip.accent:hover { text-decoration: underline; }
 .sched { container-type: inline-size; }
 @container (max-width: 560px) { .sched-r { grid-template-columns: 1fr 84px; } .sched-r .sched-when, .sched-r select { grid-column: 1 / -1; } }
 .sched-l { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.sched-r { display: grid; grid-template-columns: minmax(110px, 1fr) 84px minmax(140px, 2fr) 140px 130px 56px; gap: 8px; align-items: center; }
-.sched-part { display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--fg-dim); }
+.sched-r { display: grid; grid-template-columns: minmax(110px, 1fr) 84px minmax(140px, 2fr) 140px 160px 56px; gap: 8px; align-items: center; }
+.sched-help { grid-column: 1 / -1; margin: -4px 0 2px; font-size: 12px; color: var(--fg-dim); }
+.sched-part { display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--fg-dim); white-space: nowrap; }
 .sched-part .cell-in { width: 56px; }
 .sched-amt { font-variant-numeric: tabular-nums; text-align: right; font-size: 13px; }
 .sched-amt .sched-dollar { width: 92px; text-align: right; }
+.sched-amt { white-space: nowrap; }
 .sched-override { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 6px; }
 .sched-amt.bad, .pay .v.bad { color: var(--bad, #b42318); }
 .sched-bad { margin: 0; padding-left: 18px; color: var(--bad, #b42318); font-size: 13px; }
