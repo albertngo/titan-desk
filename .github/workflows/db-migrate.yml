@@ -23,6 +23,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pinned (2026-11-26) to the same CLI as ci.yml. "latest" (2.12x+) rejects
+          # config.toml's [inbucket] section and failed the 011_ledger push before it ran.
+          # Bump both files together, by hand.
+          version: 2.121.0
       - run: supabase --workdir db link --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
       - run: supabase --workdir db db push
