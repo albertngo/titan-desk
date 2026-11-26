@@ -23,7 +23,7 @@ import { optionHst, optionTotals, parityDiffs } from "@/lib/calc";
 import { money } from "@/lib/format";
 import { jobChoices } from "@/lib/quotes/link";
 import { billingState } from "@/lib/quotes/billing";
-import { firstOpenOption, partKey, scopeGroups } from "@/lib/quotes/scope";
+import { firstOpenOption, partKey, scheduleLines, scopeGroups } from "@/lib/quotes/scope";
 import { loadContract } from "@/lib/quotes/contract";
 import { contractParts } from "@/lib/contract/model";
 import { fromWords } from "@/lib/quotes/group";
@@ -414,7 +414,7 @@ export default async function QuotePage({
               {send}
               <Financials
                 schedule={optionSchedule(quote, option)}
-                lines={option.lines}
+                lines={scheduleLines(option)}
                 t={totals}
                 discountRate={quote.discountRate}
                 showHst={hstOn}

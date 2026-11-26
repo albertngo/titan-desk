@@ -22,6 +22,12 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-26",
+    kind: "fixed",
+    title: "Stairs never count as material in a payment schedule",
+    details: ["A stairs option's lines never count toward a material deposit or its warnings, whatever section they are in, alone or with other options. Prices and HST are unchanged."],
+  },
+  {
+    date: "2026-11-26",
     kind: "changed",
     title: "Rounded payments, and dollars you can type",
     details: [

@@ -2,7 +2,7 @@ import { acceptedLabel, DISCOUNTS_SECTION, isAcceptedLine, isDiscountLine } from
 import { DEFAULT_PRIVATE_LABEL, optionHst, PRIVATE_SECTION, SECTIONS, chargesHst, isPriced, lineTotal, optionTotals, priceUsed, privateRollup, round2, sectionOf, stageAmounts, type LineInput } from "@/lib/calc";
 import type { CopyChange } from "@/lib/change/diff";
 import { combinedPlan, defaultSchedule, MATERIAL_PURPOSE, MATERIAL_WHEN, optionPlan, payWords, sameSchedule, scheduleFacts, scheduleFor, type PayHow, type PaymentSchedule, type ScheduleFacts } from "@/lib/pricing/schedule";
-import { optionScope, stairsOptionLines } from "@/lib/quotes/scope";
+import { optionScope, scheduleLines, stairsOptionLines } from "@/lib/quotes/scope";
 import type { Part, Quote, QuoteLine, QuoteOption, Scope } from "@/lib/quotes/types";
 import { copyKind } from "./summary";
 
@@ -294,7 +294,7 @@ function sectionNames(lines: QuoteLine[]): string[] {
 
 /** The schedule as the customer sees it: exact amounts, or on a range shares of the final price. */
 function copyStages(schedule: PaymentSchedule, o: QuoteOption, discountRate: number, showHst: boolean, total: number, ranged: boolean): CopyStage[] {
-  const stages = stageAmounts(schedule, o.lines, discountRate, showHst, total);
+  const stages = stageAmounts(schedule, scheduleLines(o), discountRate, showHst, total);
   return stages.map((s, i) => {
     const part = schedule.stages[i].part;
     return copyStage({ ...s, amount: ranged ? null : s.amount, pct: ranged ? (part.kind === "share" || part.kind === "ofTotal" ? part.pct : null) : s.pct });
@@ -466,7 +466,7 @@ function copyOption(given: QuoteOption, discountRate: number, showHst: boolean, 
     ...(ranged && t.subtotal > 0 ? { range: copyRange(t) } : {}),
     schedule: copyStages(schedule, o, discountRate, showHst, t.total, ranged && t.subtotal > 0),
     plan: schedule,
-    planFacts: scheduleFacts({ lines: o.lines, showHst, discountRate }),
+    planFacts: scheduleFacts({ lines: scheduleLines(o), showHst, discountRate }),
     ...(optionScope(o) === "Stairs" ? { scope: "Stairs" as const } : {}),
     ...(o.part ? { part: o.part } : {}),
     ...(discounts.length ? { discounts } : {}),
@@ -519,8 +519,11 @@ export function scopeLeads(copy: Pick<CustomerCopy, "options" | "showHst">, mone
  * (`autoSchedule()`: cash with no HST, the material first when only the material carries it or when it costs the
  * 35% deposit or more).
  */
-export const quoteSchedule = (q: { schedule?: PaymentSchedule | null; showHst: boolean; discountRate?: number; options: { lines: LineInput[]; showHst?: boolean }[] }): PaymentSchedule =>
-  scheduleFor(q.schedule, q.options.map((o) => ({ lines: o.lines, showHst: optionHst(q, o), discountRate: q.discountRate ?? 0 })));
+export const quoteSchedule = (q: { schedule?: PaymentSchedule | null; showHst: boolean; discountRate?: number; options: ScheduleOption[] }): PaymentSchedule =>
+  scheduleFor(q.schedule, q.options.map((o) => ({ lines: scheduleLines(o), showHst: optionHst(q, o), discountRate: q.discountRate ?? 0 })));
+
+/** What the schedule reads of an option: its lines (stairs never count as material, `scheduleLines()`), scope and HST. */
+type ScheduleOption = { lines: (LineInput & Parameters<typeof scheduleLines>[0]["lines"][number])[]; showHst?: boolean; scope?: Scope | null; part?: Part | null };
 
 /**
  * One option's schedule (Albert, 2026-11-26): its own, else the version-wide one of a version saved before then, else
@@ -528,14 +531,14 @@ export const quoteSchedule = (q: { schedule?: PaymentSchedule | null; showHst: b
  */
 export const optionSchedule = (
   q: { schedule?: PaymentSchedule | null; showHst: boolean; discountRate?: number },
-  o: { lines: LineInput[]; showHst?: boolean; schedule?: PaymentSchedule | null },
-): PaymentSchedule => optionPlan(q.schedule, o.schedule, { lines: o.lines, showHst: optionHst(q, o), discountRate: q.discountRate ?? 0 });
+  o: ScheduleOption & { schedule?: PaymentSchedule | null },
+): PaymentSchedule => optionPlan(q.schedule, o.schedule, { lines: scheduleLines(o), showHst: optionHst(q, o), discountRate: q.discountRate ?? 0 });
 
 /** The combined schedule (2026-11-26) for these options taken together: the version's, else automatic on them. */
 export const quoteCombined = (
   q: { combined?: PaymentSchedule | null; showHst: boolean; discountRate?: number },
-  options: { lines: LineInput[]; showHst?: boolean }[],
-): PaymentSchedule => combinedPlan(q.combined, options.map((o) => ({ lines: o.lines, showHst: optionHst(q, o), discountRate: q.discountRate ?? 0 })));
+  options: ScheduleOption[],
+): PaymentSchedule => combinedPlan(q.combined, options.map((o) => ({ lines: scheduleLines(o), showHst: optionHst(q, o), discountRate: q.discountRate ?? 0 })));
 
 /** "Flooring options", "Stairs option": the heading over a scope's options. */
 export const scopeHeading = (scope: Scope, count: number) => `${scope} option${count === 1 ? "" : "s"}`;

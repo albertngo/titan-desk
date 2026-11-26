@@ -1,5 +1,6 @@
 import { optionHst, optionTotals, parityDiffs, round2, stageAmountProblems, stageAmounts } from "@/lib/calc";
 import type { Quote } from "@/lib/quotes/types";
+import { scheduleLines } from "@/lib/quotes/scope";
 import { sqftFlag, sqftWords } from "@/lib/quotes/sqftCheck";
 import { MATERIAL_PURPOSE, payWords, scheduleFlags, scheduleProblems, shownStage } from "@/lib/pricing/schedule";
 import type { Acceptance } from "@/lib/accept/plan";
@@ -94,7 +95,7 @@ export function optionProblem(quote: Pick<Quote, "discountRate" | "showHst" | "s
   if (parityDiffs(t, o.airtable).length > 0) return `The app and Airtable disagree on ${o.name}. Fix that before sending.`;
   // The schedule's own amounts on this option (2026-10-27): nothing negative, and a deposit that is something.
   // Its own schedule since 2026-11-26.
-  const stages = stageAmounts(optionSchedule(quote, o), o.lines, quote.discountRate, hst, t.total);
+  const stages = stageAmounts(optionSchedule(quote, o), scheduleLines(o), quote.discountRate, hst, t.total);
   return stageAmountProblems(stages, o.name)[0] ?? null;
 }
 
@@ -121,7 +122,7 @@ export function sendProblems(quote: Quote, input: SendInput, ctx: { today: strin
   // wrong"): checked on what goes, with the schedule it would go with.
   const going = chooseOptions(quote, ids);
   // Since 2026-11-26 each option on its own schedule, and the combined one on everything going when there is a choice of two or more.
-  const facts = (o: Quote["options"][number]) => ({ name: o.name, lines: o.lines, showHst: optionHst(quote, o), discountRate: quote.discountRate });
+  const facts = (o: Quote["options"][number]) => ({ name: o.name, lines: scheduleLines(o), showHst: optionHst(quote, o), discountRate: quote.discountRate });
   for (const o of going.options) out.push(...scheduleFlags(optionSchedule(quote, o), [facts(o)]));
   if (going.options.length > 1 && quote.combined) out.push(...scheduleFlags(quote.combined, going.options.map(facts)).map((f) => `Combined schedule: ${f}`));
   if (!ctx.skipOptions) {
