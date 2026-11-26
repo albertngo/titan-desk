@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-26",
     kind: "fixed",
+    title: "A quote won outside the app gets its PP number",
+    details: ["When a job is won in GHL or in the store rather than accepted in the app, its quote now picks up the PP number and Notion project the next time it is opened, as long as it is the only quote on that opportunity."],
+  },
+  {
+    date: "2026-11-26",
+    kind: "fixed",
     title: "Stairs never count as material in a payment schedule",
     details: ["A stairs option's lines never count toward a material deposit or its warnings, whatever section they are in, alone or with other options. Prices and HST are unchanged."],
   },

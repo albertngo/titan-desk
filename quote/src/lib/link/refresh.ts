@@ -73,6 +73,16 @@ export type ProjectPatch = { projectNumber?: string; notionProjectUrl?: string; 
 const NOTION_PAGE = /^https:\/\/((www|app)\.)?notion\.(so|site|com)\//;
 const COMPANYCAM = /^https:\/\/app\.companycam\.com\//;
 
+/**
+ * A quote won outside the app (Albert, 2026-11-26: "can we link PP 536 to MARIO in notion. its currently not linked"):
+ * staff won it in GHL or the store and Make made its Notion project, so the app never saw an acceptance. Its PP number
+ * and Notion page are taken all the same, but only when its opportunity is marked won and no other quote holds that
+ * opportunity, so a PP number never lands on a quote that isn't that project's.
+ */
+export function wonOutside(accepted: boolean, live: { status?: string | null } | null, quotesOnOpportunity: number): boolean {
+  return !accepted && live?.status === "won" && quotesOnOpportunity === 1;
+}
+
 export function projectPickup(
   copy: { projectNumber: string | null; notionProjectUrl: string | null; companyCamUrl?: string | null },
   live: { projectNumber: string | null; notionUrl: string | null; companyCamUrl?: string | null } | null,
