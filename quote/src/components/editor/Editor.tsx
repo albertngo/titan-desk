@@ -72,7 +72,7 @@ import { ScheduleEditor } from "./ScheduleEditor";
 import { CombinedPlan } from "./CombinedPlan";
 import { SwapOption } from "./SwapOption";
 import type { SwapSource } from "@/lib/change/swap";
-import { autoSchedule, scheduleFlags, shownStage } from "@/lib/pricing/schedule";
+import { autoSchedule, ruleBreaks, shownStage } from "@/lib/pricing/schedule";
 import { SAND_DISCLAIMER, sandFlag, sandRole } from "@/lib/editor/sandRule";
 import { syncStairWording } from "@/lib/quick/stairs";
 import { EditorSend } from "@/components/editor/EditorSend";
@@ -523,7 +523,7 @@ export default function Editor({
   const schedule = option ? optionSchedule(quote, option) : autoPlan;
   // A schedule that goes against the HST rules is flagged, never stopped (2026-11-05).
   const scheduleWarnings = useMemo(
-    () => (option ? scheduleFlags(schedule, [{ name: option.name, lines: planLines, showHst: hstOn, discountRate: quote.discountRate }]) : []),
+    () => (option ? ruleBreaks(schedule, [{ name: option.name, lines: planLines, showHst: hstOn, discountRate: quote.discountRate }]) : []),
     [schedule, option, planLines, hstOn, quote.discountRate],
   );
   const payLine = option && t ? stageAmounts(schedule, planLines, quote.discountRate, option.showHst ?? quote.showHst, t.total).filter(shownStage).map((x) => x.pct).join(" / ") : "35 / 35 / 30";
@@ -1446,7 +1446,8 @@ export default function Editor({
             </section>
           )}
 
-          <details className="card ed-terms" ref={termsRef} id="ed-terms">
+          {/* Open from the start (Albert, 2026-11-26: "expand the option one by default"). */}
+          <details className="card ed-terms" ref={termsRef} id="ed-terms" open>
             <summary className="card-h">
               Customer and terms <span className="right">{termsLine}</span>
             </summary>
@@ -1505,20 +1506,6 @@ export default function Editor({
             </div>
           </details>
 
-          {/* The combined schedule (Albert, 2026-11-26), set apart from the option's own by a divider: "so its obvious its not for the option". */}
-          {!customer && quote.options.filter((o) => !o.notOffered).length > 1 && (
-            <>
-              <div className="ed-divider" role="separator" aria-label="Not for this option">
-                <span>Not for this option</span>
-              </div>
-              <CombinedPlan
-                options={quote.options.filter((o) => !o.notOffered).map((o) => ({ id: o.id, name: o.name, recommended: o.recommended, part: o.part, scope: o.scope, lines: o.lines, showHst: o.showHst ?? quote.showHst }))}
-                discountRate={quote.discountRate}
-                combined={quote.combined ?? null}
-                onChange={(next) => apply(setCombinedSchedule(quote, next))}
-              />
-            </>
-          )}
 
 
         </div>
@@ -1555,6 +1542,16 @@ export default function Editor({
               </button>
             </div>
           </section>
+          {/* The combined schedule (Albert, 2026-11-26: option C, "a layout change into the current aesthetic and slight
+              separation for clarity"): in the sidebar, apart from the option's own, a dropdown closed until opened. */}
+          {!customer && quote.options.filter((o) => !o.notOffered).length > 1 && (
+            <CombinedPlan
+              options={quote.options.filter((o) => !o.notOffered).map((o) => ({ id: o.id, name: o.name, recommended: o.recommended, part: o.part, scope: o.scope, lines: o.lines, showHst: o.showHst ?? quote.showHst }))}
+              discountRate={quote.discountRate}
+              combined={quote.combined ?? null}
+              onChange={(next) => apply(setCombinedSchedule(quote, next))}
+            />
+          )}
           {/* The Send card (2026-11-06), as on the quote page; off while this screen holds unsaved changes. */}
           {hasSendCard && (
             <div className="ed-send">

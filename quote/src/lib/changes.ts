@@ -22,6 +22,39 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-26",
+    kind: "changed",
+    title: "A two-part deposit shows as one deposit",
+    details: ["On the customer's quote page, when the deposit is the material plus the rest of the deposit, both show inside one outlined Deposit with its total and \"Both parts on acceptance\", each part tagged with how it is paid (by e-transfer, paid in store). A single deposit stays one line."],
+  },
+  {
+    date: "2026-11-26",
+    kind: "changed",
+    title: "Combined options moved to the sidebar",
+    details: ["In the editor, Combined options is now a dropdown in the right-hand sidebar under Customer and terms, closed until you open it, so it is never mistaken for the option's own schedule. The option's terms and its payment schedule now open expanded."],
+  },
+  {
+    date: "2026-11-26",
+    kind: "removed",
+    title: "No payment schedule in a sent quote's email",
+    details: ["The email that sends a quote no longer spells out the payment schedule. It is on the quote link, where it follows the options the customer picks. The emails after they accept still say what to pay and how."],
+  },
+  {
+    date: "2026-11-26",
+    kind: "changed",
+    title: "A combined schedule picked by hand never blocks a send",
+    details: ["In Combined options, a plan you pick or numbers you type count as the override: the quote can be sent, and any HST rule it goes against is only noted. Left on automatic it follows the material deposit rules. Each option's own schedule still warns and needs \"Keep this schedule anyway\"."],
+  },
+  {
+    date: "2026-11-26",
+    kind: "changed",
+    title: "HST schedule warnings say which option and why, with an override",
+    details: [
+      "When a payment schedule goes against the HST rule, the warning now names the option and says why, for example that HST is charged on its material only, so the rule is to take the material deposit first.",
+      "Under the warning in the option's payment schedule, \"Keep this schedule anyway\" lets the quote go as it is. It is marked \"Kept against the HST rule, on purpose\", with an Undo.",
+    ],
+  },
+  {
+    date: "2026-11-26",
     kind: "fixed",
     title: "A quote won outside the app gets its PP number",
     details: ["When a job is won in GHL or in the store rather than accepted in the app, its quote now picks up the PP number and Notion project the next time it is opened, as long as it is the only quote on that opportunity."],

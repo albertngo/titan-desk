@@ -5,7 +5,8 @@ import { useMemo, useRef, useState, useTransition } from "react";
 import { acceptAction } from "@/app/c/[token]/actions";
 import { acceptedTotals } from "@/lib/calc";
 import { money } from "@/lib/format";
-import { acceptStages, payWords, shownStage, type PaymentSchedule, type ScheduleFacts } from "@/lib/pricing/schedule";
+import { DepositParts } from "@/components/DepositParts";
+import { acceptStages, depositSplit, payWords, shownStage, type PaymentSchedule, type ScheduleFacts } from "@/lib/pricing/schedule";
 import { partKeys, partWords } from "@/lib/send/copy";
 
 /**
@@ -73,6 +74,9 @@ export function AcceptPanel({
   }, [chosen, addOns, ticked]);
   // The schedule follows what is chosen (Albert, 2026-11-26): one option's own, or the combined one on two or more.
   const stages = useMemo(() => acceptStages(chosen.map((x) => ({ plan: x.plan, planFacts: x.planFacts, stages: x.frozen })), combined, schedule, totals.total).stages, [chosen, combined, schedule, totals.total]);
+  const shown = stages.filter(shownStage);
+  const n = depositSplit(shown);
+  const depParts = n >= 2 ? shown.slice(0, n) : [];
   const ready = chosen.length > 0 && agreed && name.trim().length >= 2 && (!store || signature);
   /** Choose `index` for its Part (null = none for that Part), dropping the add-ons of what it replaces. */
   const choose = (part: string, index: number | null) => {
@@ -145,8 +149,17 @@ export function AcceptPanel({
           <dt>Total</dt>
           <dd>{money(totals.total)}</dd>
         </div>
-        {stages.filter(shownStage).map((s, i) => (
-          <div key={i} className={i === 0 ? "dep" : "stage"}>
+        {/* A deposit in parts (2026-11-26): one outlined Deposit, each part with how it is paid. */}
+        {depParts.length > 0 && (
+          <div className="dep-group">
+            <dt className="sr-only">Deposit</dt>
+            <dd>
+              <DepositParts total={money(depParts.reduce((a, s) => a + s.amount, 0))} parts={depParts.map((s) => ({ label: s.label, note: s.when, figure: money(s.amount), pay: s.pay }))} />
+            </dd>
+          </div>
+        )}
+        {shown.slice(depParts.length).map((s, i) => (
+          <div key={i} className={i === 0 && depParts.length === 0 ? "dep" : "stage"}>
             <dt>
               {s.label}
               <span className="sub">{[s.when, payWords(s.pay)].filter(Boolean).join(", ")}</span>

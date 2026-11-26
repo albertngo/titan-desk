@@ -1,6 +1,7 @@
 import { Inter } from "next/font/google";
 import localFont from "next/font/local";
-import { shownStage } from "@/lib/pricing/schedule";
+import { depositSplit, shownStage } from "@/lib/pricing/schedule";
+import { DepositParts } from "@/components/DepositParts";
 import { CHANGE_ACCEPTED_WORDS, changeWords, itemDifference, paidLeft, signedMoney, type CopyChange } from "@/lib/change/diff";
 import { money, rate } from "@/lib/format";
 import { OptionSwitcher } from "@/components/OptionSwitcher";
@@ -105,10 +106,16 @@ function Totals({ o, copy, end = false }: { o: CopyOption; copy: CustomerCopy; e
 
 /** The payment schedule as it was frozen (2026-10-27): each stage, when it is due and how it is paid, and its figure. */
 function Schedule({ o, title }: { o: CopyOption; title: string }) {
+  const shown = stagesOf(o).filter(shownStage);
+  // A deposit in parts (2026-11-26) shows as one outlined Deposit, each part with how it is paid.
+  const n = depositSplit(shown);
+  const split = n >= 2 ? shown.slice(0, n) : [];
+  const sum = split.every((s) => s.amount !== null) ? money(split.reduce((a, s) => a + (s.amount ?? 0), 0)) : stageFigure(split[split.length - 1] ?? shown[0], money);
   return (
     <div className="cq-pay">
       <h4>{title}</h4>
-      {stagesOf(o).filter(shownStage).map((s, i) => {
+      {split.length > 0 && <DepositParts total={sum} parts={split.map((s) => ({ label: s.label, note: stageNote({ when: s.when, pay: null, kind: s.kind }), figure: stageFigure(s, money), pay: s.pay }))} />}
+      {shown.slice(split.length).map((s, i) => {
         const note = stageNote(s);
         return (
           <div key={i}>

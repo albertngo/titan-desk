@@ -351,6 +351,8 @@ describe("the quote email once acceptance is on", () => {
     expect(on.type === "Email" && on.html).toContain("Compare and accept");
     expect(off.type === "Email" && off.html).not.toContain("press Accept");
     expect(prelim.type === "Email" && prelim.html).not.toContain("press Accept");
+    // No payment schedule in a sent quote's email (2026-11-26): it is only on the link.
+    expect(on.type === "Email" && on.html).not.toContain("How payment works");
   });
 });
 

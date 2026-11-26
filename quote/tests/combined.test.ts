@@ -179,3 +179,12 @@ describe("stairs never count as material (2026-11-26)", () => {
     expect(r.frozen[0].amount).toBe(fl.material);
   });
 });
+
+describe("a deposit in parts shows as one (2026-11-26)", () => {
+  it("counts the first stage and the top-ups right after it", async () => {
+    const { depositSplit } = await import("../src/lib/pricing/schedule");
+    expect(depositSplit([{ kind: "materials" }, { kind: "topUp" }, { kind: "upTo" }, { kind: "balance" }])).toBe(2);
+    expect(depositSplit([{ kind: "share" }, { kind: "share" }, { kind: "balance" }])).toBe(1);
+    expect(depositSplit([])).toBe(0);
+  });
+});
