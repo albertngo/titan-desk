@@ -22,6 +22,12 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-26",
+    kind: "removed",
+    title: "No payment schedule in a sent quote's email",
+    details: ["The email that sends a quote no longer spells out the payment schedule. It is on the quote link, where it follows the options the customer picks. The emails after they accept still say what to pay and how."],
+  },
+  {
+    date: "2026-11-26",
     kind: "changed",
     title: "A combined schedule picked by hand never blocks a send",
     details: ["In Combined options, a plan you pick or numbers you type count as the override: the quote can be sent, and any HST rule it goes against is only noted. Left on automatic it follows the material deposit rules. Each option's own schedule still warns and needs \"Keep this schedule anyway\"."],

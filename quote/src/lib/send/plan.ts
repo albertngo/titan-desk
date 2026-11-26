@@ -555,8 +555,9 @@ export function emailMessage(
     cards +
     row(button(online ? (several ? "Compare and accept" : `View and accept your ${noun}`) : several ? `View and compare your ${noun}` : `View your ${noun}`, to.link), "12px 40px 10px") +
     row(para(under, 13, C.muted, "0", "text-align:center;"), "0 40px 8px") +
-    (prelim ? "" : hairline() + row(eyebrow("How payment works") + para(esc(paymentWords(copy.options[0])), 15, C.body, "0 0 6px"))) +
-    hairline(prelim ? "28px 40px" : "22px 40px 28px") +
+    // No payment schedule in the email (Albert, 2026-11-26: "Emails should not show any payment plans on sent quotes...
+    // It should only show on the link"): it follows the options the customer picks there.
+    hairline("28px 40px") +
     row(eyebrow("What happens next") + steps(next), "0 40px 6px") +
     // The step's own "Book a showroom visit" link is the one way to book (2026-10-27): the separate
     // "Book an in-store visit" button under the steps said the same thing twice and is gone.
