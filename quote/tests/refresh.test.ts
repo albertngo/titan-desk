@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { customerRefresh, type CustomerCopy, type LiveContact, projectPickup } from "../src/lib/link/refresh";
+import { customerRefresh, type CustomerCopy, type LiveContact, projectPickup, wonOutside } from "../src/lib/link/refresh";
 
 // INVENTED people and addresses only: this repo is public.
 const copy = (o: Partial<CustomerCopy> = {}): CustomerCopy => ({
@@ -87,5 +87,16 @@ describe("an accepted quote picks up its Notion project (2026-10-27)", () => {
     expect(projectPickup(blank, { projectNumber: "412", notionUrl: "http://example.com/x" })).toEqual({});
     expect(projectPickup(blank, { projectNumber: "Q-1234", notionUrl: "https://evil.example/notion.so/" })).toEqual({});
     expect(projectPickup(blank, null)).toEqual({});
+  });
+});
+
+describe("a quote won outside the app picks up its project too (2026-11-26)", () => {
+  it("only when its opportunity is won and no other quote holds it", () => {
+    expect(wonOutside(false, { status: "won" }, 1)).toBe(true);
+    expect(wonOutside(false, { status: "open" }, 1)).toBe(false);
+    expect(wonOutside(false, { status: "won" }, 2)).toBe(false);
+    expect(wonOutside(false, null, 1)).toBe(false);
+    // Accepted in the app goes the usual way.
+    expect(wonOutside(true, { status: "won" }, 1)).toBe(false);
   });
 });
