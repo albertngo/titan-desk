@@ -243,7 +243,7 @@ export const PAY_LABELS: Record<Exclude<PayHow, null>, string> = {
  */
 export function suggestsMaterialDeposit(lines: LineInput[], showHst: boolean): boolean {
   const priced = lines.filter((l) => isPriced(l) && l.include);
-  if (!priced.some((l) => sectionOf(l) === "Materials" && chargesHst(l, showHst))) return false;
+  if (!priced.some((l) => sectionOf(l) === "Materials" && !l.notMaterial && chargesHst(l, showHst))) return false;
   return priced.some((l) => !chargesHst(l, showHst));
 }
 

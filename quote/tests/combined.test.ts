@@ -148,3 +148,34 @@ describe("rounding and typed figures (2026-11-26)", () => {
     expect(back?.stages[1]).toMatchObject({ part: { kind: "amount", amount: 1000 }, reset: { kind: "share", pct: 35 } });
   });
 });
+
+describe("stairs never count as material (2026-11-26)", () => {
+  // A Materials line typed onto a stairs option, which the picker doesn't offer but nothing stops.
+  const stray = L({ section: "Materials", lineType: "Material", qty: 100, unitPriceSnap: 30, sourceKind: "manual" } as Partial<LineInput>); // 3,000 + HST
+  const stairLine = L({ section: "Stairs", lineType: "Stairs", qty: 10, unitPriceSnap: 100, sourceKind: "stair" } as Partial<LineInput>);
+
+  it("marks every line of a stairs option, and none of a flooring one", async () => {
+    const { scheduleLines } = await import("../src/lib/quotes/scope");
+    expect(scheduleLines({ scope: "Stairs", lines: [stairLine, stray] as never[] }).every((l) => (l as { notMaterial?: boolean }).notMaterial)).toBe(true);
+    expect(scheduleLines({ scope: "Flooring", lines: [install, floor] as never[] }).some((l) => (l as { notMaterial?: boolean }).notMaterial)).toBe(false);
+  });
+
+  it("gives a stairs option no material deposit and no material-first rule, whatever its sections", async () => {
+    const { scheduleLines } = await import("../src/lib/quotes/scope");
+    const { materialsDeposit } = await import("../src/lib/calc");
+    const lines = scheduleLines({ scope: "Stairs", lines: [stairLine, stray] as never[] }) as LineInput[];
+    expect(materialsDeposit(lines, 0, false)).toBe(0);
+    const facts = scheduleFacts({ lines, showHst: false });
+    expect([facts.material, facts.materialHst]).toEqual([0, false]);
+    // On its own the same lines would have put the material first.
+    expect(scheduleFacts({ lines: [stairLine, stray], showHst: false }).material).toBeGreaterThan(0);
+  });
+
+  it("leaves the stairs out of the combined material, but in the total", async () => {
+    const { scheduleLines } = await import("../src/lib/quotes/scope");
+    const st = scheduleFacts({ lines: scheduleLines({ scope: "Stairs", lines: [stairLine, stray] as never[] }) as LineInput[], showHst: false });
+    const fl = scheduleFacts({ lines: [install, floor], showHst: false });
+    const r = acceptPlan([{ plan: PRESETS.materials.schedule(), planFacts: fl, stages: [] }, { plan: PRESETS.cash.schedule(), planFacts: st, stages: [] }], null, null);
+    expect(r.frozen[0].amount).toBe(fl.material);
+  });
+});

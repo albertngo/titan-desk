@@ -90,6 +90,11 @@ export type LineInput = {
    * Absent reads as false.
    */
   noHst?: boolean;
+  /**
+   * Never the material of a payment schedule (Albert, 2026-11-26): set by `scheduleLines()` on every line of a stairs
+   * option, whatever its section, so stairs never count toward a material deposit or its checks. Money and HST unchanged.
+   */
+  notMaterial?: boolean;
 };
 
 export type OptionTotals = {
@@ -265,7 +270,7 @@ export type StageAmount = {
  * material the same way. Zero when there is no material.
  */
 export function materialsDeposit(lines: LineInput[], discountRate: number, hstOn: boolean): number {
-  const material = lines.filter((l) => isPriced(l) && l.include && sectionOf(l) === "Materials");
+  const material = lines.filter((l) => isPriced(l) && l.include && sectionOf(l) === "Materials" && !l.notMaterial);
   const taxed = material.filter((l) => chargesHst(l, hstOn));
   const pool = taxed.length ? taxed : material;
   return pool.length ? optionTotals(pool, discountRate, hstOn).total : 0;

@@ -1128,7 +1128,9 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   amount or the material, and the final takes the rest. A schedule frozen on a copy sent before then has no `round` and
   stays exact. **Typed dollars (same day: "let us also edit the dollar values too; each edit should adjust the rest. and
   clearing or 0 means reset"):** in `ScheduleEditor` a payment's dollar figure makes it a fixed amount, keeping what it was
-  in `reset`; clearing a percent or dollar figure, or typing 0, puts `reset` back. **On the customer's page** the
+  in `reset`; clearing a percent or dollar figure, or typing 0, puts `reset` back. **Stairs never count as material (same day: "should never take into
+  account the stairs material"):** every schedule reader takes an option's lines through `scheduleLines()` in `scope.ts`,
+  which marks every line of a stairs option `notMaterial`; `materialsDeposit()` and `suggestsMaterialDeposit()` skip those. **On the customer's page** the
   schedule shows once at the bottom (`scheduleAtEnd`): in the Accept panel, else `PlanAtEnd` with a pick per Part. The
   accepted page, a change, the PDF and the email keep each option's schedule. Tested in `tests/combined.test.ts`.
 - **Acceptance (Albert, 2026-10-27: "it is always best to have an accept step").** Only a **measured**

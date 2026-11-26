@@ -40,6 +40,16 @@ export function optionScope(o: Parameters<typeof quoteKind>[0] & { scope?: Scope
 }
 
 /**
+ * An option's lines as the payment schedule reads them (Albert, 2026-11-26: the material warnings "should never take
+ * into account the stairs material"): on a stairs option every line is marked `notMaterial`, whatever its section, so
+ * it never counts toward a material deposit, the material-first rule or their checks. Prices and HST are unchanged.
+ * Every schedule reader goes through this.
+ */
+export function scheduleLines<L extends Parameters<typeof quoteKind>[0]["lines"][number]>(o: { lines: L[]; scope?: Scope | null; part?: Part | null }): (L & { notMaterial?: boolean })[] {
+  return optionScope(o) === "Stairs" ? o.lines.map((l) => ({ ...l, notMaterial: true })) : o.lines;
+}
+
+/**
  * The option tabs split by scope (Albert, 2026-10-30: "a separation from Stairs and Flooring. Flooring | Stair"):
  * flooring first, then stairs, each keeping its order. `split` is false when every option is one scope, and then
  * the tabs show no headings.

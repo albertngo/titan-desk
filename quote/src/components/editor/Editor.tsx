@@ -66,7 +66,7 @@ import { ghlContactUrl } from "@/lib/ghl/ids";
 import { fixAddressLink } from "@/lib/link/linkJob";
 import { money, pct, rate } from "@/lib/format";
 import type { RateCard } from "@/lib/quotes/types";
-import { firstOpenOption, STAIRS_FOLDED, optionScope, PARTS, partValue, scopeGroups } from "@/lib/quotes/scope";
+import { firstOpenOption, STAIRS_FOLDED, optionScope, PARTS, partValue, scheduleLines, scopeGroups } from "@/lib/quotes/scope";
 import { Picker } from "./Picker";
 import { ScheduleEditor } from "./ScheduleEditor";
 import { CombinedPlan } from "./CombinedPlan";
@@ -516,15 +516,17 @@ export default function Editor({
   const termsRef = useRef<HTMLDetailsElement>(null);
   // This option's own schedule (Albert, 2026-11-26: it "should always stay with that option and not change the others"):
   // its own, else the one a version saved before then holds for every option, else automatic for this option alone.
-  const autoPlan = useMemo(() => autoSchedule([{ lines: option?.lines ?? [], showHst: hstOn, discountRate: quote.discountRate }]), [option?.lines, hstOn, quote.discountRate]);
+  // Stairs never count as material (2026-11-26): `scheduleLines()`.
+  const planLines = useMemo(() => (option ? scheduleLines(option) : []), [option]);
+  const autoPlan = useMemo(() => autoSchedule([{ lines: planLines, showHst: hstOn, discountRate: quote.discountRate }]), [planLines, hstOn, quote.discountRate]);
   const ownPlan = option ? (option.schedule ?? quote.schedule ?? null) : null;
   const schedule = option ? optionSchedule(quote, option) : autoPlan;
   // A schedule that goes against the HST rules is flagged, never stopped (2026-11-05).
   const scheduleWarnings = useMemo(
-    () => (option ? scheduleFlags(schedule, [{ name: option.name, lines: option.lines, showHst: hstOn, discountRate: quote.discountRate }]) : []),
-    [schedule, option, hstOn, quote.discountRate],
+    () => (option ? scheduleFlags(schedule, [{ name: option.name, lines: planLines, showHst: hstOn, discountRate: quote.discountRate }]) : []),
+    [schedule, option, planLines, hstOn, quote.discountRate],
   );
-  const payLine = option && t ? stageAmounts(schedule, option.lines, quote.discountRate, option.showHst ?? quote.showHst, t.total).filter(shownStage).map((x) => x.pct).join(" / ") : "35 / 35 / 30";
+  const payLine = option && t ? stageAmounts(schedule, planLines, quote.discountRate, option.showHst ?? quote.showHst, t.total).filter(shownStage).map((x) => x.pct).join(" / ") : "35 / 35 / 30";
   const termsLine = [hstOn ? "HST charged" : "HST off", `payment ${payLine}`].join(" · ");
 
   // A stairs option always shows Stairs, empty or not, each category with its own add (2026-11-04).
@@ -1497,7 +1499,7 @@ export default function Editor({
                 auto={autoPlan}
                 flags={scheduleWarnings}
                 onChange={(next) => apply(setOptionSchedule(quote, option.id, next))}
-                amounts={option && t ? stageAmounts(schedule, option.lines, quote.discountRate, hstOn, t.total) : []}
+                amounts={option && t ? stageAmounts(schedule, planLines, quote.discountRate, hstOn, t.total) : []}
               />
               )}
             </div>
@@ -1522,7 +1524,7 @@ export default function Editor({
         </div>
 
         <aside className="ed-side">
-          {option && t && <Financials schedule={schedule} lines={option.lines} t={t} discountRate={quote.discountRate} showHst={hstOn} agrees={null} customer={customer} />}
+          {option && t && <Financials schedule={schedule} lines={planLines} t={t} discountRate={quote.discountRate} showHst={hstOn} agrees={null} customer={customer} />}
           <section className="card ed-cust">
             <div className="card-h">Customer and terms</div>
             <div className="card-b">

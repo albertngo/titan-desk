@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { optionTotals, type LineInput } from "@/lib/calc";
 import { money } from "@/lib/format";
 import { acceptStages, autoFromFacts, scheduleFacts, scheduleFlags, type PaymentSchedule } from "@/lib/pricing/schedule";
-import { partKey } from "@/lib/quotes/scope";
+import { partKey, scheduleLines } from "@/lib/quotes/scope";
 import type { Part, Scope } from "@/lib/quotes/types";
 import type { EditorLine } from "@/lib/editor/model";
 import { ScheduleEditor } from "./ScheduleEditor";
@@ -26,13 +26,14 @@ export function CombinedPlan({ options, discountRate, combined, onChange }: { op
     return (mine.find((o) => o.recommended) ?? mine[0]) ? [(mine.find((o) => o.recommended) ?? mine[0]).id] : [];
   }));
   const chosen = options.filter((o) => picks.includes(o.id));
-  const facts = chosen.map((o) => scheduleFacts({ lines: o.lines, showHst: o.showHst, discountRate }));
+  // Stairs never count as material (2026-11-26).
+  const facts = chosen.map((o) => scheduleFacts({ lines: scheduleLines(o), showHst: o.showHst, discountRate }));
   const total = chosen.reduce((a, o) => a + optionTotals(o.lines, discountRate, o.showHst).total, 0);
   const material = facts.reduce((a, f) => a + f.material, 0);
   const auto = autoFromFacts(facts);
   const plan = combined ?? auto;
   const amounts = chosen.length > 1 ? acceptStages(chosen.map((o, i) => ({ plan, planFacts: facts[i], stages: [] })), plan, null, total).stages : [];
-  const flags = chosen.length > 1 ? scheduleFlags(plan, chosen.map((o) => ({ name: o.name, lines: o.lines, showHst: o.showHst, discountRate }))) : [];
+  const flags = chosen.length > 1 ? scheduleFlags(plan, chosen.map((o) => ({ name: o.name, lines: scheduleLines(o), showHst: o.showHst, discountRate }))) : [];
 
   if (options.length < 2) return null;
   return (
