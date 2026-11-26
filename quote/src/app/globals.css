@@ -1015,11 +1015,21 @@ a.chip.accent:hover { text-decoration: underline; }
 .sched { container-type: inline-size; }
 @container (max-width: 560px) { .sched-r { grid-template-columns: 1fr 84px; } .sched-r .sched-when, .sched-r select { grid-column: 1 / -1; } }
 .sched-l { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.sched-r { display: grid; grid-template-columns: minmax(110px, 1fr) 84px minmax(140px, 2fr) 140px 130px 56px; gap: 8px; align-items: center; }
-.sched-part { display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--fg-dim); }
+.sched-r { display: grid; grid-template-columns: minmax(110px, 1fr) 84px minmax(140px, 2fr) 140px 160px 56px; gap: 8px; align-items: center; }
+/* The deposit's parts together (2026-11-26), as on the customer's page, kept subtle (same day: "the deposit part more
+   subtle only"): a light grey hairline around them and a small grey header, no fill. */
+.sched-dep-h { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; padding: 6px 12px; font-size: 12.5px; color: var(--fg-dim); background: var(--card-2); border: 1px solid var(--line); border-bottom: 0; border-radius: 8px 8px 0 0; }
+.sched-dep-h b { color: var(--fg); font-weight: 600; }
+.sched-dep-h .faint { color: var(--fg-faint); font-weight: 400; }
+.sched-dep-h .amt { color: var(--fg); font-weight: 600; font-variant-numeric: tabular-nums; }
+.sched-r.dep { margin-top: -6px; padding: 8px 12px 6px; border: 1px solid var(--line); border-top: 0; border-bottom: 0; }
+.sched-r.dep-end { border-bottom: 1px solid var(--line); border-radius: 0 0 8px 8px; padding-bottom: 8px; margin-bottom: 4px; }
+.sched-help { grid-column: 1 / -1; margin: -4px 0 2px; font-size: 12px; color: var(--fg-dim); }
+.sched-part { display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--fg-dim); white-space: nowrap; }
 .sched-part .cell-in { width: 56px; }
 .sched-amt { font-variant-numeric: tabular-nums; text-align: right; font-size: 13px; }
 .sched-amt .sched-dollar { width: 92px; text-align: right; }
+.sched-amt { white-space: nowrap; }
 .sched-override { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 6px; }
 .sched-amt.bad, .pay .v.bad { color: var(--bad, #b42318); }
 .sched-bad { margin: 0; padding-left: 18px; color: var(--bad, #b42318); font-size: 13px; }
@@ -1051,11 +1061,17 @@ a.chip.accent:hover { text-decoration: underline; }
 /* The editor's combined schedule (2026-11-26), set apart from the option's own. */
 /* The combined schedule under the option's terms (2026-11-26): the editor's own card, a quiet tint on its header and a dashed
    edge so it never reads as the option's. */
-.ed-combined { border-style: dashed; border-width: 2px; margin-top: 4px; }
-.ed-combined > summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; background: var(--card-2); }
+/* Not purple (Albert, 2026-11-26: "lets try not purple"): a slate header band with a small square marker, so it reads as
+   a section of its own; a solid edge once open, the body white. */
+.ed-combined { --combo: #4a5668; --combo-soft: #eef1f5; --combo-line: #cfd6e0; border: 1px dashed var(--combo-line); margin-top: 4px; }
+.ed-combined > summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; background: var(--combo-soft); color: var(--fg); border-radius: 12px; }
 .ed-combined > summary::-webkit-details-marker { display: none; }
-.ed-combined[open] > summary { border-bottom: 1px solid var(--line); }
-.ed-combined-t { display: grid; gap: 2px; }
+.ed-combined-t::before { content: ""; position: absolute; }
+.ed-combined[open] { border-style: solid; border-color: var(--combo-line); }
+.ed-combined[open] > summary { border-bottom: 1px solid var(--combo-line); border-radius: 12px 12px 0 0; }
+.ed-combined input[type="radio"] { accent-color: var(--combo); }
+.ed-combined-t { display: grid; gap: 2px; padding-left: 16px; position: relative; }
+.ed-combined-t::before { left: 0; top: 6px; width: 8px; height: 8px; border-radius: 2px; background: var(--combo); }
 .ed-combined-t .faint { font-weight: 400; font-size: 12.5px; }
 .ed-combined-note { font-size: 11.5px; font-weight: 600; color: var(--fg-dim); white-space: nowrap; }
 .ed-combined-note::after { content: " ▾"; }
