@@ -26,7 +26,7 @@ export const CHANGES: Change[] = [
     title: "The deposit's parts grouped in the editor; Combined options in slate",
     details: [
       "In a payment schedule, when the deposit is the material plus the rest of the deposit, the two rows sit together in one tinted box under a Deposit header with their total, as on the customer's page.",
-      "Combined options is now a quiet slate band instead of purple: a small square marker and a grey header, white inside.",
+      "Combined options is now a quiet grey card instead of purple: the lightest grey header with a small square marker and a dashed edge, white inside.",
     ],
   },
   {
