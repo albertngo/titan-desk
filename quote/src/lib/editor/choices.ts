@@ -13,6 +13,7 @@
  *   boxes (`roundChoices()`), and typing new square feet on the lead puts every flooring back on them.
  * At most MAX_CHOICES floorings an option.
  */
+import { isAcceptedLine, isAdjustmentLine, isContractorLine, isDiscountLine } from "@/lib/pricing/discounts";
 import { fullBoxes, newId, type EditorLine, type EditorOption, type EditorQuote } from "./model";
 
 export const MAX_CHOICES = 4;
@@ -131,55 +132,78 @@ export function roundChoices(q: EditorQuote, optionIds: string[], boxSf: Readonl
 }
 
 /**
- * Every flooring follows its lead after an edit (`prev` is the quote before it). Each follower keeps its own options id,
- * its own flooring line and its line ids where it can (matched in order), and takes everything else from the lead. The
- * lead's square feet changing puts every flooring back on them, unless `keepQty` (a rounding, or a new lead). A group
- * whose lead has lost its flooring line comes apart into ordinary options.
+ * Lines each flooring keeps as its own (Albert, 2026-11-26: "we should still be able to edit the pricing as usual on the
+ * other options as well separately"): its flooring line and its price card's lines (discount items, the accepted price
+ * and its adjustment, the contractor 10%). Every other line is shared.
+ */
+export const ownLine = (l: EditorLine) => !!l.choiceLine || isDiscountLine(l) || isAdjustmentLine(l) || isAcceptedLine(l) || isContractorLine(l);
+
+const sharedSig = (o: EditorOption) =>
+  JSON.stringify({
+    l: o.lines.filter((l) => !ownLine(l)).map(({ id: _i, ...l }) => (void _i, l)),
+    f: [o.name, o.description, o.serviceLevel, o.crew, o.privateLabel, o.scope, o.part, o.notOffered, o.showHst, o.schedule],
+  });
+
+/**
+ * Every flooring follows the one just edited (`prev` is the quote before the edit): its shared lines and its option's
+ * name, words, Part, scope, service level, crew, HST and schedule reach the others, whichever flooring it was. Each keeps
+ * its own options id, its own lines (`ownLine()`) and its shared lines' ids where it can (matched in order). The square
+ * feet and waste are shared: typed on one flooring, they reach every flooring, unless `keepQty` (a rounding to whole
+ * boxes, a new lead). Only the first flooring may be Recommended. A group whose first flooring has no flooring line comes
+ * apart into ordinary options.
  */
 export function syncChoices(prev: EditorQuote, next: EditorQuote, keepQty = false): EditorQuote {
   const groups = choiceGroups(next);
   if (!groups.size) return next;
-  const prevLeads = new Map([...choiceGroups(prev)].map(([k, os]) => [k, os[0]]));
+  const before = new Map(prev.options.map((o) => [o.id, o]));
   const replaced = new Map<string, EditorOption>();
-  for (const [key, os] of groups) {
+  for (const os of groups.values()) {
     const lead = os[0];
-    const floor = choiceLineOf(lead);
-    // A group of one stays (it is waiting for its second flooring); `removeChoice()` takes it apart.
-    if (!floor) {
+    if (!choiceLineOf(lead)) {
       for (const o of os) replaced.set(o.id, { ...without(o, "choiceGroup"), lines: o.lines.map((l) => without(l, "choiceLine")) });
       continue;
     }
-    const was = prevLeads.get(key);
-    const wasFloor = was && was.id === lead.id ? choiceLineOf(was) : undefined;
-    const sfChanged = !keepQty && !!wasFloor && wasFloor.qty !== floor.qty;
-    for (const f of os.slice(1)) {
-      const own = choiceLineOf(f) ?? { ...floor, id: newId("line") };
-      const ids = f.lines.filter((l) => !l.choiceLine).map((l) => l.id);
+    // The flooring whose shared part changed is the source; with none, the first.
+    const source = os.find((o) => before.has(o.id) && sharedSig(before.get(o.id)!) !== sharedSig(o)) ?? lead;
+    // Square feet or waste typed on one flooring reach them all.
+    const typed = os.find((o) => {
+      const was = before.get(o.id) && choiceLineOf(before.get(o.id)!);
+      const now = choiceLineOf(o);
+      return was && now && (was.waste !== now.waste || (!keepQty && was.qty !== now.qty));
+    });
+    const typedFloor = typed && choiceLineOf(typed);
+    const typedWas = typed && choiceLineOf(before.get(typed.id)!);
+    for (const o of os) {
+      const own = o.lines.filter(ownLine);
+      const floor = choiceLineOf(o) ?? { ...choiceLineOf(source)!, id: newId("line") };
+      const ids = o.lines.filter((l) => !ownLine(l)).map((l) => l.id);
       let k = 0;
-      const lines = lead.lines.map((l) =>
-        l.choiceLine
-          ? { ...own, section: floor.section, waste: floor.waste, qty: sfChanged ? floor.qty : own.qty, choiceLine: true as const }
-          : { ...l, id: ids[k++] ?? newId("line") },
-      );
-      replaced.set(f.id, {
-        ...f,
-        name: lead.name,
-        description: lead.description,
-        serviceLevel: lead.serviceLevel,
-        crew: lead.crew,
-        privateLabel: lead.privateLabel,
-        scope: lead.scope,
-        ...(lead.part ? { part: lead.part } : {}),
-        ...(lead.notOffered ? { notOffered: true as const } : {}),
-        ...(lead.showHst !== undefined ? { showHst: lead.showHst } : {}),
-        ...(lead.schedule ? { schedule: lead.schedule } : {}),
-        recommended: false,
+      const shared = source.lines.filter((l) => !ownLine(l)).map((l) => (o.id === source.id ? l : { ...l, id: ids[k++] ?? newId("line") }));
+      const flooring = {
+        ...floor,
+        ...(typedFloor && typedWas && typedFloor.waste !== typedWas.waste ? { waste: typedFloor.waste } : {}),
+        ...(typedFloor && typedWas && !keepQty && typedFloor.qty !== typedWas.qty ? { qty: typedFloor.qty } : {}),
+        choiceLine: true as const,
+      };
+      // The flooring line where the source has it, then the others' own price-card lines after the shared ones.
+      const at = source.lines.filter((l) => !ownLine(l) || l.choiceLine).findIndex((l) => l.choiceLine);
+      const lines = [...shared.slice(0, at), flooring, ...shared.slice(at), ...own.filter((l) => !l.choiceLine)];
+      const base: EditorOption = {
+        ...o,
+        name: source.name,
+        description: source.description,
+        serviceLevel: source.serviceLevel,
+        crew: source.crew,
+        privateLabel: source.privateLabel,
+        scope: source.scope,
+        recommended: o.id === lead.id ? o.recommended : false,
         lines,
-      });
-      if (!lead.part) delete (replaced.get(f.id) as Partial<EditorOption>).part;
-      if (!lead.notOffered) delete (replaced.get(f.id) as Partial<EditorOption>).notOffered;
-      if (lead.showHst === undefined) delete (replaced.get(f.id) as Partial<EditorOption>).showHst;
-      if (!lead.schedule) delete (replaced.get(f.id) as Partial<EditorOption>).schedule;
+      };
+      for (const key of ["part", "notOffered", "showHst", "schedule"] as const) {
+        if (source[key] === undefined) delete (base as Partial<EditorOption>)[key];
+        else (base as Record<string, unknown>)[key] = source[key];
+      }
+      replaced.set(o.id, base);
     }
   }
   return { ...next, options: next.options.map((o) => replaced.get(o.id) ?? o) };
