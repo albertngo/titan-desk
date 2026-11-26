@@ -1370,7 +1370,36 @@ export default function Editor({
                                   : []),
                                 ...g.lines.map(row),
                               ])
-                            : lines.map(row)),
+                            : lines.flatMap((l) =>
+                                // The flooring choices sit in Materials, right under the flooring line (Albert, 2026-11-26).
+                                l.choiceLine && option.choiceGroup && !customer
+                                  ? [
+                                      row(l),
+                                      <tr className="choice-row" key={`choices-${l.id}`}>
+                                        <td />
+                                        <td colSpan={6}>
+                                          <ChoiceList
+                          options={choicesOf(quote, option)}
+                          discountRate={quote.discountRate}
+                          hstOf={(o) => o.showHst ?? quote.showHst}
+                          boxSf={boxSf}
+                          onShowFirst={(id) => {
+                            apply(keepQty(showFirst(quote, id)));
+                            setActiveId(id);
+                          }}
+                          onRemove={(id) => {
+                            const next = removeChoice(quote, id);
+                            apply(keepQty(next));
+                            if (id === option.id) setActiveId(choicesOf(quote, option).find((x) => x.id !== id)?.id ?? null);
+                          }}
+                          onRound={(ids) => apply(keepQty(roundChoices(quote, ids, boxSf)))}
+                          onAdd={() => setPicking({ label: "Materials", section: "Materials", choice: true })}
+                        />
+                                        </td>
+                                      </tr>,
+                                    ]
+                                  : [row(l)],
+                              )),
                           ...(rollup > 0
                             ? [
                                 <tr key="private-rollup" className="rollup">
@@ -1402,26 +1431,6 @@ export default function Editor({
                     </tbody>
                   </table>
                 </div>
-                {/* Flooring choices (Albert, 2026-11-26): the floorings this option offers, under its lines. */}
-                {!customer && option.choiceGroup && (
-                  <ChoiceList
-                    options={choicesOf(quote, option)}
-                    discountRate={quote.discountRate}
-                    hstOf={(o) => o.showHst ?? quote.showHst}
-                    boxSf={boxSf}
-                    onShowFirst={(id) => {
-                      apply(keepQty(showFirst(quote, id)));
-                      setActiveId(id);
-                    }}
-                    onRemove={(id) => {
-                      const next = removeChoice(quote, id);
-                      apply(keepQty(next));
-                      if (id === option.id) setActiveId(choicesOf(quote, option).find((x) => x.id !== id)?.id ?? null);
-                    }}
-                    onRound={(ids) => apply(keepQty(roundChoices(quote, ids, boxSf)))}
-                    onAdd={() => setPicking({ label: "Materials", section: "Materials", choice: true })}
-                  />
-                )}
                 {/* A flooring option adds everything but Stairs here. A stairs option has no bar: every category is its own
                     heading with its add (2026-11-04), so nothing would be added far from where it shows. */}
                 {!stairsOption && (

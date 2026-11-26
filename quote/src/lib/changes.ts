@@ -22,6 +22,12 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-26",
+    kind: "changed",
+    title: "Flooring choices sit in the Materials section",
+    details: ["In the editor, the list of floorings an option offers now sits inside the Materials section, right under the flooring line, instead of below all the lines."],
+  },
+  {
+    date: "2026-11-26",
     kind: "new",
     title: "Flooring choices on one option",
     details: [

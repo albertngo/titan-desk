@@ -1013,7 +1013,8 @@ a.chip.accent:hover { text-decoration: underline; }
 .sched-h { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-weight: 600; }
 .sched-tip { margin: 0; font-size: 13px; color: var(--fg-dim); }
 /* Flooring choices in the editor (2026-11-26): the floorings an option offers, under its lines. */
-.ed-choices { margin: 10px 0 0; border: 1px solid var(--line-strong); border-radius: 10px; overflow: hidden; background: var(--card); }
+.choice-row > td { padding-top: 0; }
+.ed-choices { margin: 2px 0 8px; border: 1px solid var(--line-strong); border-radius: 10px; overflow: hidden; background: var(--card); }
 .ed-choices-h { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 8px 12px; background: var(--card-2); border-bottom: 1px solid var(--line); font-size: 13px; }
 .ed-choices-l { list-style: none; margin: 0; padding: 0; }
 .ed-choices-l li { display: grid; grid-template-columns: 24px minmax(0, 1fr) 110px 110px 24px; gap: 8px; align-items: center; padding: 8px 12px; border-top: 1px solid var(--line); font-size: 13px; }
