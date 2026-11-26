@@ -1016,12 +1016,14 @@ a.chip.accent:hover { text-decoration: underline; }
 @container (max-width: 560px) { .sched-r { grid-template-columns: 1fr 84px; } .sched-r .sched-when, .sched-r select { grid-column: 1 / -1; } }
 .sched-l { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .sched-r { display: grid; grid-template-columns: minmax(110px, 1fr) 84px minmax(140px, 2fr) 140px 160px 56px; gap: 8px; align-items: center; }
-/* The deposit's parts together (2026-11-26), as on the customer's page: one tinted, outlined group under a header. */
-.sched-dep-h { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; padding: 8px 12px; font-size: 13px; color: var(--accent); background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line)); border-bottom: 0; border-radius: 8px 8px 0 0; }
-.sched-dep-h .faint { color: var(--fg-dim); font-weight: 400; }
-.sched-dep-h .amt { font-weight: 600; font-variant-numeric: tabular-nums; }
-.sched-r.dep { margin-top: -6px; padding: 8px 12px 6px; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line)); border-top: 0; border-bottom: 0; }
-.sched-r.dep-end { border-bottom: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line)); border-radius: 0 0 8px 8px; padding-bottom: 8px; margin-bottom: 4px; }
+/* The deposit's parts together (2026-11-26), as on the customer's page, kept subtle (same day: "the deposit part more
+   subtle only"): a light grey hairline around them and a small grey header, no fill. */
+.sched-dep-h { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; padding: 6px 12px; font-size: 12.5px; color: var(--fg-dim); background: var(--card-2); border: 1px solid var(--line); border-bottom: 0; border-radius: 8px 8px 0 0; }
+.sched-dep-h b { color: var(--fg); font-weight: 600; }
+.sched-dep-h .faint { color: var(--fg-faint); font-weight: 400; }
+.sched-dep-h .amt { color: var(--fg); font-weight: 600; font-variant-numeric: tabular-nums; }
+.sched-r.dep { margin-top: -6px; padding: 8px 12px 6px; border: 1px solid var(--line); border-top: 0; border-bottom: 0; }
+.sched-r.dep-end { border-bottom: 1px solid var(--line); border-radius: 0 0 8px 8px; padding-bottom: 8px; margin-bottom: 4px; }
 .sched-help { grid-column: 1 / -1; margin: -4px 0 2px; font-size: 12px; color: var(--fg-dim); }
 .sched-part { display: flex; align-items: center; gap: 4px; font-size: 13px; color: var(--fg-dim); white-space: nowrap; }
 .sched-part .cell-in { width: 56px; }
@@ -1061,8 +1063,7 @@ a.chip.accent:hover { text-decoration: underline; }
    edge so it never reads as the option's. */
 /* Not purple (Albert, 2026-11-26: "lets try not purple"): a slate header band with a small square marker, so it reads as
    a section of its own; a solid edge once open, the body white. */
-/* More subtle (same day: "make it more subtle for the combine"): the lightest grey header, a faint marker, hairline edges. */
-.ed-combined { --combo: var(--fg-faint); --combo-soft: var(--card-2); --combo-line: var(--line-strong); border: 1px dashed var(--combo-line); margin-top: 4px; }
+.ed-combined { --combo: #4a5668; --combo-soft: #eef1f5; --combo-line: #cfd6e0; border: 1px dashed var(--combo-line); margin-top: 4px; }
 .ed-combined > summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; background: var(--combo-soft); color: var(--fg); border-radius: 12px; }
 .ed-combined > summary::-webkit-details-marker { display: none; }
 .ed-combined-t::before { content: ""; position: absolute; }
