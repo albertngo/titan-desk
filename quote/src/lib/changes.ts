@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-26",
     kind: "changed",
+    title: "Combined options has its own colour",
+    details: ["In the editor, Combined options is purple, never the option's blue: a purple header, and once opened the whole card is tinted with a solid purple edge, so it is easy to tell apart from the option's own schedule."],
+  },
+  {
+    date: "2026-11-26",
+    kind: "changed",
     title: "Combined options back under the terms; no schedule in the editor's sidebar",
     details: ["In the editor, Combined options now sits in the main column under the option's terms, as a dashed dropdown closed until you open it. The right-hand money card no longer repeats the payment schedule: the option's own schedule is in its terms. The quote page keeps it."],
   },
