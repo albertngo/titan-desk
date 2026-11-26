@@ -23,6 +23,15 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-26",
     kind: "changed",
+    title: "The deposit's parts grouped in the editor; Combined options in slate",
+    details: [
+      "In a payment schedule, when the deposit is the material plus the rest of the deposit, the two rows sit together in one tinted box under a Deposit header with their total, as on the customer's page.",
+      "Combined options is now a quiet slate band instead of purple: a small square marker and a grey header, white inside.",
+    ],
+  },
+  {
+    date: "2026-11-26",
+    kind: "changed",
     title: "Clearer \"paid so far\" payments in the schedule",
     details: ["In a payment schedule, the Rest of the deposit and Second payment rows now say under them what their percent means, for example \"80% of the total paid so far, once this is in. This payment makes up the difference: $2,850.00.\" The old \"% in all\" is gone."],
   },

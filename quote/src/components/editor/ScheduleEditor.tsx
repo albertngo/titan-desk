@@ -4,7 +4,7 @@ import { useId } from "react";
 import type { StageAmount } from "@/lib/calc";
 import { money } from "@/lib/format";
 import { PAYMENT_ROUND } from "@/lib/calc";
-import { autoReason, MAX_STAGES, PAY_HOWS, PAY_LABELS, PRESETS, sameSchedule, scheduleProblems, type PayHow, type PaymentSchedule, type PresetKey, type ScheduleStage, type StagePart } from "@/lib/pricing/schedule";
+import { autoReason, depositSplit, MAX_STAGES, PAY_HOWS, PAY_LABELS, PRESETS, sameSchedule, scheduleProblems, type PayHow, type PaymentSchedule, type PresetKey, type ScheduleStage, type StagePart } from "@/lib/pricing/schedule";
 
 /**
  * The payment schedule in the editor's terms (Albert, 2026-10-27): pick a preset, then change any
@@ -50,6 +50,7 @@ export function ScheduleEditor({
   const hid = useId();
   const s = schedule ?? auto;
   const problems = scheduleProblems(s);
+  const depN = depositSplit(s.stages.map((x) => ({ kind: x.part.kind })));
   // An override stays with the schedule through stage edits (2026-11-26); picking a preset starts fresh without it.
   const edit = (stages: ScheduleStage[]) => onChange({ preset: "custom", stages, round: s.round ?? PAYMENT_ROUND, ...(s.override ? { override: true } : {}) });
   const patch = (i: number, p: Partial<ScheduleStage>) => edit(s.stages.map((x, k) => (k === i ? { ...x, ...p } : x)));
@@ -154,11 +155,22 @@ export function ScheduleEditor({
           </div>
         ))}
       <ol className="sched-l">
+        {/* A deposit in parts (Albert, 2026-11-26: "separation for rest of the deposit combined like the customer quote
+            page"): its rows sit together under one Deposit header with their total. */}
+        {depN >= 2 && (
+          <li className="sched-dep-h">
+            <span>
+              <b>Deposit</b> <span className="faint">· both parts on acceptance, paid two ways</span>
+            </span>
+            <span className="amt">{amounts.length >= depN ? money(amounts.slice(0, depN).reduce((t, x) => t + x.amount, 0)) : ""}</span>
+          </li>
+        )}
         {s.stages.map((x, i) => {
           const last = i === s.stages.length - 1;
           const a = amounts[i];
+          const inDep = depN >= 2 && i < depN;
           return (
-            <li key={`${i}:${JSON.stringify(x)}:${a?.amount ?? ""}`} className="sched-r">
+            <li key={`${i}:${JSON.stringify(x)}:${a?.amount ?? ""}`} className={`sched-r${inDep ? " dep" : ""}${inDep && i === depN - 1 ? " dep-end" : ""}`}>
               <input className="cell-in" aria-label="Payment name" defaultValue={x.label} onBlur={(e) => e.currentTarget.value !== x.label && patch(i, { label: e.currentTarget.value })} />
               <span className="sched-part">
                 {x.part.kind === "share" || x.part.kind === "topUp" || x.part.kind === "ofTotal" || x.part.kind === "upTo" ? (
