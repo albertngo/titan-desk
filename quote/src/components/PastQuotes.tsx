@@ -7,7 +7,8 @@ import type { PastOption, PastQuote, PastVersion } from "@/lib/quotes/past";
 
 /**
  * Copy options from a past quote (Albert, 2026-11-16). One picker, two places:
- * - the editor's + From a past quote (`onCopy`): find a quote, pick a version, tick its options, copy them in;
+ * - the editor's + From a past quote (`onCopy`): find a quote, pick a version, tick its options, copy them in. The quote
+ *   being edited is offered first with its other versions (2026-11-26), so an older version's options can come back;
  * - New quote's "Start from a past quote" (`onPick`): find a quote and pick a version; the new quote's editor
  *   then opens on those options, all ticked, to copy with one tap.
  * It reads only (src/lib/quotes/past.ts); copying is an unsaved editor change.
@@ -55,7 +56,8 @@ export function PastQuotes({
       const r = await findPastQuotesAction(q, exceptVersionId).catch(() => null);
       if (!r) return setNote("The search didn't go through. Try again in a moment.");
       setResults(r);
-      setOpen(r.length === 1 ? (r[0].quoteRecordId ?? r[0].versions[0]?.id ?? null) : null);
+      // One result, or this quote's other versions on top: opened, so its versions show straight away.
+      setOpen(r.length === 1 || r[0]?.current ? (r[0].quoteRecordId ?? r[0].versions[0]?.id ?? null) : null);
     });
   }
 
@@ -74,9 +76,11 @@ export function PastQuotes({
   // From New quote: open on the version picked there.
   const started = useRef(false);
   useEffect(() => {
-    if (started.current || !startVersionId) return;
+    if (started.current) return;
     started.current = true;
-    load(startVersionId, null);
+    if (startVersionId) load(startVersionId, null);
+    // In the editor, list straight away so this quote's other versions are there without a search (2026-11-26).
+    else if (exceptVersionId && onCopy) search("");
   });
 
   const picked = loaded ? loaded.options.filter((o) => ticked.has(o.id)) : [];
@@ -146,6 +150,7 @@ export function PastQuotes({
             return (
               <li key={key}>
                 <button type="button" className="past-q" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : key)}>
+                  {q.current && <span className="chip">This quote · other versions</span>}
                   <b>{quoteWords(q)}</b>
                   {q.description && <span className="past-desc">{q.description}</span>}
                 </button>

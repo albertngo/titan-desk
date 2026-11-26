@@ -2664,6 +2664,7 @@ a.file-item, .file-item { display: grid; grid-template-columns: 16px minmax(0, 1
 .past-list > li { border: 1px solid var(--line); border-radius: var(--radius); }
 .past-q { font: inherit; width: 100%; text-align: left; background: none; border: 0; padding: 10px 12px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; color: var(--fg); }
 .past-q:hover { background: var(--head); }
+.past-q .chip { align-self: flex-start; }
 .past-vers { flex-direction: row; flex-wrap: wrap; padding: 0 12px 10px; }
 .past-desc { font-size: 12.5px; color: var(--fg-dim); margin: 2px 0 0 24px; }
 .past-q .past-desc { margin: 0; }

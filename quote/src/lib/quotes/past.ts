@@ -12,7 +12,7 @@ import { getQuote, listQuoteGroups } from "./load";
  */
 
 export type PastVersion = { id: string; version: number | null; label: string | null; status: string | null; basis: string | null; optionCount: number; sentAt: string | null; changeNo: number | null };
-export type PastQuote = { quoteRecordId: string | null; customerName: string | null; quoteNumber: string | null; siteCity: string | null; description: string | null; versions: PastVersion[] };
+export type PastQuote = { quoteRecordId: string | null; /** The quote being edited: only its other versions are listed (2026-11-26). */ current?: boolean; customerName: string | null; quoteNumber: string | null; siteCity: string | null; description: string | null; versions: PastVersion[] };
 export type PastOption = EditorOption & { price: number };
 export type PastOptions = { ok: true; versionId: string; label: string | null; version: number | null; basis: string | null; customerName: string | null; options: PastOption[] } | { ok: false; message: string };
 
@@ -25,18 +25,21 @@ export async function findPastQuotes(query: string, exceptVersionId: string | nu
   const q = query.trim().slice(0, 80);
   const groups = await listQuoteGroups();
   const out: PastQuote[] = [];
+  let own: PastQuote | null = null;
   for (const g of groups) {
-    // The quote being edited is left out: its own options are already there to Duplicate.
-    if (exceptVersionId && g.versions.some((v) => v.id === exceptVersionId)) continue;
-    if (!matchesSearch(g, q)) continue;
+    // The quote being edited (Albert, 2026-11-26: "copy from the same quote; but a different version"): its other
+    // versions are offered first, whatever was typed. The version being edited is left out: its options are already there.
+    const isOwn = Boolean(exceptVersionId) && g.versions.some((v) => v.id === exceptVersionId);
+    if (!isOwn && !matchesSearch(g, q)) continue;
     const versions = g.versions
-      .filter((v) => v.optionCount > 0)
+      .filter((v) => v.optionCount > 0 && v.id !== exceptVersionId)
       .map((v) => ({ id: v.id, version: v.version, label: v.label, status: v.status, basis: v.basis, optionCount: v.optionCount, sentAt: v.sentAt ?? null, changeNo: v.changeNo ?? null }));
     if (!versions.length) continue;
-    out.push({ quoteRecordId: g.quoteRecordId, customerName: g.customerName, quoteNumber: g.quoteNumber, siteCity: g.siteCity, description: g.description ?? null, versions });
-    if (out.length >= MAX_RESULTS) break;
+    const found: PastQuote = { quoteRecordId: g.quoteRecordId, customerName: g.customerName, quoteNumber: g.quoteNumber, siteCity: g.siteCity, description: g.description ?? null, versions };
+    if (isOwn) own = { ...found, current: true };
+    else if (out.length < MAX_RESULTS) out.push(found);
   }
-  return out;
+  return own ? [own, ...out] : out;
 }
 
 /** One version's options, as the editor holds them, each with its price after its discounts, before HST. A version-wide discount rate is handed to each option first, so a copy keeps it. */
