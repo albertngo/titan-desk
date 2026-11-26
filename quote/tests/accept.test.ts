@@ -373,3 +373,39 @@ describe("staffQuoteLink (2026-10-28: the Notion project's Quote Link opens the 
     expect(staffQuoteLink("recAAAAAAAAAAAAAA")).toBeNull();
   });
 });
+
+describe("flooring choices reach the customer (2026-11-26)", () => {
+  const floorA = line({ section: "Materials", lineType: "Material", sourceKind: "product", description: "Laminate A", unitPriceSnap: 3, choiceLine: true });
+  const floorB = line({ section: "Materials", lineType: "Material", sourceKind: "product", description: "Vinyl B", unitPriceSnap: 5, choiceLine: true });
+  const q = quote({
+    options: [
+      option("Main floor A", [line({}), floorA], { name: "Main floor", choiceGroup: "cg_test01", recommended: true }),
+      { ...option("Main floor B", [line({}), floorB], { name: "Main floor", choiceGroup: "cg_test01" }), id: "recOPTMainfloorB0" },
+      option("Stairs", [line({ description: "Stair treads" })]),
+    ],
+  });
+
+  it("freezes each flooring's group and name, and counts the option once", async () => {
+    const { optionEntries, optionTitle } = await import("../src/lib/send/copy");
+    const c = copyOf(q);
+    expect(c.options.slice(0, 2).map((o) => [o.choiceGroup, o.choiceLabel])).toEqual([["cg_test01", "Laminate A"], ["cg_test01", "Vinyl B"]]);
+    expect(optionEntries(c).map((e) => e.members)).toEqual([[0, 1], [2]]);
+    expect(optionTitle(c, 1)).toBe("Main floor: Vinyl B");
+  });
+
+  it("says in the email how many floorings the option comes in, priced from the lowest", async () => {
+    const { emailMessage, emailView } = await import("../src/lib/send/plan");
+    const c = copyOf(q);
+    expect(emailView(c).options).toHaveLength(2);
+    const m = emailMessage(c, { contactId: "c", firstName: "Sam", link: "https://quote.example/c/x" }, null, {});
+    expect(m.type === "Email" && m.html).toContain("2 floorings to choose from");
+    expect(m.type === "Email" && m.html).toContain("Your 2 options");
+  });
+
+  it("accepts the flooring the customer chose", () => {
+    const c = copyOf(q);
+    const a = buildAcceptance(c, input({ optionIndexes: [1] }), { now: NOW, terms: TERMS, method: "link", recordedBy: null, userAgent: null });
+    expect(a.picks!.map((p) => p.index)).toEqual([1]);
+    expect(a.totals.total).toBe(c.options[1].totals.total);
+  });
+});

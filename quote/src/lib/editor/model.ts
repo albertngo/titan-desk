@@ -34,6 +34,8 @@ export type EditorLine = LineInput & {
   area: string;
   uom: string | null;
   clientNote: string;
+  /** The flooring line of an option offered in several floorings (2026-11-26); absent = an ordinary line. */
+  choiceLine?: true;
 };
 
 export type EditorOption = {
@@ -63,6 +65,12 @@ export type EditorOption = {
    * Absent rather than null, so older drafts keep their fingerprint.
    */
   schedule?: PaymentSchedule;
+  /**
+   * Flooring choices (Albert, 2026-11-26: "multiple flooring options for a particular project that doesn't change the
+   * labor items"): options sharing this key are one option offered in several floorings. The first of them is the
+   * one shown first; it holds the shared lines and every other one follows it (`syncChoices()`). Absent = none.
+   */
+  choiceGroup?: string;
   lines: EditorLine[];
 };
 
@@ -641,12 +649,15 @@ export function addBuiltOption(q: EditorQuote, built: { name: string; descriptio
 export function duplicateOption(q: EditorQuote, optionId: string): EditorQuote {
   const src = q.options.find((o) => o.id === optionId);
   if (!src) return q;
+  // A copy is an option of its own (2026-11-26): it leaves any flooring choices behind.
+  const { choiceGroup: _g, ...rest } = src;
+  void _g;
   const copy: EditorOption = {
-    ...src,
+    ...rest,
     id: newId("opt"),
     name: `${src.name} (copy)`,
     recommended: false,
-    lines: src.lines.map((l) => ({ ...l, id: newId("line") })),
+    lines: src.lines.map(({ choiceLine: _c, ...l }) => (void _c, { ...l, id: newId("line") })),
   };
   const i = q.options.indexOf(src);
   return { ...q, options: [...q.options.slice(0, i + 1), copy, ...q.options.slice(i + 1)] };
@@ -1427,6 +1438,7 @@ export function fromQuote(quote: Quote): EditorQuote {
       ...(o.showHst !== undefined ? { showHst: o.showHst } : {}),
       ...(o.sqftOk ? { sqftOk: o.sqftOk } : {}),
       ...(o.schedule ? { schedule: o.schedule } : {}),
+      ...(o.choiceGroup ? { choiceGroup: o.choiceGroup } : {}),
       lines: o.lines.map((l: QuoteLine): EditorLine => ({
         id: l.id,
         sourceKind: l.sourceKind,
@@ -1455,6 +1467,7 @@ export function fromQuote(quote: Quote): EditorQuote {
         minChargeSnap: l.minChargeSnap,
         noHst: l.noHst ?? false,
         hasSource: l.hasSource,
+        ...(l.choiceLine ? { choiceLine: true as const } : {}),
       })),
     })),
   };

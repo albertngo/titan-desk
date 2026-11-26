@@ -154,6 +154,7 @@ function toLine(r: AirtableRecord): QuoteLine {
     manualCost: num(f[LINE.manualCost]),
     minChargeSnap: num(f[LINE.minChargeSnap]),
     noHst: bool(f[LINE.noHst]),
+    choiceLine: bool(f[LINE.choiceLine]),
     hasSource: [LINE.rateItem, LINE.stairItem, LINE.product, LINE.stairProfile].some((k) => ids(f[k]).length > 0),
     ...source(f),
     labourType: str(f[LINE.rateLaborType]),
@@ -193,6 +194,7 @@ function toOption(r: AirtableRecord, lines: QuoteLine[]): QuoteOption {
     sqftOk: str(f[OPTION.sqftOk]),
     ...hstValue(f[OPTION.chargeHst]),
     schedule: cleanSchedule(str(f[OPTION.paymentSchedule])),
+    choiceGroup: str(f[OPTION.choiceGroup]),
     lines,
     airtable: {
       preDiscount: num(f[OPTION.preDiscount]) ?? undefined,

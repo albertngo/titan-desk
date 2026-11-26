@@ -10,7 +10,7 @@ import { termsHref, termsLabel } from "@/lib/accept/terms";
 import { defaultSchedule } from "@/lib/pricing/schedule";
 import { acceptConfigured } from "@/lib/quotes/acceptClient";
 import { customerQuote } from "@/lib/quotes/customer";
-import { acceptedPdfName, offersPdf, partKeys, partOf, pdfName, stagesOf } from "@/lib/send/copy";
+import { acceptedPdfName, offersPdf, partKeys, partOf, pdfName, stagesOf, optionNo, optionTitle } from "@/lib/send/copy";
 
 /** A customer's quote, opened from the link in their email or text. Customer deployment only. */
 
@@ -66,7 +66,9 @@ export default async function CustomerQuotePage({ params, searchParams }: { para
   const canAccept = acceptConfigured() && Boolean(etransferEmail()) && terms !== null && notAcceptable(copy, state, terms) === null;
   const options: AcceptOption[] = copy.options.map((o, index) => ({
     index,
-    name: o.name,
+    // An option offered in several floorings (2026-11-26) is one numbered option; each flooring says which it is.
+    name: optionTitle(copy, index),
+    no: optionNo(copy, index),
     subtotal: o.totals.subtotal,
     hst: o.totals.hst,
     part: partOf(o),

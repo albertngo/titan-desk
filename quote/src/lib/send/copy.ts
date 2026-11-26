@@ -119,6 +119,14 @@ export type CopyOption = {
   plan?: PaymentSchedule;
   /** What the combined schedule needs to know about it (2026-11-26), when it is accepted with others. Absent on older copies. */
   planFacts?: ScheduleFacts;
+  /**
+   * Flooring choices (2026-11-26): options sharing this key are one option offered in several floorings; the first of
+   * them in the copy is shown first. `choiceLabel` is the flooring's name. Absent on an ordinary option.
+   */
+  choiceGroup?: string;
+  choiceLabel?: string;
+  /** The email's view only (`emailView()` in plan.ts): how many floorings this option comes in. Never frozen. */
+  floorings?: number;
   /** "Stairs" on a stairs option (2026-10-28); absent = Flooring, which every copy frozen before then is. */
   scope?: "Stairs";
   /** The part of the home (2026-10-30); absent = the scope stands for it, as on every copy frozen before then. */
@@ -467,6 +475,7 @@ function copyOption(given: QuoteOption, discountRate: number, showHst: boolean, 
     schedule: copyStages(schedule, o, discountRate, showHst, t.total, ranged && t.subtotal > 0),
     plan: schedule,
     planFacts: scheduleFacts({ lines: scheduleLines(o), showHst, discountRate }),
+    ...(o.choiceGroup ? { choiceGroup: o.choiceGroup, choiceLabel: clean(o.lines.find((l) => l.choiceLine)?.customerWording ?? o.lines.find((l) => l.choiceLine)?.description ?? null) ?? o.name } : {}),
     ...(optionScope(o) === "Stairs" ? { scope: "Stairs" as const } : {}),
     ...(o.part ? { part: o.part } : {}),
     ...(discounts.length ? { discounts } : {}),
@@ -539,6 +548,34 @@ export const quoteCombined = (
   q: { combined?: PaymentSchedule | null; showHst: boolean; discountRate?: number },
   options: ScheduleOption[],
 ): PaymentSchedule => combinedPlan(q.combined, options.map((o) => ({ lines: scheduleLines(o), showHst: optionHst(q, o), discountRate: q.discountRate ?? 0 })));
+
+/**
+ * The copy's options as the customer counts them (2026-11-26): an option offered in several floorings is one entry, its
+ * members' indexes in order, the first shown first. `no` is its number ("Option 2"), counted over entries.
+ */
+export type OptionEntry = { no: number; members: number[] };
+export function optionEntries(copy: Pick<CustomerCopy, "options">): OptionEntry[] {
+  const out: OptionEntry[] = [];
+  const byKey = new Map<string, OptionEntry>();
+  copy.options.forEach((o, i) => {
+    const e = o.choiceGroup ? byKey.get(o.choiceGroup) : undefined;
+    if (e) return void e.members.push(i);
+    const fresh = { no: out.length + 1, members: [i] };
+    out.push(fresh);
+    if (o.choiceGroup) byKey.set(o.choiceGroup, fresh);
+  });
+  return out;
+}
+
+/** An option's number and its name with its flooring when it is one of several ("Main floor: Vinyl SPC"). */
+export function optionNo(copy: Pick<CustomerCopy, "options">, index: number): number {
+  return optionEntries(copy).find((e) => e.members.includes(index))?.no ?? index + 1;
+}
+export function optionTitle(copy: Pick<CustomerCopy, "options">, index: number): string {
+  const o = copy.options[index];
+  const e = optionEntries(copy).find((x) => x.members.includes(index));
+  return o.choiceLabel && e && e.members.length > 1 ? `${o.name}: ${o.choiceLabel}` : o.name;
+}
 
 /** "Flooring options", "Stairs option": the heading over a scope's options. */
 export const scopeHeading = (scope: Scope, count: number) => `${scope} option${count === 1 ? "" : "s"}`;

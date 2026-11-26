@@ -84,6 +84,7 @@ function cleanLine(raw: unknown, i: number): EditorLine {
     manualCost: num(r.manualCost),
     minChargeSnap: num(r.minChargeSnap),
     noHst: r.noHst === true,
+    ...(r.choiceLine === true ? { choiceLine: true as const } : {}),
     hasSource: Boolean(sourceId),
   };
 }
@@ -107,6 +108,7 @@ export function cleanEditorQuote(raw: unknown): EditorQuote {
       ...(typeof x.showHst === "boolean" ? { showHst: x.showHst } : {}),
       ...(typeof x.sqftOk === "string" && /^\d+(\.\d+)?\/\d+(\.\d+)?$/.test(x.sqftOk) ? { sqftOk: x.sqftOk } : {}),
       ...(cleanSchedule(x.schedule) ? { schedule: cleanSchedule(x.schedule)! } : {}),
+      ...(typeof x.choiceGroup === "string" && /^[A-Za-z0-9_-]{4,40}$/.test(x.choiceGroup) ? { choiceGroup: x.choiceGroup } : {}),
       lines: (Array.isArray(x.lines) ? x.lines : []).slice(0, LIMITS.linesPerOption).map(cleanLine),
     };
   });
@@ -151,6 +153,7 @@ export function lineFields(l: EditorLine, sortOrder: number): Fields {
     [LINE.lineType]: oneOf(LINE_TYPES, l.lineType),
     [LINE.section]: oneOf(LINE_SECTIONS, l.section),
     [LINE.sortOrder]: sortOrder,
+    [LINE.choiceLine]: l.choiceLine === true,
     [LINE.area]: orNull(l.area),
     [LINE.qty]: l.qty,
     [LINE.uom]: oneOf(LINE_UOMS, l.uom),
@@ -193,6 +196,8 @@ export function optionFields(o: EditorOption, sortOrder: number): Fields {
     [OPTION.chargeHst]: o.showHst === undefined ? null : o.showHst ? "Charged" : "Off",
     // Its own payment schedule (2026-11-26); blank follows the version's, else automatic.
     [OPTION.paymentSchedule]: scheduleField(o.schedule),
+    // Flooring choices (2026-11-26).
+    [OPTION.choiceGroup]: o.choiceGroup ?? null,
   };
 }
 

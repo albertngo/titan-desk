@@ -68,6 +68,7 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
 - HST per material line (Albert, 2026-10-16).
 - Charge HST is per option (Albert, 2026-11-04: "for the HST application at the bottom; I'd like for it to ONLY apply for the option it is …
 - Swappable material (Albert, 2026-10-16; corrected 2026-10-28).
+- Flooring choices (Albert, 2026-11-26; vault `05_decisions/2026-11-26-quote-flooring-choices`): one option in up to four floorings, labour shared.
 - The customer's conversation (Albert, 2026-10-20).
 - Lump sum is the default, always (Albert, 2026-10-22).
 - The Private section (Albert, 2026-10-22).

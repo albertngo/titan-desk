@@ -70,6 +70,12 @@ import { firstOpenOption, STAIRS_FOLDED, optionScope, PARTS, partValue, schedule
 import { Picker } from "./Picker";
 import { ScheduleEditor } from "./ScheduleEditor";
 import { CombinedPlan } from "./CombinedPlan";
+import { ChoiceList } from "./ChoiceList";
+import { addChoice, choicesOf, isFollower, removeChoice, roundChoices, showFirst, staffName, startChoices, syncChoices } from "@/lib/editor/choices";
+
+/** Edits that move one flooring's square feet only (a rounding to whole boxes), so the others keep theirs (2026-11-26). */
+const keepsQty = new WeakSet<object>();
+const keepQty = <T extends object>(q: T): T => (keepsQty.add(q), q);
 import { SwapOption } from "./SwapOption";
 import type { SwapSource } from "@/lib/change/swap";
 import { autoSchedule, ruleBreaks, shownStage } from "@/lib/pricing/schedule";
@@ -392,7 +398,9 @@ export default function Editor({
     // the option's accepted discount. Since 2026-11-21 what is held is what the customer pays, and a change
     // that moves the HST or needs the price before HST above the list waits on a confirmation instead of a refusal.
     // On a preliminary, an option's Customer wording follows its Stair Profile lines (2026-11-07): rewritten when they change.
-    const worded = measured ? next : syncStairWording(quote, next, card.profiles ?? []);
+    // Flooring choices (2026-11-26): every flooring follows its lead after the edit.
+    const chosen = syncChoices(quote, next, keepsQty.has(next));
+    const worded = measured ? chosen : syncStairWording(quote, chosen, card.profiles ?? []);
     const r = holdAccepted(quote, settleContractor(worded));
     if (r.refused) {
       setHoldNote(
@@ -411,7 +419,11 @@ export default function Editor({
   };
 
   // Memoized so the hooks below see one stable option per render (the React Compiler lint, 2026-11-20).
-  const option = useMemo(() => quote.options.find((o) => o.id === activeId) ?? firstOpenOption(quote.options), [quote.options, activeId]);
+  // A flooring choice has no tab of its own (2026-11-26): its group's lead is the option on screen.
+  const option = useMemo(() => {
+    const o = quote.options.find((x) => x.id === activeId) ?? firstOpenOption(quote.options);
+    return o && isFollower(quote, o) ? choicesOf(quote, o)[0] : o;
+  }, [quote, activeId]);
   // HST is the option's own (Albert, 2026-11-04), the version's only where the option has none set.
   const hstOn = option ? (option.showHst ?? quote.showHst) : quote.showHst;
   const t = option ? optionTotals(option.lines, quote.discountRate, hstOn) : null;
@@ -699,13 +711,26 @@ export default function Editor({
                       <div className="boxmath">
                         {fmtQty(fb.boxes)} box{fb.boxes === 1 ? "" : "es"} of {fmtQty(box)} sf
                         {!fb.whole && (
-                          <button type="button" className="linkbtn" title={`Sets the quantity to ${fmtQty(fb.qty)} ${u}, so with ${fmtQty(m.pct)}% waste it orders ${fb.up} full boxes`} onClick={() => upd({ qty: fb.qty })}>
+                          <button type="button" className="linkbtn" title={`Sets the quantity to ${fmtQty(fb.qty)} ${u}, so with ${fmtQty(m.pct)}% waste it orders ${fb.up} full boxes`} onClick={() => (l.choiceLine ? apply(keepQty(roundChoices(quote, [option.id], boxSf))) : upd({ qty: fb.qty }))}>
                             Round up to {fb.up} box{fb.up === 1 ? "" : "es"}
                           </button>
                         )}
                       </div>
                     );
                   })()}
+                  {/* Flooring choices (2026-11-26): offer the customer other floorings on the same work. */}
+                  {!customer && !option.choiceGroup && l.sourceKind === "product" && sectionOf(l) === "Materials" && (
+                    <button
+                      type="button"
+                      className="linkbtn ed-offer"
+                      onClick={() => {
+                        apply(startChoices(quote, option.id, l.id));
+                        setPicking({ label: "Materials", section: "Materials", choice: true });
+                      }}
+                    >
+                      Offer other floorings
+                    </button>
+                  )}
                 </div>
               ) : null;
             })()}
@@ -891,7 +916,7 @@ export default function Editor({
           {/* Options on the left; adding one is a separate column on the right behind a light rule (Albert, 2026-11-01). */}
           <nav className="ed-tabs" aria-label="Options">
             <div className="ed-opts">
-            {scopeGroups(quote.options).groups.map((g, i, all) => (
+            {scopeGroups(quote.options.filter((o) => !isFollower(quote, o))).groups.map((g, i, all) => (
               // Each scope is its own row, its label in a fixed column so wrapped tabs still line up (2026-11-01);
               // Stairs start their own row (Albert, 2026-10-31), so flooring tabs never push them off to the right.
               <div className="tab-grp" key={g.scope}>
@@ -901,8 +926,14 @@ export default function Editor({
                   <button key={o.id} className={o.notOffered ? "tab off" : "tab"} aria-current={option?.id === o.id ? "page" : undefined} onClick={() => setActiveId(o.id)} title={o.notOffered ? "Not offered: never sent to the customer" : undefined}>
                     {o.notOffered && <span className="t-off">Not offered</span>}
                     {o.part && <span className="t-part">{o.part}</span>}
-                    <span className="t-name">{o.name || "Untitled"}</span>
-                    <span className="t-amt">{money(optionTotals(o.lines, quote.discountRate, (o.showHst ?? quote.showHst)).total)}</span>
+                    <span className="t-name">
+                      {o.name || "Untitled"}
+                      {choicesOf(quote, o).length > 1 && <span className="t-choices"> · {choicesOf(quote, o).length} floorings</span>}
+                    </span>
+                    <span className="t-amt">
+                      {choicesOf(quote, o).length > 1 ? "from " : ""}
+                      {money(Math.min(...choicesOf(quote, o).map((x) => optionTotals(x.lines, quote.discountRate, x.showHst ?? quote.showHst).total)))}
+                    </span>
                   </button>
                 ))}
                 </div>
@@ -1371,6 +1402,26 @@ export default function Editor({
                     </tbody>
                   </table>
                 </div>
+                {/* Flooring choices (Albert, 2026-11-26): the floorings this option offers, under its lines. */}
+                {!customer && option.choiceGroup && (
+                  <ChoiceList
+                    options={choicesOf(quote, option)}
+                    discountRate={quote.discountRate}
+                    hstOf={(o) => o.showHst ?? quote.showHst}
+                    boxSf={boxSf}
+                    onShowFirst={(id) => {
+                      apply(keepQty(showFirst(quote, id)));
+                      setActiveId(id);
+                    }}
+                    onRemove={(id) => {
+                      const next = removeChoice(quote, id);
+                      apply(keepQty(next));
+                      if (id === option.id) setActiveId(choicesOf(quote, option).find((x) => x.id !== id)?.id ?? null);
+                    }}
+                    onRound={(ids) => apply(keepQty(roundChoices(quote, ids, boxSf)))}
+                    onAdd={() => setPicking({ label: "Materials", section: "Materials", choice: true })}
+                  />
+                )}
                 {/* A flooring option adds everything but Stairs here. A stairs option has no bar: every category is its own
                     heading with its add (2026-11-04), so nothing would be added far from where it shows. */}
                 {!stairsOption && (
@@ -1510,7 +1561,7 @@ export default function Editor({
               terms, a dropdown closed until opened, in a dashed card so it never reads as the option's own. */}
           {!customer && quote.options.filter((o) => !o.notOffered).length > 1 && (
             <CombinedPlan
-              options={quote.options.filter((o) => !o.notOffered).map((o) => ({ id: o.id, name: o.name, recommended: o.recommended, part: o.part, scope: o.scope, lines: o.lines, showHst: o.showHst ?? quote.showHst }))}
+              options={quote.options.filter((o) => !o.notOffered).map((o) => ({ id: o.id, name: staffName(quote.options, o), recommended: o.recommended, part: o.part, scope: o.scope, lines: o.lines, showHst: o.showHst ?? quote.showHst }))}
               discountRate={quote.discountRate}
               combined={quote.combined ?? null}
               onChange={(next) => apply(setCombinedSchedule(quote, next))}
@@ -1577,7 +1628,8 @@ export default function Editor({
           onClose={() => setPicking(null)}
           customer={customer}
           onPick={(line) => {
-            apply(addLine(quote, option.id, line));
+            // Another flooring for the option (2026-11-26), or an ordinary new line.
+            apply(picking.choice ? keepQty(addChoice(quote, option.id, line)) : addLine(quote, option.id, line));
             setPicking(null);
           }}
           onPickMany={(lines, replacing) => {
