@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-26",
     kind: "changed",
+    title: "A combined schedule picked by hand never blocks a send",
+    details: ["In Combined options, a plan you pick or numbers you type count as the override: the quote can be sent, and any HST rule it goes against is only noted. Left on automatic it follows the material deposit rules. Each option's own schedule still warns and needs \"Keep this schedule anyway\"."],
+  },
+  {
+    date: "2026-11-26",
+    kind: "changed",
     title: "HST schedule warnings say which option and why, with an override",
     details: [
       "When a payment schedule goes against the HST rule, the warning now names the option and says why, for example that HST is charged on its material only, so the rule is to take the material deposit first.",

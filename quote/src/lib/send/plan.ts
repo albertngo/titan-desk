@@ -121,10 +121,11 @@ export function sendProblems(quote: Quote, input: SendInput, ctx: { today: strin
   // The HST rules stop a send (Albert, 2026-11-05: "it will flag and block the send to prevent instructions from being
   // wrong"): checked on what goes, with the schedule it would go with.
   const going = chooseOptions(quote, ids);
-  // Since 2026-11-26 each option on its own schedule, and the combined one on everything going when there is a choice of two or more.
+  // Since 2026-11-26 each option on its own schedule. The combined schedule is never checked (Albert, same day: "if we
+  // manually change it to something else and we edit the numbers manually; we should be able to without error to send"):
+  // automatic, it follows the rules by itself; picked by hand, the pick is the override.
   const facts = (o: Quote["options"][number]) => ({ name: o.name, lines: scheduleLines(o), showHst: optionHst(quote, o), discountRate: quote.discountRate });
   for (const o of going.options) out.push(...scheduleFlags(optionSchedule(quote, o), [facts(o)]));
-  if (going.options.length > 1 && quote.combined) out.push(...scheduleFlags(quote.combined, going.options.map(facts)).map((f) => `Combined schedule: ${f}`));
   if (!ctx.skipOptions) {
     if (ids && quote.options.length > 0) {
       if (ids.length === 0) out.push("Choose at least one option to send.");

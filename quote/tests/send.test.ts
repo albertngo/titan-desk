@@ -191,6 +191,13 @@ describe("before sending", () => {
     expect(noHst(PRESETS.cash.schedule())).toEqual([]);
     // Kept anyway (2026-11-26): the send goes.
     expect(noHst({ ...defaultSchedule(), override: true })).toEqual([]);
+    // A combined schedule picked by hand is its own override (2026-11-26): it never blocks, the options keep their rules.
+    const combined = (c: Quote["schedule"]) => {
+      const opt = q.options.map((o) => option(o.name, o.lines, 0.1, false));
+      const v = quote({ showHst: false, options: [...opt, ...opt.map((o) => ({ ...o, id: `${o.id}b` }))], schedule: null, combined: c });
+      return sendProblems(v, { ...ok, base: fingerprint(fromQuote(v)) }, { ...ctx, fingerprint: fingerprint(fromQuote(v)) });
+    };
+    expect(combined(defaultSchedule()).join(" ")).not.toMatch(/HST/);
   });
 
   it("a text goes only from the sender's own number, as an email only from their address", () => {

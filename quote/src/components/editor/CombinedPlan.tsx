@@ -77,6 +77,7 @@ export function CombinedPlan({ options, discountRate, combined, onChange }: { op
             </p>
             <ScheduleEditor
               title="Combined payment schedule"
+              pickIsOverride
               schedule={combined}
               auto={auto}
               flags={flags}

@@ -24,6 +24,7 @@ export function ScheduleEditor({
   amounts,
   title = "Payment schedule",
   autoTip,
+  pickIsOverride = false,
 }: {
   schedule: PaymentSchedule | null;
   /** What the version gets with no schedule of its own (2026-11-05). */
@@ -40,6 +41,11 @@ export function ScheduleEditor({
   title?: React.ReactNode;
   /** In place of the automatic schedule's reason, when it says something else (the combined schedule, 2026-11-26). */
   autoTip?: string;
+  /**
+   * The combined schedule (2026-11-26): anything picked by hand is itself the override, so a rule it goes against is
+   * said, never blocking, with no Keep button.
+   */
+  pickIsOverride?: boolean;
 }) {
   const hid = useId();
   const s = schedule ?? auto;
@@ -100,7 +106,19 @@ export function ScheduleEditor({
       )}
       {/* The HST rules (2026-11-05), with an override (Albert, 2026-11-26: "clarify why and have an override if we want to"). */}
       {flags.length > 0 &&
-        (s.override ? (
+        (pickIsOverride && schedule ? (
+          <div className="sq-msg" role="status">
+            <b>Picked by hand, so it goes as it is</b>
+            <ul>
+              {flags.map((f) => (
+                <li key={f}>{f}</li>
+              ))}
+            </ul>
+            <button type="button" className="linkbtn" onClick={() => onChange(null)}>
+              Use the automatic one ({PRESETS[auto.preset as Exclude<PresetKey, "custom">]?.name ?? "35 / 35 / 30"})
+            </button>
+          </div>
+        ) : s.override ? (
           <div className="sq-msg" role="status">
             <b>Kept against the HST rule, on purpose</b>
             <ul>

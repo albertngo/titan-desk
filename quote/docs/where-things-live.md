@@ -1112,7 +1112,10 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   why and have an override if we want to"; vault `05_decisions/2026-11-26-quote-hst-rule-override`):** each break now
   names its option(s) and the reason (`ruleBreaks()`), and a schedule can be kept anyway (`PaymentSchedule.override`,
   stored with it): `scheduleFlags()` then raises nothing and the send goes. The editor shows "Kept against the HST rule,
-  on purpose" with an Undo. Picking a preset starts fresh without it.
+  on purpose" with an Undo. Picking a preset starts fresh without it. **The combined schedule is never checked (same day: "the combination option
+  is the biggest override option for combination only"):** automatic, it follows the rules; picked or typed by hand, the
+  pick is the override, so `sendProblems()` doesn't look at it and the editor only notes what it goes against
+  (`pickIsOverride` on `ScheduleEditor`). Each option's own schedule keeps the rule and its Keep button.
 - **A schedule per option, the combined schedule, and a final 20% (Albert, 2026-11-26; vault
   `05_decisions/2026-11-26-quote-schedule-per-option-and-combined`).** Each option has its own schedule (Quote Options →
   **Payment Schedule**, JSON; blank = the version's Payment Schedule, which a version saved before then holds for every
