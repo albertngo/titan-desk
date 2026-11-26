@@ -4,6 +4,7 @@ import { shownStage } from "@/lib/pricing/schedule";
 import { CHANGE_ACCEPTED_WORDS, changeWords, itemDifference, paidLeft, signedMoney, type CopyChange } from "@/lib/change/diff";
 import { money, rate } from "@/lib/format";
 import { OptionSwitcher } from "@/components/OptionSwitcher";
+import { PlanAtEnd } from "@/components/PlanAtEnd";
 import { discountRows, hstRow, isLump, isSplit, scopeHeading, scopeOf, scopesOf, itemHstNote, leadPrice, longDate, partGroups, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyState, type CopyText, type CustomerCopy } from "@/lib/send/copy";
 
 /** The customer page's display face (2026-11-07, brand guide): Cysan, for the customer's name, the option
@@ -60,7 +61,7 @@ function Line({ l }: { l: CopyItem | CopyText }) {
   );
 }
 
-function Totals({ o, copy }: { o: CopyOption; copy: CustomerCopy }) {
+function Totals({ o, copy, end = false }: { o: CopyOption; copy: CustomerCopy; end?: boolean }) {
   const t = o.totals;
   const h = hstRow(copy, t);
   const lead = leadPrice(copy, t);
@@ -82,7 +83,7 @@ function Totals({ o, copy }: { o: CopyOption; copy: CustomerCopy }) {
           <div><dt>{h.label}</dt><dd>{h.amount !== null ? "On the final price" : "Not included"}</dd></div>
           {lead.addsHst && <div className="with"><dt>With HST</dt><dd>{rangeText(r.lowWithHst, r.highWithHst)}</dd></div>}
         </dl>
-        <Schedule o={o} title="Payment schedule, on the final price" />
+        {!end && <Schedule o={o} title="Payment schedule, on the final price" />}
       </div>
     );
   }
@@ -97,7 +98,7 @@ function Totals({ o, copy }: { o: CopyOption; copy: CustomerCopy }) {
         <div><dt>{h.label}</dt><dd>{h.amount !== null ? money(h.amount) : "Not included"}</dd></div>
         {lead.addsHst && <div className="with"><dt>Total with HST</dt><dd>{money(t.total)}</dd></div>}
       </dl>
-      <Schedule o={o} title={`Payment schedule${lead.addsHst ? ", with HST" : ""}`} />
+      {!end && <Schedule o={o} title={`Payment schedule${lead.addsHst ? ", with HST" : ""}`} />}
     </div>
   );
 }
@@ -200,7 +201,7 @@ function Sections({ sections }: { sections: CopyOption["sections"] }) {
   );
 }
 
-function OptionBlock({ o, i, copy }: { o: CopyOption; i: number | null; copy: CustomerCopy }) {
+function OptionBlock({ o, i, copy, end = false }: { o: CopyOption; i: number | null; copy: CustomerCopy; end?: boolean }) {
   const groups = partGroups(o);
   // A contract of several options (Albert, 2026-10-31): each keeps its own heading, words, work and price, then one total.
   const joined = groups.length > 1;
@@ -255,7 +256,7 @@ function OptionBlock({ o, i, copy }: { o: CopyOption; i: number | null; copy: Cu
       )}
       <section className="cq-card cq-block cq-price" aria-label="Price and payment">
         <h3 className="cq-bh">Price and payment</h3>
-        <Totals o={o} copy={copy} />
+        <Totals o={o} copy={copy} end={end} />
       </section>
     </div>
   );
@@ -269,6 +270,7 @@ export function CustomerQuote({
   banner,
   note: noteSlot,
   after,
+  scheduleAtEnd = false,
 }: {
   copy: CustomerCopy;
   state: CopyState;
@@ -281,6 +283,11 @@ export function CustomerQuote({
   note?: React.ReactNode;
   /** Under the options: the Accept panel (2026-10-27). */
   after?: React.ReactNode;
+  /**
+   * The payment schedule once, at the end (Albert, 2026-11-26), not under each option: in the Accept panel when there is
+   * one, else in PlanAtEnd. Off for an accepted quote and a change, which show the one schedule they have where it was.
+   */
+  scheduleAtEnd?: boolean;
 }) {
   const c = copy.company;
   const several = copy.options.length > 1;
@@ -362,15 +369,16 @@ export function CustomerQuote({
                   tag: leadPrice(copy, o.totals).tag,
                   recommended: o.recommended,
                 }))}
-                panels={mine.map(({ o, i }) => <OptionBlock key={i} o={o} i={i + 1} copy={copy} />)}
+                panels={mine.map(({ o, i }) => <OptionBlock key={i} o={o} i={i + 1} copy={copy} end={scheduleAtEnd} />)}
               />
             );
           })
         ) : (
-          copy.options.map((o, i) => <OptionBlock key={i} o={o} i={null} copy={copy} />)
+          copy.options.map((o, i) => <OptionBlock key={i} o={o} i={null} copy={copy} end={scheduleAtEnd} />)
         )}
 
         {after}
+        {scheduleAtEnd && !after && <PlanAtEnd copy={copy} />}
 
         {/* The "Questions?" card with Call / Email buttons is gone (Albert, 2026-10-24): replies go to the
             message the quote came in. The website stays, as one quiet line. No HST number (Albert,

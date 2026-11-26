@@ -57,6 +57,12 @@ export type EditorOption = {
   showHst?: boolean;
   /** The square feet OK'd outside the 10-15% band (2026-11-06), "install/material"; absent = none. See sqftCheck.ts. */
   sqftOk?: string;
+  /**
+   * This option's own payment schedule (Albert, 2026-11-26: it "should always stay with that option and not change the
+   * others"); absent = the version's `schedule` (a version saved before then), else automatic for this option alone.
+   * Absent rather than null, so older drafts keep their fingerprint.
+   */
+  schedule?: PaymentSchedule;
   lines: EditorLine[];
 };
 
@@ -83,6 +89,8 @@ export type EditorQuote = {
   itemised?: boolean;
   /** The payment schedule (2026-10-27); null or absent = 35 / 35 / balance. See src/lib/pricing/schedule.ts. */
   schedule?: PaymentSchedule | null;
+  /** The combined schedule (2026-11-26): for two or more options accepted together; null or absent = automatic on them. */
+  combined?: PaymentSchedule | null;
   options: EditorOption[];
 };
 
@@ -892,6 +900,32 @@ export function setSchedule(q: EditorQuote, schedule: PaymentSchedule | null): E
 }
 
 /**
+ * One option's own schedule (Albert, 2026-11-26): null puts it back on automatic for that option. The others never
+ * change: a version still on one schedule for every option (saved before then) first hands it to each of its other
+ * options as their own, and stops holding one itself.
+ */
+export function setOptionSchedule(q: EditorQuote, optionId: string, schedule: PaymentSchedule | null): EditorQuote {
+  const version = q.schedule ?? null;
+  return {
+    ...q,
+    schedule: null,
+    options: q.options.map((o) => {
+      if (o.id === optionId) {
+        const { schedule: _drop, ...rest } = o;
+        void _drop;
+        return schedule ? { ...rest, schedule } : rest;
+      }
+      return o.schedule || !version ? o : { ...o, schedule: version };
+    }),
+  };
+}
+
+/** The combined schedule (2026-11-26): null puts it back on automatic for the options chosen. Changes no option. */
+export function setCombinedSchedule(q: EditorQuote, combined: PaymentSchedule | null): EditorQuote {
+  return { ...q, combined };
+}
+
+/**
  * The private line the accepted price adds when it is above the list price (2026-10-22). Known by
  * its words: rename it and it is an ordinary private line the accepted price no longer touches.
  * Defined in src/lib/pricing/discounts.ts since 2026-11-04; re-exported for the screens.
@@ -1378,6 +1412,7 @@ export function fromQuote(quote: Quote): EditorQuote {
     discountReason: quote.discountReason ?? null,
     itemised: quote.itemised ?? false,
     schedule: quote.schedule ?? null,
+    ...(quote.combined ? { combined: quote.combined } : {}),
     options: quote.options.map((o) => ({
       id: o.id,
       name: o.name,
@@ -1391,6 +1426,7 @@ export function fromQuote(quote: Quote): EditorQuote {
       ...(o.notOffered ? { notOffered: true as const } : {}),
       ...(o.showHst !== undefined ? { showHst: o.showHst } : {}),
       ...(o.sqftOk ? { sqftOk: o.sqftOk } : {}),
+      ...(o.schedule ? { schedule: o.schedule } : {}),
       lines: o.lines.map((l: QuoteLine): EditorLine => ({
         id: l.id,
         sourceKind: l.sourceKind,

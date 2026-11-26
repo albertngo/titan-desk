@@ -196,6 +196,8 @@ export const OPTION = {
   sqftOk: "fldPhmJ3nlqRbN16x",
   /** 2026-11-04 (Albert): Charge HST for this option only, "Charged" / "Off"; blank = the version's Show HST. The option's HST formula reads it. */
   chargeHst: "fldabPO6MNY8i4NjM",
+  /** 2026-11-26 (Albert): this option's own payment schedule as JSON (src/lib/pricing/schedule.ts); blank = the version's, else automatic. */
+  paymentSchedule: "fldy0P3XMEBLksTZJ",
   lines: "fldYmOczi2hNUldJU",
   /** The version this option belongs to; emptied, never deleted, when the option is removed. */
   version: "flduprOIp2Z5Z6JcG",

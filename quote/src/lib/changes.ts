@@ -22,6 +22,26 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-26",
+    kind: "changed",
+    title: "Rounded payments, and dollars you can type",
+    details: [
+      "On every payment schedule, the payments between the deposit and the final are rounded to the nearest $50, and the final makes up the difference. Quotes already sent keep the figures they were sent with.",
+      "In a payment schedule, the dollar figure of a payment can be typed as well as its percent: it fixes that payment and the rest adjust. Clear it or type 0 to put it back as it was.",
+    ],
+  },
+  {
+    date: "2026-11-26",
+    kind: "changed",
+    title: "Payment schedules per option, a combined schedule, and a final 20%",
+    details: [
+      "Each option now keeps its own payment schedule, headed \"Payment schedule for option: <name>\" in the editor's terms. Changing one no longer changes the others.",
+      "Under the terms, past a \"Not for this option\" divider, Combined options lets you tick options as if the customer is accepting them together and pick the schedule for that combination. It is saved on the version and used whenever a customer accepts two or more options, worked out on the ones they choose.",
+      "The material deposit plan now holds the final payment at 20%: the material first (in full), the rest of a 35% deposit if it falls short, then a second payment up to 80% rounded to the nearest $50, and the final makes up the rest.",
+      "On the customer's page the payment schedule shows once, at the bottom, and follows the options they pick, instead of under each option.",
+    ],
+  },
+  {
+    date: "2026-11-26",
     kind: "new",
     title: "Appointments on All quotes",
     details: [

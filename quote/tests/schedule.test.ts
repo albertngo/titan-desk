@@ -64,6 +64,7 @@ describe("payment schedule: presets and checks", () => {
     expect(cleanSchedule({ preset: "nonsense", stages: [{ label: "Only", when: 3, part: { kind: "balance" }, pay: "cheque" }] })).toEqual({
       preset: "custom",
       stages: [{ label: "Only", when: "", part: { kind: "balance" }, pay: null }],
+      round: 50,
     });
   });
 
@@ -88,13 +89,17 @@ describe("payment schedule: presets and checks", () => {
 });
 
 describe("payment schedule: the money (calc.ts)", () => {
-  it("the default schedule is exactly the old payment1 / payment2 / paymentFinal", () => {
+  it("the default schedule is the old payment1, a second payment rounded to the nearest $50, and the rest (2026-11-26)", () => {
     for (const rate of [0, 0.1, 0.137]) {
       const lines = [install, floor];
       const t = optionTotals(lines, rate, true);
       const a = stageAmounts(defaultSchedule(), lines, rate, true, t.total);
-      expect(a.map((x) => x.amount)).toEqual([t.payment1, t.payment2, t.paymentFinal]);
+      expect(a[0].amount).toBe(t.payment1);
+      expect(a[1].amount).toBe(Math.round(t.payment2 / 50) * 50);
       expect(a.reduce((s, x) => s + x.amount, 0)).toBeCloseTo(t.total, 2);
+      // Without rounding (a copy sent before then), exactly the old split.
+      const exact = stageAmounts({ ...defaultSchedule(), round: undefined }, lines, rate, true, t.total);
+      expect(exact.map((x) => x.amount)).toEqual([t.payment1, t.payment2, t.paymentFinal]);
     }
   });
 
@@ -117,26 +122,38 @@ describe("payment schedule: the money (calc.ts)", () => {
     expect(materialsDeposit([install], 0, false)).toBe(0);
   });
 
-  it("with the material deposit over 35%, the deposit is the material alone, then 35% and the balance (2026-11-05)", () => {
+  it("with the material deposit over 35%, the deposit is the material alone, then up to 80% and a final 20% (2026-11-26)", () => {
     const lines = [install, floor];
     const t = optionTotals(lines, 0, false); // 1,500 untaxed + 2,000 + 260 HST = 3,760
     const a = stageAmounts(PRESETS.materials.schedule(), lines, 0, false, t.total);
-    // 35% of 3,760 is 1,316: the material (2,260) already covers it, so the rest of the deposit is nothing.
-    expect(a.map((x) => x.amount)).toEqual([2260, 0, 1316, 184]);
+    // 35% of 3,760 is 1,316: the material (2,260) already covers it, so the rest of the deposit is nothing; the second
+    // payment brings it to 80% (3,008), rounded to the nearest $50 (750), and the final makes up the rest (750).
+    expect(a.map((x) => x.amount)).toEqual([2260, 0, 750, 750]);
     expect(a.map((x) => x.pay)).toEqual(["etransfer", "instore", "onsite", "onsite"]);
     expect(a.map((x) => shownStage(x))).toEqual([true, false, true, true]);
   });
 
-  it("with the material under 35%, the rest of the deposit is paid in store, then 35% and the balance (2026-11-05)", () => {
+  it("with the material under 35%, the rest of the deposit is paid in store, then 35 / 45 / 20 (2026-11-26)", () => {
     const small = L({ section: "Materials", lineType: "Material", qty: 100, unitPriceSnap: 4 }); // 400 + 52 HST
     const big = L({ qty: 1000, unitPriceSnap: 5 }); // 5,000 untaxed
     const lines = [big, small];
     const t = optionTotals(lines, 0, false); // 5,452
     const a = stageAmounts(PRESETS.materials.schedule(), lines, 0, false, t.total);
-    // 35% of 5,452 = 1,908.20: 452 for the material, 1,456.20 in store; 35% again on the first day; the balance.
-    expect(a.map((x) => x.amount)).toEqual([452, 1456.2, 1908.2, 1635.6]);
+    // 35% of 5,452 = 1,908.20: 452 for the material, 1,456.20 in store; up to 80% (2,453.40 more) on the first day,
+    // rounded to 2,450; the final, about 20%, makes up the difference.
+    expect(a.map((x) => x.amount)).toEqual([452, 1456.2, 2450, 1093.8]);
     expect(a[0].amount + a[1].amount).toBeCloseTo(t.total * 0.35, 2);
+    expect(a[2].amount % 50).toBe(0);
     expect(Math.round(a.reduce((s, x) => s + x.amount, 0) * 100)).toBe(Math.round(t.total * 100));
+  });
+
+  it("with the material over 80%, it is paid in full, the second payment is nothing and the final is what is left (2026-11-26)", () => {
+    const pricey = L({ section: "Materials", lineType: "Material", qty: 100, unitPriceSnap: 75 }); // 7,500 + 975 HST
+    const lines = [L({ qty: 300, unitPriceSnap: 5 }), pricey]; // 1,500 untaxed
+    const t = optionTotals(lines, 0, false); // 9,975
+    const a = stageAmounts(PRESETS.materials.schedule(), lines, 0, false, t.total);
+    expect(a.map((x) => x.amount)).toEqual([8475, 0, 0, 1500]);
+    expect(a.map((x) => shownStage(x))).toEqual([true, false, false, true]);
   });
 
   it("fixed amounts keep their dollars and the balance takes the difference (a change after acceptance)", () => {
@@ -156,7 +173,7 @@ describe("payment schedule: the money (calc.ts)", () => {
 
   it("a material deposit on an option with no material is all paid in store, and nothing is refused (2026-11-05)", () => {
     const a = stageAmounts(PRESETS.materials.schedule(), [install], 0, false, 1500);
-    expect(a.map((x) => x.amount)).toEqual([0, 525, 525, 450]);
+    expect(a.map((x) => x.amount)).toEqual([0, 525, 700, 275]);
     expect(stageAmountProblems(a, "Option 1")).toEqual([]);
     // Without a top-up after it, a deposit of nothing is still refused.
     const old: PaymentSchedule = { preset: "custom", stages: [PRESETS.materials.schedule().stages[0], { label: "Final payment", when: "", pay: null, part: { kind: "balance" } }] };
@@ -249,6 +266,7 @@ describe("payment schedule: saving", () => {
         { label: "Deposit", when: "Now", part: { kind: "share", pct: 50 }, pay: "etransfer" },
         { label: "Final", when: "", part: { kind: "balance" }, pay: null },
       ],
+      round: 50,
     });
   });
 });

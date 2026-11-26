@@ -71,7 +71,10 @@ export default async function CustomerQuotePage({ params, searchParams }: { para
     hst: o.totals.hst,
     part: partOf(o),
     addOns: addOnsOf(copy, index),
-    frozen: stagesOf(o).map((s) => ({ amount: s.amount })),
+    frozen: stagesOf(o).map((s) => ({ amount: s.amount, when: s.when })),
+    // Its own schedule and what the combined one needs (2026-11-26); absent on older copies.
+    ...(o.plan ? { plan: o.plan } : {}),
+    ...(o.planFacts ? { planFacts: o.planFacts } : {}),
   }));
   // What starts ticked: the recommended option of each Part. With one Part only, the first when none is recommended.
   const split = partKeys(options).length > 1;
@@ -86,6 +89,7 @@ export default async function CustomerQuotePage({ params, searchParams }: { para
       <CustomerQuote
         copy={copy}
         state={state}
+        scheduleAtEnd={!copy.change}
         pdfHref={offersPdf(copy) ? `/c/${token}/${pdfName(copy)}?d=1` : null}
         newerHref={found.newerToken ? `/c/${found.newerToken}` : null}
         after={
@@ -95,6 +99,7 @@ export default async function CustomerQuotePage({ params, searchParams }: { para
               store={store === "1"}
               options={options}
               schedule={copy.paymentSchedule ?? defaultSchedule()}
+              combined={copy.combinedPlan ?? null}
               terms={{ id: terms.id, label: termsLabel(terms.on), href: termsHref(token) }}
               defaultPicks={defaults}
             />

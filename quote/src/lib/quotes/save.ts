@@ -38,7 +38,7 @@ export const BASES = ["Preliminary", "Measured"] as const;
 
 /** A payment schedule that can't be saved (2026-10-27), said to staff; null when it is fine or the default. */
 function scheduleTrouble(q: EditorQuote): string | null {
-  const bad = q.schedule ? scheduleProblems(q.schedule) : [];
+  const bad = [q.schedule, q.combined, ...q.options.map((o) => o.schedule)].flatMap((s) => (s ? scheduleProblems(s) : []));
   return bad.length ? `Nothing was saved: ${bad.join(" ")}` : null;
 }
 export type Basis = (typeof BASES)[number];

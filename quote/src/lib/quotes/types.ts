@@ -65,6 +65,8 @@ export type QuoteOption = {
   showHst?: boolean;
   /** Quote Options → Sqft Check OK (2026-11-06): the "install/material" square feet OK'd outside the 10-15% band. */
   sqftOk?: string | null;
+  /** Quote Options → Payment Schedule (2026-11-26): this option's own schedule; null or absent = the version's, else automatic. */
+  schedule?: PaymentSchedule | null;
   lines: QuoteLine[];
   /** Airtable's own option rollups, for the parity check. */
   airtable: Partial<OptionTotals>;
@@ -139,6 +141,8 @@ export type Quote = {
   itemised?: boolean;
   /** Quote Versions → Payment Schedule (2026-10-27); null or absent = 35 / 35 / balance. */
   schedule?: PaymentSchedule | null;
+  /** The combined schedule (2026-11-26), in the same field: for two or more options accepted together; null = automatic. */
+  combined?: PaymentSchedule | null;
   /** Quote Versions → Acceptance (2026-10-27): the customer's yes, once there is one. */
   acceptance?: Acceptance | null;
   /** Quote Versions → Change No (2026-10-27): 1, 2, … on a change made after acceptance; null otherwise. */

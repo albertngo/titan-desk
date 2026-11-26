@@ -42,7 +42,7 @@ import { termsLabel } from "@/lib/accept/terms";
 import { ghlOpportunityUrl } from "@/lib/ghl/ids";
 import { logEntries } from "@/lib/quotes/history";
 import { HistoryPanel } from "@/components/QuoteHistory";
-import { partOf, quoteSchedule } from "@/lib/send/copy";
+import { optionSchedule, partOf } from "@/lib/send/copy";
 import { parseRooms } from "@/lib/rooms/log";
 import { defaultOptionIds, parsePayouts, payoutCandidates } from "@/lib/payout/cards";
 
@@ -413,7 +413,7 @@ export default async function QuotePage({
               {acceptCard}
               {send}
               <Financials
-                schedule={quoteSchedule(quote)}
+                schedule={optionSchedule(quote, option)}
                 lines={option.lines}
                 t={totals}
                 discountRate={quote.discountRate}
