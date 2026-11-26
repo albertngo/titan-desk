@@ -1506,12 +1506,23 @@ export default function Editor({
             </div>
           </details>
 
+          {/* The combined schedule (Albert, 2026-11-26: "lets put the combined below the main area"): under the option's
+              terms, a dropdown closed until opened, in a dashed card so it never reads as the option's own. */}
+          {!customer && quote.options.filter((o) => !o.notOffered).length > 1 && (
+            <CombinedPlan
+              options={quote.options.filter((o) => !o.notOffered).map((o) => ({ id: o.id, name: o.name, recommended: o.recommended, part: o.part, scope: o.scope, lines: o.lines, showHst: o.showHst ?? quote.showHst }))}
+              discountRate={quote.discountRate}
+              combined={quote.combined ?? null}
+              onChange={(next) => apply(setCombinedSchedule(quote, next))}
+            />
+          )}
+
 
 
         </div>
 
         <aside className="ed-side">
-          {option && t && <Financials schedule={schedule} lines={planLines} t={t} discountRate={quote.discountRate} showHst={hstOn} agrees={null} customer={customer} />}
+          {option && t && <Financials schedule={schedule} lines={planLines} t={t} discountRate={quote.discountRate} showHst={hstOn} agrees={null} customer={customer} hideSchedule />}
           <section className="card ed-cust">
             <div className="card-h">Customer and terms</div>
             <div className="card-b">
@@ -1542,16 +1553,6 @@ export default function Editor({
               </button>
             </div>
           </section>
-          {/* The combined schedule (Albert, 2026-11-26: option C, "a layout change into the current aesthetic and slight
-              separation for clarity"): in the sidebar, apart from the option's own, a dropdown closed until opened. */}
-          {!customer && quote.options.filter((o) => !o.notOffered).length > 1 && (
-            <CombinedPlan
-              options={quote.options.filter((o) => !o.notOffered).map((o) => ({ id: o.id, name: o.name, recommended: o.recommended, part: o.part, scope: o.scope, lines: o.lines, showHst: o.showHst ?? quote.showHst }))}
-              discountRate={quote.discountRate}
-              combined={quote.combined ?? null}
-              onChange={(next) => apply(setCombinedSchedule(quote, next))}
-            />
-          )}
           {/* The Send card (2026-11-06), as on the quote page; off while this screen holds unsaved changes. */}
           {hasSendCard && (
             <div className="ed-send">

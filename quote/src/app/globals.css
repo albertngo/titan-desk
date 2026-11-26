@@ -1049,9 +1049,9 @@ a.chip.accent:hover { text-decoration: underline; }
 .cq .cq-dep .cq-dep-h { padding: 0 2px; }
 .cq .cq-dep .cq-dep-p { padding: 9px 12px; }
 /* The editor's combined schedule (2026-11-26), set apart from the option's own. */
-/* The combined schedule in the sidebar (2026-11-26): the editor's own card, a quiet tint on its header and a dashed
+/* The combined schedule under the option's terms (2026-11-26): the editor's own card, a quiet tint on its header and a dashed
    edge so it never reads as the option's. */
-.ed-combined { border-style: dashed; }
+.ed-combined { border-style: dashed; border-width: 2px; margin-top: 4px; }
 .ed-combined > summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; background: var(--card-2); }
 .ed-combined > summary::-webkit-details-marker { display: none; }
 .ed-combined[open] > summary { border-bottom: 1px solid var(--line); }

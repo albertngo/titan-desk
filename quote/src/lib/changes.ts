@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-26",
     kind: "changed",
+    title: "Combined options back under the terms; no schedule in the editor's sidebar",
+    details: ["In the editor, Combined options now sits in the main column under the option's terms, as a dashed dropdown closed until you open it. The right-hand money card no longer repeats the payment schedule: the option's own schedule is in its terms. The quote page keeps it."],
+  },
+  {
+    date: "2026-11-26",
+    kind: "changed",
     title: "A two-part deposit shows as one deposit",
     details: ["On the customer's quote page, when the deposit is the material plus the rest of the deposit, both show inside one outlined Deposit with its total and \"Both parts on acceptance\", each part tagged with how it is paid (by e-transfer, paid in store). A single deposit stays one line."],
   },

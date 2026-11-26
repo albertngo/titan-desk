@@ -17,6 +17,7 @@ export function Financials({
   agrees,
   customer,
   schedule = null,
+  hideSchedule = false,
 }: {
   /** The version's payment schedule (2026-10-27); null = 35 / 35 / balance. */
   schedule?: PaymentSchedule | null;
@@ -26,6 +27,8 @@ export function Financials({
   showHst: boolean;
   agrees: boolean | null;
   customer: boolean;
+  /** The editor (Albert, 2026-11-26: "the payment schedule for the right side card can be omitted"): its terms show it. */
+  hideSchedule?: boolean;
 }) {
   const costShare = t.subtotal > 0 ? (t.cost / t.subtotal) * 100 : null;
   const flags = lines.flatMap(lineFlags);
@@ -74,6 +77,7 @@ export function Financials({
         )}
       </section>
 
+      {!hideSchedule && (
       <section className="card">
         <div className="card-h">Payment schedule <span className="right">{showHst ? "incl. HST" : t.hst ? "HST on materials" : "HST off"}</span></div>
         {stageAmounts(schedule ?? defaultSchedule(), lines, discountRate, showHst, t.total).filter(shownStage).map((s, i) => (
@@ -85,6 +89,7 @@ export function Financials({
           </div>
         ))}
       </section>
+      )}
 
       {!customer && (
         <section className="card">
