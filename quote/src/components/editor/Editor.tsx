@@ -44,7 +44,8 @@ import { manualLine,
   setServiceLevel,
   settleContractor,
   holdAccepted,
-  setSchedule,
+  setCombinedSchedule,
+  setOptionSchedule,
   setAllHst,
   setOptionHst,
   showsWaste,
@@ -68,13 +69,14 @@ import type { RateCard } from "@/lib/quotes/types";
 import { firstOpenOption, STAIRS_FOLDED, optionScope, PARTS, partValue, scopeGroups } from "@/lib/quotes/scope";
 import { Picker } from "./Picker";
 import { ScheduleEditor } from "./ScheduleEditor";
+import { CombinedPlan } from "./CombinedPlan";
 import { SwapOption } from "./SwapOption";
 import type { SwapSource } from "@/lib/change/swap";
-import { scheduleFlags, shownStage } from "@/lib/pricing/schedule";
+import { autoSchedule, scheduleFlags, shownStage } from "@/lib/pricing/schedule";
 import { SAND_DISCLAIMER, sandFlag, sandRole } from "@/lib/editor/sandRule";
 import { syncStairWording } from "@/lib/quick/stairs";
 import { EditorSend } from "@/components/editor/EditorSend";
-import { quoteSchedule } from "@/lib/send/copy";
+import { optionSchedule } from "@/lib/send/copy";
 import { levelApplies, levelOf, PREMIUM_MARKUP, SERVICE_LEVELS } from "@/lib/pricing/service";
 import { CONTRACTOR_DISCOUNT, DISCOUNTS_SECTION, priceSummary } from "@/lib/pricing/discounts";
 import { PriceCard } from "./PriceCard";
@@ -512,14 +514,15 @@ export default function Editor({
 
   // The short lines the sidebar and the folded terms show (Option C, 2026-11-01).
   const termsRef = useRef<HTMLDetailsElement>(null);
-  // The version's own schedule, else the automatic one from its HST (2026-11-05).
-  // Over the options that go to the customer, as the frozen copy works it out (2026-11-05).
-  const autoPlan = useMemo(() => quoteSchedule({ schedule: null, showHst: quote.showHst, discountRate: quote.discountRate, options: quote.options.filter((o) => !o.notOffered) }), [quote.showHst, quote.discountRate, quote.options]);
-  const schedule = quote.schedule ?? autoPlan;
+  // This option's own schedule (Albert, 2026-11-26: it "should always stay with that option and not change the others"):
+  // its own, else the one a version saved before then holds for every option, else automatic for this option alone.
+  const autoPlan = useMemo(() => autoSchedule([{ lines: option?.lines ?? [], showHst: hstOn, discountRate: quote.discountRate }]), [option?.lines, hstOn, quote.discountRate]);
+  const ownPlan = option ? (option.schedule ?? quote.schedule ?? null) : null;
+  const schedule = option ? optionSchedule(quote, option) : autoPlan;
   // A schedule that goes against the HST rules is flagged, never stopped (2026-11-05).
   const scheduleWarnings = useMemo(
-    () => scheduleFlags(quote.schedule ?? autoPlan, quote.options.filter((o) => !o.notOffered).map((o) => ({ name: o.name, lines: o.lines, showHst: o.showHst ?? quote.showHst, discountRate: quote.discountRate }))),
-    [quote.schedule, autoPlan, quote.options, quote.showHst, quote.discountRate],
+    () => (option ? scheduleFlags(schedule, [{ name: option.name, lines: option.lines, showHst: hstOn, discountRate: quote.discountRate }]) : []),
+    [schedule, option, hstOn, quote.discountRate],
   );
   const payLine = option && t ? stageAmounts(schedule, option.lines, quote.discountRate, option.showHst ?? quote.showHst, t.total).filter(shownStage).map((x) => x.pct).join(" / ") : "35 / 35 / 30";
   const termsLine = [hstOn ? "HST charged" : "HST off", `payment ${payLine}`].join(" · ");
@@ -1487,15 +1490,33 @@ export default function Editor({
                 </div>
               )}
               {/* The payment schedule (Albert, 2026-10-27): one per version, frozen when it is sent. */}
+              {option && (
               <ScheduleEditor
-                schedule={quote.schedule ?? null}
+                title={<>Payment schedule for option: <b>{option.name || "Unnamed option"}</b></>}
+                schedule={ownPlan}
                 auto={autoPlan}
                 flags={scheduleWarnings}
-                onChange={(next) => apply(setSchedule(quote, next))}
+                onChange={(next) => apply(setOptionSchedule(quote, option.id, next))}
                 amounts={option && t ? stageAmounts(schedule, option.lines, quote.discountRate, hstOn, t.total) : []}
               />
+              )}
             </div>
           </details>
+
+          {/* The combined schedule (Albert, 2026-11-26), set apart from the option's own by a divider: "so its obvious its not for the option". */}
+          {!customer && quote.options.filter((o) => !o.notOffered).length > 1 && (
+            <>
+              <div className="ed-divider" role="separator" aria-label="Not for this option">
+                <span>Not for this option</span>
+              </div>
+              <CombinedPlan
+                options={quote.options.filter((o) => !o.notOffered).map((o) => ({ id: o.id, name: o.name, recommended: o.recommended, part: o.part, scope: o.scope, lines: o.lines, showHst: o.showHst ?? quote.showHst }))}
+                discountRate={quote.discountRate}
+                combined={quote.combined ?? null}
+                onChange={(next) => apply(setCombinedSchedule(quote, next))}
+              />
+            </>
+          )}
 
 
         </div>

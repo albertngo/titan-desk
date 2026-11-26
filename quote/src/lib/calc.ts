@@ -254,7 +254,7 @@ export type StageAmount = {
   pay: PayHow;
   amount: number;
   pct: number;
-  kind: "share" | "materials" | "amount" | "topUp" | "ofTotal" | "balance";
+  kind: "share" | "materials" | "amount" | "topUp" | "ofTotal" | "upTo" | "balance";
   /** A top-up's or a percent-of-total stage's own percent (2026-11-05), for restaging it later; null on every other kind. */
   target: number | null;
 };
@@ -312,6 +312,10 @@ export function acceptedTotals(t: { subtotal: number; hst: number }, addOns: Add
   return { subtotal, hst, total: round2(subtotal + hst) };
 }
 
+/** What the second payment of the material deposit is rounded to (2026-11-26), in dollars. */
+export const SECOND_ROUND = 50;
+const roundTo = (n: number, step: number) => round2(Math.round(n / step) * step);
+
 /**
  * A frozen schedule applied to a new total: the stages already in dollars (a material deposit, a
  * fixed amount) keep the amount they were frozen at, the shares are taken again of what is left, and
@@ -327,6 +331,9 @@ export function restageAmounts(schedule: PaymentSchedule, frozen: { amount: numb
   schedule.stages.forEach((s, i) => {
     const before = round2(amounts.slice(0, i).reduce((a, b) => a + b, 0));
     if (s.part.kind === "topUp") amounts[i] = Math.max(0, round2(total * (s.part.pct / 100) - before));
+    // The second payment, rounded to the nearest $50 (Albert, 2026-11-26: "so its easy to be handed to the PM on site or
+    // even by emt. The last payment can make up for the difference"), never below nothing nor more than what is left.
+    if (s.part.kind === "upTo") amounts[i] = Math.min(Math.max(0, roundTo(total * (s.part.pct / 100) - before, SECOND_ROUND)), Math.max(0, round2(total - before)));
     if (s.part.kind === "ofTotal") amounts[i] = Math.max(0, Math.min(round2(total * (s.part.pct / 100)), round2(total - before)));
   });
   const last = schedule.stages.length - 1;
@@ -338,7 +345,7 @@ export function restageAmounts(schedule: PaymentSchedule, frozen: { amount: numb
     amount: amounts[i],
     pct: total > 0 ? Math.round((amounts[i] / total) * 100) : 0,
     kind: s.part.kind,
-    target: s.part.kind === "topUp" || s.part.kind === "ofTotal" ? s.part.pct : null,
+    target: s.part.kind === "topUp" || s.part.kind === "ofTotal" || s.part.kind === "upTo" ? s.part.pct : null,
   }));
 }
 

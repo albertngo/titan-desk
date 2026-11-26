@@ -79,6 +79,7 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
 - Site sheet (Albert, 2026-10-28).
 - Site sheets from CompanyCam, and the Flooring Site Sheet (Albert, 2026-11-03: "build the sheets from companycam into rooms and flooring l…
 - The payment schedule (Albert, 2026-10-27: "update the payment structure to be editable").
+- A schedule per option, the combined schedule, and a final 20% (Albert, 2026-11-26; vault `05_decisions/2026-11-26-quote-schedule-per-option-and-combined`).
 - Acceptance (Albert, 2026-10-27: "it is always best to have an accept step").
 - Scopes: flooring and stairs on one quote (Albert, 2026-10-28: "For stair quotes, generally I like to keep them separate from the flooring…
 - Won (2026-10-27).

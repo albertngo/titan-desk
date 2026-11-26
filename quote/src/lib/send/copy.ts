@@ -1,7 +1,7 @@
 import { acceptedLabel, DISCOUNTS_SECTION, isAcceptedLine, isDiscountLine } from "@/lib/pricing/discounts";
 import { DEFAULT_PRIVATE_LABEL, optionHst, PRIVATE_SECTION, SECTIONS, chargesHst, isPriced, lineTotal, optionTotals, priceUsed, privateRollup, round2, sectionOf, stageAmounts, type LineInput } from "@/lib/calc";
 import type { CopyChange } from "@/lib/change/diff";
-import { defaultSchedule, MATERIAL_PURPOSE, MATERIAL_WHEN, payWords, sameSchedule, scheduleFor, type PayHow, type PaymentSchedule } from "@/lib/pricing/schedule";
+import { combinedPlan, defaultSchedule, MATERIAL_PURPOSE, MATERIAL_WHEN, optionPlan, payWords, sameSchedule, scheduleFacts, scheduleFor, type PayHow, type PaymentSchedule, type ScheduleFacts } from "@/lib/pricing/schedule";
 import { optionScope, stairsOptionLines } from "@/lib/quotes/scope";
 import type { Part, Quote, QuoteLine, QuoteOption, Scope } from "@/lib/quotes/types";
 import { copyKind } from "./summary";
@@ -83,7 +83,7 @@ export type CopyStage = {
   pay: PayHow;
   amount: number | null;
   pct: number | null;
-  kind: "share" | "materials" | "amount" | "topUp" | "ofTotal" | "balance";
+  kind: "share" | "materials" | "amount" | "topUp" | "ofTotal" | "upTo" | "balance";
   /** A top-up's or percent-of-total stage's own percent (2026-11-05), so it restages the same way. Absent on every other kind. */
   target?: number;
 };
@@ -115,6 +115,10 @@ export type CopyOption = {
   range?: CopyRange;
   /** The payment schedule (2026-10-27). Absent on a copy frozen before then: 35 / 35 / balance from `totals`. */
   schedule?: CopyStage[];
+  /** This option's own schedule as defined (2026-11-26), what `schedule` was worked out from; used when it is accepted alone. Absent on older copies. */
+  plan?: PaymentSchedule;
+  /** What the combined schedule needs to know about it (2026-11-26), when it is accepted with others. Absent on older copies. */
+  planFacts?: ScheduleFacts;
   /** "Stairs" on a stairs option (2026-10-28); absent = Flooring, which every copy frozen before then is. */
   scope?: "Stairs";
   /** The part of the home (2026-10-30); absent = the scope stands for it, as on every copy frozen before then. */
@@ -182,8 +186,13 @@ export type CustomerCopy = {
   pdf?: boolean;
   showHst: boolean;
   company: Letterhead;
-  /** The payment schedule it was sent with (2026-10-27), so ticked add-ons can be scheduled the same way. Absent = 35 / 35 / balance. */
+  /**
+   * The payment schedule it was sent with (2026-10-27), so ticked add-ons can be scheduled the same way. Absent = 35 / 35 /
+   * balance. Since 2026-11-26 each option carries its own (`plan`) and this is only read for a copy whose options don't.
+   */
   paymentSchedule?: PaymentSchedule;
+  /** The combined schedule set on the version (2026-11-26), for two or more options accepted together. Absent = automatic on them. */
+  combinedPlan?: PaymentSchedule;
   /**
    * A change after acceptance (2026-10-27): what changed since the contract it updates. Sent for the
    * customer's records; there is nothing to accept. Absent on every other copy.
@@ -297,7 +306,7 @@ export function stageFigure(s: CopyStage, money: (n: number) => string): string 
   if (s.amount !== null) return money(s.amount);
   if (s.kind === "balance") return "The balance";
   if (s.kind === "materials") return "Your materials";
-  if (s.kind === "topUp") return s.target ? `Up to ${s.target}% in all` : "";
+  if (s.kind === "topUp" || s.kind === "upTo") return s.target ? `Up to ${s.target}% in all` : "";
   return s.pct !== null ? `${s.pct}%` : "";
 }
 
@@ -456,6 +465,8 @@ function copyOption(given: QuoteOption, discountRate: number, showHst: boolean, 
     // A preliminary is shown as a range (2026-10-27); the totals stay exact underneath for the record.
     ...(ranged && t.subtotal > 0 ? { range: copyRange(t) } : {}),
     schedule: copyStages(schedule, o, discountRate, showHst, t.total, ranged && t.subtotal > 0),
+    plan: schedule,
+    planFacts: scheduleFacts({ lines: o.lines, showHst, discountRate }),
     ...(optionScope(o) === "Stairs" ? { scope: "Stairs" as const } : {}),
     ...(o.part ? { part: o.part } : {}),
     ...(discounts.length ? { discounts } : {}),
@@ -511,6 +522,21 @@ export function scopeLeads(copy: Pick<CustomerCopy, "options" | "showHst">, mone
 export const quoteSchedule = (q: { schedule?: PaymentSchedule | null; showHst: boolean; discountRate?: number; options: { lines: LineInput[]; showHst?: boolean }[] }): PaymentSchedule =>
   scheduleFor(q.schedule, q.options.map((o) => ({ lines: o.lines, showHst: optionHst(q, o), discountRate: q.discountRate ?? 0 })));
 
+/**
+ * One option's schedule (Albert, 2026-11-26): its own, else the version-wide one of a version saved before then, else
+ * automatic for that option alone. Every option's money, page, PDF and send checks use this.
+ */
+export const optionSchedule = (
+  q: { schedule?: PaymentSchedule | null; showHst: boolean; discountRate?: number },
+  o: { lines: LineInput[]; showHst?: boolean; schedule?: PaymentSchedule | null },
+): PaymentSchedule => optionPlan(q.schedule, o.schedule, { lines: o.lines, showHst: optionHst(q, o), discountRate: q.discountRate ?? 0 });
+
+/** The combined schedule (2026-11-26) for these options taken together: the version's, else automatic on them. */
+export const quoteCombined = (
+  q: { combined?: PaymentSchedule | null; showHst: boolean; discountRate?: number },
+  options: { lines: LineInput[]; showHst?: boolean }[],
+): PaymentSchedule => combinedPlan(q.combined, options.map((o) => ({ lines: o.lines, showHst: optionHst(q, o), discountRate: q.discountRate ?? 0 })));
+
 /** "Flooring options", "Stairs option": the heading over a scope's options. */
 export const scopeHeading = (scope: Scope, count: number) => `${scope} option${count === 1 ? "" : "s"}`;
 
@@ -543,10 +569,11 @@ export function customerCopy(quote: Quote, at: { sentOn: string; validUntil: str
     company: at.company,
     // Frozen whenever it is not the plain 35 / 35 / 30 (2026-11-05: an automatic schedule is frozen like a picked one).
     ...(!sameSchedule(quoteSchedule(quote), defaultSchedule()) ? { paymentSchedule: quoteSchedule(quote) } : {}),
+    ...(quote.combined ? { combinedPlan: quote.combined } : {}),
     // Flooring options first, then stairs (2026-10-28), so each scope reads as one group; order within a scope is kept.
     options: [...quote.options]
       .sort((a, b) => (optionScope(a) === optionScope(b) ? 0 : optionScope(a) === "Flooring" ? -1 : 1))
-      .map((o) => copyOption(o, quote.discountRate, optionHst(quote, o), lump, prelim && at.range !== false, quoteSchedule(quote), prelim)),
+      .map((o) => copyOption(o, quote.discountRate, optionHst(quote, o), lump, prelim && at.range !== false, optionSchedule(quote, o), prelim)),
   };
 }
 

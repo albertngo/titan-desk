@@ -3,9 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState, useTransition } from "react";
 import { acceptAction } from "@/app/c/[token]/actions";
-import { acceptedTotals, restageAmounts } from "@/lib/calc";
+import { acceptedTotals } from "@/lib/calc";
 import { money } from "@/lib/format";
-import { payWords, shownStage, type PaymentSchedule } from "@/lib/pricing/schedule";
+import { acceptStages, payWords, shownStage, type PaymentSchedule, type ScheduleFacts } from "@/lib/pricing/schedule";
 import { partKeys, partWords } from "@/lib/send/copy";
 
 /**
@@ -27,7 +27,10 @@ export type AcceptOption = {
   part: string;
   addOns: { key: string; description: string; amount: number; taxed: boolean }[];
   /** The frozen stages' amounts, so a material deposit keeps its dollars when add-ons are ticked. */
-  frozen: { amount: number | null }[];
+  frozen: { amount: number | null; when?: string }[];
+  /** Its own schedule, and what the combined one needs (2026-11-26). Absent on a copy frozen before then. */
+  plan?: PaymentSchedule;
+  planFacts?: ScheduleFacts;
 };
 
 export function AcceptPanel({
@@ -35,6 +38,7 @@ export function AcceptPanel({
   store,
   options,
   schedule,
+  combined = null,
   terms,
   defaultPicks,
 }: {
@@ -43,6 +47,8 @@ export function AcceptPanel({
   store: boolean;
   options: AcceptOption[];
   schedule: PaymentSchedule;
+  /** The version's combined schedule (2026-11-26), for two or more options taken together; null = automatic on them. */
+  combined?: PaymentSchedule | null;
   /** The Project Expectations shown: its Terms Versions row goes back with the Accept, so a newer one since is caught. */
   terms: { id: string; label: string; href: string };
   /** What starts chosen: an option index per Part. */
@@ -65,8 +71,8 @@ export function AcceptPanel({
     const sent = { subtotal: chosen.reduce((a, x) => a + x.subtotal, 0), hst: chosen.reduce((a, x) => a + x.hst, 0) };
     return acceptedTotals(sent, addOns.filter((a) => ticked.includes(a.key)));
   }, [chosen, addOns, ticked]);
-  const frozen = useMemo(() => (chosen[0]?.frozen ?? []).map((st, i) => ({ amount: st.amount === null ? null : chosen.reduce((a, x) => a + (x.frozen[i]?.amount ?? 0), 0) })), [chosen]);
-  const stages = useMemo(() => restageAmounts(schedule, frozen, totals.total), [schedule, frozen, totals.total]);
+  // The schedule follows what is chosen (Albert, 2026-11-26): one option's own, or the combined one on two or more.
+  const stages = useMemo(() => acceptStages(chosen.map((x) => ({ plan: x.plan, planFacts: x.planFacts, stages: x.frozen })), combined, schedule, totals.total).stages, [chosen, combined, schedule, totals.total]);
   const ready = chosen.length > 0 && agreed && name.trim().length >= 2 && (!store || signature);
   /** Choose `index` for its Part (null = none for that Part), dropping the add-ons of what it replaces. */
   const choose = (part: string, index: number | null) => {

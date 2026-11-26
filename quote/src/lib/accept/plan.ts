@@ -1,8 +1,8 @@
-import { acceptedTotals, restageAmounts, round2, type AcceptedTotals } from "@/lib/calc";
-import { defaultSchedule } from "@/lib/pricing/schedule";
+import { acceptedTotals, round2, type AcceptedTotals } from "@/lib/calc";
+import { acceptStages } from "@/lib/pricing/schedule";
 import type { Part, Scope } from "@/lib/quotes/types";
-import { copyStage, hstOf, partOf, scopeOf, type CopyItem, type CopyStage, type CopyState, type CopyTotals, type CustomerCopy } from "@/lib/send/copy";
-import { contractView, frozenStages, fromAcceptance } from "@/lib/contract/model";
+import { copyStage, hstOf, partOf, scopeOf, stagesOf, type CopyItem, type CopyStage, type CopyState, type CopyTotals, type CustomerCopy } from "@/lib/send/copy";
+import { contractView, fromAcceptance } from "@/lib/contract/model";
 import type { Terms } from "./terms";
 
 /**
@@ -209,10 +209,8 @@ export function buildAcceptance(
   const offered = indexes.flatMap((i) => addOnsOf(copy, i));
   const chosen = offered.filter((a) => input.addOns.includes(a.key));
   const totals = acceptedTotals(sumTotals(parts.map((o) => o.totals)), chosen);
-  const frozen = frozenStages(parts);
-  const schedule = copy.paymentSchedule ?? defaultSchedule();
-  // A copy frozen before schedules existed has the default's three stages; anything else is restaged from its own definition.
-  const restaged = schedule.stages.length === frozen.length ? restageAmounts(schedule, frozen, totals.total) : restageAmounts(defaultSchedule(), frozen, totals.total);
+  // One option: its own schedule; two or more: the combined one on the options chosen (2026-11-26). See acceptPlan().
+  const { stages: restaged, frozen } = acceptStages(parts.map((o) => ({ plan: o.plan, planFacts: o.planFacts, stages: stagesOf(o) })), copy.combinedPlan, copy.paymentSchedule, totals.total);
   const stages: CopyStage[] = restaged.map((s, i) => copyStage({ ...s, when: s.when || frozen[i]?.when || "" }));
   return {
     v: ACCEPTANCE_VERSION,

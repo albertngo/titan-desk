@@ -9,7 +9,7 @@ import { QUICK_GROUPS, quickProfiles, splitPath, type QuickChoice, type QuickGro
 import { buildCatalogue, materialWords, rankProducts } from "@/lib/editor/model";
 import { stairLineUom } from "@/lib/editor/stairGroups";
 import { parseAcceptance } from "@/lib/accept/plan";
-import { cleanSchedule } from "@/lib/pricing/schedule";
+import { cleanCombined, cleanSchedule } from "@/lib/pricing/schedule";
 import { isStairMethod, isStairType } from "@/lib/quick/stairs";
 import { roomsRaw } from "@/lib/rooms/log";
 import { floorSheetRaw } from "@/lib/floorsheet/sheet";
@@ -192,6 +192,7 @@ function toOption(r: AirtableRecord, lines: QuoteLine[]): QuoteOption {
     notOffered: bool(f[OPTION.notOffered]),
     sqftOk: str(f[OPTION.sqftOk]),
     ...hstValue(f[OPTION.chargeHst]),
+    schedule: cleanSchedule(str(f[OPTION.paymentSchedule])),
     lines,
     airtable: {
       preDiscount: num(f[OPTION.preDiscount]) ?? undefined,
@@ -298,6 +299,7 @@ export async function getQuote(id: string): Promise<Quote | null> {
     discountReason: str(f[VERSION.discountReason]),
     itemised: bool(f[VERSION.itemised]),
     schedule: cleanSchedule(str(f[VERSION.paymentSchedule])),
+    combined: cleanCombined(str(f[VERSION.paymentSchedule])),
     acceptance: parseAcceptance(str(f[VERSION.acceptance])),
     changeNo: num(f[VERSION.changeNo]),
     fromVersion: source[0] ? num(source[0].fields[VERSION.version]) : null,

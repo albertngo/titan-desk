@@ -24,6 +24,7 @@ export default async function PreviewPage({ params, searchParams }: { params: Pr
     <CustomerQuote
       copy={copy}
       state="open"
+      scheduleAtEnd={!copy.change}
       pdfHref={offersPdf(copy) ? pdf : null}
       newerHref={null}
       banner={

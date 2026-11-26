@@ -4,7 +4,7 @@ import { sqftFlag, sqftWords } from "@/lib/quotes/sqftCheck";
 import { MATERIAL_PURPOSE, payWords, scheduleFlags, scheduleProblems, shownStage } from "@/lib/pricing/schedule";
 import type { Acceptance } from "@/lib/accept/plan";
 import { CHANGE_ACCEPTED_WORDS, changeWords as changeLine, paidLeft } from "@/lib/change/diff";
-import { addDays, dollars, hstOf, hstRow, isIsoDate, isRange, isSplit, scopeLeads, scopeOf, leadPrice, longDate, offersPdf, quoteSchedule, rangeText, rangeWhy, stageNote, stagesOf, type CopyOption, type CopyStage, type CustomerCopy } from "./copy";
+import { addDays, dollars, hstOf, hstRow, isIsoDate, isRange, isSplit, scopeLeads, scopeOf, leadPrice, longDate, offersPdf, optionSchedule, rangeText, rangeWhy, stageNote, stagesOf, type CopyOption, type CopyStage, type CustomerCopy } from "./copy";
 import { copyKind, kindPhrase } from "./summary";
 
 /**
@@ -93,7 +93,8 @@ export function optionProblem(quote: Pick<Quote, "discountRate" | "showHst" | "s
   if (noGlue) return `${o.name}: pick the glue on "${noGlue.description ?? "a glue-down line"}" in the editor.`;
   if (parityDiffs(t, o.airtable).length > 0) return `The app and Airtable disagree on ${o.name}. Fix that before sending.`;
   // The schedule's own amounts on this option (2026-10-27): nothing negative, and a deposit that is something.
-  const stages = stageAmounts(quoteSchedule(quote), o.lines, quote.discountRate, hst, t.total);
+  // Its own schedule since 2026-11-26.
+  const stages = stageAmounts(optionSchedule(quote, o), o.lines, quote.discountRate, hst, t.total);
   return stageAmountProblems(stages, o.name)[0] ?? null;
 }
 
@@ -112,14 +113,17 @@ export function sendProblems(quote: Quote, input: SendInput, ctx: { today: strin
   if (quote.sendBlock) out.push(quote.sendBlock);
   if (quote.legacyLineCount > 0) out.push("Some lines are in the old A/B/C format and on no option. Move them onto an option first.");
   if (quote.options.length === 0) out.push("This version has no options.");
-  if (quote.schedule) out.push(...scheduleProblems(quote.schedule));
+  for (const s of [quote.schedule, quote.combined, ...quote.options.map((o) => o.schedule)]) if (s) out.push(...scheduleProblems(s));
   const ids = input.optionIds ?? null;
   // A change after acceptance (2026-10-27) has no good-until date; since 2026-10-31 everything on it is the project.
   if (quote.changeNo) out.push(...changeProblems(quote, ids));
   // The HST rules stop a send (Albert, 2026-11-05: "it will flag and block the send to prevent instructions from being
   // wrong"): checked on what goes, with the schedule it would go with.
   const going = chooseOptions(quote, ids);
-  out.push(...scheduleFlags(quoteSchedule(going), going.options.map((o) => ({ name: o.name, lines: o.lines, showHst: optionHst(quote, o), discountRate: quote.discountRate }))));
+  // Since 2026-11-26 each option on its own schedule, and the combined one on everything going when there is a choice of two or more.
+  const facts = (o: Quote["options"][number]) => ({ name: o.name, lines: o.lines, showHst: optionHst(quote, o), discountRate: quote.discountRate });
+  for (const o of going.options) out.push(...scheduleFlags(optionSchedule(quote, o), [facts(o)]));
+  if (going.options.length > 1 && quote.combined) out.push(...scheduleFlags(quote.combined, going.options.map(facts)).map((f) => `Combined schedule: ${f}`));
   if (!ctx.skipOptions) {
     if (ids && quote.options.length > 0) {
       if (ids.length === 0) out.push("Choose at least one option to send.");
@@ -436,7 +440,9 @@ export function paymentWords(o: CopyOption): string {
               ? i === 0
                 ? s.amount !== null ? `a deposit of ${cad.format(s.amount)}` : `a ${s.target ?? ""}% deposit`
                 : `the rest of the deposit${s.amount !== null ? `, ${cad.format(s.amount)}` : ` (up to ${s.target ?? ""}% in all)`}`
-              : `${s.pct ?? ""}% ${i === 0 ? "deposit" : lower(s.label)}`;
+              : s.kind === "upTo" && s.amount === null
+                ? `the ${lower(s.label)} (up to ${s.target ?? ""}% in all)`
+                : `${s.pct ?? ""}% ${i === 0 ? "deposit" : lower(s.label)}`;
     const when = s.when ? ` ${lower(s.when).replace(/, for your materials.*$/, "")}` : "";
     const how = payWords(s.pay);
     return `${what}${when}${how ? `, ${how}` : ""}`;

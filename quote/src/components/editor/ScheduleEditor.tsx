@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import type { StageAmount } from "@/lib/calc";
 import { money } from "@/lib/format";
 import { autoReason, MAX_STAGES, PAY_HOWS, PAY_LABELS, PRESETS, sameSchedule, scheduleProblems, type PayHow, type PaymentSchedule, type PresetKey, type ScheduleStage } from "@/lib/pricing/schedule";
@@ -20,6 +21,8 @@ export function ScheduleEditor({
   flags = [],
   onChange,
   amounts,
+  title = "Payment schedule",
+  autoTip,
 }: {
   schedule: PaymentSchedule | null;
   /** What the version gets with no schedule of its own (2026-11-05). */
@@ -29,7 +32,12 @@ export function ScheduleEditor({
   onChange: (next: PaymentSchedule | null) => void;
   /** The stages in dollars for the option on screen, in order. */
   amounts: StageAmount[];
+  /** The heading (2026-11-26): "Payment schedule for option: <name>", or the combined schedule's. */
+  title?: React.ReactNode;
+  /** In place of the automatic schedule's reason, when it says something else (the combined schedule, 2026-11-26). */
+  autoTip?: string;
 }) {
+  const hid = useId();
   const s = schedule ?? auto;
   const problems = scheduleProblems(s);
   const edit = (stages: ScheduleStage[]) => onChange({ preset: "custom", stages });
@@ -46,9 +54,9 @@ export function ScheduleEditor({
   };
 
   return (
-    <div className="sched" aria-labelledby="sched-h">
+    <div className="sched" aria-labelledby={hid}>
       <div className="sched-h">
-        <span id="sched-h">Payment schedule</span>
+        <span id={hid}>{title}</span>
         <select aria-label="Payment schedule preset" value={s.preset} onChange={(e) => pick(e.target.value as PresetKey)}>
           {(Object.keys(PRESETS) as Exclude<PresetKey, "custom">[]).map((k) => (
             <option key={k} value={k}>
@@ -61,7 +69,7 @@ export function ScheduleEditor({
       </div>
       {!schedule ? (
         <p className="sched-tip">
-          {autoReason(auto)} It follows the quote&rsquo;s HST and material until you change it.
+          {autoTip ?? <>{autoReason(auto)} It follows the quote&rsquo;s HST and material until you change it.</>}
         </p>
       ) : (
         !sameSchedule(schedule, auto) && (
@@ -91,7 +99,7 @@ export function ScheduleEditor({
             <li key={`${i}:${JSON.stringify(x)}`} className="sched-r">
               <input className="cell-in" aria-label="Payment name" defaultValue={x.label} onBlur={(e) => e.currentTarget.value !== x.label && patch(i, { label: e.currentTarget.value })} />
               <span className="sched-part">
-                {x.part.kind === "share" || x.part.kind === "topUp" || x.part.kind === "ofTotal" ? (
+                {x.part.kind === "share" || x.part.kind === "topUp" || x.part.kind === "ofTotal" || x.part.kind === "upTo" ? (
                   <>
                     <input
                       className="cell-in num"
@@ -100,10 +108,10 @@ export function ScheduleEditor({
                       defaultValue={String(x.part.pct)}
                       onBlur={(e) => {
                         const v = Number(e.currentTarget.value.replace(/[%\s]/g, ""));
-                        if (Number.isFinite(v) && (x.part.kind === "share" || x.part.kind === "topUp" || x.part.kind === "ofTotal") && v !== x.part.pct) patch(i, { part: { kind: x.part.kind, pct: v } });
+                        if (Number.isFinite(v) && (x.part.kind === "share" || x.part.kind === "topUp" || x.part.kind === "ofTotal" || x.part.kind === "upTo") && v !== x.part.pct) patch(i, { part: { kind: x.part.kind, pct: v } });
                       }}
                     />
-                    {x.part.kind === "topUp" ? "% in all" : x.part.kind === "ofTotal" ? "% of the total" : "%"}
+                    {x.part.kind === "topUp" || x.part.kind === "upTo" ? "% in all" : x.part.kind === "ofTotal" ? "% of the total" : "%"}
                   </>
                 ) : x.part.kind === "materials" ? (
                   "the material"

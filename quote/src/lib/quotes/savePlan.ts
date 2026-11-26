@@ -1,6 +1,6 @@
 import { LINE, OPTION, VERSION } from "@/lib/airtable/fields";
 import { sectionOf } from "@/lib/calc";
-import { cleanSchedule, sameSchedule, scheduleField } from "@/lib/pricing/schedule";
+import { cleanSchedule, sameSchedule, scheduleField, versionScheduleField } from "@/lib/pricing/schedule";
 import { levelOf } from "@/lib/pricing/service";
 import { partValue, scopeValue } from "./scope";
 import type { EditorLine, EditorOption, EditorQuote } from "@/lib/editor/model";
@@ -106,6 +106,7 @@ export function cleanEditorQuote(raw: unknown): EditorQuote {
       ...(x.notOffered === true ? { notOffered: true as const } : {}),
       ...(typeof x.showHst === "boolean" ? { showHst: x.showHst } : {}),
       ...(typeof x.sqftOk === "string" && /^\d+(\.\d+)?\/\d+(\.\d+)?$/.test(x.sqftOk) ? { sqftOk: x.sqftOk } : {}),
+      ...(cleanSchedule(x.schedule) ? { schedule: cleanSchedule(x.schedule)! } : {}),
       lines: (Array.isArray(x.lines) ? x.lines : []).slice(0, LIMITS.linesPerOption).map(cleanLine),
     };
   });
@@ -125,6 +126,7 @@ export function cleanEditorQuote(raw: unknown): EditorQuote {
     itemised: r.itemised === true,
     showHst: r.showHst !== false,
     schedule: cleanSchedule(r.schedule),
+    ...(cleanSchedule(r.combined) ? { combined: cleanSchedule(r.combined) } : {}),
     options,
   };
 }
@@ -189,6 +191,8 @@ export function optionFields(o: EditorOption, sortOrder: number): Fields {
     [OPTION.sqftOk]: o.sqftOk ?? null,
     // Its own HST (2026-11-04); blank follows the version's Show HST, as every option did before.
     [OPTION.chargeHst]: o.showHst === undefined ? null : o.showHst ? "Charged" : "Off",
+    // Its own payment schedule (2026-11-26); blank follows the version's, else automatic.
+    [OPTION.paymentSchedule]: scheduleField(o.schedule),
   };
 }
 
@@ -206,7 +210,9 @@ export function planSave(original: EditorQuote | null, edited: EditorQuote): Sav
   if (!original || (original.discountReason ?? null) !== (edited.discountReason ?? null)) plan.version[VERSION.discountReason] = edited.discountReason ?? null;
   if (!original || !!original.itemised !== !!edited.itemised) plan.version[VERSION.itemised] = !!edited.itemised;
   // The default schedule is saved blank, so a quote nobody changed the schedule on stays blank (2026-10-27).
-  if (original ? !sameSchedule(original.schedule, edited.schedule) : scheduleField(edited.schedule) !== null) plan.version[VERSION.paymentSchedule] = scheduleField(edited.schedule);
+  // Since 2026-11-26 the same field also holds the combined schedule.
+  const versionField = versionScheduleField(edited.schedule, edited.combined);
+  if (original ? !sameSchedule(original.schedule, edited.schedule) || !sameSchedule(original.combined, edited.combined) : versionField !== null) plan.version[VERSION.paymentSchedule] = versionField;
 
   const oldOptions = new Map((original?.options ?? []).map((o, i) => [o.id, { o, i }]));
   const oldLines = new Map((original?.options ?? []).flatMap((o) => o.lines.map((l, i) => [l.id, { l, i, option: o.id }] as const)));
@@ -285,7 +291,8 @@ export const planIsEmpty = (p: SavePlan) =>
 export function fingerprint(q: EditorQuote): string {
   // A schedule joins the fingerprint only when it isn't the default, so versions saved before it existed keep theirs (2026-10-27).
   const sched = scheduleField(q.schedule);
-  const s = JSON.stringify({ d: q.discountRate, h: q.showHst, r: q.discountReason ?? null, i: !!q.itemised, ...(sched ? { s: sched } : {}), o: q.options });
+  const combined = scheduleField(q.combined);
+  const s = JSON.stringify({ d: q.discountRate, h: q.showHst, r: q.discountReason ?? null, i: !!q.itemised, ...(sched ? { s: sched } : {}), ...(combined ? { c: combined } : {}), o: q.options });
   let h = 0x811c9dc5;
   for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i);

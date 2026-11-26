@@ -1109,6 +1109,22 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   with Materials, and a material under 35% of an option with no top-up after it. The editor's schedule shows them, and
   `sendProblems()` refuses the send with them (checked on the options going, with the schedule they would go with), so
   the Send card says Not ready to send until the schedule is fixed.
+- **A schedule per option, the combined schedule, and a final 20% (Albert, 2026-11-26; vault
+  `05_decisions/2026-11-26-quote-schedule-per-option-and-combined`).** Each option has its own schedule (Quote Options →
+  **Payment Schedule**, JSON; blank = the version's Payment Schedule, which a version saved before then holds for every
+  option, else `autoSchedule()` on that option alone: `optionSchedule()` in `copy.ts`). Editing one option's schedule
+  (`setOptionSchedule()`) never changes another: a version still on one shared schedule first hands it to each other
+  option as its own. The **combined schedule** sits in the version's Payment Schedule field under `combined`
+  (`versionScheduleField()` / `cleanCombined()`), set in the editor's **Combined options** card below the terms, past a
+  "Not for this option" divider, where staff tick one option per Part as the customer would. It is used when two or more
+  options are accepted together, worked out on the ones chosen (`acceptPlan()` / `acceptStages()` in `schedule.ts`, used by
+  both `buildAcceptance()` and the Accept panel): blank = `autoFromFacts()` on them, the material of all of them together
+  against their total together. The copy freezes each option's `plan` and `planFacts` and the version's `combinedPlan`; a
+  copy frozen before then accepts the old way. **The material deposit** now ends with an `upTo` stage: the second payment
+  brings what is paid to 80%, rounded to the nearest $50 (`SECOND_ROUND` in `calc.ts`), and the final takes the rest, so
+  35 / 45 / 20 with a small material and nothing second when the material passes 80%. **On the customer's page** the
+  schedule shows once at the bottom (`scheduleAtEnd`): in the Accept panel, else `PlanAtEnd` with a pick per Part. The
+  accepted page, a change, the PDF and the email keep each option's schedule. Tested in `tests/combined.test.ts`.
 - **Acceptance (Albert, 2026-10-27: "it is always best to have an accept step").** Only a **measured**
   version out with the customer and still good (Sent, not past Valid Until, not superseded, not a change)
   can be accepted; a preliminary is an estimate. **On the customer's link** an Accept panel under the
