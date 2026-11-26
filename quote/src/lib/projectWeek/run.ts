@@ -1,9 +1,11 @@
 import "server-only";
+import { staffUrl } from "@/lib/accept/settings";
 import { appendBlocks, boardsParent, childrenOf, DS, downloadNotionFile, normalId, notionPayout, NotionPayoutError, payoutNotionOn, queryAll, uploadJpeg, type NotionBlock } from "@/lib/notion/payoutApi";
 import { sendDispatchMessage, dispatchConfigured } from "@/lib/make/client";
 import { galleryLink } from "@/lib/gallery/token";
 import { embedFeedFor } from "@/lib/quotes/companycam";
 import { changeDetails, changesSince, needsHeadsUp, parseSnapshot, torontoClock, serializeSnapshot, snapshotOf } from "./changes";
+import { fillProjectLinks, linkUpdates } from "./links";
 import { markNothingToSend, writeLog } from "./log";
 import { quoteScopes } from "./quoteScope";
 import { boardBlocks, buildBoard, isReadyLine, type LogEntry, membersToBuild, messagesFor, upcoming, strayLines, torontoToday, type Board, type Job, type Member } from "./model";
@@ -145,6 +147,13 @@ export async function runProjectWeek(scope: RunScope, now = new Date()): Promise
   for (const j of weekJobs) {
     const f = facts.get(j.id.replace(/-/g, ""));
     j.quoteScope = f?.scope ?? null;
+    // Titan Projects' CompanyCam Link (when empty) and Quote Link (when not the app's page) from the quote (links.ts).
+    const updates = linkUpdates(j, f, staffUrl());
+    try {
+      if (await fillProjectLinks(j.id, updates)) result.notes.push(`Filled ${Object.keys(updates).join(" and ")} on the ${j.customer ?? "?"} project from its quote.`);
+    } catch (e) {
+      console.error("project links", e instanceof Error ? e.message.slice(0, 200) : typeof e);
+    }
     // No CompanyCam Link on the Titan Projects row: the job's quote's own link (2026-11-25).
     if (!j.camUrl && f?.camUrl) j.camUrl = f.camUrl;
   }

@@ -576,7 +576,7 @@ describe("Installer Project Week (2026-11-24: Project Costs lines and each insta
   });
 
   it("is reached only from the Project Costs writer and the Project Week run", () => {
-    expect(all.filter((f) => /from ["'](@\/lib\/notion\/|\.\/)payoutApi["']/.test(f.text)).map((f) => f.rel).sort()).toEqual(["lib/notion/projectCosts.ts", "lib/projectWeek/log.ts", "lib/projectWeek/run.ts"]);
+    expect(all.filter((f) => /from ["'](@\/lib\/notion\/|\.\/)payoutApi["']/.test(f.text)).map((f) => f.rel).sort()).toEqual(["lib/notion/projectCosts.ts", "lib/projectWeek/links.ts", "lib/projectWeek/log.ts", "lib/projectWeek/run.ts"]);
     expect(all.filter((f) => /from ["']@\/lib\/notion\/projectCosts["']/.test(f.text)).map((f) => f.rel)).toEqual(["lib/quotes/payouts.ts"]);
     expect(all.filter((f) => /from ["']@\/lib\/projectWeek\/run["']/.test(f.text)).map((f) => f.rel).sort()).toEqual([ROUTE_FILE, "lib/quotes/payouts.ts"]);
   });
@@ -625,6 +625,15 @@ describe("Installer Project Week (2026-11-24: Project Costs lines and each insta
     expect(all.filter((f) => /from ["'](@\/lib\/projectWeek\/|\.\/)log["']/.test(f.text)).map((f) => f.rel)).toEqual(["lib/projectWeek/run.ts"]);
     const run = code(all.find((f) => f.rel === "lib/projectWeek/run.ts")!.text);
     expect(run).toMatch(/if \(send && log\.length\) \{/);
+  });
+
+  it("on Titan Projects it fills only CompanyCam Link (when empty) and Quote Link (when not the app's page), 2026-11-25", () => {
+    const links = code(all.find((f) => f.rel === "lib/projectWeek/links.ts")!.text);
+    expect(links.match(/notionPayout\(/g)?.length).toBe(1);
+    expect(links).toMatch(/notionPayout\("PATCH", `\/pages\/\$\{jobId\}`, \{ properties \}\)/);
+    expect(links).toMatch(/if \(!job\.camUrl\?\.trim\(\) && facts\.camUrl\) out\[PROJECT\.camUrl\] = facts\.camUrl;/);
+    expect(links).toMatch(/if \(facts\.quoteLink && !isApp && job\.quoteLink !== facts\.quoteLink\) out\[PROJECT\.quoteLink\] = facts\.quoteLink;/);
+    expect(all.filter((f) => /from ["'](@\/lib\/projectWeek\/|\.\/)links["']/.test(f.text)).map((f) => f.rel)).toEqual(["lib/projectWeek/run.ts"]);
   });
 
   it("the Make sender for it is the dispatch hook alone", () => {

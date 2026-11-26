@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { boardBlocks, buildBoard, membersToBuild, messagesFor, messageText, nextWeek, payoutFor, strayLines, torontoToday, type CostLine, type Job, type Member } from "@/lib/projectWeek/model";
 import { cardMark, cleanGroupId, costLineOf, jobOf, matchRateCardName, memberOf } from "@/lib/projectWeek/rows";
 
@@ -427,5 +427,17 @@ describe("the project manager on the email (2026-11-25)", () => {
     const u = "11111111-2222-3333-4444-555555555555";
     expect(jobOf({ id: "a".repeat(32), properties: { "Project Manager": { people: [{ id: u }] } } }).pmIds).toEqual([u]);
     expect(memberOf({ id: "b".repeat(32), properties: { "Notion User": { people: [{ id: u }] } } }).userIds).toEqual([u]);
+  });
+});
+
+describe("filling a project's links from its quote (2026-11-25)", () => {
+  it("fills CompanyCam only when empty, and replaces a folder Quote Link with the app's page", async () => {
+    vi.doMock("server-only", () => ({}));
+    const { linkUpdates } = await import("@/lib/projectWeek/links");
+    const base = "https://quote.example";
+    const facts = { camUrl: "https://app.companycam.com/projects/123", quoteLink: `${base}/q/recAAAAAAAAAAAAAA` };
+    expect(linkUpdates({ camUrl: null, quoteLink: "https://onedrive.example/folder" }, facts, base)).toEqual({ "CompanyCam Link": facts.camUrl, "Quote Link": facts.quoteLink });
+    expect(linkUpdates({ camUrl: "https://app.companycam.com/projects/999", quoteLink: `${base}/q/recBBBBBBBBBBBBBB` }, facts, base)).toEqual({});
+    expect(linkUpdates({ camUrl: null, quoteLink: null }, undefined, base)).toEqual({});
   });
 });
