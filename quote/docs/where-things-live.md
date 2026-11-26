@@ -1116,8 +1116,9 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   is the biggest override option for combination only"):** automatic, it follows the rules; picked or typed by hand, the
   pick is the override, so `sendProblems()` doesn't look at it and the editor only notes what it goes against
   (`pickIsOverride` on `ScheduleEditor`). Each option's own schedule keeps the rule and its Keep button. **Where they sit (Albert, same day, layout C "in the current aesthetic"):** the option's terms
-  and schedule open expanded in the main column; Combined options is a closed dropdown in the sidebar (`CombinedPlan`,
-  a dashed card), and a schedule's rows stack when it is narrow (a container query on `.sched`). **A two-part deposit
+  and schedule open expanded in the main column; Combined options is a closed dropdown under them (`CombinedPlan`, a
+  dashed card; it was in the sidebar for an hour, then "lets put the combined below the main area"), the editor's money
+  card leaves out the payment schedule (`hideSchedule` on `Financials`), and a schedule's rows stack when it is narrow (a container query on `.sched`). **A two-part deposit
   (layout A):** on the customer's page, a first stage followed by top-ups (`depositSplit()`) shows as one outlined
   Deposit with its total and each part's payment method (`DepositParts`), in the bottom schedule card, the Accept panel
   and an option's own schedule.
