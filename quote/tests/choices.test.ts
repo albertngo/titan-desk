@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addLine, blankQuote, manualLine, productLine, updateLine, type EditorQuote } from "../src/lib/editor/model";
+import { addDiscount, addLine, blankQuote, manualLine, productLine, updateLine, type EditorQuote } from "../src/lib/editor/model";
 import { addChoice, choiceLabel, choicesOf, isFollower, removeChoice, roundChoices, showFirst, startChoices, syncChoices } from "../src/lib/editor/choices";
 import { optionTotals } from "../src/lib/calc";
 
@@ -65,5 +65,25 @@ describe("flooring choices (2026-11-26)", () => {
     expect(q3.options).toHaveLength(1);
     expect(q3.options[0].choiceGroup).toBeUndefined();
     expect(q3.options[0].lines.some((l) => l.choiceLine)).toBe(false);
+  });
+});
+
+describe("each flooring priced on its own (2026-11-26)", () => {
+  it("keeps a flooring's own price, discount items and flooring line, and shares an edit made on any flooring", () => {
+    const { q: q0, lead } = quote();
+    const q1 = addChoice(q0, lead, product("SPC-1", "Vinyl B", 4.29));
+    const b = q1.options[1];
+    // Its own flooring price and a discount item, on the second flooring only.
+    let q2 = syncChoices(q1, updateLine(q1, b.id, b.lines[1].id, { unitPrice: 3.99 }));
+    q2 = syncChoices(q2, addDiscount(q2, b.id, "Loyalty", 100));
+    expect(q2.options[1].lines.find((l) => l.choiceLine)?.unitPrice).toBe(3.99);
+    expect(q2.options[1].lines.some((l) => l.description === "Loyalty")).toBe(true);
+    expect(q2.options[0].lines.some((l) => l.description === "Loyalty")).toBe(false);
+    expect(q2.options[0].lines.find((l) => l.choiceLine)?.unitPrice).toBe(q1.options[0].lines[1].unitPrice);
+    // A shared line edited on the second flooring reaches the first.
+    const install = q2.options[1].lines[0].id;
+    const q3 = syncChoices(q2, updateLine(q2, b.id, install, { unitPrice: 2.75 }));
+    expect(q3.options[0].lines[0].unitPrice).toBe(2.75);
+    expect(q3.options[1].lines.some((l) => l.description === "Loyalty")).toBe(true);
   });
 });

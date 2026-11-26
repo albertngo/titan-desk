@@ -419,11 +419,9 @@ export default function Editor({
   };
 
   // Memoized so the hooks below see one stable option per render (the React Compiler lint, 2026-11-20).
-  // A flooring choice has no tab of its own (2026-11-26): its group's lead is the option on screen.
-  const option = useMemo(() => {
-    const o = quote.options.find((x) => x.id === activeId) ?? firstOpenOption(quote.options);
-    return o && isFollower(quote, o) ? choicesOf(quote, o)[0] : o;
-  }, [quote, activeId]);
+  // A flooring choice has no tab of its own (2026-11-26) but opens like any option, from the flooring list, to be priced
+  // on its own (same day: "we should still be able to edit the pricing as usual on the other options as well separately").
+  const option = useMemo(() => quote.options.find((x) => x.id === activeId) ?? firstOpenOption(quote.options), [quote.options, activeId]);
   // HST is the option's own (Albert, 2026-11-04), the version's only where the option has none set.
   const hstOn = option ? (option.showHst ?? quote.showHst) : quote.showHst;
   const t = option ? optionTotals(option.lines, quote.discountRate, hstOn) : null;
@@ -923,7 +921,7 @@ export default function Editor({
                 {all.length > 1 && <span className="tab-scope">{g.scope}</span>}
                 <div className="tab-grp-t">
                 {g.options.map((o) => (
-                  <button key={o.id} className={o.notOffered ? "tab off" : "tab"} aria-current={option?.id === o.id ? "page" : undefined} onClick={() => setActiveId(o.id)} title={o.notOffered ? "Not offered: never sent to the customer" : undefined}>
+                  <button key={o.id} className={o.notOffered ? "tab off" : "tab"} aria-current={option && choicesOf(quote, o).some((x) => x.id === option.id) ? "page" : undefined} onClick={() => setActiveId(o.id)} title={o.notOffered ? "Not offered: never sent to the customer" : undefined}>
                     {o.notOffered && <span className="t-off">Not offered</span>}
                     {o.part && <span className="t-part">{o.part}</span>}
                     <span className="t-name">
@@ -1379,6 +1377,8 @@ export default function Editor({
                                         <td />
                                         <td colSpan={6}>
                                           <ChoiceList
+                                            editing={option.id}
+                                            onEdit={(id) => setActiveId(id)}
                           options={choicesOf(quote, option)}
                           discountRate={quote.discountRate}
                           hstOf={(o) => o.showHst ?? quote.showHst}

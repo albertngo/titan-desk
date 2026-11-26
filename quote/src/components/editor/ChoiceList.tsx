@@ -12,6 +12,8 @@ import { fullBoxes, type EditorOption } from "@/lib/editor/model";
  */
 export function ChoiceList({
   options,
+  editing,
+  onEdit,
   discountRate,
   hstOf,
   boxSf,
@@ -22,6 +24,9 @@ export function ChoiceList({
 }: {
   /** The group, the lead first. */
   options: EditorOption[];
+  /** The flooring open in the editor (2026-11-26): each is priced on its own, opened from here. */
+  editing: string;
+  onEdit: (optionId: string) => void;
   discountRate: number;
   hstOf: (o: EditorOption) => boolean;
   boxSf: Readonly<Record<string, number | null | undefined>>;
@@ -61,13 +66,22 @@ export function ChoiceList({
           const fb = boxes[i];
           const box = l?.sourceId ? boxSf[l.sourceId] : null;
           return (
-            <li key={o.id} className={i === 0 ? "first" : undefined}>
+            <li key={o.id} className={[i === 0 ? "first" : "", o.id === editing ? "editing" : ""].filter(Boolean).join(" ") || undefined}>
               <label className="ed-choice-first" title="The flooring the customer sees first">
                 <input type="radio" name={`first-${options[0].choiceGroup}`} checked={i === 0} onChange={() => onShowFirst(o.id)} aria-label={`Show ${choiceLabel(o)} first`} />
               </label>
               <span className="ed-choice-n">
-                {choiceLabel(o)}
-                {i === 0 && <span className="chip">Shown first</span>}
+                <span className="ed-choice-name">
+                  {o.id === editing ? (
+                    <b>{choiceLabel(o)}</b>
+                  ) : (
+                    <button type="button" className="linkbtn" onClick={() => onEdit(o.id)} title="Open this flooring to edit its price">
+                      {choiceLabel(o)}
+                    </button>
+                  )}
+                  {i === 0 && <span className="chip">Shown first</span>}
+                  {o.id === editing ? <span className="chip ok">Editing</span> : null}
+                </span>
                 <small>
                   {l ? `${money(priceUsed(l))} / ${l.uom ?? "sf"}` : ""}
                   {l?.qty != null ? ` · ${Math.round(l.qty * 100) / 100} ${l.uom ?? "sf"}` : ""}
@@ -96,7 +110,10 @@ export function ChoiceList({
           + Offer another flooring
         </button>
       )}
-      <p className="note">The square feet and waste are shared: change them on the flooring line above. Every other line is shared by all the floorings.</p>
+      <p className="note">
+        Click a flooring to edit its own price: its flooring line and its price card (discounts, accepted price) are its own. The square feet, waste and every
+        other line are shared, wherever you change them.
+      </p>
     </section>
   );
 }

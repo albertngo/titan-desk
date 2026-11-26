@@ -828,7 +828,11 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   (Quote Lines), its flooring, the only line that differs. `src/lib/editor/choices.ts`: every flooring follows the lead after
   each edit (`syncChoices()`: lines matched in order keep their ids; name, words, Part, scope, level, crew, HST, schedule),
   the square feet and waste are shared (Albert: "shared"), each may be rounded to its own whole boxes (`roundChoices()`),
-  and typing new square feet on the lead puts every flooring back on them. The editor shows only the lead's tab ("· 3
+  and typing new square feet on any flooring puts every flooring on them. **Each flooring priced on its own (same day:
+  "we should still be able to edit the pricing as usual on the other options as well separately"):** a flooring opens
+  from the list like any option; its flooring line and its price card's lines (`ownLine()`: discount items, the accepted
+  price and adjustment, the contractor 10%) are its own, and a shared line edited on any flooring reaches every one (the
+  flooring whose shared part changed is the source). The editor shows only the lead's tab ("· 3
   floorings", "from" its lowest) and the list under its lines (`ChoiceList`); "Offer other floorings" on a product line in
   Materials starts one. Copying from a past quote keeps floorings copied together as one under a new key. The send checks
   look at a follower's square feet on its lead. The copy freezes `choiceGroup` and `choiceLabel`; `optionEntries()` counts

@@ -23,6 +23,12 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-26",
     kind: "changed",
+    title: "Each flooring choice priced on its own",
+    details: ["In the editor, click a flooring in the option's flooring list to open it and edit its price as usual: its flooring line and its price card (discounts, accepted price) are its own. The labour and every other line stay shared, and a change to them on any flooring reaches all of them."],
+  },
+  {
+    date: "2026-11-26",
+    kind: "changed",
     title: "Flooring choices sit in the Materials section",
     details: ["In the editor, the list of floorings an option offers now sits inside the Materials section, right under the flooring line, instead of below all the lines."],
   },
