@@ -3,6 +3,10 @@
 import { useState } from "react";
 import type { PlanProgress } from "@/lib/calc";
 import { paymentSendAsAction, requestPaymentAction, type PaymentSendAs } from "@/app/actions/paymentRequest";
+import { coPicksAction, quickChangeAction } from "@/app/actions/quickChange";
+import { coLineAmount } from "@/lib/calc";
+import { CO_SECTIONS, type CoLine } from "@/lib/change/quick";
+import type { CoPick } from "@/lib/quotes/quickChange";
 import { lastAsked, OFFICE, REQUEST_WORDS, requestAmount, type PaymentRequest, type RequestKind } from "@/lib/projects/request";
 import { PAY_LABELS } from "@/lib/pricing/schedule";
 import { hasStarted, isFinished, readyToCollect, walkthroughWords, workOrderWords, type ProjectStatus } from "@/lib/projects/status";
@@ -192,11 +196,152 @@ export function RequestPayment({ id, kind, versionId, plan, name, deal, pm, requ
   );
 }
 
+
+/**
+ * +C/O, the quick change order (Albert, 2026-11-27: "make the Change wording to +C/O"; the mockup's card): add work or a
+ * credit, line by line, to the project's change. Saved as a draft on the change (the open one, else the next), to review
+ * and send for the record on the quote page, as every change goes.
+ */
+export function ChangeOrder({ id, versionId, name, paid }: { id: string; versionId: string; name: string; paid: number | null }) {
+  const [picks, setPicks] = useState<CoPick[] | null>(null);
+  const [lines, setLines] = useState<CoLine[]>([]);
+  const [credit, setCredit] = useState(false);
+  const [section, setSection] = useState<string>("Install");
+  const [item, setItem] = useState("");
+  const [qty, setQty] = useState("1");
+  const [uom, setUom] = useState("");
+  const [rate, setRate] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string; versionId?: string } | null>(null);
+  const load = () => {
+    if (!picks) coPicksAction().then(setPicks).catch(() => setPicks([]));
+  };
+  const pick = (picks ?? []).find((p) => p.label === item) ?? null;
+  const choose = (v: string) => {
+    setItem(v);
+    const p = (picks ?? []).find((x) => x.label === v);
+    if (p) {
+      if (p.uom) setUom(p.uom);
+      if (p.rate !== null) setRate(String(p.rate));
+      if (p.stairs) setSection("Stairs");
+    }
+  };
+  const n = (s: string) => Number(s.replace(/[$,\s]/g, ""));
+  const draft: CoLine = { section, entryKey: !credit && pick ? pick.key : null, description: item.trim(), qty: n(qty), uom: uom.trim() || null, rate: n(rate), credit };
+  const draftOk = draft.description && draft.qty > 0 && draft.rate > 0;
+  const add = () => {
+    if (!draftOk) return;
+    setLines((ls) => [...ls, draft]);
+    setItem("");
+    setQty("1");
+    setUom("");
+    setRate("");
+    setMsg(null);
+  };
+  const total = lines.reduce((a, l) => a + coLineAmount(l), 0);
+  const save = async () => {
+    setBusy(true);
+    setMsg(null);
+    const r = await quickChangeAction(versionId, { lines }).catch(() => ({ ok: false as const, message: "The C/O couldn't be saved. Try again, or use the full editor." }));
+    setBusy(false);
+    if (!r.ok) return setMsg({ ok: false, text: r.message });
+    setLines([]);
+    const was = r.before !== null ? `${cad(r.before)} to ` : "";
+    const left = paid !== null ? `; final payment now ${cad(Math.max(0, r.after - paid))}` : "";
+    setMsg({ ok: true, versionId: r.versionId, text: `Saved on the change as a draft: contract ${was}${cad(r.after)}, HST in${left}. Review it and send it for the record.` });
+  };
+  return (
+    <>
+      <button type="button" className="btn small" popoverTarget={id} onClick={load}>
+        +C/O
+      </button>
+      <div id={id} popover="auto" className="pj-pop pj-reqcard pj-co">
+        <div className="pj-pop-h">
+          <strong>Change order</strong>
+          <span>{name}</span>
+          <button type="button" className="pj-x" popoverTarget={id} popoverTargetAction="hide" aria-label="Close">
+            ×
+          </button>
+        </div>
+        <div className="pj-req-body">
+          <p className="pj-test pj-info-note">Changes after the yes are taken as accepted and sent for the record. Talk it through with the customer first.</p>
+          <div className="pj-co-form">
+            <div role="group" aria-label="Kind of line" className="pj-co-kind">
+              <button type="button" className="ql-f" aria-pressed={!credit} onClick={() => setCredit(false)}>Add work</button>
+              <button type="button" className="ql-f" aria-pressed={credit} onClick={() => setCredit(true)}>Credit</button>
+            </div>
+            <label className="pj-req-as">
+              <span className="k">Section</span>
+              <select value={section} onChange={(e) => setSection(e.target.value)}>
+                {CO_SECTIONS.map((s) => (
+                  <option key={s}>{s}</option>
+                ))}
+              </select>
+            </label>
+            <label className="pj-req-as">
+              <span className="k">{credit ? "What is credited" : "Item, from the Rate Card or typed"}</span>
+              <input list={`${id}-picks`} value={item} onChange={(e) => choose(e.target.value)} placeholder={picks === null ? "Loading the Rate Card…" : "Start typing"} />
+              <datalist id={`${id}-picks`}>
+                {(credit ? [] : picks ?? []).map((p) => (
+                  <option key={p.key} value={p.label} />
+                ))}
+              </datalist>
+            </label>
+            <div className="pj-co-nums">
+              <label className="pj-req-as"><span className="k">Qty</span><input inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} /></label>
+              <label className="pj-req-as"><span className="k">Unit</span><input value={uom} onChange={(e) => setUom(e.target.value)} /></label>
+              <label className="pj-req-as"><span className="k">Rate</span><input inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} /></label>
+              <button type="button" className="btn" onClick={add} disabled={!draftOk}>
+                Add {draftOk ? cad(coLineAmount(draft)) : ""}
+              </button>
+            </div>
+          </div>
+          {lines.length > 0 && (
+            <ul className="pj-co-lines">
+              {lines.map((l, i) => (
+                <li key={i}>
+                  <span className={`sign${l.credit ? " credit" : ""}`} aria-hidden>{l.credit ? "−" : "+"}</span>
+                  <span className="what">
+                    <span>{l.credit ? `Credit: ${l.description}` : l.description}</span>
+                    <span className="faint">{l.section} · {l.qty} {l.uom ?? ""} × {cad(l.rate)}</span>
+                  </span>
+                  <span className="amt">{cad(coLineAmount(l))}</span>
+                  <button type="button" className="pj-x" aria-label="Remove line" onClick={() => setLines((ls) => ls.filter((_, j) => j !== i))}>×</button>
+                </li>
+              ))}
+              <li className="sum">
+                <span className="what">This C/O, before HST</span>
+                <span className="amt">{cad(total)}</span>
+              </li>
+            </ul>
+          )}
+          {msg && (
+            <p className={msg.ok ? "pj-ok" : "pj-bad"} role="status">
+              {msg.text}{" "}
+              {msg.versionId && (
+                <>
+                  <a href={`/q/${msg.versionId}`}>Review and send</a> · <a href={`/q/${msg.versionId}/edit`}>Full editor</a>
+                </>
+              )}
+            </p>
+          )}
+        </div>
+        <div className="pj-req-f">
+          <button type="button" className="btn" popoverTarget={id} popoverTargetAction="hide">Close</button>
+          <button type="button" className="btn primary" onClick={save} disabled={busy || lines.length === 0}>
+            {busy ? "Saving…" : "Save C/O"}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 /**
  * The project's line under its row on the Won and Complete views: when it started or ended, the walkthrough and work
  * orders (Complete), the contract, paid and what is left or due now, Notion's Ready to Collect, and the plan.
  */
-export function ProjectLine({ id, p, plan, today, name, view, request }: { id: string; p: ProjectStatus; plan: PlanProgress | null; today: string; name: string; view: "won" | "complete"; request?: { kind: RequestKind; versionId: string; requests: PaymentRequest[]; live: boolean; onDone: () => void } | null }) {
+export function ProjectLine({ id, p, plan, today, name, view, request, coVersionId }: { id: string; p: ProjectStatus; plan: PlanProgress | null; today: string; name: string; view: "won" | "complete"; coVersionId?: string | null; request?: { kind: RequestKind; versionId: string; requests: PaymentRequest[]; live: boolean; onDone: () => void } | null }) {
   const wt = walkthroughWords(p.walkthrough);
   const wo = workOrderWords(p.workOrders);
   const ready = readyToCollect(p.ready);
@@ -242,6 +387,7 @@ export function ProjectLine({ id, p, plan, today, name, view, request }: { id: s
           <PlanPopover id={`plan-${id}`} plan={plan} p={p} name={name} />
         </span>
       </span>
+      {coVersionId && <ChangeOrder id={`co-${id}`} versionId={coVersionId} name={name} paid={plan?.paid ?? null} />}
       {request && plan && <RequestPayment id={`req-${id}`} kind={request.kind} versionId={request.versionId} plan={plan} name={name} deal={p.deal} pm={p.pm} requests={request.requests} live={request.live} onDone={request.onDone} />}
       {view === "complete" && (
         <span className={`pj-ready${ready ? " yes" : ""}`} title="Ready to Collect, from the Notion project">

@@ -88,7 +88,7 @@ describe("Airtable boundary", () => {
   });
 
   it("keeps the client, the loaders and the auth check server-only", () => {
-    for (const rel of [CLIENT, GHL, "lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/describe.ts", "lib/quotes/customer.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/activity/relay.ts", "lib/quotes/acceptClient.ts", "lib/accept/record.ts", "lib/accept/accept.ts", "lib/accept/staff.ts", "lib/accept/live.ts", "lib/quotes/sitesheet.ts", "lib/anthropic/client.ts", "lib/quotes/billing.ts", "lib/notion/payments.ts", "lib/companycam/client.ts", "lib/quotes/companycam.ts", "lib/quotes/payouts.ts", "lib/quotes/followup.ts", "lib/quotes/past.ts", "lib/quotes/appointments.ts", "lib/quotes/projects.ts", "lib/notion/projectStatus.ts", "lib/quotes/paymentRequest.ts", "lib/quotes/jobFiles.ts", "lib/quotes/jobToken.ts", "lib/auth.ts"]) {
+    for (const rel of [CLIENT, GHL, "lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/describe.ts", "lib/quotes/customer.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/activity/relay.ts", "lib/quotes/acceptClient.ts", "lib/accept/record.ts", "lib/accept/accept.ts", "lib/accept/staff.ts", "lib/accept/live.ts", "lib/quotes/sitesheet.ts", "lib/anthropic/client.ts", "lib/quotes/billing.ts", "lib/notion/payments.ts", "lib/companycam/client.ts", "lib/quotes/companycam.ts", "lib/quotes/payouts.ts", "lib/quotes/followup.ts", "lib/quotes/past.ts", "lib/quotes/appointments.ts", "lib/quotes/projects.ts", "lib/notion/projectStatus.ts", "lib/quotes/paymentRequest.ts", "lib/quotes/quickChange.ts", "lib/quotes/jobFiles.ts", "lib/quotes/jobToken.ts", "lib/auth.ts"]) {
       expect(all.find((f) => f.rel === rel)!.text).toMatch(/^import "server-only";/m);
     }
   });
@@ -96,7 +96,7 @@ describe("Airtable boundary", () => {
   it("never imports Airtable code into a browser component", () => {
     const leaks = all
       .filter((f) => /^["']use client["'];?/m.test(f.text))
-      .filter((f) => /^import (?!type )[^;]*from ["']@\/lib\/(airtable|quotes\/load|quotes\/start|quotes\/save|quotes\/refresh|quotes\/records|quotes\/booking|quotes\/link|quotes\/send|quotes\/rooms|quotes\/customer|quotes\/conversation|quotes\/address|quotes\/activity|activity\/relay|quotes\/acceptClient|accept\/record|accept\/accept|accept\/staff|accept\/live|quotes\/sitesheet|quotes\/payouts|quotes\/billing|quotes\/companycam|quotes\/past|quotes\/appointments|quotes\/projects|quotes\/paymentRequest|notion\/projectStatus|quotes\/jobFiles|quotes\/jobToken|companycam\/client|notion\/payments|anthropic\/client|ghl\/client|make\/client|auth)/m.test(f.text))
+      .filter((f) => /^import (?!type )[^;]*from ["']@\/lib\/(airtable|quotes\/load|quotes\/start|quotes\/save|quotes\/refresh|quotes\/records|quotes\/booking|quotes\/link|quotes\/send|quotes\/rooms|quotes\/customer|quotes\/conversation|quotes\/address|quotes\/activity|activity\/relay|quotes\/acceptClient|accept\/record|accept\/accept|accept\/staff|accept\/live|quotes\/sitesheet|quotes\/payouts|quotes\/billing|quotes\/companycam|quotes\/past|quotes\/appointments|quotes\/projects|quotes\/paymentRequest|quotes\/quickChange|notion\/projectStatus|quotes\/jobFiles|quotes\/jobToken|companycam\/client|notion\/payments|anthropic\/client|ghl\/client|make\/client|auth)/m.test(f.text))
       .map((f) => f.rel);
     expect(leaks).toEqual([]);
   });
@@ -107,7 +107,7 @@ describe("Airtable boundary", () => {
 
   it("checks the quoter allowlist in both the proxy and every loader", () => {
     expect(all.find((f) => f.rel === "proxy.ts")!.text).toContain("isQuoter(");
-    for (const rel of ["lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/sitesheet.ts", "lib/quotes/billing.ts", "lib/quotes/companycam.ts", "lib/quotes/payouts.ts", "lib/quotes/followup.ts", "lib/quotes/past.ts", "lib/quotes/jobFiles.ts", "lib/quotes/paymentRequest.ts"]) {
+    for (const rel of ["lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/sitesheet.ts", "lib/quotes/billing.ts", "lib/quotes/companycam.ts", "lib/quotes/payouts.ts", "lib/quotes/followup.ts", "lib/quotes/past.ts", "lib/quotes/jobFiles.ts", "lib/quotes/paymentRequest.ts", "lib/quotes/quickChange.ts"]) {
       const text = all.find((f) => f.rel === rel)!.text;
       const exported = text.match(/export async function \w+/g) ?? [];
       const guarded = text.match(/export async function \w+[^{]*\{\s*(const \w+ = )?await requireQuoter(Person)?\(\);/g) ?? [];
@@ -568,6 +568,19 @@ describe("Payment requests (2026-11-27)", () => {
     expect(run).toMatch(/sender: \{ email: office, name: null \}, asOffice: true/);
     expect(run).toMatch(/const to = live \? [\s\S]{0,200}: testTo;/);
     expect(run).not.toMatch(/billingForRequest/);
+  });
+});
+
+describe("+C/O, the quick change order (2026-11-27)", () => {
+  it("writes nothing itself: a change goes through Make a change and the editor's save, and stays a Draft to send", () => {
+    const text = code(all.find((f) => f.rel === "lib/quotes/quickChange.ts")!.text);
+    expect(text).not.toMatch(/createRecords?\(|updateRecords?\(|sendMessage|sendQuote|markQuoteSent/);
+    expect(text).toMatch(/const made = await makeChange\(contractId\);/);
+    expect(text).toMatch(/const saved = await saveVersion\(change\.id, edited, fingerprint\(original\)\);/);
+    expect(text).toMatch(/if \(change\.status !== "Draft"\) return/);
+    // A credit is always a typed line at a negative price, never a card line a minimum charge could turn positive.
+    expect(text).toMatch(/const entry = !l\.credit && l\.entryKey \?/);
+    expect(all.filter((f) => /from ["']@\/lib\/quotes\/quickChange["']/.test(f.text) && !/^import type /m.test(f.text.split("\n").find((x) => x.includes("lib/quotes/quickChange")) ?? "")).map((f) => f.rel)).toEqual(["app/actions/quickChange.ts"]);
   });
 });
 

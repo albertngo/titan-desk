@@ -22,6 +22,15 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-27",
+    kind: "new",
+    title: "+C/O: a quick change order from Won and Complete",
+    details: [
+      "Each won project on Won and Complete has +C/O. Add work or a credit line by line: section, an item from the Rate Card or typed, quantity, unit and rate. Save C/O puts them on the project's change (the open one, or a new one from the contract as it stands) as a draft.",
+      "Then Review and send opens the change on the quote page, where it goes for the record as any change does; Full editor opens it in the editor.",
+    ],
+  },
+  {
+    date: "2026-11-27",
     kind: "fixed",
     title: "Won and Complete show what has been paid",
     details: ["Paid, balance, due now and second payment due read every project as $0 paid. They now read each project's payments from Notion's Master Payments Log, the way an invoice does."],

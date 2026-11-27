@@ -1605,6 +1605,22 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   **Settings, Automatic payment reminders** (`autoPaymentReminders`, on by default) turns the run off. Logged on Quotes →
   Payment Requests (`auto: true`, kind `second` or `ready`) with a history line by "app". The hour (9 am, the first run in
   the window) was proposed, not stated by Albert. Tested in `tests/paymentRequest.test.ts`; pinned in `tests/boundary.test.ts`.
+- **+C/O, the quick change order (Albert, 2026-11-27, step 3; vault `05_decisions/2026-11-27-quote-change-order-label`:
+  "make the Change wording to +C/O"; "Yes CO go").** A **+C/O** button on every Won and Complete project line
+  (`ChangeOrder` in `src/components/ProjectBits.tsx`): Add work or Credit, then section (Install, Moulding, Materials,
+  Stairs, Other: `CO_SECTIONS`), an item picked from the Rate Card and Stair Items (`coPicks()`, filling unit and rate) or
+  typed, qty, unit and rate; the lines it holds, each removable, and the C/O's total before HST (`coLineAmount()` in
+  `calc.ts`). **Save C/O** (`quickChange()` in `src/lib/quotes/quickChange.ts`, quoter-guarded, through
+  `src/app/actions/quickChange.ts`) goes the way every change goes: `makeChange()` on the contract version (the open
+  change is reopened, else the next is started from the contract as it stands, schedule restaged), the lines added
+  (Stairs lines to the stairs option, the rest to the first other option), saved with `saveVersion()` (same checks and
+  refusals as the editor). A picked card line keeps the card's price as its snapshot and a different typed rate as the
+  override; a typed line has no card; a credit is always a typed "Credit: ..." line at a negative price, so no minimum
+  charge can turn it into a charge (`coLineProblem()` refuses a missing section, words, quantity or rate, and over
+  $100,000). It stays a Draft: the card answers with the contract before and after (HST in) and the final payment after
+  what has been paid, and links **Review and send** (the quote page, where the change's Send card sends it for the
+  record, Changes after acceptance) and **Full editor**. Nothing is sent from the card. Tested in
+  `tests/quickChange.test.ts`; pinned in `tests/boundary.test.ts`.
 - **Follow up (Albert, 2026-11-07; vault `05_decisions/2026-11-07-quote-follow-up-worklist`: "a place where we can
   'followup'… a brief or a suggested next step and somewhere to take action… lost / postponed [date]").** Step 1 of
   three (the page and its buttons; the Claude brief and sending from the app come later). `/follow-up`, in the top bar,
