@@ -303,7 +303,7 @@ export function SendQuote({
   /** Albert only (2026-11-04): who he may send as, each with the address and number it would go from; null for everyone else. */
   sendAs?: SendAsList | null;
   /** The version's options, for choosing which go to the customer (2026-10-24); `range` is what a preliminary shows instead of `price` (2026-10-27). */
-  options: { id: string; name: string; price: string; range: string | null; recommended: boolean; notOffered?: boolean; problem: string | null; priv?: { label: string; amount: string; stairs: boolean } | null; words?: string | null }[];
+  options: { id: string; no?: number; flooring?: boolean; name: string; price: string; range: string | null; recommended: boolean; notOffered?: boolean; problem: string | null; priv?: { label: string; amount: string; stairs: boolean } | null; words?: string | null }[];
   /** How the newest sent version went (Albert, 2026-11-06): the card says so and starts on the same way. */
   lastSent?: LastSentWay | null;
   /**
@@ -521,19 +521,19 @@ export function SendQuote({
                 <label key={o.id} className="no-offer" aria-disabled="true" title="Not offered: this option is never sent. Untick Not offered in the editor to send it.">
                   <input type="checkbox" checked={false} disabled readOnly />
                   <span>
-                    <span className="nm"><s>{i + 1}. {o.name}</s> <span className="no-offer-tag">Not offered</span></span>
+                    <span className="nm"><s>{o.no ?? i + 1}. {o.name}</s> <span className="no-offer-tag">Not offered</span></span>
                     <span className="sub">Never sent. Untick Not offered in the editor to send it.</span>
                   </span>
                 </label>
               ) : (
-              <label key={o.id} className={chosen.includes(o.id) ? undefined : "off"}>
+              <label key={o.id} className={[chosen.includes(o.id) ? "" : "off", o.flooring ? "sq-flr" : ""].filter(Boolean).join(" ") || undefined}>
                 <input
                   type="checkbox"
                   checked={chosen.includes(o.id)}
                   onChange={(e) => setUnticked((u) => (e.target.checked ? u.filter((id) => id !== o.id) : [...u, o.id]))}
                 />
                 <span>
-                  <span className="nm">{i + 1}. {o.name}{o.recommended ? <span className="rec"> · Recommended</span> : null}</span>
+                  <span className="nm">{o.no ?? i + 1}. {o.name}{o.flooring ? <span className="faint"> · flooring choice</span> : null}{o.recommended ? <span className="rec"> · Recommended</span> : null}</span>
                   <span className="sub">{o.problem ?? (preliminary && !exact && o.range ? o.range : o.price)}</span>
                 </span>
               </label>
@@ -548,7 +548,7 @@ export function SendQuote({
         {options.filter((o) => chosen.includes(o.id) && o.words).map((o) => (
           <div key={`w-${o.id}`} className="sq-words" role="note">
             <div className="sq-words-h">
-              <b>{options.length > 1 ? `${options.findIndex((x) => x.id === o.id) + 1}. ${o.name}: ` : ""}the customer gets these words, word for word</b>
+              <b>{options.length > 1 ? `${o.no ?? options.findIndex((x) => x.id === o.id) + 1}. ${o.name}: ` : ""}the customer gets these words, word for word</b>
               <span>with its price, {preliminary && !exact && o.range ? o.range : o.price}. No lines, quantities or items. To change the words, edit Customer wording in the editor.</span>
             </div>
             <blockquote>{o.words}</blockquote>

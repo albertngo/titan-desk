@@ -1,5 +1,5 @@
 import "server-only";
-import { staffName } from "@/lib/editor/choices";
+import { isFollower, staffName } from "@/lib/editor/choices";
 import { outsideFor } from "./followup";
 import type { ComponentProps } from "react";
 import type { SendQuote } from "@/components/SendQuote";
@@ -36,7 +36,12 @@ export async function sendCardData(quote: Quote, customer: boolean) {
   // A preliminary goes as a range unless the sender picks the exact price (2026-10-27): the card shows whichever will go.
   const preliminary = quote.basis === "Preliminary";
   const stairsLow = preliminary ? (await settings()).stairsRangeLowMargin : null;
+  // An option offered in several floorings (2026-11-27) is one numbered option: its floorings share its number.
+  let no = 0;
   const sendOptions = quote.options.map((o) => {
+    const follower = isFollower(quote, o);
+    if (!follower) no += 1;
+    const flooring = !!o.choiceGroup && quote.options.filter((x) => x.choiceGroup === o.choiceGroup).length > 1;
     const totals = optionTotals(o.lines, quote.discountRate, optionHst(quote, o));
     const lead = leadPrice({ showHst: optionHst(quote, o) }, totals);
     // Stairs priced step by step range down to the Settings margin (2026-11-26), as the copy will.
@@ -48,7 +53,7 @@ export async function sendCardData(quote: Quote, customer: boolean) {
     const priv = privAmount > 0 ? { label: o.privateLabel?.trim() || DEFAULT_PRIVATE_LABEL, amount: money(privAmount), stairs } : null;
     // A preliminary's stairs option goes as its words only (2026-11-07): the card shows them, so the sender knows exactly what goes.
     const words = wordsOnly(o, preliminary) ? (o.description ?? "").trim() : null;
-    return { id: o.id, name: staffName(quote.options, o), price: `${money(lead.amount)} ${lead.tag}`, range, recommended: o.recommended, notOffered: o.notOffered === true, problem: optionProblem(quote, o), priv, words };
+    return { id: o.id, no, flooring, name: staffName(quote.options, o), price: `${money(lead.amount)} ${lead.tag}`, range, recommended: o.recommended, notOffered: o.notOffered === true, problem: optionProblem(quote, o), priv, words };
   });
   // Send again (2026-10-30) says whether their page already offers the PDF: read from the frozen copy, only for a version out with the customer.
   const sentPdf = !customer && quote.status === "Sent" ? offersPdf((await previewCopy(quote.id)) ?? { pdf: false }) : false;

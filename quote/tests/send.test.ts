@@ -478,6 +478,18 @@ describe("dates", () => {
 });
 
 describe("the PDF", () => {
+  it("numbers an option offered in several floorings once, each flooring titled with it (2026-11-27)", () => {
+    const a = option("Main floor", [line({ description: "Oak Natural", choiceLine: true })], 0.1, true, { choiceGroup: "cg_test0001" });
+    const b = option("Main floor B", [line({ description: "Vinyl Grey", choiceLine: true })], 0.1, true, { id: "recOPTMAINFLOORB2", name: "Main floor", choiceGroup: "cg_test0001" });
+    const c = option("Basement", [line({})]);
+    const text = Buffer.from(quotePdf(customerCopy(quote({ options: [a, b, c] }), AT))).toString("latin1");
+    expect(text).toContain("Option 1: Main floor: Oak Natural");
+    expect(text).toContain("Option 1: Main floor: Vinyl Grey");
+    expect(text).toContain("Option 2: Basement");
+    expect(text).not.toContain("Option 3");
+    expect(text).toContain("One of 2 floorings to choose from");
+  });
+
   it("is a well-formed PDF whose cross-reference table points at every object", () => {
     const bytes = quotePdf(customerCopy(quote(), AT));
     const text = Buffer.from(bytes).toString("latin1");
