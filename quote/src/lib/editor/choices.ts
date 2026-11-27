@@ -26,13 +26,13 @@ export function choiceGroups(q: Pick<EditorQuote, "options">): Map<string, Edito
 }
 
 /** The options of `o`'s group, the lead first; just `o` when it has none. */
-export function choicesOf(q: Pick<EditorQuote, "options">, o: Pick<EditorOption, "id" | "choiceGroup">): EditorOption[] {
+export function choicesOf<O extends { id: string; choiceGroup?: string | null }>(q: { options: O[] }, o: { id: string; choiceGroup?: string | null }): O[] {
   if (!o.choiceGroup) return q.options.filter((x) => x.id === o.id);
   return q.options.filter((x) => x.choiceGroup === o.choiceGroup);
 }
 
 /** Whether `o` is a flooring choice that follows its group's lead (and so has no tab of its own). */
-export const isFollower = (q: Pick<EditorQuote, "options">, o: Pick<EditorOption, "id" | "choiceGroup">) =>
+export const isFollower = (q: { options: { id: string; choiceGroup?: string | null }[] }, o: { id: string; choiceGroup?: string | null }) =>
   !!o.choiceGroup && choicesOf(q, o)[0]?.id !== o.id;
 
 export const choiceLineOf = (o: Pick<EditorOption, "lines">) => o.lines.find((l) => l.choiceLine);

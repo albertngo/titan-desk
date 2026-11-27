@@ -22,6 +22,15 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-27",
+    kind: "fixed",
+    title: "Floorings of one option stay one option everywhere",
+    details: [
+      "On the quote page, an option offered in several floorings is now one tab (\"3 floorings\", from its lowest price), with its floorings in a row under the tabs to open each one, as in the editor.",
+      "The Send card numbers the floorings of one option with that option's number, marked as flooring choices. The PDF does too: each flooring has its own page titled \"Option 1: Main floor: Oak\", and says it is one of the floorings to choose from.",
+    ],
+  },
+  {
+    date: "2026-11-27",
     kind: "changed",
     title: "Stairs priced step by step: the range starts lower",
     details: [

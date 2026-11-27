@@ -43,7 +43,7 @@ import { ghlOpportunityUrl } from "@/lib/ghl/ids";
 import { logEntries } from "@/lib/quotes/history";
 import { HistoryPanel } from "@/components/QuoteHistory";
 import { optionSchedule, optionTitle, partOf } from "@/lib/send/copy";
-import { staffName } from "@/lib/editor/choices";
+import { choicesOf, isFollower, staffName } from "@/lib/editor/choices";
 import { parseRooms } from "@/lib/rooms/log";
 import { defaultOptionIds, parsePayouts, payoutCandidates } from "@/lib/payout/cards";
 
@@ -75,7 +75,11 @@ export default async function QuotePage({
   // The Payouts tab (2026-11-04): contractor payout cards, staff only (it shows what we pay).
   const showPayouts = opt === "payouts" && !customer;
   const option = showAnalysis || showRooms || showSheet || showPhotos || showPayouts ? null : (quote.options.find((o) => o.id === opt) ?? firstOpenOption(quote.options));
-  const tabGroups = scopeGroups(quote.options);
+  // An option offered in several floorings (2026-11-27) is one tab, as in the editor; its floorings are picked under the tabs.
+  const tabGroups = scopeGroups(quote.options.filter((o) => !isFollower(quote, o)));
+  const floorings = option ? choicesOf(quote, option) : [];
+  const choiceName = (o: (typeof quote.options)[number]) => o.lines.find((l) => l.choiceLine)?.description?.trim() || o.name;
+  const optTotal = (o: (typeof quote.options)[number]) => optionTotals(o.lines, quote.discountRate, optionHst(quote, o)).total;
   // The option's own HST (2026-11-04), else the version's.
   const hstOn = optionHst(quote, option);
   const totals = option ? optionTotals(option.lines, quote.discountRate, hstOn) : null;
@@ -275,21 +279,31 @@ export default async function QuotePage({
                     <div className="tab-grp" key={g.scope}>
                       {tabGroups.split && <span className="tab-scope">{g.scope}</span>}
                       <div className="tab-grp-t">
-                        {g.options.map((o) => (
-                          <Link
-                            key={o.id}
-                            className={["tab", acceptedIds.has(o.id) ? "accepted" : "", o.notOffered ? "off" : ""].filter(Boolean).join(" ")}
-                            href={`/q/${quote.id}?opt=${o.id}`}
-                            aria-current={option?.id === o.id ? "page" : undefined}
-                            title={o.notOffered ? "Not offered: never sent to the customer" : undefined}
-                          >
-                            {acceptedIds.has(o.id) && <span className="t-acc">✓ Accepted</span>}
-                            {o.notOffered && <span className="t-off">Not offered</span>}
-                            {o.part && <span className="t-part">{o.part}</span>}
-                            <span className="t-name">{staffName(quote.options, o)}</span>
-                            <span className="t-amt">{money(optionTotals(o.lines, quote.discountRate, optionHst(quote, o)).total)}</span>
-                          </Link>
-                        ))}
+                        {g.options.map((o) => {
+                          const grp = choicesOf(quote, o);
+                          const accepted = grp.some((x) => acceptedIds.has(x.id));
+                          return (
+                            <Link
+                              key={o.id}
+                              className={["tab", accepted ? "accepted" : "", o.notOffered ? "off" : ""].filter(Boolean).join(" ")}
+                              href={`/q/${quote.id}?opt=${o.id}`}
+                              aria-current={option && grp.some((x) => x.id === option.id) ? "page" : undefined}
+                              title={o.notOffered ? "Not offered: never sent to the customer" : undefined}
+                            >
+                              {accepted && <span className="t-acc">✓ Accepted</span>}
+                              {o.notOffered && <span className="t-off">Not offered</span>}
+                              {o.part && <span className="t-part">{o.part}</span>}
+                              <span className="t-name">
+                                {o.name || "Untitled"}
+                                {grp.length > 1 && <span className="t-choices"> · {grp.length} floorings</span>}
+                              </span>
+                              <span className="t-amt">
+                                {grp.length > 1 ? "from " : ""}
+                                {money(Math.min(...grp.map(optTotal)))}
+                              </span>
+                            </Link>
+                          );
+                        })}
                       </div>
                     </div>
                   ))}
@@ -327,6 +341,23 @@ export default async function QuotePage({
                     )}
                   </div>
                 )}
+              </nav>
+            )}
+
+            {/* The floorings of the option open (2026-11-27): one option the customer chooses a flooring in, each priced on its own. */}
+            {floorings.length > 1 && option && (
+              <nav className="q-floorings" aria-label="Floorings the customer can choose">
+                <span className="faint">Floorings to choose from</span>
+                {floorings.map((o, i) => (
+                  <Link key={o.id} className="q-flooring" href={`/q/${quote.id}?opt=${o.id}`} aria-current={o.id === option.id ? "page" : undefined}>
+                    {acceptedIds.has(o.id) && <span className="t-acc">✓ Accepted</span>}
+                    <span className="t-name">{choiceName(o)}</span>
+                    <span className="t-amt">
+                      {money(optTotal(o))}
+                      {i === 0 ? " · shown first" : ""}
+                    </span>
+                  </Link>
+                ))}
               </nav>
             )}
 

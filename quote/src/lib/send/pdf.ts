@@ -5,7 +5,7 @@ import { changeWords, paidLeft, signedMoney } from "@/lib/change/diff";
 import type { Payment } from "@/lib/billing/doc";
 import { round2 } from "@/lib/calc";
 import { PAGE, PdfDoc, textWidth, wrap, type Rgb } from "./pdfDoc";
-import { discountRows, hstOf, hstRow, isLump, isSplit, scopeOf, itemHstNote, leadPrice, longDate, partGroups, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyText, type CustomerCopy } from "./copy";
+import { discountRows, optionEntries, optionNo, optionTitle, hstOf, hstRow, isLump, isSplit, scopeOf, itemHstNote, leadPrice, longDate, partGroups, prelimNote, rangeText, stageFigure, stageNote, stagesOf, type CopyItem, type CopyOption, type CopyText, type CustomerCopy } from "./copy";
 
 /**
  * The quote as a PDF, drawn from the customer copy only (never from live lines), so the file
@@ -212,10 +212,13 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
   }
 
   /* ---------- options ---------- */
+  // An option offered in several floorings (2026-11-27) is one numbered option, as on the page: each flooring its own page,
+  // titled with the option's number and its flooring.
+  const entries = optionEntries(copy);
   copy.options.forEach((o, i) => {
     if (i > 0) newPage();
     else room(160);
-    option(o, copy.options.length > 1 ? i + 1 : null);
+    option(o, i, entries.length > 1 ? optionNo(copy, i) : null);
   });
   if (bill) payments(bill);
 
@@ -244,13 +247,14 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
     y -= 22;
   }
 
-  function option(o: CopyOption, number: number | null) {
+  function option(o: CopyOption, index: number, number: number | null) {
     optHst = hstOf(copy, o.totals);
     // With flooring and stairs options (2026-10-28) the title says which: "Stairs · Option 3: Red oak caps".
     // A contract of several options (Albert, 2026-10-31): titled as the project, each option its own part below.
     const groups = partGroups(o);
     const joined = groups.length > 1;
-    const name = joined ? "Your project" : o.name;
+    const grp = entries.find((e) => e.members.includes(index))?.members ?? [index];
+    const name = joined ? "Your project" : optionTitle(copy, index);
     const title = number ? `${isSplit(copy) ? `${scopeOf(o)} · ` : ""}Option ${number}: ${name}` : name;
     const titleLines = wrap(title, "B", 14, RIGHT - M - (o.recommended ? 90 : 0));
     titleLines.forEach((l, k) => {
@@ -258,7 +262,8 @@ export function quotePdf(copy: CustomerCopy, stamp: AcceptedStamp | null = null,
       if (k === 0 && o.recommended && number) doc.text(RIGHT, y - 4, "RECOMMENDED", { font: "B", size: 8, color: BLUE, align: "right" });
       y -= 18;
     });
-    const intro = joined ? `${groups.length} parts, each with its own work and price below. The total and the payment schedule are for the whole project.` : o.description;
+    const choice = grp.length > 1 ? `One of ${grp.length} floorings to choose from for this option; the work is the same, the flooring and the price change.` : null;
+    const intro = joined ? `${groups.length} parts, each with its own work and price below. The total and the payment schedule are for the whole project.` : [choice, o.description].filter(Boolean).join(" ") || null;
     if (intro) {
       for (const l of wrap(intro, "R", 9.5, RIGHT - M)) {
         room(13);
