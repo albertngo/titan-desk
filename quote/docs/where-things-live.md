@@ -647,6 +647,15 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   quote page's one main action. A tape-measure rule (`.tape`) sits under the front page's header. All of it is the
   block "Staff screens, unslopped" at the end of `globals.css`; the customer page defines its own tokens and is
   unaffected. Mockups and the reasoning (usability over aesthetics) were reviewed in the session before shipping.
+- **Stairs priced step by step range down to a margin (Albert, 2026-11-26/27; vault
+  `05_decisions/2026-11-27-quote-stairs-range`).** A preliminary's stairs option priced from Stair Items, with no Stair
+  Profile staircase on it (`perStepStairs()` in `copy.ts`: no `profile` line, no line in the Stair Items category "Stair
+  Profile"), goes as a range from the price at the Settings margin **Stairs range, low end at margin** (40) up to the
+  calculated price, never more than 20% under it (`stairsRange()`, `STAIRS_RANGE_CAP`), ends rounded outward as usual. When
+  that leaves no more room than the usual 3% under, the usual range holds. Stair Profiles keep the usual range (Albert:
+  "Stair profiles are only used for preliminaries with no knowledge or picture of the staircase usually"); flooring too.
+  The copy and the Send card both use it. **Stairs margin floor** (35, Settings): a stairs option under it shows a warning on
+  its price card with the price at the floor; it never blocks. Tested in `tests/stairsRange.test.ts`.
 - **A preliminary goes as a range (Albert, 2026-10-27).** Customers took a preliminary's one number as
   the price, so a measured quote that came in higher read as a change. Everything the customer gets
   (email, text, page, PDF) shows the price before HST as a range instead: **3% under to 10% over, the top

@@ -201,6 +201,7 @@ export default function Editor({
   lastWay = null,
   copyFrom = null,
   copyAll = false,
+  stairsFloor = null,
 }: {
   initial: EditorQuote;
   card: RateCard;
@@ -220,6 +221,8 @@ export default function Editor({
   copyFrom?: string | null;
   /** Duplicate quote (2026-11-16): copy every option of `copyFrom` as the editor opens. */
   copyAll?: boolean;
+  /** The stairs margin floor from Settings (2026-11-26): a stairs option under it warns on its price card. */
+  stairsFloor?: number | null;
 }) {
   const router = useRouter();
   const key = draftKey(initial);
@@ -1469,7 +1472,7 @@ export default function Editor({
                     {holdNote}
                   </p>
                 )}
-                <PriceCard quote={quote} option={option} customer={customer} apply={apply} />
+                <PriceCard quote={quote} option={option} customer={customer} apply={apply} stairsFloor={stairsOption ? stairsFloor : null} />
               </section>
 
               <div>

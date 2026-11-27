@@ -21,6 +21,15 @@ export type Change = {
 
 export const CHANGES: Change[] = [
   {
+    date: "2026-11-27",
+    kind: "changed",
+    title: "Stairs priced step by step: the range starts lower",
+    details: [
+      "On a preliminary, stairs priced from Stair Items (not a Stair Profile) now go as a range from the price at a 40% margin up to the calculated price, never more than 20% under it. Stair Profiles and flooring keep the usual range. The Send card shows the range that will go.",
+      "A stairs option priced under the 35% stairs margin floor shows a warning on its price card, with the price that would make 35%. It never stops a send. Both numbers are in Settings, under Pricing: stairs.",
+    ],
+  },
+  {
     date: "2026-11-26",
     kind: "changed",
     title: "Each flooring choice priced on its own",

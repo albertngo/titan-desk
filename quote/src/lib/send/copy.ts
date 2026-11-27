@@ -242,6 +242,32 @@ const rangeStep = (amount: number) => (amount < 1000 ? 10 : amount < 10000 ? 50 
 /** Low rounded down and high rounded up; round2 first, so 1,000 × 1.1 is 1,100 and not a float a hair over it rounded up a step. */
 const outward = (low: number, high: number, step: number) => ({ low: Math.max(0, Math.floor(round2(low) / step) * step), high: Math.ceil(round2(high) / step) * step });
 
+/**
+ * Stairs priced step by step (Albert, 2026-11-26: "I would actually use the number as the high point; since it is now
+ * placed at the starting point to be high, then dropped to a lower price as a discount"): the calculated price is the top
+ * and the price at `lowMargin` (a Settings dial, 40%) the bottom, never more than STAIRS_RANGE_CAP under the top. Null
+ * when that leaves no more room than the usual range (the option is already near the margin), so the usual range holds.
+ * Never a Stair Profile's staircase: those are guesses at an unseen staircase and keep the usual range (same day).
+ */
+export const STAIRS_RANGE_CAP = 0.2;
+export function stairsRange(t: { subtotal: number; total: number; cost: number }, lowMargin: number): CopyRange | null {
+  const price = t.subtotal;
+  if (!(price > 0) || !(t.cost > 0) || !(lowMargin >= 0) || lowMargin >= 100) return null;
+  const low = Math.max(t.cost / (1 - lowMargin / 100), price * (1 - STAIRS_RANGE_CAP));
+  if (low >= price * (1 - RANGE_BELOW)) return null;
+  const before = outward(low, price, rangeStep(price));
+  const ratio = t.total / price;
+  const after = outward(before.low * ratio, before.high * ratio, rangeStep(t.total));
+  return { low: before.low, high: before.high, lowWithHst: after.low, highWithHst: after.high };
+}
+
+/** A stairs option priced step by step: Stair Items, and no Stair Profile's staircase on it (2026-11-26). */
+export function perStepStairs(o: Pick<QuoteOption, "lines" | "scope" | "part">): boolean {
+  const lines = o.lines.filter((l) => isPriced(l) && l.include);
+  const profile = (l: QuoteLine) => l.sourceKind === "profile" || l.stairCategory === "Stair Profile";
+  return optionScope(o) === "Stairs" && lines.some((l) => l.sourceKind === "stair" && !profile(l)) && !lines.some(profile);
+}
+
 export function priceRange(amount: number): { low: number; high: number } {
   return outward(amount * (1 - RANGE_BELOW), amount + Math.min(amount * RANGE_ABOVE, RANGE_ABOVE_CAP), rangeStep(amount));
 }
@@ -351,7 +377,7 @@ export function stagesOf(o: CopyOption): CopyStage[] {
 export const wordsOnly = (o: QuoteOption, preliminary: boolean): boolean =>
   preliminary && optionScope(o) === "Stairs" && Boolean(noEmDash(o.description ?? "").trim());
 
-function copyOption(given: QuoteOption, discountRate: number, showHst: boolean, lumpSum = false, ranged = false, schedule: PaymentSchedule = defaultSchedule(), preliminary = false): CopyOption {
+function copyOption(given: QuoteOption, discountRate: number, showHst: boolean, lumpSum = false, ranged = false, schedule: PaymentSchedule = defaultSchedule(), preliminary = false, stairsLowMargin: number | null = null): CopyOption {
   let n = 0;
   // A stairs option never shows a rate (Albert, 2026-11-06: "any additional work PRIVATE section should never show
   // rates. It should be the same as the rule for the stairs items"), and has no Private or Other section (same day:
@@ -471,7 +497,8 @@ function copyOption(given: QuoteOption, discountRate: number, showHst: boolean, 
       hstCharged: showHst,
     },
     // A preliminary is shown as a range (2026-10-27); the totals stay exact underneath for the record.
-    ...(ranged && t.subtotal > 0 ? { range: copyRange(t) } : {}),
+    // Stairs priced step by step range down to the margin set in Settings (2026-11-26); everything else the usual range.
+    ...(ranged && t.subtotal > 0 ? { range: (stairsLowMargin !== null && perStepStairs(given) ? stairsRange(t, stairsLowMargin) : null) ?? copyRange(t) } : {}),
     schedule: copyStages(schedule, o, discountRate, showHst, t.total, ranged && t.subtotal > 0),
     plan: schedule,
     planFacts: scheduleFacts({ lines: scheduleLines(o), showHst, discountRate }),
@@ -585,7 +612,7 @@ export const scopeHeading = (scope: Scope, count: number) => `${scope} option${c
  * (Albert, 2026-10-27: "an option to give the customer no range and just the quote, but default is
  * always the range"). Absent = the range. A measured quote never has one.
  */
-export function customerCopy(quote: Quote, at: { sentOn: string; validUntil: string | null; company: Letterhead; range?: boolean; pdf?: boolean }): CustomerCopy {
+export function customerCopy(quote: Quote, at: { sentOn: string; validUntil: string | null; company: Letterhead; range?: boolean; pdf?: boolean; stairsLowMargin?: number | null }): CustomerCopy {
   const prelim = quote.basis === "Preliminary";
   // A preliminary is always a lump sum (Albert, 2026-10-27): its line prices would add up to the one
   // price inside the range. Only a measured quote can go with the breakdown.
@@ -613,7 +640,7 @@ export function customerCopy(quote: Quote, at: { sentOn: string; validUntil: str
     // Flooring options first, then stairs (2026-10-28), so each scope reads as one group; order within a scope is kept.
     options: [...quote.options]
       .sort((a, b) => (optionScope(a) === optionScope(b) ? 0 : optionScope(a) === "Flooring" ? -1 : 1))
-      .map((o) => copyOption(o, quote.discountRate, optionHst(quote, o), lump, prelim && at.range !== false, optionSchedule(quote, o), prelim)),
+      .map((o) => copyOption(o, quote.discountRate, optionHst(quote, o), lump, prelim && at.range !== false, optionSchedule(quote, o), prelim, at.stairsLowMargin ?? null)),
   };
 }
 

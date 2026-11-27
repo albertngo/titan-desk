@@ -10,8 +10,9 @@ import { money } from "@/lib/format";
 import { fingerprint } from "@/lib/quotes/savePlan";
 import { lastSentWayFor, markSentAllowed, previewCopy, sendAsForCard, sendingReady, sendsFrom, sentLink, textsFrom } from "@/lib/quotes/send";
 import type { Quote } from "@/lib/quotes/types";
-import { addDays, leadPrice, offersPdf, priceRange, rangeText, torontoToday, VALID_DAYS, wordsOnly } from "@/lib/send/copy";
+import { addDays, leadPrice, offersPdf, perStepStairs, priceRange, rangeText, stairsRange, torontoToday, VALID_DAYS, wordsOnly } from "@/lib/send/copy";
 import { optionProblem, sendProblems } from "@/lib/send/plan";
+import { settings } from "@/lib/settings/settings";
 
 /**
  * What the Send card needs, worked out on the server (milestone 4; shared by the quote page and, since 2026-11-06,
@@ -34,9 +35,12 @@ export async function sendCardData(quote: Quote, customer: boolean) {
   // Which options go to the customer (2026-10-24): one tick each on the Send card, with its price before HST and any problem.
   // A preliminary goes as a range unless the sender picks the exact price (2026-10-27): the card shows whichever will go.
   const preliminary = quote.basis === "Preliminary";
+  const stairsLow = preliminary ? (await settings()).stairsRangeLowMargin : null;
   const sendOptions = quote.options.map((o) => {
-    const lead = leadPrice({ showHst: optionHst(quote, o) }, optionTotals(o.lines, quote.discountRate, optionHst(quote, o)));
-    const r = priceRange(lead.amount);
+    const totals = optionTotals(o.lines, quote.discountRate, optionHst(quote, o));
+    const lead = leadPrice({ showHst: optionHst(quote, o) }, totals);
+    // Stairs priced step by step range down to the Settings margin (2026-11-26), as the copy will.
+    const r = (stairsLow !== null && perStepStairs(o) ? stairsRange(totals, stairsLow) : null) ?? priceRange(lead.amount);
     const range = preliminary && lead.amount > 0 ? `${rangeText(r.low, r.high)} ${lead.tag}` : null;
     // A flooring option's Private section (2026-11-07): the one line a breakdown shows; a stairs option's never shows.
     const stairs = optionScope(o) === "Stairs";
