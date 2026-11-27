@@ -3011,3 +3011,19 @@ a.file-item, .file-item { display: grid; grid-template-columns: 16px minmax(0, 1
 .pj-req-as { display: grid; gap: 4px; font-size: 13px; }
 .pj-req-as .k { font-size: 11.5px; color: var(--fg-dim); }
 .pj-req-as select { font: inherit; min-height: 36px; padding: 0 8px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--card); color: var(--fg); }
+/* +C/O, the quick change order (2026-11-27). */
+.pj-co { width: min(460px, calc(100vw - 32px)); }
+.pj-info-note { background: var(--accent-soft); color: var(--accent); }
+.pj-co-form { display: grid; gap: 10px; padding: 12px; border-radius: 10px; background: var(--card-2); }
+.pj-co-kind { display: flex; gap: 6px; }
+.pj-req-as input { font: inherit; min-height: 36px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--card); color: var(--fg); min-width: 0; }
+.pj-co-nums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 8px; align-items: end; }
+.pj-co-lines { list-style: none; margin: 0; padding: 0; }
+.pj-co-lines li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 13px; }
+.pj-co-lines .sign { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; background: var(--accent-soft); color: var(--accent); }
+.pj-co-lines .sign.credit { background: var(--warn-soft); color: var(--warn); }
+.pj-co-lines .what { flex: 1; display: grid; gap: 1px; min-width: 0; }
+.pj-co-lines .amt { font-variant-numeric: tabular-nums; font-weight: 600; }
+.pj-co-lines .pj-x { position: static; width: 26px; height: 26px; font-size: 15px; }
+.pj-co-lines li.sum { font-weight: 600; }
+@media (max-width: 520px) { .pj-co-nums { grid-template-columns: repeat(3, minmax(0, 1fr)); } .pj-co-nums .btn { grid-column: 1 / -1; } }

@@ -423,3 +423,11 @@ export function planProgress(stages: { label: string; when: string; pay: PayHow;
   const second = round2(dueBeforeFinal - paid);
   return { stages: out, total: round2(total), paid: round2(paid), balance: balance <= 0.01 ? 0 : balance, dueBeforeFinal, secondOwing: second <= 0.01 ? 0 : second };
 }
+
+/* ---------- +C/O, the quick change order (2026-11-27) ---------- */
+
+/** A C/O line's amount before HST, as the card previews it: quantity times rate, negative for a credit. */
+export function coLineAmount(l: { qty: number; rate: number; credit: boolean }): number {
+  const v = round2((Number.isFinite(l.qty) ? l.qty : 0) * (Number.isFinite(l.rate) ? Math.abs(l.rate) : 0));
+  return l.credit ? -v : v;
+}

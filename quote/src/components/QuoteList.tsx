@@ -589,7 +589,7 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
                   <span className="ql-when" title={dateOf(g.latestAt)}>{ago(g.latestAt, now)}</span>
                 </div>
                 {/* Won and finished projects (2026-11-27): the Notion project's line under the row. */}
-                {projView && proj && today && g.projectNumber && <ProjectLine id={k} p={proj} plan={planOf(g)} today={today} name={g.customerName ?? "this project"} view={projView} request={requestFor(g)} />}
+                {projView && proj && today && g.projectNumber && <ProjectLine id={k} p={proj} plan={planOf(g)} today={today} name={g.customerName ?? "this project"} view={projView} request={requestFor(g)} coVersionId={g.versions[0].id} />}
                 {/* Each version's history right under its line (Albert, 2026-11-20), read when the row is opened. */}
                 {expanded && <Versions id={`v-${k}`} versions={g.versions} latestId={latest.id} quoteRecordId={g.quoteRecordId} now={now} />}
               </li>

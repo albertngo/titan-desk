@@ -104,6 +104,7 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
 - Quote Description (Albert, 2026-11-03: "When we are quoting lets say; AMICA Stephen. It is ALWAYS at 200 Kenneth… But a different unit; o…
 - Value, Follow up and the strip on All quotes (Albert, 2026-11-07: "Build value, follow up filter and summary strip").
 - Won, Complete and collecting (Albert, 2026-11-27; vault `05_decisions/2026-11-27-quote-complete-filter-and-final-payment`): Complete after Won from the Notion end date, Ready to Collect mirrored, second payment due, the payment plan popout. Read only.
+- +C/O, the quick change order (Albert, 2026-11-27, step 3): lines added from Won and Complete to the project's change through Make a change and the editor's save; a Draft to review and send for the record.
 - Automatic payment reminders (Albert, 2026-11-27, step 2b): hourly from the first day on site, the second payment on 3+ installments or the final-ready reminder on 2, as the office, once per project, test until Settings says customers.
 - Request payment (Albert, 2026-11-27; vault `05_decisions/2026-11-27-quote-payment-request-buttons-and-auto-second`): 2nd and final payment requests from Won and Complete, email and text, test to the sender until Settings turns it on.
 - Follow up (Albert, 2026-11-07; vault `05_decisions/2026-11-07-quote-follow-up-worklist`: "a place where we can 'followup'… a brief or a s…
