@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { settings } from "@/lib/settings/settings";
 import { ConversationDrawer } from "@/components/Conversation";
 import { EditorClient } from "@/components/editor/EditorClient";
 import { SendQuote } from "@/components/SendQuote";
@@ -52,7 +53,7 @@ export default async function EditQuotePage({ params, searchParams }: { params: 
       <TopBar email={email} />
       {/* The customer's GHL conversation beside the lines being priced: staff only, never in Customer view. */}
       {!customer && quote.link?.ghlContactId && <ConversationDrawer contactId={quote.link.ghlContactId} />}
-      <EditorClient initial={initial} card={card} backHref={`/q/${quote.id}`} version={version} customer={customer} swap={swap} swapTo={typeof swapTo === "string" && /^rec[A-Za-z0-9]{14}$/.test(swapTo) ? swapTo : null} sendCard={sendCard} copyFrom={!customer && typeof copy === "string" && /^rec[A-Za-z0-9]{14}$/.test(copy) ? copy : null} copyAll={all === "1"} lastWay={sending?.props?.lastSent?.way ?? null} />
+      <EditorClient initial={initial} card={card} backHref={`/q/${quote.id}`} version={version} customer={customer} swap={swap} swapTo={typeof swapTo === "string" && /^rec[A-Za-z0-9]{14}$/.test(swapTo) ? swapTo : null} sendCard={sendCard} copyFrom={!customer && typeof copy === "string" && /^rec[A-Za-z0-9]{14}$/.test(copy) ? copy : null} copyAll={all === "1"} lastWay={sending?.props?.lastSent?.way ?? null} stairsFloor={customer ? null : (await settings()).stairsMarginFloor} />
     </>
   );
 }

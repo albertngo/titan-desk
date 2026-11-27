@@ -29,6 +29,8 @@ export const DEFS = [
   { key: "hikeCustomers", group: "POS customers", label: "Hike customers", help: "The same, in Hike.", kind: "switch" },
   { key: "onlyThemselves", group: "Sending: who as whom", label: "Nobody else can send as", help: "Comma-separated sign-in emails. Each can send as anyone on the team, and is a choice only for themselves: nobody else can pick them on the Send card. Everyone else can send as each other.", kind: "emails", empty: true },
   { key: "markSentEmails", group: "Sending: who as whom", label: "Who can mark a quote sent without sending", help: "Comma-separated sign-in emails. They get Mark as sent on the Send card: the version is locked and counted as sent, with its link ready to copy, and nothing goes to the customer. Empty: nobody.", kind: "emails", empty: true },
+  { key: "stairsRangeLowMargin", group: "Pricing: stairs", label: "Stairs range, low end at margin", help: "A preliminary's stairs priced step by step (not a Stair Profile) go as a range from the price at this margin up to the calculated price, never more than 20% under it. Profiles keep the usual range.", kind: "number", min: 0, max: 90, unit: "%" },
+  { key: "stairsMarginFloor", group: "Pricing: stairs", label: "Stairs margin floor", help: "A stairs option priced under this margin shows a warning on its price card. It never stops a send.", kind: "number", min: 0, max: 90, unit: "%" },
   { key: "adminEmails", group: "Access", label: "Who sees Performance and Settings", help: "Comma-separated sign-in emails. They must also be allowed into the app.", kind: "emails" },
 ] as const satisfies readonly Def[];
 
@@ -53,6 +55,8 @@ export type Settings = {
   onlyThemselves: string[];
   markSentEmails: string[];
   adminEmails: string[];
+  stairsRangeLowMargin: number;
+  stairsMarginFloor: number;
 };
 
 /** The settings that are lists of sign-in emails. */
@@ -82,6 +86,9 @@ export function defaults(env: Record<string, string | undefined>): Settings {
     onlyThemselves: ["albert@titanfloors.ca"],
     markSentEmails: ["albert@titanfloors.ca"],
     adminEmails: emails(env.QUOTE_ADMIN_EMAILS ?? ""),
+    // Albert, 2026-11-26: the customer anchors at the low end, so it sits at 40%, leaving room above the 35% floor.
+    stairsRangeLowMargin: 40,
+    stairsMarginFloor: 35,
   };
 }
 

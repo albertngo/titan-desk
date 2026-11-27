@@ -261,7 +261,7 @@ export async function previewCopy(versionId: string, validUntil?: string, itemis
   const today = torontoToday(new Date());
   // A draft previews only the options ticked on the Send card (2026-10-24); none matching = all.
   const chosen = chooseOptions(quote, optionIds);
-  const copy = customerCopy({ ...(chosen.options.length ? chosen : quote), itemised }, { sentOn: quote.sentAt ?? today, validUntil: quote.changeNo ? null : (validUntil ?? quote.validUntil ?? today), company: letterhead(), range, pdf });
+  const copy = customerCopy({ ...(chosen.options.length ? chosen : quote), itemised }, { sentOn: quote.sentAt ?? today, validUntil: quote.changeNo ? null : (validUntil ?? quote.validUntil ?? today), company: letterhead(), range, pdf, stairsLowMargin: (await settings()).stairsRangeLowMargin });
   return (await withChange(quote, copy)) ?? copy;
 }
 
@@ -306,7 +306,7 @@ async function buildCopy(quote: Quote, input: SendFields, today: string, base: s
   const prelim = quote.basis === "Preliminary";
   const itemised = !prelim && input.itemised;
   // Only the options ticked on the Send card go to the customer, everywhere (2026-10-24).
-  const plain = customerCopy({ ...chooseOptions(quote, input.optionIds), itemised }, { sentOn: today, validUntil, company: letterhead(), range: input.range, pdf: input.pdf });
+  const plain = customerCopy({ ...chooseOptions(quote, input.optionIds), itemised }, { sentOn: today, validUntil, company: letterhead(), range: input.range, pdf: input.pdf, stairsLowMargin: (await settings()).stairsRangeLowMargin });
   // A change carries what changed since the contract it updates (2026-10-27).
   const changed = await withChange(quote, plain);
   if (!changed) return { ok: false as const, message: "This change can't be sent: the accepted quote it changes couldn't be read. Open the accepted version and try Make a change again." };

@@ -35,7 +35,20 @@ import { isAcceptedLine, isContractorLine, isDiscountLine, MIN_MARGIN_PCT, price
  * Customer view (2026-10-15) shows no cost, margin or profit: the margin box, the readout and the (i)
  * are left out, not hidden.
  */
-export function PriceCard({ quote, option, customer, apply }: { quote: EditorQuote; option: EditorOption; customer: boolean; apply: (q: EditorQuote) => boolean | void }) {
+export function PriceCard({
+  quote,
+  option,
+  customer,
+  apply,
+  stairsFloor = null,
+}: {
+  quote: EditorQuote;
+  option: EditorOption;
+  customer: boolean;
+  apply: (q: EditorQuote) => boolean | void;
+  /** A stairs option's margin floor (Settings, 2026-11-26); null for any other option. A warning, never a block. */
+  stairsFloor?: number | null;
+}) {
   const hstOn = optionHst(quote, option);
   const s = priceSummary(option.lines, quote.discountRate, hstOn);
   const t = optionTotals(option.lines, quote.discountRate, hstOn);
@@ -186,6 +199,13 @@ export function PriceCard({ quote, option, customer, apply }: { quote: EditorQuo
           </label>
         )}
         {note && <p className="pc-bad">{note}</p>}
+        {/* The stairs margin floor (Albert, 2026-11-26: "our lowest is tended to be 35% for the stairs margin"). */}
+        {!customer && stairsFloor !== null && t.subtotal > 0 && t.marginPct !== null && t.marginPct < stairsFloor && !below && (
+          <p className="pc-warn">
+            Stairs at {Math.round(t.marginPct)}% margin, under the {stairsFloor}% stairs floor. At {stairsFloor}% the price before HST is{" "}
+            {money(Math.ceil((t.cost / (1 - stairsFloor / 100)) * 100) / 100)}.
+          </p>
+        )}
         {below && s.minPrice !== null && (
           <p className="pc-bad">
             Under the {MIN_MARGIN_PCT}% margin minimum.{" "}
