@@ -115,8 +115,6 @@ describe("quick form: staircases (2026-10-20; one standard Stair Item each, 2026
     type: "Main stairs",
     method: "Solid red oak caps",
     steps: 13,
-    price: 4000,
-    cost: 2600,
     sort: 1,
     preset: { boxedSteps: null, openSideSteps: 0, curvedSteps: 0, handrailFt: 0, nosingFt: 0, landings: 0, spindles: 30, posts: 0 },
     // A template is still on the row (the editor's builder reads it); the quick form never uses it.
@@ -124,8 +122,8 @@ describe("quick form: staircases (2026-10-20; one standard Stair Item each, 2026
     ...p,
   });
   const MAIN_ROW = row("recProfMain00000A", { standardItemId: STD_MAIN.id });
-  const HALF_ROW = row("recProfHalf00000A", { name: "Half staircase, sanded", type: "Half staircase", method: "Sand & stain", steps: 5, price: 750, standardItemId: STD_HALF.id });
-  const UNLINKED_ROW = row("recProfUnlinked0A", { name: "No standard item yet", price: 3100 });
+  const HALF_ROW = row("recProfHalf00000A", { name: "Half staircase, sanded", type: "Half staircase", method: "Sand & stain", steps: 5, standardItemId: STD_HALF.id });
+  const UNLINKED_ROW = row("recProfUnlinked0A", { name: "No standard item yet" });
   const GONE_ROW = row("recProfGone00000A", { name: "Standard item switched off", standardItemId: "recGone000000000A" });
   const offered = quickProfiles([MAIN_ROW, HALF_ROW, UNLINKED_ROW, GONE_ROW], cat);
   const profiles = new Map(offered.map((p) => [p.id, p]));

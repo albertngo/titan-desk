@@ -249,8 +249,6 @@ export type StairProfileRow = {
   method: StairMethod;
   /** The step count the preset assumes; the builder's default. */
   steps: number | null;
-  price: number | null;
-  cost: number | null;
   sort: number;
   template: StairTemplate;
   preset: StairPreset;

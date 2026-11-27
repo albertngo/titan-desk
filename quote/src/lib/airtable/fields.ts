@@ -364,8 +364,6 @@ export const PROFILE = {
   stairType: "fldf2CphffH6hIGSQ",
   method: "fld9kfFNAmCycehXK",
   steps: "fld5kQiQQLYUrBg0h",
-  price: "fldT9aUZtWm33j0Dx",
-  cost: "fldeb3xEPKzkKcjUi",
   active: "fldUHwprPSCOCY9RK",
   sort: "fldTYCChkMwsqolSH",
   perStep: "flds7wtg7wPOrdsU7",
