@@ -376,3 +376,50 @@ export function payoutAmount(l: { qty: number | null; rate: number | null }): nu
 export function payoutTotal(lines: { qty: number | null; rate: number | null; on: boolean }[]): number {
   return round2(lines.filter((l) => l.on).reduce((a, l) => a + payoutAmount(l), 0));
 }
+
+/* ---------- collecting on won and finished projects (2026-11-27) ---------- */
+
+/**
+ * The payments received on a project, added up to the cent (Albert, 2026-11-27, vault
+ * 05_decisions/2026-11-27-quote-follow-the-payment-plan-and-mirror-ready-to-collect). Not an Airtable formula: the
+ * payments are read from Notion's Master Payments Log, as the invoice and receipt already do.
+ */
+export function paidTotal(amounts: number[]): number {
+  return round2(amounts.reduce((a, n) => a + (Number.isFinite(n) ? n : 0), 0));
+}
+
+/** One stage of the contract's payment plan against what has been paid: paid fills the stages in order. */
+export type StageProgress = { label: string; when: string; pay: PayHow; amount: number; paid: number; state: "paid" | "part" | "open" };
+
+export type PlanProgress = {
+  stages: StageProgress[];
+  /** The contract's total, HST in: what the customer pays. */
+  total: number;
+  paid: number;
+  /** What is left on the contract, never below nothing. */
+  balance: number;
+  /** Every stage but the final one: what should be in by the first day on site (the second payment, 2026-11-27). */
+  dueBeforeFinal: number;
+  /** What is still owing of that, never below nothing. */
+  secondOwing: number;
+};
+
+/**
+ * The contract's payment plan against the payments received (2026-11-27): each stage paid, part paid or open, the
+ * balance, and what of the payments due by the first day on site is still owing. A stage with no dollar amount (a
+ * range) counts as nothing. Within a cent counts as paid.
+ */
+export function planProgress(stages: { label: string; when: string; pay: PayHow; amount: number | null }[], total: number, paid: number): PlanProgress {
+  let left = round2(paid);
+  const out: StageProgress[] = stages.map((s) => {
+    const amount = round2(s.amount ?? 0);
+    const covers = round2(Math.max(0, Math.min(amount, left)));
+    left = round2(left - covers);
+    const state: StageProgress["state"] = amount - covers <= 0.01 ? "paid" : covers > 0 ? "part" : "open";
+    return { label: s.label, when: s.when, pay: s.pay, amount, paid: covers, state };
+  });
+  const dueBeforeFinal = round2(out.slice(0, -1).reduce((a, s) => a + s.amount, 0));
+  const balance = round2(total - paid);
+  const second = round2(dueBeforeFinal - paid);
+  return { stages: out, total: round2(total), paid: round2(paid), balance: balance <= 0.01 ? 0 : balance, dueBeforeFinal, secondOwing: second <= 0.01 ? 0 : second };
+}

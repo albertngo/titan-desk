@@ -1534,6 +1534,30 @@ the behaviour it describes.** New bullets go here, with a line in the index.
     apart), Follow up, Accepted this month (Accepted At in this Toronto month on an Accepted or Won version, at its
     contract value) and Needs linking. Over every quote whatever the search; the three with a filter behind them are
     buttons that set it (`pulse()` in `pipeline.ts`). Tested in `tests/pipeline.test.ts`.
+- **Won, Complete and collecting (Albert, 2026-11-27; vault `05_decisions/2026-11-27-quote-complete-filter-and-final-payment`,
+  amended the same day by `-second-payment-from-start-date`, `-follow-the-payment-plan-and-mirror-ready-to-collect`,
+  `-show-invoice-or-cash` and `-complete-view-build-step-1`: "if the project is complete in notion we should have a column
+  where we can see the completed projects with an 'End Date in Notion'").** Step 1 of three, read only. All quotes gets a
+  **Complete** filter after Won: a won quote (PP number) whose Notion project's **Project End Date** is today or earlier
+  (Toronto); **Won** is now a won one not finished ("i agree with the won but not finished separation"); until Notion
+  answers, Won shows them all. The list reads each linked quote's Titan Projects row and its payments after it draws,
+  on **Refresh** in the strip, and when the tab comes back after five minutes (`src/app/actions/projects.ts` →
+  `listProjectStatuses()` in `src/lib/quotes/projects.ts`: rows through the Project Week integration,
+  `src/lib/notion/projectStatus.ts`, one query of projects made since 30 days before the oldest linked quote; payments
+  through the payments reader, `paymentsByProject()`, received since 60 days before it). On Won and Complete each row has
+  the project's line under it (`ProjectLine` in `src/components/ProjectBits.tsx`): started or ended, on Complete the Final
+  Walkthrough (None reads "Not needed") and the work orders (open = anything but Done or Dropped), the contract, paid and
+  left (Complete) or due now (Won). **Ready to collect** is Notion's own Ready to Collect formula, read as it is and never
+  worked out again ("make the app mirror so it doesnt go out of sync"; ready when its text says ready, else its text is
+  shown, `readyToCollect()`); Complete is grouped Ready to collect, Not ready to collect, Paid in full. **Second payment
+  due** (a chip on any view, and the first section of Won): on site since the Confirmed Start Date, not finished, and paid
+  below every stage of the contract's plan but the final one ("second payment happens on the start of the first day").
+  Amounts follow the contract's own payment plan (`planProgress()` in `calc.ts`: payments fill the stages in order,
+  within a cent is paid); the **i** button opens it (`PlanPopover`), each stage paid, part paid or open, and the payments
+  received. A project won outside the app (no contract here) follows Notion's Value Approx with no stages. **Invoice /
+  Cash** is Notion's Type of Deal, a plain grey tag beside the name ("less colorful"; "dont merge it under the name").
+  Steps 2 (request payment by email and text from the app) and 3 (a quick change order) are not built. Pure rules in
+  `src/lib/projects/status.ts`, tested in `tests/projects.test.ts`; pinned in `tests/boundary.test.ts`.
 - **Follow up (Albert, 2026-11-07; vault `05_decisions/2026-11-07-quote-follow-up-worklist`: "a place where we can
   'followup'… a brief or a suggested next step and somewhere to take action… lost / postponed [date]").** Step 1 of
   three (the page and its buttons; the Claude brief and sending from the app come later). `/follow-up`, in the top bar,

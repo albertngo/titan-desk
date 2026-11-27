@@ -3,6 +3,8 @@
  * a search over the customer. Pure, no I/O: load.ts reads Airtable, this shapes and filters it.
  */
 
+import type { PayHow } from "@/lib/pricing/schedule";
+
 export type VersionRow = {
   id: string;
   label: string | null;
@@ -63,6 +65,8 @@ export type QuoteHead = {
   description?: string | null;
   /** Quotes → Contract's total with HST, when the quote has a contract (2026-11-07, the Value column). */
   contractTotal?: number | null;
+  /** The contract's payment plan, in dollars (2026-11-27, the Won and Complete views): each stage's label, when, how and amount. */
+  contractStages?: { label: string; when: string; pay: PayHow; amount: number | null }[];
 };
 
 /** The longest Quote Description kept: a label for the list, not the project notes. */
@@ -189,15 +193,18 @@ export const QUOTE_FILTERS = [
   { key: "sent", label: "Sent" },
   { key: "accepted", label: "Accepted" },
   { key: "won", label: "Won" },
+  { key: "complete", label: "Complete" },
 ] as const;
 export type QuoteFilter = (typeof QUOTE_FILTERS)[number]["key"];
 
 /**
  * Which quick filter a quote falls under. Drafts and Sent go by its newest version. Since 2026-10-27
  * Accepted is a quote the customer said yes to whose Notion project has no PP number yet, and Won one
- * that has it; a change sent after the yes keeps the quote under those, not under Sent.
+ * that has it; a change sent after the yes keeps the quote under those, not under Sent. Since 2026-11-27
+ * Won is a won project not finished yet and Complete one whose Notion Project End Date is today or earlier
+ * (`finished`, worked out by the caller from the Notion project); until Notion has answered, Won shows them all.
  */
-export function inFilter(g: QuoteGroup, f: QuoteFilter, now: Date = new Date()): boolean {
+export function inFilter(g: QuoteGroup, f: QuoteFilter, now: Date = new Date(), finished = false): boolean {
   const s = g.versions[0]?.status ?? null;
   const accepted = g.versions.some((v) => v.status === "Accepted" || v.status === "Won");
   switch (f) {
@@ -214,7 +221,9 @@ export function inFilter(g: QuoteGroup, f: QuoteFilter, now: Date = new Date()):
     case "accepted":
       return accepted && !g.projectNumber;
     case "won":
-      return Boolean(g.projectNumber);
+      return Boolean(g.projectNumber) && !finished;
+    case "complete":
+      return Boolean(g.projectNumber) && finished;
   }
 }
 

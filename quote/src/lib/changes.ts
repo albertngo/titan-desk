@@ -22,6 +22,17 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-27",
+    kind: "new",
+    title: "Complete: finished projects, and what is left to collect",
+    details: [
+      "All quotes has a Complete filter after Won: projects whose Notion Project End Date has come. Won now shows only projects not finished yet.",
+      "On Won and Complete each row shows its Notion project under it: start or end date, the walkthrough and work orders, the contract, what has been paid and what is left. Complete is grouped into Ready to collect, Not ready to collect and Paid in full, read from Notion's own Ready to Collect.",
+      "A won project on site whose second payment isn't in yet shows Second payment due. The i button opens the contract's payment plan with each stage and the payments received. Invoice or Cash, from Notion's Type of Deal, sits beside the name.",
+      "It reads Notion live each time the page opens, when you come back to the tab, and on Refresh in the strip. Nothing is sent from here yet.",
+    ],
+  },
+  {
+    date: "2026-11-27",
     kind: "fixed",
     title: "Floorings of one option stay one option everywhere",
     details: [

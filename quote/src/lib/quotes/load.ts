@@ -71,7 +71,10 @@ export async function listQuoteGroups(): Promise<QuoteGroup[]> {
         linkStatus: str(q.fields[QUOTE.linkStatus]),
         addressStatus: str(q.fields[QUOTE.addressStatus]),
         description: str(q.fields[QUOTE.description]),
-        contractTotal: parseContract(str(q.fields[QUOTE.contract]))?.totals.total ?? null,
+        ...(() => {
+          const c = parseContract(str(q.fields[QUOTE.contract]));
+          return { contractTotal: c?.totals.total ?? null, contractStages: (c?.stages ?? []).map((st) => ({ label: st.label, when: st.when, pay: st.pay, amount: st.amount })) };
+        })(),
         // Given by text or on a call (2026-11-13), after the app's last send: the row's "Sent by text" chip.
         outside: (() => {
           const off = parseState(str(q.fields[QUOTE.followUp])).offChannel;
