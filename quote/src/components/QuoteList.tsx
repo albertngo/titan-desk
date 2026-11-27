@@ -9,6 +9,9 @@ import { money, pulse, valueWords } from "@/lib/quotes/pipeline";
 import { quoteAppointmentsAction } from "@/app/actions/appointments";
 import { APPT_FILTERS, apptWords, inApptFilter, type ApptFilter } from "@/lib/quotes/appts";
 import type { QuoteApptsResult } from "@/lib/quotes/appointments";
+import { projectStatusesAction } from "@/app/actions/projects";
+import { collectGroup, COLLECT_GROUPS, isFinished, projectPlan, secondPaymentDue, type ProjectsResult, type ProjectStatus } from "@/lib/projects/status";
+import { CollectStrip, DealTag, ProjectLine } from "./ProjectBits";
 import { DraftHistory, useSendHistory, VersionHistory } from "./QuoteHistory";
 
 const dateOf = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Toronto", month: "short", day: "numeric", year: "numeric" });
@@ -297,15 +300,88 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
     };
   }, []);
   const apptOf = (g: QuoteGroup) => (appts?.ok && g.quoteRecordId ? appts.byQuote[g.quoteRecordId] : null);
+
+  /**
+   * Won and finished projects (Albert, 2026-11-27): each linked quote's Notion project and its payments, read once the
+   * list has drawn, again on Refresh, and again when the tab comes back after five minutes or more. Live every time.
+   */
+  const [projects, setProjects] = useState<ProjectsResult | null>(null);
+  const [projBusy, setProjBusy] = useState(false);
+  const [projAt, setProjAt] = useState<Date | null>(null);
+  const fetchProjects = () =>
+    projectStatusesAction()
+      .then((r) => {
+        setProjects(r);
+        setProjAt(new Date());
+      })
+      .catch(() => setProjects({ ok: false, message: "Notion projects couldn't be read. Try again in a moment." }))
+      .finally(() => setProjBusy(false));
+  const readProjects = () => {
+    setProjBusy(true);
+    void fetchProjects();
+  };
+  useEffect(() => {
+    void fetchProjects();
+  }, []);
+  useEffect(() => {
+    const onShow = () => {
+      if (document.visibilityState === "visible" && projAt && Date.now() - projAt.getTime() > 5 * 60_000) readProjects();
+    };
+    document.addEventListener("visibilitychange", onShow);
+    return () => document.removeEventListener("visibilitychange", onShow);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projAt]);
+  const today = projects?.ok ? projects.today : null;
+  const projOf = (g: QuoteGroup): ProjectStatus | null => (projects?.ok && g.quoteRecordId ? (projects.byQuote[g.quoteRecordId] ?? null) : null);
+  const finishedOf = (g: QuoteGroup) => (today ? isFinished(projOf(g), today) : false);
+  const planOf = (g: QuoteGroup) => {
+    const p = projOf(g);
+    return p ? projectPlan({ total: g.contractTotal ?? null, stages: g.contractStages ?? [] }, p) : null;
+  };
+  const secondDue = (g: QuoteGroup) => Boolean(today && g.projectNumber && secondPaymentDue(projOf(g), planOf(g), today));
   const inAppt = (g: QuoteGroup, f: ApptFilter) => f === "any" || (appts?.ok === true && inApptFilter(apptOf(g), f));
 
   const searched = useMemo(() => groups.filter((g) => matchesSearch(g, query)), [groups, query]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const counts = useMemo(() => Object.fromEntries(QUOTE_FILTERS.map((f) => [f.key, searched.filter((g) => inFilter(g, f.key, now) && inAppt(g, apptFilter)).length])), [searched, now, appts, apptFilter]);
+  const counts = useMemo(() => Object.fromEntries(QUOTE_FILTERS.map((f) => [f.key, searched.filter((g) => inFilter(g, f.key, now, finishedOf(g)) && inAppt(g, apptFilter)).length])), [searched, now, appts, apptFilter, projects]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const apptCounts = useMemo(() => Object.fromEntries(APPT_FILTERS.map((f) => [f.key, searched.filter((g) => inFilter(g, filter, now) && inAppt(g, f.key)).length])), [searched, now, appts, filter]);
+  const apptCounts = useMemo(() => Object.fromEntries(APPT_FILTERS.map((f) => [f.key, searched.filter((g) => inFilter(g, filter, now, finishedOf(g)) && inAppt(g, f.key)).length])), [searched, now, appts, filter, projects]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const shown = useMemo(() => sortGroups(searched.filter((g) => inFilter(g, filter, now) && inAppt(g, apptFilter)), sort), [searched, filter, sort, now, appts, apptFilter]);
+  const shown = useMemo(() => sortGroups(searched.filter((g) => inFilter(g, filter, now, finishedOf(g)) && inAppt(g, apptFilter)), sort), [searched, filter, sort, now, appts, apptFilter, projects]);
+  /** The Won and Complete views (2026-11-27): rows in sections, what to do next first. Every other view is one list. */
+  const projView = filter === "won" || filter === "complete" ? filter : null;
+  const sections = ((): { key: string; title: string | null; rule: string | null; rows: QuoteGroup[] }[] => {
+    if (!projView || !projects?.ok) return [{ key: "all", title: null, rule: null, rows: shown }];
+    if (projView === "won") {
+      const due = shown.filter(secondDue);
+      return [
+        { key: "second", title: "Ready for second payment", rule: "On site since the Confirmed Start Date; the contract's payment plan puts the second payment on day one, and it isn't in the Master Payments Log yet", rows: due },
+        { key: "rest", title: "Not started, or paid up to date", rule: "Nothing to chase yet", rows: shown.filter((g) => !due.includes(g)) },
+      ].filter((x) => x.rows.length > 0);
+    }
+    return COLLECT_GROUPS.map((c) => ({ key: c.key, title: c.title, rule: c.rule, rows: shown.filter((g) => {
+      const p = projOf(g);
+      return p ? collectGroup(p, planOf(g)) === c.key : c.key === "waiting";
+    }) })).filter((x) => x.rows.length > 0);
+  })();
+  const collect = (() => {
+    const won = searched.filter((g) => inFilter(g, "won", now, finishedOf(g)));
+    const done = searched.filter((g) => inFilter(g, "complete", now, finishedOf(g)));
+    const add = (gs: QuoteGroup[], pick: (g: QuoteGroup) => number | null | undefined) => ({ count: gs.length, sum: gs.reduce((a, g) => a + (pick(g) ?? 0), 0) });
+    const owing = done.filter((g) => (planOf(g)?.balance ?? 0) > 0);
+    const group = (k: string) => owing.filter((g) => collectGroup(projOf(g)!, planOf(g)) === k);
+    const week = today ? new Date(Date.parse(`${today}T12:00:00Z`) + 7 * 86_400_000).toISOString().slice(0, 10) : null;
+    return {
+      left: add(owing, (g) => planOf(g)?.balance),
+      ready: add(group("ready"), (g) => planOf(g)?.balance),
+      waiting: add(group("waiting"), (g) => planOf(g)?.balance),
+      second: add(won.filter(secondDue), (g) => planOf(g)?.secondOwing),
+      starting: week && today ? won.filter((g) => {
+        const s = projOf(g)?.start;
+        return Boolean(s && s > today && s <= week);
+      }).length : 0,
+    };
+  })();
   const keyOf = (g: QuoteGroup) => g.quoteRecordId ?? g.versions[0].id;
   const toggle = (k: string) =>
     setOpen((s) => {
@@ -324,6 +400,15 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
   return (
     <>
     {groups.length > 0 && <Pulse groups={groups} now={now} filter={filter} onFilter={setFilter} />}
+    {projView && (
+      <CollectStrip
+        view={projView}
+        {...collect}
+        busy={projBusy}
+        onRefresh={readProjects}
+        read={projects === null || (projBusy && !projAt) ? "Reading the Notion projects…" : !projects.ok ? projects.message : `Read ${projAt ? projAt.toLocaleTimeString("en-CA", { timeZone: "America/Toronto", hour: "numeric", minute: "2-digit" }) : ""}${projects.paymentsRead ? "" : ". Payments couldn't be read"}`}
+      />
+    )}
     <section className="card ql-card">
       <div className="ql-tools">
         <label className="ql-search">
@@ -415,11 +500,20 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
           ))}
         </div>
         <ul className="ql">
-          {shown.map((g) => {
+          {sections.map((sec) => [
+            sec.title ? (
+              <li key={`h-${sec.key}`} className="pj-sec">
+                <h2>{sec.title}</h2>
+                <span className="n">{sec.rows.length}</span>
+                {sec.rule && <span className="rule">{sec.rule}</span>}
+              </li>
+            ) : null,
+            ...sec.rows.map((g) => {
             const k = keyOf(g);
             const latest = g.versions[0];
             const expanded = open.has(k);
             const sub = [displayPhone(g.phone), g.siteCity].filter(Boolean).join(" · ");
+            const proj = g.projectNumber ? projOf(g) : null;
             return (
               <li key={k} className={`ql-q${expanded ? " open" : ""}`}>
                 <div className="ql-row">
@@ -435,7 +529,11 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
                   </button>
                   <span className="ql-av" aria-hidden>{initials(g.customerName)}</span>
                   <div className="ql-who">
-                    <Link className="cust" href={`/q/${latest.id}`}>{g.customerName ?? "No customer"}</Link>
+                    <span className="ql-name">
+                      <Link className="cust" href={`/q/${latest.id}`}>{g.customerName ?? "No customer"}</Link>
+                      {/* Invoice or Cash (2026-11-27): Notion's Type of Deal, beside the name, plain grey. */}
+                      {proj && <DealTag deal={proj.deal} />}
+                    </span>
                     {/* Quote Description (2026-11-03): tells apart several quotes for one customer at one address. */}
                     {g.description && <span className="ql-desc" title={g.description}>{g.description}</span>}
                     {sub && <span className="mt">{sub}</span>}
@@ -469,17 +567,22 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
                       );
                     })}
                     {g.outside && <span className="chip warn">{g.outside}</span>}
+                    {/* Ready for second payment (2026-11-27): on site, and the day-one payment isn't in yet. */}
+                    {secondDue(g) && <span className="chip accent">Second payment due</span>}
                     {g.linkStatus === "Needs linking" && <span className="chip bad">Needs linking</span>}
                     {g.addressStatus === "Unconfirmed" && <span className="chip warn">Address unconfirmed</span>}
                     {g.addressStatus === "No address" && <span className="chip warn">No address yet</span>}
                   </div>
                   <span className="ql-when" title={dateOf(g.latestAt)}>{ago(g.latestAt, now)}</span>
                 </div>
+                {/* Won and finished projects (2026-11-27): the Notion project's line under the row. */}
+                {projView && proj && today && g.projectNumber && <ProjectLine id={k} p={proj} plan={planOf(g)} today={today} name={g.customerName ?? "this project"} view={projView} />}
                 {/* Each version's history right under its line (Albert, 2026-11-20), read when the row is opened. */}
                 {expanded && <Versions id={`v-${k}`} versions={g.versions} latestId={latest.id} quoteRecordId={g.quoteRecordId} now={now} />}
               </li>
             );
-          })}
+          }),
+          ])}
         </ul>
         </>
       )}

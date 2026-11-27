@@ -88,7 +88,7 @@ describe("Airtable boundary", () => {
   });
 
   it("keeps the client, the loaders and the auth check server-only", () => {
-    for (const rel of [CLIENT, GHL, "lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/describe.ts", "lib/quotes/customer.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/activity/relay.ts", "lib/quotes/acceptClient.ts", "lib/accept/record.ts", "lib/accept/accept.ts", "lib/accept/staff.ts", "lib/accept/live.ts", "lib/quotes/sitesheet.ts", "lib/anthropic/client.ts", "lib/quotes/billing.ts", "lib/notion/payments.ts", "lib/companycam/client.ts", "lib/quotes/companycam.ts", "lib/quotes/payouts.ts", "lib/quotes/followup.ts", "lib/quotes/past.ts", "lib/quotes/appointments.ts", "lib/quotes/jobFiles.ts", "lib/quotes/jobToken.ts", "lib/auth.ts"]) {
+    for (const rel of [CLIENT, GHL, "lib/quotes/load.ts", "lib/quotes/start.ts", "lib/quotes/save.ts", "lib/quotes/refresh.ts", "lib/quotes/records.ts", "lib/quotes/booking.ts", "lib/quotes/link.ts", "lib/quotes/send.ts", "lib/quotes/rooms.ts", "lib/quotes/describe.ts", "lib/quotes/customer.ts", "lib/quotes/conversation.ts", "lib/quotes/address.ts", "lib/quotes/activity.ts", "lib/activity/relay.ts", "lib/quotes/acceptClient.ts", "lib/accept/record.ts", "lib/accept/accept.ts", "lib/accept/staff.ts", "lib/accept/live.ts", "lib/quotes/sitesheet.ts", "lib/anthropic/client.ts", "lib/quotes/billing.ts", "lib/notion/payments.ts", "lib/companycam/client.ts", "lib/quotes/companycam.ts", "lib/quotes/payouts.ts", "lib/quotes/followup.ts", "lib/quotes/past.ts", "lib/quotes/appointments.ts", "lib/quotes/projects.ts", "lib/notion/projectStatus.ts", "lib/quotes/jobFiles.ts", "lib/quotes/jobToken.ts", "lib/auth.ts"]) {
       expect(all.find((f) => f.rel === rel)!.text).toMatch(/^import "server-only";/m);
     }
   });
@@ -96,7 +96,7 @@ describe("Airtable boundary", () => {
   it("never imports Airtable code into a browser component", () => {
     const leaks = all
       .filter((f) => /^["']use client["'];?/m.test(f.text))
-      .filter((f) => /^import (?!type )[^;]*from ["']@\/lib\/(airtable|quotes\/load|quotes\/start|quotes\/save|quotes\/refresh|quotes\/records|quotes\/booking|quotes\/link|quotes\/send|quotes\/rooms|quotes\/customer|quotes\/conversation|quotes\/address|quotes\/activity|activity\/relay|quotes\/acceptClient|accept\/record|accept\/accept|accept\/staff|accept\/live|quotes\/sitesheet|quotes\/payouts|quotes\/billing|quotes\/companycam|quotes\/past|quotes\/appointments|quotes\/jobFiles|quotes\/jobToken|companycam\/client|notion\/payments|anthropic\/client|ghl\/client|make\/client|auth)/m.test(f.text))
+      .filter((f) => /^import (?!type )[^;]*from ["']@\/lib\/(airtable|quotes\/load|quotes\/start|quotes\/save|quotes\/refresh|quotes\/records|quotes\/booking|quotes\/link|quotes\/send|quotes\/rooms|quotes\/customer|quotes\/conversation|quotes\/address|quotes\/activity|activity\/relay|quotes\/acceptClient|accept\/record|accept\/accept|accept\/staff|accept\/live|quotes\/sitesheet|quotes\/payouts|quotes\/billing|quotes\/companycam|quotes\/past|quotes\/appointments|quotes\/projects|notion\/projectStatus|quotes\/jobFiles|quotes\/jobToken|companycam\/client|notion\/payments|anthropic\/client|ghl\/client|make\/client|auth)/m.test(f.text))
       .map((f) => f.rel);
     expect(leaks).toEqual([]);
   });
@@ -526,8 +526,8 @@ describe("Notion payments (2026-10-30: read-only, for invoices and receipts)", (
     expect(text).not.toMatch(/\/pages|PATCH|DELETE/);
   });
 
-  it("is reached only from the invoice and receipt writer and, for a change's paid-so-far (2026-10-31), the sender", () => {
-    expect(all.filter((f) => /from ["']@\/lib\/notion\/payments["']/.test(f.text)).map((f) => f.rel).sort()).toEqual(["lib/quotes/billing.ts", "lib/quotes/send.ts"]);
+  it("is reached only from the invoice and receipt writer, the sender (a change's paid-so-far, 2026-10-31) and the Won and Complete views (2026-11-27)", () => {
+    expect(all.filter((f) => /from ["']@\/lib\/notion\/payments["']/.test(f.text)).map((f) => f.rel).sort()).toEqual(["lib/quotes/billing.ts", "lib/quotes/projects.ts", "lib/quotes/send.ts"]);
   });
 
   // TABLE[d.kind]: voiding the other kind's document when the contract's HST changed (2026-10-31), still Invoices / Receipts.
@@ -576,9 +576,20 @@ describe("Installer Project Week (2026-11-24: Project Costs lines and each insta
   });
 
   it("is reached only from the Project Costs writer and the Project Week run", () => {
-    expect(all.filter((f) => /from ["'](@\/lib\/notion\/|\.\/)payoutApi["']/.test(f.text)).map((f) => f.rel).sort()).toEqual(["lib/notion/projectCosts.ts", "lib/projectWeek/links.ts", "lib/projectWeek/log.ts", "lib/projectWeek/run.ts"]);
+    expect(all.filter((f) => /from ["'](@\/lib\/notion\/|\.\/)payoutApi["']/.test(f.text)).map((f) => f.rel).sort()).toEqual(["lib/notion/projectCosts.ts", "lib/notion/projectStatus.ts", "lib/projectWeek/links.ts", "lib/projectWeek/log.ts", "lib/projectWeek/run.ts"]);
     expect(all.filter((f) => /from ["']@\/lib\/notion\/projectCosts["']/.test(f.text)).map((f) => f.rel)).toEqual(["lib/quotes/payouts.ts"]);
     expect(all.filter((f) => /from ["']@\/lib\/projectWeek\/run["']/.test(f.text)).map((f) => f.rel).sort()).toEqual([ROUTE_FILE, "lib/quotes/payouts.ts"]);
+  });
+
+  it("the Won and Complete views (2026-11-27) only query Titan Projects, from one reader the list's loader alone imports", () => {
+    const text = code(all.find((f) => f.rel === "lib/notion/projectStatus.ts")!.text);
+    expect(text).toMatch(/^import "server-only";/m);
+    expect(text).not.toMatch(/notionPayout\(|appendBlocks|uploadJpeg|childrenOf/);
+    expect([...text.matchAll(/queryAll\(([^,]+)/g)].map((m) => m[1])).toEqual(["DS.titanProjects"]);
+    expect(all.filter((f) => /from ["']@\/lib\/notion\/projectStatus["']/.test(f.text)).map((f) => f.rel)).toEqual(["lib/quotes/projects.ts"]);
+    const loader = code(all.find((f) => f.rel === "lib/quotes/projects.ts")!.text);
+    expect(loader).toMatch(/await requireQuoter\(\);/);
+    expect(loader).not.toMatch(/createRecords?\(|updateRecords?\(|notionPayout|\bfetch\(/);
   });
 
   it("writes only lines it made: found by the card's mark, refused once paid", () => {

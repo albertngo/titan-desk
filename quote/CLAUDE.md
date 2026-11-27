@@ -103,6 +103,7 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
 - All quotes (2026-10-15).
 - Quote Description (Albert, 2026-11-03: "When we are quoting lets say; AMICA Stephen. It is ALWAYS at 200 Kenneth… But a different unit; o…
 - Value, Follow up and the strip on All quotes (Albert, 2026-11-07: "Build value, follow up filter and summary strip").
+- Won, Complete and collecting (Albert, 2026-11-27; vault `05_decisions/2026-11-27-quote-complete-filter-and-final-payment`): Complete after Won from the Notion end date, Ready to Collect mirrored, second payment due, the payment plan popout. Read only.
 - Follow up (Albert, 2026-11-07; vault `05_decisions/2026-11-07-quote-follow-up-worklist`: "a place where we can 'followup'… a brief or a s…
 - The follow-up score (Albert, 2026-11-09; vault `05_decisions/2026-11-07-quote-follow-up-worklist`, addendum 2026-11-09: "handle the preliminaries automatically; notify IF human intervention is best").
 - Follow up as a morning brief, the choice log and the note for the brief (Albert, 2026-11-22; vault `05_decisions/2026-11-22-follow-up-morning-brief`): one line and one button per person; every button logs suggested against done.
@@ -235,7 +236,8 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
 2f. **Notion payments are read in one file (2026-10-30):** `src/lib/notion/payments.ts`, `server-only`, the only reader
    of `QUOTE_NOTION_PAYMENTS_TOKEN` (a Notion internal integration with read content only, shared with the Master
    Payments Log alone, staff deployment only), one request (a query of that log), reached only from
-   `src/lib/quotes/billing.ts` and, since 2026-10-31, `src/lib/quotes/send.ts` (a change's paid so far). `src/lib/bug/notion.ts`
+   `src/lib/quotes/billing.ts`, since 2026-10-31 `src/lib/quotes/send.ts` (a change's paid so far) and since 2026-11-27
+   `src/lib/quotes/projects.ts` (the Won and Complete views, `paymentsByProject()`). `src/lib/bug/notion.ts`
    and `src/lib/notion/payoutApi.ts` (2f') are the only other files that talk to Notion.
 2f'. **Installer Project Week writes Notion through one file (Albert, 2026-11-24; vault
    `05_decisions/2026-11-24-installer-project-week-boards`):** `src/lib/notion/payoutApi.ts`, `server-only`, the only reader
@@ -243,7 +245,8 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
    Orders and the Contractor Boards page alone; staff deployment only), one request function that refuses any call
    outside `allowed()`: queries of those four data sources, reading pages and blocks, creating a page in Project Costs or
    under the boards page, updating a page, appending blocks, deleting a block, uploading a picture. Never a database or data
-   source changed, never a page moved. Reached only from `src/lib/notion/projectCosts.ts` (the only Project Costs writer:
+   source changed, never a page moved. Reached only from `src/lib/notion/projectStatus.ts` (since 2026-11-27, the Won and Complete views on All quotes: one
+   query of Titan Projects, never a write, imported only by `src/lib/quotes/projects.ts`), `src/lib/notion/projectCosts.ts` (the only Project Costs writer:
    only lines carrying its card mark, never once paid; called only from `src/lib/quotes/payouts.ts`) and
    `src/lib/projectWeek/run.ts` (deletes blocks only on an installer's page under the boards page; on a Titan Team row sets
    only Project Week Link, and since 2026-11-25 `src/lib/projectWeek/log.ts`, after a Send press, sets only Project Week

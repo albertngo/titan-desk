@@ -28,3 +28,9 @@ export function paymentOf(page: Page): Payment {
   };
 }
 
+
+/** The Notion projects a Master Payments Log row belongs to (its Projects relation, never Suggested Project), dashed. */
+export function paymentProjects(page: Page): string[] {
+  const rel = (page.properties ?? {}).Projects?.relation;
+  return Array.isArray(rel) ? rel.flatMap((r) => (typeof (r as { id?: unknown }).id === "string" ? [notionPageId((r as { id: string }).id)].filter((x): x is string => Boolean(x)) : [])) : [];
+}

@@ -1,6 +1,6 @@
 import "server-only";
 import type { Payment } from "@/lib/billing/doc";
-import { notionPageId, paymentOf, type Page } from "./rows";
+import { notionPageId, paymentOf, paymentProjects, type Page } from "./rows";
 
 /**
  * The payments on an invoice or receipt (Albert, 2026-10-30), read from Notion's Master Payments Log. The only
@@ -21,26 +21,43 @@ const token = () => process.env.QUOTE_NOTION_PAYMENTS_TOKEN?.trim() || null;
 /** Is reading payments set up on this deployment? */
 export const paymentsReaderOn = () => token() !== null;
 
-/** Every payment the log links to this project. Throws when Notion can't be read; the caller says so. */
-export async function projectPayments(projectUrl: string | null | undefined): Promise<Payment[]> {
+/** One query of the log, page by page (at most `pages` of 100). Throws when Notion can't be read. */
+async function queryLog(filter: object, pages: number): Promise<Page[]> {
   const t = token();
   if (!t) throw new Error("Reading payments isn't set up (QUOTE_NOTION_PAYMENTS_TOKEN).");
-  const pageId = notionPageId(projectUrl);
-  if (!pageId) throw new Error("This quote has no Notion project yet.");
-  const out: Payment[] = [];
+  const out: Page[] = [];
   let cursor: string | undefined;
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < pages; i++) {
     const res = await fetch(`${API}/data_sources/${PAYMENTS_LOG}/query`, {
       method: "POST",
       headers: { Authorization: `Bearer ${t}`, "Notion-Version": VERSION, "Content-Type": "application/json" },
-      body: JSON.stringify({ filter: { property: "Projects", relation: { contains: pageId } }, page_size: 100, ...(cursor ? { start_cursor: cursor } : {}) }),
+      body: JSON.stringify({ filter, page_size: 100, ...(cursor ? { start_cursor: cursor } : {}) }),
       cache: "no-store",
     });
     const json = (await res.json().catch(() => ({}))) as { results?: Page[]; has_more?: boolean; next_cursor?: string; message?: string };
     if (!res.ok) throw new Error(`Notion ${res.status}: ${json.message ?? "the payments couldn't be read"}`);
-    out.push(...(json.results ?? []).map(paymentOf));
+    out.push(...(json.results ?? []));
     if (!json.has_more || !json.next_cursor) break;
     cursor = json.next_cursor;
   }
+  return out;
+}
+
+/** Every payment the log links to this project. Throws when Notion can't be read; the caller says so. */
+export async function projectPayments(projectUrl: string | null | undefined): Promise<Payment[]> {
+  if (!token()) throw new Error("Reading payments isn't set up (QUOTE_NOTION_PAYMENTS_TOKEN).");
+  const pageId = notionPageId(projectUrl);
+  if (!pageId) throw new Error("This quote has no Notion project yet.");
+  return (await queryLog({ property: "Projects", relation: { contains: pageId } }, 10)).map(paymentOf);
+}
+
+/**
+ * Won and finished projects on All quotes (2026-11-27): every payment received on or after `since` (YYYY-MM-DD) that the
+ * log links to a project, by project page id. Same fields as an invoice reads; never the sender, message or notes.
+ */
+export async function paymentsByProject(since: string): Promise<Map<string, Payment[]>> {
+  const rows = await queryLog({ and: [{ property: "Projects", relation: { is_not_empty: true } }, { property: "Received Date", date: { on_or_after: since } }] }, 30);
+  const out = new Map<string, Payment[]>();
+  for (const r of rows) for (const id of paymentProjects(r)) out.set(id, [...(out.get(id) ?? []), paymentOf(r)]);
   return out;
 }
