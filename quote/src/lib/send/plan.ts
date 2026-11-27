@@ -1072,6 +1072,77 @@ export function billingEmailMessage(
   return { type: "Email", contactId: to.contactId, subject, html: frame(copy, subject, preheader, body), attachments: [to.pdfUrl], ...(from ? { emailFrom: from } : {}) };
 }
 
+/* ---------- payment requests (2026-11-27) ---------- */
+
+/**
+ * What a payment request says (Albert, 2026-11-27; vault 05_decisions/2026-11-27-quote-payment-request-buttons-and-auto-
+ * second). The wording is tentative: requests go to the sender's own contact, marked Test, until Settings' "Payment
+ * requests go to customers" is on. `due` is worked out on the server from the contract's plan and the payments.
+ */
+export type PaymentAsk = {
+  kind: "second" | "final";
+  /** What is asked for now. */
+  due: number;
+  total: number;
+  paid: number;
+  /** How the stage is paid (its Pay), for the how-to-pay sentence; null = e-transfer. */
+  pay: CopyStage["pay"];
+  /** The invoice or receipt, attached to the final request. */
+  doc: { title: "Invoice" | "Receipt"; number: string; pdfUrl: string } | null;
+  /** Marked Test, for whom it would have gone to. */
+  testFor: string | null;
+};
+
+const askLead = (ask: PaymentAsk) =>
+  ask.kind === "second"
+    ? `Your project is under way. As set out in your payment plan, your second payment of ${cad.format(ask.due)} is due now.`
+    : `Your project is complete. Thank you for choosing us! The balance of ${cad.format(ask.due)} is now due.`;
+
+export function paymentRequestEmailMessage(copy: CustomerCopy, ask: PaymentAsk, to: { contactId: string; firstName: string | null }, ctx: { etransfer: string }, sender: Sender | null = null, options: { emailFrom?: string | null } = {}): GhlMessage {
+  const hi = greetingName(to.firstName);
+  const noun = ask.kind === "second" ? "second payment" : "final payment";
+  const test = ask.testFor ? `[Test for ${ask.testFor}] ` : "";
+  const subject = `${test}Your ${noun} for ${copy.quoteNumber}, ${copy.company.name}`;
+  const preheader = `${cad.format(ask.due)} due now. Total ${cad.format(ask.total)}, paid so far ${cad.format(ask.paid)}.`;
+  const how = depositHow({ pay: ask.pay }, { etransfer: ctx.etransfer, quoteNumber: copy.quoteNumber, showroom: copy.company.address });
+  const cell = (t: string, right = false, strong = false) =>
+    `<td${right ? ' align="right"' : ""} style="padding:9px 0;border-bottom:1px solid ${C.hair};font-family:${SANS};font-size:15px;color:${strong ? C.ink : C.body};${strong ? "font-weight:600;" : ""}${right ? "white-space:nowrap;" : ""}">${t}</td>`;
+  const rows = [
+    `<tr>${cell("Project total")}${cell(cad.format(ask.total), true)}</tr>`,
+    `<tr>${cell("Paid so far")}${cell(cad.format(ask.paid), true)}</tr>`,
+    `<tr>${cell("Due now", false, true)}${cell(cad.format(ask.due), true, true)}</tr>`,
+  ].join("");
+  const signoff = sender?.firstName ? `${esc(sender.firstName)} &middot; ${esc(copy.company.name)}` : `The ${esc(copy.company.name)} team`;
+  const body =
+    row(
+      eyebrow(`${esc(copy.quoteNumber)} &middot; ${esc(noun)}`) +
+        `<h1 class="h1" style="margin:0 0 16px;font-family:${SERIF};font-weight:400;font-size:30px;line-height:1.2;color:${C.ink};">${hi ? `Hi ${esc(hi)}, your` : "Your"} ${esc(noun)} is due.</h1>` +
+        para(esc(askLead(ask))),
+      "40px 40px 16px",
+    ) +
+    row(
+      `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.wash};border-radius:18px;"><tr><td style="padding:8px;">` +
+        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.card};border:1px solid ${C.hair};border-radius:12px;"><tr><td style="padding:20px 24px;">` +
+        `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${rows}</table></td></tr></table></td></tr></table>`,
+      "0 40px 16px",
+    ) +
+    row(para(esc(how)), "8px 40px 4px") +
+    (ask.doc ? row(button(`Download your ${ask.doc.title.toLowerCase()}`, ask.doc.pdfUrl), "12px 40px 10px") : "") +
+    hairline("22px 40px 28px") +
+    row(para("Any questions, just reply to this email.", 15, C.body, "0 0 4px") + para(signoff, 14, C.muted, "0 0 36px"));
+  const from = "emailFrom" in options ? options.emailFrom : emailFromFor(sender, copy.company.email, true);
+  return { type: "Email", contactId: to.contactId, subject, html: frame(copy, subject, preheader, body), ...(ask.doc ? { attachments: [ask.doc.pdfUrl] } : {}), ...(from ? { emailFrom: from } : {}) };
+}
+
+export function paymentRequestSmsMessage(copy: CustomerCopy, ask: PaymentAsk, to: { contactId: string; firstName: string | null }, ctx: { etransfer: string }, sender: Sender | null = null): GhlMessage {
+  const hi = greetingName(to.firstName);
+  const whoFrom = sender?.firstName ? `it's ${sender.firstName} from ${copy.company.name}` : `it's ${copy.company.name}`;
+  const how = depositHow({ pay: ask.pay }, { etransfer: ctx.etransfer, quoteNumber: copy.quoteNumber, showroom: copy.company.address });
+  const doc = ask.doc ? `\n\nYour ${ask.doc.title.toLowerCase()}:\n${ask.doc.pdfUrl}` : "";
+  const test = ask.testFor ? `[Test for ${ask.testFor}] ` : "";
+  return { type: "SMS", contactId: to.contactId, message: gsmPlain(`${test}${hi ? `Hi ${hi}, ${whoFrom}.` : `Hi, ${whoFrom}.`} ${askLead(ask)} ${how}`) + doc };
+}
+
 /* ---------- the link ---------- */
 
 const TOKEN = /^[A-Za-z0-9]{32}$/;

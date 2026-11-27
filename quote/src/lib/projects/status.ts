@@ -1,6 +1,7 @@
 import { paidTotal, planProgress, type PlanProgress } from "@/lib/calc";
 import type { Payment } from "@/lib/billing/doc";
 import type { CopyStage } from "@/lib/send/copy";
+import type { PaymentRequest } from "./request";
 
 /**
  * Won and finished projects on All quotes (Albert, 2026-11-27; vault 05_decisions/2026-11-27-quote-complete-filter-
@@ -36,7 +37,17 @@ export type ProjectStatus = {
   payments: Payment[] | null;
 };
 
-export type ProjectsResult = { ok: true; byQuote: Record<string, ProjectStatus>; today: string; paymentsRead: boolean } | { ok: false; message: string };
+export type ProjectsResult =
+  | {
+      ok: true;
+      byQuote: Record<string, ProjectStatus>;
+      today: string;
+      paymentsRead: boolean;
+      /** Payment requests (2026-11-27): each quote's log, and whether requests go to customers or to the sender (test). */
+      requests: Record<string, PaymentRequest[]>;
+      requestsLive: boolean;
+    }
+  | { ok: false; message: string };
 
 type Prop = Record<string, unknown> | undefined;
 
@@ -149,14 +160,17 @@ export const secondPaymentDue = (p: ProjectStatus | null | undefined, plan: Plan
   Boolean(p && plan && hasStarted(p, today) && !isFinished(p, today) && plan.secondOwing > 0);
 
 /** Where a finished project sits on the Complete view: paid in full, ready to collect, or not ready yet. */
-export type CollectGroup = "ready" | "waiting" | "paid";
-export function collectGroup(p: ProjectStatus, plan: PlanProgress | null): CollectGroup {
+export type CollectGroup = "ready" | "requested" | "waiting" | "paid";
+/** `asked` (2026-11-27): the final payment was requested from the app (a test never counts). */
+export function collectGroup(p: ProjectStatus, plan: PlanProgress | null, asked = false): CollectGroup {
   if (plan && plan.balance === 0) return "paid";
+  if (asked) return "requested";
   return readyToCollect(p.ready) ? "ready" : "waiting";
 }
 
 export const COLLECT_GROUPS: { key: CollectGroup; title: string; rule: string }[] = [
   { key: "ready", title: "Ready to collect", rule: "Notion's Ready to Collect says it is ready, and there is a balance" },
+  { key: "requested", title: "Requested, not paid", rule: "The final payment was requested from the app; it leaves when the payment is in the Master Payments Log" },
   { key: "waiting", title: "Not ready to collect", rule: "Finished, but Notion's Ready to Collect still lists something open" },
   { key: "paid", title: "Paid in full", rule: "Nothing left on the contract" },
 ];

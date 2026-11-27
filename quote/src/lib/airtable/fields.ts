@@ -87,6 +87,8 @@ export const QUOTE = {
   rooms: "fldSzknHoePiGjWoU",
   /** 2026-11-07: the Follow up page's state, JSON written by the app only (src/lib/followup/plan.ts, src/lib/quotes/followup.ts). */
   followUp: "flde4OVCLXx5wCjH3",
+  /** Payment requests sent from All quotes (2026-11-27), a JSON list written only by src/lib/quotes/paymentRequest.ts. */
+  paymentRequests: "fldAnxTLq6ZwbHsii",
   /** 2026-10-28: photos of the stair site sheet, uploaded from the Site sheet tab. Attachments, app-written only. */
   siteSheetPhotos: "fldVyJRpAY5Mr8Obn",
   /** 2026-10-28: what was read from the site sheet and what staff checked, JSON (src/lib/sitesheet/sheet.ts). */

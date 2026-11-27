@@ -104,6 +104,7 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
 - Quote Description (Albert, 2026-11-03: "When we are quoting lets say; AMICA Stephen. It is ALWAYS at 200 Kenneth… But a different unit; o…
 - Value, Follow up and the strip on All quotes (Albert, 2026-11-07: "Build value, follow up filter and summary strip").
 - Won, Complete and collecting (Albert, 2026-11-27; vault `05_decisions/2026-11-27-quote-complete-filter-and-final-payment`): Complete after Won from the Notion end date, Ready to Collect mirrored, second payment due, the payment plan popout. Read only.
+- Request payment (Albert, 2026-11-27; vault `05_decisions/2026-11-27-quote-payment-request-buttons-and-auto-second`): 2nd and final payment requests from Won and Complete, email and text, test to the sender until Settings turns it on.
 - Follow up (Albert, 2026-11-07; vault `05_decisions/2026-11-07-quote-follow-up-worklist`: "a place where we can 'followup'… a brief or a s…
 - The follow-up score (Albert, 2026-11-09; vault `05_decisions/2026-11-07-quote-follow-up-worklist`, addendum 2026-11-09: "handle the preliminaries automatically; notify IF human intervention is best").
 - Follow up as a morning brief, the choice log and the note for the brief (Albert, 2026-11-22; vault `05_decisions/2026-11-22-follow-up-morning-brief`): one line and one button per person; every button logs suggested against done.
@@ -142,7 +143,8 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
    typecast; never an update, never a delete. Only `src/lib/quotes/customItems.ts` calls it. The boundary test pins
    all of this. **App Settings (Albert, 2026-11-10):** the Settings page's one table, in `WRITABLE_TABLES`, written only by
    `src/lib/settings/settings.ts` (`saveSetting()`, admins only, every change appended to the row's Log). It holds switches and
-   dials only; keys, tokens and webhook addresses stay in Vercel.
+   dials only; keys, tokens and webhook addresses stay in Vercel. **Payment requests (2026-11-27):** Quotes → Payment Requests
+   is written only by `src/lib/quotes/paymentRequest.ts`, which also writes one Edit Log line on the contract version.
 2a. **One file talks to GHL, and only reads:** `src/lib/ghl/client.ts`, `server-only`, GET
    only, the only reader of `QUOTE_GHL_TOKEN` (used for contacts.readonly, opportunities.readonly,
    conversations.readonly and conversations/message.readonly; since 2026-10-27 users.readonly, to tag
@@ -154,7 +156,8 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
    `src/lib/quotes/address.ts` (Address arrived: the contact's street only, never a site on the opportunity),
    `src/lib/quotes/activity.ts` (internal comments, and the one-off send notes as contact notes), `src/lib/projectWeek/run.ts` (Installer
    Project Week texts, 2f'), `src/lib/accept/record.ts` (acceptance: Won,
-   cancel, and the acceptance messages), `src/lib/quotes/billing.ts` (the invoice or receipt email) and `src/lib/quotes/followup.ts`
+   cancel, and the acceptance messages), `src/lib/quotes/billing.ts` (the invoice or receipt email), `src/lib/quotes/paymentRequest.ts` (a payment request's email
+   and text, 2026-11-27; to the sender's own GHL contact until Settings' "Payment requests go to customers" is on) and `src/lib/quotes/followup.ts`
    (Follow up's Lost, Postpone and comments; since 2026-11-09 a measured quote's follow-up text or email, see 2c''').
    **POS customers (Albert, 2026-11-23; vault `05_decisions/2026-11-23-quote-pos-customers`):** the same file alone
    reads `QUOTE_MAKE_POS_HOOK` / `QUOTE_MAKE_POS_KEY` and posts to a separate "Quote app → POS customers" scenario,
@@ -237,7 +240,8 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
    of `QUOTE_NOTION_PAYMENTS_TOKEN` (a Notion internal integration with read content only, shared with the Master
    Payments Log alone, staff deployment only), one request (a query of that log), reached only from
    `src/lib/quotes/billing.ts`, since 2026-10-31 `src/lib/quotes/send.ts` (a change's paid so far) and since 2026-11-27
-   `src/lib/quotes/projects.ts` (the Won and Complete views, `paymentsByProject()`). `src/lib/bug/notion.ts`
+   `src/lib/quotes/projects.ts` (the Won and Complete views, `paymentsByProject()`) and `src/lib/quotes/paymentRequest.ts`
+   (a payment request's amount, read the moment it is sent). `src/lib/bug/notion.ts`
    and `src/lib/notion/payoutApi.ts` (2f') are the only other files that talk to Notion.
 2f'. **Installer Project Week writes Notion through one file (Albert, 2026-11-24; vault
    `05_decisions/2026-11-24-installer-project-week-boards`):** `src/lib/notion/payoutApi.ts`, `server-only`, the only reader

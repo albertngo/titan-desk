@@ -1,6 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import type { PlanProgress } from "@/lib/calc";
+import { requestPaymentAction } from "@/app/actions/paymentRequest";
+import { lastAsked, REQUEST_WORDS, requestAmount, type PaymentRequest, type RequestKind } from "@/lib/projects/request";
 import { PAY_LABELS } from "@/lib/pricing/schedule";
 import { hasStarted, isFinished, readyToCollect, walkthroughWords, workOrderWords, type ProjectStatus } from "@/lib/projects/status";
 import { money as cad } from "@/lib/format";
@@ -96,11 +99,86 @@ export function PlanPopover({ id, plan, p, name }: { id: string; plan: PlanProgr
   );
 }
 
+
+const askedWords = (r: PaymentRequest | null) => (r ? `Asked ${dayWords(r.at.slice(0, 10))} by ${[r.email ? "email" : null, r.text ? "text" : null].filter(Boolean).join(" and ")}` : null);
+
+/**
+ * Request payment (Albert, 2026-11-27): the button on a Won row whose second payment is due, or a Complete row with a
+ * balance, and its card. The amount shown is the plan's; the server works it out again from the contract and today's
+ * payments before anything goes. While Settings' "Payment requests go to customers" is off, it goes to the sender's own
+ * GHL contact, marked Test.
+ */
+export function RequestPayment({ id, kind, versionId, plan, name, deal, requests, live, onDone }: { id: string; kind: RequestKind; versionId: string; plan: PlanProgress; name: string; deal: string | null; requests: PaymentRequest[]; live: boolean; onDone: () => void }) {
+  const w = REQUEST_WORDS[kind];
+  const [email, setEmail] = useState(true);
+  const [text, setText] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const due = requestAmount(kind, plan);
+  const asked = lastAsked(requests, kind);
+  const lastTest = [...requests].reverse().find((r) => r.kind === kind && r.test) ?? null;
+  const send = async () => {
+    setBusy(true);
+    setMsg(null);
+    const r = await requestPaymentAction(versionId, { kind, email, text }).catch(() => ({ ok: false as const, message: "The request couldn't be sent. Try again in a moment." }));
+    setBusy(false);
+    if (!r.ok) return setMsg({ ok: false, text: r.message });
+    setMsg({ ok: true, text: `${r.test ? "Test sent to you" : "Sent to the customer"} by ${r.sent.join(" and ")}: ${cad(r.amount)}.${r.warning ? ` ${r.warning}` : ""}` });
+    onDone();
+  };
+  return (
+    <>
+      <span className="pj-req">
+        <button type="button" className="btn small primary" popoverTarget={id}>
+          {w.button}
+        </button>
+        {asked ? <span className="faint">{askedWords(asked)}</span> : lastTest ? <span className="faint">Test sent {dayWords(lastTest.at.slice(0, 10))}</span> : null}
+      </span>
+      <div id={id} popover="auto" className="pj-pop pj-reqcard">
+        <div className="pj-pop-h">
+          <strong>{w.title}</strong>
+          <span>
+            {name}
+            {deal ? ` · ${deal}` : ""}
+          </span>
+          <button type="button" className="pj-x" popoverTarget={id} popoverTargetAction="hide" aria-label="Close">
+            ×
+          </button>
+        </div>
+        <div className="pj-req-body">
+          {!live && <p className="pj-test">Test: this goes to your own GHL contact, not the customer, so you can read it. Settings, Payment requests turns it on for customers.</p>}
+          <div className="pj-req-nums">
+            <span><span className="k">Contract</span>{cad(plan.total)}</span>
+            <span><span className="k">Paid</span>{cad(plan.paid)}</span>
+            <span className="due"><span className="k">{kind === "second" ? "Due now" : "Balance"}</span>{cad(due)}</span>
+          </div>
+          <p className="faint">
+            {kind === "final" ? "The invoice or receipt is refreshed with today's payments and attached. " : "Asks for every payment due by the first day on site that isn't in yet. "}
+            The amount is checked again against Notion before it goes.
+          </p>
+          <div className="pj-req-ch" role="group" aria-label="Send by">
+            <label><input type="checkbox" checked={email} onChange={(e) => setEmail(e.target.checked)} /> Email</label>
+            <label><input type="checkbox" checked={text} onChange={(e) => setText(e.target.checked)} /> Text, from your own number</label>
+          </div>
+          {asked && <p className="faint">{askedWords(asked)}.</p>}
+          {msg && <p className={msg.ok ? "pj-ok" : "pj-bad"} role="status">{msg.text}</p>}
+        </div>
+        <div className="pj-req-f">
+          <button type="button" className="btn" popoverTarget={id} popoverTargetAction="hide">Close</button>
+          <button type="button" className="btn primary" onClick={send} disabled={busy || due <= 0 || (!email && !text)}>
+            {busy ? "Sending…" : `${live ? "Send request" : "Send test"} · ${cad(due)}`}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 /**
  * The project's line under its row on the Won and Complete views: when it started or ended, the walkthrough and work
  * orders (Complete), the contract, paid and what is left or due now, Notion's Ready to Collect, and the plan.
  */
-export function ProjectLine({ id, p, plan, today, name, view }: { id: string; p: ProjectStatus; plan: PlanProgress | null; today: string; name: string; view: "won" | "complete" }) {
+export function ProjectLine({ id, p, plan, today, name, view, request }: { id: string; p: ProjectStatus; plan: PlanProgress | null; today: string; name: string; view: "won" | "complete"; request?: { kind: RequestKind; versionId: string; requests: PaymentRequest[]; live: boolean; onDone: () => void } | null }) {
   const wt = walkthroughWords(p.walkthrough);
   const wo = workOrderWords(p.workOrders);
   const ready = readyToCollect(p.ready);
@@ -146,6 +224,7 @@ export function ProjectLine({ id, p, plan, today, name, view }: { id: string; p:
           <PlanPopover id={`plan-${id}`} plan={plan} p={p} name={name} />
         </span>
       </span>
+      {request && plan && <RequestPayment id={`req-${id}`} kind={request.kind} versionId={request.versionId} plan={plan} name={name} deal={p.deal} requests={request.requests} live={request.live} onDone={request.onDone} />}
       {view === "complete" && (
         <span className={`pj-ready${ready ? " yes" : ""}`} title="Ready to Collect, from the Notion project">
           {ready ? "Ready to collect" : `Notion: ${p.ready ?? "Ready to Collect is blank"}`}
@@ -158,7 +237,7 @@ export function ProjectLine({ id, p, plan, today, name, view }: { id: string; p:
 export type CollectTotals = { count: number; sum: number };
 
 /** The strip over the Won and Complete views. */
-export function CollectStrip({ view, left, ready, waiting, second, starting, read, onRefresh, busy }: { view: "won" | "complete"; left: CollectTotals; ready: CollectTotals; waiting: CollectTotals; second: CollectTotals; starting: number; read: string; onRefresh: () => void; busy: boolean }) {
+export function CollectStrip({ view, left, ready, requested, waiting, second, starting, read, onRefresh, busy }: { view: "won" | "complete"; left: CollectTotals; ready: CollectTotals; requested: CollectTotals; waiting: CollectTotals; second: CollectTotals; starting: number; read: string; onRefresh: () => void; busy: boolean }) {
   const n = (c: CollectTotals) => (c.count ? `${c.count} · ${money(c.sum, true)}` : "0");
   return (
     <section className="qp pj-strip" aria-label={view === "won" ? "Won projects" : "Collecting"}>
@@ -173,6 +252,11 @@ export function CollectStrip({ view, left, ready, waiting, second, starting, rea
             <span className="k">Ready to collect</span>
             <span className="big">{n(ready)}</span>
             <span className="sub">as Notion&apos;s Ready to Collect says</span>
+          </div>
+          <div className="qp-t">
+            <span className="k">Requested, not paid</span>
+            <span className="big">{n(requested)}</span>
+            <span className="sub">final payment asked from the app</span>
           </div>
           <div className="qp-t warn">
             <span className="k">Not ready to collect</span>
