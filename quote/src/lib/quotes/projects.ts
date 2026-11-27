@@ -2,7 +2,7 @@ import "server-only";
 import { requireQuoter } from "@/lib/auth";
 import { listRecords } from "@/lib/airtable/client";
 import { QUOTE, T } from "@/lib/airtable/fields";
-import { paymentsByProject, paymentsReaderOn } from "@/lib/notion/payments";
+import { paymentsForProjects, paymentsReaderOn } from "@/lib/notion/payments";
 import { notionPageId } from "@/lib/notion/rows";
 import { projectRowsSince, projectStatusOn } from "@/lib/notion/projectStatus";
 import type { ProjectStatus, ProjectsResult } from "@/lib/projects/status";
@@ -16,8 +16,8 @@ import { torontoDay } from "./group";
  * final-payment): each linked quote's Notion project, read live every time the list asks (on open, on Refresh, and
  * when the tab comes back after a while), and its payments from the Master Payments Log. Read only, staff only.
  *
- * The read stays small: only projects made since 30 days before the oldest quote that has one, and payments received
- * since 60 days before that.
+ * The read stays small: only projects made since 30 days before the oldest quote that has one, and each of those
+ * projects' payments.
  */
 export async function listProjectStatuses(): Promise<ProjectsResult> {
   await requireQuoter();
@@ -36,10 +36,10 @@ export async function listProjectStatuses(): Promise<ProjectsResult> {
   if (linked.length === 0) return { ok: true, byQuote: {}, today, paymentsRead: paymentsReaderOn(), requests, requestsLive: conf.paymentRequestsLive };
   const oldest = linked.map((l) => l.created).sort()[0];
   const back = (days: number) => torontoDay(new Date(Date.parse(oldest) - days * 86_400_000));
-  const [rows, payments] = await Promise.all([
-    projectRowsSince(back(30)),
-    paymentsReaderOn() ? paymentsByProject(back(60)).catch((e) => (console.error("paymentsByProject", e), null)) : Promise.resolve(null),
-  ]);
+  const rows = await projectRowsSince(back(30));
+  // Each project's payments, asked by project as an invoice asks (2026-11-27: a single query read every project as $0 paid).
+  const pages = linked.map((l) => l.page).filter((p) => rows.has(p));
+  const payments = paymentsReaderOn() ? await paymentsForProjects(pages).catch((e) => (console.error("paymentsForProjects", e), null)) : null;
   const byQuote: Record<string, ProjectStatus> = {};
   for (const l of linked) {
     const row = rows.get(l.page);

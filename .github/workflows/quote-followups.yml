@@ -33,3 +33,19 @@ jobs:
             -H "Content-Type: application/json" \
             -H "x-quote-key: $QUOTE_FOLLOWUP_KEY" \
             -d '{}'
+      # Step 2b of the Won and Complete views (Albert, 2026-11-27): the automatic payment reminder, same key and hours.
+      # The app decides who is due (first day on site, once per project) and, until Settings' "Payment requests go to
+      # customers" is on, sends only to the office's own GHL contact, marked Test.
+      - name: Send due payment reminders
+        env:
+          QUOTE_STAFF_URL: ${{ secrets.QUOTE_STAFF_URL }}
+          QUOTE_FOLLOWUP_KEY: ${{ secrets.QUOTE_FOLLOWUP_KEY }}
+        run: |
+          if [ -z "$QUOTE_STAFF_URL" ] || [ -z "$QUOTE_FOLLOWUP_KEY" ]; then
+            echo "QUOTE_STAFF_URL or QUOTE_FOLLOWUP_KEY is not set; payment reminders are off."
+            exit 0
+          fi
+          curl -fsS --max-time 280 -X POST "${QUOTE_STAFF_URL%/}/api/followups/payments" \
+            -H "Content-Type: application/json" \
+            -H "x-quote-key: $QUOTE_FOLLOWUP_KEY" \
+            -d '{}'

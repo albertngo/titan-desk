@@ -116,3 +116,54 @@ describe("as the office, cc'ing the PM (Albert, 2026-11-27: \"default is office,
     expect(requestLogWhat(req({ as: "office", cc: "pm@example.com", amount: 300 }), money)).toBe("Final payment of $300.00 requested by email and text, as the office, cc pm@example.com");
   });
 });
+
+describe("the automatic reminder (Albert, 2026-11-27, step 2b)", () => {
+  const today = "2026-11-27";
+  const three = [stages[0], stages[1], stages[2]];
+  const two = [{ label: "Deposit", when: "", pay: "etransfer" as const, amount: 500 }, { label: "Final payment", when: "", pay: "etransfer" as const, amount: 500 }];
+  it("3+ installments: the second payment from the first day on site, one-day jobs included", async () => {
+    const { reminderFor } = await import("@/lib/projects/request");
+    expect(reminderFor({ start: today, end: today }, planProgress(three, 1000, 350), [], today, true)).toBe("second");
+    expect(reminderFor({ start: "2026-11-25", end: null }, planProgress(three, 1000, 350), [], today, true)).toBe("second");
+    expect(reminderFor({ start: "2026-11-28", end: null }, planProgress(three, 1000, 350), [], today, true)).toBeNull();
+    expect(reminderFor({ start: "2026-11-20", end: "2026-11-26" }, planProgress(three, 1000, 350), [], today, true)).toBeNull();
+    expect(reminderFor({ start: today, end: null }, planProgress(three, 1000, 700), [], today, true)).toBeNull();
+  });
+  it("2 installments: the final to have ready, once the deposit is in", async () => {
+    const { reminderFor } = await import("@/lib/projects/request");
+    expect(reminderFor({ start: today, end: today }, planProgress(two, 1000, 500), [], today, true)).toBe("ready");
+    expect(reminderFor({ start: today, end: today }, planProgress(two, 1000, 0), [], today, true)).toBeNull();
+    expect(reminderFor({ start: today, end: today }, planProgress(two, 1000, 1000), [], today, true)).toBeNull();
+    expect(reminderFor({ start: today, end: null }, planProgress([], 1000, 0), [], today, true)).toBeNull();
+  });
+  it("once per project: a live one after any live ask, a test one after its own test", async () => {
+    const { reminderFor } = await import("@/lib/projects/request");
+    const plan = planProgress(three, 1000, 350);
+    expect(reminderFor({ start: today, end: null }, plan, [req({ kind: "second" })], today, true)).toBeNull();
+    expect(reminderFor({ start: today, end: null }, plan, [req({ kind: "second", test: true })], today, true)).toBe("second");
+    expect(reminderFor({ start: today, end: null }, plan, [req({ kind: "second", test: true })], today, false)).toBe("second");
+    expect(reminderFor({ start: today, end: null }, plan, [req({ kind: "second", test: true, auto: true })], today, false)).toBeNull();
+  });
+  it("goes 9 am to 7 pm, Monday to Saturday, Toronto", async () => {
+    const { reminderWindow } = await import("@/lib/projects/request");
+    expect(reminderWindow(new Date("2026-11-27T14:30:00Z"))).toBe(true); // Friday 9:30 am
+    expect(reminderWindow(new Date("2026-11-27T13:30:00Z"))).toBe(false); // 8:30 am
+    expect(reminderWindow(new Date("2026-11-28T00:30:00Z"))).toBe(false); // Friday 7:30 pm
+    expect(reminderWindow(new Date("2026-11-29T15:00:00Z"))).toBe(false); // Sunday
+  });
+  it("the 2-installment reminder says it isn't due yet, and when we expect to finish", () => {
+    const copy = { quoteNumber: "Q-1000", company: { name: "Example Floors", email: "office@example.com", address: null } } as unknown as CustomerCopy;
+    const ask: PaymentAsk = { kind: "ready", due: 500, total: 1000, paid: 500, pay: "etransfer", doc: null, endsOn: "2026-11-28", testFor: null };
+    const s = paymentRequestSmsMessage(copy, ask, { contactId: "c1", firstName: "Jane" }, { etransfer: "pay@example.com" });
+    const text = s.type === "SMS" ? s.message : "";
+    expect(text).toContain("final payment of $500.00 will be due when we finish");
+    expect(text).toContain("Nothing is due today");
+    const e = paymentRequestEmailMessage(copy, ask, { contactId: "c1", firstName: "Jane" }, { etransfer: "pay@example.com" });
+    expect(e.type === "Email" && e.subject).toBe("Your final payment for Q-1000, Example Floors: due when we finish");
+    expect(e.type === "Email" && e.html).toContain("Due when we finish");
+  });
+  it("the history marks it automatic", () => {
+    expect(requestLogWhat(req({ kind: "ready", as: "office", auto: true, amount: 500 }), money)).toBe("Reminder to have the final payment of $500.00 ready, by email and text, as the office (automatic)");
+    expect(requestLogWhat(req({ kind: "second", as: "office", auto: true, test: true, amount: 350, text: false }), money)).toBe("Second payment of $350.00 requested by email, as the office (automatic) (test: sent to the office, not the customer)");
+  });
+});

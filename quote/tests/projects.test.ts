@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { paidTotal, planProgress } from "@/lib/calc";
 import { inFilter, QUOTE_FILTERS, type QuoteGroup } from "@/lib/quotes/group";
 import { collectGroup, formulaText, isFinished, projectPlan, projectRow, readyToCollect, rollupNames, secondPaymentDue, walkthroughWords, workOrderWords, type ProjectStatus } from "@/lib/projects/status";
-import { paymentProjects } from "@/lib/notion/rows";
 
 /** Won and finished projects on All quotes (Albert, 2026-11-27). Invented numbers only. */
 
@@ -64,10 +63,6 @@ describe("reading a Titan Projects row", () => {
     expect(formulaText({ formula: { type: "boolean", boolean: true } })).toBe("Ready");
     expect(formulaText(undefined)).toBeNull();
     expect(rollupNames({ rollup: { type: "number", number: 2 } })).toEqual([]);
-  });
-  it("a payment belongs to the projects in its Projects relation", () => {
-    expect(paymentProjects({ properties: { Projects: { relation: [{ id: "1b4596a4505f81ca00000000000000aa" }] } } })).toEqual(["1b4596a4-505f-81ca-0000-0000000000aa"]);
-    expect(paymentProjects({ properties: {} })).toEqual([]);
   });
 });
 

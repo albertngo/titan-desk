@@ -32,6 +32,7 @@ export const DEFS = [
   { key: "stairsRangeLowMargin", group: "Pricing: stairs", label: "Stairs range, low end at margin", help: "A preliminary's stairs priced step by step (not a Stair Profile) go as a range from the price at this margin up to the calculated price, never more than 20% under it. Profiles keep the usual range.", kind: "number", min: 0, max: 90, unit: "%" },
   { key: "stairsMarginFloor", group: "Pricing: stairs", label: "Stairs margin floor", help: "A stairs option priced under this margin shows a warning on its price card. It never stops a send.", kind: "number", min: 0, max: 90, unit: "%" },
   { key: "paymentRequestsLive", group: "Payment requests", label: "Payment requests go to customers", help: "Off: Request payment on All quotes sends the email and the text to your own GHL contact (found by your sign-in email), marked Test, so the wording can be read first. On: they go to the customer.", kind: "switch" },
+  { key: "autoPaymentReminders", group: "Payment requests", label: "Automatic payment reminders", help: "From the first day on site: the second payment on a plan of 3 or more installments, or on a 2-installment plan a reminder to have the final ready when the project finishes. Once per project, as the office, 9 am to 7 pm, Monday to Saturday. Follows the switch above: in test they go to the office's own GHL contact.", kind: "switch" },
   { key: "adminEmails", group: "Access", label: "Who sees Performance and Settings", help: "Comma-separated sign-in emails. They must also be allowed into the app.", kind: "emails" },
 ] as const satisfies readonly Def[];
 
@@ -59,6 +60,7 @@ export type Settings = {
   stairsRangeLowMargin: number;
   stairsMarginFloor: number;
   paymentRequestsLive: boolean;
+  autoPaymentReminders: boolean;
 };
 
 /** The settings that are lists of sign-in emails. */
@@ -93,6 +95,8 @@ export function defaults(env: Record<string, string | undefined>): Settings {
     stairsMarginFloor: 35,
     // Albert, 2026-11-27: "Test until I flip it" (vault 05_decisions/2026-11-27-quote-payment-requests-test-switch-and-field).
     paymentRequestsLive: false,
+    // Albert, 2026-11-27: "start step 2b auto reminder". On from the start; it reaches customers only once the switch above is on.
+    autoPaymentReminders: true,
   };
 }
 

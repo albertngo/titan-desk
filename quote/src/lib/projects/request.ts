@@ -15,6 +15,11 @@ import type { PlanProgress, StageProgress } from "@/lib/calc";
  */
 
 export type RequestKind = "second" | "final";
+/**
+ * What the log keeps: a request from a button, or (2026-11-27, step 2b) the automatic reminder. "ready" is the reminder on
+ * a two-installment plan: the final payment, to have ready when the project finishes, not due yet.
+ */
+export type LogKind = RequestKind | "ready";
 
 export const REQUEST_WORDS: Record<RequestKind, { button: string; title: string; noun: string }> = {
   second: { button: "Request 2nd payment", title: "Request second payment", noun: "second payment" },
@@ -30,15 +35,17 @@ export type PaymentRequest = {
   as: string | null;
   /** Who was cc'd: the project's PM (2026-11-27). */
   cc?: string | null;
-  kind: RequestKind;
+  kind: LogKind;
   amount: number;
+  /** Sent by the automatic reminder (2026-11-27), not a button. */
+  auto?: boolean;
   email: boolean;
   text: boolean;
   /** Sent to the sender's own contact while the switch was off: never counts as asking the customer. */
   test: boolean;
 };
 
-const KINDS: readonly RequestKind[] = ["second", "final"];
+const KINDS: readonly LogKind[] = ["second", "final", "ready"];
 /** The log keeps the newest this many; older ones are in the version history. */
 export const KEEP = 40;
 
@@ -50,8 +57,8 @@ export function parseRequests(raw: string | null | undefined): PaymentRequest[] 
     if (!Array.isArray(list)) return [];
     return list.flatMap((r): PaymentRequest[] => {
       const x = r as Partial<PaymentRequest>;
-      if (typeof x.at !== "string" || typeof x.by !== "string" || !KINDS.includes(x.kind as RequestKind) || typeof x.amount !== "number" || !Number.isFinite(x.amount)) return [];
-      return [{ at: x.at, by: x.by, as: typeof x.as === "string" ? x.as : null, ...(typeof x.cc === "string" ? { cc: x.cc } : {}), kind: x.kind as RequestKind, amount: x.amount, email: x.email === true, text: x.text === true, test: x.test === true }];
+      if (typeof x.at !== "string" || typeof x.by !== "string" || !KINDS.includes(x.kind as LogKind) || typeof x.amount !== "number" || !Number.isFinite(x.amount)) return [];
+      return [{ at: x.at, by: x.by, as: typeof x.as === "string" ? x.as : null, ...(typeof x.cc === "string" ? { cc: x.cc } : {}), kind: x.kind as LogKind, amount: x.amount, ...(x.auto === true ? { auto: true } : {}), email: x.email === true, text: x.text === true, test: x.test === true }];
     });
   } catch {
     return [];
@@ -92,12 +99,42 @@ export function requestProblem(kind: RequestKind, plan: PlanProgress | null, cha
 }
 
 /** The version history line: "Final payment of $450.00 requested by email and text", "(test, to themselves)". */
-export function requestLogWhat(r: Pick<PaymentRequest, "kind" | "amount" | "email" | "text" | "test" | "as" | "cc">, money: (n: number) => string): string {
+export function requestLogWhat(r: Pick<PaymentRequest, "kind" | "amount" | "email" | "text" | "test" | "as" | "cc" | "auto">, money: (n: number) => string): string {
   const how = [r.email ? "email" : null, r.text ? "text" : null].filter(Boolean).join(" and ");
-  const what = `${r.kind === "second" ? "Second" : "Final"} payment of ${money(r.amount)} requested by ${how}`;
+  const what = r.kind === "ready" ? `Reminder to have the final payment of ${money(r.amount)} ready, by ${how}` : `${r.kind === "second" ? "Second" : "Final"} payment of ${money(r.amount)} requested by ${how}`;
+  const by = r.auto ? " (automatic)" : "";
   const as = r.as === "office" ? ", as the office" : r.as ? `, as ${r.as}` : "";
-  return `${what}${as}${r.cc ? `, cc ${r.cc}` : ""}${r.test ? " (test: sent to themselves, not the customer)" : ""}`;
+  return `${what}${as}${r.cc ? `, cc ${r.cc}` : ""}${by}${r.test ? (r.auto ? " (test: sent to the office, not the customer)" : " (test: sent to themselves, not the customer)") : ""}`;
 }
 
 /** The sender a request starts on (Albert, 2026-11-27: "default is office, cc'd the PM. But able to select who to send it out as"). */
 export const OFFICE = "office";
+
+/**
+ * The automatic reminder (Albert, 2026-11-27; vault 05_decisions/2026-11-27-quote-payment-request-buttons-and-auto-
+ * second): "the second payment should be a reminder from office probably automatic", and it follows the payment plan,
+ * not the job's length ("send even the 2nd request even IF the job is 1 day. If there is only 2 payments; then we can
+ * STILL send the reminder for the second payment to be READY when the project finishes").
+ *
+ * From the first day on site (the Confirmed Start Date) until the day the project ends:
+ * - **3 installments or more:** the second-payment request, while what is due by the first day isn't all in.
+ * - **2 installments:** a reminder that the final payment will be due when the project finishes ("ready"), once the
+ *   deposit is in, so the message can truthfully say nothing is due today.
+ * Once per project: a live one is skipped when the customer was already asked for it (by a button or the reminder), a
+ * test one when the reminder already sent its test. A project won outside the app (no plan here) gets none.
+ */
+export function reminderFor(p: { start: string | null; end: string | null }, plan: PlanProgress | null, list: PaymentRequest[], today: string, live: boolean): "second" | "ready" | null {
+  if (!plan || !p.start || p.start > today) return null;
+  if (p.end && p.end < today) return null;
+  const already = (k: LogKind) => list.some((r) => r.kind === k && (live ? !r.test : r.test && r.auto === true));
+  if (plan.stages.length >= 3) return plan.secondOwing > 0 && !already("second") ? "second" : null;
+  if (plan.stages.length === 2) return plan.secondOwing === 0 && plan.balance > 0 && !already("ready") && !already("final") ? "ready" : null;
+  return null;
+}
+
+/** When the reminder may go (2026-11-27): Monday to Saturday, from 9 am to before 7 pm, Toronto time, as the app's follow-ups. */
+export function reminderWindow(now: Date): boolean {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", weekday: "short", hour: "numeric", hourCycle: "h23" }).formatToParts(now).map((x) => [x.type, x.value]));
+  const hour = Number(parts.hour);
+  return parts.weekday !== "Sun" && hour >= 9 && hour < 19;
+}
