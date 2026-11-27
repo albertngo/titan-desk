@@ -1558,6 +1558,32 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   Cash** is Notion's Type of Deal, a plain grey tag beside the name ("less colorful"; "dont merge it under the name").
   Steps 2 (request payment by email and text from the app) and 3 (a quick change order) are not built. Pure rules in
   `src/lib/projects/status.ts`, tested in `tests/projects.test.ts`; pinned in `tests/boundary.test.ts`.
+- **Request payment (Albert, 2026-11-27; vault `05_decisions/2026-11-27-quote-payment-request-buttons-and-auto-second`
+  and `-payment-requests-test-switch-and-field`: "Email custoemr from the app / message as well"; "buttons for both").**
+  Step 2 of the Won and Complete views. **Request 2nd payment** on a Won row whose second payment is due and whose
+  contract's plan has three installments or more; **Request final payment** on a Complete row with a balance
+  (`RequestPayment` in `src/components/ProjectBits.tsx`, the card shows contract, paid, due, and Email / Text boxes).
+  `requestPayment()` in `src/lib/quotes/paymentRequest.ts` (quoter-guarded; the server action is
+  `src/app/actions/paymentRequest.ts`) works the amount out again from the contract's stages and the payments read from
+  Notion that moment (`requestAmount()` in `src/lib/projects/request.ts`: second = every stage but the final still
+  owing, final = the balance); nothing the browser says about money is used. The final request refreshes the invoice or
+  receipt as Export does (`billingForRequest()` in `billing.ts`) and attaches it. **As the office by default, cc'ing the PM** (Albert, same day: "default is office, cc'd the PM. But able to select
+  who to send it out as"; vault `-payment-requests-from-office-cc-pm`): the card's Send as starts on Office, the
+  letterhead email (`officeEmail()` in `send.ts`; From "Titan Flooring <office>", then bare, `officeFromAttempts()`),
+  signed by the company, the text from the office's own GHL number (none: the text doesn't go, as for anyone); or anyone
+  the Send card offers (`paymentSendAsAction()`, `pickSender()`), from their own address and number. The email cc's the
+  project's PM (`emailCc`): the Titan Projects Project Manager matched to their Titan Team row's email (`pmFor()`, read
+  for the request by `projectPm()` in `src/lib/notion/projectStatus.ts`), never on a test (the test subject says who
+  would be cc'd) and not when the PM is the sender. Through Make's message route, which forwards the body verbatim (`paymentRequestEmailMessage()` /
+  `paymentRequestSmsMessage()` in `src/lib/send/plan.ts`; how to pay follows the stage's Pay, `depositHow()`).
+  **Test until Albert flips it:** Settings, Payment requests, "Payment requests go to customers" (`paymentRequestsLive`,
+  off by default). While off, both go to the sender's own GHL contact (exact match on their sign-in email), the subject
+  and the text start "[Test for <customer>]", and the request is logged as a test (never counts as asked). Each request
+  is kept on **Quotes → Payment Requests** (JSON, newest 40, written only here) with a line in the contract version's
+  history (`requestLogWhat()`). The list reads it: the row says "Asked <day> by email and text", Complete gets
+  **Requested, not paid** and Won **Second payment requested**; each leaves when Notion's payments clear it. Step 2b, the
+  automatic reminder (3+ installments: the second on the start day; 2 installments: the final to have ready), is not
+  built. Tested in `tests/paymentRequest.test.ts`; pinned in `tests/boundary.test.ts`.
 - **Follow up (Albert, 2026-11-07; vault `05_decisions/2026-11-07-quote-follow-up-worklist`: "a place where we can
   'followup'… a brief or a suggested next step and somewhere to take action… lost / postponed [date]").** Step 1 of
   three (the page and its buttons; the Claude brief and sending from the app come later). `/follow-up`, in the top bar,

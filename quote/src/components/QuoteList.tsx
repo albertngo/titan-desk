@@ -10,6 +10,7 @@ import { quoteAppointmentsAction } from "@/app/actions/appointments";
 import { APPT_FILTERS, apptWords, inApptFilter, type ApptFilter } from "@/lib/quotes/appts";
 import type { QuoteApptsResult } from "@/lib/quotes/appointments";
 import { projectStatusesAction } from "@/app/actions/projects";
+import { lastAsked } from "@/lib/projects/request";
 import { collectGroup, COLLECT_GROUPS, isFinished, projectPlan, secondPaymentDue, type ProjectsResult, type ProjectStatus } from "@/lib/projects/status";
 import { CollectStrip, DealTag, ProjectLine } from "./ProjectBits";
 import { DraftHistory, useSendHistory, VersionHistory } from "./QuoteHistory";
@@ -338,6 +339,15 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
     const p = projOf(g);
     return p ? projectPlan({ total: g.contractTotal ?? null, stages: g.contractStages ?? [] }, p) : null;
   };
+  const requestsOf = (g: QuoteGroup) => (projects?.ok && g.quoteRecordId ? (projects.requests[g.quoteRecordId] ?? []) : []);
+  const askedFinal = (g: QuoteGroup) => Boolean(lastAsked(requestsOf(g), "final"));
+  /** Request payment (2026-11-27): the second on a Won row that is due it, the final on a Complete row with a balance. */
+  const requestFor = (g: QuoteGroup) => {
+    if (!projects?.ok || !projView) return null;
+    const plan = planOf(g);
+    const kind = projView === "complete" ? (plan && plan.balance > 0 ? "final" : null) : secondDue(g) && (plan?.stages.length ?? 0) >= 3 ? "second" : null;
+    return kind ? { kind, versionId: g.versions[0].id, requests: requestsOf(g), live: projects.requestsLive, onDone: readProjects } as const : null;
+  };
   const secondDue = (g: QuoteGroup) => Boolean(today && g.projectNumber && secondPaymentDue(projOf(g), planOf(g), today));
   const inAppt = (g: QuoteGroup, f: ApptFilter) => f === "any" || (appts?.ok === true && inApptFilter(apptOf(g), f));
 
@@ -354,14 +364,16 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
     if (!projView || !projects?.ok) return [{ key: "all", title: null, rule: null, rows: shown }];
     if (projView === "won") {
       const due = shown.filter(secondDue);
+      const asked = due.filter((g) => Boolean(lastAsked(requestsOf(g), "second")));
       return [
-        { key: "second", title: "Ready for second payment", rule: "On site since the Confirmed Start Date; the contract's payment plan puts the second payment on day one, and it isn't in the Master Payments Log yet", rows: due },
+        { key: "second", title: "Ready for second payment", rule: "On site since the Confirmed Start Date; the contract's payment plan puts the second payment on day one, and it isn't in the Master Payments Log yet", rows: due.filter((g) => !asked.includes(g)) },
+        { key: "asked", title: "Second payment requested", rule: "Asked from the app; it leaves when the payment is in the Master Payments Log", rows: asked },
         { key: "rest", title: "Not started, or paid up to date", rule: "Nothing to chase yet", rows: shown.filter((g) => !due.includes(g)) },
       ].filter((x) => x.rows.length > 0);
     }
     return COLLECT_GROUPS.map((c) => ({ key: c.key, title: c.title, rule: c.rule, rows: shown.filter((g) => {
       const p = projOf(g);
-      return p ? collectGroup(p, planOf(g)) === c.key : c.key === "waiting";
+      return p ? collectGroup(p, planOf(g), askedFinal(g)) === c.key : c.key === "waiting";
     }) })).filter((x) => x.rows.length > 0);
   })();
   const collect = (() => {
@@ -369,11 +381,12 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
     const done = searched.filter((g) => inFilter(g, "complete", now, finishedOf(g)));
     const add = (gs: QuoteGroup[], pick: (g: QuoteGroup) => number | null | undefined) => ({ count: gs.length, sum: gs.reduce((a, g) => a + (pick(g) ?? 0), 0) });
     const owing = done.filter((g) => (planOf(g)?.balance ?? 0) > 0);
-    const group = (k: string) => owing.filter((g) => collectGroup(projOf(g)!, planOf(g)) === k);
+    const group = (k: string) => owing.filter((g) => collectGroup(projOf(g)!, planOf(g), askedFinal(g)) === k);
     const week = today ? new Date(Date.parse(`${today}T12:00:00Z`) + 7 * 86_400_000).toISOString().slice(0, 10) : null;
     return {
       left: add(owing, (g) => planOf(g)?.balance),
       ready: add(group("ready"), (g) => planOf(g)?.balance),
+      requested: add(group("requested"), (g) => planOf(g)?.balance),
       waiting: add(group("waiting"), (g) => planOf(g)?.balance),
       second: add(won.filter(secondDue), (g) => planOf(g)?.secondOwing),
       starting: week && today ? won.filter((g) => {
@@ -576,7 +589,7 @@ export function QuoteList({ groups }: { groups: QuoteGroup[] }) {
                   <span className="ql-when" title={dateOf(g.latestAt)}>{ago(g.latestAt, now)}</span>
                 </div>
                 {/* Won and finished projects (2026-11-27): the Notion project's line under the row. */}
-                {projView && proj && today && g.projectNumber && <ProjectLine id={k} p={proj} plan={planOf(g)} today={today} name={g.customerName ?? "this project"} view={projView} />}
+                {projView && proj && today && g.projectNumber && <ProjectLine id={k} p={proj} plan={planOf(g)} today={today} name={g.customerName ?? "this project"} view={projView} request={requestFor(g)} />}
                 {/* Each version's history right under its line (Albert, 2026-11-20), read when the row is opened. */}
                 {expanded && <Versions id={`v-${k}`} versions={g.versions} latestId={latest.id} quoteRecordId={g.quoteRecordId} now={now} />}
               </li>

@@ -242,6 +242,19 @@ async function exportDoc(versionId: string, who: string, did: "exported" | "emai
   return { snap, c, row, voided, warning };
 }
 
+/**
+ * A final payment request (2026-11-27): the project's document exported as Export does (issued the first time, refreshed
+ * with today's payments every time), for the request to attach. Called only from src/lib/quotes/paymentRequest.ts, which
+ * checked the quoter. Returns the document, or why not.
+ */
+export type RequestDoc = { title: "Invoice" | "Receipt"; number: string; file: string };
+export async function billingForRequest(versionId: string, who: string): Promise<RequestDoc | string> {
+  await requireQuoterPerson();
+  const r = await exportDoc(versionId, who, "exported", { showCredit: false });
+  if (typeof r === "string") return r;
+  return { title: kindTitle(r.snap.kind) as "Invoice" | "Receipt", number: r.snap.number, file: billingFile(r.snap.kind, r.snap.number) };
+}
+
 /** Export: issue the number the first time, refresh the payments every time. The PDF is then at /q/<id>/billing. */
 export async function issueBilling(versionId: string, choice: BillingChoice): Promise<BillingResult> {
   const person = await requireQuoterPerson();

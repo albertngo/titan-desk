@@ -23,6 +23,16 @@ export const CHANGES: Change[] = [
   {
     date: "2026-11-27",
     kind: "new",
+    title: "Request payment from All quotes (test first)",
+    details: [
+      "On Won, a project due its second payment has Request 2nd payment; on Complete, a project with a balance has Request final payment. The card shows the contract, what has been paid and what is due, and sends an email, a text or both. It goes as the office by default (the office email and the office's own number) and cc's the project's PM from Notion; Send as picks someone else. A final request attaches the invoice or receipt, refreshed with today's payments.",
+      "The amount is the contract's payment plan against the payments in Notion, checked again the moment you send. Requests show on the row (\"Asked Nov 25 by email and text\"), and Complete and Won get a Requested section.",
+      "For now every request is a test: it goes to your own GHL contact (the one with your sign-in email), marked Test, so the wording can be read. Settings, Payment requests turns it on for customers.",
+    ],
+  },
+  {
+    date: "2026-11-27",
+    kind: "new",
     title: "Complete: finished projects, and what is left to collect",
     details: [
       "All quotes has a Complete filter after Won: projects whose Notion Project End Date has come. Won now shows only projects not finished yet.",
