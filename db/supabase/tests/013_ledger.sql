@@ -26,6 +26,15 @@ select is(
 select ok(not (select rolcanlogin from pg_roles where rolname = 'ledger_writer'),
   'ledger_writer created NOLOGIN (password set by hand)');
 
+-- Test scaffolding, after the grant checks above and undone by the final rollback: let the
+-- writer role call pgTAP. `supabase test db` installs pgTAP in `extensions`, where
+-- ledger_writer (by design, migration 011) has no USAGE, so is()/ok() would not resolve
+-- once the role is switched. The schema is looked up, not hard-coded.
+do $$ begin
+  execute format('grant usage on schema %s to ledger_writer',
+    (select pronamespace::regnamespace from pg_proc where proname = 'plan' and pronargs = 1 limit 1));
+end $$;
+
 -- Write path as the writer role.
 set local role ledger_writer;
 

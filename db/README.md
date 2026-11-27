@@ -3,7 +3,9 @@
 Supabase project for titan-desk. Run the CLI from the repo root: `supabase --workdir db <cmd>`.
 Without the CLI/Docker, `db/scripts/local-pg.sh {start,reset,test}` applies the same migration
 and tests to a plain Postgres 16 (with `scripts/supabase_shim.sql` standing in for Supabase's
-roles/schemas and `scripts/pgtap_shim.sql` for the pgTAP subset the tests use).
+roles/schemas and `scripts/pgtap_shim.sql` for the pgTAP subset the tests use). pgTAP, real or
+shim, goes in `extensions` with Supabase's search_path, as in CI: a test that switches to a role
+without USAGE on `extensions` (e.g. `ledger_writer`) must grant it inside the test's transaction.
 
 ## Schemas
 

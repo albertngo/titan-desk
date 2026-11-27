@@ -43,11 +43,16 @@ start() {
 reset() {
   psql_admin -d postgres -c "drop database if exists \"$DBNAME\" with (force)" >/dev/null
   psql_admin -d postgres -c "create database \"$DBNAME\"" >/dev/null
+  # Supabase's search_path, so unqualified pgTAP calls resolve the way they do there.
+  psql_admin -d postgres -c "alter database \"$DBNAME\" set search_path = \"\$user\", public, extensions" >/dev/null
   psql_admin -d "$DBNAME" -q -f "$HERE/supabase_shim.sql"
+  # pgTAP goes in `extensions`, as `supabase test db` installs it: a role without USAGE on
+  # that schema cannot call is()/ok(), so a test that switches to such a role fails here
+  # the same way it fails in CI.
   if ! psql_admin -d "$DBNAME" -Atc "select 1 from pg_available_extensions where name='pgtap'" | grep -q 1; then
     psql_admin -d "$DBNAME" -q -f "$HERE/pgtap_shim.sql"
   else
-    psql_admin -d "$DBNAME" -q -c "create extension if not exists pgtap"
+    psql_admin -d "$DBNAME" -q -c "create extension if not exists pgtap with schema extensions"
   fi
   for m in "$DB_DIR"/supabase/migrations/*.sql; do
     echo "applying $(basename "$m")"
