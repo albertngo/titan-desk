@@ -8,7 +8,7 @@ import { paymentProjects } from "@/lib/notion/rows";
 
 const TODAY = "2026-11-27";
 const pay = (amount: number, date = "2026-11-01") => ({ date, amount, method: "e-Transfer", reference: null });
-const project = (over: Partial<ProjectStatus> = {}): ProjectStatus => ({ start: null, end: null, walkthrough: null, workOrders: [], ready: null, deal: "Invoice", valueApprox: null, payments: [], ...over });
+const project = (over: Partial<ProjectStatus> = {}): ProjectStatus => ({ start: null, end: null, walkthrough: null, workOrders: [], ready: null, deal: "Invoice", valueApprox: null, pm: null, payments: [], ...over });
 const stages = [
   { label: "Deposit", when: "On acceptance", pay: "etransfer" as const, amount: 350 },
   { label: "Second payment", when: "First day on site", pay: "etransfer" as const, amount: 350 },
@@ -55,6 +55,7 @@ describe("reading a Titan Projects row", () => {
   it("takes the dates, statuses, formula text and deal as Notion has them", () => {
     expect(projectRow(page)).toEqual({
       id: "1b4596a4-505f-81ca-0000-0000000000aa",
+      pmIds: [],
       status: { start: "2026-11-20", end: "2026-11-24", walkthrough: "Completed", workOrders: ["Done", "Notified Contractor"], ready: "Ready to collect", deal: "Cash", valueApprox: 1234.5 },
     });
   });

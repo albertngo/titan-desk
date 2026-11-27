@@ -52,7 +52,7 @@ describe("the log on Quotes → Payment Requests", () => {
     expect(requestLogWhat(req({ kind: "second", text: false, test: true, amount: 350 }), money)).toBe("Second payment of $350.00 requested by email (test: sent to themselves, not the customer)");
   });
   it("a finished project asked for its final payment sits under Requested, until it is paid", () => {
-    const p: ProjectStatus = { start: null, end: "2026-11-20", walkthrough: "Completed", workOrders: [], ready: "Ready to collect", deal: "Invoice", valueApprox: null, payments: [] };
+    const p: ProjectStatus = { start: null, end: "2026-11-20", walkthrough: "Completed", workOrders: [], ready: "Ready to collect", deal: "Invoice", valueApprox: null, pm: null, payments: [] };
     expect(collectGroup(p, planProgress(stages, 1000, 700), true)).toBe("requested");
     expect(collectGroup(p, planProgress(stages, 1000, 1000), true)).toBe("paid");
   });
@@ -87,5 +87,32 @@ describe("the email and the text", () => {
     const e = paymentRequestEmailMessage(copy, ask({ pay: "onsite" }), to, { etransfer: "pay@example.com" });
     expect(e.type === "Email" && e.attachments).toBeFalsy();
     expect(e.type === "Email" && e.html).toContain("Hand it to your project manager on site.");
+  });
+});
+
+describe("as the office, cc'ing the PM (Albert, 2026-11-27: \"default is office, cc'd the PM\")", () => {
+  it("the office sends as the company, named then bare, and only from a real address", async () => {
+    const { officeFromAttempts } = await import("@/lib/send/plan");
+    expect(officeFromAttempts("Office@Example.com")).toEqual(["Titan Flooring <office@example.com>", "office@example.com"]);
+    expect(officeFromAttempts(null)).toEqual([]);
+    expect(officeFromAttempts("not an email")).toEqual([]);
+  });
+  it("the email carries the PM in its cc, and nothing that isn't an email", () => {
+    const copy = { quoteNumber: "Q-1000", company: { name: "Example Floors", email: "office@example.com", address: null } } as unknown as CustomerCopy;
+    const ask: PaymentAsk = { kind: "final", due: 300, total: 1000, paid: 700, pay: "etransfer", doc: null, testFor: null };
+    const e = paymentRequestEmailMessage(copy, ask, { contactId: "c1", firstName: null }, { etransfer: "pay@example.com" }, null, { emailFrom: "office@example.com", cc: ["pm@example.com", "nope"] });
+    expect(e.type === "Email" && e.emailCc).toEqual(["pm@example.com"]);
+    const none = paymentRequestEmailMessage(copy, ask, { contactId: "c1", firstName: null }, { etransfer: "pay@example.com" });
+    expect(none.type === "Email" && "emailCc" in none).toBe(false);
+  });
+  it("the PM is the first Project Manager on the Titan Team with an email", async () => {
+    const { pmFor } = await import("@/lib/projects/status");
+    const team = [{ name: "Pat", email: "Pat@Example.com", userIds: ["u1"] }, { name: "Sam", email: null, userIds: ["u2"] }];
+    expect(pmFor(["u2", "u1"], team)).toEqual({ name: "Pat", email: "pat@example.com" });
+    expect(pmFor(["u2"], team)).toBeNull();
+    expect(pmFor([], team)).toBeNull();
+  });
+  it("the history says it went as the office and who was cc'd", () => {
+    expect(requestLogWhat(req({ as: "office", cc: "pm@example.com", amount: 300 }), money)).toBe("Final payment of $300.00 requested by email and text, as the office, cc pm@example.com");
   });
 });

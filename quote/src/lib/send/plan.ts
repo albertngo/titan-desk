@@ -163,7 +163,7 @@ export type GhlMessage =
    * carries the stamped accepted PDF and the Project Expectations it was accepted under; and since 2026-10-30
    * the invoice or receipt email, which carries that document.
    */
-  | { type: "Email"; contactId: string; subject: string; html: string; emailFrom?: string; attachments?: string[] }
+  | { type: "Email"; contactId: string; subject: string; html: string; emailFrom?: string; attachments?: string[]; emailCc?: string[] }
   /** `fromNumber` (2026-11-04): the sender's own GHL number; absent = the location's main number. */
   | { type: "SMS"; contactId: string; message: string; fromNumber?: string }
   /** A note on the customer's conversation that only staff see (2026-10-27, open tracking); `mentions` are GHL user ids. */
@@ -198,6 +198,13 @@ export function emailFromFor(sender: Sender | null, companyEmail: string | null,
  * everyone"). Never GHL's location default: empty means the person signed in can't be the sender, and
  * the email is not sent.
  */
+/** The office's From lines (payment requests, 2026-11-27: "default is office"): the company name and the letterhead email, then bare. */
+export function officeFromAttempts(officeEmail: string | null): string[] {
+  const address = (officeEmail ?? "").trim().toLowerCase();
+  if (!/^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(address)) return [];
+  return [`${COMPANY} <${address}>`, address];
+}
+
 export function fromAttempts(sender: Sender | null, companyEmail: string | null): string[] {
   return [...new Set([emailFromFor(sender, companyEmail, true), emailFromFor(sender, companyEmail, false)].filter((x): x is string => x !== null))];
 }
@@ -1089,7 +1096,7 @@ export type PaymentAsk = {
   pay: CopyStage["pay"];
   /** The invoice or receipt, attached to the final request. */
   doc: { title: "Invoice" | "Receipt"; number: string; pdfUrl: string } | null;
-  /** Marked Test, for whom it would have gone to. */
+  /** Marked Test, for whom it would have gone to (and who would have been cc'd). */
   testFor: string | null;
 };
 
@@ -1098,7 +1105,7 @@ const askLead = (ask: PaymentAsk) =>
     ? `Your project is under way. As set out in your payment plan, your second payment of ${cad.format(ask.due)} is due now.`
     : `Your project is complete. Thank you for choosing us! The balance of ${cad.format(ask.due)} is now due.`;
 
-export function paymentRequestEmailMessage(copy: CustomerCopy, ask: PaymentAsk, to: { contactId: string; firstName: string | null }, ctx: { etransfer: string }, sender: Sender | null = null, options: { emailFrom?: string | null } = {}): GhlMessage {
+export function paymentRequestEmailMessage(copy: CustomerCopy, ask: PaymentAsk, to: { contactId: string; firstName: string | null }, ctx: { etransfer: string }, sender: Sender | null = null, options: { emailFrom?: string | null; cc?: string[] } = {}): GhlMessage {
   const hi = greetingName(to.firstName);
   const noun = ask.kind === "second" ? "second payment" : "final payment";
   const test = ask.testFor ? `[Test for ${ask.testFor}] ` : "";
@@ -1131,7 +1138,8 @@ export function paymentRequestEmailMessage(copy: CustomerCopy, ask: PaymentAsk, 
     hairline("22px 40px 28px") +
     row(para("Any questions, just reply to this email.", 15, C.body, "0 0 4px") + para(signoff, 14, C.muted, "0 0 36px"));
   const from = "emailFrom" in options ? options.emailFrom : emailFromFor(sender, copy.company.email, true);
-  return { type: "Email", contactId: to.contactId, subject, html: frame(copy, subject, preheader, body), ...(ask.doc ? { attachments: [ask.doc.pdfUrl] } : {}), ...(from ? { emailFrom: from } : {}) };
+  const cc = (options.cc ?? []).filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+  return { type: "Email", contactId: to.contactId, subject, html: frame(copy, subject, preheader, body), ...(ask.doc ? { attachments: [ask.doc.pdfUrl] } : {}), ...(from ? { emailFrom: from } : {}), ...(cc.length ? { emailCc: cc } : {}) };
 }
 
 export function paymentRequestSmsMessage(copy: CustomerCopy, ask: PaymentAsk, to: { contactId: string; firstName: string | null }, ctx: { etransfer: string }, sender: Sender | null = null): GhlMessage {

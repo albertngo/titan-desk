@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import type { PlanProgress } from "@/lib/calc";
-import { requestPaymentAction } from "@/app/actions/paymentRequest";
-import { lastAsked, REQUEST_WORDS, requestAmount, type PaymentRequest, type RequestKind } from "@/lib/projects/request";
+import { paymentSendAsAction, requestPaymentAction, type PaymentSendAs } from "@/app/actions/paymentRequest";
+import { lastAsked, OFFICE, REQUEST_WORDS, requestAmount, type PaymentRequest, type RequestKind } from "@/lib/projects/request";
 import { PAY_LABELS } from "@/lib/pricing/schedule";
 import { hasStarted, isFinished, readyToCollect, walkthroughWords, workOrderWords, type ProjectStatus } from "@/lib/projects/status";
 import { money as cad } from "@/lib/format";
@@ -108,8 +108,14 @@ const askedWords = (r: PaymentRequest | null) => (r ? `Asked ${dayWords(r.at.sli
  * payments before anything goes. While Settings' "Payment requests go to customers" is off, it goes to the sender's own
  * GHL contact, marked Test.
  */
-export function RequestPayment({ id, kind, versionId, plan, name, deal, requests, live, onDone }: { id: string; kind: RequestKind; versionId: string; plan: PlanProgress; name: string; deal: string | null; requests: PaymentRequest[]; live: boolean; onDone: () => void }) {
+export function RequestPayment({ id, kind, versionId, plan, name, deal, pm, requests, live, onDone }: { id: string; kind: RequestKind; versionId: string; plan: PlanProgress; name: string; deal: string | null; pm: { name: string; email: string } | null; requests: PaymentRequest[]; live: boolean; onDone: () => void }) {
   const w = REQUEST_WORDS[kind];
+  // Who it goes out as (Albert, 2026-11-27: "default is office, cc'd the PM. But able to select who to send it out as").
+  const [asWho, setAsWho] = useState<string>(OFFICE);
+  const [senders, setSenders] = useState<PaymentSendAs | null>(null);
+  const loadSenders = () => {
+    if (!senders) paymentSendAsAction().then(setSenders).catch(() => setSenders({ office: null, people: [] }));
+  };
   const [email, setEmail] = useState(true);
   const [text, setText] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -120,7 +126,7 @@ export function RequestPayment({ id, kind, versionId, plan, name, deal, requests
   const send = async () => {
     setBusy(true);
     setMsg(null);
-    const r = await requestPaymentAction(versionId, { kind, email, text }).catch(() => ({ ok: false as const, message: "The request couldn't be sent. Try again in a moment." }));
+    const r = await requestPaymentAction(versionId, { kind, email, text, as: asWho }).catch(() => ({ ok: false as const, message: "The request couldn't be sent. Try again in a moment." }));
     setBusy(false);
     if (!r.ok) return setMsg({ ok: false, text: r.message });
     setMsg({ ok: true, text: `${r.test ? "Test sent to you" : "Sent to the customer"} by ${r.sent.join(" and ")}: ${cad(r.amount)}.${r.warning ? ` ${r.warning}` : ""}` });
@@ -129,7 +135,7 @@ export function RequestPayment({ id, kind, versionId, plan, name, deal, requests
   return (
     <>
       <span className="pj-req">
-        <button type="button" className="btn small primary" popoverTarget={id}>
+        <button type="button" className="btn small primary" popoverTarget={id} onClick={loadSenders}>
           {w.button}
         </button>
         {asked ? <span className="faint">{askedWords(asked)}</span> : lastTest ? <span className="faint">Test sent {dayWords(lastTest.at.slice(0, 10))}</span> : null}
@@ -156,9 +162,21 @@ export function RequestPayment({ id, kind, versionId, plan, name, deal, requests
             {kind === "final" ? "The invoice or receipt is refreshed with today's payments and attached. " : "Asks for every payment due by the first day on site that isn't in yet. "}
             The amount is checked again against Notion before it goes.
           </p>
+          <label className="pj-req-as">
+            <span className="k">Send as</span>
+            <select value={asWho} onChange={(e) => setAsWho(e.target.value)}>
+              <option value={OFFICE}>Office{senders?.office ? ` (${senders.office})` : ""}</option>
+              {(senders?.people ?? []).map((p) => (
+                <option key={p.email} value={p.email}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="faint">{pm ? `CC ${pm.name} (${pm.email}), the project's PM${live ? "" : ", once requests go to customers"}.` : "No PM on the Notion project to cc."}</p>
           <div className="pj-req-ch" role="group" aria-label="Send by">
             <label><input type="checkbox" checked={email} onChange={(e) => setEmail(e.target.checked)} /> Email</label>
-            <label><input type="checkbox" checked={text} onChange={(e) => setText(e.target.checked)} /> Text, from your own number</label>
+            <label><input type="checkbox" checked={text} onChange={(e) => setText(e.target.checked)} /> Text, from {asWho === OFFICE ? "the office's" : "their own"} number</label>
           </div>
           {asked && <p className="faint">{askedWords(asked)}.</p>}
           {msg && <p className={msg.ok ? "pj-ok" : "pj-bad"} role="status">{msg.text}</p>}
@@ -224,7 +242,7 @@ export function ProjectLine({ id, p, plan, today, name, view, request }: { id: s
           <PlanPopover id={`plan-${id}`} plan={plan} p={p} name={name} />
         </span>
       </span>
-      {request && plan && <RequestPayment id={`req-${id}`} kind={request.kind} versionId={request.versionId} plan={plan} name={name} deal={p.deal} requests={request.requests} live={request.live} onDone={request.onDone} />}
+      {request && plan && <RequestPayment id={`req-${id}`} kind={request.kind} versionId={request.versionId} plan={plan} name={name} deal={p.deal} pm={p.pm} requests={request.requests} live={request.live} onDone={request.onDone} />}
       {view === "complete" && (
         <span className={`pj-ready${ready ? " yes" : ""}`} title="Ready to Collect, from the Notion project">
           {ready ? "Ready to collect" : `Notion: ${p.ready ?? "Ready to Collect is blank"}`}

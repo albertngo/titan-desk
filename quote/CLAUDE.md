@@ -157,7 +157,8 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
    `src/lib/quotes/activity.ts` (internal comments, and the one-off send notes as contact notes), `src/lib/projectWeek/run.ts` (Installer
    Project Week texts, 2f'), `src/lib/accept/record.ts` (acceptance: Won,
    cancel, and the acceptance messages), `src/lib/quotes/billing.ts` (the invoice or receipt email), `src/lib/quotes/paymentRequest.ts` (a payment request's email
-   and text, 2026-11-27; to the sender's own GHL contact until Settings' "Payment requests go to customers" is on) and `src/lib/quotes/followup.ts`
+   and text, 2026-11-27: as the office by default, the PM cc'd; to the sender's own GHL contact until Settings' "Payment
+   requests go to customers" is on) and `src/lib/quotes/followup.ts`
    (Follow up's Lost, Postpone and comments; since 2026-11-09 a measured quote's follow-up text or email, see 2c''').
    **POS customers (Albert, 2026-11-23; vault `05_decisions/2026-11-23-quote-pos-customers`):** the same file alone
    reads `QUOTE_MAKE_POS_HOOK` / `QUOTE_MAKE_POS_KEY` and posts to a separate "Quote app → POS customers" scenario,
@@ -249,8 +250,9 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
    Orders and the Contractor Boards page alone; staff deployment only), one request function that refuses any call
    outside `allowed()`: queries of those four data sources, reading pages and blocks, creating a page in Project Costs or
    under the boards page, updating a page, appending blocks, deleting a block, uploading a picture. Never a database or data
-   source changed, never a page moved. Reached only from `src/lib/notion/projectStatus.ts` (since 2026-11-27, the Won and Complete views on All quotes: one
-   query of Titan Projects, never a write, imported only by `src/lib/quotes/projects.ts`), `src/lib/notion/projectCosts.ts` (the only Project Costs writer:
+   source changed, never a page moved. Reached only from `src/lib/notion/projectStatus.ts` (since 2026-11-27, the Won and Complete views on All quotes and
+   payment requests: queries of Titan Projects and Titan Team and one project page read for its PM, never a write,
+   imported only by `src/lib/quotes/projects.ts` and `src/lib/quotes/paymentRequest.ts`), `src/lib/notion/projectCosts.ts` (the only Project Costs writer:
    only lines carrying its card mark, never once paid; called only from `src/lib/quotes/payouts.ts`) and
    `src/lib/projectWeek/run.ts` (deletes blocks only on an installer's page under the boards page; on a Titan Team row sets
    only Project Week Link, and since 2026-11-25 `src/lib/projectWeek/log.ts`, after a Send press, sets only Project Week

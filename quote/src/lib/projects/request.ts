@@ -25,9 +25,11 @@ export const REQUEST_WORDS: Record<RequestKind, { button: string; title: string;
 export type PaymentRequest = {
   /** ISO time it went. */
   at: string;
-  /** Who pressed the button (sign-in email), and who it went out as when that was someone else. */
+  /** Who pressed the button (sign-in email), and who it went out as: "office" (the default, 2026-11-27) or a staff email; null = themselves. */
   by: string;
   as: string | null;
+  /** Who was cc'd: the project's PM (2026-11-27). */
+  cc?: string | null;
   kind: RequestKind;
   amount: number;
   email: boolean;
@@ -49,7 +51,7 @@ export function parseRequests(raw: string | null | undefined): PaymentRequest[] 
     return list.flatMap((r): PaymentRequest[] => {
       const x = r as Partial<PaymentRequest>;
       if (typeof x.at !== "string" || typeof x.by !== "string" || !KINDS.includes(x.kind as RequestKind) || typeof x.amount !== "number" || !Number.isFinite(x.amount)) return [];
-      return [{ at: x.at, by: x.by, as: typeof x.as === "string" ? x.as : null, kind: x.kind as RequestKind, amount: x.amount, email: x.email === true, text: x.text === true, test: x.test === true }];
+      return [{ at: x.at, by: x.by, as: typeof x.as === "string" ? x.as : null, ...(typeof x.cc === "string" ? { cc: x.cc } : {}), kind: x.kind as RequestKind, amount: x.amount, email: x.email === true, text: x.text === true, test: x.test === true }];
     });
   } catch {
     return [];
@@ -90,8 +92,12 @@ export function requestProblem(kind: RequestKind, plan: PlanProgress | null, cha
 }
 
 /** The version history line: "Final payment of $450.00 requested by email and text", "(test, to themselves)". */
-export function requestLogWhat(r: Pick<PaymentRequest, "kind" | "amount" | "email" | "text" | "test" | "as">, money: (n: number) => string): string {
+export function requestLogWhat(r: Pick<PaymentRequest, "kind" | "amount" | "email" | "text" | "test" | "as" | "cc">, money: (n: number) => string): string {
   const how = [r.email ? "email" : null, r.text ? "text" : null].filter(Boolean).join(" and ");
   const what = `${r.kind === "second" ? "Second" : "Final"} payment of ${money(r.amount)} requested by ${how}`;
-  return `${what}${r.as ? `, as ${r.as}` : ""}${r.test ? " (test: sent to themselves, not the customer)" : ""}`;
+  const as = r.as === "office" ? ", as the office" : r.as ? `, as ${r.as}` : "";
+  return `${what}${as}${r.cc ? `, cc ${r.cc}` : ""}${r.test ? " (test: sent to themselves, not the customer)" : ""}`;
 }
+
+/** The sender a request starts on (Albert, 2026-11-27: "default is office, cc'd the PM. But able to select who to send it out as"). */
+export const OFFICE = "office";

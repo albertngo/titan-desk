@@ -1567,8 +1567,14 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   `src/app/actions/paymentRequest.ts`) works the amount out again from the contract's stages and the payments read from
   Notion that moment (`requestAmount()` in `src/lib/projects/request.ts`: second = every stage but the final still
   owing, final = the balance); nothing the browser says about money is used. The final request refreshes the invoice or
-  receipt as Export does (`billingForRequest()` in `billing.ts`) and attaches it. Email from the sender (named, then bare,
-  as a quote goes), text from their own GHL number, through Make's message route (`paymentRequestEmailMessage()` /
+  receipt as Export does (`billingForRequest()` in `billing.ts`) and attaches it. **As the office by default, cc'ing the PM** (Albert, same day: "default is office, cc'd the PM. But able to select
+  who to send it out as"; vault `-payment-requests-from-office-cc-pm`): the card's Send as starts on Office, the
+  letterhead email (`officeEmail()` in `send.ts`; From "Titan Flooring <office>", then bare, `officeFromAttempts()`),
+  signed by the company, the text from the office's own GHL number (none: the text doesn't go, as for anyone); or anyone
+  the Send card offers (`paymentSendAsAction()`, `pickSender()`), from their own address and number. The email cc's the
+  project's PM (`emailCc`): the Titan Projects Project Manager matched to their Titan Team row's email (`pmFor()`, read
+  for the request by `projectPm()` in `src/lib/notion/projectStatus.ts`), never on a test (the test subject says who
+  would be cc'd) and not when the PM is the sender. Through Make's message route, which forwards the body verbatim (`paymentRequestEmailMessage()` /
   `paymentRequestSmsMessage()` in `src/lib/send/plan.ts`; how to pay follows the stage's Pay, `depositHow()`).
   **Test until Albert flips it:** Settings, Payment requests, "Payment requests go to customers" (`paymentRequestsLive`,
   off by default). While off, both go to the sender's own GHL contact (exact match on their sign-in email), the subject

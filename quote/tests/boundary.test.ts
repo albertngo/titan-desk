@@ -600,12 +600,13 @@ describe("Installer Project Week (2026-11-24: Project Costs lines and each insta
     expect(all.filter((f) => /from ["']@\/lib\/projectWeek\/run["']/.test(f.text)).map((f) => f.rel).sort()).toEqual([ROUTE_FILE, "lib/quotes/payouts.ts"]);
   });
 
-  it("the Won and Complete views (2026-11-27) only query Titan Projects, from one reader the list's loader alone imports", () => {
+  it("the Won and Complete views and payment requests (2026-11-27) only read: Titan Projects, Titan Team and one project page", () => {
     const text = code(all.find((f) => f.rel === "lib/notion/projectStatus.ts")!.text);
     expect(text).toMatch(/^import "server-only";/m);
-    expect(text).not.toMatch(/notionPayout\(|appendBlocks|uploadJpeg|childrenOf/);
-    expect([...text.matchAll(/queryAll\(([^,]+)/g)].map((m) => m[1])).toEqual(["DS.titanProjects"]);
-    expect(all.filter((f) => /from ["']@\/lib\/notion\/projectStatus["']/.test(f.text)).map((f) => f.rel)).toEqual(["lib/quotes/projects.ts"]);
+    expect(text).not.toMatch(/appendBlocks|uploadJpeg|childrenOf|"PATCH"|"DELETE"|"POST"/);
+    expect([...text.matchAll(/queryAll\(([^,]+)/g)].map((m) => m[1]).sort()).toEqual(["DS.titanProjects", "DS.titanTeam"]);
+    expect([...text.matchAll(/notionPayout\("(\w+)", `([^`]+)`/g)].map((m) => `${m[1]} ${m[2]}`)).toEqual(["GET /pages/${id}"]);
+    expect(all.filter((f) => /from ["']@\/lib\/notion\/projectStatus["']/.test(f.text)).map((f) => f.rel).sort()).toEqual(["lib/quotes/paymentRequest.ts", "lib/quotes/projects.ts"]);
     const loader = code(all.find((f) => f.rel === "lib/quotes/projects.ts")!.text);
     expect(loader).toMatch(/await requireQuoter\(\);/);
     expect(loader).not.toMatch(/createRecords?\(|updateRecords?\(|notionPayout|\bfetch\(/);

@@ -58,6 +58,9 @@ function customerBase(): string | null {
   return u && /^https:\/\/[^\s/]+/.test(u) ? u : null;
 }
 
+/** The office's address (payment requests, 2026-11-27: "default is office"): the letterhead email, or null when unset. */
+export const officeEmail = (): string | null => letterhead().email?.trim().toLowerCase() || null;
+
 /** The letterhead printed on every quote, from this deployment's settings (no real details live in the repo). */
 function letterhead(): Letterhead {
   const v = (k: string) => process.env[k]?.trim() || null;

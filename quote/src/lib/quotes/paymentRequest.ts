@@ -6,18 +6,19 @@ import { paidTotal, planProgress } from "@/lib/calc";
 import { locationUsers, searchContacts } from "@/lib/ghl/client";
 import { sendMessage } from "@/lib/make/client";
 import { paymentsReaderOn, projectPayments } from "@/lib/notion/payments";
-import { addRequest, requestAmount, requestLogWhat, requestProblem, stageFor, type PaymentRequest, type RequestKind } from "@/lib/projects/request";
+import { addRequest, OFFICE, requestAmount, requestLogWhat, requestProblem, stageFor, type PaymentRequest, type RequestKind } from "@/lib/projects/request";
 import { cleanPayments, contractCopy } from "@/lib/billing/doc";
 import { requireQuoterPerson } from "@/lib/auth";
 import { money } from "@/lib/format";
 import { settings } from "@/lib/settings/settings";
-import { customerLinks, fromAttempts, fromTheirNumber, isToken, noSenderWords, paymentRequestEmailMessage, paymentRequestSmsMessage, textFromFor, type PaymentAsk } from "@/lib/send/plan";
+import { customerLinks, fromAttempts, fromTheirNumber, isToken, noNumberWords, noSenderWords, officeFromAttempts, paymentRequestEmailMessage, paymentRequestSmsMessage, textFromFor, type PaymentAsk } from "@/lib/send/plan";
 import { billingForRequest } from "./billing";
 import { loadContract } from "./contract";
 import { authorFields, firstNameOf } from "./history";
 import { getQuote } from "./load";
 import { refreshFromGhl } from "./refresh";
-import { pickSender } from "./send";
+import { officeEmail, pickSender } from "./send";
+import { projectPm } from "@/lib/notion/projectStatus";
 import { str } from "./values";
 
 /**
@@ -33,6 +34,7 @@ import { str } from "./values";
  *   through billing.ts. Sends through Make's message route, the email from the sender, the text from their own number.
  */
 
+/** `as` (2026-11-27): "office" (the default) or the email of someone the person may send as. */
 export type RequestInput = { kind: RequestKind; email: boolean; text: boolean; as?: string | null };
 export type RequestResult = { ok: true; test: boolean; amount: number; sent: string[]; warning: string | null } | { ok: false; message: string };
 
@@ -40,9 +42,21 @@ export async function requestPayment(versionId: string, input: RequestInput): Pr
   const actor = await requireQuoterPerson();
   const kind: RequestKind = input.kind === "second" ? "second" : "final";
   const channels = { email: input.email === true, text: input.text === true };
-  const picked = await pickSender(input.as ?? null);
-  if (!picked.ok) return { ok: false, message: picked.message };
-  const sender = picked.sender;
+  // Who it goes out as (Albert, 2026-11-27: "default is office, cc'd the PM. But able to select who to send it out as").
+  const asOffice = !input.as || input.as === OFFICE;
+  let sender: { email: string; name: string | null };
+  let asWho: string | null;
+  if (asOffice) {
+    const office = officeEmail();
+    if (!office) return { ok: false, message: "The office email (QUOTE_COMPANY_EMAIL) isn't set for this deployment, so it can't go as the office. Pick a person instead." };
+    sender = { email: office, name: null };
+    asWho = OFFICE;
+  } else {
+    const picked = await pickSender(input.as);
+    if (!picked.ok) return { ok: false, message: picked.message };
+    sender = picked.sender;
+    asWho = picked.as ? sender.email : null;
+  }
   const etransfer = etransferEmail();
   if (!etransfer) return { ok: false, message: "The e-transfer address (QUOTE_ETRANSFER_EMAIL) isn't set for this deployment." };
   if (!paymentsReaderOn()) return { ok: false, message: "Reading payments from Notion isn't set up, so the amount isn't known." };
@@ -94,17 +108,22 @@ export async function requestPayment(versionId: string, input: RequestInput): Pr
     doc = { title: d.title, number: d.number, pdfUrl: customerLinks(base, fresh.customerToken, d.file).pdfUrl };
   }
 
+  // The project's PM, cc'd on the email (2026-11-27); not on a test, and not when they are the one sending.
+  const pm = await projectPm(link.notionProjectUrl).catch(() => null);
+  const cc = live && pm && pm.email !== sender.email.toLowerCase() && channels.email ? pm.email : null;
+
   const stage = stageFor(kind, plan);
-  const ask: PaymentAsk = { kind, due: amount, total: plan.total, paid: plan.paid, pay: stage?.pay ?? null, doc, testFor: live ? null : (link.displayName ?? ([link.firstName, link.lastName].filter(Boolean).join(" ") || link.quoteNumber || "the customer")) };
-  const from = { email: sender.email, firstName: firstNameOf(sender) };
+  const ask: PaymentAsk = { kind, due: amount, total: plan.total, paid: plan.paid, pay: stage?.pay ?? null, doc, testFor: live ? null : `${link.displayName ?? ([link.firstName, link.lastName].filter(Boolean).join(" ") || link.quoteNumber || "the customer")}${pm && channels.email ? `, would cc ${pm.name}` : ""}` };
+  // The office signs as the company; a person signs with their first name.
+  const from = { email: sender.email, firstName: asOffice ? null : firstNameOf(sender) };
   const sent: string[] = [];
   const failed: string[] = [];
   if (channels.email) {
-    const attempts = fromAttempts(from, copy.company.email);
+    const attempts = asOffice ? officeFromAttempts(sender.email) : fromAttempts(from, copy.company.email);
     let last: unknown = attempts.length ? null : new Error(noSenderWords(from.email));
     for (const emailFrom of attempts) {
       try {
-        await sendMessage(paymentRequestEmailMessage(copy, ask, to, { etransfer }, from, { emailFrom }));
+        await sendMessage(paymentRequestEmailMessage(copy, ask, to, { etransfer }, from, { emailFrom, cc: cc ? [cc] : [] }));
         last = null;
         break;
       } catch (e) {
@@ -116,7 +135,9 @@ export async function requestPayment(versionId: string, input: RequestInput): Pr
   }
   if (channels.text) {
     try {
+      // A text goes only from the sender's own GHL number, the office's included (2026-11-05); none means it doesn't go.
       const number = textFromFor(sender.email, await locationUsers().catch(() => []));
+      if (!number) throw new Error(noNumberWords(sender.email));
       await sendMessage(fromTheirNumber(paymentRequestSmsMessage(copy, ask, to, { etransfer }, from), number));
       sent.push("text");
     } catch (e) {
@@ -125,7 +146,7 @@ export async function requestPayment(versionId: string, input: RequestInput): Pr
   }
   if (sent.length === 0) return { ok: false, message: failed.join(" ") || "Nothing went." };
 
-  const r: PaymentRequest = { at: new Date().toISOString(), by: actor.email, as: picked.as ? sender.email : null, kind, amount, email: sent.includes("email"), text: sent.includes("text"), test: !live };
+  const r: PaymentRequest = { at: new Date().toISOString(), by: actor.email, as: asWho, cc, kind, amount, email: sent.includes("email"), text: sent.includes("text"), test: !live };
   const notes = [...failed];
   try {
     const q = (await listByIds(T.quotes, [link.quoteRecordId], [QUOTE.paymentRequests]))[0];

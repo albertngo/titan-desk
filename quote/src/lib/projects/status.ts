@@ -34,6 +34,8 @@ export type ProjectStatus = {
   deal: string | null;
   /** Value Approx: what Notion tracks the balance against, used only when the quote has no contract in the app. */
   valueApprox: number | null;
+  /** The Project Manager, by their Titan Team row (2026-11-27): cc'd on a payment request. Null when unset or not on the team. */
+  pm: { name: string; email: string } | null;
   payments: Payment[] | null;
 };
 
@@ -92,14 +94,26 @@ export const PROJECT_PROPS = {
   ready: "Ready to Collect",
   deal: "Type of Deal",
   valueApprox: "Value Approx",
+  pm: "Project Manager",
 } as const;
 
+/** The PM's name and email from their Titan Team row (matched by Notion user), else null. */
+export function pmFor(pmIds: string[], team: { userIds?: string[]; name: string; email?: string | null }[]): { name: string; email: string } | null {
+  for (const id of pmIds) {
+    const m = team.find((t) => (t.userIds ?? []).includes(id) && t.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t.email));
+    if (m) return { name: m.name, email: m.email!.trim().toLowerCase() };
+  }
+  return null;
+}
+
 /** One Titan Projects page: its id (dashed) and what the list shows. Payments come separately. */
-export function projectRow(page: { id: string; properties?: Record<string, Record<string, unknown>> }): { id: string; status: Omit<ProjectStatus, "payments"> } {
+export function projectRow(page: { id: string; properties?: Record<string, Record<string, unknown>> }): { id: string; pmIds: string[]; status: Omit<ProjectStatus, "payments" | "pm"> } {
   const p = page.properties ?? {};
   const value = p[PROJECT_PROPS.valueApprox]?.number;
+  const pm = p[PROJECT_PROPS.pm]?.people;
   return {
     id: dashed(page.id),
+    pmIds: Array.isArray(pm) ? (pm as { id?: unknown }[]).flatMap((u) => (typeof u.id === "string" ? [dashed(u.id)] : [])) : [],
     status: {
       start: dateOf(p[PROJECT_PROPS.start]),
       end: dateOf(p[PROJECT_PROPS.end]),
