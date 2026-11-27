@@ -77,25 +77,6 @@ export function stairProfileLine(type: StairType, method: StairMethod, price: nu
 /** What a Stair Profiles row says for the description: its type and method. */
 export const profileOf = (row: Pick<StairProfileRow, "type" | "method">): StairProfile => ({ type: row.type, method: row.method });
 
-/**
- * One staircase at a Stair Profiles row's stored price and cost (2026-10-20). Since 2026-11-02 only
- * for a row with no Stair Items linked yet, so the preliminary keeps working while the links are
- * filled in; no typed price. The row is the line's source, so the editor's builder can still expand
- * it into Stair Item lines; Premium never marks it up.
- */
-export function profileLine(row: Pick<StairProfileRow, "id" | "name" | "price" | "cost">): EditorLine {
-  return {
-    ...manualLine("Stairs", row.name),
-    sourceKind: "profile",
-    sourceId: row.id,
-    uom: "each",
-    qty: 1,
-    unitPriceSnap: row.price,
-    unitCostSnap: row.cost,
-    unitPrice: null,
-    hasSource: true,
-  };
-}
 
 /* ---------- the description ---------- */
 

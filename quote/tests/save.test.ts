@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { LINE, OPTION, VERSION } from "../src/lib/airtable/fields";
 import type { EditorLine, EditorOption, EditorQuote } from "../src/lib/editor/model";
 import { alreadySaved, basisRefusal, changeSlot, measuredOut, prelimRefusal, cleanEditorQuote, isRecordId, lineFields, newVersionRefusal, planIsEmpty, planSave, workingDraft } from "../src/lib/quotes/savePlan";
-import { profileLine, stairProfileLine } from "../src/lib/quick/stairs";
+import { stairProfileLine } from "../src/lib/quick/stairs";
 
 // INVENTED rates, quantities and ids only: this repo is public.
 const L = (o: Partial<EditorLine> & { id: string }): EditorLine => ({
@@ -205,8 +205,10 @@ describe("what the browser sends, cleaned", () => {
   });
 
   it("saves a preset staircase linked to its Stair Profiles row, and reads the kind back (2026-10-20)", () => {
-    const row = { id: "recProf000000000A", name: "Wood on main stairs", price: 4000, cost: 2600 };
-    const f = lineFields({ ...profileLine(row), unitPrice: 4200 }, 1);
+    // A preset line made before 2026-11-07 (sourceKind "profile") keeps its own figures on the line.
+    const row = { id: "recProf000000000A", name: "Wood on main stairs" };
+    const preset = { ...stairProfileLine("Main stairs", "Solid red oak caps", null), sourceKind: "profile" as const, sourceId: row.id, hasSource: true, uom: "each", description: row.name, unitPriceSnap: 4000, unitCostSnap: 2600 };
+    const f = lineFields({ ...preset, unitPrice: 4200 }, 1);
     expect(f).toMatchObject({ [LINE.section]: "Stairs", [LINE.lineType]: "Stairs", [LINE.uom]: "each", [LINE.qty]: 1, [LINE.unitPriceSnap]: 4000, [LINE.unitCostSnap]: 2600, [LINE.unitPrice]: 4200, [LINE.stairProfile]: [row.id], [LINE.stairItem]: [], [LINE.rateItem]: [], [LINE.product]: [] });
     const q = cleanEditorQuote({ options: [O({ id: "o", lines: [L({ id: "l", sourceKind: "profile", sourceId: row.id, section: "Stairs", lineType: "Stairs", uom: "each" })] })] });
     expect(q.options[0].lines[0]).toMatchObject({ sourceKind: "profile", sourceId: row.id, hasSource: true });

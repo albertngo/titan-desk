@@ -413,8 +413,9 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   until its links are set; with no stored price it is left off. Lines are labelled with the stair type, numbered
   when an option has two of one type ("Main stairs 1", `stairAreas()`). Being Stair Item lines, Premium marks them up like
   any labour from the card. **Different price is gone**; a price sent with a staircase is ignored. The stored Price and
-  Cost on Stair Profiles are the old GHL figures, read for the changeover and for preset lines made before
-  (`sourceKind: "profile"`, which still load, save and price as they were). The customer-facing phrases live in code, `src/lib/quick/stairs.ts` (copy,
+  Cost on Stair Profiles were the old GHL figures; since 2026-11-27 the app no longer reads them (Albert: the Stair
+  Profiles figures were copied onto the 11 Stair Profile items in Stair Items, then the columns could be deleted). Preset
+  lines made before (`sourceKind: "profile"`) keep their figures on the line and still load, save and price as they were. The customer-facing phrases live in code, `src/lib/quick/stairs.ts` (copy,
   not data), and the old GHL stairs prompt is written out there as `stairDescription()` from each row's type and method:
   one bullet per staircase, the stair type's sentence, the closing sentence only when no staircase got one. Create
   writes it into the option's description. With no rows at all the editor's picker falls back to type × method at a

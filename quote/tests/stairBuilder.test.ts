@@ -24,8 +24,6 @@ const profile = (template: Partial<StairProfileRow["template"]>, p: Partial<Stai
   type: "Main stairs",
   method: "Solid red oak caps",
   steps: 13,
-  price: 4000,
-  cost: 2600,
   sort: 1,
   preset: { boxedSteps: null, openSideSteps: 0, curvedSteps: 0, handrailFt: 0, nosingFt: 0, landings: 0, spindles: 0, posts: 0 },
   template: { perStep: [], perStaircase: [], perOpenSide: [], perHandrailFt: [], perSpindle: [], perPost: [], ...template },
