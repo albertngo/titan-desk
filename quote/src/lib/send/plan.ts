@@ -1087,7 +1087,10 @@ export function billingEmailMessage(
  * requests go to customers" is on. `due` is worked out on the server from the contract's plan and the payments.
  */
 export type PaymentAsk = {
-  kind: "second" | "final";
+  /** "ready" (2026-11-27): the automatic reminder on a two-installment plan, the final to have ready, not due yet. */
+  kind: "second" | "final" | "ready";
+  /** On a "ready" reminder: the day the project should finish, when Notion has it (YYYY-MM-DD). */
+  endsOn?: string | null;
   /** What is asked for now. */
   due: number;
   total: number;
@@ -1103,27 +1106,29 @@ export type PaymentAsk = {
 const askLead = (ask: PaymentAsk) =>
   ask.kind === "second"
     ? `Your project is under way. As set out in your payment plan, your second payment of ${cad.format(ask.due)} is due now.`
-    : `Your project is complete. Thank you for choosing us! The balance of ${cad.format(ask.due)} is now due.`;
+    : ask.kind === "ready"
+      ? `Your project is under way. Your final payment of ${cad.format(ask.due)} will be due when we finish${ask.endsOn ? `, which we expect on ${longDate(ask.endsOn)}` : ""}. Nothing is due today; this is just so it's ready.`
+      : `Your project is complete. Thank you for choosing us! The balance of ${cad.format(ask.due)} is now due.`;
 
 export function paymentRequestEmailMessage(copy: CustomerCopy, ask: PaymentAsk, to: { contactId: string; firstName: string | null }, ctx: { etransfer: string }, sender: Sender | null = null, options: { emailFrom?: string | null; cc?: string[] } = {}): GhlMessage {
   const hi = greetingName(to.firstName);
   const noun = ask.kind === "second" ? "second payment" : "final payment";
   const test = ask.testFor ? `[Test for ${ask.testFor}] ` : "";
-  const subject = `${test}Your ${noun} for ${copy.quoteNumber}, ${copy.company.name}`;
-  const preheader = `${cad.format(ask.due)} due now. Total ${cad.format(ask.total)}, paid so far ${cad.format(ask.paid)}.`;
+  const subject = ask.kind === "ready" ? `${test}Your final payment for ${copy.quoteNumber}, ${copy.company.name}: due when we finish` : `${test}Your ${noun} for ${copy.quoteNumber}, ${copy.company.name}`;
+  const preheader = ask.kind === "ready" ? `${cad.format(ask.due)} due when we finish. Nothing is due today.` : `${cad.format(ask.due)} due now. Total ${cad.format(ask.total)}, paid so far ${cad.format(ask.paid)}.`;
   const how = depositHow({ pay: ask.pay }, { etransfer: ctx.etransfer, quoteNumber: copy.quoteNumber, showroom: copy.company.address });
   const cell = (t: string, right = false, strong = false) =>
     `<td${right ? ' align="right"' : ""} style="padding:9px 0;border-bottom:1px solid ${C.hair};font-family:${SANS};font-size:15px;color:${strong ? C.ink : C.body};${strong ? "font-weight:600;" : ""}${right ? "white-space:nowrap;" : ""}">${t}</td>`;
   const rows = [
     `<tr>${cell("Project total")}${cell(cad.format(ask.total), true)}</tr>`,
     `<tr>${cell("Paid so far")}${cell(cad.format(ask.paid), true)}</tr>`,
-    `<tr>${cell("Due now", false, true)}${cell(cad.format(ask.due), true, true)}</tr>`,
+    `<tr>${cell(ask.kind === "ready" ? "Due when we finish" : "Due now", false, true)}${cell(cad.format(ask.due), true, true)}</tr>`,
   ].join("");
   const signoff = sender?.firstName ? `${esc(sender.firstName)} &middot; ${esc(copy.company.name)}` : `The ${esc(copy.company.name)} team`;
   const body =
     row(
       eyebrow(`${esc(copy.quoteNumber)} &middot; ${esc(noun)}`) +
-        `<h1 class="h1" style="margin:0 0 16px;font-family:${SERIF};font-weight:400;font-size:30px;line-height:1.2;color:${C.ink};">${hi ? `Hi ${esc(hi)}, your` : "Your"} ${esc(noun)} is due.</h1>` +
+        `<h1 class="h1" style="margin:0 0 16px;font-family:${SERIF};font-weight:400;font-size:30px;line-height:1.2;color:${C.ink};">${hi ? `Hi ${esc(hi)}, your` : "Your"} ${esc(noun)} ${ask.kind === "ready" ? "is due when we finish" : "is due"}.</h1>` +
         para(esc(askLead(ask))),
       "40px 40px 16px",
     ) +

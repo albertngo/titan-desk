@@ -1,6 +1,6 @@
 import "server-only";
 import type { Payment } from "@/lib/billing/doc";
-import { notionPageId, paymentOf, paymentProjects, type Page } from "./rows";
+import { notionPageId, paymentOf, type Page } from "./rows";
 
 /**
  * The payments on an invoice or receipt (Albert, 2026-10-30), read from Notion's Master Payments Log. The only
@@ -52,12 +52,19 @@ export async function projectPayments(projectUrl: string | null | undefined): Pr
 }
 
 /**
- * Won and finished projects on All quotes (2026-11-27): every payment received on or after `since` (YYYY-MM-DD) that the
- * log links to a project, by project page id. Same fields as an invoice reads; never the sender, message or notes.
+ * Won and finished projects on All quotes (2026-11-27): each project's payments, asked of Notion one project at a time
+ * (a few at once), the way an invoice asks ("Projects contains this project", filtered by Notion). One query of the whole
+ * log can't be grouped here: this integration is shared with the Master Payments Log alone, and Notion leaves a relation
+ * to pages it can't see empty, so every row's Projects reads as none (fixed 2026-11-27: the list showed $0 paid). Same
+ * fields as an invoice reads; never the sender, message or notes. Throws when Notion can't be read.
  */
-export async function paymentsByProject(since: string): Promise<Map<string, Payment[]>> {
-  const rows = await queryLog({ and: [{ property: "Projects", relation: { is_not_empty: true } }, { property: "Received Date", date: { on_or_after: since } }] }, 30);
+export async function paymentsForProjects(pageIds: string[], concurrency = 3): Promise<Map<string, Payment[]>> {
+  if (!token()) throw new Error("Reading payments isn't set up (QUOTE_NOTION_PAYMENTS_TOKEN).");
+  const queue = [...new Set(pageIds.map((id) => notionPageId(id)).filter((id): id is string => Boolean(id)))];
   const out = new Map<string, Payment[]>();
-  for (const r of rows) for (const id of paymentProjects(r)) out.set(id, [...(out.get(id) ?? []), paymentOf(r)]);
+  const worker = async () => {
+    for (let id = queue.shift(); id; id = queue.shift()) out.set(id, (await queryLog({ property: "Projects", relation: { contains: id } }, 10)).map(paymentOf));
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, queue.length) }, worker));
   return out;
 }

@@ -104,6 +104,7 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
 - Quote Description (Albert, 2026-11-03: "When we are quoting lets say; AMICA Stephen. It is ALWAYS at 200 Kenneth… But a different unit; o…
 - Value, Follow up and the strip on All quotes (Albert, 2026-11-07: "Build value, follow up filter and summary strip").
 - Won, Complete and collecting (Albert, 2026-11-27; vault `05_decisions/2026-11-27-quote-complete-filter-and-final-payment`): Complete after Won from the Notion end date, Ready to Collect mirrored, second payment due, the payment plan popout. Read only.
+- Automatic payment reminders (Albert, 2026-11-27, step 2b): hourly from the first day on site, the second payment on 3+ installments or the final-ready reminder on 2, as the office, once per project, test until Settings says customers.
 - Request payment (Albert, 2026-11-27; vault `05_decisions/2026-11-27-quote-payment-request-buttons-and-auto-second`): 2nd and final payment requests from Won and Complete, email and text, test to the sender until Settings turns it on.
 - Follow up (Albert, 2026-11-07; vault `05_decisions/2026-11-07-quote-follow-up-worklist`: "a place where we can 'followup'… a brief or a s…
 - The follow-up score (Albert, 2026-11-09; vault `05_decisions/2026-11-07-quote-follow-up-worklist`, addendum 2026-11-09: "handle the preliminaries automatically; notify IF human intervention is best").
@@ -219,7 +220,11 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
    stale briefs (written before today or before something new happened) for due and upcoming quotes, whatever the
    switch; that writes only Quotes → Follow Up. **The twice-a-day recheck (2026-11-13)** is `/api/followups/recheck`,
    `runRecheck()`, same key: it sends nothing, writes Quotes → Follow Up and a History line, and adds a price given
-   outside the app only through `src/lib/quotes/outside.ts` (one option, one line, a Draft only). `tests/boundary.test.ts` pins all of this.
+   outside the app only through `src/lib/quotes/outside.ts` (one option, one line, a Draft only). **The automatic payment
+   reminder (2026-11-27)** is `/api/followups/payments`, `runPaymentReminders()` in `src/lib/quotes/paymentRequest.ts`, same
+   key, called by the same workflow: as the office only, writes only Quotes → Payment Requests and a history line, and
+   reaches a customer only once Settings' "Payment requests go to customers" is on (until then the office's own GHL
+   contact). `tests/boundary.test.ts` pins all of this.
 2d. **Customer links live on the customer deployment only.** There the proxy serves `/c/<token>`
    and 404s everything else, and `write()` refuses; on the staff app `/c/` is 404.
    `src/lib/quotes/customer.ts` answers only there and only for a well-formed token, returns the
@@ -241,7 +246,7 @@ behaviour it describes. A new rule goes there, with a line here. A code comment 
    of `QUOTE_NOTION_PAYMENTS_TOKEN` (a Notion internal integration with read content only, shared with the Master
    Payments Log alone, staff deployment only), one request (a query of that log), reached only from
    `src/lib/quotes/billing.ts`, since 2026-10-31 `src/lib/quotes/send.ts` (a change's paid so far) and since 2026-11-27
-   `src/lib/quotes/projects.ts` (the Won and Complete views, `paymentsByProject()`) and `src/lib/quotes/paymentRequest.ts`
+   `src/lib/quotes/projects.ts` (the Won and Complete views, `paymentsForProjects()`, one query per project) and `src/lib/quotes/paymentRequest.ts`
    (a payment request's amount, read the moment it is sent). `src/lib/bug/notion.ts`
    and `src/lib/notion/payoutApi.ts` (2f') are the only other files that talk to Notion.
 2f'. **Installer Project Week writes Notion through one file (Albert, 2026-11-24; vault

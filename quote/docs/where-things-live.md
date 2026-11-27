@@ -1544,7 +1544,10 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   on **Refresh** in the strip, and when the tab comes back after five minutes (`src/app/actions/projects.ts` →
   `listProjectStatuses()` in `src/lib/quotes/projects.ts`: rows through the Project Week integration,
   `src/lib/notion/projectStatus.ts`, one query of projects made since 30 days before the oldest linked quote; payments
-  through the payments reader, `paymentsByProject()`, received since 60 days before it). On Won and Complete each row has
+  through the payments reader, `paymentsForProjects()`: each project asked for separately, three at a time, "Projects
+  contains this project" as an invoice asks. **Fixed the same day:** the first build read the whole log once and grouped
+  rows by their Projects relation, but the payments integration sees the Master Payments Log alone and Notion returns a
+  relation to pages it can't see as empty, so every project read $0 paid). On Won and Complete each row has
   the project's line under it (`ProjectLine` in `src/components/ProjectBits.tsx`): started or ended, on Complete the Final
   Walkthrough (None reads "Not needed") and the work orders (open = anything but Done or Dropped), the contract, paid and
   left (Complete) or due now (Won). **Ready to collect** is Notion's own Ready to Collect formula, read as it is and never
@@ -1584,6 +1587,24 @@ the behaviour it describes.** New bullets go here, with a line in the index.
   **Requested, not paid** and Won **Second payment requested**; each leaves when Notion's payments clear it. Step 2b, the
   automatic reminder (3+ installments: the second on the start day; 2 installments: the final to have ready), is not
   built. Tested in `tests/paymentRequest.test.ts`; pinned in `tests/boundary.test.ts`.
+- **Automatic payment reminders (Albert, 2026-11-27, step 2b; vault `05_decisions/2026-11-27-quote-payment-request-
+  buttons-and-auto-second`: "the second payment should be a reminder from office probably automatic"; "send even the 2nd
+  request even IF the job is 1 day. If there is only 2 payments; then we can STILL send the reminder for the second payment
+  to be READY when the project finishes").** `runPaymentReminders()` in `src/lib/quotes/paymentRequest.ts`, at
+  `/api/followups/payments`, called hourly by `.github/workflows/quote-followups.yml` with the follow-ups' key
+  (`QUOTE_FOLLOWUP_KEY`, checked in the route and again in the run; the proxy already lets `/api/followups` through). Who is
+  due is `reminderFor()` in `src/lib/projects/request.ts`, from the first day on site (Confirmed Start Date) until the
+  project's end date: a plan of **3+ installments** gets the second-payment request while what is due by the first day
+  isn't all in, one-day jobs included; a **2-installment** plan gets a "ready" reminder, once the deposit is in, that the
+  final payment will be due when the project finishes ("Nothing is due today", with the expected end date when Notion
+  has it). Once per project (a live one is skipped after any live ask of that kind, by a button or the reminder; a test
+  one after its own test). Only Monday to Saturday, 9 am to before 7 pm Toronto (`reminderWindow()`, the app checks the
+  clock itself), 10 a run. Always as the office, email and text (whichever the GHL contact has), the PM cc'd, through the
+  same `deliverAsk()` the buttons use; no attachment. Same test switch: while "Payment requests go to customers" is off,
+  every reminder goes to the office's own GHL contact (exact match on the office email), marked Test, never cc'd.
+  **Settings, Automatic payment reminders** (`autoPaymentReminders`, on by default) turns the run off. Logged on Quotes →
+  Payment Requests (`auto: true`, kind `second` or `ready`) with a history line by "app". The hour (9 am, the first run in
+  the window) was proposed, not stated by Albert. Tested in `tests/paymentRequest.test.ts`; pinned in `tests/boundary.test.ts`.
 - **Follow up (Albert, 2026-11-07; vault `05_decisions/2026-11-07-quote-follow-up-worklist`: "a place where we can
   'followup'… a brief or a suggested next step and somewhere to take action… lost / postponed [date]").** Step 1 of
   three (the page and its buttons; the Claude brief and sending from the app come later). `/follow-up`, in the top bar,

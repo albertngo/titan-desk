@@ -116,6 +116,8 @@ describe("Airtable boundary", () => {
       const keyed: string[] = rel === "lib/quotes/followup.ts" ? (text.match(/export async function (runAutoFollowUps|runRecheck)\(key: string \| null\)[^{]*\{\s*if \(!followUpKeyOk\(key\)\) return/g) ?? []) : [];
       // And (2026-11-24) the job's embed feed link for the key-gated Project Week run; only run.ts calls it (CompanyCam block).
       if (rel === "lib/quotes/companycam.ts") keyed.push(...(text.match(/export async function embedFeedFor\(/g) ?? []));
+      // And (2026-11-27) the automatic payment reminder, key-gated by the follow-ups' key (Payment requests block).
+      if (rel === "lib/quotes/paymentRequest.ts") keyed.push(...(text.match(/export async function runPaymentReminders\(key: string \| null\)[^{]*\{\s*if \(!followUpKeyOk\(key\)\) return/g) ?? []));
       expect(exported.length).toBeGreaterThan(0);
       expect(guarded.length + keyed.length).toBe(exported.length);
     }
@@ -157,7 +159,7 @@ describe("booking step (Make, no sign-in)", () => {
     // Open tracking and acceptance (2026-10-27) are the other two key-gated routes; see their own blocks below.
     // Report a bug and Upload site sheet (2026-10-28) and Mark a payout card final (2026-11-04) are the API routes that are NOT open: the proxy signs people in first.
     // Project Week (2026-11-24) is key-gated; see its own block below.
-    expect(all.filter((f) => f.rel.startsWith("app/api/")).map((f) => f.rel).sort()).toEqual(["app/api/accept/route.ts", "app/api/activity/route.ts", ROUTE, "app/api/bug/route.ts", "app/api/followups/recheck/route.ts", "app/api/followups/route.ts", "app/api/payout/route.ts", "app/api/project-week/route.ts", "app/api/sitesheet/route.ts"]);
+    expect(all.filter((f) => f.rel.startsWith("app/api/")).map((f) => f.rel).sort()).toEqual(["app/api/accept/route.ts", "app/api/activity/route.ts", ROUTE, "app/api/bug/route.ts", "app/api/followups/payments/route.ts", "app/api/followups/recheck/route.ts", "app/api/followups/route.ts", "app/api/payout/route.ts", "app/api/project-week/route.ts", "app/api/sitesheet/route.ts"]);
   });
 
   it("keeps the shared quote helpers away from pages and actions", () => {
@@ -554,7 +556,18 @@ describe("Payment requests (2026-11-27)", () => {
     expect(text()).toMatch(/const amount = requestAmount\(kind, plan\);/);
     expect(text()).toMatch(/const live = \(await settings\(\)\)\.paymentRequestsLive;/);
     expect(text()).toMatch(/if \(live\) \{[\s\S]{0,160}contactId: link\.ghlContactId/);
-    expect(all.filter((f) => /from ["']@\/lib\/quotes\/paymentRequest["']/.test(f.text)).map((f) => f.rel)).toEqual(["app/actions/paymentRequest.ts"]);
+    expect(all.filter((f) => /from ["']@\/lib\/quotes\/paymentRequest["']/.test(f.text)).map((f) => f.rel).sort()).toEqual(["app/actions/paymentRequest.ts", "app/api/followups/payments/route.ts"]);
+  });
+  it("the automatic reminder (2026-11-27) is key-gated, goes only as the office, and to customers only with the switch on", () => {
+    const route = code(all.find((f) => f.rel === "app/api/followups/payments/route.ts")!.text);
+    expect(route).toMatch(/if \(!followUpKeyOk\(key\)\) return NextResponse\.json/);
+    const run = text().slice(text().indexOf("export async function runPaymentReminders"));
+    expect(run).toMatch(/^export async function runPaymentReminders\(key: string \| null\)[^{]*\{\s*if \(!followUpKeyOk\(key\)\) return/);
+    expect(run).toMatch(/if \(!st\.autoPaymentReminders\) return/);
+    expect(run).toMatch(/const live = st\.paymentRequestsLive;/);
+    expect(run).toMatch(/sender: \{ email: office, name: null \}, asOffice: true/);
+    expect(run).toMatch(/const to = live \? [\s\S]{0,200}: testTo;/);
+    expect(run).not.toMatch(/billingForRequest/);
   });
 });
 

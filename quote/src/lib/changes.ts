@@ -22,6 +22,21 @@ export type Change = {
 export const CHANGES: Change[] = [
   {
     date: "2026-11-27",
+    kind: "fixed",
+    title: "Won and Complete show what has been paid",
+    details: ["Paid, balance, due now and second payment due read every project as $0 paid. They now read each project's payments from Notion's Master Payments Log, the way an invoice does."],
+  },
+  {
+    date: "2026-11-27",
+    kind: "new",
+    title: "Automatic payment reminders (test first)",
+    details: [
+      "From a project's first day on site the app reminds the customer itself, once per project, as the office with the PM cc'd: on a plan of 3 or more payments it asks for the second payment, even on a one-day job; on a 2-payment plan it says the final payment will be due when we finish, and that nothing is due today.",
+      "It runs each hour from 9 am to 7 pm, Monday to Saturday. While Settings, Payment requests is in test, each reminder goes to the office's own GHL contact, marked Test, so the wording can be read first. Settings, Automatic payment reminders turns it off.",
+    ],
+  },
+  {
+    date: "2026-11-27",
     kind: "new",
     title: "Request payment from All quotes (test first)",
     details: [

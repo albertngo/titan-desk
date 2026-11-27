@@ -1,12 +1,13 @@
 import "server-only";
 import { customerUrl, etransferEmail } from "@/lib/accept/settings";
-import { listByIds, updateRecord } from "@/lib/airtable/client";
-import { QUOTE, T } from "@/lib/airtable/fields";
+import { listByIds, listRecords, updateRecord } from "@/lib/airtable/client";
+import { QUOTE, T, VERSION } from "@/lib/airtable/fields";
 import { paidTotal, planProgress } from "@/lib/calc";
-import { locationUsers, searchContacts } from "@/lib/ghl/client";
+import { getContact, locationUsers, searchContacts } from "@/lib/ghl/client";
 import { sendMessage } from "@/lib/make/client";
-import { paymentsReaderOn, projectPayments } from "@/lib/notion/payments";
-import { addRequest, OFFICE, requestAmount, requestLogWhat, requestProblem, stageFor, type PaymentRequest, type RequestKind } from "@/lib/projects/request";
+import { paymentsForProjects, paymentsReaderOn, projectPayments } from "@/lib/notion/payments";
+import { notionPageId } from "@/lib/notion/rows";
+import { addRequest, OFFICE, parseRequests, reminderFor, reminderWindow, requestAmount, requestLogWhat, requestProblem, stageFor, type PaymentRequest, type RequestKind } from "@/lib/projects/request";
 import { cleanPayments, contractCopy } from "@/lib/billing/doc";
 import { requireQuoterPerson } from "@/lib/auth";
 import { money } from "@/lib/format";
@@ -15,11 +16,14 @@ import { customerLinks, fromAttempts, fromTheirNumber, isToken, noNumberWords, n
 import { billingForRequest } from "./billing";
 import { loadContract } from "./contract";
 import { authorFields, firstNameOf } from "./history";
+import type { CustomerCopy } from "@/lib/send/copy";
 import { getQuote } from "./load";
 import { refreshFromGhl } from "./refresh";
 import { officeEmail, pickSender } from "./send";
-import { projectPm } from "@/lib/notion/projectStatus";
-import { str } from "./values";
+import { projectPm, projectRowsSince, projectStatusOn } from "@/lib/notion/projectStatus";
+import { followUpKeyOk } from "./followup";
+import { torontoDay } from "./group";
+import { ids, str } from "./values";
 
 /**
  * Payment requests from All quotes (Albert, 2026-11-27; vault 05_decisions/2026-11-27-quote-payment-request-buttons-and-
@@ -115,6 +119,24 @@ export async function requestPayment(versionId: string, input: RequestInput): Pr
   const stage = stageFor(kind, plan);
   const ask: PaymentAsk = { kind, due: amount, total: plan.total, paid: plan.paid, pay: stage?.pay ?? null, doc, testFor: live ? null : `${link.displayName ?? ([link.firstName, link.lastName].filter(Boolean).join(" ") || link.quoteNumber || "the customer")}${pm && channels.email ? `, would cc ${pm.name}` : ""}` };
   // The office signs as the company; a person signs with their first name.
+  const { sent, failed } = await deliverAsk({ copy, ask, to, sender, asOffice, cc, channels, etransfer });
+  if (sent.length === 0) return { ok: false, message: failed.join(" ") || "Nothing went." };
+
+  const r: PaymentRequest = { at: new Date().toISOString(), by: actor.email, as: asWho, cc, kind, amount, email: sent.includes("email"), text: sent.includes("text"), test: !live };
+  const notes = [...failed];
+  try {
+    const q = (await listByIds(T.quotes, [link.quoteRecordId], [QUOTE.paymentRequests]))[0];
+    await updateRecord(T.quotes, link.quoteRecordId, { [QUOTE.paymentRequests]: addRequest(str(q?.fields[QUOTE.paymentRequests]), r) });
+    await updateRecord(T.versions, fresh.id, authorFields(actor, new Date(), requestLogWhat(r, money), fresh.editLog));
+  } catch {
+    notes.push("It went, but Airtable didn't record it.");
+  }
+  return { ok: true, test: !live, amount, sent, warning: notes.join(" ") || null };
+}
+
+/** Sends one request's email and text (2026-11-27), from the office or a person; each channel on its own. */
+async function deliverAsk(a: { copy: CustomerCopy; ask: PaymentAsk; to: { contactId: string; firstName: string | null }; sender: { email: string; name: string | null }; asOffice: boolean; cc: string | null; channels: { email: boolean; text: boolean }; etransfer: string }): Promise<{ sent: string[]; failed: string[] }> {
+  const { copy, ask, to, sender, asOffice, cc, channels, etransfer } = a;
   const from = { email: sender.email, firstName: asOffice ? null : firstNameOf(sender) };
   const sent: string[] = [];
   const failed: string[] = [];
@@ -144,16 +166,115 @@ export async function requestPayment(versionId: string, input: RequestInput): Pr
       failed.push(`The text didn't go: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
-  if (sent.length === 0) return { ok: false, message: failed.join(" ") || "Nothing went." };
+  return { sent, failed };
+}
 
-  const r: PaymentRequest = { at: new Date().toISOString(), by: actor.email, as: asWho, cc, kind, amount, email: sent.includes("email"), text: sent.includes("text"), test: !live };
-  const notes = [...failed];
-  try {
-    const q = (await listByIds(T.quotes, [link.quoteRecordId], [QUOTE.paymentRequests]))[0];
-    await updateRecord(T.quotes, link.quoteRecordId, { [QUOTE.paymentRequests]: addRequest(str(q?.fields[QUOTE.paymentRequests]), r) });
-    await updateRecord(T.versions, fresh.id, authorFields(actor, new Date(), requestLogWhat(r, money), fresh.editLog));
-  } catch {
-    notes.push("It went, but Airtable didn't record it.");
+/** Reminders sent in one run, at most. */
+const REMINDERS_PER_RUN = 10;
+
+export type ReminderRunResult = { ok: true; sent: number; notes: string[] } | { ok: false; status: number; message: string };
+
+/**
+ * The automatic payment reminder (step 2b, Albert 2026-11-27; vault 05_decisions/2026-11-27-quote-payment-request-buttons-
+ * and-auto-second). Called hourly by .github/workflows/quote-followups.yml at /api/followups/payments, with the follow-ups'
+ * key (QUOTE_FOLLOWUP_KEY, checked first). Rules in `reminderFor()` and `reminderWindow()` (src/lib/projects/request.ts):
+ * from the first day on site, the second payment on a plan of 3+ installments, or on a 2-installment plan a reminder that
+ * the final is due when the project finishes; once per project; 9 am to 7 pm, Monday to Saturday, Toronto.
+ *
+ * Always as the office, email and text, the PM cc'd, exactly as the button does. Under the same switch: while "Payment
+ * requests go to customers" is off, each goes to the office's own GHL contact, marked Test. Settings' "Automatic payment
+ * reminders" turns the run off altogether. Writes only Quotes → Payment Requests and the contract version's history.
+ */
+export async function runPaymentReminders(key: string | null): Promise<ReminderRunResult> {
+  if (!followUpKeyOk(key)) return { ok: false, status: 401, message: "Wrong or missing key." };
+  const now = new Date();
+  const st = await settings();
+  if (!st.autoPaymentReminders) return { ok: true, sent: 0, notes: ["Automatic payment reminders are off (Settings)."] };
+  if (!reminderWindow(now)) return { ok: true, sent: 0, notes: ["Outside 9 am to 7 pm, Monday to Saturday (Toronto)."] };
+  const office = officeEmail();
+  const etransfer = etransferEmail();
+  if (!office || !etransfer) return { ok: true, sent: 0, notes: ["The office email or the e-transfer address isn't set, so reminders can't go."] };
+  if (!paymentsReaderOn() || !projectStatusOn()) return { ok: true, sent: 0, notes: ["Notion projects or payments aren't readable here."] };
+  const live = st.paymentRequestsLive;
+  const today = torontoDay(now);
+
+  const quotes = await listRecords(T.quotes, { fields: [QUOTE.notionProjectUrl, QUOTE.paymentRequests, QUOTE.projectNumber, QUOTE.ghlContactId, QUOTE.firstName, QUOTE.lastName, QUOTE.displayName, QUOTE.quoteNumber, QUOTE.contractVersion] });
+  const linked = quotes.flatMap((q) => {
+    const page = notionPageId(str(q.fields[QUOTE.notionProjectUrl]));
+    return page && str(q.fields[QUOTE.projectNumber]) && ids(q.fields[QUOTE.contractVersion])[0] ? [{ q, page }] : [];
+  });
+  if (linked.length === 0) return { ok: true, sent: 0, notes: ["No won projects linked to Notion."] };
+  const oldest = linked.map((l) => l.q.createdTime).sort()[0];
+  const back = (days: number) => torontoDay(new Date(Date.parse(oldest) - days * 86_400_000));
+  const rows = await projectRowsSince(back(30));
+  // Only projects on site or starting can be due a reminder: their payments are read, one project at a time.
+  const due = linked.filter(({ page }) => {
+    const r = rows.get(page);
+    return Boolean(r?.start && r.start <= today && !(r.end && r.end < today));
+  });
+  const payments = await paymentsForProjects(due.map((l) => l.page));
+
+  // In test the office's own GHL contact receives each one, as a person's own contact does for a button.
+  let testTo: { contactId: string; firstName: string | null; email: string | null; phone: string | null } | null = null;
+  if (!live) {
+    const me = (await searchContacts(office, 8).catch(() => [])).find((x) => (x.email ?? "").trim().toLowerCase() === office);
+    if (!me) return { ok: true, sent: 0, notes: [`Reminders are in test (Settings), so they go to the office's own GHL contact, and none has the email ${office}.`] };
+    testTo = { contactId: me.id, firstName: me.firstName, email: me.email, phone: me.phone };
   }
-  return { ok: true, test: !live, amount, sent, warning: notes.join(" ") || null };
+
+  const notes: string[] = [];
+  let sent = 0;
+  for (const { q, page } of due) {
+    if (sent >= REMINDERS_PER_RUN) break;
+    const row = rows.get(page);
+    if (!row) continue;
+    const c = await loadContract(q.id).catch(() => null);
+    if (!c) continue;
+    const paid = paidTotal(cleanPayments(payments.get(page) ?? []).map((p) => p.amount));
+    const plan = planProgress(c.contract.stages.map((x) => ({ label: x.label, when: x.when, pay: x.pay, amount: x.amount })), c.contract.totals.total, paid);
+    const list = parseRequests(str(q.fields[QUOTE.paymentRequests]));
+    const kind = reminderFor(row, plan, list, today, live);
+    if (!kind) continue;
+    const name = str(q.fields[QUOTE.displayName]) ?? ([str(q.fields[QUOTE.firstName]), str(q.fields[QUOTE.lastName])].filter(Boolean).join(" ") || str(q.fields[QUOTE.quoteNumber]) || "a customer");
+    const contactId = str(q.fields[QUOTE.ghlContactId]);
+    if (live && !contactId) {
+      notes.push(`${name}: no GHL contact, nothing sent.`);
+      continue;
+    }
+    // The customer's email and phone are GHL's; the contact is read for them, as a refresh would.
+    const contact = live ? await getContact(contactId!).catch(() => null) : null;
+    const to = live ? (contact ? { contactId: contact.id, firstName: contact.firstName ?? str(q.fields[QUOTE.firstName]), email: contact.email, phone: contact.phone } : null) : testTo;
+    if (!to) {
+      notes.push(`${name}: the GHL contact couldn't be read, nothing sent.`);
+      continue;
+    }
+    const channels = { email: Boolean(to.email), text: Boolean(to.phone) };
+    if (!channels.email && !channels.text) {
+      notes.push(`${name}: the contact has no email or phone, nothing sent.`);
+      continue;
+    }
+    const amount = kind === "second" ? plan.secondOwing : plan.balance;
+    const stage = kind === "second" ? stageFor("second", plan) : stageFor("final", plan);
+    const pm = row.pm;
+    const cc = live && pm && pm.email !== office && channels.email ? pm.email : null;
+    const copy = contractCopy(c.view);
+    const ask: PaymentAsk = { kind, due: amount, total: plan.total, paid: plan.paid, pay: stage?.pay ?? null, doc: null, endsOn: row.end, testFor: live ? null : `${name}${pm && channels.email ? `, would cc ${pm.name}` : ""}` };
+    const r = await deliverAsk({ copy, ask, to, sender: { email: office, name: null }, asOffice: true, cc, channels, etransfer });
+    if (r.sent.length === 0) {
+      notes.push(`${name}: not sent, ${r.failed.join(" ").slice(0, 160)}`);
+      continue;
+    }
+    sent++;
+    const entry: PaymentRequest = { at: new Date().toISOString(), by: "app", as: OFFICE, cc, kind, amount, auto: true, email: r.sent.includes("email"), text: r.sent.includes("text"), test: !live };
+    try {
+      await updateRecord(T.quotes, q.id, { [QUOTE.paymentRequests]: addRequest(str(q.fields[QUOTE.paymentRequests]), entry) });
+      const versionId = ids(q.fields[QUOTE.contractVersion])[0];
+      const v = (await listByIds(T.versions, [versionId], [VERSION.editLog]))[0];
+      await updateRecord(T.versions, versionId, authorFields({ email: "app", name: "Quote app" }, new Date(), requestLogWhat(entry, money), str(v?.fields[VERSION.editLog])));
+    } catch {
+      notes.push(`${name}: sent, but Airtable didn't record it (it may go again next hour).`);
+    }
+    notes.push(`${name}: ${kind === "second" ? "second payment" : "final, to have ready"}, ${money(amount)}, by ${r.sent.join(" and ")}${live ? "" : " (test, to the office)"}.`);
+  }
+  return { ok: true, sent, notes };
 }
